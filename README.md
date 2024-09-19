@@ -7,7 +7,7 @@ pubm
 </h1>
 
 <p align="center">
-publish manager for multiple registry (JSR, npm and private registry)
+publish manager for multiple registry (JSR, npm and private registries)
 <p>
 
 ## Why
