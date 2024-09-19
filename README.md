@@ -1,5 +1,5 @@
 <p align="center">
-<img src="./docs/logo.svg" height="150">
+<img src="https://github.com/syi0808/pubm/blob/main/docs/logo.svg" height="150">
 </p>
 
 <h1 align="center">
