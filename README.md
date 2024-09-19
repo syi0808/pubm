@@ -3,19 +3,19 @@
 </p>
 
 <h1 align="center">
-jnp
+pubm
 </h1>
 
 <p align="center">
-JSR and npm publish manager
+publish manager for multiple registry (JSR, npm and private registry)
 <p>
 
 ## Why
-It is designed to be easy to managing publish to two registry.
+It is designed to be easy to managing publish to multiple registry.
 
 ## Usage
 ```bash
-jnp publish
+pubm publish
 ```
 
 ## Config file for publish
