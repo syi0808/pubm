@@ -1,0 +1,126 @@
+name: 'CI'
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: 'Lint: node-latest, ubuntu-latest'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v4
+        name: 'Install pnpm'
+        with:
+          run_install: false
+
+      - name: 'Install Node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+
+      - name: 'Install Deps'
+        run: pnpm install --frozen-lockfile
+
+      - name: 'Lint'
+        run: pnpm run check
+
+      - name: 'Typecheck'
+        run: pnpm run typecheck
+
+  # changed:
+  #   runs-on: ubuntu-latest
+  #   name: 'Diff: node-latest, ubuntu-latest'
+  #   outputs:
+  #     should_skip: ${{ steps.changed-files.outputs.only_changed == 'true' }}
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Get changed files
+  #       id: changed-files
+  #       uses: tj-actions/changed-files
+  #       with:
+  #         files: |
+  #           docs/**
+  #           .github/**
+  #           !.github/workflows/ci.yaml
+  #           **.md
+
+  test:
+    # needs: changed
+    # if: needs.changed.outputs.should_skip != 'true'
+    name: 'Test: node-${{ matrix.node_version }}, ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node_version: [18, 20, 22]
+        include:
+          - os: macos-latest
+            node_version: 20
+          - os: windows-latest
+            node_version: 20
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: 'Install pnpm'
+        with:
+          run_install: false
+
+      - name: 'Install Node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node_version }}
+          cache: 'pnpm'
+
+      - name: 'Install Deps'
+        run: pnpm install --frozen-lockfile
+
+      - name: 'Test'
+        run: pnpm run test
+
+  coverage:
+    name: 'Coverage: node-20, ubuntu-latest'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: 'Install pnpm'
+        with:
+          run_install: false
+
+      - name: 'Install Node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 'Install Deps'
+        run: pnpm install --frozen-lockfile
+
+      - name: 'Test'
+        run: pnpm run coverage
+        
+      - name: 'Report Coverage'
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
