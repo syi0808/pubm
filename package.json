@@ -1,12 +1,66 @@
 {
-  "name": "pubm",
-  "version": "0.0.0-alpha.3",
-  "description": "",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  }
+	"name": "pubm",
+	"version": "0.0.0-alpha.3",
+	"description": "",
+	"type": "module",
+	"author": "Sung Yein <syi778800@gmail.com>",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"bin": "./bin/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"scripts": {
+		"watch": "tsup --watch",
+		"build": "tsup",
+		"check": "biome check",
+		"format": "pnpm check --write",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest --run",
+		"coverage": "vitest --run --coverage"
+	},
+	"dependencies": {
+		"@listr2/prompt-adapter-enquirer": "^2.0.12",
+		"cac": "^6.7.14",
+		"enquirer": "^2.4.1",
+		"listr2": "^8.2.5",
+		"semver": "^7.6.3",
+		"tinyexec": "^0.3.0",
+		"tinyrainbow": "^1.2.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.2",
+		"@types/node": "^22.7.4",
+		"@types/semver": "^7.5.8",
+		"@vitest/coverage-v8": "^2.1.1",
+		"tsup": "^8.3.0",
+		"typescript": "^5.6.2",
+		"vitest": "^2.1.1"
+	},
+	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
+	"packageManager": "pnpm@9.11.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/syi0808/pubm.git"
+	},
+	"bugs": {
+		"url": "https://github.com/syi0808/pubm/issues"
+	},
+	"keywords": [
+		"npm",
+		"jsr",
+		"publish",
+		"np",
+		"publish manager",
+		"private registry",
+		"registry"
+	]
 }
