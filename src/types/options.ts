@@ -1,3 +1,5 @@
+export type Registiry = 'npm' | 'jsr' | string;
+
 export interface Options {
 	/**
 	 * @description Version to publish
@@ -34,6 +36,11 @@ export interface Options {
 	 */
 	skipTests?: boolean;
 	/**
+	 * @description Skip build before publishing
+	 * @default false
+	 */
+	skipBuild?: boolean;
+	/**
 	 * @description Skip publishing task
 	 * @default false
 	 */
@@ -62,6 +69,11 @@ export interface Options {
 	 * @description Subdirectory to publish
 	 */
 	contents?: string;
+	/**
+	 * @description Target registries for publish
+	 * @default ['npm', 'jsr']
+	 */
+	registries?: Registiry[];
 }
 
 export interface ResolvedOptions extends Options {
@@ -69,4 +81,5 @@ export interface ResolvedOptions extends Options {
 	packageManager: string;
 	branch: string;
 	tag: string;
+	registries: Registiry[];
 }

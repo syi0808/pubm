@@ -1,6 +1,13 @@
 {
 	"name": "pubm",
 	"version": "0.0.0-alpha.3",
+	"engines": {
+		"node": ">=18",
+		"npm": ">=9",
+		"git": ">=2.11.0",
+		"yarn": ">=1.7.0",
+		"pnpm": ">=8"
+	},
 	"description": "",
 	"type": "module",
 	"author": "Sung Yein <syi778800@gmail.com>",
@@ -8,6 +15,7 @@
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
 	"bin": "./bin/index.js",
+	"files": ["dist", "bin"],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -26,9 +34,11 @@
 	},
 	"dependencies": {
 		"@listr2/prompt-adapter-enquirer": "^2.0.12",
+		"@types/npm": "^7.19.3",
 		"cac": "^6.7.14",
 		"enquirer": "^2.4.1",
 		"listr2": "^8.2.5",
+		"picomatch": "^4.0.2",
 		"semver": "^7.6.3",
 		"tinyexec": "^0.3.0",
 		"tinyrainbow": "^1.2.0"
@@ -36,6 +46,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.2",
 		"@types/node": "^22.7.4",
+		"@types/picomatch": "^3.0.1",
 		"@types/semver": "^7.5.8",
 		"@vitest/coverage-v8": "^2.1.1",
 		"tsup": "^8.3.0",

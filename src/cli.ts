@@ -3,9 +3,9 @@ import type { OptionConfig } from 'cac/deno/Option.js';
 import enquirer from 'enquirer';
 import semver, { SemVer } from 'semver';
 import c from 'tinyrainbow';
-import { pubm } from '.';
-import type { Options } from './types/options';
-import { version } from './version';
+import { pubm } from './index.js';
+import type { Options } from './types/options.js';
+import { version } from './utils/version.js';
 
 const { prompt } = enquirer;
 const { RELEASE_TYPES } = semver;
@@ -18,12 +18,14 @@ interface CliOptions {
 	anyBranch?: boolean;
 	cleanup: boolean;
 	tests: boolean;
+	build: boolean;
 	publish: boolean;
 	releaseDraft: boolean;
 	yolo?: boolean;
 	tag: string;
 	packageManager?: string;
 	contents?: string;
+	registry?: string;
 }
 
 const options: {
@@ -62,6 +64,11 @@ const options: {
 		options: { type: Boolean },
 	},
 	{
+		rawName: '--no-build',
+		description: 'Skip build before publishing',
+		options: { type: Boolean },
+	},
+	{
 		rawName: '--no-publish',
 		description: 'Skip publishing task',
 		options: { type: Boolean },
@@ -91,6 +98,12 @@ const options: {
 		description: 'Subdirectory to publish',
 		options: { type: String },
 	},
+	{
+		rawName: '--registry <...registries>',
+		description:
+			'Target registries for publish\nregistry can be npm | jsr | https://url.for.private-registries',
+		options: { type: String, default: 'npm,jsr' },
+	},
 ];
 
 const cli = cac('pubm');
@@ -107,6 +120,8 @@ function resolveCliOptions(options: CliOptions): Options {
 		skipPublish: !options.publish,
 		skipReleaseDraft: !options.releaseDraft,
 		skipTests: !options.tests,
+		skipBuild: !options.build,
+		registries: options.registry?.split(','),
 	};
 }
 
@@ -129,7 +144,9 @@ cli
 							message: `${releaseType} ${c.dim(increasedVersion)}`,
 							name: increasedVersion,
 						};
-					}).concat([{ message: 'Other (specify)', name: 'specific' }]),
+					}).concat([
+						{ message: 'Custom version (specify)', name: 'specific' },
+					]),
 					message: 'Select SemVer increment or specify new version',
 					name: 'version',
 				})
