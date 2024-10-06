@@ -1,6 +1,6 @@
-import { stat, readFile } from 'node:fs/promises';
-import process from 'node:process';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import process from 'node:process';
 
 interface PackageJson {
 	version: string;

@@ -1,11 +1,11 @@
 import cac from 'cac';
-import { version } from './version';
-import semver, { SemVer } from 'semver';
+import type { OptionConfig } from 'cac/deno/Option.js';
 import enquirer from 'enquirer';
+import semver, { SemVer } from 'semver';
 import c from 'tinyrainbow';
 import { pubm } from '.';
-import type { OptionConfig } from 'cac/deno/Option.js';
 import type { Options } from './types/options';
+import { version } from './version';
 
 const { prompt } = enquirer;
 const { RELEASE_TYPES } = semver;
