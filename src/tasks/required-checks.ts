@@ -1,4 +1,4 @@
-import { delay, Listr } from 'listr2';
+import { Listr, delay } from 'listr2';
 import type { Ctx } from './runner.js';
 
 export const requiredCheckTasks = new Listr<Ctx>([
