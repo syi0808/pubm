@@ -1,6 +1,6 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { type ListrTask, PRESET_TIMER } from 'listr2';
-import type { Ctx } from './runner';
+import type { Ctx } from './runner.js';
 
 export const npmPubmTasks: ListrTask<Ctx> = {
 	title: 'npm',

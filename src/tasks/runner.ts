@@ -1,8 +1,8 @@
 import { Listr } from 'listr2';
-import type { ResolvedOptions } from '../types/options';
-import { jsrPubmTasks } from './jsr';
-import { npmPubmTasks } from './npm';
-import { prerequisiteTasks } from './prerequisites';
+import type { ResolvedOptions } from '../types/options.js';
+import { jsrPubmTasks } from './jsr.js';
+import { npmPubmTasks } from './npm.js';
+import { prerequisiteTasks } from './required-checks.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;

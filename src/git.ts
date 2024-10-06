@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { exec } from 'tinyexec';
 import { validateEngineVersion } from './utils/engine-version.js';
-import { filesIgnoreWithGit } from './utils/ignore';
+import { filesIgnoreWithGit } from './utils/ignore.js';
 
 export class Git {
 	async git(args: string[]) {

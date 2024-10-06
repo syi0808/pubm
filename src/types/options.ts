@@ -27,7 +27,7 @@ export interface Options {
 	anyBranch?: boolean;
 	/**
 	 * @description Skip cleaning the `node_modules` directory
-	 * @default true
+	 * @default false
 	 */
 	skipCleanup?: boolean;
 	/**
