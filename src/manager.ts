@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { delay, Listr, PRESET_TIMER } from 'listr2';
+import { Listr, PRESET_TIMER, delay } from 'listr2';
 
 interface Ctx {
 	progressingPrompt?: Promise<void>;
