@@ -33,6 +33,7 @@
 		"coverage": "vitest --run --coverage"
 	},
 	"dependencies": {
+		"@listr2/manager": "^2.0.13",
 		"@listr2/prompt-adapter-enquirer": "^2.0.12",
 		"@types/npm": "^7.19.3",
 		"cac": "^6.7.14",

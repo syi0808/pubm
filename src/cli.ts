@@ -128,6 +128,8 @@ function resolveCliOptions(options: CliOptions): Options {
 cli
 	.command('[version]')
 	.action(async (versionArg, options: Omit<CliOptions, 'version'>) => {
+		console.clear();
+
 		const currentVersion = await version();
 		let nextVersion = versionArg;
 
