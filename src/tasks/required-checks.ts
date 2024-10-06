@@ -1,9 +1,9 @@
 import { delay, Listr } from 'listr2';
 import type { Ctx } from './runner.js';
 
-export const prerequisiteTasks = new Listr<Ctx>([
+export const requiredCheckTasks = new Listr<Ctx>([
 	{
-		title: 'Prerequisites',
+		title: 'Required checks',
 		task: (_ctx, parentTask) =>
 			parentTask.newListr([
 				{

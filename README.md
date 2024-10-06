@@ -12,6 +12,8 @@ publish manager for multiple registry (JSR, npm and private registries)
 
 ## Why
 
+- Customize with plugin
+
 It is designed to be easy to managing publish to multiple registry.
 
 ## Usage
@@ -65,20 +67,21 @@ You can have either package.json or jsr.json.
 
 - Show New files and New dependencies
 - Check commits exist since last release
-- Check package name availabliity
+- Check first time publish package
+- if first time -> Check package name availabliity
 - Input SemVer version
 - Input tag (if version is prerelease)
-- Check hasn't been published scoped package
-- Prerequisite tasks
-  - Check package manager version
-  - Verify user is authenticated
-  - Check git version
-  - Check git remote
+<!-- - Check hasn't been published scoped package -->
+- Required conditions checks (concurrently)
+  - Check test and build scripts exists
+  - Check package manager version and set pacakge manager on context
+  - if not first time -> Verify user is authenticated
   - Validate version
   - Check for prerelease vesion
     - if not private and is prerelease version and tag option not exist -> throw error should set tag
+  - Check git version
+  - Check git remote
   - Check git tag existence
-- Git tasks
   - Check current branch is release branch
   - Check local working tree is clean
   - Check remote history is clean
@@ -87,7 +90,12 @@ You can have either package.json or jsr.json.
 - Tests
 - Build
 - Bumping version
-- Publish package
-- two-factor authentication
-- Push tags
+- Publish (concurrently)
+  - npm 
+    - run publish
+    - two-factor authentication
+  - jsr
+    - run publish
+    - two-factor authentication
+- Push tags 
 - Release draft
