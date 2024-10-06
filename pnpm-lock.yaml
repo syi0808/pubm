@@ -11,6 +11,9 @@ importers:
       '@listr2/prompt-adapter-enquirer':
         specifier: ^2.0.12
         version: 2.0.12(enquirer@2.4.1)
+      '@types/npm':
+        specifier: ^7.19.3
+        version: 7.19.3
       cac:
         specifier: ^6.7.14
         version: 6.7.14
@@ -20,6 +23,9 @@ importers:
       listr2:
         specifier: ^8.2.5
         version: 8.2.5
+      picomatch:
+        specifier: ^4.0.2
+        version: 4.0.2
       semver:
         specifier: ^7.6.3
         version: 7.6.3
@@ -36,6 +42,9 @@ importers:
       '@types/node':
         specifier: ^22.7.4
         version: 22.7.4
+      '@types/picomatch':
+        specifier: ^3.0.1
+        version: 3.0.1
       '@types/semver':
         specifier: ^7.5.8
         version: 7.5.8
@@ -534,6 +543,12 @@ packages:
 
   '@types/node@22.7.4':
     resolution: {integrity: sha512-y+NPi1rFzDs1NdQHHToqeiX2TIS79SWEAw9GYhkkx8bD0ChpfqC+n2j5OXOCpzfojBEBt6DnEnnG9MY0zk1XLg==}
+
+  '@types/npm@7.19.3':
+    resolution: {integrity: sha512-1fiJlMN0iDs42kFJZJX88SVUppp5zNQik0JVnI3mw28+vssBAz3TAvmhrPpupj1rBESV6bGYjEny30fu4Kst9g==}
+
+  '@types/picomatch@3.0.1':
+    resolution: {integrity: sha512-1MRgzpzY0hOp9pW/kLRxeQhUWwil6gnrUYd3oEpeYBqp/FexhaCPv3F8LsYr47gtUU45fO2cm1dbwkSrHEo8Uw==}
 
   '@types/semver@7.5.8':
     resolution: {integrity: sha512-I8EUhyrgfLrcTkzV3TSsGyl1tSuPrEDzr0yd5m90UgNxQkyDXULk3b6MlQqTCpZpNtWe1K0hzclnZkTcLBe2UQ==}
@@ -1539,6 +1554,12 @@ snapshots:
   '@types/node@22.7.4':
     dependencies:
       undici-types: 6.19.8
+
+  '@types/npm@7.19.3':
+    dependencies:
+      '@types/node': 22.7.4
+
+  '@types/picomatch@3.0.1': {}
 
   '@types/semver@7.5.8': {}
 

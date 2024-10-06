@@ -142,8 +142,10 @@ const tasks = new Listr<Ctx>(
 	},
 );
 
-try {
-	await tasks.run();
-} catch (e) {
-	// console.error(e);
+export async function run() {
+	try {
+		await tasks.run();
+	} catch (e) {
+		console.error(e);
+	}
 }

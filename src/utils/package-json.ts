@@ -2,8 +2,11 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
+export type Engine = 'node' | 'git' | 'npm' | 'pnpm' | 'yarn';
+
 interface PackageJson {
 	version: string;
+	engine: Record<Engine, string>;
 }
 
 const cachedPackageJson: Record<string, PackageJson> = {};
