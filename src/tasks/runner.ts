@@ -1,10 +1,10 @@
-import { delay, Listr } from 'listr2';
+import { Listr, delay } from 'listr2';
 import type { ResolvedOptions } from '../types/options.js';
+import { packageName } from '../utils/package-json.js';
 import { jsrPubmTasks } from './jsr.js';
 import { npmPubmTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
-import { packageName } from '../utils/package-json.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;
