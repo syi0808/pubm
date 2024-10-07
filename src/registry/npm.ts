@@ -13,37 +13,17 @@ export class NpmRegistry extends Registry {
 		return (await exec('npm', args, { throwOnError: true })).stdout;
 	}
 
-	// public async getUsername() {
-	// 	try {
-	// 		const { stdout, stderr } = await exec('npm', ['whoami']);
-
-	// 		if (stderr) throw new Error(stderr);
-
-	// 		return stdout;
-	// 	} catch (error) {
-	// 		if (/ENEEDAUTH/.test(`${error}`)) {
-	// 			throw new Error(
-	// 				'You must be logged in. Use `npm login` and try again.',
-	// 			);
-	// 		}
-
-	// 		throw new Error(
-	// 			'Authentication error. Use `npm whoami` to troubleshoot.',
-	// 		);
-	// 	}
-	// }
-
 	async checkPermission() {
 		return '';
 	}
 
-	public async getVersion() {
+	async getVersion() {
 		const { stdout } = await exec('npm', ['--version']);
 
 		return stdout;
 	}
 
-	public async checkConnection() {
+	async ping() {
 		try {
 			await exec('npm', ['ping']);
 			return true;
@@ -52,7 +32,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	public async publish() {
+	async publish() {
 		return true;
 	}
 }

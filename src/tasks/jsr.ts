@@ -8,7 +8,7 @@ export const jsrPubmTasks: ListrTask<Ctx> = {
 		parentTask.newListr(
 			[
 				{
-					title: 'jsr publish',
+					title: 'Running jsr publish',
 					task: async (_, task): Promise<void> => {
 						task.title = 'jsr publish [OTP needed]';
 						task.output = 'waiting for input OTP code';
