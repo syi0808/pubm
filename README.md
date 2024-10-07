@@ -67,11 +67,11 @@ You can have either package.json or jsr.json.
 
 - Notify new version
 
-- Required missing information
+- Checking required information
   - Select SemVer increment or specify new version
-  - Enter the tag for this pre-release version in npm: (if version is prerelease) 
+  - Select the tag for this pre-release version in npm: (if version is prerelease) 
 
-- Prerequisite checks = skip-pre (for safety deploy)
+- Prerequisite checks = skip-pre (for deployment reliability)
   - Checking if remote history is clean...
   - Checking if the local working tree is clean…
   - Checking if commits exist since the last release...

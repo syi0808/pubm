@@ -5,6 +5,7 @@ import process from 'node:process';
 export type Engine = 'node' | 'git' | 'npm' | 'pnpm' | 'yarn';
 
 interface PackageJson {
+	name: string;
 	version: string;
 	engine: Record<Engine, string>;
 }
@@ -40,4 +41,16 @@ export async function getPackageJson({ cwd = process.cwd() } = {}) {
 	} catch (error) {
 		throw new Error('root package.json is not json format.');
 	}
+}
+
+export async function version({ cwd = process.cwd() } = {}) {
+	const { version } = await getPackageJson({ cwd });
+
+	return version;
+}
+
+export async function packageName({ cwd = process.cwd() } = {}) {
+	const { name } = await getPackageJson({ cwd });
+
+	return name;
 }
