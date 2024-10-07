@@ -2,6 +2,7 @@ import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { Listr, type ListrTask } from 'listr2';
 import semver from 'semver';
 import c from 'tinyrainbow';
+import { defaultOptions } from '../options.js';
 import { NpmRegistry } from '../registry/npm.js';
 import { packageName, version } from '../utils/package-json.js';
 
@@ -62,11 +63,12 @@ export const requiredMissingInformationTasks: (
 				},
 				{
 					title: 'Checking tag information',
-					skip: (ctx) => !prerelease(`${ctx.version}`) && ctx.tag === 'latest',
+					skip: (ctx) =>
+						!prerelease(`${ctx.version}`) && ctx.tag === defaultOptions.tag,
 					task: async (ctx, task) => {
 						const npm = new NpmRegistry(await packageName());
 						const distTags = [...(await npm.distTags())].filter(
-							(tag) => tag !== 'latest',
+							(tag) => tag !== defaultOptions.tag,
 						);
 
 						if (distTags.length <= 0) distTags.push('next');
