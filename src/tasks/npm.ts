@@ -8,7 +8,7 @@ export const npmPubmTasks: ListrTask<Ctx> = {
 		task.newListr(
 			[
 				{
-					title: 'npm publish',
+					title: 'Running npm publish',
 					task: async (_, task): Promise<void> => {
 						task.title = 'npm publish [OTP needed]';
 						task.output = 'waiting for input OTP code';
