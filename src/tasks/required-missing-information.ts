@@ -62,7 +62,7 @@ export const requiredMissingInformationTasks: (
 				},
 				{
 					title: 'Checking tag information',
-					skip: (ctx) => !prerelease(`${ctx.version}`),
+					skip: (ctx) => !prerelease(`${ctx.version}`) && ctx.tag === 'latest',
 					task: async (ctx, task) => {
 						const npm = new NpmRegistry(await packageName());
 						const distTags = [...(await npm.distTags())].filter(
