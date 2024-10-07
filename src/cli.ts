@@ -2,8 +2,8 @@ import cac from 'cac';
 import type { OptionConfig } from 'cac/deno/Option.js';
 import semver from 'semver';
 import { pubm } from './index.js';
-import type { Options } from './types/options.js';
 import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
+import type { Options } from './types/options.js';
 import { version } from './utils/package-json.js';
 
 const { RELEASE_TYPES } = semver;

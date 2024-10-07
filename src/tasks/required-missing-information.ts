@@ -1,9 +1,9 @@
-import { Listr, type ListrTask } from 'listr2';
-import c from 'tinyrainbow';
-import semver from 'semver';
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { packageName, version } from '../utils/package-json.js';
+import { Listr, type ListrTask } from 'listr2';
+import semver from 'semver';
+import c from 'tinyrainbow';
 import { NpmRegistry } from '../registry/npm.js';
+import { packageName, version } from '../utils/package-json.js';
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
 
