@@ -1,6 +1,6 @@
 import type { Options, ResolvedOptions } from './types/options.js';
 
-const defaultOptions: Omit<Options, 'version'> = {
+export const defaultOptions: Omit<Options, 'version'> = {
 	testScript: 'test',
 	branch: 'main',
 	tag: 'latest',
