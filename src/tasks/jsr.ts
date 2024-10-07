@@ -24,7 +24,7 @@ export const jsrPubmTasks: ListrTask<Ctx> = {
 										.prompt(ListrEnquirerPromptAdapter)
 										.run<boolean>({
 											type: 'password',
-											message: 'jsr OTP code: ',
+											message: 'jsr OTP code',
 										});
 
 									if (response === '123123') throw new Error('error');
@@ -35,7 +35,7 @@ export const jsrPubmTasks: ListrTask<Ctx> = {
 										.prompt(ListrEnquirerPromptAdapter)
 										.run<boolean>({
 											type: 'password',
-											message: 'jsr OTP code: ',
+											message: 'jsr OTP code',
 										});
 
 									resolve();

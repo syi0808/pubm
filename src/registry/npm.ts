@@ -1,16 +1,21 @@
 import { exec } from 'tinyexec';
 import { Registry } from './registry.js';
 
-// const NPM_DEFAULT_REGISTRIES = new Set([
-// 	// https://docs.npmjs.com/cli/v10/using-npm/registry
-// 	'https://registry.npmjs.org',
-// 	// https://docs.npmjs.com/cli/v10/commands/npm-profile#registry
-// 	'https://registry.npmjs.org/',
-// ]);
-
 export class NpmRegistry extends Registry {
+	constructor(public packageName: string) {
+		super();
+	}
+
 	async npm(args: string[]) {
 		return (await exec('npm', args, { throwOnError: true })).stdout;
+	}
+
+	async distTags() {
+		return Object.keys(
+			JSON.parse(
+				await this.npm(['view', this.packageName, 'dist-tags', '--json']),
+			),
+		);
 	}
 
 	async checkPermission() {

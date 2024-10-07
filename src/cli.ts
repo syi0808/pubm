@@ -1,13 +1,11 @@
 import cac from 'cac';
 import type { OptionConfig } from 'cac/deno/Option.js';
-import enquirer from 'enquirer';
-import semver, { SemVer } from 'semver';
-import c from 'tinyrainbow';
+import semver from 'semver';
 import { pubm } from './index.js';
 import type { Options } from './types/options.js';
-import { version } from './utils/version.js';
+import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
+import { version } from './utils/package-json.js';
 
-const { prompt } = enquirer;
 const { RELEASE_TYPES } = semver;
 
 interface CliOptions {
@@ -16,6 +14,8 @@ interface CliOptions {
 	preview?: boolean;
 	branch: string;
 	anyBranch?: boolean;
+	preCheck: boolean;
+	conditionCheck: boolean;
 	cleanup: boolean;
 	tests: boolean;
 	build: boolean;
@@ -51,6 +51,16 @@ const options: {
 	{
 		rawName: '-a, --any-branch',
 		description: 'Show tasks without actually executing publish',
+		options: { type: Boolean },
+	},
+	{
+		rawName: '--no-pre-check',
+		description: 'Skip prerequisites check task',
+		options: { type: Boolean },
+	},
+	{
+		rawName: '--no-condition-check',
+		description: 'Skip required conditions check task',
 		options: { type: Boolean },
 	},
 	{
@@ -122,53 +132,28 @@ function resolveCliOptions(options: CliOptions): Options {
 		skipTests: !options.tests,
 		skipBuild: !options.build,
 		registries: options.registry?.split(','),
+		skipPrerequisitesCheck: !options.preCheck,
+		skipConditionsCheck: !options.conditionCheck,
 	};
 }
 
 cli
 	.command('[version]')
-	.action(async (versionArg, options: Omit<CliOptions, 'version'>) => {
+	.action(async (nextVersion, options: Omit<CliOptions, 'version'>) => {
 		console.clear();
 
-		const currentVersion = await version();
-		let nextVersion = versionArg;
+		const context = {
+			version: nextVersion,
+			tag: options.tag,
+		};
 
-		if (!nextVersion) {
-			nextVersion = (
-				await prompt<{ version: string }>({
-					type: 'select',
-					choices: RELEASE_TYPES.map((releaseType) => {
-						const increasedVersion = new SemVer(currentVersion)
-							.inc(releaseType)
-							.toString();
-
-						return {
-							message: `${releaseType} ${c.dim(increasedVersion)}`,
-							name: increasedVersion,
-						};
-					}).concat([
-						{ message: 'Custom version (specify)', name: 'specific' },
-					]),
-					message: 'Select SemVer increment or specify new version',
-					name: 'version',
-				})
-			).version;
-
-			if (nextVersion === 'specific') {
-				nextVersion = (
-					await prompt<{ version: string }>({
-						type: 'input',
-						message: 'Version',
-						name: 'version',
-					})
-				).version;
-			}
-		}
+		await requiredMissingInformationTasks().run(context);
 
 		await pubm(
 			resolveCliOptions({
 				...options,
-				version: nextVersion,
+				version: context.version,
+				tag: context.tag,
 			}),
 		);
 	});

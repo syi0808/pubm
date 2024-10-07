@@ -51,6 +51,16 @@ export interface Options {
 	 */
 	skipReleaseDraft?: boolean;
 	/**
+	 * @description Skip prerequisites check task
+	 * @default false
+	 */
+	skipPrerequisitesCheck?: boolean;
+	/**
+	 * @description Skip required conditions check task
+	 * @default false
+	 */
+	skipConditionsCheck?: boolean;
+	/**
 	 * @description Skip both cleanup and tests
 	 * @default false
 	 */
