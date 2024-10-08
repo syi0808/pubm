@@ -41,8 +41,7 @@
 		"listr2": "^8.2.5",
 		"picomatch": "^4.0.2",
 		"semver": "^7.6.3",
-		"tinyexec": "^0.3.0",
-		"tinyrainbow": "^1.2.0"
+		"tinyexec": "^0.3.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.2",

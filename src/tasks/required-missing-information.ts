@@ -1,7 +1,6 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask } from 'listr2';
+import { color, Listr, type ListrTask } from 'listr2';
 import semver from 'semver';
-import c from 'tinyrainbow';
 import { defaultOptions } from '../options.js';
 import { NpmRegistry } from '../registry/npm.js';
 import { packageName, version } from '../utils/package-json.js';
@@ -38,7 +37,7 @@ export const requiredMissingInformationTasks: (
 										.toString();
 
 									return {
-										message: `${releaseType} ${c.dim(increasedVersion)}`,
+										message: `${releaseType} ${color.dim(increasedVersion)}`,
 										name: increasedVersion,
 									};
 								}).concat([
