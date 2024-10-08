@@ -6,6 +6,10 @@ export class Git {
 	}
 
 	latestTag() {
-		return this.git(['describe', '--tags', '--abbrev=0']);
+		try {
+			return this.git(['describe', '--tags', '--abbrev=0']);
+		} catch {
+			throw new Error('failed get latest tag');
+		}
 	}
 }
