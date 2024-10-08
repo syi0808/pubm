@@ -11,11 +11,15 @@ export class NpmRegistry extends Registry {
 	}
 
 	async distTags() {
-		return Object.keys(
-			JSON.parse(
-				await this.npm(['view', this.packageName, 'dist-tags', '--json']),
-			),
-		);
+		try {
+			return Object.keys(
+				JSON.parse(
+					await this.npm(['view', this.packageName, 'dist-tags', '--json']),
+				),
+			);
+		} catch {
+			throw new Error('failed get dist tags on npm');
+		}
 	}
 
 	async checkPermission() {
@@ -23,17 +27,19 @@ export class NpmRegistry extends Registry {
 	}
 
 	async getVersion() {
-		const { stdout } = await exec('npm', ['--version']);
-
-		return stdout;
+		try {
+			return this.npm(['--version']);
+		} catch {
+			throw new Error('failed get version of npm');
+		}
 	}
 
 	async ping() {
 		try {
-			await exec('npm', ['ping']);
+			await this.npm(['ping']);
 			return true;
 		} catch {
-			throw new Error('Connection to npm registry failed');
+			throw new Error('failed ping to npm registry');
 		}
 	}
 
