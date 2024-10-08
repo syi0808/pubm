@@ -1,5 +1,4 @@
-import { Listr, delay } from 'listr2';
-import c from 'tinyrainbow';
+import { Listr, color, delay } from 'listr2';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { packageName } from '../utils/package-json.js';
@@ -76,7 +75,7 @@ export async function run(options: ResolvedOptions) {
 		]).run(ctx);
 
 		console.log(
-			`\n\n🚀 Successfully published ${c.bold(await packageName())} ${c.blueBright(`v${ctx.version}`)} 🚀\n`,
+			`\n\n🚀 Successfully published ${color.bold(await packageName())} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
 		);
 	} catch (e: unknown) {
 		consoleError(e as Error);

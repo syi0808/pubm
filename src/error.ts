@@ -1,4 +1,4 @@
-import c from 'tinyrainbow';
+import { color } from 'listr2';
 
 export class AbstractError extends Error {
 	cause?: unknown;
@@ -12,7 +12,7 @@ export class AbstractError extends Error {
 }
 
 function replaceCode(code: string) {
-	return code.replace(/`([^`].+)`/g, c.bold(c.underline('$1')));
+	return code.replace(/`([^`].+)`/g, color.bold(color.underline('$1')));
 }
 
 function formatError(error: AbstractError | string): string {
@@ -23,13 +23,13 @@ function formatError(error: AbstractError | string): string {
 			? replaceCode(error.message)
 			: formatError(error);
 
-	let stringifyError = `${c.bgRed(` ${error.name} `)}${c.reset('')} ${message}\n`;
+	let stringifyError = `${color.bgRed(` ${error.name} `)}${color.reset('')} ${message}\n`;
 	stringifyError += error.stack
 		?.split('\n')
 		.slice(1)
 		.join('\n')
-		.replace(/at/g, c.dim('at'))
-		.replace(/\(([^\(].+)\)/g, c.blue('($1)'));
+		.replace(/at/g, color.dim('at'))
+		.replace(/\(([^\(].+)\)/g, color.blue('($1)'));
 
 	if (error.cause) {
 		stringifyError += '\n\nCaused: ';

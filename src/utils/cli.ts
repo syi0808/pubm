@@ -1,3 +1,3 @@
-import c from 'tinyrainbow';
+import { color } from 'listr2';
 
-export const warningBadge = c.bgYellow(' Warning ');
+export const warningBadge = color.bgYellow(' Warning ');
