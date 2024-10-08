@@ -1,4 +1,3 @@
-import type { ListrRendererFactory, ListrTaskWrapper } from 'listr2';
 import { exec } from 'tinyexec';
 import type { AbstractError } from './error.js';
 
@@ -17,7 +16,7 @@ export class Git {
 		}
 	}
 
-	private async dryFetch() {
+	async dryFetch() {
 		try {
 			return await this.git(['fetch', '--dry-run']);
 		} catch (error) {
@@ -27,7 +26,7 @@ export class Git {
 		}
 	}
 
-	private async revisionDiffsCount() {
+	async revisionDiffsCount() {
 		try {
 			return await Number.parseInt(
 				await this.git(['rev-list', '@{u}...HEAD', '--count', '--left-only']),
@@ -40,24 +39,13 @@ export class Git {
 		}
 	}
 
-	async verifyRemoteHistory<
-		T extends ListrTaskWrapper<
-			unknown,
-			ListrRendererFactory,
-			ListrRendererFactory
-		>,
-	>(task: T) {
-		task.output = 'Checking `git fetch`';
-
-		if ((await this.dryFetch()).trim()) {
-			throw new this.E(
-				'local history is outdated. you should run `git fetch`.',
-			);
-		}
-
-		task.output = 'Checking `git pull`';
-		if (await this.revisionDiffsCount()) {
-			throw new this.E('local history is outdated. you should run `git pull`.');
+	async status() {
+		try {
+			return (await this.git(['status', '--porcelain'])).trim();
+		} catch (error) {
+			throw new this.E('Failed to run `git status --porcelain`', {
+				cause: error,
+			});
 		}
 	}
 }
