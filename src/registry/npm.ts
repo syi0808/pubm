@@ -22,11 +22,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async checkPermission() {
-		return '';
-	}
-
-	async getVersion() {
+	async version() {
 		try {
 			return this.npm(['--version']);
 		} catch {
