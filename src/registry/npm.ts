@@ -18,7 +18,7 @@ export class NpmRegistry extends Registry {
 				),
 			);
 		} catch {
-			throw new Error('failed get dist tags on npm');
+			throw new Error('Failed to retrieve dist tags from npm.');
 		}
 	}
 
@@ -30,7 +30,7 @@ export class NpmRegistry extends Registry {
 		try {
 			return this.npm(['--version']);
 		} catch {
-			throw new Error('failed get version of npm');
+			throw new Error('Failed to retrieve npm version.');
 		}
 	}
 
@@ -39,7 +39,7 @@ export class NpmRegistry extends Registry {
 			await this.npm(['ping']);
 			return true;
 		} catch {
-			throw new Error('failed ping to npm registry');
+			throw new Error('Failed to ping npm registry.');
 		}
 	}
 

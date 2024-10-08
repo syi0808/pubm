@@ -9,7 +9,7 @@ export class Git {
 		try {
 			return this.git(['describe', '--tags', '--abbrev=0']);
 		} catch {
-			throw new Error('failed get latest tag');
+			throw new Error('Failed to retrieve the latest tag on Git.');
 		}
 	}
 }
