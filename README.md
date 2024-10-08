@@ -33,6 +33,7 @@ You can have either package.json or jsr.json.
 <summary>
 pubm tasks
 </summary>
+
 - Notify new version
 - Checking required information
   - Select SemVer increment or specify new version
