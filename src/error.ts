@@ -29,7 +29,7 @@ function formatError(error: AbstractError | string): string {
 		.slice(1)
 		.join('\n')
 		.replace(/at/g, color.dim('at'))
-		.replace(/\(([^\(].+)\)/g, color.blue('($1)'));
+		.replace(/\(([^\(].+)\)/g, `(${color.blue('$1')})`);
 
 	if (error.cause) {
 		stringifyError += '\n\nCaused: ';

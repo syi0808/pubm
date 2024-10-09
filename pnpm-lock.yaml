@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  listr2:
+    hash: 5nzpia4yh6qynnbblw2ytogye4
+    path: patches/listr2.patch
+
 importers:
 
   .:
@@ -25,7 +30,7 @@ importers:
         version: 2.4.1
       listr2:
         specifier: ^8.2.5
-        version: 8.2.5
+        version: 8.2.5(patch_hash=5nzpia4yh6qynnbblw2ytogye4)
       picomatch:
         specifier: ^4.0.2
         version: 4.0.2
@@ -1910,7 +1915,7 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  listr2@8.2.5:
+  listr2@8.2.5(patch_hash=5nzpia4yh6qynnbblw2ytogye4):
     dependencies:
       cli-truncate: 4.0.0
       colorette: 2.0.20

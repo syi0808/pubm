@@ -3,5 +3,5 @@ import { color } from 'listr2';
 export const warningBadge = color.bgYellow(' Warning ');
 
 export function link(text: string, url: string) {
-	return `\e]8;;${url}\e\\${text}\e]8;;\e\\`;
+	return `\u001B]8;;${url}\u0007${text}\u001B]8;;\u0007`;
 }

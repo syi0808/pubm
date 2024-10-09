@@ -1,9 +1,10 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask, color } from 'listr2';
+import { Listr, type ListrTask } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
-import { createRegistry } from '../registry/index.js';
 import { warningBadge } from '../utils/cli.js';
+import { jsrAvailableCheckTasks } from './jsr.js';
+import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
 
 class PrerequisitesCheckError extends AbstractError {
@@ -94,34 +95,23 @@ export const prerequisitesCheckTask: (
 					},
 				},
 				{
-					title: 'Checking if the package has never been deployed',
+					rendererOptions: { collapseSubtasks: false },
+					title: 'Checking available registries for publishing',
 					task: async (ctx, parentTask) =>
 						parentTask.newListr(
-							ctx.registries.map((registryKey) => ({
-								title: `Checking on ${registryKey}`,
-								task: async () => {
-									const registry = createRegistry(registryKey)();
-
-									if (await registry.isPublished()) {
-										if (!(await registry.hasPermission())) {
-											throw new PrerequisitesCheckError(
-												`You do not have permission to publish this package on ${color.green(registryKey)}.`,
-											);
-										}
-
-										return void 0;
-									}
-
-									if (await registry.isPackageNameAvaliable()) {
-										return void 0;
-									}
-
-									throw new PrerequisitesCheckError(
-										`Package is not published on ${color.green(registryKey)}, and the package name is not available. Please change the package name.`,
-									);
-								},
-							})),
-							{ concurrent: true },
+							ctx.registries.map((registryKey) => {
+								switch (registryKey) {
+									case 'npm':
+										return npmAvailableCheckTasks;
+									case 'jsr':
+										return jsrAvailableCheckTasks;
+									default:
+										return npmAvailableCheckTasks;
+								}
+							}),
+							{
+								concurrent: true,
+							},
 						),
 				},
 			]),

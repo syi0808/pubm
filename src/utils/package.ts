@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { AbstractError } from '../error.js';
@@ -12,34 +12,45 @@ import { warningBadge } from './cli.js';
 const cachedPackageJson: Record<string, PackageJson> = {};
 const cachedJsrJson: Record<string, JsrJson> = {};
 
-function findOutFile(file: string, { cwd = process.cwd() } = {}) {
+// If the `name` field in the JSR JSON is not the scoped name from `package.json`,
+// update the cached JSR JSON accordingly.
+export async function patchCachedJsrJson(
+	contents: Partial<JsrJson>,
+	{ cwd = process.cwd() } = {},
+) {
+	cachedJsrJson[cwd] = { ...cachedJsrJson[cwd], ...contents };
+}
+
+async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
 	let directory = cwd;
 	let filePath = '';
 	const { root } = path.parse(cwd);
 
-	while (directory && directory !== root) {
+	while (directory) {
 		filePath = path.join(directory, file);
 
 		try {
-			if (statSync(filePath).isFile()) {
+			if ((await stat(filePath)).isFile()) {
 				break;
 			}
 		} catch {}
 
 		directory = path.dirname(directory);
+
+		if (directory === root) return null;
 	}
 
-	return readFileSync(filePath).toString();
+	return (await readFile(filePath)).toString();
 }
 
-export function getPackageJson({
+export async function getPackageJson({
 	cwd = process.cwd(),
 	fallbackMode = false,
-} = {}): PackageJson {
+} = {}): Promise<PackageJson> {
 	if (cachedPackageJson[cwd]) return cachedPackageJson[cwd];
 
 	try {
-		const raw = findOutFile('package.json');
+		const raw = await findOutFile('package.json');
 
 		if (!raw) {
 			if (fallbackMode) {
@@ -52,7 +63,13 @@ export function getPackageJson({
 				`${warningBadge} The 'jsr.json' cannot populate fields in 'package.json'. Please ensure other fields are manually filled out in 'package.json'`,
 			);
 
-			return jsrJsonToPackageJson(getJsrJson({ fallbackMode: true }));
+			const packageJson = await jsrJsonToPackageJson(
+				await getJsrJson({ fallbackMode: true }),
+			);
+
+			cachedPackageJson[cwd] = packageJson;
+
+			return packageJson;
 		}
 
 		const packageJson = JSON.parse(raw);
@@ -67,14 +84,14 @@ export function getPackageJson({
 	}
 }
 
-export function getJsrJson({
+export async function getJsrJson({
 	cwd = process.cwd(),
 	fallbackMode = false,
-} = {}): JsrJson {
+} = {}): Promise<JsrJson> {
 	if (cachedJsrJson[cwd]) return cachedJsrJson[cwd];
 
 	try {
-		const raw = findOutFile('jsr.json');
+		const raw = await findOutFile('jsr.json');
 
 		if (!raw) {
 			if (fallbackMode) {
@@ -83,7 +100,13 @@ export function getJsrJson({
 				);
 			}
 
-			return packageJsonToJsrJson(getPackageJson({ fallbackMode: true }));
+			const jsrJson = await packageJsonToJsrJson(
+				await getPackageJson({ fallbackMode: true }),
+			);
+
+			cachedJsrJson[cwd] = jsrJson;
+
+			return jsrJson;
 		}
 
 		const jsrJson = JSON.parse(raw);
@@ -98,10 +121,15 @@ export function getJsrJson({
 	}
 }
 
-export function packageJsonToJsrJson(packageJson: PackageJson) {
-	const ignore = findOutFile('.npmignore') || findOutFile('.gitignore');
+export function isScopedPackage(packageName: string) {
+	return /^@[^/]+\/[^@][\w.-]*$/.test(packageName);
+}
 
-	const ignores = ignore.split('\n').filter((v) => v);
+export async function packageJsonToJsrJson(packageJson: PackageJson) {
+	const ignore =
+		(await findOutFile('.npmignore')) || (await findOutFile('.gitignore'));
+
+	const ignores = ignore?.split('\n').filter((v) => v) ?? [];
 
 	return <JsrJson>{
 		name: packageJson.name,
@@ -111,7 +139,9 @@ export function packageJsonToJsrJson(packageJson: PackageJson) {
 			convertExports(packageJson.exports as string | PackageExportsEntryObject),
 		publish: {
 			exclude: [
-				...(packageJson.files?.filter((file) => file.startsWith('!')) ?? []),
+				...(packageJson.files?.flatMap((file) =>
+					file.startsWith('!') ? [file.slice(1)] : [],
+				) ?? []),
 				...ignores,
 			],
 			include: packageJson.files?.filter((file) => !file.startsWith('!')) ?? [],
@@ -139,7 +169,7 @@ export function packageJsonToJsrJson(packageJson: PackageJson) {
 	}
 }
 
-export function jsrJsonToPackageJson(jsrJson: JsrJson) {
+export async function jsrJsonToPackageJson(jsrJson: JsrJson) {
 	return <PackageJson>{
 		name: jsrJson.name,
 		version: jsrJson.version,
@@ -165,11 +195,11 @@ export function jsrJsonToPackageJson(jsrJson: JsrJson) {
 	}
 }
 
-export function version({ cwd = process.cwd() } = {}) {
-	let version = getPackageJson({ cwd })?.version;
+export async function version({ cwd = process.cwd() } = {}) {
+	let version = (await getPackageJson({ cwd }))?.version;
 
 	if (!version) {
-		version = getJsrJson({ cwd })?.version;
+		version = (await getJsrJson({ cwd }))?.version;
 
 		if (!version)
 			throw new Error(

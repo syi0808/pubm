@@ -7,19 +7,18 @@ class JsrError extends AbstractError {
 	name = 'jsr Error';
 }
 
+function getApiEndpoint(registry: string) {
+	const url = new URL(registry);
+
+	url.host = `api.${url.host}`;
+
+	return `${url}`;
+}
+
 export class JsrRegisry extends Registry {
-	packageName: string;
 	registry = 'https://jsr.io';
-
-	constructor(packageName?: string, registry?: string) {
-		const jsrPackageName = packageName ?? getJsrJson()?.name;
-
-		console.log(getJsrJson());
-
-		super(jsrPackageName, registry);
-
-		this.packageName = jsrPackageName;
-	}
+	api = getApiEndpoint(this.registry);
+	token?: string;
 
 	async jsr(args: string[]) {
 		const { stdout, stderr } = await exec('jsr', args);
@@ -73,7 +72,21 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
-	async hasToken() {}
+	async user() {
+		try {
+			const response = await fetch(`${this.api}/user`, {
+				headers: { Authorization: `Bearer ${this.token}` },
+			});
+
+			if (response.status === 401) return null;
+
+			return await response.json();
+		} catch (error) {
+			throw new JsrError(`Failed to fetch \`${this.api}/user\``, {
+				cause: error,
+			});
+		}
+	}
 
 	async hasPermission() {
 		return true;
@@ -82,4 +95,10 @@ export class JsrRegisry extends Registry {
 	async isPackageNameAvaliable() {
 		return true;
 	}
+}
+
+export async function jsrRegistry() {
+	const jsrJson = await getJsrJson();
+
+	return new JsrRegisry(jsrJson.name);
 }

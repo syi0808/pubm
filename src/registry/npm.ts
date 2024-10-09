@@ -8,16 +8,7 @@ class NpmError extends AbstractError {
 }
 
 export class NpmRegistry extends Registry {
-	packageName: string;
 	registry = 'https://registry.npmjs.org';
-
-	constructor(packageName?: string, registry?: string) {
-		const npmPackageName = packageName ?? getPackageJson()?.name;
-
-		super(npmPackageName, registry);
-
-		this.packageName = npmPackageName;
-	}
 
 	async npm(args: string[]) {
 		const { stdout, stderr } = await exec('npm', args);
@@ -115,4 +106,10 @@ export class NpmRegistry extends Registry {
 	async isPackageNameAvaliable() {
 		return true;
 	}
+}
+
+export async function npmRegistry() {
+	const packageJson = await getPackageJson();
+
+	return new NpmRegistry(packageJson.name);
 }
