@@ -1,8 +1,13 @@
 import { exec } from 'tinyexec';
+import { AbstractError } from '../error.js';
 import { Registry } from './registry.js';
 
+class JsrError extends AbstractError {
+	name = 'jsr Error';
+}
+
 export class JsrRegisry extends Registry {
-	regitry = 'https://jsr.io';
+	registry = 'https://jsr.io';
 
 	async jsr(args: string[]) {
 		const { stdout, stderr } = await exec('jsr', args);
@@ -17,7 +22,22 @@ export class JsrRegisry extends Registry {
 	}
 
 	async ping() {
-		return true;
+		try {
+			const { stdout, stderr } = await exec('ping', [
+				new URL(this.registry).hostname,
+				'-c',
+				'1',
+			]);
+
+			if (stderr) throw stderr;
+
+			return stdout.includes('1 packets transmitted');
+		} catch (error) {
+			throw new JsrError(
+				`Failed to run \`ping ${new URL(this.registry).hostname}\` -c 1`,
+				{ cause: error },
+			);
+		}
 	}
 
 	async publish() {
@@ -31,6 +51,8 @@ export class JsrRegisry extends Registry {
 	async isPublished() {
 		return false;
 	}
+
+	async hasToken() {}
 
 	async hasPermission() {
 		return true;

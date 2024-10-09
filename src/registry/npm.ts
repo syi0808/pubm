@@ -7,12 +7,7 @@ class NpmError extends AbstractError {
 }
 
 export class NpmRegistry extends Registry {
-	constructor(
-		public packageName: string,
-		public registry = 'https://registry.npmjs.org',
-	) {
-		super(packageName, registry);
-	}
+	registry = 'https://registry.npmjs.org';
 
 	async npm(args: string[]) {
 		const { stdout, stderr } = await exec('npm', args);
@@ -77,25 +72,29 @@ export class NpmRegistry extends Registry {
 					await this.npm(['view', this.packageName, 'dist-tags', '--json']),
 				),
 			);
-		} catch {
-			throw new Error('Failed to retrieve dist tags from npm.');
+		} catch (error) {
+			throw new NpmError(
+				`Failed to run \`npm view ${this.packageName} dist-tags --json\``,
+				{ cause: error },
+			);
 		}
 	}
 
 	async version() {
 		try {
 			return this.npm(['--version']);
-		} catch {
-			throw new Error('Failed to retrieve npm version.');
+		} catch (error) {
+			throw new NpmError('Failed to run `npm --version`', { cause: error });
 		}
 	}
 
 	async ping() {
 		try {
 			await this.npm(['ping']);
+
 			return true;
-		} catch {
-			throw new Error('Failed to ping npm registry.');
+		} catch (error) {
+			throw new NpmError('Failed to run `npm ping`', { cause: error });
 		}
 	}
 

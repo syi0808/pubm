@@ -6,6 +6,7 @@
 		"include": [
 			"dist/index.js",
 			"dist/index.d.ts",
+			"bin/cli.js",
 			"README.md",
 			"jsr.json",
 			"LICENSE"
