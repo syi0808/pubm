@@ -1,6 +1,7 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
-import { getJsrJson } from '../utils/package.js';
+import type { JsrApi } from '../types/jsr-api.js';
+import { getJsrJson, version } from '../utils/package.js';
 import { Registry } from './registry.js';
 
 class JsrError extends AbstractError {
@@ -17,15 +18,28 @@ function getApiEndpoint(registry: string) {
 
 export class JsrRegisry extends Registry {
 	registry = 'https://jsr.io';
-	api = getApiEndpoint(this.registry);
+	protected api = getApiEndpoint(this.registry);
 	token?: string;
 
-	async jsr(args: string[]) {
+	protected async jsr(args: string[]) {
 		const { stdout, stderr } = await exec('jsr', args);
 
 		if (stderr) throw stderr;
 
 		return stdout;
+	}
+
+	protected async fetch(endpoint: string, init?: RequestInit) {
+		const pubmVersion = await version({ cwd: import.meta.dirname });
+
+		return fetch(new URL(endpoint, this.api), {
+			...init,
+			headers: {
+				...init?.headers,
+				Authorization: `Bearer ${this.token}`,
+				'User-Agent': `pubm/${pubmVersion}; https://github.com/syi0808/pubm`,
+			},
+		});
 	}
 
 	async distTags() {
@@ -74,17 +88,61 @@ export class JsrRegisry extends Registry {
 
 	async user() {
 		try {
-			const response = await fetch(`${this.api}/user`, {
-				headers: { Authorization: `Bearer ${this.token}` },
-			});
+			const response = await this.fetch('/user');
 
 			if (response.status === 401) return null;
 
-			return await response.json();
+			return (await response.json()) as JsrApi.Users.User;
 		} catch (error) {
 			throw new JsrError(`Failed to fetch \`${this.api}/user\``, {
 				cause: error,
 			});
+		}
+	}
+
+	async scopes(): Promise<string[]> {
+		try {
+			const response = await this.fetch('/user/scopes');
+
+			if (response.status === 401) return [];
+
+			return ((await response.json()) as JsrApi.Users.Scopes).map(
+				({ scope }) => scope,
+			);
+		} catch (error) {
+			throw new JsrError(`Failed to fetch \`${this.api}/user/scopes\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async createScope(scope: string) {
+		try {
+			const response = await this.fetch('/scopes', {
+				method: 'POST',
+				body: JSON.stringify({ scope }),
+			});
+
+			return response.status === 200 || response.status === 201;
+		} catch (error) {
+			throw new JsrError(`Failed to fetch \`${this.api}/scopes\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async searchPackage(query: string) {
+		try {
+			const response = await this.fetch(`/packages?query=${query}`);
+
+			return (await response.json()) as JsrApi.Packages;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.api}/packages?query=${query}\``,
+				{
+					cause: error,
+				},
+			);
 		}
 	}
 

@@ -14,6 +14,16 @@ export class Git {
 		return stdout;
 	}
 
+	async userName() {
+		try {
+			return (await this.git(['config', '--get', 'user.name'])).trim();
+		} catch (error) {
+			throw new GitError('Failed to run `git config --get user.name`', {
+				cause: error,
+			});
+		}
+	}
+
 	async latestTag() {
 		try {
 			return await this.git(['describe', '--tags', '--abbrev=0']);

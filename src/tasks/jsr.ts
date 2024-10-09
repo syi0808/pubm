@@ -1,6 +1,7 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { type ListrTask, PRESET_TIMER, color } from 'listr2';
 import { AbstractError } from '../error.js';
+import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
 import { link } from '../utils/cli.js';
 import { Db } from '../utils/db.js';
@@ -101,14 +102,39 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 				}
 			}
 
+			jsr.token = token;
+
 			new Db().set('jsr-token', jsr.token);
 		}
 
 		if (!isScopedPackage(jsr.packageName)) {
 			let jsrName = new Db().get(jsr.packageName);
 
-			if (!jsrName) {
-				const userName = 'syi0808';
+			// biome-ignore lint/suspicious/noConfusingLabels: <explanation>
+			checkScopeTask: if (!jsrName) {
+				const searchResults = (await jsr.searchPackage(jsr.packageName)).items;
+
+				jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+					type: 'select',
+					message:
+						'Is there a scoped package you want to publish in the already published list?',
+					choices: [
+						...searchResults.map(({ scope, name }) => ({
+							message: `@${scope}/${name}`,
+							name: `@${scope}/${name}`,
+						})),
+						{
+							message: 'None',
+							name: 'none',
+						},
+					],
+				});
+
+				if (jsrName !== 'none') break checkScopeTask;
+
+				const userName = await new Git().userName();
+
+				const scopes = await jsr.scopes();
 
 				jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
 					type: 'select',
@@ -116,13 +142,23 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 						"jsr.json does not exist, and the package name is not scoped. Please select a scope for the 'jsr' package",
 					choices: [
 						{
-							message: `scoped by package name (${color.dim(`@${jsr.packageName}/${jsr.packageName}`)})`,
+							message: `@${jsr.packageName}/${jsr.packageName} ${color.dim('scoped by package name')}${scopes.includes(jsr.packageName) ? ' (already created)' : ''}`,
 							name: `@${jsr.packageName}/${jsr.packageName}`,
 						},
 						{
-							message: `scoped by name (${color.dim(`@${userName}/${jsr.packageName}`)})`,
+							message: `@${userName}/${jsr.packageName} ${color.dim('scoped by git name')}${scopes.includes(userName) ? ' (already created)' : ''}`,
 							name: `@${userName}/${jsr.packageName}`,
 						},
+						...scopes.flatMap((scope) =>
+							scope === jsr.packageName || scope === userName
+								? []
+								: [
+										{
+											message: `@${scope}/${jsr.packageName} ${color.dim('scope from jsr')}`,
+											name: `@${scope}/${jsr.packageName}`,
+										},
+									],
+						),
 						{
 							message: 'Other (Specify)',
 							name: 'specify',
@@ -140,9 +176,17 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 							});
 					}
 				}
+
+				const scope = jsrName.match(/^@([^/]+)/)?.[1];
+
+				if (scope && !scopes.includes(scope)) {
+					await jsr.createScope(scope);
+				}
 			}
 
-			patchCachedJsrJson({ name: jsrName });
+			jsr.packageName = jsrName;
+
+			patchCachedJsrJson({ name: jsr.packageName });
 		}
 
 		if (await jsr.isPublished()) {
