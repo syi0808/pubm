@@ -17,8 +17,6 @@ function d(text: string, key: string) {
 	return d.update(text, 'hex', 'utf8') + d.final('utf8');
 }
 
-type Field = 'token';
-
 export class Db {
 	path = path.resolve(import.meta.dirname, '.pubm');
 
@@ -32,15 +30,15 @@ export class Db {
 		}
 	}
 
-	set(field: Field, value: unknown) {
+	set(field: string, value: unknown) {
 		writeFileSync(
-			path.resolve(this.path, Buffer.from(field).toString('base64')),
-			Buffer.from(e(`${value}`, field)),
+			path.resolve(this.path, Buffer.from(iv + field).toString('base64')),
+			Buffer.from(e(`${iv}${value}`, field)),
 			{ encoding: 'binary' },
 		);
 	}
 
-	get(field: Field) {
+	get(field: string) {
 		return d(
 			Buffer.from(
 				readFileSync(

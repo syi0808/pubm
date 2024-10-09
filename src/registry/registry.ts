@@ -1,6 +1,6 @@
 export abstract class Registry {
 	constructor(
-		public packageName: string,
+		public packageName?: string,
 		public registry?: string,
 	) {}
 

@@ -1,10 +1,13 @@
 import { satisfies } from 'semver';
-import { type Engine, getPackageJson } from './package-json.js';
+import type { Engine } from '../types/package-json.js';
+import { getPackageJson } from './package.js';
 
 export async function validateEngineVersion(engine: Engine, version: string) {
-	const { engine: engineField } = await getPackageJson({
+	const { engines } = getPackageJson({
 		cwd: import.meta.dirname,
 	});
 
-	return satisfies(version, engineField[engine], { includePrerelease: true });
+	return satisfies(version, `${engines?.[engine]}`, {
+		includePrerelease: true,
+	});
 }

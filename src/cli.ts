@@ -4,7 +4,7 @@ import semver from 'semver';
 import { pubm } from './index.js';
 import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
 import type { Options } from './types/options.js';
-import { version } from './utils/package-json.js';
+import { version } from './utils/package.js';
 
 const { RELEASE_TYPES } = semver;
 
