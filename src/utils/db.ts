@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const a = 'aes-256-cbc';
 const n = statSync(import.meta.dirname);
-const k = `${n.blksize}${n.rdev}${n.birthtimeMs}${n.nlink}${n.gid}`;
+const k = `${n.rdev}${n.birthtimeMs}${n.nlink}${n.gid}`;
 const l = createHash('md5').update(k).digest();
 
 function e(e: string, f: string) {

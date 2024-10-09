@@ -10,7 +10,7 @@ class NpmError extends AbstractError {
 export class NpmRegistry extends Registry {
 	registry = 'https://registry.npmjs.org';
 
-	async npm(args: string[]) {
+	protected async npm(args: string[]) {
 		const { stdout, stderr } = await exec('npm', args);
 
 		if (stderr) throw stderr;
@@ -31,7 +31,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async username() {
+	async userName() {
 		try {
 			return (await this.npm(['whoami'])).trim();
 		} catch (error) {
@@ -59,11 +59,11 @@ export class NpmRegistry extends Registry {
 	}
 
 	async hasPermission() {
-		const username = await this.username();
+		const userName = await this.userName();
 
 		const collaborators = await this.collaborators();
 
-		return !!collaborators[username]?.includes('write');
+		return !!collaborators[userName]?.includes('write');
 	}
 
 	async distTags() {
