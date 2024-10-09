@@ -1,10 +1,9 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask } from 'listr2';
+import { Listr, type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { createRegistry } from '../registry/index.js';
 import { warningBadge } from '../utils/cli.js';
-import { packageName } from '../utils/package-json.js';
 import type { Ctx } from './runner.js';
 
 class PrerequisitesCheckError extends AbstractError {
@@ -101,14 +100,12 @@ export const prerequisitesCheckTask: (
 							ctx.registries.map((registryKey) => ({
 								title: `Checking on ${registryKey}`,
 								task: async () => {
-									const registry = createRegistry(registryKey)(
-										await packageName(),
-									);
+									const registry = createRegistry(registryKey)();
 
 									if (await registry.isPublished()) {
 										if (!(await registry.hasPermission())) {
 											throw new PrerequisitesCheckError(
-												'You do not have permission to publish this package.',
+												`You do not have permission to publish this package on ${color.green(registryKey)}.`,
 											);
 										}
 
@@ -120,7 +117,7 @@ export const prerequisitesCheckTask: (
 									}
 
 									throw new PrerequisitesCheckError(
-										'Package is not published, and the package name is not available. Please change the package name.',
+										`Package is not published on ${color.green(registryKey)}, and the package name is not available. Please change the package name.`,
 									);
 								},
 							})),

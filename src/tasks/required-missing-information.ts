@@ -2,8 +2,9 @@ import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { Listr, type ListrTask, color } from 'listr2';
 import semver from 'semver';
 import { defaultOptions } from '../options.js';
+import { JsrRegisry } from '../registry/jsr.js';
 import { NpmRegistry } from '../registry/npm.js';
-import { packageName, version } from '../utils/package-json.js';
+import { version } from '../utils/package.js';
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
 
@@ -65,10 +66,13 @@ export const requiredMissingInformationTasks: (
 					skip: (ctx) =>
 						!prerelease(`${ctx.version}`) && ctx.tag === defaultOptions.tag,
 					task: async (ctx, task) => {
-						const npm = new NpmRegistry(await packageName());
-						const distTags = [...(await npm.distTags())].filter(
-							(tag) => tag !== defaultOptions.tag,
-						);
+						const npm = new NpmRegistry();
+						const jsr = new JsrRegisry();
+						const distTags = [
+							...new Set(
+								(await Promise.all([npm.distTags(), jsr.distTags()])).flat(),
+							),
+						].filter((tag) => tag !== defaultOptions.tag);
 
 						if (distTags.length <= 0) distTags.push('next');
 

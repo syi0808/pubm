@@ -1,5 +1,6 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
+import { getPackageJson } from '../utils/package.js';
 import { Registry } from './registry.js';
 
 class NpmError extends AbstractError {
@@ -7,7 +8,16 @@ class NpmError extends AbstractError {
 }
 
 export class NpmRegistry extends Registry {
+	packageName: string;
 	registry = 'https://registry.npmjs.org';
+
+	constructor(packageName?: string, registry?: string) {
+		const npmPackageName = packageName ?? getPackageJson()?.name;
+
+		super(npmPackageName, registry);
+
+		this.packageName = npmPackageName;
+	}
 
 	async npm(args: string[]) {
 		const { stdout, stderr } = await exec('npm', args);

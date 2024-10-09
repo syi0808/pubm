@@ -1,7 +1,7 @@
 import { Listr, color, delay } from 'listr2';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
-import { packageName } from '../utils/package-json.js';
+import { getJsrJson, getPackageJson } from '../utils/package.js';
 import { jsrPubmTasks } from './jsr.js';
 import { npmPubmTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
@@ -75,7 +75,7 @@ export async function run(options: ResolvedOptions) {
 		]).run(ctx);
 
 		console.log(
-			`\n\n🚀 Successfully published ${color.bold(await packageName())} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
+			`\n\n🚀 Successfully published ${color.bold(getPackageJson().name)} on ${color.dim('npm')} and ${color.bold(getJsrJson().name)} on ${color.dim('jsr')} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
 		);
 	} catch (e: unknown) {
 		consoleError(e as Error);
