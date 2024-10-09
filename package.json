@@ -70,10 +70,5 @@
 		"publish manager",
 		"private registry",
 		"registry"
-	],
-	"pnpm": {
-		"patchedDependencies": {
-			"listr2": "patches/listr2.patch"
-		}
-	}
+	]
 }
