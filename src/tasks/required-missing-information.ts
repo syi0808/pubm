@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { color, Listr, type ListrTask } from 'listr2';
+import { Listr, type ListrTask, color } from 'listr2';
 import semver from 'semver';
 import { defaultOptions } from '../options.js';
 import { NpmRegistry } from '../registry/npm.js';
