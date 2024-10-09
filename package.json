@@ -3,10 +3,7 @@
 	"version": "0.0.0-alpha.3",
 	"engines": {
 		"node": ">=18",
-		"npm": ">=9",
-		"git": ">=2.11.0",
-		"yarn": ">=1.7.0",
-		"pnpm": ">=8"
+		"git": ">=2.11.0"
 	},
 	"description": "",
 	"type": "module",

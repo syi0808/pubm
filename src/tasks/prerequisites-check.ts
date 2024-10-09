@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask, delay } from 'listr2';
+import { Listr, type ListrTask } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { createRegistry } from '../registry/index.js';
@@ -92,13 +92,6 @@ export const prerequisitesCheckTask: (
 								);
 							}
 						}
-					},
-				},
-				{
-					title: 'Confirming new files and new dependencies',
-					task: async (_, task) => {
-						task.output = 'All good';
-						await delay(1000);
 					},
 				},
 				{

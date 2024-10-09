@@ -47,13 +47,6 @@ export const requiredConditionsCheckTask: (
 						},
 					},
 					{
-						title: 'Checking git remote',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
-					},
-					{
 						title: 'Checking git tag existence',
 						task: async (_, task) => {
 							task.output = 'All good';
