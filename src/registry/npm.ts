@@ -1,13 +1,73 @@
 import { exec } from 'tinyexec';
+import { AbstractError } from '../error.js';
 import { Registry } from './registry.js';
 
+class NpmError extends AbstractError {
+	name = 'npm Error';
+}
+
 export class NpmRegistry extends Registry {
-	constructor(public packageName: string) {
-		super();
+	constructor(
+		public packageName: string,
+		public registry = 'https://registry.npmjs.org',
+	) {
+		super(packageName, registry);
 	}
 
 	async npm(args: string[]) {
-		return (await exec('npm', args, { throwOnError: true })).stdout;
+		const { stdout, stderr } = await exec('npm', args);
+
+		if (stderr) throw stderr;
+
+		return stdout;
+	}
+
+	async isPublished() {
+		try {
+			const response = await fetch(`${this.registry}/${this.packageName}`);
+
+			return response.status === 200;
+		} catch (error) {
+			throw new NpmError(
+				`Failed to fetch \`${this.registry}/${this.packageName}\``,
+				{ cause: error },
+			);
+		}
+	}
+
+	async username() {
+		try {
+			return (await this.npm(['whoami'])).trim();
+		} catch (error) {
+			throw new NpmError('Failed to run `npm whoami`', { cause: error });
+		}
+	}
+
+	async collaborators() {
+		try {
+			return JSON.parse(
+				await this.npm([
+					'access',
+					'list',
+					'collaborators',
+					this.packageName,
+					'--json',
+				]),
+			);
+		} catch (error) {
+			throw new NpmError(
+				`Failed to run \`npm access list collaborators ${this.packageName} --json\``,
+				{ cause: error },
+			);
+		}
+	}
+
+	async hasPermission() {
+		const username = await this.username();
+
+		const collaborators = await this.collaborators();
+
+		return !!collaborators[username]?.includes('write');
 	}
 
 	async distTags() {
@@ -40,6 +100,10 @@ export class NpmRegistry extends Registry {
 	}
 
 	async publish() {
+		return true;
+	}
+
+	async isPackageNameAvaliable() {
 		return true;
 	}
 }

@@ -1,4 +1,4 @@
-export type Registiry = 'npm' | 'jsr' | string;
+export type RegistryType = 'npm' | 'jsr' | string;
 
 export interface Options {
 	/**
@@ -83,7 +83,7 @@ export interface Options {
 	 * @description Target registries for publish
 	 * @default ['npm', 'jsr']
 	 */
-	registries?: Registiry[];
+	registries?: RegistryType[];
 }
 
 export interface ResolvedOptions extends Options {
@@ -91,5 +91,5 @@ export interface ResolvedOptions extends Options {
 	packageManager: string;
 	branch: string;
 	tag: string;
-	registries: Registiry[];
+	registries: RegistryType[];
 }
