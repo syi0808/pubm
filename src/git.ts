@@ -17,14 +17,8 @@ export class Git {
 	async latestTag() {
 		try {
 			return await this.git(['describe', '--tags', '--abbrev=0']);
-		} catch (error) {
-			if (`${error}`.includes('No names found')) {
-				return null;
-			}
-
-			throw new GitError('Failed to retrieve the latest tag on Git.', {
-				cause: error,
-			});
+		} catch {
+			return null;
 		}
 	}
 

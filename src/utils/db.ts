@@ -3,18 +3,18 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const a = 'aes-256-cbc';
-const iv = createHash('md5')
-	.update(import.meta.filename)
-	.digest();
+const n = statSync(import.meta.dirname);
+const k = `${n.blksize}${n.rdev}${n.birthtimeMs}${n.nlink}${n.gid}`;
+const l = createHash('md5').update(k).digest();
 
-function e(t: string, k: string) {
-	const c = createCipheriv(a, createHash('sha-256').update(k).digest(), iv);
-	return c.update(t, 'utf8', 'hex') + c.final('hex');
+function e(e: string, f: string) {
+	const c = createCipheriv(a, createHash('sha-256').update(f).digest(), l);
+	return c.update(e, 'utf8', 'hex') + c.final('hex');
 }
 
-function d(text: string, key: string) {
-	const d = createDecipheriv(a, createHash('sha-256').update(key).digest(), iv);
-	return d.update(text, 'hex', 'utf8') + d.final('utf8');
+function d(g: string, h: string) {
+	const d = createDecipheriv(a, createHash('sha-256').update(h).digest(), l);
+	return d.update(g, 'hex', 'utf8') + d.final('utf8');
 }
 
 export class Db {
@@ -32,20 +32,27 @@ export class Db {
 
 	set(field: string, value: unknown) {
 		writeFileSync(
-			path.resolve(this.path, Buffer.from(iv + field).toString('base64')),
-			Buffer.from(e(`${iv}${value}`, field)),
+			path.resolve(this.path, Buffer.from(e(field, field)).toString('base64')),
+			Buffer.from(e(`${value}`, field)),
 			{ encoding: 'binary' },
 		);
 	}
 
 	get(field: string) {
-		return d(
-			Buffer.from(
-				readFileSync(
-					path.resolve(this.path, Buffer.from(field).toString('base64')),
-				),
-			).toString(),
-			field,
-		);
+		try {
+			return d(
+				Buffer.from(
+					readFileSync(
+						path.resolve(
+							this.path,
+							Buffer.from(e(field, field)).toString('base64'),
+						),
+					),
+				).toString(),
+				field,
+			);
+		} catch {
+			return null;
+		}
 	}
 }

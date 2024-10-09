@@ -1,8 +1,10 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { type ListrTask, PRESET_TIMER } from 'listr2';
+import { type ListrTask, PRESET_TIMER, color } from 'listr2';
+import { AbstractError } from '../error.js';
+import { npmRegistry } from '../registry/npm.js';
 import type { Ctx } from './runner.js';
 
-export const npmPubmTasks: ListrTask<Ctx> = {
+export const npmPublishTasks: ListrTask<Ctx> = {
 	title: 'npm',
 	task: (ctx, task) =>
 		task.newListr(
@@ -57,4 +59,37 @@ export const npmPubmTasks: ListrTask<Ctx> = {
 				fallbackRendererOptions: { timer: PRESET_TIMER },
 			},
 		),
+};
+
+class NpmAvailableError extends AbstractError {
+	name = 'npm is unavailable for publishing.';
+
+	constructor(message: string, { cause }: { cause?: unknown } = {}) {
+		super(message, { cause });
+
+		this.stack = '';
+	}
+}
+
+export const npmAvailableCheckTasks: ListrTask<Ctx> = {
+	title: 'Checking npm avaliable for publising',
+	task: async () => {
+		const npm = await npmRegistry();
+
+		if (await npm.isPublished()) {
+			if (!(await npm.hasPermission())) {
+				throw new NpmAvailableError(
+					`You do not have permission to publish this package on ${color.green('npm')}.`,
+				);
+			}
+
+			return void 0;
+		}
+
+		if (!(await npm.isPackageNameAvaliable())) {
+			throw new NpmAvailableError(
+				`Package is not published on ${color.green('npm')}, and the package name is not available. Please change the package name.`,
+			);
+		}
+	},
 };

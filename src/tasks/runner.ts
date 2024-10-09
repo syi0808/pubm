@@ -2,8 +2,8 @@ import { Listr, color, delay } from 'listr2';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { getJsrJson, getPackageJson } from '../utils/package.js';
-import { jsrPubmTasks } from './jsr.js';
-import { npmPubmTasks } from './npm.js';
+import { jsrPublishTasks } from './jsr.js';
+import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
 
@@ -23,7 +23,7 @@ export async function run(options: ResolvedOptions) {
 			skip: options.skipConditionsCheck,
 		}).run(ctx);
 
-		await new Listr([
+		await new Listr<Ctx>([
 			{
 				skip: options.skipTests,
 				title: 'Running tests',
@@ -50,12 +50,24 @@ export async function run(options: ResolvedOptions) {
 			{
 				skip: options.skipPublish,
 				title: 'Publishing',
-				task: (_, parentTask) =>
-					parentTask.newListr([npmPubmTasks, jsrPubmTasks], {
-						exitOnError: true,
-						concurrent: true,
-						ctx,
-					}),
+				task: (ctx, parentTask) =>
+					parentTask.newListr(
+						ctx.registries.map((registry) => {
+							switch (registry) {
+								case 'npm':
+									return npmPublishTasks;
+								case 'jsr':
+									return jsrPublishTasks;
+								default:
+									return npmPublishTasks;
+							}
+						}),
+						{
+							exitOnError: true,
+							concurrent: true,
+							ctx,
+						},
+					),
 			},
 			{
 				title: 'Pushing tags to GitHub',
@@ -74,8 +86,11 @@ export async function run(options: ResolvedOptions) {
 			},
 		]).run(ctx);
 
+		const npmPackageName = (await getPackageJson()).name;
+		const jsrPackageName = (await getJsrJson()).name;
+
 		console.log(
-			`\n\n🚀 Successfully published ${color.bold(getPackageJson().name)} on ${color.dim('npm')} and ${color.bold(getJsrJson().name)} on ${color.dim('jsr')} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
+			`\n\n🚀 Successfully published ${color.bold(npmPackageName)} on ${color.green('npm')} and ${color.bold(jsrPackageName)} on ${color.yellow('jsr')} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
 		);
 	} catch (e: unknown) {
 		consoleError(e as Error);
