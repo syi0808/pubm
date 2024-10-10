@@ -1,6 +1,8 @@
-import { type Listr, type ListrTask, delay } from 'listr2';
+import type { Listr, ListrTask } from 'listr2';
 import { AbstractError } from '../error.js';
+import { Git } from '../git.js';
 import { getRegistry } from '../registry/index.js';
+import { validateEngineVersion } from '../utils/engine-version.js';
 import { createListr } from '../utils/listr.js';
 import { getPackageJson } from '../utils/package.js';
 import { jsrAvailableCheckTasks } from './jsr.js';
@@ -69,17 +71,11 @@ export const requiredConditionsCheckTask: (
 						},
 					},
 					{
-						title: 'Checking package manager version',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
-					},
-					{
 						title: 'Checking git version',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
+						task: async () => {
+							const git = new Git();
+
+							validateEngineVersion('git', `${await git.version()}`);
 						},
 					},
 					{
