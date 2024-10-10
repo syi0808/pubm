@@ -101,7 +101,7 @@ export const prerequisitesCheckTask: (
 				},
 				{
 					title: 'Checking if the local working tree is clean',
-					task: async (_, task) => {
+					task: async (ctx, task) => {
 						if (await git.status()) {
 							task.output = 'Local working tree is not clean.';
 
@@ -117,7 +117,11 @@ export const prerequisitesCheckTask: (
 									'Local working tree is not clean. Please commit or stash your changes before proceeding.',
 								);
 							}
+
+							ctx.cleanWorkingTree = false;
 						}
+
+						ctx.cleanWorkingTree = true;
 					},
 				},
 				{

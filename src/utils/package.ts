@@ -205,3 +205,5 @@ export async function version({ cwd = process.cwd() } = {}) {
 
 	return version;
 }
+
+export async function replaceVersion(version: string) {}

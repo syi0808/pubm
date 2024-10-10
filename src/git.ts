@@ -172,4 +172,40 @@ export class Git {
 			});
 		}
 	}
+
+	async stageAll() {
+		try {
+			await this.git(['add', '.']);
+
+			return true;
+		} catch (error) {
+			throw new GitError('Failed to run `git add .`', {
+				cause: error,
+			});
+		}
+	}
+
+	async stash() {
+		try {
+			await this.git(['stash']);
+
+			return true;
+		} catch (error) {
+			throw new GitError('Failed to run `git stash`', {
+				cause: error,
+			});
+		}
+	}
+
+	async popStash() {
+		try {
+			await this.git(['stash', 'pop']);
+
+			return true;
+		} catch (error) {
+			throw new GitError('Failed to run `git stash pop`', {
+				cause: error,
+			});
+		}
+	}
 }
