@@ -1,8 +1,8 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
+import { isValidPackageName } from '../utils/package-name.js';
 import { getPackageJson } from '../utils/package.js';
 import { Registry } from './registry.js';
-import { isValidPackageName } from '../utils/package-name.js';
 
 class NpmError extends AbstractError {
 	name = 'npm Error';

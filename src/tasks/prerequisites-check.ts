@@ -7,7 +7,6 @@ import { createListr } from '../utils/listr.js';
 import { jsrAvailableCheckTasks } from './jsr.js';
 import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
-import { Manager } from '@listr2/manager';
 
 class PrerequisitesCheckError extends AbstractError {
 	name = 'Failed prerequisite check';

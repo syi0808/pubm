@@ -13,15 +13,9 @@ importers:
 
   .:
     dependencies:
-      '@listr2/manager':
-        specifier: ^2.0.13
-        version: 2.0.13
       '@listr2/prompt-adapter-enquirer':
         specifier: ^2.0.12
         version: 2.0.12(enquirer@2.4.1)
-      '@types/npm':
-        specifier: ^7.19.3
-        version: 7.19.3
       cac:
         specifier: ^6.7.14
         version: 6.7.14
@@ -47,6 +41,9 @@ importers:
       '@types/node':
         specifier: ^22.7.4
         version: 22.7.4
+      '@types/npm':
+        specifier: ^7.19.3
+        version: 7.19.3
       '@types/picomatch':
         specifier: ^3.0.1
         version: 3.0.1
@@ -452,10 +449,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
-
-  '@listr2/manager@2.0.13':
-    resolution: {integrity: sha512-Xyk9nJ2pKdbEiECRcopy0QujsdQbn/WRnqnQvSyq9+8BqWZWvOxC//cgZMENsfuPJDWheAO8JuKNc00oCJb1vQ==}
-    engines: {node: '>=18.0.0'}
 
   '@listr2/prompt-adapter-enquirer@2.0.12':
     resolution: {integrity: sha512-WR1RvaiRuSOQ8i8Hr6CLlPXFsL2u9xwoADKYD2GeUsk7EBOx7cb9GFvJhHnlVUZq4LaPvY1U1NtrgXoslteaVA==}
@@ -1502,8 +1495,6 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
-
-  '@listr2/manager@2.0.13': {}
 
   '@listr2/prompt-adapter-enquirer@2.0.12(enquirer@2.4.1)':
     dependencies:
