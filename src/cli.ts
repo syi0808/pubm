@@ -1,6 +1,7 @@
 import cac from 'cac';
 import type { OptionConfig } from 'cac/deno/Option.js';
 import semver from 'semver';
+import { consoleError } from './error.js';
 import { pubm } from './index.js';
 import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
 import type { Options } from './types/options.js';
@@ -147,15 +148,19 @@ cli
 			tag: options.tag,
 		};
 
-		await requiredMissingInformationTasks().run(context);
+		try {
+			await requiredMissingInformationTasks().run(context);
 
-		await pubm(
-			resolveCliOptions({
-				...options,
-				version: context.version,
-				tag: context.tag,
-			}),
-		);
+			await pubm(
+				resolveCliOptions({
+					...options,
+					version: context.version,
+					tag: context.tag,
+				}),
+			);
+		} catch (e) {
+			consoleError(e as Error);
+		}
 	});
 
 cli.help((sections) => {

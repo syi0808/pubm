@@ -1,8 +1,9 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask } from 'listr2';
+import type { Listr, ListrTask } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { warningBadge } from '../utils/cli.js';
+import { createListr } from '../utils/listr.js';
 import { jsrAvailableCheckTasks } from './jsr.js';
 import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
@@ -22,7 +23,7 @@ export const prerequisitesCheckTask: (
 ) => Listr<Ctx> = (options) => {
 	const git = new Git();
 
-	return new Listr({
+	return createListr({
 		...options,
 		exitOnError: true,
 		title: 'Prerequisites check (for deployment reliability)',
@@ -95,7 +96,6 @@ export const prerequisitesCheckTask: (
 					},
 				},
 				{
-					rendererOptions: { collapseSubtasks: false },
 					title: 'Checking available registries for publishing',
 					task: async (ctx, parentTask) =>
 						parentTask.newListr(

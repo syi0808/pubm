@@ -121,10 +121,6 @@ export async function getJsrJson({
 	}
 }
 
-export function isScopedPackage(packageName: string) {
-	return /^@[^/]+\/[^@][\w.-]*$/.test(packageName);
-}
-
 export async function packageJsonToJsrJson(packageJson: PackageJson) {
 	const ignore =
 		(await findOutFile('.npmignore')) || (await findOutFile('.gitignore'));

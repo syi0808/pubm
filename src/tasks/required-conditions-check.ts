@@ -1,10 +1,11 @@
-import { Listr, type ListrTask, delay } from 'listr2';
+import { type Listr, type ListrTask, delay } from 'listr2';
+import { createListr } from '../utils/listr.js';
 import type { Ctx } from './runner.js';
 
 export const requiredConditionsCheckTask: (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
 ) => Listr<Ctx> = (options) =>
-	new Listr({
+	createListr({
 		...options,
 		title: 'Required conditions check (for pubm tasks)',
 		task: (_, parentTask) =>
