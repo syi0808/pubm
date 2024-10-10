@@ -208,4 +208,66 @@ export class Git {
 			});
 		}
 	}
+
+	async stage(file: string) {
+		try {
+			await this.git(['add', file]);
+
+			return true;
+		} catch (error) {
+			throw new GitError(`Failed to run \`git add ${file}\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async reset(rev?: string, option?: string) {
+		const args = ['reset', rev, option].filter((v) => v) as string[];
+
+		try {
+			await this.git(args);
+
+			return true;
+		} catch (error) {
+			throw new GitError(`Failed to run \`git ${args.join(' ')}\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async latestCommit() {
+		try {
+			return (await this.git(['rev-parse', 'HEAD'])).trim();
+		} catch (error) {
+			throw new GitError('Failed to run `git rev-parse HEAD`', {
+				cause: error,
+			});
+		}
+	}
+
+	async commit(message: string) {
+		try {
+			await this.git(['commit', '-m', message]);
+
+			return await this.latestCommit();
+		} catch (error) {
+			throw new GitError(`Failed to run \`git commit -m ${message}\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async createTag(tag: string, commitRev?: string) {
+		const args = ['tag', tag, commitRev].filter((v) => v) as string[];
+
+		try {
+			await this.git(args);
+
+			return true;
+		} catch (error) {
+			throw new GitError(`Failed to run \`git ${args.join(' ')}\``, {
+				cause: error,
+			});
+		}
+	}
 }

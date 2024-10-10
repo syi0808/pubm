@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { AbstractError } from '../error.js';
@@ -40,7 +40,7 @@ export async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
 		if (directory === root) return null;
 	}
 
-	return (await readFile(filePath)).toString();
+	return filePath;
 }
 
 export async function getPackageJson({
@@ -50,7 +50,9 @@ export async function getPackageJson({
 	if (cachedPackageJson[cwd]) return cachedPackageJson[cwd];
 
 	try {
-		const raw = await findOutFile('package.json');
+		const packageJsonPath = await findOutFile('package.json');
+
+		const raw = packageJsonPath && (await readFile(packageJsonPath)).toString();
 
 		if (!raw) {
 			if (fallbackMode) {
@@ -91,7 +93,8 @@ export async function getJsrJson({
 	if (cachedJsrJson[cwd]) return cachedJsrJson[cwd];
 
 	try {
-		const raw = await findOutFile('jsr.json');
+		const jsrJsonPath = await findOutFile('jsr.json');
+		const raw = jsrJsonPath && (await readFile(jsrJsonPath)).toString();
 
 		if (!raw) {
 			if (fallbackMode) {
@@ -206,4 +209,39 @@ export async function version({ cwd = process.cwd() } = {}) {
 	return version;
 }
 
-export async function replaceVersion(version: string) {}
+const versionRegex = /("version"\s*:\s*")[^"]*(")/;
+
+export async function replaceVersion(version: string): Promise<string[]> {
+	const results = await Promise.all([
+		(async () => {
+			const packageJsonPath = await findOutFile('package.json');
+
+			if (!packageJsonPath) return void 0;
+
+			const packageJson = (await readFile(packageJsonPath)).toString();
+
+			await writeFile(
+				packageJsonPath,
+				packageJson.replace(versionRegex, `$1${version}$2`),
+			);
+
+			return 'package.json';
+		})(),
+		(async () => {
+			const jsrJsonPath = await findOutFile('jsr.json');
+
+			if (!jsrJsonPath) return void 0;
+
+			const jsrJson = (await readFile(jsrJsonPath)).toString();
+
+			await writeFile(
+				jsrJsonPath,
+				jsrJson.replace(versionRegex, `$1${version}$2`),
+			);
+
+			return 'jsr.json';
+		})(),
+	]);
+
+	return results.filter((v) => v) as unknown as string[];
+}
