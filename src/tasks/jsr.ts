@@ -5,7 +5,9 @@ import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
 import { link } from '../utils/cli.js';
 import { Db } from '../utils/db.js';
-import { isScopedPackage, patchCachedJsrJson } from '../utils/package.js';
+import { getScope, isScopedPackage } from '../utils/package-name.js';
+import { patchCachedJsrJson } from '../utils/package.js';
+import { addRollback } from '../utils/rollback.js';
 import type { Ctx } from './runner.js';
 
 export const jsrPublishTasks: ListrTask<Ctx> = {
@@ -75,15 +77,36 @@ class JsrAvailableError extends AbstractError {
 	}
 }
 
-export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
+interface JsrCtx extends Ctx {
+	scopeCreated: boolean;
+	packageCreated: boolean;
+}
+
+export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 	title: 'Checking jsr avaliable for publising',
-	task: async (_, task) => {
+	task: async (ctx, task) => {
 		const jsr = await jsrRegistry();
 
-		if (!jsr.token) {
+		addRollback(async (ctx) => {
+			if (ctx.packageCreated) {
+				console.log(`Deleting jsr package ${jsr.packageName}...`);
+
+				await jsr.client.deletePackage(jsr.packageName);
+			}
+
+			if (ctx.scopeCreated) {
+				console.log(`Deleting jsr scope ${getScope(jsr.packageName)}...`);
+
+				await jsr.client.deleteScope(`${getScope(jsr.packageName)}`);
+			}
+		}, ctx);
+
+		if (!jsr.client.token) {
 			let token = new Db().get('jsr-token');
 
 			if (!token) {
+				task.output = 'Retrieving jsr API token';
+
 				while (true) {
 					token = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
 						type: 'password',
@@ -91,10 +114,10 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 						footer: `\nGenerate a token from ${color.bold(link('jsr.io', 'https://jsr.io/account/tokens/create/'))}. ${color.red('You should select')} ${color.bold("'Interact with the JSR API'")}.`,
 					});
 
-					jsr.token = token;
+					jsr.client.token = token;
 
 					try {
-						if (await jsr.user()) break;
+						if (await jsr.client.user()) break;
 
 						task.output =
 							'The jsr API token is invalid. Please re-enter a valid token.';
@@ -102,39 +125,54 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 				}
 			}
 
-			jsr.token = token;
+			jsr.client.token = token;
 
-			new Db().set('jsr-token', jsr.token);
+			new Db().set('jsr-token', jsr.client.token);
 		}
 
 		if (!isScopedPackage(jsr.packageName)) {
 			let jsrName = new Db().get(jsr.packageName);
 
+			task.output =
+				'The package name is not scoped. Searching for available scopes on jsr.';
+
+			const scopes = await jsr.client.scopes();
+
 			// biome-ignore lint/suspicious/noConfusingLabels: <explanation>
 			checkScopeTask: if (!jsrName) {
-				const searchResults = (await jsr.searchPackage(jsr.packageName)).items;
+				task.output = 'Select an existing published package to publish.';
 
-				jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-					type: 'select',
-					message:
-						'Is there a scoped package you want to publish in the already published list?',
-					choices: [
-						...searchResults.map(({ scope, name }) => ({
-							message: `@${scope}/${name}`,
-							name: `@${scope}/${name}`,
-						})),
-						{
-							message: 'None',
-							name: 'none',
-						},
-					],
-				});
+				const searchResults = (
+					await Promise.all(
+						scopes.map((scope) =>
+							jsr.client.package(`@${scope}/${jsr.packageName}`),
+						),
+					)
+				).filter((v) => v);
 
-				if (jsrName !== 'none') break checkScopeTask;
+				if (searchResults.length > 0) {
+					jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+						type: 'select',
+						message:
+							'Is there a scoped package you want to publish in the already published list?',
+						choices: [
+							...searchResults.map(({ scope, name }) => ({
+								message: `@${scope}/${name}`,
+								name: `@${scope}/${name}`,
+							})),
+							{
+								message: 'None',
+								name: 'none',
+							},
+						],
+					});
+
+					if (jsrName !== 'none') break checkScopeTask;
+				}
 
 				const userName = await new Git().userName();
 
-				const scopes = await jsr.scopes();
+				task.output = 'Select the scope of the package to publish';
 
 				jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
 					type: 'select',
@@ -180,7 +218,15 @@ export const jsrAvailableCheckTasks: ListrTask<Ctx> = {
 				const scope = jsrName.match(/^@([^/]+)/)?.[1];
 
 				if (scope && !scopes.includes(scope)) {
-					await jsr.createScope(scope);
+					task.output = 'Creating scope for jsr...';
+					await jsr.client.createScope(scope);
+					ctx.scopeCreated = true;
+				}
+
+				if (ctx.scopeCreated || !(await jsr.client.package(jsrName))) {
+					task.output = 'Creating package for jsr...';
+					await jsr.client.createPackage(jsrName);
+					ctx.packageCreated = true;
 				}
 			}
 

@@ -1,9 +1,10 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { Listr, type ListrTask, color } from 'listr2';
+import { type Listr, type ListrTask, color } from 'listr2';
 import semver from 'semver';
 import { defaultOptions } from '../options.js';
 import { jsrRegistry } from '../registry/jsr.js';
 import { npmRegistry } from '../registry/npm.js';
+import { createListr } from '../utils/listr.js';
 import { version } from '../utils/package.js';
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
@@ -16,7 +17,7 @@ interface Ctx {
 export const requiredMissingInformationTasks: (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
 ) => Listr<Ctx> = (options) =>
-	new Listr({
+	createListr<Ctx>({
 		...options,
 		title: 'Checking required information',
 		task: (_, parentTask) =>

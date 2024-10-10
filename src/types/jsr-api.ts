@@ -1,4 +1,4 @@
-export interface Package {
+export interface PackageInterface {
 	scope: string;
 	name: string;
 	description: string;
@@ -73,8 +73,14 @@ export interface UserInfo {
 
 export namespace JsrApi {
 	export interface Packages {
-		items: Package[];
+		items: PackageInterface[];
 		total: number;
+	}
+
+	export namespace Scopes {
+		export namespace Packages {
+			export type Package = PackageInterface;
+		}
 	}
 
 	export namespace Users {

@@ -1,0 +1,19 @@
+diff --git a/dist/index.js b/dist/index.js
+index 7dafae1af7d61488675f0ceca3aeff51e7dd4635..6afadeaec87695a412f9a4055d7d22452527e9dd 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -2265,12 +2265,13 @@ var Listr = class {
+     }
+     return new TaskWrapper(task).run(this.ctx);
+   }
+-  signalHandler() {
++  async signalHandler() {
+     this.tasks?.forEach(async (task) => {
+       if (task.isPending()) {
+         task.state$ = "FAILED" /* FAILED */;
+       }
+     });
++    await this.externalSignalHandler?.(this.ctx);
+     if (this.isRoot()) {
+       this.renderer.end(new Error("Interrupted."));
+       process.exit(127);

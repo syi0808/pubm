@@ -1,6 +1,7 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
 import type { JsrApi } from '../types/jsr-api.js';
+import { getScopeAndName } from '../utils/package-name.js';
 import { getJsrJson, version } from '../utils/package.js';
 import { Registry } from './registry.js';
 
@@ -18,8 +19,13 @@ function getApiEndpoint(registry: string) {
 
 export class JsrRegisry extends Registry {
 	registry = 'https://jsr.io';
-	protected api = getApiEndpoint(this.registry);
-	token?: string;
+	client: JsrClient;
+
+	constructor(packageName: string, registry?: string) {
+		super(packageName, registry);
+
+		this.client = new JsrClient(getApiEndpoint(this.registry));
+	}
 
 	protected async jsr(args: string[]) {
 		const { stdout, stderr } = await exec('jsr', args);
@@ -27,19 +33,6 @@ export class JsrRegisry extends Registry {
 		if (stderr) throw stderr;
 
 		return stdout;
-	}
-
-	protected async fetch(endpoint: string, init?: RequestInit) {
-		const pubmVersion = await version({ cwd: import.meta.dirname });
-
-		return fetch(new URL(endpoint, this.api), {
-			...init,
-			headers: {
-				...init?.headers,
-				Authorization: `Bearer ${this.token}`,
-				'User-Agent': `pubm/${pubmVersion}; https://github.com/syi0808/pubm`,
-			},
-		});
 	}
 
 	async distTags() {
@@ -86,6 +79,34 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
+	async hasPermission() {
+		return true;
+	}
+
+	async isPackageNameAvaliable() {
+		return true;
+	}
+}
+
+export class JsrClient {
+	constructor(
+		public apiEndpoint: string,
+		public token?: string,
+	) {}
+
+	protected async fetch(endpoint: string, init?: RequestInit) {
+		const pubmVersion = await version({ cwd: import.meta.dirname });
+
+		return fetch(new URL(endpoint, this.apiEndpoint), {
+			...init,
+			headers: {
+				...init?.headers,
+				Authorization: `Bearer ${this.token}`,
+				'User-Agent': `pubm/${pubmVersion}; https://github.com/syi0808/pubm`,
+			},
+		});
+	}
+
 	async user() {
 		try {
 			const response = await this.fetch('/user');
@@ -94,7 +115,7 @@ export class JsrRegisry extends Registry {
 
 			return (await response.json()) as JsrApi.Users.User;
 		} catch (error) {
-			throw new JsrError(`Failed to fetch \`${this.api}/user\``, {
+			throw new JsrError(`Failed to fetch \`${this.apiEndpoint}/user\``, {
 				cause: error,
 			});
 		}
@@ -110,9 +131,29 @@ export class JsrRegisry extends Registry {
 				({ scope }) => scope,
 			);
 		} catch (error) {
-			throw new JsrError(`Failed to fetch \`${this.api}/user/scopes\``, {
-				cause: error,
-			});
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/user/scopes\``,
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
+	async package(packageName: string) {
+		const [scope, name] = getScopeAndName(packageName);
+
+		try {
+			const response = await this.fetch(`/scopes/${scope}/packages/${name}`);
+
+			return (await response.json()) as JsrApi.Scopes.Packages.Package;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/user/scopes\``,
+				{
+					cause: error,
+				},
+			);
 		}
 	}
 
@@ -125,9 +166,65 @@ export class JsrRegisry extends Registry {
 
 			return response.status === 200 || response.status === 201;
 		} catch (error) {
-			throw new JsrError(`Failed to fetch \`${this.api}/scopes\``, {
+			throw new JsrError(`Failed to fetch \`${this.apiEndpoint}/scopes\``, {
 				cause: error,
 			});
+		}
+	}
+
+	async deleteScope(scope: string) {
+		try {
+			const response = await this.fetch(`/scopes/${scope}`, {
+				method: 'DELETE',
+			});
+
+			return response.status === 200 || response.status === 204;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/scopes/${scope}\``,
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
+	async createPackage(packageName: string) {
+		const [scope, name] = getScopeAndName(packageName);
+
+		try {
+			const response = await this.fetch(`/scopes/${scope}/packages`, {
+				method: 'POST',
+				body: JSON.stringify({ package: name }),
+			});
+
+			return response.status === 200 || response.status === 201;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages\``,
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
+	async deletePackage(packageName: string) {
+		const [scope, name] = getScopeAndName(packageName);
+
+		try {
+			const response = await this.fetch(`/scopes/${scope}/packages/${name}`, {
+				method: 'DELETE',
+			});
+
+			return response.status === 200 || response.status === 204;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages/${name}\``,
+				{
+					cause: error,
+				},
+			);
 		}
 	}
 
@@ -138,20 +235,12 @@ export class JsrRegisry extends Registry {
 			return (await response.json()) as JsrApi.Packages;
 		} catch (error) {
 			throw new JsrError(
-				`Failed to fetch \`${this.api}/packages?query=${query}\``,
+				`Failed to fetch \`${this.apiEndpoint}/packages?query=${query}\``,
 				{
 					cause: error,
 				},
 			);
 		}
-	}
-
-	async hasPermission() {
-		return true;
-	}
-
-	async isPackageNameAvaliable() {
-		return true;
 	}
 }
 

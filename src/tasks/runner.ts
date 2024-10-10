@@ -1,7 +1,10 @@
-import { Listr, color, delay } from 'listr2';
+import { color, delay } from 'listr2';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
+import { createListr } from '../utils/listr.js';
 import { getJsrJson, getPackageJson } from '../utils/package.js';
+import { processExit } from '../utils/process.js';
+import { rollback } from '../utils/rollback.js';
 import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
@@ -12,7 +15,9 @@ export interface Ctx extends ResolvedOptions {
 }
 
 export async function run(options: ResolvedOptions) {
-	const ctx = { ...options };
+	const ctx = <Ctx>{ ...options };
+
+	processExit(rollback);
 
 	try {
 		await prerequisitesCheckTask({ skip: options.skipPrerequisitesCheck }).run(
@@ -23,7 +28,7 @@ export async function run(options: ResolvedOptions) {
 			skip: options.skipConditionsCheck,
 		}).run(ctx);
 
-		await new Listr<Ctx>([
+		await createListr<Ctx>([
 			{
 				skip: options.skipTests,
 				title: 'Running tests',
@@ -94,5 +99,7 @@ export async function run(options: ResolvedOptions) {
 		);
 	} catch (e: unknown) {
 		consoleError(e as Error);
+
+		await rollback();
 	}
 }
