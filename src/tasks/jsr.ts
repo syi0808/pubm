@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { type ListrTask, PRESET_TIMER, color } from 'listr2';
+import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
@@ -210,56 +210,47 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 export const jsrPublishTasks: ListrTask<Ctx> = {
 	title: 'jsr',
 	task: (ctx, parentTask) =>
-		parentTask.newListr(
-			[
-				{
-					title: 'Running jsr publish',
-					task: async (_, task): Promise<void> => {
-						task.title = 'jsr publish [OTP needed]';
-						task.output = 'waiting for input OTP code';
-
-						if (ctx.progressingPrompt) await ctx.progressingPrompt;
-
-						let response: unknown;
-
-						ctx.progressingPrompt = new Promise((resolve) => {
-							(async () => {
-								try {
-									response = await task
-										.prompt(ListrEnquirerPromptAdapter)
-										.run<boolean>({
-											type: 'password',
-											message: 'jsr OTP code',
-										});
-
-									if (response === '123123') throw new Error('error');
-
-									resolve();
-								} catch {
-									response = await task
-										.prompt(ListrEnquirerPromptAdapter)
-										.run<boolean>({
-											type: 'password',
-											message: 'jsr OTP code',
-										});
-
-									resolve();
-								}
-							})();
-						});
-
-						await ctx.progressingPrompt;
-
-						task.title = `jsr publish [OTP passed] ${response}`;
-					},
-					exitOnError: true,
-				},
-			],
+		parentTask.newListr([
 			{
-				concurrent: false,
-				collectErrors: 'minimal',
-				rendererOptions: { collapseSubtasks: false, timer: PRESET_TIMER },
-				fallbackRendererOptions: { timer: PRESET_TIMER },
+				title: 'Running jsr publish',
+				task: async (_, task): Promise<void> => {
+					task.title = 'jsr publish [OTP needed]';
+					task.output = 'waiting for input OTP code';
+
+					if (ctx.progressingPrompt) await ctx.progressingPrompt;
+
+					let response: unknown;
+
+					ctx.progressingPrompt = new Promise((resolve) => {
+						(async () => {
+							try {
+								response = await task
+									.prompt(ListrEnquirerPromptAdapter)
+									.run<boolean>({
+										type: 'password',
+										message: 'jsr OTP code',
+									});
+
+								if (response === '123123') throw new Error('error');
+
+								resolve();
+							} catch {
+								response = await task
+									.prompt(ListrEnquirerPromptAdapter)
+									.run<boolean>({
+										type: 'password',
+										message: 'jsr OTP code',
+									});
+
+								resolve();
+							}
+						})();
+					});
+
+					await ctx.progressingPrompt;
+
+					task.title = `jsr publish [OTP passed] ${response}`;
+				},
 			},
-		),
+		]),
 };

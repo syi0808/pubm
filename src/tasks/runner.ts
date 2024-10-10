@@ -1,4 +1,4 @@
-import { color, delay } from 'listr2';
+import { color } from 'listr2';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { createListr } from '../utils/listr.js';
@@ -8,6 +8,8 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
+import { exec } from 'tinyexec';
+import { getPackageManager } from '../utils/package-manager.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;
@@ -35,25 +37,34 @@ export async function run(options: ResolvedOptions) {
 			{
 				skip: options.skipTests,
 				title: 'Running tests',
-				task: async (_, task) => {
-					task.output = 'All good';
-					await delay(1000);
+				task: async (ctx) => {
+					const packageManager = await getPackageManager();
+
+					const { stderr } = await exec(packageManager, [
+						'run',
+						ctx.testScript,
+					]);
+
+					if (stderr) throw stderr;
 				},
 			},
 			{
 				skip: options.skipBuild,
 				title: 'Building the project',
-				task: async (_, task) => {
-					task.output = 'All good';
-					await delay(1000);
+				task: async (ctx) => {
+					const packageManager = await getPackageManager();
+
+					const { stderr } = await exec(packageManager, [
+						'run',
+						ctx.buildScript,
+					]);
+
+					if (stderr) throw stderr;
 				},
 			},
 			{
 				title: 'Bumping version',
-				task: async (_, task) => {
-					task.output = 'All good';
-					await delay(1000);
-				},
+				task: async () => {},
 			},
 			{
 				skip: options.skipPublish,
@@ -70,27 +81,17 @@ export async function run(options: ResolvedOptions) {
 									return npmPublishTasks;
 							}
 						}),
-						{
-							exitOnError: true,
-							concurrent: true,
-							ctx,
-						},
+						{ concurrent: true },
 					),
 			},
 			{
 				title: 'Pushing tags to GitHub',
-				task: async (_, task) => {
-					task.output = 'All good';
-					await delay(1000);
-				},
+				task: async () => {},
 			},
 			{
 				skip: options.skipReleaseDraft,
 				title: 'Creating release draft on GitHub',
-				task: async (_, task) => {
-					task.output = 'All good';
-					await delay(1000);
-				},
+				task: async () => {},
 			},
 		]).run(ctx);
 

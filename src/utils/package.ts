@@ -21,7 +21,7 @@ export async function patchCachedJsrJson(
 	cachedJsrJson[cwd] = { ...cachedJsrJson[cwd], ...contents };
 }
 
-async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
+export async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
 	let directory = cwd;
 	let filePath = '';
 	const { root } = path.parse(cwd);

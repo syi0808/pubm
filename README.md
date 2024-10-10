@@ -7,7 +7,7 @@ pubm
 </h1>
 
 <p align="center">
-publish manager for multiple registry (JSR, npm and private registries)
+publish manager for multiple registry (jsr, npm and private registries)
 <p>
 
 ## Why
@@ -19,7 +19,7 @@ It is designed to be easy to managing publish to multiple registry.
 ## Usage
 
 ```bash
-pubm publish
+pubm [version]
 ```
 
 ## Config file for publish
@@ -43,9 +43,9 @@ pubm tasks
   - Checking if remote history is clean... ✅
   - Checking if the local working tree is clean... ✅
   - Checking if commits exist since the last release... ✅
-  - Verifying current branch is a release branch...
-  - Checking git tag existence...
-- Required conditions checks (concurrently) = skip-required (for pubm tasks)
+  - Verifying current branch is a release branch... ✅
+  - Checking git tag existence... ✅
+- Required conditions checks (concurrently) = skip-required (for pubm tasks) ✅
   - Ping registries... ✅
   - Checking if test and build scripts exist... ✅
   - Checking git version... ✅
@@ -53,9 +53,9 @@ pubm tasks
     - in jsr permission check token exist and ask token ✅
     - if first time -> Checking package name availability... ✅
     - if scoped package and scope reserved contact message ✅
-- Running tests...
-- Building the project...
-- Bumping version…
+- Running tests... ✅
+- Building the project... ✅
+- Bumping version...
 - Publishing... (concurrently)
   - npm
       - Running npm publish...
