@@ -81,27 +81,40 @@ export async function run(options: ResolvedOptions) {
 				title: 'Bumping version',
 				task: async (ctx, task) => {
 					const git = new Git();
-					let stashed = false;
+					let tagCreated = false;
+					let commited = false;
 
-					addRollback(async () => {}, ctx);
+					addRollback(async () => {
+						if (tagCreated) {
+							console.log('Deleting tag...');
+							await git.deleteTag(`${await git.latestTag()}`);
+						}
 
-					if (!ctx.cleanWorkingTree) {
-						task.output = 'Stash changes...';
+						if (commited) {
+							console.log('Reset commits...');
+							await git.reset();
+							await git.stash();
+							await git.reset(await git.latestCommit(), '--hard');
+							await git.popStash();
+						}
+					}, ctx);
 
-						await git.stageAll();
-						await git.stash();
+					await git.reset();
+					const replaced = await replaceVersion(ctx.version);
 
-						stashed = true;
+					for (const replacedFile of replaced) {
+						await git.stage(replacedFile);
 					}
 
-					await replaceVersion(ctx.version);
+					const nextVersion = `v${ctx.version}`;
+					const commit = await git.commit(nextVersion);
 
-					if (stashed) {
-						task.output = 'Pop stash...';
-						await git.popStash();
+					commited = true;
 
-						stashed = false;
-					}
+					task.output = 'Creating tag...';
+					await git.createTag(nextVersion, commit);
+
+					tagCreated = true;
 				},
 			},
 			{
