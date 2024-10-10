@@ -1,20 +1,26 @@
 import { color } from 'listr2';
 import { exec } from 'tinyexec';
-import { consoleError } from '../error.js';
+import { AbstractError, consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { createListr } from '../utils/listr.js';
 import { getPackageManager } from '../utils/package-manager.js';
-import { getJsrJson, getPackageJson } from '../utils/package.js';
-import { rollback } from '../utils/rollback.js';
+import {
+	getJsrJson,
+	getPackageJson,
+	replaceVersion,
+} from '../utils/package.js';
+import { addRollback, rollback } from '../utils/rollback.js';
 import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
+import { Git } from '../git.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;
 	npmOnly: boolean;
 	jsrOnly: boolean;
+	cleanWorkingTree: boolean;
 }
 
 export async function run(options: ResolvedOptions) {
@@ -45,7 +51,12 @@ export async function run(options: ResolvedOptions) {
 						ctx.testScript,
 					]);
 
-					if (stderr) throw stderr;
+					if (stderr) {
+						throw new AbstractError(
+							`Failed to run \`${packageManager} run ${ctx.testScript}\``,
+							{ cause: stderr },
+						);
+					}
 				},
 			},
 			{
@@ -54,17 +65,44 @@ export async function run(options: ResolvedOptions) {
 				task: async (ctx) => {
 					const packageManager = await getPackageManager();
 
-					const { stderr } = await exec(packageManager, [
-						'run',
-						ctx.buildScript,
-					]);
-
-					if (stderr) throw stderr;
+					try {
+						await exec(packageManager, ['run', ctx.buildScript], {
+							throwOnError: true,
+						});
+					} catch (error) {
+						throw new AbstractError(
+							`Failed to run \`${packageManager} run ${ctx.buildScript}\``,
+							{ cause: error },
+						);
+					}
 				},
 			},
 			{
 				title: 'Bumping version',
-				task: async () => {},
+				task: async (ctx, task) => {
+					const git = new Git();
+					let stashed = false;
+
+					addRollback(async () => {}, ctx);
+
+					if (!ctx.cleanWorkingTree) {
+						task.output = 'Stash changes...';
+
+						await git.stageAll();
+						await git.stash();
+
+						stashed = true;
+					}
+
+					await replaceVersion(ctx.version);
+
+					if (stashed) {
+						task.output = 'Pop stash...';
+						await git.popStash();
+
+						stashed = false;
+					}
+				},
 			},
 			{
 				skip: options.skipPublish,
