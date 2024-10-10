@@ -42,6 +42,30 @@ export class Git {
 		}
 	}
 
+	async fetch() {
+		try {
+			await this.git(['fetch']);
+
+			return true;
+		} catch (error) {
+			throw new GitError('Failed to run `git fetch`', {
+				cause: error,
+			});
+		}
+	}
+
+	async pull() {
+		try {
+			await this.git(['pull']);
+
+			return true;
+		} catch (error) {
+			throw new GitError('Failed to run `git pull`', {
+				cause: error,
+			});
+		}
+	}
+
 	async revisionDiffsCount() {
 		try {
 			return await Number.parseInt(
@@ -85,6 +109,67 @@ export class Git {
 					cause: error,
 				},
 			);
+		}
+	}
+
+	async version() {
+		try {
+			return (await this.git(['--version'])).trim().match(/\d+\.\d+\.\d+/)?.[0];
+		} catch (error) {
+			throw new GitError('Failed to run `git --version`', {
+				cause: error,
+			});
+		}
+	}
+
+	async branch() {
+		try {
+			return (await this.git(['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+		} catch (error) {
+			throw new GitError('Failed to run `git rev-parse --abbrev-ref HEAD`', {
+				cause: error,
+			});
+		}
+	}
+
+	async switch(branch: string) {
+		try {
+			await this.git(['switch', branch]);
+
+			return true;
+		} catch (error) {
+			throw new GitError(`Failed to run \`git switch ${branch}\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async checkTagExist(tag: string) {
+		try {
+			return (
+				(
+					await this.git(['rev-parse', '-q', '--verify', `refs/tags/${tag}`])
+				).trim() !== ''
+			);
+		} catch (error) {
+			throw new GitError(
+				`Failed to run \`git rev-parse -q --verify refs/tags/${tag}\``,
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
+	async deleteTag(tag: string) {
+		try {
+			await this.git(['tag', '--delete', tag]);
+
+			return true;
+		} catch (error) {
+			throw new GitError(`Failed to run \`git tag --delete ${tag}\``, {
+				cause: error,
+			});
 		}
 	}
 }
