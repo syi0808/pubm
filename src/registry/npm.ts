@@ -92,7 +92,9 @@ export class NpmRegistry extends Registry {
 
 	async ping() {
 		try {
-			await this.npm(['ping']);
+			const { stderr } = await exec('npm', ['ping']);
+
+			if (!stderr.includes('notice PONG')) throw stderr;
 
 			return true;
 		} catch (error) {
