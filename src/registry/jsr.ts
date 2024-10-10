@@ -1,7 +1,11 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
 import type { JsrApi } from '../types/jsr-api.js';
-import { getScopeAndName } from '../utils/package-name.js';
+import {
+	getScope,
+	getScopeAndName,
+	isValidPackageName,
+} from '../utils/package-name.js';
 import { getJsrJson, version } from '../utils/package.js';
 import { Registry } from './registry.js';
 
@@ -80,11 +84,13 @@ export class JsrRegisry extends Registry {
 	}
 
 	async hasPermission() {
-		return true;
+		return (
+			this.client.scopePermission(`${getScope(this.packageName)}`) !== null
+		);
 	}
 
 	async isPackageNameAvaliable() {
-		return true;
+		return isValidPackageName(this.packageName);
 	}
 }
 

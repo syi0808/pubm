@@ -3,7 +3,6 @@ import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { createListr } from '../utils/listr.js';
 import { getJsrJson, getPackageJson } from '../utils/package.js';
-import { processExit } from '../utils/process.js';
 import { rollback } from '../utils/rollback.js';
 import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
@@ -16,8 +15,6 @@ export interface Ctx extends ResolvedOptions {
 
 export async function run(options: ResolvedOptions) {
 	const ctx = <Ctx>{ ...options };
-
-	processExit(rollback);
 
 	try {
 		await prerequisitesCheckTask({ skip: options.skipPrerequisitesCheck }).run(
@@ -101,5 +98,7 @@ export async function run(options: ResolvedOptions) {
 		consoleError(e as Error);
 
 		await rollback();
+
+		process.exit(1);
 	}
 }
