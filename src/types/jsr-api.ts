@@ -71,6 +71,14 @@ export interface UserInfo {
 	updatedAt: string;
 }
 
+export interface PermissionInfo {
+	scope: string;
+	user: UserInfo;
+	isAdmin: boolean;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export namespace JsrApi {
 	export interface Packages {
 		items: PackageInterface[];
@@ -87,5 +95,9 @@ export namespace JsrApi {
 		export type User = UserInfo;
 
 		export type Scopes = Scope[];
+
+		export namespace Scopes {
+			export type Permission = PermissionInfo;
+		}
 	}
 }

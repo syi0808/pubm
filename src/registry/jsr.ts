@@ -121,6 +121,23 @@ export class JsrClient {
 		}
 	}
 
+	async scopePermission(scope: string) {
+		try {
+			const response = await this.fetch(`/user/member/${scope}`);
+
+			if (response.status === 401) return null;
+
+			return (await response.json()) as JsrApi.Users.Scopes.Permission;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to fetch \`${this.apiEndpoint}/user/member/${scope}\``,
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
 	async scopes(): Promise<string[]> {
 		try {
 			const response = await this.fetch('/user/scopes');

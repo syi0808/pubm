@@ -3,6 +3,7 @@ import { type ListrTask, PRESET_TIMER, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
+import { npmRegistry } from '../registry/npm.js';
 import { link } from '../utils/cli.js';
 import { Db } from '../utils/db.js';
 import { getScope, isScopedPackage } from '../utils/package-name.js';
@@ -233,6 +234,17 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 			jsr.packageName = jsrName;
 
 			patchCachedJsrJson({ name: jsr.packageName });
+		}
+
+		const npm = await npmRegistry();
+
+		if (
+			isScopedPackage(npm.packageName) &&
+			!(await jsr.client.scopePermission(`${getScope(npm.packageName)}`))
+		) {
+			throw new JsrAvailableError(
+				`You do not have permission to publish scope '${getScope(npm.packageName)}'. If you want to claim it, please contact ${link('help@jsr.io', 'mailto:help@jsr.io')}.`,
+			);
 		}
 
 		if (await jsr.isPublished()) {

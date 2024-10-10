@@ -35,17 +35,18 @@ pubm tasks
 </summary>
 
 - Notify new version
-- Checking required information
-  - Select SemVer increment or specify new version
-  - Select the tag for this pre-release version in npm: (if version is prerelease) 
-    - checking for the existence of either package.json or jsr.json
-- Prerequisite checks = skip-pre (for deployment reliability)
-  - Checking if remote history is clean...
-  - Checking if the local working tree is clean…
-  - Checking if commits exist since the last release...
-  - Checking available registries for publishing...
-    - in jsr permission check token exist and ask token
-    - if first time -> Checking package name availability...
+- Checking required information ✅
+  - Select SemVer increment or specify new version ✅
+  - Select the tag for this pre-release version in npm: (if version is prerelease) ✅
+    - checking for the existence of either package.json or jsr.json ✅
+- Prerequisite checks = skip-pre (for deployment reliability) ✅
+  - Checking if remote history is clean... ✅
+  - Checking if the local working tree is clean... ✅
+  - Checking if commits exist since the last release... ✅
+  - Checking available registries for publishing... ✅
+    - in jsr permission check token exist and ask token ✅
+    - if first time -> Checking package name availability... ✅
+    - if scoped package and scope reserved contact message
 - Required conditions checks (concurrently) = skip-required (for pubm tasks)
   - Ping registries...
   - Checking if test and build scripts exist...
