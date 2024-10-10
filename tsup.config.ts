@@ -17,5 +17,8 @@ export default defineConfig([
 		clean: true,
 		outDir: './bin',
 		external,
+		banner: {
+			js: '#!/usr/bin/env node\n',
+		},
 	},
 ]);
