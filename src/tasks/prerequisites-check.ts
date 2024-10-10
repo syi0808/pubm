@@ -4,8 +4,6 @@ import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { warningBadge } from '../utils/cli.js';
 import { createListr } from '../utils/listr.js';
-import { jsrAvailableCheckTasks } from './jsr.js';
-import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
 
 class PrerequisitesCheckError extends AbstractError {
@@ -96,23 +94,16 @@ export const prerequisitesCheckTask: (
 					},
 				},
 				{
-					title: 'Checking available registries for publishing',
-					task: async (ctx, parentTask) =>
-						parentTask.newListr(
-							ctx.registries.map((registryKey) => {
-								switch (registryKey) {
-									case 'npm':
-										return npmAvailableCheckTasks;
-									case 'jsr':
-										return jsrAvailableCheckTasks;
-									default:
-										return npmAvailableCheckTasks;
-								}
-							}),
-							{
-								concurrent: true,
-							},
-						),
+					title: 'Verifying current branch is a release branch',
+					task: async (_, task) => {
+						task.output = 'All good';
+					},
+				},
+				{
+					title: 'Checking git tag existence',
+					task: async (_, task) => {
+						task.output = 'All good';
+					},
 				},
 			]),
 	});

@@ -11,10 +11,16 @@ import { requiredConditionsCheckTask } from './required-conditions-check.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;
+	npmOnly: boolean;
+	jsrOnly: boolean;
 }
 
 export async function run(options: ResolvedOptions) {
-	const ctx = <Ctx>{ ...options };
+	const ctx = <Ctx>{
+		...options,
+		npmOnly: options.registries.every((registry) => registry !== 'jsr'),
+		jsrOnly: options.registries.every((registry) => registry === 'jsr'),
+	};
 
 	try {
 		await prerequisitesCheckTask({ skip: options.skipPrerequisitesCheck }).run(
