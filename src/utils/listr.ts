@@ -6,6 +6,8 @@ export function createListr<Context extends {}>(
 ) {
 	const listr = new Listr<Context>(...args);
 
+	listr.isRoot = () => false;
+
 	// externalSignalHandler with pnpm patch
 	// we should make pr on listr2 for new option externalSignalHandler
 	// @ts-ignore

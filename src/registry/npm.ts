@@ -2,6 +2,7 @@ import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
 import { getPackageJson } from '../utils/package.js';
 import { Registry } from './registry.js';
+import { isValidPackageName } from '../utils/package-name.js';
 
 class NpmError extends AbstractError {
 	name = 'npm Error';
@@ -104,7 +105,7 @@ export class NpmRegistry extends Registry {
 	}
 
 	async isPackageNameAvaliable() {
-		return true;
+		return isValidPackageName(this.packageName);
 	}
 }
 

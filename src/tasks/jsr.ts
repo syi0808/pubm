@@ -237,18 +237,16 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 		}
 
 		const npm = await npmRegistry();
+		const hasPermission = await jsr.hasPermission();
 
-		if (
-			isScopedPackage(npm.packageName) &&
-			!(await jsr.client.scopePermission(`${getScope(npm.packageName)}`))
-		) {
+		if (isScopedPackage(npm.packageName) && !hasPermission) {
 			throw new JsrAvailableError(
 				`You do not have permission to publish scope '${getScope(npm.packageName)}'. If you want to claim it, please contact ${link('help@jsr.io', 'mailto:help@jsr.io')}.`,
 			);
 		}
 
 		if (await jsr.isPublished()) {
-			if (!(await jsr.hasPermission())) {
+			if (!hasPermission) {
 				throw new JsrAvailableError(
 					`You do not have permission to publish this package on ${color.yellow('jsr')}.`,
 				);
@@ -259,7 +257,8 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 
 		if (!(await jsr.isPackageNameAvaliable())) {
 			throw new JsrAvailableError(
-				`Package is not published on ${color.yellow('jsr')}, and the package name is not available. Please change the package name.`,
+				`Package is not published on ${color.yellow('jsr')}, and the package name is not available. Please change the package name.
+More information: ${link('npm naming rules', 'https://github.com/npm/validate-npm-package-name?tab=readme-ov-file#naming-rules')}`,
 			);
 		}
 	},

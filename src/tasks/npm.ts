@@ -3,6 +3,7 @@ import { type ListrTask, PRESET_TIMER, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { npmRegistry } from '../registry/npm.js';
 import type { Ctx } from './runner.js';
+import { link } from '../utils/cli.js';
 
 export const npmPublishTasks: ListrTask<Ctx> = {
 	title: 'npm',
@@ -88,7 +89,8 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
 
 		if (!(await npm.isPackageNameAvaliable())) {
 			throw new NpmAvailableError(
-				`Package is not published on ${color.green('npm')}, and the package name is not available. Please change the package name.`,
+				`Package is not published on ${color.green('npm')}, and the package name is not available. Please change the package name.
+More information: ${link('npm naming rules', 'https://github.com/npm/validate-npm-package-name?tab=readme-ov-file#naming-rules')}`,
 			);
 		}
 	},
