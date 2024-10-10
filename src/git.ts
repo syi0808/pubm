@@ -26,7 +26,7 @@ export class Git {
 
 	async latestTag() {
 		try {
-			return await this.git(['describe', '--tags', '--abbrev=0']);
+			return (await this.git(['describe', '--tags', '--abbrev=0'])).trim();
 		} catch {
 			return null;
 		}

@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { type ListrTask, color } from 'listr2';
+import { type ListrTask, ListrTaskState, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
@@ -217,11 +217,16 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
 					task.title = 'jsr publish [OTP needed]';
 					task.output = 'waiting for input OTP code';
 
-					if (ctx.progressingPrompt) await ctx.progressingPrompt;
+					try {
+						if (ctx.progressingPrompt) await ctx.progressingPrompt;
+					} catch {
+						task.task.state$ = ListrTaskState.FAILED;
+						return void 0;
+					}
 
 					let response: unknown;
 
-					ctx.progressingPrompt = new Promise((resolve) => {
+					ctx.progressingPrompt = new Promise((resolve, reject) => {
 						(async () => {
 							try {
 								response = await task
@@ -231,18 +236,9 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
 										message: 'jsr OTP code',
 									});
 
-								if (response === '123123') throw new Error('error');
-
 								resolve();
-							} catch {
-								response = await task
-									.prompt(ListrEnquirerPromptAdapter)
-									.run<boolean>({
-										type: 'password',
-										message: 'jsr OTP code',
-									});
-
-								resolve();
+							} catch (error) {
+								reject(error);
 							}
 						})();
 					});

@@ -94,7 +94,7 @@ export async function run(options: ResolvedOptions) {
 							console.log('Reset commits...');
 							await git.reset();
 							await git.stash();
-							await git.reset(await git.latestCommit(), '--hard');
+							await git.reset('HEAD^', '--hard');
 							await git.popStash();
 						}
 					}, ctx);
