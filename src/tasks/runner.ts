@@ -1,15 +1,15 @@
 import { color } from 'listr2';
+import { exec } from 'tinyexec';
 import { consoleError } from '../error.js';
 import type { ResolvedOptions } from '../types/options.js';
 import { createListr } from '../utils/listr.js';
+import { getPackageManager } from '../utils/package-manager.js';
 import { getJsrJson, getPackageJson } from '../utils/package.js';
 import { rollback } from '../utils/rollback.js';
 import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
-import { exec } from 'tinyexec';
-import { getPackageManager } from '../utils/package-manager.js';
 
 export interface Ctx extends ResolvedOptions {
 	progressingPrompt?: Promise<void>;
