@@ -40,6 +40,11 @@ const options: {
 		options: { default: 'test', type: String },
 	},
 	{
+		rawName: '--build-script <script>',
+		description: 'The npm script to run build before publishing',
+		options: { default: 'build', type: String },
+	},
+	{
 		rawName: '-p, --preview',
 		description: 'Show tasks without actually executing publish',
 		options: { type: Boolean },

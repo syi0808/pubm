@@ -1,6 +1,21 @@
 import { type Listr, type ListrTask, delay } from 'listr2';
+import { AbstractError } from '../error.js';
+import { getRegistry } from '../registry/index.js';
 import { createListr } from '../utils/listr.js';
+import { getPackageJson } from '../utils/package.js';
+import { jsrAvailableCheckTasks } from './jsr.js';
+import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
+
+class RequiredConditionCheckError extends AbstractError {
+	name = 'Failed required condition check';
+
+	constructor(message: string, { cause }: { cause?: unknown } = {}) {
+		super(message, { cause });
+
+		this.stack = '';
+	}
+}
 
 export const requiredConditionsCheckTask: (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
@@ -13,28 +28,48 @@ export const requiredConditionsCheckTask: (
 				[
 					{
 						title: 'Ping registries',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
+						task: async (ctx, parentTask) =>
+							parentTask.newListr(
+								ctx.registries.map((registryKey) => ({
+									title: `Ping to ${registryKey}`,
+									task: async () => {
+										const registry = await getRegistry(registryKey);
+
+										await registry.ping();
+									},
+								})),
+								{
+									concurrent: true,
+								},
+							),
 					},
 					{
 						title: 'Checking if test and build scripts exist',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
+						skip: (ctx) => !ctx.jsrOnly,
+						task: async (ctx) => {
+							const { scripts } = await getPackageJson();
+
+							const errors: string[] = [];
+
+							if (!ctx.skipTests && !scripts?.[ctx.testScript]) {
+								errors.push(`Test script '${ctx.testScript}' does not exist.`);
+							}
+
+							if (!ctx.skipBuild && !scripts?.[ctx.buildScript]) {
+								errors.push(
+									`Build script '${ctx.buildScript}' does not exist.`,
+								);
+							}
+
+							if (errors.length) {
+								throw new RequiredConditionCheckError(
+									`${errors.join(' and ')} Please check your configuration.`,
+								);
+							}
 						},
 					},
 					{
 						title: 'Checking package manager version',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
-					},
-					{
-						skip: () => true,
-						title: 'Verifying user authentication',
 						task: async (_, task) => {
 							task.output = 'All good';
 							await delay(1000);
@@ -48,25 +83,23 @@ export const requiredConditionsCheckTask: (
 						},
 					},
 					{
-						title: 'Checking git tag existence',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
-					},
-					{
-						title: 'Verifying current branch is a release branch',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
-					},
-					{
-						title: 'Checking if registry cli are installed',
-						task: async (_, task) => {
-							task.output = 'All good';
-							await delay(1000);
-						},
+						title: 'Checking available registries for publishing',
+						task: async (ctx, parentTask) =>
+							parentTask.newListr(
+								ctx.registries.map((registryKey) => {
+									switch (registryKey) {
+										case 'npm':
+											return npmAvailableCheckTasks;
+										case 'jsr':
+											return jsrAvailableCheckTasks;
+										default:
+											return npmAvailableCheckTasks;
+									}
+								}),
+								{
+									concurrent: true,
+								},
+							),
 					},
 				],
 				{

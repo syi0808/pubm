@@ -11,6 +11,11 @@ export interface Options {
 	 */
 	testScript?: string;
 	/**
+	 * @description The npm script to run build before publishing
+	 * @default "build"
+	 */
+	buildScript?: string;
+	/**
 	 * @description Run tasks without actually publishing
 	 * @default false
 	 */
@@ -88,6 +93,7 @@ export interface Options {
 
 export interface ResolvedOptions extends Options {
 	testScript: string;
+	buildScript: string;
 	packageManager: string;
 	branch: string;
 	tag: string;
