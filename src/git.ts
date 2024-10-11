@@ -97,8 +97,6 @@ export class Git {
 				'--format=%H %s',
 			]);
 
-			console.log(logs);
-
 			return logs
 				.split('\n')
 				.flatMap((log) =>
