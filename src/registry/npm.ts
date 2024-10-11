@@ -100,8 +100,24 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async publish() {
-		return true;
+	async publish(otp?: string) {
+		const args = otp ? ['publish', '--otp', otp] : ['publish'];
+
+		try {
+			try {
+				await this.npm(args);
+			} catch (error) {
+				if (`${error}`.includes('OTP')) {
+					return false;
+				}
+			}
+
+			return true;
+		} catch (error) {
+			throw new NpmError(`Failed to run \`npm ${args.join(' ')}\``, {
+				cause: error,
+			});
+		}
 	}
 
 	async isPackageNameAvaliable() {

@@ -63,7 +63,16 @@ export class JsrRegisry extends Registry {
 	}
 
 	async publish() {
-		return true;
+		try {
+			await this.jsr(['publish', '--token', `${this.client.token}`]);
+
+			return true;
+		} catch (error) {
+			throw new JsrError(
+				`Failed to run \`jsr publish --token ${this.client.token}\``,
+				{ cause: error },
+			);
+		}
 	}
 
 	async version() {

@@ -25,7 +25,7 @@ export async function notifyNewVersion() {
 
 				if (newVersion !== currentVersion) {
 					console.log(
-						`Update available! \`${name}\` ${color.red(currentVersion)} → ${color.green(newVersion)}`,
+						`\nUpdate available! \`${name}\` ${color.red(currentVersion)} → ${color.green(newVersion)}\n`,
 					);
 				}
 			} catch {}
@@ -52,7 +52,7 @@ export async function notifyNewVersion() {
 
 				if (newVersion && newVersion !== currentVersion) {
 					console.log(
-						`Update available! \`${name}\` ${color.red(currentVersion)} → ${color.green(newVersion)}`,
+						`\nUpdate available! \`${name}\` ${color.red(currentVersion)} → ${color.green(newVersion)}\n`,
 					);
 				}
 			} catch {}

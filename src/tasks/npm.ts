@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { type ListrTask, ListrTaskState, color } from 'listr2';
+import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { npmRegistry } from '../registry/npm.js';
 import { link } from '../utils/cli.js';
@@ -41,43 +41,33 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 
 export const npmPublishTasks: ListrTask<Ctx> = {
 	title: 'npm',
-	task: (ctx, task) =>
-		task.newListr([
+	task: (_, parentTask) =>
+		parentTask.newListr([
 			{
 				title: 'Running npm publish',
 				task: async (_, task): Promise<void> => {
-					task.title = 'npm publish [OTP needed]';
-					task.output = 'waiting for input OTP code';
+					const npm = await npmRegistry();
 
-					try {
-						if (ctx.progressingPrompt) await ctx.progressingPrompt;
-					} catch {
-						task.task.state$ = ListrTaskState.FAILED;
-						return void 0;
+					task.output = 'Publishing on npm...';
+
+					let result = await npm.publish();
+
+					if (!result) {
+						task.title = 'Running npm publish (OTP code needed)';
+
+						while (!result) {
+							task.output = '2FA failed';
+
+							result = await npm.publish(
+								await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+									type: 'password',
+									message: 'npm OTP code',
+								}),
+							);
+						}
+
+						task.title = 'Running npm publish (2FA passed)';
 					}
-
-					let response: unknown;
-
-					ctx.progressingPrompt = new Promise((resolve, reject) => {
-						(async () => {
-							try {
-								response = await task
-									.prompt(ListrEnquirerPromptAdapter)
-									.run<boolean>({
-										type: 'password',
-										message: 'npm OTP code',
-									});
-
-								resolve();
-							} catch (error) {
-								reject(error);
-							}
-						})();
-					});
-
-					await ctx.progressingPrompt;
-
-					task.title = `npm publish [OTP passed] ${response}`;
 				},
 			},
 		]),

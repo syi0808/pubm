@@ -1,5 +1,5 @@
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { type ListrTask, ListrTaskState, color } from 'listr2';
+import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { jsrRegistry } from '../registry/jsr.js';
@@ -209,43 +209,16 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 
 export const jsrPublishTasks: ListrTask<Ctx> = {
 	title: 'jsr',
-	task: (ctx, parentTask) =>
+	task: (_, parentTask) =>
 		parentTask.newListr([
 			{
 				title: 'Running jsr publish',
 				task: async (_, task): Promise<void> => {
-					task.title = 'jsr publish [OTP needed]';
-					task.output = 'waiting for input OTP code';
+					const jsr = await jsrRegistry();
 
-					try {
-						if (ctx.progressingPrompt) await ctx.progressingPrompt;
-					} catch {
-						task.task.state$ = ListrTaskState.FAILED;
-						return void 0;
-					}
+					task.output = 'Publishing on jsr...';
 
-					let response: unknown;
-
-					ctx.progressingPrompt = new Promise((resolve, reject) => {
-						(async () => {
-							try {
-								response = await task
-									.prompt(ListrEnquirerPromptAdapter)
-									.run<boolean>({
-										type: 'password',
-										message: 'jsr OTP code',
-									});
-
-								resolve();
-							} catch (error) {
-								reject(error);
-							}
-						})();
-					});
-
-					await ctx.progressingPrompt;
-
-					task.title = `jsr publish [OTP passed] ${response}`;
+					await jsr.publish();
 				},
 			},
 		]),

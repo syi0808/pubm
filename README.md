@@ -34,7 +34,7 @@ You can have either package.json or jsr.json.
 pubm tasks
 </summary>
 
-- Notify new version
+- Notify new version ✅
 - Checking required information ✅
   - Select SemVer increment or specify new version ✅
   - Select the tag for this pre-release version in npm: (if version is prerelease) ✅
@@ -46,6 +46,7 @@ pubm tasks
   - Verifying current branch is a release branch... ✅
   - Checking git tag existence... ✅
 - Required conditions checks (concurrently) = skip-required (for pubm tasks) ✅
+  - Verifying if npm CLI and jsr CLI are installed...
   - Ping registries... ✅
   - Checking if test and build scripts exist... ✅
   - Checking git version... ✅
@@ -56,13 +57,12 @@ pubm tasks
 - Running tests... ✅
 - Building the project... ✅
 - Bumping version... ✅
-- Publishing... (concurrently)
-  - npm
-      - Running npm publish...
-      - Verifying two-factor authentication...
-  - jsr
-      - Running jsr publish...
-      - Verifying two-factor authentication...
+- Publishing... (concurrently) ✅
+  - npm ✅
+      - Running npm publish... ✅
+      - Verifying two-factor authentication... ✅
+  - jsr ✅
+      - Running jsr publish... ✅
 - Pushing tags to GitHub...
 - Creating release draft on GitHub...
 </details>
