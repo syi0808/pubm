@@ -31,11 +31,6 @@ export interface Options {
 	 */
 	anyBranch?: boolean;
 	/**
-	 * @description Skip cleaning the `node_modules` directory
-	 * @default false
-	 */
-	skipCleanup?: boolean;
-	/**
 	 * @description Skip running tests before publishing
 	 * @default false
 	 */
@@ -66,24 +61,19 @@ export interface Options {
 	 */
 	skipConditionsCheck?: boolean;
 	/**
-	 * @description Skip both cleanup and tests
-	 * @default false
-	 */
-	yolo?: boolean;
-	/**
 	 * @description Publish under a specific dist-tag
 	 * @default "latest"
 	 */
 	tag?: string;
 	/**
-	 * @description Use a specific package manager
-	 * @default 'packageManager' field in package.json or package manager configuration file
-	 */
-	packageManager?: string;
-	/**
 	 * @description Subdirectory to publish
 	 */
 	contents?: string;
+	/**
+	 * @description Do not save jsr tokens (requested for every run)
+	 * @default true
+	 */
+	saveToken?: boolean;
 	/**
 	 * @description Target registries for publish
 	 * @default ['npm', 'jsr']
@@ -94,8 +84,8 @@ export interface Options {
 export interface ResolvedOptions extends Options {
 	testScript: string;
 	buildScript: string;
-	packageManager: string;
 	branch: string;
 	tag: string;
+	saveToken: boolean;
 	registries: RegistryType[];
 }

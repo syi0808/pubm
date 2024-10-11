@@ -2,7 +2,7 @@ import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
-import { jsrRegistry } from '../registry/jsr.js';
+import { JsrClient, jsrRegistry } from '../registry/jsr.js';
 import { npmRegistry } from '../registry/npm.js';
 import { link } from '../utils/cli.js';
 import { Db } from '../utils/db.js';
@@ -45,11 +45,11 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 			}
 		}, ctx);
 
-		if (!jsr.client.token) {
+		if (!JsrClient.token) {
 			task.output = 'Retrieving jsr API token';
 
 			while (true) {
-				jsr.client.token = await task
+				JsrClient.token = await task
 					.prompt(ListrEnquirerPromptAdapter)
 					.run<string>({
 						type: 'password',
@@ -65,7 +65,7 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 				} catch {}
 			}
 
-			new Db().set('jsr-token', jsr.client.token);
+			if (ctx.saveToken) new Db().set('jsr-token', JsrClient.token);
 		}
 
 		if (!isScopedPackage(jsr.packageName)) {

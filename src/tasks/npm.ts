@@ -17,6 +17,7 @@ class NpmAvailableError extends AbstractError {
 
 export const npmAvailableCheckTasks: ListrTask<Ctx> = {
 	title: 'Checking npm avaliable for publising',
+	skip: (ctx) => !!ctx.preview,
 	task: async () => {
 		const npm = await npmRegistry();
 
@@ -41,6 +42,7 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 
 export const npmPublishTasks: ListrTask<Ctx> = {
 	title: 'Running npm publish',
+	skip: (ctx) => !!ctx.preview,
 	task: async (_, task): Promise<void> => {
 		const npm = await npmRegistry();
 
