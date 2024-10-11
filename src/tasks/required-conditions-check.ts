@@ -107,7 +107,7 @@ export const requiredConditionsCheckTask: (
 					},
 					{
 						title: 'Checking if test and build scripts exist',
-						skip: (ctx) => !ctx.jsrOnly,
+						skip: (ctx) => ctx.jsrOnly,
 						task: async (ctx) => {
 							const { scripts } = await getPackageJson();
 
