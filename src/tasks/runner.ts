@@ -1,3 +1,4 @@
+import process from 'node:process';
 import npmCli from '@npmcli/promise-spawn';
 import { color } from 'listr2';
 import SemVer from 'semver';
@@ -18,7 +19,6 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
-import process from 'node:process';
 
 const { open } = npmCli;
 const { prerelease } = SemVer;
