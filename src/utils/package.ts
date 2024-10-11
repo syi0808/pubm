@@ -45,7 +45,7 @@ export async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
 
 export async function getPackageJson({
 	cwd = process.cwd(),
-	fallbackMode = false,
+	fallbackJsr = true,
 } = {}): Promise<PackageJson> {
 	if (cachedPackageJson[cwd]) return cachedPackageJson[cwd];
 
@@ -55,7 +55,7 @@ export async function getPackageJson({
 		const raw = packageJsonPath && (await readFile(packageJsonPath)).toString();
 
 		if (!raw) {
-			if (fallbackMode) {
+			if (!fallbackJsr) {
 				throw new Error(
 					"Can't find either package.json or jsr.json. Please create one of them.",
 				);
@@ -66,7 +66,7 @@ export async function getPackageJson({
 			);
 
 			const packageJson = await jsrJsonToPackageJson(
-				await getJsrJson({ fallbackMode: true }),
+				await getJsrJson({ fallbackPackage: false }),
 			);
 
 			cachedPackageJson[cwd] = packageJson;
@@ -77,7 +77,7 @@ export async function getPackageJson({
 		const packageJson = JSON.parse(raw);
 		cachedPackageJson[cwd] = packageJson;
 
-		return packageJson as PackageJson;
+		return packageJson;
 	} catch (error) {
 		throw new AbstractError(
 			'The root package.json is not in valid JSON format. Please check the file for errors.',
@@ -88,7 +88,7 @@ export async function getPackageJson({
 
 export async function getJsrJson({
 	cwd = process.cwd(),
-	fallbackMode = false,
+	fallbackPackage = true,
 } = {}): Promise<JsrJson> {
 	if (cachedJsrJson[cwd]) return cachedJsrJson[cwd];
 
@@ -97,14 +97,14 @@ export async function getJsrJson({
 		const raw = jsrJsonPath && (await readFile(jsrJsonPath)).toString();
 
 		if (!raw) {
-			if (fallbackMode) {
+			if (!fallbackPackage) {
 				throw new Error(
 					"Can't find either package.json or jsr.json. Please create one of them.",
 				);
 			}
 
 			const jsrJson = await packageJsonToJsrJson(
-				await getPackageJson({ fallbackMode: true }),
+				await getPackageJson({ fallbackJsr: false }),
 			);
 
 			cachedJsrJson[cwd] = jsrJson;
@@ -115,7 +115,7 @@ export async function getJsrJson({
 		const jsrJson = JSON.parse(raw);
 		cachedJsrJson[cwd] = jsrJson;
 
-		return jsrJson as JsrJson;
+		return jsrJson;
 	} catch (error) {
 		throw new AbstractError(
 			'The root jsr.json is not in valid JSON format. Please check the file for errors.',

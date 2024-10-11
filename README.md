@@ -55,7 +55,7 @@ pubm tasks
     - if scoped package and scope reserved contact message ✅
 - Running tests... ✅
 - Building the project... ✅
-- Bumping version...
+- Bumping version... ✅
 - Publishing... (concurrently)
   - npm
       - Running npm publish...

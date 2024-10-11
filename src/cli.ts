@@ -5,6 +5,7 @@ import { consoleError } from './error.js';
 import { pubm } from './index.js';
 import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
 import type { Options } from './types/options.js';
+import { notifyNewVersion } from './utils/notify-new-version.js';
 import { version } from './utils/package.js';
 
 const { RELEASE_TYPES } = semver;
@@ -175,6 +176,8 @@ cli.help((sections) => {
 });
 
 (async () => {
+	await notifyNewVersion();
+
 	cli.version(await version({ cwd: import.meta.dirname }));
 
 	cli.parse();
