@@ -149,7 +149,7 @@ export async function run(options: ResolvedOptions) {
 				task: async (_, task) => {
 					const git = new Git();
 
-					const result = await git.push();
+					const result = await git.push('--follow-tags');
 
 					if (!result) {
 						task.title +=
