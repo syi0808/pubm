@@ -192,7 +192,7 @@ export async function run(options: ResolvedOptions) {
 						`${!!prerelease(ctx.version)}`,
 					);
 
-					const linkUrl = link('Draft link', releaseDraftUrl.toString());
+					const linkUrl = link('Link', releaseDraftUrl.toString());
 
 					task.title += ` ${linkUrl}`;
 
