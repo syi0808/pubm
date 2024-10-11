@@ -1,8 +1,33 @@
 diff --git a/dist/index.js b/dist/index.js
-index 7dafae1af7d61488675f0ceca3aeff51e7dd4635..6afadeaec87695a412f9a4055d7d22452527e9dd 100644
+index 7dafae1af7d61488675f0ceca3aeff51e7dd4635..0ba695b53bb2e4cee7a313bf1bfdf3d2344762a4 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -2265,12 +2265,13 @@ var Listr = class {
+@@ -124,9 +124,23 @@ __name(isUnicodeSupported, "isUnicodeSupported");
+ var CLEAR_LINE_REGEX = "(?:\\u001b|\\u009b)\\[[\\=><~/#&.:=?%@~_-]*[0-9]*[\\a-ln-tqyz=><~/#&.:=?%@~_-]+";
+ var BELL_REGEX = /\u0007/;
+ 
++var HYPERLINK_REGEX = /(?:\u001b\]8;;.*?\u0007.*?\u001b\]8;;\u0007)/g;
++
+ // src/utils/format/cleanse-ansi.ts
+ function cleanseAnsi(chunk) {
+-  return String(chunk).replace(new RegExp(CLEAR_LINE_REGEX, "gmi"), "").replace(new RegExp(BELL_REGEX, "gmi"), "").trim();
++  const hyperlinks = chunk.match(HYPERLINK_REGEX) || [];
++  
++  let cleansedChunk = String(chunk)
++    .replace(new RegExp(HYPERLINK_REGEX, "g"), "__HYPERLINK__")
++    .replace(new RegExp(CLEAR_LINE_REGEX, "gmi"), "")
++    .replace(new RegExp(BELL_REGEX, "gmi"), "")
++    .trim();
++  
++  hyperlinks.forEach(link => {
++    cleansedChunk = cleansedChunk.replace("__HYPERLINK__", link);
++  });
++
++  return cleansedChunk;
+ }
+ __name(cleanseAnsi, "cleanseAnsi");
+ 
+@@ -2265,12 +2279,13 @@ var Listr = class {
      }
      return new TaskWrapper(task).run(this.ctx);
    }

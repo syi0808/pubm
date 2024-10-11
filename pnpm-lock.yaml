@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   listr2:
-    hash: jtb2gt5eectxl7wzfmmpsscwo4
+    hash: dzzw7eoo3mv4jvfzuqul4v6lc4
     path: patches/listr2.patch
 
 importers:
@@ -27,7 +27,7 @@ importers:
         version: 2.4.1
       listr2:
         specifier: ^8.2.5
-        version: 8.2.5(patch_hash=jtb2gt5eectxl7wzfmmpsscwo4)
+        version: 8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4)
       picomatch:
         specifier: ^4.0.2
         version: 4.0.2
@@ -1938,7 +1938,7 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  listr2@8.2.5(patch_hash=jtb2gt5eectxl7wzfmmpsscwo4):
+  listr2@8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4):
     dependencies:
       cli-truncate: 4.0.0
       colorette: 2.0.20
