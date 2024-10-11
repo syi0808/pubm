@@ -19,6 +19,28 @@ export class NpmRegistry extends Registry {
 		return stdout;
 	}
 
+	async isInstalled() {
+		try {
+			await this.npm(['--help']);
+
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	async installGlobally(packageName: string) {
+		try {
+			await this.npm(['install', '-g', packageName]);
+
+			return true;
+		} catch (error) {
+			throw new NpmError(`Failed to run \`npm install -g ${packageName}\``, {
+				cause: error,
+			});
+		}
+	}
+
 	async isPublished() {
 		try {
 			const response = await fetch(`${this.registry}/${this.packageName}`);

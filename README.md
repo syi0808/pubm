@@ -46,7 +46,7 @@ pubm tasks
   - Verifying current branch is a release branch... ✅
   - Checking git tag existence... ✅
 - Required conditions checks (concurrently) = skip-required (for pubm tasks) ✅
-  - Verifying if npm CLI and jsr CLI are installed...
+  - Verifying if npm CLI and jsr CLI are installed... ✅
   - Ping registries... ✅
   - Checking if test and build scripts exist... ✅
   - Checking git version... ✅

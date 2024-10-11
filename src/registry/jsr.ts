@@ -39,6 +39,16 @@ export class JsrRegisry extends Registry {
 		return stdout;
 	}
 
+	async isInstalled() {
+		try {
+			await this.jsr(['--help']);
+
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async distTags() {
 		return [];
 	}
