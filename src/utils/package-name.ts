@@ -13,7 +13,7 @@ export function getScopeAndName(packageName: string) {
 	const scope = matches?.[1];
 	const name = matches?.[2];
 
-	return [scope, name];
+	return [scope, name] as [string, string];
 }
 
 // Based on https://github.com/npm/validate-npm-package-name/blob/main/lib/index.js
