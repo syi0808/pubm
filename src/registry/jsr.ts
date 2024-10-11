@@ -8,6 +8,7 @@ import {
 } from '../utils/package-name.js';
 import { getJsrJson, version } from '../utils/package.js';
 import { Registry } from './registry.js';
+import { Db } from '../utils/db.js';
 
 class JsrError extends AbstractError {
 	name = 'jsr Error';
@@ -117,7 +118,13 @@ export class JsrClient {
 	constructor(
 		public apiEndpoint: string,
 		public token?: string,
-	) {}
+	) {
+		if (!this.token) {
+			const token = new Db().get('jsr-token');
+
+			if (token) this.token = token;
+		}
+	}
 
 	protected async fetch(endpoint: string, init?: RequestInit) {
 		const pubmVersion = await version({ cwd: import.meta.dirname });

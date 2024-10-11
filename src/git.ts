@@ -245,6 +245,16 @@ export class Git {
 		}
 	}
 
+	async firstCommit() {
+		try {
+			return (await this.git(['rev-list', '--max-parents=0', 'HEAD'])).trim();
+		} catch (error) {
+			throw new GitError('Failed to run `git rev-list --max-parents=0 HEAD`', {
+				cause: error,
+			});
+		}
+	}
+
 	async commit(message: string) {
 		try {
 			await this.git(['commit', '-m', message]);
@@ -265,6 +275,24 @@ export class Git {
 
 			return true;
 		} catch (error) {
+			throw new GitError(`Failed to run \`git ${args.join(' ')}\``, {
+				cause: error,
+			});
+		}
+	}
+
+	async push(options?: string) {
+		const args = ['push', options].filter((v) => v) as string[];
+
+		try {
+			await this.git(args);
+
+			return true;
+		} catch (error) {
+			if (`${error}`.includes('GH006')) {
+				return false;
+			}
+
 			throw new GitError(`Failed to run \`git ${args.join(' ')}\``, {
 				cause: error,
 			});

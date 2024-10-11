@@ -13,6 +13,8 @@ publish manager for multiple registry (jsr, npm and private registries)
 ## Why
 
 - Customize with plugin
+  - GitHub release draft format
+  - Adjust tasks (Add, Remove, Sorting)
 
 It is designed to be easy to managing publish to multiple registry.
 
