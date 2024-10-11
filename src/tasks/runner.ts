@@ -167,10 +167,9 @@ export async function run(options: ResolvedOptions) {
 
 					const repositoryUrl = await git.repository();
 
-					const commits = await git.commits(
-						ctx.lastRev,
-						`${await git.latestTag()}`,
-					);
+					const commits = (
+						await git.commits(ctx.lastRev, `${await git.latestTag()}`)
+					).slice(0, -1);
 
 					const latestTag = await git.latestTag();
 
@@ -188,7 +187,7 @@ export async function run(options: ResolvedOptions) {
 					releaseDraftUrl.searchParams.set('tag', `${latestTag}`);
 					releaseDraftUrl.searchParams.set('body', body);
 					releaseDraftUrl.searchParams.set(
-						'isPrerelease',
+						'prerelease',
 						`${!!prerelease(ctx.version)}`,
 					);
 
