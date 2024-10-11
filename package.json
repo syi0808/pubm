@@ -11,7 +11,9 @@
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
-	"bin": "./bin/index.js",
+	"bin": {
+		"pubm": "bin/cli.js"
+	},
 	"files": ["dist", "bin"],
 	"exports": {
 		".": {

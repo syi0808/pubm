@@ -17,7 +17,6 @@ import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
 
 export interface Ctx extends ResolvedOptions {
-	progressingPrompt?: Promise<void>;
 	npmOnly: boolean;
 	jsrOnly: boolean;
 	cleanWorkingTree: boolean;
