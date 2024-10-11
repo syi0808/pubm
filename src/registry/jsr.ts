@@ -77,7 +77,7 @@ export class JsrRegisry extends Registry {
 		try {
 			await exec(
 				'jsr',
-				['publish', '--allow-dirty', '--token', `${this.client.token}`],
+				['publish', '--allow-dirty', '--token', `${JsrClient.token}`],
 				{
 					throwOnError: true,
 				},
@@ -123,16 +123,9 @@ export class JsrRegisry extends Registry {
 }
 
 export class JsrClient {
-	constructor(
-		public apiEndpoint: string,
-		public token?: string,
-	) {
-		if (!this.token) {
-			const token = new Db().get('jsr-token');
+	static token = new Db().get('jsr-token');
 
-			if (token) this.token = token;
-		}
-	}
+	constructor(public apiEndpoint: string) {}
 
 	protected async fetch(endpoint: string, init?: RequestInit) {
 		const pubmVersion = await version({ cwd: import.meta.dirname });
@@ -141,7 +134,7 @@ export class JsrClient {
 			...init,
 			headers: {
 				...init?.headers,
-				Authorization: `Bearer ${this.token}`,
+				Authorization: `Bearer ${JsrClient.token}`,
 				'User-Agent': `pubm/${pubmVersion}; https://github.com/syi0808/pubm`,
 			},
 		});

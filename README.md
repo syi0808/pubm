@@ -10,23 +10,62 @@ pubm
 publish manager for multiple registry (jsr, npm and private registries)
 <p>
 
-## Why
+## Features
 
-- Customize with plugin
+- Publish package to npm and jsr at once
+- Customize (Soon)
   - GitHub release draft format
-  - Adjust tasks (Add, Remove, Sorting)
+  - Adjust tasks (Add, Remove, Sorting tasks)
 
-It is designed to be easy to managing publish to multiple registry.
+## Prerequisites
+
+- Node.js 18 or later
+- npm 9 or later
+- Git 2.11 or later
+
+## Install
+
+```bash
+npm i -g pubm
+```
 
 ## Usage
 
 ```bash
-pubm [version]
+Usage:
+  $ pubm [version]
+
+  Version can be:
+    major | premajor | minor | preminor | patch | prepatch | prerelease | 1.2.3
+
+Options:
+  --test-script <script>      The npm script to run tests before publishing (default: test)
+  --build-script <script>     The npm script to run build before publishing (default: build)
+  -p, --preview               Show tasks without actually executing publish 
+  -b, --branch <name>         Name of the release branch (default: main)
+  -a, --any-branch            Show tasks without actually executing publish 
+  --no-pre-check              Skip prerequisites check task
+  --no-condition-check        Skip required conditions check task
+  --no-tests                  Skip running tests before publishing
+  --no-build                  Skip build before publishing
+  --no-publish                Skip publishing task
+  --no-release-draft          Skip creating a GitHub release draft
+  -t, --tag <name>            Publish under a specific dist-tag (default: latest)
+  -c, --contents <path>       Subdirectory to publish 
+  --no-save-token             Do not save jsr tokens (requested for every run)
+  --registry <...registries>  Target registries for publish
+        registry can be npm | jsr | https://url.for.private-registries (default: npm,jsr)
+  -h, --help                  Display this message 
+  -v, --version               Display version number
 ```
 
-## Config file for publish
+## Config for publish
 
 You can have either package.json or jsr.json.
+
+### Configuration file (Soon)
+
+`pubm.js` or `pubm.mjs`
 
 
 ## Tasks
@@ -36,35 +75,35 @@ You can have either package.json or jsr.json.
 pubm tasks
 </summary>
 
-- Notify new version ✅
-- Checking required information ✅
-  - Select SemVer increment or specify new version ✅
-  - Select the tag for this pre-release version in npm: (if version is prerelease) ✅
-    - checking for the existence of either package.json or jsr.json ✅
-- Prerequisite checks = skip-pre (for deployment reliability) ✅
-  - Checking if remote history is clean... ✅
-  - Checking if the local working tree is clean... ✅
-  - Checking if commits exist since the last release... ✅
-  - Verifying current branch is a release branch... ✅
-  - Checking git tag existence... ✅
-- Required conditions checks (concurrently) = skip-required (for pubm tasks) ✅
-  - Verifying if npm CLI and jsr CLI are installed... ✅
-  - Ping registries... ✅
-  - Checking if test and build scripts exist... ✅
-  - Checking git version... ✅
-  - Checking available registries for publishing... ✅
-    - in jsr permission check token exist and ask token ✅
-    - if first time -> Checking package name availability... ✅
-    - if scoped package and scope reserved contact message ✅
-- Running tests... ✅
-- Building the project... ✅
-- Bumping version... ✅
-- Publishing... (concurrently) ✅
-  - npm ✅
-      - Running npm publish... ✅
-      - Verifying two-factor authentication... ✅
-  - jsr ✅
-      - Running jsr publish... ✅
+- Notify new version
+- Checking required information
+  - Select SemVer increment or specify new version
+  - Select the tag for this pre-release version in npm: (if version is prerelease)
+    - checking for the existence of either package.json or jsr.json
+- Prerequisite checks = skip-pre (for deployment reliability)
+  - Checking if remote history is clean...
+  - Checking if the local working tree is clean...
+  - Checking if commits exist since the last release...
+  - Verifying current branch is a release branch...
+  - Checking git tag existence...
+- Required conditions checks (concurrently) = skip-required (for pubm tasks)
+  - Verifying if npm CLI and jsr CLI are installed...
+  - Ping registries...
+  - Checking if test and build scripts exist...
+  - Checking git version...
+  - Checking available registries for publishing...
+    - in jsr permission check token exist and ask token
+    - if first time -> Checking package name availability...
+    - if scoped package and scope reserved contact message
+- Running tests...
+- Building the project...
+- Bumping version...
+- Publishing... (concurrently)
+  - npm
+      - Running npm publish...
+      - Verifying two-factor authentication...
+  - jsr
+      - Running jsr publish...
 - Pushing tags to GitHub...
 - Creating release draft on GitHub...
 </details>
@@ -103,3 +142,15 @@ np tasks
 - Push tags
 - Release draft
 </details>
+
+## FAQ
+
+### Why is jsr only asking for tokens?
+
+The only way to access the certified environment for jsr is to request api directly with token.
+
+### How is jsr token saved? Is it safe?
+
+jsr token is encrypted and stored through various pieces of information, and unless you have complete control of the local computer that ran pubm, I think it is difficult for token to be taken over.
+
+If desired, the --no-save-token option allows you to run tokens without saving them.

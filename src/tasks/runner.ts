@@ -18,6 +18,7 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
+import process from 'node:process';
 
 const { open } = npmCli;
 const { prerelease } = SemVer;
@@ -40,6 +41,8 @@ export async function run(options: ResolvedOptions) {
 	};
 
 	try {
+		if (options.contents) process.chdir(options.contents);
+
 		await prerequisitesCheckTask({ skip: options.skipPrerequisitesCheck }).run(
 			ctx,
 		);
@@ -88,6 +91,7 @@ export async function run(options: ResolvedOptions) {
 			},
 			{
 				title: 'Bumping version',
+				skip: (ctx) => !!ctx.preview,
 				task: async (ctx, task) => {
 					const git = new Git();
 					let tagCreated = false;
@@ -127,7 +131,7 @@ export async function run(options: ResolvedOptions) {
 				},
 			},
 			{
-				skip: options.skipPublish,
+				skip: (ctx) => options.skipPublish || !!ctx.preview,
 				title: 'Publishing',
 				task: (ctx, parentTask) =>
 					parentTask.newListr(
@@ -146,6 +150,7 @@ export async function run(options: ResolvedOptions) {
 			},
 			{
 				title: 'Pushing tags to GitHub',
+				skip: (ctx) => !!ctx.preview,
 				task: async (_, task) => {
 					const git = new Git();
 
@@ -160,7 +165,7 @@ export async function run(options: ResolvedOptions) {
 				},
 			},
 			{
-				skip: options.skipReleaseDraft,
+				skip: (ctx) => options.skipReleaseDraft || !!ctx.preview,
 				title: 'Creating release draft on GitHub',
 				task: async (ctx, task) => {
 					const git = new Git();
