@@ -169,7 +169,7 @@ export async function run(options: ResolvedOptions) {
 
 					const commits = (
 						await git.commits(ctx.lastRev, `${await git.latestTag()}`)
-					).slice(0, -1);
+					).slice(1);
 
 					const latestTag = await git.latestTag();
 
