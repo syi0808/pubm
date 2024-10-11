@@ -46,30 +46,24 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 		}, ctx);
 
 		if (!jsr.client.token) {
-			let token = new Db().get('jsr-token');
+			task.output = 'Retrieving jsr API token';
 
-			if (!token) {
-				task.output = 'Retrieving jsr API token';
-
-				while (true) {
-					token = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+			while (true) {
+				jsr.client.token = await task
+					.prompt(ListrEnquirerPromptAdapter)
+					.run<string>({
 						type: 'password',
 						message: `Please enter the jsr ${color.bold('API token')}`,
 						footer: `\nGenerate a token from ${color.bold(link('jsr.io', 'https://jsr.io/account/tokens/create/'))}. ${color.red('You should select')} ${color.bold("'Interact with the JSR API'")}.`,
 					});
 
-					jsr.client.token = token;
+				try {
+					if (await jsr.client.user()) break;
 
-					try {
-						if (await jsr.client.user()) break;
-
-						task.output =
-							'The jsr API token is invalid. Please re-enter a valid token.';
-					} catch {}
-				}
+					task.output =
+						'The jsr API token is invalid. Please re-enter a valid token.';
+				} catch {}
 			}
-
-			jsr.client.token = token;
 
 			new Db().set('jsr-token', jsr.client.token);
 		}
@@ -213,12 +207,32 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
 		parentTask.newListr([
 			{
 				title: 'Running jsr publish',
-				task: async (_, task): Promise<void> => {
+				task: async (ctx, task): Promise<void> => {
+					addRollback(async () => {
+						if (stash) {
+							console.log('Popping stash...');
+							await git.popStash();
+						}
+					}, ctx);
+
+					const git = new Git();
 					const jsr = await jsrRegistry();
+					let stash = false;
 
 					task.output = 'Publishing on jsr...';
 
+					if (!ctx.cleanWorkingTree) {
+						await git.reset();
+						await git.stash();
+						stash = true;
+					}
+
 					await jsr.publish();
+
+					if (stash) {
+						await git.popStash();
+						stash = false;
+					}
 				},
 			},
 		]),

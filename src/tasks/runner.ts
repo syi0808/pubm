@@ -19,14 +19,18 @@ import { requiredConditionsCheckTask } from './required-conditions-check.js';
 export interface Ctx extends ResolvedOptions {
 	npmOnly: boolean;
 	jsrOnly: boolean;
+	lastRev: string;
 	cleanWorkingTree: boolean;
 }
 
 export async function run(options: ResolvedOptions) {
+	const git = new Git();
+
 	const ctx = <Ctx>{
 		...options,
 		npmOnly: options.registries.every((registry) => registry !== 'jsr'),
 		jsrOnly: options.registries.every((registry) => registry === 'jsr'),
+		lastRev: (await git.latestTag()) || (await git.firstCommit()),
 	};
 
 	try {
@@ -136,12 +140,32 @@ export async function run(options: ResolvedOptions) {
 			},
 			{
 				title: 'Pushing tags to GitHub',
-				task: async () => {},
+				task: async (_, task) => {
+					const git = new Git();
+
+					const result = await git.push();
+
+					if (!result) {
+						task.title +=
+							' (Only tags were pushed because the release branch is protected. Please push the branch manually.)';
+
+						await git.push('--tags');
+					}
+				},
 			},
 			{
 				skip: options.skipReleaseDraft,
 				title: 'Creating release draft on GitHub',
-				task: async () => {},
+				task: async (ctx) => {
+					const git = new Git();
+
+					const logs = await git.commits(
+						ctx.lastRev,
+						`${await git.latestTag()}`,
+					);
+
+					console.log(logs);
+				},
 			},
 		]).run(ctx);
 

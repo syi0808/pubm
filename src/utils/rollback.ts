@@ -17,6 +17,8 @@ export async function rollback() {
 
 	called = true;
 
+	if (rollbacks.length <= 0) return void 0;
+
 	console.log('Rollback...');
 
 	await Promise.all(rollbacks.map(({ fn, ctx }) => fn(ctx)));
