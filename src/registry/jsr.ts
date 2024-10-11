@@ -1,6 +1,7 @@
 import { exec } from 'tinyexec';
 import { AbstractError } from '../error.js';
 import type { JsrApi } from '../types/jsr-api.js';
+import { Db } from '../utils/db.js';
 import {
 	getScope,
 	getScopeAndName,
@@ -8,7 +9,6 @@ import {
 } from '../utils/package-name.js';
 import { getJsrJson, version } from '../utils/package.js';
 import { Registry } from './registry.js';
-import { Db } from '../utils/db.js';
 
 class JsrError extends AbstractError {
 	name = 'jsr Error';
@@ -75,13 +75,21 @@ export class JsrRegisry extends Registry {
 
 	async publish() {
 		try {
-			await this.jsr(['publish', '--token', `${this.client.token}`]);
+			await exec(
+				'jsr',
+				['publish', '--allow-dirty', '--token', `${this.client.token}`],
+				{
+					throwOnError: true,
+				},
+			);
 
 			return true;
 		} catch (error) {
 			throw new JsrError(
-				`Failed to run \`jsr publish --token ${this.client.token}\``,
-				{ cause: error },
+				'Failed to run `jsr publish --allow-dirty --token ***`',
+				{
+					cause: error,
+				},
 			);
 		}
 	}

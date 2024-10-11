@@ -16,6 +16,9 @@ importers:
       '@listr2/prompt-adapter-enquirer':
         specifier: ^2.0.12
         version: 2.0.12(enquirer@2.4.1)
+      '@npmcli/promise-spawn':
+        specifier: ^8.0.1
+        version: 8.0.1
       cac:
         specifier: ^6.7.14
         version: 6.7.14
@@ -44,6 +47,9 @@ importers:
       '@types/npm':
         specifier: ^7.19.3
         version: 7.19.3
+      '@types/npmcli__promise-spawn':
+        specifier: ^6.0.3
+        version: 6.0.3
       '@types/picomatch':
         specifier: ^3.0.1
         version: 3.0.1
@@ -456,6 +462,10 @@ packages:
     peerDependencies:
       enquirer: '>= 2.3.0 < 3'
 
+  '@npmcli/promise-spawn@8.0.1':
+    resolution: {integrity: sha512-ZscqKtJqy7oj6MgXEJcHQ1om4utU0Q84QtC28UVuiO6ALSO9sDPanXdu6Wd1oYhItW8fx2u96zRFUE8BuPlAjA==}
+    engines: {node: ^18.17.0 || >=20.5.0}
+
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -548,6 +558,9 @@ packages:
 
   '@types/npm@7.19.3':
     resolution: {integrity: sha512-1fiJlMN0iDs42kFJZJX88SVUppp5zNQik0JVnI3mw28+vssBAz3TAvmhrPpupj1rBESV6bGYjEny30fu4Kst9g==}
+
+  '@types/npmcli__promise-spawn@6.0.3':
+    resolution: {integrity: sha512-4EQlesp5HtYHPXMXd4uuI+Q9hELEU0eVg/HBRLkqGC5U2ohwXZduCottmzPpb4tWCB+w4kQ3XNPlHIdXvCTyFw==}
 
   '@types/picomatch@3.0.1':
     resolution: {integrity: sha512-1MRgzpzY0hOp9pW/kLRxeQhUWwil6gnrUYd3oEpeYBqp/FexhaCPv3F8LsYr47gtUU45fO2cm1dbwkSrHEo8Uw==}
@@ -833,6 +846,10 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  isexe@3.1.1:
+    resolution: {integrity: sha512-LpB/54B+/2J5hqQ7imZHfdU31OlgQqx7ZicVlkm9kzg9/w8GKLEcFfJl/t7DCEDueOyBAD6zCCwTO6Fzs0NoEQ==}
+    engines: {node: '>=16'}
 
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
@@ -1252,6 +1269,11 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
+  which@5.0.0:
+    resolution: {integrity: sha512-JEdGzHwwkrbWoGOlIHqQ5gtprKGOenpDHpxE9zVR1bWbOtYRyPPHMe9FaP6x61CmNaTThSkb0DAJte5jD+DmzQ==}
+    engines: {node: ^18.17.0 || >=20.5.0}
+    hasBin: true
+
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
     engines: {node: '>=8'}
@@ -1500,6 +1522,10 @@ snapshots:
     dependencies:
       enquirer: 2.4.1
 
+  '@npmcli/promise-spawn@8.0.1':
+    dependencies:
+      which: 5.0.0
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -1558,6 +1584,10 @@ snapshots:
       undici-types: 6.19.8
 
   '@types/npm@7.19.3':
+    dependencies:
+      '@types/node': 22.7.4
+
+  '@types/npmcli__promise-spawn@6.0.3':
     dependencies:
       '@types/node': 22.7.4
 
@@ -1872,6 +1902,8 @@ snapshots:
   is-stream@2.0.1: {}
 
   isexe@2.0.0: {}
+
+  isexe@3.1.1: {}
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -2276,6 +2308,10 @@ snapshots:
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
+
+  which@5.0.0:
+    dependencies:
+      isexe: 3.1.1
 
   why-is-node-running@2.3.0:
     dependencies:

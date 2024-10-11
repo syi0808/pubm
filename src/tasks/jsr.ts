@@ -207,32 +207,12 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
 		parentTask.newListr([
 			{
 				title: 'Running jsr publish',
-				task: async (ctx, task): Promise<void> => {
-					addRollback(async () => {
-						if (stash) {
-							console.log('Popping stash...');
-							await git.popStash();
-						}
-					}, ctx);
-
-					const git = new Git();
+				task: async (_, task): Promise<void> => {
 					const jsr = await jsrRegistry();
-					let stash = false;
 
 					task.output = 'Publishing on jsr...';
 
-					if (!ctx.cleanWorkingTree) {
-						await git.reset();
-						await git.stash();
-						stash = true;
-					}
-
 					await jsr.publish();
-
-					if (stash) {
-						await git.popStash();
-						stash = false;
-					}
 				},
 			},
 		]),
