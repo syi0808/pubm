@@ -40,37 +40,31 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 };
 
 export const npmPublishTasks: ListrTask<Ctx> = {
-	title: 'npm',
-	task: (_, parentTask) =>
-		parentTask.newListr([
-			{
-				title: 'Running npm publish',
-				task: async (_, task): Promise<void> => {
-					const npm = await npmRegistry();
+	title: 'Running npm publish',
+	task: async (_, task): Promise<void> => {
+		const npm = await npmRegistry();
 
-					task.output = 'Publishing on npm...';
+		task.output = 'Publishing on npm...';
 
-					let result = await npm.publish();
+		let result = await npm.publish();
 
-					if (!result) {
-						task.title = 'Running npm publish (OTP code needed)';
+		if (!result) {
+			task.title = 'Running npm publish (OTP code needed)';
 
-						while (!result) {
-							result = await npm.publish(
-								await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-									type: 'password',
-									message: 'npm OTP code',
-								}),
-							);
+			while (!result) {
+				result = await npm.publish(
+					await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+						type: 'password',
+						message: 'npm OTP code',
+					}),
+				);
 
-							if (!result) {
-								task.output = '2FA failed';
-							}
-						}
+				if (!result) {
+					task.output = '2FA failed';
+				}
+			}
 
-						task.title = 'Running npm publish (2FA passed)';
-					}
-				},
-			},
-		]),
+			task.title = 'Running npm publish (2FA passed)';
+		}
+	},
 };

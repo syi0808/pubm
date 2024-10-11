@@ -202,18 +202,12 @@ More information: ${link('npm naming rules', 'https://github.com/npm/validate-np
 };
 
 export const jsrPublishTasks: ListrTask<Ctx> = {
-	title: 'jsr',
-	task: (_, parentTask) =>
-		parentTask.newListr([
-			{
-				title: 'Running jsr publish',
-				task: async (_, task): Promise<void> => {
-					const jsr = await jsrRegistry();
+	title: 'Running jsr publish',
+	task: async (_, task): Promise<void> => {
+		const jsr = await jsrRegistry();
 
-					task.output = 'Publishing on jsr...';
+		task.output = 'Publishing on jsr...';
 
-					await jsr.publish();
-				},
-			},
-		]),
+		await jsr.publish();
+	},
 };
