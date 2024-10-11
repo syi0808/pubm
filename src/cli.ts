@@ -100,7 +100,7 @@ const options: {
 	},
 	{
 		rawName: '--no-save-token',
-		description: 'Do not save jsr tokens (requested for every run)',
+		description: 'Do not save jsr tokens (request the token each time)',
 		options: { type: Boolean, default: false },
 	},
 	{
