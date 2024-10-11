@@ -183,7 +183,7 @@ export async function run(options: ResolvedOptions) {
 
 					body += `\n\n${repositoryUrl}/compare/${ctx.lastRev}...${latestTag}`;
 
-					const releaseDraftUrl = new URL('/releases/new', repositoryUrl);
+					const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
 
 					releaseDraftUrl.searchParams.set('tag', `${latestTag}`);
 					releaseDraftUrl.searchParams.set('body', body);
@@ -195,8 +195,6 @@ export async function run(options: ResolvedOptions) {
 					const linkUrl = link('Draft link', releaseDraftUrl.toString());
 
 					task.title += ` ${linkUrl}`;
-
-					console.log(linkUrl);
 
 					await open(releaseDraftUrl.toString());
 				},

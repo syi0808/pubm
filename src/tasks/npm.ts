@@ -56,14 +56,16 @@ export const npmPublishTasks: ListrTask<Ctx> = {
 						task.title = 'Running npm publish (OTP code needed)';
 
 						while (!result) {
-							task.output = '2FA failed';
-
 							result = await npm.publish(
 								await task.prompt(ListrEnquirerPromptAdapter).run<string>({
 									type: 'password',
 									message: 'npm OTP code',
 								}),
 							);
+
+							if (!result) {
+								task.output = '2FA failed';
+							}
 						}
 
 						task.title = 'Running npm publish (2FA passed)';
