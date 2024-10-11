@@ -52,7 +52,7 @@ Options:
   --no-release-draft          Skip creating a GitHub release draft
   -t, --tag <name>            Publish under a specific dist-tag (default: latest)
   -c, --contents <path>       Subdirectory to publish 
-  --no-save-token             Do not save jsr tokens (requested for every run)
+  --no-save-token             Do not save jsr tokens (request the token each time)
   --registry <...registries>  Target registries for publish
         registry can be npm | jsr | https://url.for.private-registries (default: npm,jsr)
   -h, --help                  Display this message 
@@ -145,12 +145,12 @@ np tasks
 
 ## FAQ
 
-### Why is jsr only asking for tokens?
+### Why does jsr only ask for tokens?
 
-The only way to access the certified environment for jsr is to request api directly with token.
+The only way to access jsr’s certified environment is through a direct API request with a token.
 
-### How is jsr token saved? Is it safe?
+### How is the jsr token stored? Is it secure?
 
-jsr token is encrypted and stored through various pieces of information, and unless you have complete control of the local computer that ran pubm, I think it is difficult for token to be taken over.
+The jsr token is encrypted and stored using various layers of information. As long as you have control over the local machine where pubm was run, it is highly unlikely the token can be compromised.
 
-If desired, the --no-save-token option allows you to run tokens without saving them.
+If you prefer not to save tokens, you can use the `--no-save-token` option, which will request the token each time.

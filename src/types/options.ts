@@ -70,7 +70,7 @@ export interface Options {
 	 */
 	contents?: string;
 	/**
-	 * @description Do not save jsr tokens (requested for every run)
+	 * @description Do not save jsr tokens (request the token each time)
 	 * @default true
 	 */
 	saveToken?: boolean;
