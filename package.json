@@ -33,6 +33,7 @@
 	},
 	"dependencies": {
 		"@listr2/prompt-adapter-enquirer": "^2.0.12",
+		"@npmcli/promise-spawn": "^8.0.1",
 		"cac": "^6.7.14",
 		"enquirer": "^2.4.1",
 		"listr2": "^8.2.5",
@@ -44,6 +45,7 @@
 		"@biomejs/biome": "^1.9.2",
 		"@types/node": "^22.7.4",
 		"@types/npm": "^7.19.3",
+		"@types/npmcli__promise-spawn": "^6.0.3",
 		"@types/picomatch": "^3.0.1",
 		"@types/semver": "^7.5.8",
 		"@vitest/coverage-v8": "^2.1.1",

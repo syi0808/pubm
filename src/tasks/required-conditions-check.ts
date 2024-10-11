@@ -1,17 +1,17 @@
+import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import type { Listr, ListrTask } from 'listr2';
 import { AbstractError } from '../error.js';
 import { Git } from '../git.js';
 import { getRegistry } from '../registry/index.js';
+import { jsrRegistry } from '../registry/jsr.js';
+import { npmRegistry } from '../registry/npm.js';
+import { warningBadge } from '../utils/cli.js';
 import { validateEngineVersion } from '../utils/engine-version.js';
 import { createListr } from '../utils/listr.js';
 import { getPackageJson } from '../utils/package.js';
 import { jsrAvailableCheckTasks } from './jsr.js';
 import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
-import { npmRegistry } from '../registry/npm.js';
-import { jsrRegistry } from '../registry/jsr.js';
-import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
-import { warningBadge } from '../utils/cli.js';
 
 class RequiredConditionCheckError extends AbstractError {
 	name = 'Failed required condition check';

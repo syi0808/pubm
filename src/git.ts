@@ -94,8 +94,10 @@ export class Git {
 			const logs = await this.git([
 				'log',
 				`${leftRev}...${rightRev}`,
-				`--format='%H %s'`,
+				'--format=%H %s',
 			]);
+
+			console.log(logs);
 
 			return logs
 				.split('\n')
@@ -267,6 +269,16 @@ export class Git {
 		}
 	}
 
+	async repository() {
+		try {
+			return (await this.git(['remote', 'get-url', 'origin'])).trim();
+		} catch (error) {
+			throw new GitError('Failed to run `git remote get-url origin`', {
+				cause: error,
+			});
+		}
+	}
+
 	async createTag(tag: string, commitRev?: string) {
 		const args = ['tag', tag, commitRev].filter((v) => v) as string[];
 
@@ -285,7 +297,11 @@ export class Git {
 		const args = ['push', options].filter((v) => v) as string[];
 
 		try {
-			await this.git(args);
+			const { stderr } = await exec('git', args, { throwOnError: true });
+
+			if (`${stderr}`.includes('GH006')) {
+				return false;
+			}
 
 			return true;
 		} catch (error) {

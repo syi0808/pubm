@@ -149,6 +149,8 @@ cli
 	.action(async (nextVersion, options: Omit<CliOptions, 'version'>) => {
 		console.clear();
 
+		await notifyNewVersion();
+
 		const context = {
 			version: nextVersion,
 			tag: options.tag,
@@ -176,8 +178,6 @@ cli.help((sections) => {
 });
 
 (async () => {
-	await notifyNewVersion();
-
 	cli.version(await version({ cwd: import.meta.dirname }));
 
 	cli.parse();

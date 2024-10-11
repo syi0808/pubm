@@ -1,8 +1,11 @@
+import npmCli from '@npmcli/promise-spawn';
 import { color } from 'listr2';
+import SemVer from 'semver';
 import { exec } from 'tinyexec';
 import { AbstractError, consoleError } from '../error.js';
 import { Git } from '../git.js';
 import type { ResolvedOptions } from '../types/options.js';
+import { link } from '../utils/cli.js';
 import { createListr } from '../utils/listr.js';
 import { getPackageManager } from '../utils/package-manager.js';
 import {
@@ -15,6 +18,9 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
+
+const { open } = npmCli;
+const { prerelease } = SemVer;
 
 export interface Ctx extends ResolvedOptions {
 	npmOnly: boolean;
@@ -156,15 +162,43 @@ export async function run(options: ResolvedOptions) {
 			{
 				skip: options.skipReleaseDraft,
 				title: 'Creating release draft on GitHub',
-				task: async (ctx) => {
+				task: async (ctx, task) => {
 					const git = new Git();
 
-					const logs = await git.commits(
+					const repositoryUrl = await git.repository();
+
+					const commits = await git.commits(
 						ctx.lastRev,
 						`${await git.latestTag()}`,
 					);
 
-					console.log(logs);
+					const latestTag = await git.latestTag();
+
+					let body = commits
+						.map(
+							({ id, message }) =>
+								`- ${message.replace('#', `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+						)
+						.join('\n');
+
+					body += `\n\n${repositoryUrl}/compare/${ctx.lastRev}...${latestTag}`;
+
+					const releaseDraftUrl = new URL('/releases/new', repositoryUrl);
+
+					releaseDraftUrl.searchParams.set('tag', `${latestTag}`);
+					releaseDraftUrl.searchParams.set('body', body);
+					releaseDraftUrl.searchParams.set(
+						'isPrerelease',
+						`${!!prerelease(ctx.version)}`,
+					);
+
+					const linkUrl = link('Draft link', releaseDraftUrl.toString());
+
+					task.title += ` ${linkUrl}`;
+
+					console.log(linkUrl);
+
+					await open(releaseDraftUrl.toString());
 				},
 			},
 		]).run(ctx);
