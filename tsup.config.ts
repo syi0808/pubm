@@ -12,6 +12,7 @@ export default defineConfig([
 		dts: true,
 		external,
 		noExternal,
+		splitting: false,
 	},
 	{
 		entry: ['src/cli.ts'],
@@ -20,6 +21,7 @@ export default defineConfig([
 		outDir: './bin',
 		external,
 		noExternal,
+		splitting: false,
 		banner: {
 			js: '#!/usr/bin/env node\n',
 		},
