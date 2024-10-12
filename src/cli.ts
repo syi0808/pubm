@@ -7,8 +7,10 @@ import { requiredMissingInformationTasks } from './tasks/required-missing-inform
 import type { Options } from './types/options.js';
 import { notifyNewVersion } from './utils/notify-new-version.js';
 import { version } from './utils/package.js';
+import { isCI } from 'std-env';
+import { Git } from './git.js';
 
-const { RELEASE_TYPES } = semver;
+const { RELEASE_TYPES, valid } = semver;
 
 interface CliOptions {
 	version: string;
@@ -141,7 +143,9 @@ cli
 	.action(async (nextVersion, options: Omit<CliOptions, 'version'>) => {
 		console.clear();
 
-		await notifyNewVersion();
+		if (!isCI) {
+			await notifyNewVersion();
+		}
 
 		const context = {
 			version: nextVersion,
@@ -149,7 +153,26 @@ cli
 		};
 
 		try {
-			await requiredMissingInformationTasks().run(context);
+			if (!isCI) {
+				await requiredMissingInformationTasks().run(context);
+			} else {
+				const git = new Git();
+				const latestVersion = (await git.latestTag())?.slice(1);
+
+				if (!latestVersion) {
+					throw new Error(
+						'Cannot find the latest tag. Please ensure tags exist in the repository.',
+					);
+				}
+
+				if (!valid(latestVersion)) {
+					throw new Error(
+						'Cannot parse the latest tag to a valid SemVer version. Please check the tag format.',
+					);
+				}
+
+				context.version = latestVersion;
+			}
 
 			await pubm(
 				resolveCliOptions({
