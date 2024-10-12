@@ -28,19 +28,15 @@ export interface Ctx extends ResolvedOptions {
 	promptEnabled: boolean;
 	npmOnly: boolean;
 	jsrOnly: boolean;
-	lastRev: string;
 	cleanWorkingTree: boolean;
 }
 
 export async function run(options: ResolvedOptions) {
-	const git = new Git();
-
 	const ctx = <Ctx>{
 		...options,
 		promptEnabled: !isCI && process.stdin.isTTY,
 		npmOnly: options.registries.every((registry) => registry !== 'jsr'),
 		jsrOnly: options.registries.every((registry) => registry === 'jsr'),
-		lastRev: (await git.latestTag()) || (await git.firstCommit()),
 	};
 
 	try {
@@ -196,11 +192,15 @@ export async function run(options: ResolvedOptions) {
 
 								const repositoryUrl = await git.repository();
 
-								const commits = (
-									await git.commits(ctx.lastRev, `${await git.latestTag()}`)
-								).slice(1);
+								const latestTag = `${await git.latestTag()}`;
 
-								const latestTag = await git.latestTag();
+								const lastRev =
+									(await git.previousTag(latestTag)) ||
+									(await git.firstCommit());
+
+								const commits = (
+									await git.commits(lastRev, `${latestTag}`)
+								).slice(1);
 
 								let body = commits
 									.map(
@@ -209,7 +209,7 @@ export async function run(options: ResolvedOptions) {
 									)
 									.join('\n');
 
-								body += `\n\n${repositoryUrl}/compare/${ctx.lastRev}...${latestTag}`;
+								body += `\n\n${repositoryUrl}/compare/${lastRev}...${latestTag}`;
 
 								const releaseDraftUrl = new URL(
 									`${repositoryUrl}/releases/new`,
