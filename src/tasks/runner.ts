@@ -2,6 +2,7 @@ import process from 'node:process';
 import npmCli from '@npmcli/promise-spawn';
 import { color } from 'listr2';
 import SemVer from 'semver';
+import { isCI } from 'std-env';
 import { exec } from 'tinyexec';
 import { AbstractError, consoleError } from '../error.js';
 import { Git } from '../git.js';
@@ -19,7 +20,6 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
-import { isCI } from 'std-env';
 
 const { open } = npmCli;
 const { prerelease } = SemVer;

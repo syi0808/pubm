@@ -1,10 +1,10 @@
+import process from 'node:process';
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
 import { npmRegistry } from '../registry/npm.js';
 import { link } from '../utils/cli.js';
 import type { Ctx } from './runner.js';
-import process from 'node:process';
 
 class NpmAvailableError extends AbstractError {
 	name = 'npm is unavailable for publishing.';

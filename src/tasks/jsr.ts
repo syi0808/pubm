@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { ListrEnquirerPromptAdapter } from '@listr2/prompt-adapter-enquirer';
 import { type ListrTask, color } from 'listr2';
 import { AbstractError } from '../error.js';
@@ -10,7 +11,6 @@ import { getScope, isScopedPackage } from '../utils/package-name.js';
 import { patchCachedJsrJson } from '../utils/package.js';
 import { addRollback } from '../utils/rollback.js';
 import type { Ctx } from './runner.js';
-import process from 'node:process';
 
 class JsrAvailableError extends AbstractError {
 	name = 'jsr is unavailable for publishing.';
