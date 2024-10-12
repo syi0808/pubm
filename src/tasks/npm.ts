@@ -79,16 +79,12 @@ export const npmPublishTasks: ListrTask<Ctx> = {
 				);
 			}
 
-			try {
-				await npm.publishProvenance();
-			} catch (error) {
-				if (`${error}`.includes('EOTP')) {
-					throw new NpmAvailableError(
-						`In CI environment, publishing with 2FA is not allowed. Please disable 2FA when accessing with a token from ${link('npm', `https://www.npmjs.com/package/${npm.packageName}/access`)}.`,
-					);
-				}
+			const result = await npm.publishProvenance();
 
-				throw error;
+			if (!result) {
+				throw new NpmAvailableError(
+					`In CI environment, publishing with 2FA is not allowed. Please disable 2FA when accessing with a token from ${link('npm', `https://www.npmjs.com/package/${npm.packageName}/access`)}.`,
+				);
 			}
 		}
 	},

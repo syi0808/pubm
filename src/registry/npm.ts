@@ -124,7 +124,13 @@ export class NpmRegistry extends Registry {
 
 	async publishProvenance() {
 		try {
-			await this.npm(['publish', '--provenance', '--access', 'public']);
+			try {
+				await this.npm(['publish', '--provenance', '--access', 'public']);
+			} catch (error) {
+				if (`${error}`.includes('EOTP')) {
+					return false;
+				}
+			}
 
 			return true;
 		} catch (error) {
@@ -144,7 +150,7 @@ export class NpmRegistry extends Registry {
 			try {
 				await this.npm(args);
 			} catch (error) {
-				if (`${error}`.includes('OTP')) {
+				if (`${error}`.includes('EOTP')) {
 					return false;
 				}
 			}
