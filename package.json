@@ -14,10 +14,7 @@
 	"bin": {
 		"pubm": "bin/cli.js"
 	},
-	"files": [
-		"dist",
-		"bin"
-	],
+	"files": ["dist", "bin"],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
