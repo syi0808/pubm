@@ -1,3 +1,4 @@
+import semver from 'semver';
 import { exec } from 'tinyexec';
 import { AbstractError } from './error.js';
 
@@ -27,6 +28,30 @@ export class Git {
 	async latestTag() {
 		try {
 			return (await this.git(['describe', '--tags', '--abbrev=0'])).trim();
+		} catch {
+			return null;
+		}
+	}
+
+	async tags() {
+		try {
+			return (await this.git(['tag', '-l']))
+				.trim()
+				.split('\n')
+				.map((v) => v.slice(1))
+				.sort(semver.compareIdentifiers);
+		} catch (error) {
+			throw new GitError('Failed to run `git config --get user.name`', {
+				cause: error,
+			});
+		}
+	}
+
+	async previousTag(tag: string) {
+		try {
+			const tags = await this.tags();
+
+			return tags.at(tags.findIndex((t) => t === tag) - 1);
 		} catch {
 			return null;
 		}
