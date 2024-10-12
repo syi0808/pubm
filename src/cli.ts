@@ -23,6 +23,7 @@ interface CliOptions {
 	tests: boolean;
 	build: boolean;
 	publish: boolean;
+	publishOnly: boolean;
 	releaseDraft: boolean;
 	tag: string;
 	contents?: string;
@@ -153,25 +154,31 @@ cli
 		};
 
 		try {
-			if (!isCI) {
-				await requiredMissingInformationTasks().run(context);
+			if (isCI) {
+				if (options.publishOnly) {
+					const git = new Git();
+					const latestVersion = (await git.latestTag())?.slice(1);
+
+					if (!latestVersion) {
+						throw new Error(
+							'Cannot find the latest tag. Please ensure tags exist in the repository.',
+						);
+					}
+
+					if (!valid(latestVersion)) {
+						throw new Error(
+							'Cannot parse the latest tag to a valid SemVer version. Please check the tag format.',
+						);
+					}
+
+					context.version = latestVersion;
+				} else {
+					throw new Error(
+						'Version must be set in the CI environment. Please define the version before proceeding.',
+					);
+				}
 			} else {
-				const git = new Git();
-				const latestVersion = (await git.latestTag())?.slice(1);
-
-				if (!latestVersion) {
-					throw new Error(
-						'Cannot find the latest tag. Please ensure tags exist in the repository.',
-					);
-				}
-
-				if (!valid(latestVersion)) {
-					throw new Error(
-						'Cannot parse the latest tag to a valid SemVer version. Please check the tag format.',
-					);
-				}
-
-				context.version = latestVersion;
+				await requiredMissingInformationTasks().run(context);
 			}
 
 			await pubm(
