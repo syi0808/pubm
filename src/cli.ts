@@ -61,32 +61,32 @@ const options: {
 	{
 		rawName: '--no-pre-check',
 		description: 'Skip prerequisites check task',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--no-condition-check',
 		description: 'Skip required conditions check task',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--no-tests',
 		description: 'Skip running tests before publishing',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--no-build',
 		description: 'Skip build before publishing',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--no-publish',
 		description: 'Skip publishing task',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--no-release-draft',
 		description: 'Skip creating a GitHub release draft',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '-t, --tag <name>',
@@ -101,7 +101,7 @@ const options: {
 	{
 		rawName: '--no-save-token',
 		description: 'Do not save jsr tokens (request the token each time)',
-		options: { type: Boolean, default: false },
+		options: { type: Boolean },
 	},
 	{
 		rawName: '--registry <...registries>',
@@ -162,7 +162,7 @@ cli.help((sections) => {
 	sections[1].body += `\n\n  Version can be:\n    ${RELEASE_TYPES.join(' | ')} | 1.2.3`;
 	sections.splice(2, 2);
 	if (sections.at(2)) {
-		sections[2].body = sections[2].body.replace(/ \(default: false\)/g, '');
+		sections[2].body = sections[2].body.replace(/ \(default: true\)/g, '');
 	}
 	sections.push({ body: '\n' });
 });
