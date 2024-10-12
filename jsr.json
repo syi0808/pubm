@@ -1,6 +1,6 @@
 {
 	"name": "@pubm/pubm",
-	"version": "0.0.2-15",
+	"version": "0.0.2",
 	"exports": "./dist/index.js",
 	"publish": {
 		"include": [
