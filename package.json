@@ -5,7 +5,7 @@
 		"node": ">=18",
 		"git": ">=2.11.0"
 	},
-	"description": "",
+	"description": "publish manager for multiple registry (jsr, npm and private registries)",
 	"type": "module",
 	"author": "Sung Yein <syi778800@gmail.com>",
 	"types": "./dist/index.d.ts",
@@ -68,11 +68,12 @@
 	"keywords": [
 		"npm",
 		"jsr",
+		"registry",
 		"publish",
 		"np",
 		"publish manager",
 		"private registry",
-		"registry"
+		"multiple publish"
 	],
 	"pnpm": {
 		"patchedDependencies": {
