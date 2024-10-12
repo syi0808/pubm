@@ -122,6 +122,21 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
+	async publishProvenance() {
+		try {
+			await this.npm(['publish', '--provenance', '--access', 'public']);
+
+			return true;
+		} catch (error) {
+			throw new NpmError(
+				'Failed to run `npm publish --provenance --access public`',
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
 	async publish(otp?: string) {
 		const args = otp ? ['publish', '--otp', otp] : ['publish'];
 

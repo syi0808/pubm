@@ -61,6 +61,11 @@ export interface Options {
 	 */
 	skipConditionsCheck?: boolean;
 	/**
+	 * @description Run only publish task for latest tag
+	 * @default false
+	 */
+	publishOnly?: boolean;
+	/**
 	 * @description Publish under a specific dist-tag
 	 * @default "latest"
 	 */

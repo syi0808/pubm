@@ -19,11 +19,13 @@ import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
 import { requiredConditionsCheckTask } from './required-conditions-check.js';
+import { isCI } from 'std-env';
 
 const { open } = npmCli;
 const { prerelease } = SemVer;
 
 export interface Ctx extends ResolvedOptions {
+	promptEnabled: boolean;
 	npmOnly: boolean;
 	jsrOnly: boolean;
 	lastRev: string;
@@ -35,6 +37,7 @@ export async function run(options: ResolvedOptions) {
 
 	const ctx = <Ctx>{
 		...options,
+		promptEnabled: !isCI && process.stdin.isTTY,
 		npmOnly: options.registries.every((registry) => registry !== 'jsr'),
 		jsrOnly: options.registries.every((registry) => registry === 'jsr'),
 		lastRev: (await git.latestTag()) || (await git.firstCommit()),
@@ -43,167 +46,191 @@ export async function run(options: ResolvedOptions) {
 	try {
 		if (options.contents) process.chdir(options.contents);
 
-		await prerequisitesCheckTask({ skip: options.skipPrerequisitesCheck }).run(
-			ctx,
-		);
+		if (!options.publishOnly) {
+			await prerequisitesCheckTask({
+				skip: options.skipPrerequisitesCheck,
+			}).run(ctx);
 
-		await requiredConditionsCheckTask({
-			skip: options.skipConditionsCheck,
-		}).run(ctx);
+			await requiredConditionsCheckTask({
+				skip: options.skipConditionsCheck,
+			}).run(ctx);
+		}
 
-		await createListr<Ctx>([
-			{
-				skip: options.skipTests,
-				title: 'Running tests',
-				task: async (ctx) => {
-					const packageManager = await getPackageManager();
-
-					const { stderr } = await exec(packageManager, [
-						'run',
-						ctx.testScript,
-					]);
-
-					if (stderr) {
-						throw new AbstractError(
-							`Failed to run \`${packageManager} run ${ctx.testScript}\``,
-							{ cause: stderr },
-						);
+		await createListr<Ctx>(
+			options.publishOnly
+				? {
+						title: 'Publishing',
+						task: (ctx, parentTask) =>
+							parentTask.newListr(
+								ctx.registries.map((registry) => {
+									switch (registry) {
+										case 'npm':
+											return npmPublishTasks;
+										case 'jsr':
+											return jsrPublishTasks;
+										default:
+											return npmPublishTasks;
+									}
+								}),
+								{ concurrent: true },
+							),
 					}
-				},
-			},
-			{
-				skip: options.skipBuild,
-				title: 'Building the project',
-				task: async (ctx) => {
-					const packageManager = await getPackageManager();
+				: [
+						{
+							skip: options.skipTests,
+							title: 'Running tests',
+							task: async (ctx) => {
+								const packageManager = await getPackageManager();
 
-					try {
-						await exec(packageManager, ['run', ctx.buildScript], {
-							throwOnError: true,
-						});
-					} catch (error) {
-						throw new AbstractError(
-							`Failed to run \`${packageManager} run ${ctx.buildScript}\``,
-							{ cause: error },
-						);
-					}
-				},
-			},
-			{
-				title: 'Bumping version',
-				skip: (ctx) => !!ctx.preview,
-				task: async (ctx, task) => {
-					const git = new Git();
-					let tagCreated = false;
-					let commited = false;
+								const { stderr } = await exec(packageManager, [
+									'run',
+									ctx.testScript,
+								]);
 
-					addRollback(async () => {
-						if (tagCreated) {
-							console.log('Deleting tag...');
-							await git.deleteTag(`${await git.latestTag()}`);
-						}
+								if (stderr) {
+									throw new AbstractError(
+										`Failed to run \`${packageManager} run ${ctx.testScript}\``,
+										{ cause: stderr },
+									);
+								}
+							},
+						},
+						{
+							skip: options.skipBuild,
+							title: 'Building the project',
+							task: async (ctx) => {
+								const packageManager = await getPackageManager();
 
-						if (commited) {
-							console.log('Reset commits...');
-							await git.reset();
-							await git.stash();
-							await git.reset('HEAD^', '--hard');
-							await git.popStash();
-						}
-					}, ctx);
+								try {
+									await exec(packageManager, ['run', ctx.buildScript], {
+										throwOnError: true,
+									});
+								} catch (error) {
+									throw new AbstractError(
+										`Failed to run \`${packageManager} run ${ctx.buildScript}\``,
+										{ cause: error },
+									);
+								}
+							},
+						},
+						{
+							title: 'Bumping version',
+							skip: (ctx) => !!ctx.preview,
+							task: async (ctx, task) => {
+								const git = new Git();
+								let tagCreated = false;
+								let commited = false;
 
-					await git.reset();
-					const replaced = await replaceVersion(ctx.version);
+								addRollback(async () => {
+									if (tagCreated) {
+										console.log('Deleting tag...');
+										await git.deleteTag(`${await git.latestTag()}`);
+									}
 
-					for (const replacedFile of replaced) {
-						await git.stage(replacedFile);
-					}
+									if (commited) {
+										console.log('Reset commits...');
+										await git.reset();
+										await git.stash();
+										await git.reset('HEAD^', '--hard');
+										await git.popStash();
+									}
+								}, ctx);
 
-					const nextVersion = `v${ctx.version}`;
-					const commit = await git.commit(nextVersion);
+								await git.reset();
+								const replaced = await replaceVersion(ctx.version);
 
-					commited = true;
+								for (const replacedFile of replaced) {
+									await git.stage(replacedFile);
+								}
 
-					task.output = 'Creating tag...';
-					await git.createTag(nextVersion, commit);
+								const nextVersion = `v${ctx.version}`;
+								const commit = await git.commit(nextVersion);
 
-					tagCreated = true;
-				},
-			},
-			{
-				skip: (ctx) => options.skipPublish || !!ctx.preview,
-				title: 'Publishing',
-				task: (ctx, parentTask) =>
-					parentTask.newListr(
-						ctx.registries.map((registry) => {
-							switch (registry) {
-								case 'npm':
-									return npmPublishTasks;
-								case 'jsr':
-									return jsrPublishTasks;
-								default:
-									return npmPublishTasks;
-							}
-						}),
-						{ concurrent: true },
-					),
-			},
-			{
-				title: 'Pushing tags to GitHub',
-				skip: (ctx) => !!ctx.preview,
-				task: async (_, task) => {
-					const git = new Git();
+								commited = true;
 
-					const result = await git.push('--follow-tags');
+								task.output = 'Creating tag...';
+								await git.createTag(nextVersion, commit);
 
-					if (!result) {
-						task.title +=
-							' (Only tags were pushed because the release branch is protected. Please push the branch manually.)';
+								tagCreated = true;
+							},
+						},
+						{
+							skip: (ctx) => options.skipPublish || !!ctx.preview,
+							title: 'Publishing',
+							task: (ctx, parentTask) =>
+								parentTask.newListr(
+									ctx.registries.map((registry) => {
+										switch (registry) {
+											case 'npm':
+												return npmPublishTasks;
+											case 'jsr':
+												return jsrPublishTasks;
+											default:
+												return npmPublishTasks;
+										}
+									}),
+									{ concurrent: true },
+								),
+						},
+						{
+							title: 'Pushing tags to GitHub',
+							skip: (ctx) => !!ctx.preview,
+							task: async (_, task) => {
+								const git = new Git();
 
-						await git.push('--tags');
-					}
-				},
-			},
-			{
-				skip: (ctx) => options.skipReleaseDraft || !!ctx.preview,
-				title: 'Creating release draft on GitHub',
-				task: async (ctx, task) => {
-					const git = new Git();
+								const result = await git.push('--follow-tags');
 
-					const repositoryUrl = await git.repository();
+								if (!result) {
+									task.title +=
+										' (Only tags were pushed because the release branch is protected. Please push the branch manually.)';
 
-					const commits = (
-						await git.commits(ctx.lastRev, `${await git.latestTag()}`)
-					).slice(1);
+									await git.push('--tags');
+								}
+							},
+						},
+						{
+							skip: (ctx) => options.skipReleaseDraft || !!ctx.preview,
+							title: 'Creating release draft on GitHub',
+							task: async (ctx, task) => {
+								const git = new Git();
 
-					const latestTag = await git.latestTag();
+								const repositoryUrl = await git.repository();
 
-					let body = commits
-						.map(
-							({ id, message }) =>
-								`- ${message.replace('#', `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-						)
-						.join('\n');
+								const commits = (
+									await git.commits(ctx.lastRev, `${await git.latestTag()}`)
+								).slice(1);
 
-					body += `\n\n${repositoryUrl}/compare/${ctx.lastRev}...${latestTag}`;
+								const latestTag = await git.latestTag();
 
-					const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
+								let body = commits
+									.map(
+										({ id, message }) =>
+											`- ${message.replace('#', `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+									)
+									.join('\n');
 
-					releaseDraftUrl.searchParams.set('tag', `${latestTag}`);
-					releaseDraftUrl.searchParams.set('body', body);
-					releaseDraftUrl.searchParams.set(
-						'prerelease',
-						`${!!prerelease(ctx.version)}`,
-					);
+								body += `\n\n${repositoryUrl}/compare/${ctx.lastRev}...${latestTag}`;
 
-					const linkUrl = link('Link', releaseDraftUrl.toString());
+								const releaseDraftUrl = new URL(
+									`${repositoryUrl}/releases/new`,
+								);
 
-					task.title += ` ${linkUrl}`;
+								releaseDraftUrl.searchParams.set('tag', `${latestTag}`);
+								releaseDraftUrl.searchParams.set('body', body);
+								releaseDraftUrl.searchParams.set(
+									'prerelease',
+									`${!!prerelease(ctx.version)}`,
+								);
 
-					await open(releaseDraftUrl.toString());
-				},
-			},
-		]).run(ctx);
+								const linkUrl = link('Link', releaseDraftUrl.toString());
+
+								task.title += ` ${linkUrl}`;
+
+								await open(releaseDraftUrl.toString());
+							},
+						},
+					],
+		).run(ctx);
 
 		const npmPackageName = (await getPackageJson()).name;
 		const jsrPackageName = (await getJsrJson()).name;
