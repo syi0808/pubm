@@ -54,13 +54,14 @@ Options:
   --no-build                  Skip build before publishing
   --no-publish                Skip publishing task
   --no-release-draft          Skip creating a GitHub release draft
+  --publish-only              Run only publish task for latest tag 
   -t, --tag <name>            Publish under a specific dist-tag (default: latest)
   -c, --contents <path>       Subdirectory to publish 
   --no-save-token             Do not save jsr tokens (request the token each time)
   --registry <...registries>  Target registries for publish
         registry can be npm | jsr | https://url.for.private-registries (default: npm,jsr)
   -h, --help                  Display this message 
-  -v, --version               Display version number
+  -v, --version               Display version number 
 ```
 
 ## Config for publish
