@@ -57,8 +57,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1(vitest@2.1.1(@types/node@22.7.4))
       pubm:
-        specifier: ^0.0.2-1
-        version: 0.0.2-1
+        specifier: ^0.0.2-6
+        version: 0.0.2-6
       tsup:
         specifier: ^8.3.0
         version: 8.3.0(postcss@8.4.47)(typescript@5.6.2)
@@ -1014,8 +1014,8 @@ packages:
     resolution: {integrity: sha512-56rxCq7G/XfB4EkXq9Egn5GCqugWvDFjafDOThIdMBsI15iqPqR5r15TfSr1YPYeEI19YeaXMCbY6u88Y76GLQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  pubm@0.0.2-1:
-    resolution: {integrity: sha512-Dftopii0u7jOHIH16LjApNWuIE0BnU7isrGLZ3mviNK8tIrTKKoSD1Z1vrGmuqorMxiBDj90zRHaJCZF/1F+nA==}
+  pubm@0.0.2-6:
+    resolution: {integrity: sha512-J5eP/x2AR0dZHGh4Kh3O1qO1CmtlNGPmpQ0CFx8GKzAdkXwvBZ9cb544APsnPSJjlonsGTAha8bKNRWqCb2yTw==}
     engines: {git: '>=2.11.0', node: '>=18'}
     hasBin: true
 
@@ -2050,7 +2050,7 @@ snapshots:
       picocolors: 1.1.0
       source-map-js: 1.2.1
 
-  pubm@0.0.2-1:
+  pubm@0.0.2-6:
     dependencies:
       '@listr2/prompt-adapter-enquirer': 2.0.12(enquirer@2.4.1)
       '@npmcli/promise-spawn': 8.0.1
