@@ -14,7 +14,10 @@
 	"bin": {
 		"pubm": "bin/cli.js"
 	},
-	"files": ["dist", "bin"],
+	"files": [
+		"dist",
+		"bin"
+	],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -50,6 +53,7 @@
 		"@types/npmcli__promise-spawn": "^6.0.3",
 		"@types/semver": "^7.5.8",
 		"@vitest/coverage-v8": "^2.1.1",
+		"jsr": "^0.13.2",
 		"pubm": "^0.0.2-6",
 		"tsup": "^8.3.0",
 		"typescript": "^5.6.2",
