@@ -1,14 +1,14 @@
 import cac from 'cac';
 import type { OptionConfig } from 'cac/deno/Option.js';
 import semver from 'semver';
+import { isCI } from 'std-env';
 import { consoleError } from './error.js';
+import { Git } from './git.js';
 import { pubm } from './index.js';
 import { requiredMissingInformationTasks } from './tasks/required-missing-information.js';
 import type { Options } from './types/options.js';
 import { notifyNewVersion } from './utils/notify-new-version.js';
 import { version } from './utils/package.js';
-import { isCI } from 'std-env';
-import { Git } from './git.js';
 
 const { RELEASE_TYPES, valid } = semver;
 
