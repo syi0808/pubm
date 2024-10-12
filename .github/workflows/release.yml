@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   publish:
-    environment: PublishEnv
+    environment: Publish
     permissions:
       contents: read
       id-token: write
