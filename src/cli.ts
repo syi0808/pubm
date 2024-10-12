@@ -89,6 +89,11 @@ const options: {
 		options: { type: Boolean },
 	},
 	{
+		rawName: '--publish-only',
+		description: 'Run only publish task for latest tag',
+		options: { type: Boolean },
+	},
+	{
 		rawName: '-t, --tag <name>',
 		description: 'Publish under a specific dist-tag',
 		options: { default: 'latest', type: String },

@@ -31,6 +31,9 @@ importers:
       semver:
         specifier: ^7.6.3
         version: 7.6.3
+      std-env:
+        specifier: ^3.7.0
+        version: 3.7.0
       tinyexec:
         specifier: ^0.3.0
         version: 0.3.0

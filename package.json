@@ -14,7 +14,10 @@
 	"bin": {
 		"pubm": "bin/cli.js"
 	},
-	"files": ["dist", "bin"],
+	"files": [
+		"dist",
+		"bin"
+	],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -40,6 +43,7 @@
 		"enquirer": "^2.4.1",
 		"listr2": "^8.2.5",
 		"semver": "^7.6.3",
+		"std-env": "^3.7.0",
 		"tinyexec": "^0.3.0"
 	},
 	"devDependencies": {
