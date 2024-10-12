@@ -57,8 +57,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1(vitest@2.1.1(@types/node@22.7.4))
       pubm:
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.0.2-1
+        version: 0.0.2-1
       tsup:
         specifier: ^8.3.0
         version: 8.3.0(postcss@8.4.47)(typescript@5.6.2)
@@ -1014,8 +1014,8 @@ packages:
     resolution: {integrity: sha512-56rxCq7G/XfB4EkXq9Egn5GCqugWvDFjafDOThIdMBsI15iqPqR5r15TfSr1YPYeEI19YeaXMCbY6u88Y76GLQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  pubm@0.0.1:
-    resolution: {integrity: sha512-DOAF2h9/ce5nIgZ3qcVxoMRUBDnI1e0l6r1PTVwBn8E1TSlX/a7w77pJMGblMpRmeKSPj5mfxOT/tXwVPQMYFw==}
+  pubm@0.0.2-1:
+    resolution: {integrity: sha512-Dftopii0u7jOHIH16LjApNWuIE0BnU7isrGLZ3mviNK8tIrTKKoSD1Z1vrGmuqorMxiBDj90zRHaJCZF/1F+nA==}
     engines: {git: '>=2.11.0', node: '>=18'}
     hasBin: true
 
@@ -2050,15 +2050,15 @@ snapshots:
       picocolors: 1.1.0
       source-map-js: 1.2.1
 
-  pubm@0.0.1:
+  pubm@0.0.2-1:
     dependencies:
       '@listr2/prompt-adapter-enquirer': 2.0.12(enquirer@2.4.1)
       '@npmcli/promise-spawn': 8.0.1
       cac: 6.7.14
       enquirer: 2.4.1
       listr2: 8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4)
-      picomatch: 4.0.2
       semver: 7.6.3
+      std-env: 3.7.0
       tinyexec: 0.3.0
 
   punycode@2.3.1: {}
