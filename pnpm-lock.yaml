@@ -28,9 +28,6 @@ importers:
       listr2:
         specifier: ^8.2.5
         version: 8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4)
-      picomatch:
-        specifier: ^4.0.2
-        version: 4.0.2
       semver:
         specifier: ^7.6.3
         version: 7.6.3
@@ -50,15 +47,15 @@ importers:
       '@types/npmcli__promise-spawn':
         specifier: ^6.0.3
         version: 6.0.3
-      '@types/picomatch':
-        specifier: ^3.0.1
-        version: 3.0.1
       '@types/semver':
         specifier: ^7.5.8
         version: 7.5.8
       '@vitest/coverage-v8':
         specifier: ^2.1.1
         version: 2.1.1(vitest@2.1.1(@types/node@22.7.4))
+      pubm:
+        specifier: ^0.0.1
+        version: 0.0.1
       tsup:
         specifier: ^8.3.0
         version: 8.3.0(postcss@8.4.47)(typescript@5.6.2)
@@ -562,9 +559,6 @@ packages:
   '@types/npmcli__promise-spawn@6.0.3':
     resolution: {integrity: sha512-4EQlesp5HtYHPXMXd4uuI+Q9hELEU0eVg/HBRLkqGC5U2ohwXZduCottmzPpb4tWCB+w4kQ3XNPlHIdXvCTyFw==}
 
-  '@types/picomatch@3.0.1':
-    resolution: {integrity: sha512-1MRgzpzY0hOp9pW/kLRxeQhUWwil6gnrUYd3oEpeYBqp/FexhaCPv3F8LsYr47gtUU45fO2cm1dbwkSrHEo8Uw==}
-
   '@types/semver@7.5.8':
     resolution: {integrity: sha512-I8EUhyrgfLrcTkzV3TSsGyl1tSuPrEDzr0yd5m90UgNxQkyDXULk3b6MlQqTCpZpNtWe1K0hzclnZkTcLBe2UQ==}
 
@@ -1016,6 +1010,11 @@ packages:
   postcss@8.4.47:
     resolution: {integrity: sha512-56rxCq7G/XfB4EkXq9Egn5GCqugWvDFjafDOThIdMBsI15iqPqR5r15TfSr1YPYeEI19YeaXMCbY6u88Y76GLQ==}
     engines: {node: ^10 || ^12 || >=14}
+
+  pubm@0.0.1:
+    resolution: {integrity: sha512-DOAF2h9/ce5nIgZ3qcVxoMRUBDnI1e0l6r1PTVwBn8E1TSlX/a7w77pJMGblMpRmeKSPj5mfxOT/tXwVPQMYFw==}
+    engines: {git: '>=2.11.0', node: '>=18'}
+    hasBin: true
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -1591,8 +1590,6 @@ snapshots:
     dependencies:
       '@types/node': 22.7.4
 
-  '@types/picomatch@3.0.1': {}
-
   '@types/semver@7.5.8': {}
 
   '@vitest/coverage-v8@2.1.1(vitest@2.1.1(@types/node@22.7.4))':
@@ -2049,6 +2046,17 @@ snapshots:
       nanoid: 3.3.7
       picocolors: 1.1.0
       source-map-js: 1.2.1
+
+  pubm@0.0.1:
+    dependencies:
+      '@listr2/prompt-adapter-enquirer': 2.0.12(enquirer@2.4.1)
+      '@npmcli/promise-spawn': 8.0.1
+      cac: 6.7.14
+      enquirer: 2.4.1
+      listr2: 8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4)
+      picomatch: 4.0.2
+      semver: 7.6.3
+      tinyexec: 0.3.0
 
   punycode@2.3.1: {}
 
