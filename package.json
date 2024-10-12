@@ -1,6 +1,6 @@
 {
 	"name": "pubm",
-	"version": "0.0.2-0",
+	"version": "0.0.2-1",
 	"engines": {
 		"node": ">=18",
 		"git": ">=2.11.0"
