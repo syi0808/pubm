@@ -10,6 +10,10 @@ pubm
 publish manager for multiple registry (jsr, npm and private registries)
 <p>
 
+<p align="center">
+<img src="https://github.com/syi0808/pubm/blob/main/docs/demo.gif" height="150">
+</p>
+
 ## Features
 
 - Publish package to npm and jsr at once
