@@ -1,7 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
 import { isCI } from 'std-env';
-import { exec, type Options } from 'tinyexec';
+import { type Options, exec } from 'tinyexec';
 
 // Based on https://github.com/vitest-dev/vitest/blob/main/test/test-utils/index.ts
 
