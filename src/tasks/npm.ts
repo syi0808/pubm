@@ -22,6 +22,12 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
 	task: async () => {
 		const npm = await npmRegistry();
 
+		if (!(await npm.isLoggedIn())) {
+			throw new NpmAvailableError(
+				'You are not logged in. Please log in first using `npm login`.',
+			);
+		}
+
 		if (await npm.isPublished()) {
 			if (!(await npm.hasPermission())) {
 				throw new NpmAvailableError(
