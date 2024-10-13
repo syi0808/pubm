@@ -17,6 +17,7 @@ publish manager for multiple registry (jsr, npm and private registries)
 ## Features
 
 - Publish package to npm and jsr at once
+- Private registry support (Soon)
 - Customize (Soon)
   - GitHub release draft format
   - Adjust tasks (Add, Remove, Sorting tasks)
@@ -26,6 +27,7 @@ publish manager for multiple registry (jsr, npm and private registries)
 - Node.js 18 or later
 - npm 9 or later
 - Git 2.11 or later
+- jsr
 
 ## Install
 
