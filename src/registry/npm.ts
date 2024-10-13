@@ -62,6 +62,20 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
+	async isLoggedIn() {
+		try {
+			await this.npm(['whoami']);
+
+			return true;
+		} catch (error) {
+			if (`${error}`.includes('ENEEDAUTH')) {
+				return false;
+			}
+
+			throw new NpmError('Failed to run `npm whoami`', { cause: error });
+		}
+	}
+
 	async collaborators() {
 		try {
 			return JSON.parse(
