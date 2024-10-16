@@ -11,7 +11,7 @@ export class AbstractError extends Error {
 	}
 }
 
-function replaceCode(code: string) {
+function replaceCode(code: string): string {
 	return code.replace(/`([^`].+)`/g, color.bold(color.underline('$1')));
 }
 
@@ -39,7 +39,7 @@ function formatError(error: AbstractError | string): string {
 	return stringifyError;
 }
 
-export function consoleError(error: string | Error) {
+export function consoleError(error: string | Error): void {
 	let errorText = '\n';
 
 	if (typeof error === 'string') {

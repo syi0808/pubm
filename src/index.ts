@@ -12,7 +12,7 @@ import type { Options } from './types/options.js';
  * @async
  * @function
  */
-export async function pubm(options: Options) {
+export async function pubm(options: Options): Promise<void> {
 	const resolvedOptions = resolveOptions({ ...options });
 
 	await run(resolvedOptions);

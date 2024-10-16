@@ -14,14 +14,17 @@ const cachedJsrJson: Record<string, JsrJson> = {};
 
 // If the `name` field in the JSR JSON is not the scoped name from `package.json`,
 // update the cached JSR JSON accordingly.
-export async function patchCachedJsrJson(
+export function patchCachedJsrJson(
 	contents: Partial<JsrJson>,
 	{ cwd = process.cwd() } = {},
-) {
+): void {
 	cachedJsrJson[cwd] = { ...cachedJsrJson[cwd], ...contents };
 }
 
-export async function findOutFile(file: string, { cwd = process.cwd() } = {}) {
+export async function findOutFile(
+	file: string,
+	{ cwd = process.cwd() } = {},
+): Promise<string | null> {
 	let directory = cwd;
 	let filePath = '';
 	const { root } = path.parse(cwd);
@@ -124,7 +127,9 @@ export async function getJsrJson({
 	}
 }
 
-export async function packageJsonToJsrJson(packageJson: PackageJson) {
+export async function packageJsonToJsrJson(
+	packageJson: PackageJson,
+): Promise<JsrJson> {
 	const ignore =
 		(await findOutFile('.npmignore')) || (await findOutFile('.gitignore'));
 
@@ -147,7 +152,9 @@ export async function packageJsonToJsrJson(packageJson: PackageJson) {
 		},
 	};
 
-	function convertExports(exports: string | PackageExportsEntryObject) {
+	function convertExports(
+		exports: string | PackageExportsEntryObject,
+	): string | Record<string, string | PackageExportsEntryObject> {
 		if (typeof exports === 'string') return exports;
 
 		const convertedExports: Record<string, string | PackageExportsEntryObject> =
@@ -168,7 +175,7 @@ export async function packageJsonToJsrJson(packageJson: PackageJson) {
 	}
 }
 
-export async function jsrJsonToPackageJson(jsrJson: JsrJson) {
+export function jsrJsonToPackageJson(jsrJson: JsrJson): PackageJson {
 	return <PackageJson>{
 		name: jsrJson.name,
 		version: jsrJson.version,
@@ -179,7 +186,9 @@ export async function jsrJsonToPackageJson(jsrJson: JsrJson) {
 		exports: jsrJson.exports && convertExports(jsrJson.exports),
 	};
 
-	function convertExports(exports: string | Record<string, string>) {
+	function convertExports(
+		exports: string | Record<string, string>,
+	): string | Record<string, PackageExportsEntryObject> {
 		if (typeof exports === 'string') return exports;
 
 		const convertedExports: Record<string, PackageExportsEntryObject> = {};
@@ -194,7 +203,7 @@ export async function jsrJsonToPackageJson(jsrJson: JsrJson) {
 	}
 }
 
-export async function version({ cwd = process.cwd() } = {}) {
+export async function version({ cwd = process.cwd() } = {}): Promise<string> {
 	let version = (await getPackageJson({ cwd }))?.version;
 
 	if (!version) {

@@ -6,13 +6,13 @@ const rollbacks: { fn: Rollback<any>; ctx: unknown }[] = [];
 export function addRollback<Ctx extends {}>(
 	rollback: Rollback<Ctx>,
 	context: Ctx,
-) {
+): void {
 	rollbacks.push({ fn: rollback, ctx: context });
 }
 
 let called = false;
 
-export async function rollback() {
+export async function rollback(): Promise<void> {
 	if (called) return void 0;
 
 	called = true;

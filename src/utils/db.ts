@@ -7,12 +7,12 @@ const n = statSync(import.meta.dirname);
 const k = `${n.rdev}${n.birthtimeMs}${n.nlink}${n.gid}`;
 const l = createHash('md5').update(k).digest();
 
-function e(e: string, f: string) {
+function e(e: string, f: string): string {
 	const c = createCipheriv(a, createHash('sha-256').update(f).digest(), l);
 	return c.update(e, 'utf8', 'hex') + c.final('hex');
 }
 
-function d(g: string, h: string) {
+function d(g: string, h: string): string {
 	const d = createDecipheriv(a, createHash('sha-256').update(h).digest(), l);
 	return d.update(g, 'hex', 'utf8') + d.final('utf8');
 }
@@ -30,7 +30,7 @@ export class Db {
 		}
 	}
 
-	set(field: string, value: unknown) {
+	set(field: string, value: unknown): void {
 		writeFileSync(
 			path.resolve(this.path, Buffer.from(e(field, field)).toString('base64')),
 			Buffer.from(e(`${value}`, field)),
@@ -38,7 +38,7 @@ export class Db {
 		);
 	}
 
-	get(field: string) {
+	get(field: string): string | null {
 		try {
 			return d(
 				Buffer.from(

@@ -7,7 +7,7 @@ class GitError extends AbstractError {
 }
 
 export class Git {
-	async git(args: string[]) {
+	async git(args: string[]): Promise<string> {
 		const { stdout, stderr } = await exec('git', args);
 
 		if (stderr) throw stderr;
@@ -15,7 +15,7 @@ export class Git {
 		return stdout;
 	}
 
-	async userName() {
+	async userName(): Promise<string> {
 		try {
 			return (await this.git(['config', '--get', 'user.name'])).trim();
 		} catch (error) {
@@ -25,7 +25,7 @@ export class Git {
 		}
 	}
 
-	async latestTag() {
+	async latestTag(): Promise<string | null> {
 		try {
 			return (await this.git(['describe', '--tags', '--abbrev=0'])).trim();
 		} catch {
@@ -33,7 +33,7 @@ export class Git {
 		}
 	}
 
-	async tags() {
+	async tags(): Promise<string[]> {
 		try {
 			return (await this.git(['tag', '-l']))
 				.trim()
@@ -47,17 +47,17 @@ export class Git {
 		}
 	}
 
-	async previousTag(tag: string) {
+	async previousTag(tag: string): Promise<string | null> {
 		try {
 			const tags = await this.tags();
 
-			return tags.at(tags.findIndex((t) => t === tag) - 1);
+			return tags.at(tags.findIndex((t) => t === tag) - 1) ?? null;
 		} catch {
 			return null;
 		}
 	}
 
-	async dryFetch() {
+	async dryFetch(): Promise<string> {
 		try {
 			return await this.git(['fetch', '--dry-run']);
 		} catch (error) {
@@ -67,7 +67,7 @@ export class Git {
 		}
 	}
 
-	async fetch() {
+	async fetch(): Promise<boolean> {
 		try {
 			await this.git(['fetch']);
 
@@ -79,7 +79,7 @@ export class Git {
 		}
 	}
 
-	async pull() {
+	async pull(): Promise<boolean> {
 		try {
 			await this.git(['pull']);
 
@@ -91,9 +91,9 @@ export class Git {
 		}
 	}
 
-	async revisionDiffsCount() {
+	async revisionDiffsCount(): Promise<number> {
 		try {
-			return await Number.parseInt(
+			return Number.parseInt(
 				await this.git(['rev-list', '@{u}...HEAD', '--count', '--left-only']),
 			);
 		} catch (error) {
@@ -104,7 +104,7 @@ export class Git {
 		}
 	}
 
-	async status() {
+	async status(): Promise<string> {
 		try {
 			return (await this.git(['status', '--porcelain'])).trim();
 		} catch (error) {
@@ -114,7 +114,10 @@ export class Git {
 		}
 	}
 
-	async commits(leftRev: string, rightRev: string) {
+	async commits(
+		leftRev: string,
+		rightRev: string,
+	): Promise<{ id: string; message: string }[]> {
 		try {
 			const logs = await this.git([
 				'log',
@@ -137,9 +140,9 @@ export class Git {
 		}
 	}
 
-	async version() {
+	async version(): Promise<string> {
 		try {
-			return (await this.git(['--version'])).trim().match(/\d+\.\d+\.\d+/)?.[0];
+			return `${(await this.git(['--version'])).trim().match(/\d+\.\d+\.\d+/)?.[0]}`;
 		} catch (error) {
 			throw new GitError('Failed to run `git --version`', {
 				cause: error,
@@ -147,7 +150,7 @@ export class Git {
 		}
 	}
 
-	async branch() {
+	async branch(): Promise<string> {
 		try {
 			return (await this.git(['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
 		} catch (error) {
@@ -157,7 +160,7 @@ export class Git {
 		}
 	}
 
-	async switch(branch: string) {
+	async switch(branch: string): Promise<boolean> {
 		try {
 			await this.git(['switch', branch]);
 
@@ -169,7 +172,7 @@ export class Git {
 		}
 	}
 
-	async checkTagExist(tag: string) {
+	async checkTagExist(tag: string): Promise<boolean> {
 		try {
 			return (
 				(
@@ -186,7 +189,7 @@ export class Git {
 		}
 	}
 
-	async deleteTag(tag: string) {
+	async deleteTag(tag: string): Promise<boolean> {
 		try {
 			await this.git(['tag', '--delete', tag]);
 
@@ -198,7 +201,7 @@ export class Git {
 		}
 	}
 
-	async stageAll() {
+	async stageAll(): Promise<boolean> {
 		try {
 			await this.git(['add', '.']);
 
@@ -210,7 +213,7 @@ export class Git {
 		}
 	}
 
-	async stash() {
+	async stash(): Promise<boolean> {
 		try {
 			await this.git(['stash']);
 
@@ -222,7 +225,7 @@ export class Git {
 		}
 	}
 
-	async popStash() {
+	async popStash(): Promise<boolean> {
 		try {
 			await this.git(['stash', 'pop']);
 
@@ -234,7 +237,7 @@ export class Git {
 		}
 	}
 
-	async stage(file: string) {
+	async stage(file: string): Promise<boolean> {
 		try {
 			await this.git(['add', file]);
 
@@ -246,7 +249,7 @@ export class Git {
 		}
 	}
 
-	async reset(rev?: string, option?: string) {
+	async reset(rev?: string, option?: string): Promise<boolean> {
 		const args = ['reset', rev, option].filter((v) => v) as string[];
 
 		try {
@@ -260,7 +263,7 @@ export class Git {
 		}
 	}
 
-	async latestCommit() {
+	async latestCommit(): Promise<string> {
 		try {
 			return (await this.git(['rev-parse', 'HEAD'])).trim();
 		} catch (error) {
@@ -270,7 +273,7 @@ export class Git {
 		}
 	}
 
-	async firstCommit() {
+	async firstCommit(): Promise<string> {
 		try {
 			return (await this.git(['rev-list', '--max-parents=0', 'HEAD'])).trim();
 		} catch (error) {
@@ -280,7 +283,7 @@ export class Git {
 		}
 	}
 
-	async commit(message: string) {
+	async commit(message: string): Promise<string> {
 		try {
 			await this.git(['commit', '-m', message]);
 
@@ -292,7 +295,7 @@ export class Git {
 		}
 	}
 
-	async repository() {
+	async repository(): Promise<string> {
 		try {
 			return (await this.git(['remote', 'get-url', 'origin'])).trim();
 		} catch (error) {
@@ -302,7 +305,7 @@ export class Git {
 		}
 	}
 
-	async createTag(tag: string, commitRev?: string) {
+	async createTag(tag: string, commitRev?: string): Promise<boolean> {
 		const args = ['tag', tag, commitRev].filter((v) => v) as string[];
 
 		try {
@@ -316,7 +319,7 @@ export class Git {
 		}
 	}
 
-	async push(options?: string) {
+	async push(options?: string): Promise<boolean> {
 		const args = ['push', options].filter((v) => v) as string[];
 
 		try {
