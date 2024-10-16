@@ -3,7 +3,7 @@ import { rollback } from './rollback.js';
 
 export function createListr<Context extends {}>(
 	...args: ConstructorParameters<typeof Listr<Context>>
-) {
+): Listr<Context> {
 	const listr = new Listr<Context>(...args);
 
 	listr.isRoot = () => false;

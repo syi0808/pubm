@@ -43,7 +43,7 @@ export class CliController {
 		}
 	}
 
-	private capture(source: Source, data: unknown) {
+	private capture(source: Source, data: unknown): void {
 		const msg = stripVTControlCharacters(`${data}`);
 		this[source] += msg;
 
@@ -52,7 +52,7 @@ export class CliController {
 		}
 	}
 
-	write(data: string) {
+	write(data: string): void {
 		this.resetOutput();
 
 		if ((this.stdin as Readable).readable) {
@@ -62,16 +62,16 @@ export class CliController {
 		}
 	}
 
-	resetOutput() {
+	resetOutput(): void {
 		this.stdout = '';
 		this.stderr = '';
 	}
 
-	waitForStdout(expected: string) {
+	waitForStdout(expected: string): Promise<void> {
 		return this.waitForOutput(expected, 'stdout', this.waitForStdout);
 	}
 
-	waitForStderr(expected: string) {
+	waitForStderr(expected: string): Promise<void> {
 		return this.waitForOutput(expected, 'stderr', this.waitForStderr);
 	}
 
@@ -79,7 +79,7 @@ export class CliController {
 		expected: string,
 		source: Source,
 		caller: Parameters<typeof Error.captureStackTrace>[1],
-	) {
+	): Promise<void> {
 		const error = new Error('Timeout');
 		Error.captureStackTrace(error, caller);
 
@@ -120,7 +120,13 @@ export async function runPubmCli(
 	command: string,
 	_options?: Partial<Options>,
 	...args: string[]
-) {
+): Promise<{
+	controller: CliController;
+	exitCode: number | undefined;
+	stdout: string;
+	stderr: string;
+	waitForClose: () => Promise<unknown>;
+}> {
 	let options = _options;
 
 	if (typeof _options === 'string') {
@@ -149,7 +155,7 @@ export async function runPubmCli(
 	function output() {
 		return {
 			controller,
-			exitCode: subprocess?.exitCode,
+			exitCode: subprocess?.exitCode ?? undefined,
 			stdout: controller.stdout || '',
 			stderr: controller.stderr || '',
 			waitForClose: () => isDone,

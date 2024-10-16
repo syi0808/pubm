@@ -14,7 +14,7 @@ class JsrError extends AbstractError {
 	name = 'jsr Error';
 }
 
-function getApiEndpoint(registry: string) {
+function getApiEndpoint(registry: string): string {
 	const url = new URL(registry);
 
 	url.host = `api.${url.host}`;
@@ -32,7 +32,7 @@ export class JsrRegisry extends Registry {
 		this.client = new JsrClient(getApiEndpoint(this.registry));
 	}
 
-	protected async jsr(args: string[]) {
+	protected async jsr(args: string[]): Promise<string> {
 		const { stdout, stderr } = await exec('jsr', args);
 
 		if (stderr) throw stderr;
@@ -40,7 +40,7 @@ export class JsrRegisry extends Registry {
 		return stdout;
 	}
 
-	async isInstalled() {
+	async isInstalled(): Promise<boolean> {
 		try {
 			await this.jsr(['--help']);
 
@@ -50,11 +50,11 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
-	async distTags() {
+	async distTags(): Promise<string[]> {
 		return [];
 	}
 
-	async ping() {
+	async ping(): Promise<boolean> {
 		try {
 			const { stdout, stderr } = await exec('ping', [
 				new URL(this.registry).hostname,
@@ -73,7 +73,7 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
-	async publish() {
+	async publish(): Promise<boolean> {
 		try {
 			await exec(
 				'jsr',
@@ -94,11 +94,11 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
-	async version() {
+	async version(): Promise<string> {
 		return await this.jsr(['--version']);
 	}
 
-	async isPublished() {
+	async isPublished(): Promise<boolean> {
 		try {
 			const response = await fetch(`${this.registry}/${this.packageName}`);
 
@@ -111,13 +111,13 @@ export class JsrRegisry extends Registry {
 		}
 	}
 
-	async hasPermission() {
+	async hasPermission(): Promise<boolean> {
 		return (
 			this.client.scopePermission(`${getScope(this.packageName)}`) !== null
 		);
 	}
 
-	async isPackageNameAvaliable() {
+	async isPackageNameAvaliable(): Promise<boolean> {
 		return isValidPackageName(this.packageName);
 	}
 }
@@ -127,7 +127,10 @@ export class JsrClient {
 
 	constructor(public apiEndpoint: string) {}
 
-	protected async fetch(endpoint: string, init?: RequestInit) {
+	protected async fetch(
+		endpoint: string,
+		init?: RequestInit,
+	): Promise<Response> {
 		const pubmVersion = await version({ cwd: import.meta.dirname });
 
 		return fetch(new URL(endpoint, this.apiEndpoint), {
@@ -140,13 +143,13 @@ export class JsrClient {
 		});
 	}
 
-	async user() {
+	async user(): Promise<JsrApi.Users.User | null> {
 		try {
 			const response = await this.fetch('/user');
 
 			if (response.status === 401) return null;
 
-			return (await response.json()) as JsrApi.Users.User;
+			return await response.json();
 		} catch (error) {
 			throw new JsrError(`Failed to fetch \`${this.apiEndpoint}/user\``, {
 				cause: error,
@@ -154,13 +157,15 @@ export class JsrClient {
 		}
 	}
 
-	async scopePermission(scope: string) {
+	async scopePermission(
+		scope: string,
+	): Promise<JsrApi.Users.Scopes.Permission | null> {
 		try {
 			const response = await this.fetch(`/user/member/${scope}`);
 
 			if (response.status === 401) return null;
 
-			return (await response.json()) as JsrApi.Users.Scopes.Permission;
+			return await response.json();
 		} catch (error) {
 			throw new JsrError(
 				`Failed to fetch \`${this.apiEndpoint}/user/member/${scope}\``,
@@ -190,13 +195,13 @@ export class JsrClient {
 		}
 	}
 
-	async package(packageName: string) {
+	async package(packageName: string): Promise<JsrApi.Scopes.Packages.Package> {
 		const [scope, name] = getScopeAndName(packageName);
 
 		try {
 			const response = await this.fetch(`/scopes/${scope}/packages/${name}`);
 
-			return (await response.json()) as JsrApi.Scopes.Packages.Package;
+			return await response.json();
 		} catch (error) {
 			throw new JsrError(
 				`Failed to fetch \`${this.apiEndpoint}/user/scopes\``,
@@ -207,7 +212,7 @@ export class JsrClient {
 		}
 	}
 
-	async createScope(scope: string) {
+	async createScope(scope: string): Promise<boolean> {
 		try {
 			const response = await this.fetch('/scopes', {
 				method: 'POST',
@@ -222,7 +227,7 @@ export class JsrClient {
 		}
 	}
 
-	async deleteScope(scope: string) {
+	async deleteScope(scope: string): Promise<boolean> {
 		try {
 			const response = await this.fetch(`/scopes/${scope}`, {
 				method: 'DELETE',
@@ -239,7 +244,7 @@ export class JsrClient {
 		}
 	}
 
-	async createPackage(packageName: string) {
+	async createPackage(packageName: string): Promise<boolean> {
 		const [scope, name] = getScopeAndName(packageName);
 
 		try {
@@ -259,7 +264,7 @@ export class JsrClient {
 		}
 	}
 
-	async deletePackage(packageName: string) {
+	async deletePackage(packageName: string): Promise<boolean> {
 		const [scope, name] = getScopeAndName(packageName);
 
 		try {
@@ -278,11 +283,11 @@ export class JsrClient {
 		}
 	}
 
-	async searchPackage(query: string) {
+	async searchPackage(query: string): Promise<JsrApi.Packages> {
 		try {
 			const response = await this.fetch(`/packages?query=${query}`);
 
-			return (await response.json()) as JsrApi.Packages;
+			return await response.json();
 		} catch (error) {
 			throw new JsrError(
 				`Failed to fetch \`${this.apiEndpoint}/packages?query=${query}\``,
@@ -294,7 +299,7 @@ export class JsrClient {
 	}
 }
 
-export async function jsrRegistry() {
+export async function jsrRegistry(): Promise<JsrRegisry> {
 	const jsrJson = await getJsrJson();
 
 	return new JsrRegisry(jsrJson.name);

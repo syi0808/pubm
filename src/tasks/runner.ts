@@ -1,6 +1,6 @@
 import process from 'node:process';
 import npmCli from '@npmcli/promise-spawn';
-import { color } from 'listr2';
+import { color, type Listr } from 'listr2';
 import SemVer from 'semver';
 import { isCI } from 'std-env';
 import { exec } from 'tinyexec';
@@ -31,7 +31,7 @@ export interface Ctx extends ResolvedOptions {
 	cleanWorkingTree: boolean;
 }
 
-export async function run(options: ResolvedOptions) {
+export async function run(options: ResolvedOptions): Promise<void> {
 	const ctx = <Ctx>{
 		...options,
 		promptEnabled: !isCI && process.stdin.isTTY,
@@ -56,7 +56,7 @@ export async function run(options: ResolvedOptions) {
 			options.publishOnly
 				? {
 						title: 'Publishing',
-						task: (ctx, parentTask) =>
+						task: (ctx, parentTask): Listr<Ctx> =>
 							parentTask.newListr(
 								ctx.registries.map((registry) => {
 									switch (registry) {
@@ -75,7 +75,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							skip: options.skipTests,
 							title: 'Running tests',
-							task: async (ctx) => {
+							task: async (ctx): Promise<void> => {
 								const packageManager = await getPackageManager();
 
 								const { stderr } = await exec(packageManager, [
@@ -94,7 +94,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							skip: options.skipBuild,
 							title: 'Building the project',
-							task: async (ctx) => {
+							task: async (ctx): Promise<void> => {
 								const packageManager = await getPackageManager();
 
 								try {
@@ -112,7 +112,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							title: 'Bumping version',
 							skip: (ctx) => !!ctx.preview,
-							task: async (ctx, task) => {
+							task: async (ctx, task): Promise<void> => {
 								const git = new Git();
 								let tagCreated = false;
 								let commited = false;
@@ -153,7 +153,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							skip: (ctx) => options.skipPublish || !!ctx.preview,
 							title: 'Publishing',
-							task: (ctx, parentTask) =>
+							task: (ctx, parentTask): Listr<Ctx> =>
 								parentTask.newListr(
 									ctx.registries.map((registry) => {
 										switch (registry) {
@@ -171,7 +171,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							title: 'Pushing tags to GitHub',
 							skip: (ctx) => !!ctx.preview,
-							task: async (_, task) => {
+							task: async (_, task): Promise<void> => {
 								const git = new Git();
 
 								const result = await git.push('--follow-tags');
@@ -187,7 +187,7 @@ export async function run(options: ResolvedOptions) {
 						{
 							skip: (ctx) => options.skipReleaseDraft || !!ctx.preview,
 							title: 'Creating release draft on GitHub',
-							task: async (ctx, task) => {
+							task: async (ctx, task): Promise<void> => {
 								const git = new Git();
 
 								const repositoryUrl = await git.repository();

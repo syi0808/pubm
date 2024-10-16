@@ -23,22 +23,22 @@ class RequiredConditionCheckError extends AbstractError {
 	}
 }
 
-export const requiredConditionsCheckTask: (
+export const requiredConditionsCheckTask = (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
-) => Listr<Ctx> = (options) =>
+): Listr<Ctx> =>
 	createListr({
 		...options,
 		title: 'Required conditions check (for pubm tasks)',
-		task: (_, parentTask) =>
+		task: (_, parentTask): Listr<Ctx> =>
 			parentTask.newListr(
 				[
 					{
 						title: 'Ping registries',
-						task: async (ctx, parentTask) =>
+						task: (ctx, parentTask): Listr<Ctx> =>
 							parentTask.newListr(
 								ctx.registries.map((registryKey) => ({
 									title: `Ping to ${registryKey}`,
-									task: async () => {
+									task: async (): Promise<void> => {
 										const registry = await getRegistry(registryKey);
 
 										await registry.ping();
@@ -58,7 +58,7 @@ export const requiredConditionsCheckTask: (
 										enabled: (ctx) =>
 											ctx.registries.some((registry) => registry !== 'jsr'),
 										title: 'Verifying if npm are installed',
-										task: async () => {
+										task: async (): Promise<void> => {
 											const npm = await npmRegistry();
 
 											if (!(await npm.isInstalled())) {
@@ -72,7 +72,7 @@ export const requiredConditionsCheckTask: (
 										enabled: (ctx) =>
 											ctx.registries.some((registry) => registry === 'jsr'),
 										title: 'Verifying if jsr are installed',
-										task: async (_, task) => {
+										task: async (_, task): Promise<void> => {
 											const jsr = await jsrRegistry();
 
 											if (!(await jsr.isInstalled())) {
@@ -108,7 +108,7 @@ export const requiredConditionsCheckTask: (
 					{
 						title: 'Checking if test and build scripts exist',
 						skip: (ctx) => ctx.jsrOnly,
-						task: async (ctx) => {
+						task: async (ctx): Promise<void> => {
 							const { scripts } = await getPackageJson();
 
 							const errors: string[] = [];
@@ -132,7 +132,7 @@ export const requiredConditionsCheckTask: (
 					},
 					{
 						title: 'Checking git version',
-						task: async () => {
+						task: async (): Promise<void> => {
 							const git = new Git();
 
 							validateEngineVersion('git', `${await git.version()}`);
@@ -140,7 +140,7 @@ export const requiredConditionsCheckTask: (
 					},
 					{
 						title: 'Checking available registries for publishing',
-						task: async (ctx, parentTask) =>
+						task: (ctx, parentTask): Listr<Ctx> =>
 							parentTask.newListr(
 								ctx.registries.map((registryKey) => {
 									switch (registryKey) {

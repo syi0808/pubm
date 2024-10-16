@@ -19,7 +19,7 @@ class NpmAvailableError extends AbstractError {
 export const npmAvailableCheckTasks: ListrTask<Ctx> = {
 	title: 'Checking npm avaliable for publising',
 	skip: (ctx) => !!ctx.preview,
-	task: async () => {
+	task: async (): Promise<void> => {
 		const npm = await npmRegistry();
 
 		if (!(await npm.isLoggedIn())) {

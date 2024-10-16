@@ -3,7 +3,7 @@ import { exec } from 'tinyexec';
 import { getScopeAndName } from './package-name.js';
 import { findOutFile, getJsrJson, getPackageJson, version } from './package.js';
 
-export async function notifyNewVersion() {
+export async function notifyNewVersion(): Promise<void> {
 	const currentVersion = await version({ cwd: import.meta.dirname });
 
 	await Promise.all([

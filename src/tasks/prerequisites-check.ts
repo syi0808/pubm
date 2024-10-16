@@ -16,9 +16,9 @@ class PrerequisitesCheckError extends AbstractError {
 	}
 }
 
-export const prerequisitesCheckTask: (
+export const prerequisitesCheckTask = (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
-) => Listr<Ctx> = (options) => {
+): Listr<Ctx> => {
 	const git = new Git();
 
 	return createListr({
@@ -30,7 +30,7 @@ export const prerequisitesCheckTask: (
 				{
 					skip: (ctx) => !!ctx.anyBranch,
 					title: 'Verifying current branch is a release branch',
-					task: async (ctx, task) => {
+					task: async (ctx, task): Promise<void> => {
 						if ((await git.branch()) !== ctx.branch) {
 							const swtichBranch = await task
 								.prompt(ListrEnquirerPromptAdapter)
@@ -54,7 +54,7 @@ export const prerequisitesCheckTask: (
 				},
 				{
 					title: 'Checking if remote history is clean',
-					task: async (_, task) => {
+					task: async (_, task): Promise<void> => {
 						task.output = 'Checking for updates with `git fetch`';
 
 						if ((await git.dryFetch()).trim()) {
@@ -101,7 +101,7 @@ export const prerequisitesCheckTask: (
 				},
 				{
 					title: 'Checking if the local working tree is clean',
-					task: async (ctx, task) => {
+					task: async (ctx, task): Promise<void> => {
 						if (await git.status()) {
 							task.output = 'Local working tree is not clean.';
 
@@ -152,7 +152,7 @@ export const prerequisitesCheckTask: (
 				},
 				{
 					title: 'Checking git tag existence',
-					task: async (ctx, task) => {
+					task: async (ctx, task): Promise<void> => {
 						const gitTag = `v${ctx.version}`;
 
 						if (await git.checkTagExist(gitTag)) {

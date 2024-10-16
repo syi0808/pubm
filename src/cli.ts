@@ -141,59 +141,64 @@ function resolveCliOptions(options: CliOptions): Options {
 
 cli
 	.command('[version]')
-	.action(async (nextVersion, options: Omit<CliOptions, 'version'>) => {
-		console.clear();
+	.action(
+		async (
+			nextVersion,
+			options: Omit<CliOptions, 'version'>,
+		): Promise<void> => {
+			console.clear();
 
-		if (!isCI) {
-			await notifyNewVersion();
-		}
-
-		const context = {
-			version: nextVersion,
-			tag: options.tag,
-		};
-
-		try {
-			if (isCI) {
-				if (options.publishOnly) {
-					const git = new Git();
-					const latestVersion = (await git.latestTag())?.slice(1);
-
-					if (!latestVersion) {
-						throw new Error(
-							'Cannot find the latest tag. Please ensure tags exist in the repository.',
-						);
-					}
-
-					if (!valid(latestVersion)) {
-						throw new Error(
-							'Cannot parse the latest tag to a valid SemVer version. Please check the tag format.',
-						);
-					}
-
-					context.version = latestVersion;
-				} else {
-					throw new Error(
-						'Version must be set in the CI environment. Please define the version before proceeding.',
-					);
-				}
-			} else {
-				await requiredMissingInformationTasks().run(context);
+			if (!isCI) {
+				await notifyNewVersion();
 			}
 
-			await pubm(
-				resolveCliOptions({
-					...options,
-					version: context.version,
-					tag: context.tag,
-				}),
-			);
-		} catch (e) {
-			consoleError(e as Error);
-		}
-	});
+			const context = {
+				version: nextVersion,
+				tag: options.tag,
+			};
 
-cli.help((sections) => {
+			try {
+				if (isCI) {
+					if (options.publishOnly) {
+						const git = new Git();
+						const latestVersion = (await git.latestTag())?.slice(1);
+
+						if (!latestVersion) {
+							throw new Error(
+								'Cannot find the latest tag. Please ensure tags exist in the repository.',
+							);
+						}
+
+						if (!valid(latestVersion)) {
+							throw new Error(
+								'Cannot parse the latest tag to a valid SemVer version. Please check the tag format.',
+							);
+						}
+
+						context.version = latestVersion;
+					} else {
+						throw new Error(
+							'Version must be set in the CI environment. Please define the version before proceeding.',
+						);
+					}
+				} else {
+					await requiredMissingInformationTasks().run(context);
+				}
+
+				await pubm(
+					resolveCliOptions({
+						...options,
+						version: context.version,
+						tag: context.tag,
+					}),
+				);
+			} catch (e) {
+				consoleError(e as Error);
+			}
+		},
+	);
+
+cli.help((sections): void => {
 	sections[1].body += `\n\n  Version can be:\n    ${RELEASE_TYPES.join(' | ')} | 1.2.3`;
 	sections.splice(2, 2);
 	if (sections.at(2)) {

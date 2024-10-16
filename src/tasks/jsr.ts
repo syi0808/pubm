@@ -23,16 +23,16 @@ class JsrAvailableError extends AbstractError {
 }
 
 interface JsrCtx extends Ctx {
-	scopeCreated: boolean;
-	packageCreated: boolean;
+	scopeCreated?: boolean;
+	packageCreated?: boolean;
 }
 
 export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 	title: 'Checking jsr avaliable for publising',
-	task: async (ctx, task) => {
+	task: async (ctx, task): Promise<void> => {
 		const jsr = await jsrRegistry();
 
-		addRollback(async (ctx) => {
+		addRollback(async (ctx): Promise<void> => {
 			if (ctx.packageCreated) {
 				console.log(`Deleting jsr package ${jsr.packageName}...`);
 

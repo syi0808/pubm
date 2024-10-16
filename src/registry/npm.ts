@@ -11,7 +11,7 @@ class NpmError extends AbstractError {
 export class NpmRegistry extends Registry {
 	registry = 'https://registry.npmjs.org';
 
-	protected async npm(args: string[]) {
+	protected async npm(args: string[]): Promise<string> {
 		const { stdout, stderr } = await exec('npm', args);
 
 		if (stderr) throw stderr;
@@ -19,7 +19,7 @@ export class NpmRegistry extends Registry {
 		return stdout;
 	}
 
-	async isInstalled() {
+	async isInstalled(): Promise<boolean> {
 		try {
 			await this.npm(['--help']);
 
@@ -29,7 +29,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async installGlobally(packageName: string) {
+	async installGlobally(packageName: string): Promise<boolean> {
 		try {
 			await this.npm(['install', '-g', packageName]);
 
@@ -41,7 +41,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async isPublished() {
+	async isPublished(): Promise<boolean> {
 		try {
 			const response = await fetch(`${this.registry}/${this.packageName}`);
 
@@ -54,7 +54,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async userName() {
+	async userName(): Promise<string> {
 		try {
 			return (await this.npm(['whoami'])).trim();
 		} catch (error) {
@@ -62,7 +62,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async isLoggedIn() {
+	async isLoggedIn(): Promise<boolean> {
 		try {
 			await this.npm(['whoami']);
 
@@ -76,7 +76,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async collaborators() {
+	async collaborators(): Promise<Record<string, string>> {
 		try {
 			return JSON.parse(
 				await this.npm([
@@ -95,7 +95,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async hasPermission() {
+	async hasPermission(): Promise<boolean> {
 		const userName = await this.userName();
 
 		const collaborators = await this.collaborators();
@@ -103,7 +103,7 @@ export class NpmRegistry extends Registry {
 		return !!collaborators[userName]?.includes('write');
 	}
 
-	async distTags() {
+	async distTags(): Promise<string[]> {
 		try {
 			return Object.keys(
 				JSON.parse(
@@ -118,7 +118,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async version() {
+	async version(): Promise<string> {
 		try {
 			return this.npm(['--version']);
 		} catch (error) {
@@ -126,7 +126,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async ping() {
+	async ping(): Promise<boolean> {
 		try {
 			await exec('npm', ['ping'], { throwOnError: true });
 
@@ -136,7 +136,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async publishProvenance() {
+	async publishProvenance(): Promise<boolean> {
 		try {
 			try {
 				await this.npm(['publish', '--provenance', '--access', 'public']);
@@ -157,7 +157,7 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async publish(otp?: string) {
+	async publish(otp?: string): Promise<boolean> {
 		const args = otp ? ['publish', '--otp', otp] : ['publish'];
 
 		try {
@@ -177,12 +177,12 @@ export class NpmRegistry extends Registry {
 		}
 	}
 
-	async isPackageNameAvaliable() {
+	async isPackageNameAvaliable(): Promise<boolean> {
 		return isValidPackageName(this.packageName);
 	}
 }
 
-export async function npmRegistry() {
+export async function npmRegistry(): Promise<NpmRegistry> {
 	const packageJson = await getPackageJson();
 
 	return new NpmRegistry(packageJson.name);

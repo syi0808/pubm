@@ -9,7 +9,9 @@ const registryMap = {
 	jsr: jsrRegistry,
 } as unknown as Record<RegistryType, () => Promise<Registry>>;
 
-export async function getRegistry(registryKey: RegistryType) {
+export async function getRegistry(
+	registryKey: RegistryType,
+): Promise<Registry> {
 	const registry = registryMap[registryKey];
 
 	if (!registry) {

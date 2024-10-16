@@ -1,19 +1,19 @@
 import { builtinModules } from 'node:module';
 
-export function isScopedPackage(packageName: string) {
+export function isScopedPackage(packageName: string): boolean {
 	return /^@[^/]+\/[^@][\w.-]*$/.test(packageName);
 }
 
-export function getScope(packageName: string) {
-	return packageName.match(/^@([^/]+)/)?.[1];
+export function getScope(packageName: string): string | null {
+	return packageName.match(/^@([^/]+)/)?.[1] ?? null;
 }
 
-export function getScopeAndName(packageName: string) {
+export function getScopeAndName(packageName: string): [string, string] {
 	const matches = packageName.match(/^@([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)$/);
 	const scope = matches?.[1];
 	const name = matches?.[2];
 
-	return [scope, name] as [string, string];
+	return [`${scope}`, `${name}`];
 }
 
 // Based on https://github.com/npm/validate-npm-package-name/blob/main/lib/index.js
@@ -21,7 +21,7 @@ export function getScopeAndName(packageName: string) {
 const scopedPackagePattern = /^(?:@([^/]+?)[/])?([^/]+?)$/;
 const blacklist = ['node_modules', 'favicon.ico'];
 
-export function isValidPackageName(packageName: string) {
+export function isValidPackageName(packageName: string): boolean {
 	if (packageName.length <= 0) return false;
 
 	if (packageName.match(/^\./)) return false;

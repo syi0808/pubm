@@ -14,18 +14,18 @@ interface Ctx {
 	tag: string;
 }
 
-export const requiredMissingInformationTasks: (
+export const requiredMissingInformationTasks = (
 	options?: Omit<ListrTask<Ctx>, 'title' | 'task'>,
-) => Listr<Ctx> = (options) =>
+): Listr<Ctx> =>
 	createListr<Ctx>({
 		...options,
 		title: 'Checking required information',
-		task: (_, parentTask) =>
+		task: (_, parentTask): Listr<Ctx> =>
 			parentTask.newListr([
 				{
 					title: 'Checking version information',
 					skip: (ctx) => !!ctx.version,
-					task: async (ctx, task) => {
+					task: async (ctx, task): Promise<void> => {
 						const currentVersion = await version();
 
 						let nextVersion = await task
@@ -66,7 +66,7 @@ export const requiredMissingInformationTasks: (
 					title: 'Checking tag information',
 					skip: (ctx) =>
 						!prerelease(`${ctx.version}`) && ctx.tag === defaultOptions.tag,
-					task: async (ctx, task) => {
+					task: async (ctx, task): Promise<void> => {
 						const npm = await npmRegistry();
 						const jsr = await jsrRegistry();
 						const distTags = [
