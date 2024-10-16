@@ -1,5 +1,8 @@
 export type RegistryType = 'npm' | 'jsr' | string;
 
+/**
+ * Options for configuring the {@linkcode pubm} function.
+ */
 export interface Options {
 	/**
 	 * @description Version to publish

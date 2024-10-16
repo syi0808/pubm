@@ -18,7 +18,4 @@ export async function pubm(options: Options): Promise<void> {
 	await run(resolvedOptions);
 }
 
-/**
- * Options for configuring the {@linkcode pubm} function.
- */
 export type { Options } from './types/options.js';
