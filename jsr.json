@@ -1,15 +1,8 @@
 {
 	"name": "@pubm/pubm",
 	"version": "0.0.3",
-	"exports": "./dist/index.js",
+	"exports": "./src/index.ts",
 	"publish": {
-		"include": [
-			"dist/index.js",
-			"dist/index.d.ts",
-			"bin/cli.js",
-			"README.md",
-			"jsr.json",
-			"LICENSE"
-		]
+		"include": ["README.md", "jsr.json", "LICENSE"]
 	}
 }
