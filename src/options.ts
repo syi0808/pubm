@@ -2,6 +2,7 @@ import type { Options, ResolvedOptions } from './types/options.js';
 
 export const defaultOptions: Omit<Options, 'version'> = {
 	testScript: 'test',
+	buildScript: 'build',
 	branch: 'main',
 	tag: 'latest',
 	registries: ['npm', 'jsr'],
