@@ -1,6 +1,6 @@
 import process from 'node:process';
 import npmCli from '@npmcli/promise-spawn';
-import { color, type Listr } from 'listr2';
+import { type Listr, color } from 'listr2';
 import SemVer from 'semver';
 import { isCI } from 'std-env';
 import { exec } from 'tinyexec';
