@@ -2,6 +2,15 @@
 <img src="https://github.com/syi0808/pubm/blob/main/docs/logo.svg" height="150">
 </p>
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/pubm">
+    <img src="https://img.shields.io/npm/v/pubm" alt="npm version" />
+  </a> 
+  <a href="https://jsr.io/@pubm/pubm">
+    <img src="https://jsr.io/badges/@pubm/pubm/score" alt="jsr version" />
+  </a>
+</p>
+
 <h1 align="center">
 pubm
 </h1>
