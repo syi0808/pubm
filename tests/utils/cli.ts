@@ -2,6 +2,7 @@ import type { Readable, Writable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
 import { isCI } from 'std-env';
 import { type Options, exec } from 'tinyexec';
+import path from 'node:path';
 
 // Based on https://github.com/vitest-dev/vitest/blob/main/test/test-utils/index.ts
 
@@ -116,17 +117,16 @@ function isWritable(stream: any): stream is Writable {
 	return stream && typeof stream?.write === 'function';
 }
 
-export async function runPubmCli(
-	command: string,
-	_options?: Partial<Options>,
+export function runPubmCli(
+	_options?: Partial<Options> | string,
 	...args: string[]
-): Promise<{
+): {
 	controller: CliController;
 	exitCode: number | undefined;
 	stdout: string;
 	stderr: string;
 	waitForClose: () => Promise<unknown>;
-}> {
+} {
 	let options = _options;
 
 	if (typeof _options === 'string') {
@@ -134,37 +134,27 @@ export async function runPubmCli(
 		options = undefined;
 	}
 
-	const subprocess = exec(command, args, options as Options).process;
+	const subprocess = exec(path.resolve(import.meta.dirname, '../../bin/cli.js'), args, options as Options).process!;
 	const controller = new CliController({
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		stdin: subprocess!.stdin!,
+		stdin: subprocess.stdin!,
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		stdout: subprocess!.stdout!,
+		stdout: subprocess.stdout!,
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		stderr: subprocess!.stderr!,
+		stderr: subprocess.stderr!,
 	});
-
-	let setDone: (value?: unknown) => void;
 
 	const isDone = new Promise((resolve) => {
-		setDone = resolve;
+		subprocess?.on('exit', resolve);
 	});
 
-	subprocess?.on('exit', () => setDone());
-
-	function output() {
-		return {
-			controller,
-			exitCode: subprocess?.exitCode ?? undefined,
-			stdout: controller.stdout || '',
-			stderr: controller.stderr || '',
-			waitForClose: () => isDone,
-		};
-	}
-
-	await isDone;
-
-	return output();
+	return {
+		controller,
+		exitCode: subprocess?.exitCode ?? undefined,
+		stdout: controller.stdout || '',
+		stderr: controller.stderr || '',
+		waitForClose: () => isDone,
+	};
 }
 
 export const DOWN = '\x1B\x5B\x42';
