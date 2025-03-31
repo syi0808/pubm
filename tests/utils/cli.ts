@@ -134,7 +134,12 @@ export function runPubmCli(
 		options = undefined;
 	}
 
-	const subprocess = exec(path.resolve(import.meta.dirname, '../../bin/cli.js'), args, options as Options).process!;
+	// biome-ignore lint/style/noNonNullAssertion: <explanation>
+	const subprocess = exec(
+		path.resolve(import.meta.dirname, '../../bin/cli.js'),
+		args,
+		options as Options,
+	).process!;
 	const controller = new CliController({
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		stdin: subprocess.stdin!,

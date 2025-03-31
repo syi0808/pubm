@@ -9,7 +9,7 @@ import { requiredMissingInformationTasks } from './tasks/required-missing-inform
 import type { Options } from './types/options.js';
 import { notifyNewVersion } from './utils/notify-new-version.js';
 import { version } from './utils/package.js';
-
+import path from 'node:path';
 const { RELEASE_TYPES, valid } = semver;
 
 interface CliOptions {
@@ -129,6 +129,9 @@ for (const option of options) {
 function resolveCliOptions(options: CliOptions): Options {
 	return {
 		...options,
+		contents: options.contents
+			? path.resolve(process.cwd(), options.contents)
+			: undefined,
 		skipPublish: !options.publish,
 		skipReleaseDraft: !options.releaseDraft,
 		skipTests: !options.tests,
@@ -148,18 +151,28 @@ cli
 		): Promise<void> => {
 			console.clear();
 
-			if (!isCI) {
-				await notifyNewVersion();
-			}
-
 			const context = {
 				version: nextVersion,
 				tag: options.tag,
 			};
 
+			const resolvedOptions = resolveCliOptions({
+				...options,
+				version: context.version,
+				tag: context.tag,
+			});
+
+			if (resolvedOptions.contents) {
+				process.chdir(resolvedOptions.contents);
+			}
+
+			if (!isCI) {
+				await notifyNewVersion();
+			}
+
 			try {
 				if (isCI) {
-					if (options.publishOnly) {
+					if (resolvedOptions.publishOnly) {
 						const git = new Git();
 						const latestVersion = (await git.latestTag())?.slice(1);
 
@@ -185,13 +198,7 @@ cli
 					await requiredMissingInformationTasks().run(context);
 				}
 
-				await pubm(
-					resolveCliOptions({
-						...options,
-						version: context.version,
-						tag: context.tag,
-					}),
-				);
+				await pubm(resolvedOptions);
 			} catch (e) {
 				consoleError(e as Error);
 			}

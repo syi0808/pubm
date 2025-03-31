@@ -9,7 +9,7 @@ export const defaultOptions: Omit<Options, 'version'> = {
 };
 
 export function resolveOptions(options: Options): ResolvedOptions {
-	const nextOptions = { ...options, ...defaultOptions };
+	const nextOptions = { ...defaultOptions, ...options };
 
 	return nextOptions as ResolvedOptions;
 }

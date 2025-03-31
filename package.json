@@ -28,8 +28,8 @@
 		"check": "biome check",
 		"format": "pnpm check --write",
 		"typecheck": "tsc --noEmit",
-		"test": "vitest --run",
-		"coverage": "vitest --run --coverage",
+		"test": "vitest",
+		"coverage": "vitest --coverage",
 		"release": "pubm --no-publish",
 		"ci:release": "pubm --publish-only"
 	},
@@ -50,6 +50,7 @@
 		"@types/npmcli__promise-spawn": "^6.0.3",
 		"@types/semver": "^7.5.8",
 		"@vitest/coverage-v8": "^2.1.1",
+		"@vitest/ui": "^3.0.9",
 		"jsr": "^0.13.2",
 		"pubm": "^0.0.2-14",
 		"tsup": "^8.3.0",
