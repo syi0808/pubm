@@ -16,148 +16,73 @@ pubm
 </h1>
 
 <p align="center">
-publish manager for multiple registry (jsr, npm and private registries)
+<strong>One‑command publishing for workspaces to *multiple* registries (npm · jsr · private).</strong><br/>
+Safe by default, CI‑friendly by design, and extensible through plugins.
 <p>
 
 <p align="center">
 <img src="https://github.com/syi0808/pubm/blob/main/docs/demo.gif" width="100%">
 </p>
 
-## Features
+## ✨ Features at a Glance
 
-- Publish package to npm and jsr at once
-- Private registry support (Soon)
-- Customize (Soon)
-  - GitHub release draft format
-  - Adjust tasks (Add, Remove, Sorting tasks)
+- **Atomic multi‑registry publish** – npm & jsr run concurrently; plug‑in more registries with a few lines of code.
+- **Monorepo aware** (Soon) – detects workspaces (pnpm/yarn/npm) and publishes each package in the correct order.
+- **Smart 2FA handling** – OTP prompt when interactive, provenance publish when headless.
+- **Rigid safety guards** – branch & work‑tree checks, remote divergence, registry ping, login & permission validation.
+- **Preview & rollback** – inspect the full task‑graph with `--preview`; automatic rollback on failure.
+- **Pluggable pipeline** – customise steps via `pubm.config.(c)js`.
 
-## Prerequisites
+---
 
-- Node.js 18 or later
-- npm 9 or later
-- Git 2.11 or later
-- jsr
+## 🆚 pubm vs. np
 
-## Install
+| Capability | **pubm** | **np** |
+|------------|---------|-------|
+| **Multi‑registry** (npm *and* jsr) | ✅ Built‑in | ❌ npm‑only |
+| **Workspaces / monorepo** | ✅ Road‑map & design | ❌ Not supported |
+| **Interactive‑first, CI‑friendly (prompts auto‑off in CI/non‑TTY)** | ✅ Prompts auto‑disabled when `stdin` ≠ TTY or CI env detected | ⚠️ Local interactive focus |
+| **Plugin architecture** | ✅ `Registry` & task plugins | ❌ |
+| **2FA in CI** | ✅ Provenance publish with `NODE_AUTH_TOKEN` | ❌ Error if 2FA enforced |
+| **Windows & Bun support** | 🕓 Planned | ✅ |
+
+<sub>See [`np`](https://github.com/sindresorhus/np) for the original local‑only flow.</sub>
+
+---
+
+## ⚡ Quick Start
 
 ```bash
 npm i -g pubm
+
+pubm patch --preview
 ```
 
-## Usage
+---
 
-```bash
-Usage:
-  $ pubm [version]
+## 🔑 Core CLI Options
 
-  Version can be:
-    major | premajor | minor | preminor | patch | prepatch | prerelease | 1.2.3
+| Flag | Purpose |
+|------|---------|
+| `-p, --preview` | Dry‑run: show tasks, no side‑effects |
+| `--registry <list>` | Comma‑separated targets, e.g. `npm,jsr,https://registry.example.com` |
+| `--branch <name>` / `--any-branch` | Release branch guard control |
+| `--no-pre-check` / `--no-condition-check` | Skip guard stages |
 
-Options:
-  --test-script <script>      The npm script to run tests before publishing (default: test)
-  --build-script <script>     The npm script to run build before publishing (default: build)
-  -p, --preview               Show tasks without actually executing publish 
-  -b, --branch <name>         Name of the release branch (default: main)
-  -a, --any-branch            Show tasks without actually executing publish 
-  --no-pre-check              Skip prerequisites check task
-  --no-condition-check        Skip required conditions check task
-  --no-tests                  Skip running tests before publishing
-  --no-build                  Skip build before publishing
-  --no-publish                Skip publishing task
-  --no-release-draft          Skip creating a GitHub release draft
-  --publish-only              Run only publish task for latest tag 
-  -t, --tag <name>            Publish under a specific dist-tag (default: latest)
-  -c, --contents <path>       Subdirectory to publish 
-  --no-save-token             Do not save jsr tokens (request the token each time)
-  --registry <...registries>  Target registries for publish
-        registry can be npm | jsr | https://url.for.private-registries (default: npm,jsr)
-  -h, --help                  Display this message 
-  -v, --version               Display version number 
-```
+👉 **Full option list:** see `pubm --help` or the [CLI reference](./docs/cli.md).
 
-## Config for publish
+---
 
-You can have either package.json or jsr.json.
+## 🛠 Workflow Overview
 
-### Configuration file (Soon)
+1. **Prerequisite checks** – branch, work‑tree, commits, existing tag.
+2. **Required condition checks** – registry ping, login & permission, engine versions.
+3. **Test & build** *(optional)*
+4. **Version bump & tag** (SemVer)
+5. **Concurrent publish** – npm (OTP/provenance), jsr, plugins.
+6. **Git push & GitHub release draft**
 
-`pubm.js` or `pubm.mjs`
-
-
-## Tasks
-
-<details>
-<summary>
-pubm tasks
-</summary>
-
-- Notify new version
-- Checking required information
-  - Select SemVer increment or specify new version
-  - Select the tag for this pre-release version in npm: (if version is prerelease)
-    - checking for the existence of either package.json or jsr.json
-- Prerequisite checks = skip-pre (for deployment reliability)
-  - Checking if remote history is clean...
-  - Checking if the local working tree is clean...
-  - Checking if commits exist since the last release...
-  - Verifying current branch is a release branch...
-  - Checking git tag existence...
-- Required conditions checks (concurrently) = skip-required (for pubm tasks)
-  - Verifying if npm CLI and jsr CLI are installed...
-  - Ping registries...
-  - Checking if test and build scripts exist...
-  - Checking git version...
-  - Checking available registries for publishing...
-    - in jsr permission check token exist and ask token
-    - if first time -> Checking package name availability...
-    - if scoped package and scope reserved contact message
-- Running tests...
-- Building the project...
-- Bumping version...
-- Publishing... (concurrently)
-  - npm
-      - Running npm publish...
-      - Verifying two-factor authentication...
-  - jsr
-      - Running jsr publish...
-- Pushing tags to GitHub...
-- Creating release draft on GitHub...
-</details>
-
-<details>
-<summary>
-np tasks
-</summary>
-
-- Show New files and New dependencies
-- Check commits exist since last release
-- Check package name availabliity
-- Input SemVer version
-- Input tag (if version is prerelease)
-- Check hasn't been published scoped package
-- Prerequisite tasks
-  - Ping npm registry
-  - Check package manager version
-  - Verify user is authenticated
-  - Check git version
-  - Check git remote
-  - Validate version
-  - Check for prerelease vesion
-    - if not private and is prerelease version and tag option not exist -> throw error should set tag
-  - Check git tag existence
-- Git tasks
-  - Check current branch is release branch
-  - Check local working tree is clean
-  - Check remote history is clean
-- Cleanup
-- Install dependencies
-- Tests
-- Bumping version
-- Publish package
-- two-factor authentication
-- Push tags
-- Release draft
-</details>
+---
 
 ## FAQ
 
