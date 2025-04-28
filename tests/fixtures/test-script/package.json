@@ -1,0 +1,7 @@
+{
+  "name": "test-script-fixtures",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "test"
+  }
+}

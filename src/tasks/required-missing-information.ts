@@ -69,11 +69,16 @@ export const requiredMissingInformationTasks = (
 					task: async (ctx, task): Promise<void> => {
 						const npm = await npmRegistry();
 						const jsr = await jsrRegistry();
-						const distTags = [
-							...new Set(
-								(await Promise.all([npm.distTags(), jsr.distTags()])).flat(),
-							),
-						].filter((tag) => tag !== defaultOptions.tag);
+
+						let distTags: string[] = [];
+
+						try {
+							distTags = [
+								...new Set(
+									(await Promise.all([npm.distTags(), jsr.distTags()])).flat(),
+								),
+							].filter((tag) => tag !== defaultOptions.tag);
+						} catch {}
 
 						if (distTags.length <= 0) distTags.push('next');
 

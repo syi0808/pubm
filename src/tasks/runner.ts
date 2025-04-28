@@ -35,13 +35,11 @@ export async function run(options: ResolvedOptions): Promise<void> {
 	const ctx = <Ctx>{
 		...options,
 		promptEnabled: !isCI && process.stdin.isTTY,
-		npmOnly: options.registries.every((registry) => registry !== 'jsr'),
+		npmOnly: options.registries.every((registry) => registry === 'npm'),
 		jsrOnly: options.registries.every((registry) => registry === 'jsr'),
 	};
 
 	try {
-		if (options.contents) process.chdir(options.contents);
-
 		if (!options.publishOnly) {
 			await prerequisitesCheckTask({
 				skip: options.skipPrerequisitesCheck,
