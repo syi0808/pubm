@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pubm — One Command, Every Registry</title>
+  <meta name="description" content="Publish your packages to npm, jsr, and private registries with a single command. Safe by default, CI-friendly by design.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-deep: #0a0a0f;
+      --bg-surface: #12121a;
+      --bg-elevated: #1a1a25;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-accent: rgba(0, 255, 200, 0.2);
+
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --text-muted: #55556a;
+
+      --accent-cyan: #00ffc8;
+      --accent-cyan-dim: rgba(0, 255, 200, 0.15);
+      --accent-npm: #cb3837;
+      --accent-jsr: #f7df1e;
+      --accent-private: #a855f7;
+
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Space Grotesk', sans-serif;
+
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 32px;
+      --space-xl: 64px;
+      --space-2xl: 128px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.025;
+      z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* Grid background */
+    .grid-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 30%, transparent 70%);
+    }
+
+    /* Typography */
+    h1, h2, h3 {
+      font-family: var(--font-sans);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    code, .mono {
+      font-family: var(--font-mono);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: var(--space-md) 0;
+      background: rgba(10, 10, 15, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .nav-logo span {
+      color: var(--accent-cyan);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-links a:hover {
+      color: var(--accent-cyan);
+    }
+
+    .nav-cta {
+      padding: var(--space-sm) var(--space-md);
+      background: var(--accent-cyan);
+      color: var(--bg-deep) !important;
+      border-radius: 0;
+      font-weight: 600;
+    }
+
+    .nav-cta:hover {
+      background: var(--text-primary) !important;
+      color: var(--bg-deep) !important;
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: var(--space-2xl) 0;
+      position: relative;
+    }
+
+    .hero-content {
+      max-width: 900px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-xs) var(--space-md);
+      background: var(--accent-cyan-dim);
+      border: 1px solid var(--border-accent);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      margin-bottom: var(--space-lg);
+      animation: fadeSlideUp 0.6s ease-out;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 10vw, 7rem);
+      margin-bottom: var(--space-lg);
+      animation: fadeSlideUp 0.6s ease-out 0.1s both;
+    }
+
+    .hero h1 .accent {
+      color: var(--accent-cyan);
+      position: relative;
+    }
+
+    .hero h1 .accent::after {
+      content: '';
+      position: absolute;
+      bottom: 0.1em;
+      left: 0;
+      right: 0;
+      height: 0.15em;
+      background: var(--accent-cyan);
+      opacity: 0.3;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: var(--space-xl);
+      line-height: 1.6;
+      animation: fadeSlideUp 0.6s ease-out 0.2s both;
+    }
+
+    .hero-terminal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: var(--space-lg);
+      max-width: 500px;
+      animation: fadeSlideUp 0.6s ease-out 0.3s both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-terminal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    }
+
+    .terminal-header {
+      display: flex;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .terminal-dot:nth-child(1) { background: #ff5f57; }
+    .terminal-dot:nth-child(2) { background: #febc2e; }
+    .terminal-dot:nth-child(3) { background: #28c840; }
+
+    .terminal-line {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
+    }
+
+    .terminal-prompt {
+      color: var(--accent-cyan);
+    }
+
+    .terminal-cmd {
+      color: var(--text-primary);
+    }
+
+    .terminal-output {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      padding-left: var(--space-md);
+      border-left: 2px solid var(--border-subtle);
+      margin-top: var(--space-md);
+    }
+
+    .registry-flow {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .registry-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-xs) var(--space-sm);
+      background: var(--bg-elevated);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      opacity: 0;
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .registry-item:nth-child(1) { animation-delay: 0.8s; }
+    .registry-item:nth-child(2) { animation-delay: 1s; }
+    .registry-item:nth-child(3) { animation-delay: 1.2s; }
+    .registry-item:nth-child(4) { animation-delay: 1.4s; }
+
+    .registry-item.npm { border-left: 2px solid var(--accent-npm); }
+    .registry-item.jsr { border-left: 2px solid var(--accent-jsr); }
+    .registry-item.private { border-left: 2px solid var(--accent-private); }
+
+    .registry-arrow {
+      color: var(--text-muted);
+      opacity: 0;
+      animation: fadeIn 0.3s ease-out 0.6s forwards;
+    }
+
+    /* Features Section */
+    .features {
+      padding: var(--space-2xl) 0;
+      position: relative;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-md);
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      margin-bottom: var(--space-xl);
+      max-width: 700px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    .feature-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: var(--space-lg);
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--accent-cyan-dim) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: var(--space-md);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      color: var(--accent-cyan);
+    }
+
+    .feature-title {
+      font-size: 1.1rem;
+      margin-bottom: var(--space-sm);
+      font-weight: 600;
+    }
+
+    .feature-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Comparison Section */
+    .comparison {
+      padding: var(--space-2xl) 0;
+      background: var(--bg-surface);
+      position: relative;
+    }
+
+    .comparison::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .comparison-table th {
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .comparison-table th:first-child {
+      width: 40%;
+    }
+
+    .comparison-table td:nth-child(2),
+    .comparison-table td:nth-child(3) {
+      text-align: center;
+    }
+
+    .comparison-table th:nth-child(2) {
+      color: var(--accent-cyan);
+      text-align: center;
+    }
+
+    .comparison-table th:nth-child(3) {
+      text-align: center;
+    }
+
+    .check {
+      color: var(--accent-cyan);
+      font-size: 1.2rem;
+    }
+
+    .cross {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+    }
+
+    .partial {
+      color: var(--accent-jsr);
+      font-size: 0.8rem;
+    }
+
+    /* Quick Start Section */
+    .quickstart {
+      padding: var(--space-2xl) 0;
+    }
+
+    .quickstart-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .quickstart-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .quickstart-text {
+      position: sticky;
+      top: 120px;
+    }
+
+    .quickstart-steps {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-lg);
+    }
+
+    .step {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: var(--space-lg);
+      position: relative;
+    }
+
+    .step::before {
+      content: attr(data-step);
+      position: absolute;
+      top: var(--space-md);
+      right: var(--space-md);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .step-title {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+      margin-bottom: var(--space-sm);
+    }
+
+    .step-code {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      padding: var(--space-md);
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      overflow-x: auto;
+    }
+
+    .step-code .comment {
+      color: var(--text-muted);
+    }
+
+    .step-code .cmd {
+      color: var(--accent-cyan);
+    }
+
+    .step-code-wrapper {
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: var(--space-sm);
+      right: var(--space-sm);
+      width: 32px;
+      height: 32px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      background: var(--accent-cyan-dim);
+    }
+
+    .copy-btn.copied {
+      border-color: var(--accent-cyan);
+      background: var(--accent-cyan);
+      color: var(--bg-deep);
+    }
+
+    .copy-btn svg {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.2s ease;
+    }
+
+    .copy-btn:hover svg {
+      transform: scale(1.1);
+    }
+
+    .copy-btn.copied svg {
+      transform: scale(1.2);
+    }
+
+    /* CTA Section */
+    .cta {
+      padding: var(--space-2xl) 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .cta::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--accent-cyan-dim) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta h2 {
+      font-size: clamp(2rem, 5vw, 4rem);
+      margin-bottom: var(--space-lg);
+      position: relative;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: var(--space-md) var(--space-lg);
+      text-decoration: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .btn-primary {
+      background: var(--accent-cyan);
+      color: var(--bg-deep);
+    }
+
+    .btn-primary:hover {
+      background: var(--text-primary);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Footer */
+    footer {
+      padding: var(--space-xl) 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+    }
+
+    .footer-logo {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: var(--space-lg);
+    }
+
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--accent-cyan);
+    }
+
+    /* Animations */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Scroll animations */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 640px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 120px;
+      }
+
+      .registry-flow {
+        flex-wrap: wrap;
+      }
+
+      .comparison-table {
+        font-size: 0.75rem;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: var(--space-sm);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <nav>
+    <div class="container">
+      <a href="#" class="nav-logo">
+        <span>$</span> pubm
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#comparison">Compare</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="nav-cta">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-content">
+          <div class="hero-badge">
+            <span>v0.0.5 — Now Available</span>
+          </div>
+          <h1>One command.<br><span class="accent">Every registry.</span></h1>
+          <p class="hero-subtitle">
+            Publish your packages to npm, jsr, and private registries simultaneously.
+            Safe by default. CI-friendly by design.
+          </p>
+
+          <div class="hero-terminal">
+            <div class="terminal-header">
+              <div class="terminal-dot"></div>
+              <div class="terminal-dot"></div>
+              <div class="terminal-dot"></div>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-prompt">$</span>
+              <span class="terminal-cmd">pubm patch --registry npm,jsr</span>
+            </div>
+            <div class="terminal-output">
+              ✓ Prerequisites passed<br>
+              ✓ Conditions verified<br>
+              ✓ Version bumped to 1.2.4<br>
+              ✓ Publishing to registries...
+            </div>
+            <div class="registry-flow">
+              <span class="registry-arrow">→</span>
+              <span class="registry-item npm">npm ✓</span>
+              <span class="registry-item jsr">jsr ✓</span>
+              <span class="registry-item private">private ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="container">
+        <div class="section-label reveal">Capabilities</div>
+        <h2 class="section-title reveal">Built for modern package workflows</h2>
+
+        <div class="features-grid">
+          <div class="feature-card reveal">
+            <div class="feature-icon">⚡</div>
+            <h3 class="feature-title">Atomic Multi-Registry</h3>
+            <p class="feature-desc">
+              npm and jsr publish concurrently. Extend to any registry with a plugin architecture. One command publishes everywhere.
+            </p>
+          </div>
+
+          <div class="feature-card reveal">
+            <div class="feature-icon">🔐</div>
+            <h3 class="feature-title">Smart 2FA Handling</h3>
+            <p class="feature-desc">
+              OTP prompts when interactive. Provenance publish when headless. Tokens encrypted locally with multiple security layers.
+            </p>
+          </div>
+
+          <div class="feature-card reveal">
+            <div class="feature-icon">🛡</div>
+            <h3 class="feature-title">Rigid Safety Guards</h3>
+            <p class="feature-desc">
+              Branch checks, work-tree validation, remote divergence detection, registry ping, login & permission verification.
+            </p>
+          </div>
+
+          <div class="feature-card reveal">
+            <div class="feature-icon">👁</div>
+            <h3 class="feature-title">Preview & Rollback</h3>
+            <p class="feature-desc">
+              Inspect the full task graph with --preview. Automatic rollback on failure. See exactly what will happen before it does.
+            </p>
+          </div>
+
+          <div class="feature-card reveal">
+            <div class="feature-icon">🔧</div>
+            <h3 class="feature-title">Pluggable Pipeline</h3>
+            <p class="feature-desc">
+              Customize every step via pubm.config.js. Add custom registries, modify tasks, integrate with your existing workflow.
+            </p>
+          </div>
+
+          <div class="feature-card reveal">
+            <div class="feature-icon">🤖</div>
+            <h3 class="feature-title">CI-Native Design</h3>
+            <p class="feature-desc">
+              Prompts auto-disable in CI or non-TTY. NODE_AUTH_TOKEN support. Built for automated pipelines from day one.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="comparison" id="comparison">
+      <div class="container">
+        <div class="section-label reveal">pubm vs np</div>
+        <h2 class="section-title reveal">Why choose pubm?</h2>
+
+        <table class="comparison-table reveal">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>pubm</th>
+              <th>np</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Multi-registry (npm + jsr)</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>Monorepo / Workspaces</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>CI-friendly (auto non-interactive)</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="partial">partial</span></td>
+            </tr>
+            <tr>
+              <td>Plugin architecture</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>2FA in CI (provenance)</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>Private registry support</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="quickstart" id="quickstart">
+      <div class="container">
+        <div class="quickstart-content">
+          <div class="quickstart-text">
+            <div class="section-label reveal">Get Started</div>
+            <h2 class="section-title reveal">Up and running in seconds</h2>
+          </div>
+
+          <div class="quickstart-steps">
+            <div class="step reveal" data-step="01">
+              <div class="step-title">Install globally</div>
+              <div class="step-code-wrapper">
+                <div class="step-code" data-copy="npm i -g pubm">
+                  <span class="cmd">npm</span> i -g pubm
+                </div>
+                <button class="copy-btn" aria-label="Copy to clipboard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="square" stroke-linejoin="miter" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="step reveal" data-step="02">
+              <div class="step-title">Preview your release</div>
+              <div class="step-code-wrapper">
+                <div class="step-code" data-copy="pubm patch --preview">
+                  <span class="cmd">pubm</span> patch --preview
+                </div>
+                <button class="copy-btn" aria-label="Copy to clipboard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="square" stroke-linejoin="miter" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="step reveal" data-step="03">
+              <div class="step-title">Publish to multiple registries</div>
+              <div class="step-code-wrapper">
+                <div class="step-code" data-copy="pubm patch --registry npm,jsr">
+                  <span class="cmd">pubm</span> patch --registry npm,jsr
+                </div>
+                <button class="copy-btn" aria-label="Copy to clipboard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="square" stroke-linejoin="miter" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="step reveal" data-step="04">
+              <div class="step-title">Or configure once</div>
+              <div class="step-code-wrapper">
+                <div class="step-code" data-copy="// pubm.config.js
+export default {
+  registry: ['npm', 'jsr'],
+  branch: 'main'
+}">
+                  <span class="comment">// pubm.config.js</span><br>
+                  export default {<br>
+                  &nbsp;&nbsp;registry: ['npm', 'jsr'],<br>
+                  &nbsp;&nbsp;branch: 'main'<br>
+                  }
+                </div>
+                <button class="copy-btn" aria-label="Copy to clipboard">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="square" stroke-linejoin="miter" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container">
+        <h2 class="reveal">Stop juggling registries.<br>Start shipping.</h2>
+        <div class="cta-buttons reveal">
+          <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn btn-primary">
+            View on GitHub →
+          </a>
+          <a href="https://www.npmjs.com/package/pubm" target="_blank" rel="noopener" class="btn btn-secondary">
+            npm install pubm
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">pubm</div>
+        <div class="footer-links">
+          <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://www.npmjs.com/package/pubm" target="_blank" rel="noopener">npm</a>
+          <a href="https://jsr.io/@pubm/pubm" target="_blank" rel="noopener">jsr</a>
+          <a href="https://github.com/syi0808/pubm/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal animation
+    const reveals = document.querySelectorAll('.reveal');
+
+    const revealOnScroll = () => {
+      reveals.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+
+        if (rect.top < windowHeight - 100) {
+          el.classList.add('visible');
+        }
+      });
+    };
+
+    window.addEventListener('scroll', revealOnScroll);
+    window.addEventListener('load', revealOnScroll);
+
+    // Typing effect for terminal
+    const terminalCmd = document.querySelector('.terminal-cmd');
+    const originalText = terminalCmd.textContent;
+    terminalCmd.textContent = '';
+
+    let i = 0;
+    const typeWriter = () => {
+      if (i < originalText.length) {
+        terminalCmd.textContent += originalText.charAt(i);
+        i++;
+        setTimeout(typeWriter, 50);
+      }
+    };
+
+    setTimeout(typeWriter, 500);
+
+    // Copy to clipboard functionality
+    const copyButtons = document.querySelectorAll('.copy-btn');
+    const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="square" stroke-linejoin="miter" d="M5 13l4 4L19 7" /></svg>`;
+    const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="square" stroke-linejoin="miter" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`;
+
+    copyButtons.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const codeBlock = btn.parentElement.querySelector('.step-code');
+        const textToCopy = codeBlock.getAttribute('data-copy');
+
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          btn.innerHTML = checkIcon;
+          btn.classList.add('copied');
+
+          setTimeout(() => {
+            btn.innerHTML = copyIcon;
+            btn.classList.remove('copied');
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

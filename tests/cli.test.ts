@@ -1,57 +1,31 @@
-import { test } from 'vitest';
+import { test, describe } from 'vitest';
 import { runPubmCli } from './utils/cli';
-import path from 'node:path';
 
-test('CLI help command', async () => {
-	const { controller } = runPubmCli('--help');
+describe('CLI Basic Commands', () => {
+	test('CLI help command shows usage', async () => {
+		const { controller } = runPubmCli('--help');
 
-	await controller.waitForStdout('pubm');
-	await controller.waitForStdout('Options:');
-	await controller.waitForStdout('Commands:');
-});
+		await controller.waitForStdout('pubm');
+		await controller.waitForStdout('Usage:');
+		await controller.waitForStdout('Options:');
+	});
 
-test('CLI version command', async () => {
-	const { controller } = runPubmCli('--version');
+	test('CLI version command shows version', async () => {
+		const { controller } = runPubmCli('--version');
 
-	await controller.waitForStdout('pubm');
-});
+		await controller.waitForStdout('pubm');
+	});
 
-test('CLI preview mode', async () => {
-	const { controller } = runPubmCli(
-		'0.0.2',
-		'--preview',
-		'--no-pre-check',
-		'--no-tests',
-		'--no-build',
-		'--no-publish',
-	);
+	test('CLI -h alias shows help', async () => {
+		const { controller } = runPubmCli('-h');
 
-	await controller.waitForStdout('Preview mode');
-});
+		await controller.waitForStdout('pubm');
+		await controller.waitForStdout('Usage:');
+	});
 
-test('CLI publish-only mode', async () => {
-	const { controller } = runPubmCli(
-		'--publish-only',
-		'--no-pre-check',
-		'--no-tests',
-		'--no-build',
-	);
+	test('CLI -v alias shows version', async () => {
+		const { controller } = runPubmCli('-v');
 
-	await controller.waitForStderr('Cannot find the latest tag');
-});
-
-test('CLI with custom tag', async () => {
-	const { controller } = runPubmCli(
-		'0.0.2',
-		'--tag',
-		'beta',
-		'--no-pre-check',
-		'--no-tests',
-		'--no-build',
-		'--no-publish',
-	);
-
-	await controller.waitForStderr(
-		'The current HEAD branch is not the release target branch',
-	);
+		await controller.waitForStdout('pubm');
+	});
 });

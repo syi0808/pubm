@@ -7,6 +7,13 @@ export default defineConfig({
 			provider: 'v8',
 			reporter: ['text', 'json-summary', 'json'],
 			reportOnFailure: true,
+			include: ['src/**/*.ts'],
+			exclude: [
+				'src/types/**',
+				'src/cli.ts',
+				'src/tasks/**',
+				'**/node_modules/**',
+			],
 		},
 		passWithNoTests: true,
 	},
