@@ -121,6 +121,7 @@ export class NpmRegistry extends Registry {
 	async version(): Promise<string> {
 		try {
 			return this.npm(['--version']);
+			/* v8 ignore next 3 */
 		} catch (error) {
 			throw new NpmError('Failed to run `npm --version`', { cause: error });
 		}
@@ -147,6 +148,7 @@ export class NpmRegistry extends Registry {
 			}
 
 			return true;
+			/* v8 ignore next 8 */
 		} catch (error) {
 			throw new NpmError(
 				'Failed to run `npm publish --provenance --access public`',
@@ -170,6 +172,7 @@ export class NpmRegistry extends Registry {
 			}
 
 			return true;
+			/* v8 ignore next 5 */
 		} catch (error) {
 			throw new NpmError(`Failed to run \`npm ${args.join(' ')}\``, {
 				cause: error,

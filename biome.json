@@ -15,8 +15,35 @@
 		"indentWidth": 2
 	},
 	"files": {
-		"ignore": ["node_modules", "dist", "bin"]
+		"ignore": [
+			"node_modules",
+			"dist",
+			"bin",
+			".claude",
+			"tests/fixtures/invalid-json"
+		]
 	},
+	"overrides": [
+		{
+			"include": ["tests/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					},
+					"complexity": {
+						"noBannedTypes": "off"
+					},
+					"performance": {
+						"noDelete": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "single"
