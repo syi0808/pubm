@@ -21,7 +21,7 @@ function formatError(error: AbstractError | string): string {
 	const message =
 		typeof error.message === 'string'
 			? replaceCode(error.message)
-			: formatError(error);
+			: /* v8 ignore next */ formatError(error);
 
 	let stringifyError = `${color.bgRed(` ${error.name} `)}${color.reset('')} ${message}\n`;
 	stringifyError += error.stack

@@ -111,7 +111,6 @@ export class CliController {
 	}
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function isWritable(stream: any): stream is Writable {
 	return stream && typeof stream?.write === 'function';
 }
@@ -136,11 +135,8 @@ export async function runPubmCli(
 
 	const subprocess = exec(command, args, options as Options).process;
 	const controller = new CliController({
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		stdin: subprocess!.stdin!,
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		stdout: subprocess!.stdout!,
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		stderr: subprocess!.stderr!,
 	});
 
