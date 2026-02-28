@@ -20,7 +20,8 @@
 			"dist",
 			"bin",
 			".claude",
-			"tests/fixtures/invalid-json"
+			"tests/fixtures",
+			"coverage"
 		]
 	},
 	"overrides": [
