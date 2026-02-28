@@ -7,7 +7,7 @@
 	},
 	"description": "publish manager for multiple registry (jsr, npm and private registries)",
 	"type": "module",
-	"author": "Sung Yein <syi778800@gmail.com>",
+	"author": "Yein Sung <syi778800@gmail.com>",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
