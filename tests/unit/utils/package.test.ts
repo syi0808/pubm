@@ -556,7 +556,6 @@ describe("version", () => {
     const { mockReadFile, mockStat } = await getFsMocks();
     const { version } = await freshImport();
 
-
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json") || fp.endsWith("jsr.json")) {
