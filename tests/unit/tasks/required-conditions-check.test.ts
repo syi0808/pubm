@@ -38,22 +38,7 @@ vi.mock("../../../src/tasks/jsr.js", () => ({
   jsrAvailableCheckTasks: { title: "jsr-check-mock", task: vi.fn() },
 }));
 
-import { Git } from "../../../src/git.js";
-import { getRegistry } from "../../../src/registry/index.js";
-import { jsrRegistry } from "../../../src/registry/jsr.js";
-import { npmRegistry } from "../../../src/registry/npm.js";
-import { jsrAvailableCheckTasks } from "../../../src/tasks/jsr.js";
-import { npmAvailableCheckTasks } from "../../../src/tasks/npm.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
-import { validateEngineVersion } from "../../../src/utils/engine-version.js";
-import { getPackageJson } from "../../../src/utils/package.js";
-
-const mockedGit = vi.mocked(Git);
-const mockedGetRegistry = vi.mocked(getRegistry);
-const mockedNpmRegistry = vi.mocked(npmRegistry);
-const mockedJsrRegistry = vi.mocked(jsrRegistry);
-const mockedValidateEngineVersion = vi.mocked(validateEngineVersion);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
 
 function createCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
@@ -792,7 +777,7 @@ describe("requiredConditionsCheckTask", () => {
       const ctx = createCtx({ registries: ["npm"] });
 
       const innerParentTask = {
-        newListr: vi.fn((tasks: any[], opts?: any) => {
+        newListr: vi.fn((tasks: any[], _opts?: any) => {
           return tasks;
         }),
       };

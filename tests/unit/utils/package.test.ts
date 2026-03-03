@@ -555,9 +555,8 @@ describe("version", () => {
   it("falls back to jsr.json when package.json has no version", async () => {
     const { mockReadFile, mockStat } = await getFsMocks();
     const { version } = await freshImport();
-    const cwd = process.cwd();
 
-    const callCount = 0;
+
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json") || fp.endsWith("jsr.json")) {
@@ -590,7 +589,6 @@ describe("version", () => {
   it("throws when neither package.json nor jsr.json have a version", async () => {
     const { mockReadFile, mockStat } = await getFsMocks();
     const { version } = await freshImport();
-    const cwd = process.cwd();
 
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
@@ -627,7 +625,6 @@ describe("replaceVersion", () => {
   it("replaces version in both package.json and jsr.json", async () => {
     const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
     const { replaceVersion } = await freshImport();
-    const cwd = process.cwd();
 
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
@@ -666,7 +663,6 @@ describe("replaceVersion", () => {
   it("skips missing files and only returns found filenames", async () => {
     const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
     const { replaceVersion } = await freshImport();
-    const cwd = process.cwd();
 
     // Only package.json exists
     mockStat.mockImplementation(async (filePath) => {

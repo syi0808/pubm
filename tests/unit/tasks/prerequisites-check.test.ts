@@ -10,10 +10,7 @@ vi.mock("../../../src/utils/listr.js", () => ({
   }),
 }));
 
-import { Git } from "../../../src/git.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
-
-const mockedGit = vi.mocked(Git);
 
 function createCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
