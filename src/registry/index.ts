@@ -1,4 +1,5 @@
 import type { RegistryType } from '../types/options.js';
+import { cratesRegistry } from './crates.js';
 import { customRegistry } from './custom-registry.js';
 import { jsrRegistry } from './jsr.js';
 import { npmRegistry } from './npm.js';
@@ -11,7 +12,12 @@ const registryMap = {
 
 export async function getRegistry(
 	registryKey: RegistryType,
+	packageName?: string,
 ): Promise<Registry> {
+	if (registryKey === 'crates') {
+		return await cratesRegistry(packageName ?? 'unknown');
+	}
+
 	const registry = registryMap[registryKey];
 
 	if (!registry) {

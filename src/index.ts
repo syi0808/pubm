@@ -18,4 +18,6 @@ export async function pubm(options: Options): Promise<void> {
 	await run(resolvedOptions);
 }
 
+export { defineConfig } from './config/loader.js';
 export type { Options } from './types/options.js';
+export type { PubmConfig, PackageConfig } from './types/config.js';
