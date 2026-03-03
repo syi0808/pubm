@@ -1,15 +1,15 @@
-import type { Options, ResolvedOptions } from './types/options.js';
+import type { Options, ResolvedOptions } from "./types/options.js";
 
-export const defaultOptions: Omit<Options, 'version'> = {
-	testScript: 'test',
-	buildScript: 'build',
-	branch: 'main',
-	tag: 'latest',
-	registries: ['npm', 'jsr'],
+export const defaultOptions: Omit<Options, "version"> = {
+  testScript: "test",
+  buildScript: "build",
+  branch: "main",
+  tag: "latest",
+  registries: ["npm", "jsr"],
 };
 
 export function resolveOptions(options: Options): ResolvedOptions {
-	const nextOptions = { ...options, ...defaultOptions };
+  const nextOptions = { ...options, ...defaultOptions };
 
-	return nextOptions as ResolvedOptions;
+  return nextOptions as ResolvedOptions;
 }

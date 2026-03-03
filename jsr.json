@@ -1,8 +1,8 @@
 {
-	"name": "@pubm/pubm",
-	"version": "0.0.5",
-	"exports": "./src/index.ts",
-	"publish": {
-		"include": ["README.md", "jsr.json", "LICENSE", "src/**/*"]
-	}
+  "name": "@pubm/pubm",
+  "version": "0.0.5",
+  "exports": "./src/index.ts",
+  "publish": {
+    "include": ["README.md", "jsr.json", "LICENSE", "src/**/*"]
+  }
 }

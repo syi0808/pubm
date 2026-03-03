@@ -1,22 +1,22 @@
-import { exec } from 'tinyexec';
-import { getPackageJson } from '../utils/package.js';
-import { NpmRegistry } from './npm.js';
+import { exec } from "tinyexec";
+import { getPackageJson } from "../utils/package.js";
+import { NpmRegistry } from "./npm.js";
 
 export class CustomRegistry extends NpmRegistry {
-	async npm(args: string[]): Promise<string> {
-		const { stdout, stderr } = await exec(
-			'npm',
-			args.concat('--registry', this.registry),
-		);
+  async npm(args: string[]): Promise<string> {
+    const { stdout, stderr } = await exec(
+      "npm",
+      args.concat("--registry", this.registry),
+    );
 
-		if (stderr) throw stderr;
+    if (stderr) throw stderr;
 
-		return stdout;
-	}
+    return stdout;
+  }
 }
 
 export async function customRegistry(): Promise<CustomRegistry> {
-	const packageJson = await getPackageJson();
+  const packageJson = await getPackageJson();
 
-	return new CustomRegistry(packageJson.name);
+  return new CustomRegistry(packageJson.name);
 }

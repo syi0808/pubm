@@ -1,15 +1,18 @@
 {
-	"name": "no-jsr-package",
-	"version": "2.0.0",
-	"scripts": {
-		"test": "echo test",
-		"build": "echo build"
-	},
-	"exports": {
-		".": {
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
-		}
-	},
-	"files": ["dist", "!dist/internal"]
+  "name": "no-jsr-package",
+  "version": "2.0.0",
+  "scripts": {
+    "test": "echo test",
+    "build": "echo build"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/internal"
+  ]
 }
