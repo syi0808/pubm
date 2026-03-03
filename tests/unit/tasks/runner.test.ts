@@ -74,7 +74,6 @@ import {
   getJsrJson,
   getPackageJson,
   replaceVersion,
-  version,
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
@@ -122,7 +121,7 @@ function setupCreateListrMock() {
             const mockTask = {
               output: "",
               title: task.title || "",
-              newListr: vi.fn((subtasks: any[]) => ({
+              newListr: vi.fn((_subtasks: any[]) => ({
                 run: vi.fn(),
               })),
             };
@@ -134,7 +133,7 @@ function setupCreateListrMock() {
   });
 }
 
-let processExitSpy: ReturnType<typeof vi.spyOn>;
+let processExitSpy: any;
 let consoleSpy: ReturnType<typeof vi.spyOn>;
 let chdirSpy: ReturnType<typeof vi.spyOn>;
 

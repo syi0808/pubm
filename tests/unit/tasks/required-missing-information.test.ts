@@ -272,7 +272,6 @@ describe("requiredMissingInformationTasks", () => {
       await tagTask.task(ctx, mockTask);
 
       // The prompt call should have choices without 'latest'
-      const promptCall = mockTask.prompt.mock.calls[0];
       expect(ctx.tag).toBe("beta");
     });
 

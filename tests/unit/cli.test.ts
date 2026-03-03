@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   capturedAction,
   capturedHelpCallback,
-  mockCommand,
   mockCli,
   mockIsCI,
   mockConsoleError,
@@ -44,7 +43,6 @@ const {
   return {
     capturedAction: ref.capturedAction,
     capturedHelpCallback: ref.capturedHelpCallback,
-    mockCommand,
     mockCli,
     mockIsCI: { isCI: false },
     mockConsoleError: vi.fn(),

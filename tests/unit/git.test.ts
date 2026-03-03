@@ -24,10 +24,6 @@ function mockStderr(stderr: string) {
   mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
 }
 
-function mockExecReject(error: unknown) {
-  mockedExec.mockRejectedValue(error);
-}
-
 describe("Git", () => {
   describe("git(args)", () => {
     it("returns stdout on success", async () => {
