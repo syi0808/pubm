@@ -1,6 +1,6 @@
-import { resolveOptions } from './options.js';
-import { run } from './tasks/runner.js';
-import type { Options } from './types/options.js';
+import { resolveOptions } from "./options.js";
+import { run } from "./tasks/runner.js";
+import type { Options } from "./types/options.js";
 
 /**
  * Runs the `pubm` function with the provided options.
@@ -13,11 +13,11 @@ import type { Options } from './types/options.js';
  * @function
  */
 export async function pubm(options: Options): Promise<void> {
-	const resolvedOptions = resolveOptions({ ...options });
+  const resolvedOptions = resolveOptions({ ...options });
 
-	await run(resolvedOptions);
+  await run(resolvedOptions);
 }
 
-export { defineConfig } from './config/loader.js';
-export type { Options } from './types/options.js';
-export type { PubmConfig, PackageConfig } from './types/config.js';
+export { defineConfig } from "./config/loader.js";
+export type { PackageConfig, PubmConfig } from "./types/config.js";
+export type { Options } from "./types/options.js";

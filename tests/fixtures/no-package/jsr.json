@@ -1,9 +1,9 @@
 {
-	"name": "@test/jsr-only-package",
-	"version": "3.0.0",
-	"exports": "./src/index.ts",
-	"publish": {
-		"include": ["src/**/*"],
-		"exclude": ["tests/**/*"]
-	}
+  "name": "@test/jsr-only-package",
+  "version": "3.0.0",
+  "exports": "./src/index.ts",
+  "publish": {
+    "include": ["src/**/*"],
+    "exclude": ["tests/**/*"]
+  }
 }

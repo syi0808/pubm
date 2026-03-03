@@ -1,15 +1,19 @@
 {
-	"name": "exports-test",
-	"version": "1.0.0",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
-		},
-		"./utils": {
-			"import": "./dist/utils.js"
-		}
-	},
-	"files": ["dist", "README.md", "!dist/internal"]
+  "name": "exports-test",
+  "version": "1.0.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./utils": {
+      "import": "./dist/utils.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "!dist/internal"
+  ]
 }

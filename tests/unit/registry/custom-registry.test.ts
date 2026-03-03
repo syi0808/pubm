@@ -1,24 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock('tinyexec', () => ({
-	exec: vi.fn(),
+vi.mock("tinyexec", () => ({
+  exec: vi.fn(),
 }));
 
-vi.mock('../../../src/utils/package.js', () => ({
-	getPackageJson: vi.fn(),
+vi.mock("../../../src/utils/package.js", () => ({
+  getPackageJson: vi.fn(),
 }));
 
-vi.mock('../../../src/utils/package-name.js', () => ({
-	isValidPackageName: vi.fn(),
+vi.mock("../../../src/utils/package-name.js", () => ({
+  isValidPackageName: vi.fn(),
 }));
 
-import { exec } from 'tinyexec';
+import { exec } from "tinyexec";
 import {
-	CustomRegistry,
-	customRegistry,
-} from '../../../src/registry/custom-registry.js';
-import { NpmRegistry } from '../../../src/registry/npm.js';
-import { getPackageJson } from '../../../src/utils/package.js';
+  CustomRegistry,
+  customRegistry,
+} from "../../../src/registry/custom-registry.js";
+import { NpmRegistry } from "../../../src/registry/npm.js";
+import { getPackageJson } from "../../../src/utils/package.js";
 
 const mockedExec = vi.mocked(exec);
 const mockedGetPackageJson = vi.mocked(getPackageJson);
@@ -26,119 +26,119 @@ const mockedGetPackageJson = vi.mocked(getPackageJson);
 let registry: CustomRegistry;
 
 beforeEach(() => {
-	vi.clearAllMocks();
-	vi.stubGlobal('fetch', vi.fn());
-	registry = new CustomRegistry('my-package');
+  vi.clearAllMocks();
+  vi.stubGlobal("fetch", vi.fn());
+  registry = new CustomRegistry("my-package");
 });
 
 function mockStdout(stdout: string) {
-	mockedExec.mockResolvedValue({ stdout, stderr: '' } as any);
+  mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
 function mockStderr(stderr: string) {
-	mockedExec.mockResolvedValue({ stdout: '', stderr } as any);
+  mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
 }
 
-describe('CustomRegistry', () => {
-	it('extends NpmRegistry', () => {
-		expect(registry).toBeInstanceOf(NpmRegistry);
-	});
+describe("CustomRegistry", () => {
+  it("extends NpmRegistry", () => {
+    expect(registry).toBeInstanceOf(NpmRegistry);
+  });
 
-	describe('npm(args)', () => {
-		it('appends --registry flag to all npm commands', async () => {
-			mockStdout('help output');
+  describe("npm(args)", () => {
+    it("appends --registry flag to all npm commands", async () => {
+      mockStdout("help output");
 
-			await registry.isInstalled();
+      await registry.isInstalled();
 
-			expect(mockedExec).toHaveBeenCalledWith('npm', [
-				'--help',
-				'--registry',
-				'https://registry.npmjs.org',
-			]);
-		});
+      expect(mockedExec).toHaveBeenCalledWith("npm", [
+        "--help",
+        "--registry",
+        "https://registry.npmjs.org",
+      ]);
+    });
 
-		it('returns stdout on success', async () => {
-			mockStdout('10.0.0');
+    it("returns stdout on success", async () => {
+      mockStdout("10.0.0");
 
-			const result = await registry.version();
+      const result = await registry.version();
 
-			expect(result).toBe('10.0.0');
-		});
+      expect(result).toBe("10.0.0");
+    });
 
-		it('throws stderr when stderr is non-empty', async () => {
-			mockStderr('fatal error');
+    it("throws stderr when stderr is non-empty", async () => {
+      mockStderr("fatal error");
 
-			// The overridden npm() throws stderr directly; version() catches it and
-			// wraps in NpmError
-			await expect(registry.version()).rejects.toThrow();
-		});
-	});
+      // The overridden npm() throws stderr directly; version() catches it and
+      // wraps in NpmError
+      await expect(registry.version()).rejects.toThrow();
+    });
+  });
 
-	describe('inherited methods use overridden npm()', () => {
-		it('isInstalled calls npm with --registry appended', async () => {
-			mockStdout('');
+  describe("inherited methods use overridden npm()", () => {
+    it("isInstalled calls npm with --registry appended", async () => {
+      mockStdout("");
 
-			await registry.isInstalled();
+      await registry.isInstalled();
 
-			expect(mockedExec).toHaveBeenCalledWith('npm', [
-				'--help',
-				'--registry',
-				'https://registry.npmjs.org',
-			]);
-		});
+      expect(mockedExec).toHaveBeenCalledWith("npm", [
+        "--help",
+        "--registry",
+        "https://registry.npmjs.org",
+      ]);
+    });
 
-		it('publish calls npm with --registry appended', async () => {
-			mockStdout('+ my-package@1.0.0');
+    it("publish calls npm with --registry appended", async () => {
+      mockStdout("+ my-package@1.0.0");
 
-			await registry.publish();
+      await registry.publish();
 
-			expect(mockedExec).toHaveBeenCalledWith('npm', [
-				'publish',
-				'--registry',
-				'https://registry.npmjs.org',
-			]);
-		});
+      expect(mockedExec).toHaveBeenCalledWith("npm", [
+        "publish",
+        "--registry",
+        "https://registry.npmjs.org",
+      ]);
+    });
 
-		it('publish with otp calls npm with --registry appended', async () => {
-			mockStdout('+ my-package@1.0.0');
+    it("publish with otp calls npm with --registry appended", async () => {
+      mockStdout("+ my-package@1.0.0");
 
-			await registry.publish('123456');
+      await registry.publish("123456");
 
-			expect(mockedExec).toHaveBeenCalledWith('npm', [
-				'publish',
-				'--otp',
-				'123456',
-				'--registry',
-				'https://registry.npmjs.org',
-			]);
-		});
+      expect(mockedExec).toHaveBeenCalledWith("npm", [
+        "publish",
+        "--otp",
+        "123456",
+        "--registry",
+        "https://registry.npmjs.org",
+      ]);
+    });
 
-		it('userName calls npm with --registry appended', async () => {
-			mockStdout('testuser\n');
+    it("userName calls npm with --registry appended", async () => {
+      mockStdout("testuser\n");
 
-			const result = await registry.userName();
+      const result = await registry.userName();
 
-			expect(mockedExec).toHaveBeenCalledWith('npm', [
-				'whoami',
-				'--registry',
-				'https://registry.npmjs.org',
-			]);
-			expect(result).toBe('testuser');
-		});
-	});
+      expect(mockedExec).toHaveBeenCalledWith("npm", [
+        "whoami",
+        "--registry",
+        "https://registry.npmjs.org",
+      ]);
+      expect(result).toBe("testuser");
+    });
+  });
 });
 
-describe('customRegistry()', () => {
-	it('creates CustomRegistry from package.json name', async () => {
-		mockedGetPackageJson.mockResolvedValue({
-			name: 'my-lib',
-			version: '1.0.0',
-		} as any);
+describe("customRegistry()", () => {
+  it("creates CustomRegistry from package.json name", async () => {
+    mockedGetPackageJson.mockResolvedValue({
+      name: "my-lib",
+      version: "1.0.0",
+    } as any);
 
-		const result = await customRegistry();
+    const result = await customRegistry();
 
-		expect(mockedGetPackageJson).toHaveBeenCalled();
-		expect(result).toBeInstanceOf(CustomRegistry);
-		expect(result.packageName).toBe('my-lib');
-	});
+    expect(mockedGetPackageJson).toHaveBeenCalled();
+    expect(result).toBeInstanceOf(CustomRegistry);
+    expect(result.packageName).toBe("my-lib");
+  });
 });

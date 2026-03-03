@@ -1,6 +1,6 @@
-import { afterEach, vi } from 'vitest';
+import { afterEach, vi } from "vitest";
 
 afterEach(() => {
-	vi.restoreAllMocks();
-	vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });

@@ -4,24 +4,24 @@ type Rollback<Ctx extends {}> = (ctx: Ctx) => Promise<unknown>;
 const rollbacks: { fn: Rollback<any>; ctx: unknown }[] = [];
 
 export function addRollback<Ctx extends {}>(
-	rollback: Rollback<Ctx>,
-	context: Ctx,
+  rollback: Rollback<Ctx>,
+  context: Ctx,
 ): void {
-	rollbacks.push({ fn: rollback, ctx: context });
+  rollbacks.push({ fn: rollback, ctx: context });
 }
 
 let called = false;
 
 export async function rollback(): Promise<void> {
-	if (called) return void 0;
+  if (called) return void 0;
 
-	called = true;
+  called = true;
 
-	if (rollbacks.length <= 0) return void 0;
+  if (rollbacks.length <= 0) return void 0;
 
-	console.log('Rollback...');
+  console.log("Rollback...");
 
-	await Promise.all(rollbacks.map(({ fn, ctx }) => fn(ctx)));
+  await Promise.all(rollbacks.map(({ fn, ctx }) => fn(ctx)));
 
-	console.log('Rollback completed');
+  console.log("Rollback completed");
 }

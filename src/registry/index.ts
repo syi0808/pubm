@@ -1,28 +1,28 @@
-import type { RegistryType } from '../types/options.js';
-import { cratesRegistry } from './crates.js';
-import { customRegistry } from './custom-registry.js';
-import { jsrRegistry } from './jsr.js';
-import { npmRegistry } from './npm.js';
-import type { Registry } from './registry.js';
+import type { RegistryType } from "../types/options.js";
+import { cratesRegistry } from "./crates.js";
+import { customRegistry } from "./custom-registry.js";
+import { jsrRegistry } from "./jsr.js";
+import { npmRegistry } from "./npm.js";
+import type { Registry } from "./registry.js";
 
 const registryMap = {
-	npm: npmRegistry,
-	jsr: jsrRegistry,
+  npm: npmRegistry,
+  jsr: jsrRegistry,
 } as unknown as Record<RegistryType, () => Promise<Registry>>;
 
 export async function getRegistry(
-	registryKey: RegistryType,
-	packageName?: string,
+  registryKey: RegistryType,
+  packageName?: string,
 ): Promise<Registry> {
-	if (registryKey === 'crates') {
-		return await cratesRegistry(packageName ?? 'unknown');
-	}
+  if (registryKey === "crates") {
+    return await cratesRegistry(packageName ?? "unknown");
+  }
 
-	const registry = registryMap[registryKey];
+  const registry = registryMap[registryKey];
 
-	if (!registry) {
-		return await customRegistry();
-	}
+  if (!registry) {
+    return await customRegistry();
+  }
 
-	return await registry();
+  return await registry();
 }

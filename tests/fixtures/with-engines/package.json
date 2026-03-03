@@ -1,8 +1,8 @@
 {
-	"name": "engine-test",
-	"version": "1.0.0",
-	"engines": {
-		"node": ">=18",
-		"git": ">=2.11.0"
-	}
+  "name": "engine-test",
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=18",
+    "git": ">=2.11.0"
+  }
 }
