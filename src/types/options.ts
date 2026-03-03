@@ -1,4 +1,4 @@
-export type RegistryType = 'npm' | 'jsr' | string;
+export type RegistryType = 'npm' | 'jsr' | 'crates' | string;
 
 /**
  * Options for configuring the {@linkcode pubm} function.

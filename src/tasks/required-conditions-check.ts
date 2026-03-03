@@ -9,6 +9,7 @@ import { warningBadge } from '../utils/cli.js';
 import { validateEngineVersion } from '../utils/engine-version.js';
 import { createListr } from '../utils/listr.js';
 import { getPackageJson } from '../utils/package.js';
+import { cratesAvailableCheckTasks } from './crates.js';
 import { jsrAvailableCheckTasks } from './jsr.js';
 import { npmAvailableCheckTasks } from './npm.js';
 import type { Ctx } from './runner.js';
@@ -148,6 +149,8 @@ export const requiredConditionsCheckTask = (
 											return npmAvailableCheckTasks;
 										case 'jsr':
 											return jsrAvailableCheckTasks;
+										case 'crates':
+											return cratesAvailableCheckTasks;
 										default:
 											return npmAvailableCheckTasks;
 									}

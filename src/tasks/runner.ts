@@ -16,6 +16,7 @@ import {
 	replaceVersion,
 } from '../utils/package.js';
 import { addRollback, rollback } from '../utils/rollback.js';
+import { cratesPublishTasks } from './crates.js';
 import { jsrPublishTasks } from './jsr.js';
 import { npmPublishTasks } from './npm.js';
 import { prerequisitesCheckTask } from './prerequisites-check.js';
@@ -64,6 +65,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
 											return npmPublishTasks;
 										case 'jsr':
 											return jsrPublishTasks;
+										case 'crates':
+											return cratesPublishTasks;
 										default:
 											return npmPublishTasks;
 									}
@@ -161,6 +164,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
 												return npmPublishTasks;
 											case 'jsr':
 												return jsrPublishTasks;
+											case 'crates':
+												return cratesPublishTasks;
 											default:
 												return npmPublishTasks;
 										}

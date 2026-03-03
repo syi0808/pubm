@@ -47,6 +47,12 @@ vi.mock('../../../src/tasks/jsr.js', () => ({
 		task: vi.fn(),
 	},
 }));
+vi.mock('../../../src/tasks/crates.js', () => ({
+	cratesPublishTasks: {
+		title: 'crates publish',
+		task: vi.fn(),
+	},
+}));
 vi.mock('@npmcli/promise-spawn', () => ({
 	default: { open: vi.fn() },
 }));
