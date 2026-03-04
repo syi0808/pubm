@@ -77,7 +77,8 @@ const nouns = [
 export function generateChangesetId(): string {
 	const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
 	const noun = nouns[Math.floor(Math.random() * nouns.length)];
-	return `${adjective}-${noun}`;
+	const suffix = Math.random().toString(36).slice(2, 6);
+	return `${adjective}-${noun}-${suffix}`;
 }
 
 export function generateChangesetContent(

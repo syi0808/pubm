@@ -1,3 +1,4 @@
+export { BUMP_ORDER, maxBump } from './bump-utils.js';
 export {
 	parseChangeset,
 	type Changeset,

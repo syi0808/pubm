@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { BumpType } from '../../../src/changeset/parser.js';
 import {
-	type BumpType,
 	applyFixedGroup,
 	applyLinkedGroup,
 	resolveGroups,

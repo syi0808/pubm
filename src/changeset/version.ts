@@ -1,5 +1,6 @@
 import process from 'node:process';
 import { inc } from 'semver';
+import { maxBump } from './bump-utils.js';
 import type { BumpType } from './parser.js';
 import { readChangesets } from './reader.js';
 
@@ -7,16 +8,6 @@ export interface VersionBump {
 	currentVersion: string;
 	newVersion: string;
 	bumpType: BumpType;
-}
-
-const BUMP_ORDER: Record<BumpType, number> = {
-	patch: 0,
-	minor: 1,
-	major: 2,
-};
-
-function maxBumpType(a: BumpType, b: BumpType): BumpType {
-	return BUMP_ORDER[a] >= BUMP_ORDER[b] ? a : b;
 }
 
 export function calculateVersionBumps(
@@ -32,7 +23,7 @@ export function calculateVersionBumps(
 
 			const existing = bumpTypes.get(release.name);
 			if (existing) {
-				bumpTypes.set(release.name, maxBumpType(existing, release.type));
+				bumpTypes.set(release.name, maxBump(existing, release.type));
 			} else {
 				bumpTypes.set(release.name, release.type);
 			}

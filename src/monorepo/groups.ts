@@ -1,16 +1,6 @@
 import micromatch from 'micromatch';
-
-export type BumpType = 'patch' | 'minor' | 'major';
-
-const BUMP_ORDER: Record<BumpType, number> = {
-	patch: 0,
-	minor: 1,
-	major: 2,
-};
-
-function maxBump(a: BumpType, b: BumpType): BumpType {
-	return BUMP_ORDER[a] >= BUMP_ORDER[b] ? a : b;
-}
+import { maxBump } from '../changeset/bump-utils.js';
+import type { BumpType } from '../changeset/parser.js';
 
 /**
  * Resolves glob patterns in groups to actual package names.

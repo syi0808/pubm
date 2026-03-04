@@ -23,6 +23,12 @@ export function registerAddCommand(cli: CAC): void {
 				}
 
 				if (options.packages && options.bump && options.message) {
+					const VALID_BUMP_TYPES = new Set(['patch', 'minor', 'major']);
+					if (!VALID_BUMP_TYPES.has(options.bump)) {
+						throw new Error(
+							`Invalid bump type "${options.bump}". Expected: patch, minor, or major.`,
+						);
+					}
 					const packages = options.packages
 						.split(',')
 						.map((p: string) => p.trim());

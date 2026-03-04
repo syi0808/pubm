@@ -13,6 +13,8 @@ export interface Changeset {
 	releases: Release[];
 }
 
+const VALID_BUMP_TYPES = new Set(['patch', 'minor', 'major']);
+
 export function parseChangeset(content: string, fileName: string): Changeset {
 	const frontmatterRegex = /^---\n([\s\S]*?)---/;
 	const match = content.match(frontmatterRegex);
@@ -32,6 +34,11 @@ export function parseChangeset(content: string, fileName: string): Changeset {
 
 	if (parsed) {
 		for (const [name, type] of Object.entries(parsed)) {
+			if (!VALID_BUMP_TYPES.has(type)) {
+				throw new Error(
+					`Invalid bump type "${type}" for package "${name}" in "${fileName}". Expected: patch, minor, or major.`,
+				);
+			}
 			releases.push({ name, type: type as BumpType });
 		}
 	}

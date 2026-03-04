@@ -42,7 +42,16 @@ export function migrateFromChangesets(
 			continue;
 		}
 
-		if (file.endsWith('.md') || file === 'pre.json') {
+		if (file === 'pre.json') {
+			copyFileSync(
+				path.join(changesetDir, file),
+				path.resolve(cwd, '.pubm', 'pre.json'),
+			);
+			migratedFiles.push(file);
+			continue;
+		}
+
+		if (file.endsWith('.md')) {
 			const src = path.join(changesetDir, file);
 			const dest = path.join(pubmDir, file);
 			copyFileSync(src, dest);
