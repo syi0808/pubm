@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { maxBump } from './bump-utils.js';
 import type { BumpType, Changeset } from './parser.js';
 import { readChangesets } from './reader.js';
 
@@ -14,16 +15,6 @@ export interface Status {
 	hasChangesets: boolean;
 }
 
-const BUMP_ORDER: Record<BumpType, number> = {
-	patch: 0,
-	minor: 1,
-	major: 2,
-};
-
-function maxBumpType(a: BumpType, b: BumpType): BumpType {
-	return BUMP_ORDER[a] >= BUMP_ORDER[b] ? a : b;
-}
-
 export function getStatus(cwd: string = process.cwd()): Status {
 	const changesets = readChangesets(cwd);
 	const packages = new Map<string, PackageStatus>();
@@ -33,7 +24,7 @@ export function getStatus(cwd: string = process.cwd()): Status {
 			const existing = packages.get(release.name);
 
 			if (existing) {
-				existing.bumpType = maxBumpType(existing.bumpType, release.type);
+				existing.bumpType = maxBump(existing.bumpType, release.type);
 				existing.changesetCount += 1;
 				existing.summaries.push(changeset.summary);
 			} else {

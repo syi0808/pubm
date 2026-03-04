@@ -56,7 +56,7 @@ describe('generateChangesetId', () => {
 	it('returns adjective-noun format', () => {
 		const id = generateChangesetId();
 
-		expect(id).toMatch(/^[a-z]+-[a-z]+$/);
+		expect(id).toMatch(/^[a-z]+-[a-z]+-[a-z0-9]+$/);
 	});
 
 	it('generates unique ids across multiple calls', () => {
@@ -87,7 +87,7 @@ describe('writeChangeset', () => {
 		);
 
 		expect(mockedWriteFileSync).toHaveBeenCalledWith(
-			expect.stringMatching(/\.pubm\/changesets\/[a-z]+-[a-z]+\.md$/),
+			expect.stringMatching(/\.pubm\/changesets\/[a-z]+-[a-z]+-[a-z0-9]+\.md$/),
 			expect.stringContaining('pkg: minor'),
 			'utf-8',
 		);
@@ -101,7 +101,7 @@ describe('writeChangeset', () => {
 		);
 
 		expect(filePath).toMatch(
-			/\/tmp\/project\/\.pubm\/changesets\/[a-z]+-[a-z]+\.md$/,
+			/\/tmp\/project\/\.pubm\/changesets\/[a-z]+-[a-z]+-[a-z0-9]+\.md$/,
 		);
 	});
 });

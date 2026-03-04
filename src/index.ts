@@ -18,6 +18,67 @@ export async function pubm(options: Options): Promise<void> {
   await run(resolvedOptions);
 }
 
-export { defineConfig } from "./config/loader.js";
-export type { PackageConfig, PubmConfig } from "./types/config.js";
 export type { Options } from "./types/options.js";
+
+// Config
+export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+export type {
+  PackageConfig,
+  PubmConfig,
+  ResolvedPubmConfig,
+} from "./config/index.js";
+
+// Changeset workflow
+export {
+  parseChangeset,
+  writeChangeset,
+  generateChangesetContent,
+  generateChangesetId,
+  readChangesets,
+  getStatus,
+  calculateVersionBumps,
+  generateChangelog,
+  migrateFromChangesets,
+} from "./changeset/index.js";
+
+export type {
+  Changeset,
+  Release,
+  BumpType,
+  PackageStatus,
+  Status,
+  VersionBump,
+  ChangelogEntry,
+  DependencyUpdate,
+  MigrationResult,
+} from "./changeset/index.js";
+
+// Monorepo
+export {
+  detectWorkspace,
+  buildDependencyGraph,
+  topologicalSort,
+  resolveGroups,
+  applyFixedGroup,
+  applyLinkedGroup,
+} from "./monorepo/index.js";
+
+export type { WorkspaceInfo, PackageNode } from "./monorepo/index.js";
+
+// Pre-release
+export {
+  readPreState,
+  enterPreMode,
+  exitPreMode,
+  generateSnapshotVersion,
+} from "./prerelease/index.js";
+
+export type { PreState, SnapshotOptions } from "./prerelease/index.js";
+
+// Validation
+export {
+  validateEntryPoints,
+  detectExtraneousFiles,
+} from "./validate/index.js";
+
+export type { EntryPointError, ExtraneousFile } from "./validate/index.js";
