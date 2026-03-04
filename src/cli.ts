@@ -2,6 +2,13 @@ import cac from "cac";
 import type { OptionConfig } from "cac/deno/Option.js";
 import semver from "semver";
 import { isCI } from "std-env";
+import { registerAddCommand } from "./commands/add.js";
+import { registerInitCommand } from "./commands/init.js";
+import { registerMigrateCommand } from "./commands/migrate.js";
+import { registerPreCommand } from "./commands/pre.js";
+import { registerSnapshotCommand } from "./commands/snapshot.js";
+import { registerStatusCommand } from "./commands/status.js";
+import { registerVersionCommand } from "./commands/version-cmd.js";
 import { consoleError } from "./error.js";
 import { Git } from "./git.js";
 import { pubm } from "./index.js";
@@ -31,7 +38,7 @@ interface CliOptions {
   saveToken: boolean;
 }
 
-const options: {
+const publishOptions: {
   rawName: string;
   description: string;
   options?: OptionConfig;
@@ -58,7 +65,7 @@ const options: {
   },
   {
     rawName: "-a, --any-branch",
-    description: "Show tasks without actually executing publish",
+    description: "Allow publishing from any branch",
     options: { type: Boolean },
   },
   {
@@ -119,14 +126,7 @@ const options: {
   },
 ];
 
-const cli = cac("pubm");
-
-for (const option of options) {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  cli.option(option.rawName, option.description, option.options as any);
-}
-
-function resolveCliOptions(options: CliOptions): Options {
+export function resolveCliOptions(options: CliOptions): Options {
   return {
     ...options,
     skipPublish: !options.publish,
@@ -139,64 +139,81 @@ function resolveCliOptions(options: CliOptions): Options {
   };
 }
 
-cli
-  .command("[version]")
-  .action(
-    async (
-      nextVersion,
-      options: Omit<CliOptions, "version">,
-    ): Promise<void> => {
-      console.clear();
+const cli = cac("pubm");
 
-      if (!isCI) {
-        await notifyNewVersion();
-      }
+// Register subcommands
+registerAddCommand(cli);
+registerVersionCommand(cli);
+registerStatusCommand(cli);
+registerPreCommand(cli);
+registerSnapshotCommand(cli);
+registerInitCommand(cli);
+registerMigrateCommand(cli);
 
-      const context = {
-        version: nextVersion,
-        tag: options.tag,
-      };
+// Default command: publish (backward compatible with `pubm [version]`)
+const defaultCmd = cli.command("[version]", "Publish packages to registries");
 
-      try {
-        if (isCI) {
-          if (options.publishOnly) {
-            const git = new Git();
-            const latestVersion = (await git.latestTag())?.slice(1);
+for (const option of publishOptions) {
+  // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
+  defaultCmd.option(option.rawName, option.description, option.options as any);
+}
 
-            if (!latestVersion) {
-              throw new Error(
-                "Cannot find the latest tag. Please ensure tags exist in the repository.",
-              );
-            }
+defaultCmd.action(
+  async (
+    nextVersion: string | undefined,
+    options: Omit<CliOptions, "version">,
+  ): Promise<void> => {
+    console.clear();
 
-            if (!valid(latestVersion)) {
-              throw new Error(
-                "Cannot parse the latest tag to a valid SemVer version. Please check the tag format.",
-              );
-            }
+    if (!isCI) {
+      await notifyNewVersion();
+    }
 
-            context.version = latestVersion;
-          } else {
+    const context = {
+      version: nextVersion,
+      tag: options.tag,
+    };
+
+    try {
+      if (isCI) {
+        if (options.publishOnly) {
+          const git = new Git();
+          const latestVersion = (await git.latestTag())?.slice(1);
+
+          if (!latestVersion) {
             throw new Error(
-              "Version must be set in the CI environment. Please define the version before proceeding.",
+              "Cannot find the latest tag. Please ensure tags exist in the repository.",
             );
           }
-        } else {
-          await requiredMissingInformationTasks().run(context);
-        }
 
-        await pubm(
-          resolveCliOptions({
-            ...options,
-            version: context.version,
-            tag: context.tag,
-          }),
-        );
-      } catch (e) {
-        consoleError(e as Error);
+          if (!valid(latestVersion)) {
+            throw new Error(
+              "Cannot parse the latest tag to a valid SemVer version. Please check the tag format.",
+            );
+          }
+
+          context.version = latestVersion;
+        } else {
+          throw new Error(
+            "Version must be set in the CI environment. Please define the version before proceeding.",
+          );
+        }
+      } else {
+        await requiredMissingInformationTasks().run(context);
       }
-    },
-  );
+
+      await pubm(
+        resolveCliOptions({
+          ...options,
+          version: context.version,
+          tag: context.tag,
+        } as CliOptions),
+      );
+    } catch (e) {
+      consoleError(e as Error);
+    }
+  },
+);
 
 cli.help((sections): void => {
   sections[1].body += `\n\n  Version can be:\n    ${RELEASE_TYPES.join(" | ")} | 1.2.3`;
@@ -209,6 +226,5 @@ cli.help((sections): void => {
 
 (async () => {
   cli.version(await version({ cwd: import.meta.dirname }));
-
   cli.parse();
 })();
