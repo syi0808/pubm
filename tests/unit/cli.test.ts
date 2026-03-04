@@ -20,7 +20,11 @@ const {
   // Track calls that happen during module initialization and survive clearAllMocks
   const optionCallCount = { value: 0 };
 
-  const mockCommand = {
+  const mockCommand: Record<string, ReturnType<typeof vi.fn>> = {
+    option: vi.fn((..._args: unknown[]) => {
+      optionCallCount.value++;
+      return mockCommand;
+    }),
     action: vi.fn((fn: Function) => {
       ref.capturedAction.value = fn;
       return mockCommand;
@@ -82,6 +86,34 @@ vi.mock("../../src/utils/notify-new-version.js", () => ({
 
 vi.mock("../../src/utils/package.js", () => ({
   version: vi.fn().mockResolvedValue("1.0.0"),
+}));
+
+vi.mock("../../src/commands/add.js", () => ({
+  registerAddCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/init.js", () => ({
+  registerInitCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/migrate.js", () => ({
+  registerMigrateCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/pre.js", () => ({
+  registerPreCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/snapshot.js", () => ({
+  registerSnapshotCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/status.js", () => ({
+  registerStatusCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/version-cmd.js", () => ({
+  registerVersionCommand: vi.fn(),
 }));
 
 beforeEach(() => {
