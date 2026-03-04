@@ -43,13 +43,16 @@
     "enquirer": "^2.4.1",
     "jiti": "^2.6.1",
     "listr2": "^8.2.5",
+    "micromatch": "^4.0.8",
     "semver": "^7.6.3",
     "smol-toml": "^1.6.0",
     "std-env": "^3.7.0",
-    "tinyexec": "^0.3.0"
+    "tinyexec": "^0.3.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
+    "@types/micromatch": "^4.0.10",
     "@types/node": "^22.7.4",
     "@types/npm": "^7.19.3",
     "@types/npmcli__promise-spawn": "^6.0.3",
