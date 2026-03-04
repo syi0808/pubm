@@ -1,0 +1,5 @@
+{
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "access": "public"
+}

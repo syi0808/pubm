@@ -1,0 +1,7 @@
+{
+  "name": "@test/utils",
+  "version": "1.0.0",
+  "dependencies": {
+    "@test/core": "^1.0.0"
+  }
+}
