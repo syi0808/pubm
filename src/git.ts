@@ -177,13 +177,8 @@ export class Git {
           await this.git(["rev-parse", "-q", "--verify", `refs/tags/${tag}`])
         ).trim() !== ""
       );
-    } catch (error) {
-      throw new GitError(
-        `Failed to run \`git rev-parse -q --verify refs/tags/${tag}\``,
-        {
-          cause: error,
-        },
-      );
+    } catch {
+      return false;
     }
   }
 

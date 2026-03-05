@@ -413,12 +413,12 @@ describe("Git", () => {
       expect(result).toBe(false);
     });
 
-    it("throws GitError on error (does not return false)", async () => {
+    it("returns false on error", async () => {
       mockedExec.mockRejectedValue(new Error("error"));
 
-      await expect(git.checkTagExist("v1.0.0")).rejects.toThrow(
-        "Failed to run `git rev-parse -q --verify refs/tags/v1.0.0`",
-      );
+      const result = await git.checkTagExist("v1.0.0");
+
+      expect(result).toBe(false);
     });
   });
 
