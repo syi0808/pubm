@@ -137,17 +137,14 @@ export class NpmRegistry extends Registry {
 
   async publishProvenance(): Promise<boolean> {
     try {
-      try {
-        await this.npm(["publish", "--provenance", "--access", "public"]);
-      } catch (error) {
-        if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
-          return false;
-        }
-      }
+      await this.npm(["publish", "--provenance", "--access", "public"]);
 
       return true;
-      /* v8 ignore next 8 */
     } catch (error) {
+      if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
+        return false;
+      }
+
       throw new NpmError(
         "Failed to run `npm publish --provenance --access public`",
         {
@@ -161,17 +158,14 @@ export class NpmRegistry extends Registry {
     const args = otp ? ["publish", "--otp", otp] : ["publish"];
 
     try {
-      try {
-        await this.npm(args);
-      } catch (error) {
-        if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
-          return false;
-        }
-      }
+      await this.npm(args);
 
       return true;
-      /* v8 ignore next 5 */
     } catch (error) {
+      if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
+        return false;
+      }
+
       throw new NpmError(`Failed to run \`npm ${args.join(" ")}\``, {
         cause: error,
       });

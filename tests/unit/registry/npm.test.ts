@@ -353,6 +353,14 @@ describe("NpmRegistry", () => {
       expect(result).toBe(false);
     });
 
+    it("throws NpmError for non-EOTP errors", async () => {
+      mockNonZeroExitError("ENEEDAUTH");
+
+      await expect(registry.publishProvenance()).rejects.toThrow(
+        "Failed to run `npm publish --provenance --access public`",
+      );
+    });
+
     it("returns true when publish succeeds without EOTP", async () => {
       mockStdout("published");
 
@@ -401,6 +409,14 @@ describe("NpmRegistry", () => {
       const result = await registry.publish("123456");
 
       expect(result).toBe(false);
+    });
+
+    it("throws NpmError for non-EOTP errors", async () => {
+      mockNonZeroExitError("ENEEDAUTH");
+
+      await expect(registry.publish()).rejects.toThrow(
+        "Failed to run `npm publish`",
+      );
     });
   });
 
