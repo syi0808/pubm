@@ -98,7 +98,7 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
               jsr.client.package(`@${scope}/${jsr.packageName}`),
             ),
           )
-        ).filter((v) => v);
+        ).filter((v): v is NonNullable<typeof v> => v !== null);
 
         if (searchResults.length > 0) {
           jsrName = await task.prompt(ListrEnquirerPromptAdapter).run<string>({

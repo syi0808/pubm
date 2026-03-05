@@ -57,6 +57,8 @@ function mockStderr(stderr: string) {
 function mockFetchResponse(status: number, body?: unknown) {
   mockedFetch.mockResolvedValue({
     status,
+    ok: status >= 200 && status < 300,
+    statusText: status === 200 ? "OK" : status === 401 ? "Unauthorized" : "Error",
     json: vi.fn().mockResolvedValue(body),
   });
 }
@@ -428,7 +430,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.package("@myscope/mypkg")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//user/scopes`",
+        "Failed to fetch `https://api.jsr.io//scopes/myscope/packages/mypkg`",
       );
     });
   });

@@ -147,6 +147,12 @@ export class JsrClient {
 
       if (response.status === 401) return null;
 
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}: ${response.statusText}`,
+        );
+      }
+
       return await response.json();
     } catch (error) {
       throw new JsrError(`Failed to fetch \`${this.apiEndpoint}/user\``, {
@@ -162,6 +168,12 @@ export class JsrClient {
       const response = await this.fetch(`/user/member/${scope}`);
 
       if (response.status === 401) return null;
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}: ${response.statusText}`,
+        );
+      }
 
       return await response.json();
     } catch (error) {
@@ -180,9 +192,21 @@ export class JsrClient {
 
       if (response.status === 401) return [];
 
-      return ((await response.json()) as JsrApi.Users.Scopes).map(
-        ({ scope }) => scope,
-      );
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}: ${response.statusText}`,
+        );
+      }
+
+      const body = await response.json();
+
+      if (!Array.isArray(body)) {
+        throw new Error(
+          `Expected array response but got ${typeof body}`,
+        );
+      }
+
+      return (body as JsrApi.Users.Scopes).map(({ scope }) => scope);
     } catch (error) {
       throw new JsrError(
         `Failed to fetch \`${this.apiEndpoint}/user/scopes\``,
@@ -193,16 +217,20 @@ export class JsrClient {
     }
   }
 
-  async package(packageName: string): Promise<JsrApi.Scopes.Packages.Package> {
+  async package(
+    packageName: string,
+  ): Promise<JsrApi.Scopes.Packages.Package | null> {
     const [scope, name] = getScopeAndName(packageName);
 
     try {
       const response = await this.fetch(`/scopes/${scope}/packages/${name}`);
 
+      if (!response.ok) return null;
+
       return await response.json();
     } catch (error) {
       throw new JsrError(
-        `Failed to fetch \`${this.apiEndpoint}/user/scopes\``,
+        `Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages/${name}\``,
         {
           cause: error,
         },
@@ -284,6 +312,12 @@ export class JsrClient {
   async searchPackage(query: string): Promise<JsrApi.Packages> {
     try {
       const response = await this.fetch(`/packages?query=${query}`);
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}: ${response.statusText}`,
+        );
+      }
 
       return await response.json();
     } catch (error) {
