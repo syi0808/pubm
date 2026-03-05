@@ -1,4 +1,4 @@
-import { exec } from "tinyexec";
+import { NonZeroExitError, exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
@@ -12,9 +12,7 @@ export class NpmRegistry extends Registry {
   registry = "https://registry.npmjs.org";
 
   protected async npm(args: string[]): Promise<string> {
-    const { stdout, stderr } = await exec("npm", args);
-
-    if (stderr) throw stderr;
+    const { stdout } = await exec("npm", args, { throwOnError: true });
 
     return stdout;
   }
@@ -68,7 +66,7 @@ export class NpmRegistry extends Registry {
 
       return true;
     } catch (error) {
-      if (`${error}`.includes("ENEEDAUTH")) {
+      if (error instanceof NonZeroExitError && error.output?.stderr.includes("ENEEDAUTH")) {
         return false;
       }
 
@@ -142,7 +140,7 @@ export class NpmRegistry extends Registry {
       try {
         await this.npm(["publish", "--provenance", "--access", "public"]);
       } catch (error) {
-        if (`${error}`.includes("EOTP")) {
+        if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
           return false;
         }
       }
@@ -166,7 +164,7 @@ export class NpmRegistry extends Registry {
       try {
         await this.npm(args);
       } catch (error) {
-        if (`${error}`.includes("EOTP")) {
+        if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
           return false;
         }
       }

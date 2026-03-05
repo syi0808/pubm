@@ -20,9 +20,6 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-function mockStderr(stderr: string) {
-  mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
-}
 
 describe("Git", () => {
   describe("git(args)", () => {
@@ -31,14 +28,22 @@ describe("Git", () => {
 
       const result = await git.git(["status"]);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["status"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["status"], { throwOnError: true });
       expect(result).toBe("output");
     });
 
-    it("throws stderr when stderr is non-empty", async () => {
-      mockStderr("fatal: something");
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({ stdout: "output", stderr: "warning: something" } as any);
 
-      await expect(git.git(["status"])).rejects.toBe("fatal: something");
+      const result = await git.git(["status"]);
+
+      expect(result).toBe("output");
+    });
+
+    it("throws when exec fails", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal: something"));
+
+      await expect(git.git(["status"])).rejects.toThrow("fatal: something");
     });
   });
 
@@ -52,12 +57,12 @@ describe("Git", () => {
         "config",
         "--get",
         "user.name",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe("John Doe");
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       await expect(git.userName()).rejects.toThrow(
         "Failed to run `git config --get user.name`",
@@ -75,12 +80,12 @@ describe("Git", () => {
         "describe",
         "--tags",
         "--abbrev=0",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe("v1.2.3");
     });
 
     it("returns null when no tags exist (catch returns null)", async () => {
-      mockStderr("fatal: No names found");
+      mockedExec.mockRejectedValue(new Error("no tags"));
 
       const result = await git.latestTag();
 
@@ -94,7 +99,7 @@ describe("Git", () => {
 
       const result = await git.tags();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "-l"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "-l"], { throwOnError: true });
       expect(result).toEqual(["1.0.0", "1.1.0", "2.0.0"]);
     });
 
@@ -107,7 +112,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       await expect(git.tags()).rejects.toThrow("Failed to run");
     });
@@ -150,7 +155,7 @@ describe("Git", () => {
     });
 
     it("returns null on error (catch returns null)", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       const result = await git.previousTag("1.0.0");
 
@@ -164,12 +169,12 @@ describe("Git", () => {
 
       const result = await git.dryFetch();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch", "--dry-run"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch", "--dry-run"], { throwOnError: true });
       expect(result).toBe("From https://github.com/user/repo\n");
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: unable to access");
+      mockedExec.mockRejectedValue(new Error("fatal: unable to access"));
 
       await expect(git.dryFetch()).rejects.toThrow(
         "Failed to run `git fetch --dry-run`",
@@ -183,12 +188,12 @@ describe("Git", () => {
 
       const result = await git.fetch();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: unable to access");
+      mockedExec.mockRejectedValue(new Error("fatal: unable to access"));
 
       await expect(git.fetch()).rejects.toThrow("Failed to run `git fetch`");
     });
@@ -200,12 +205,12 @@ describe("Git", () => {
 
       const result = await git.pull();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["pull"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["pull"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: Not possible to fast-forward");
+      mockedExec.mockRejectedValue(new Error("fatal: Not possible to fast-forward"));
 
       await expect(git.pull()).rejects.toThrow("Failed to run `git pull`");
     });
@@ -222,7 +227,7 @@ describe("Git", () => {
         "@{u}...HEAD",
         "--count",
         "--left-only",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(5);
     });
 
@@ -235,7 +240,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: no upstream configured");
+      mockedExec.mockRejectedValue(new Error("fatal: no upstream configured"));
 
       await expect(git.revisionDiffsCount()).rejects.toThrow(
         "Failed to run `git rev-list @{u}...HEAD --count --left-only`",
@@ -249,7 +254,7 @@ describe("Git", () => {
 
       const result = await git.status();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["status", "--porcelain"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["status", "--porcelain"], { throwOnError: true });
       expect(result).toBe("M src/index.ts\n?? new-file.ts");
     });
 
@@ -262,7 +267,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: not a git repository");
+      mockedExec.mockRejectedValue(new Error("fatal: not a git repository"));
 
       await expect(git.status()).rejects.toThrow(
         "Failed to run `git status --porcelain`",
@@ -282,7 +287,7 @@ describe("Git", () => {
         "log",
         "v1.0.0...HEAD",
         "--format=%H %s",
-      ]);
+      ], { throwOnError: true });
       expect(result).toEqual([
         { id: hash1, message: "first commit" },
         { id: hash2, message: "second commit" },
@@ -307,7 +312,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: bad revision");
+      mockedExec.mockRejectedValue(new Error("fatal: bad revision"));
 
       await expect(git.commits("bad", "HEAD")).rejects.toThrow(
         "Failed to run `git log bad...HEAD --format='%H %s'`",
@@ -321,7 +326,7 @@ describe("Git", () => {
 
       const result = await git.version();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["--version"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["--version"], { throwOnError: true });
       expect(result).toBe("2.39.0");
     });
 
@@ -335,7 +340,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       await expect(git.version()).rejects.toThrow(
         "Failed to run `git --version`",
@@ -353,12 +358,12 @@ describe("Git", () => {
         "rev-parse",
         "--abbrev-ref",
         "HEAD",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe("main");
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: not a git repository");
+      mockedExec.mockRejectedValue(new Error("fatal: not a git repository"));
 
       await expect(git.branch()).rejects.toThrow(
         "Failed to run `git rev-parse --abbrev-ref HEAD`",
@@ -372,12 +377,12 @@ describe("Git", () => {
 
       const result = await git.switch("develop");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["switch", "develop"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["switch", "develop"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: invalid reference");
+      mockedExec.mockRejectedValue(new Error("fatal: invalid reference"));
 
       await expect(git.switch("nonexistent")).rejects.toThrow(
         "Failed to run `git switch nonexistent`",
@@ -396,7 +401,7 @@ describe("Git", () => {
         "-q",
         "--verify",
         "refs/tags/v1.0.0",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -409,7 +414,7 @@ describe("Git", () => {
     });
 
     it("throws GitError on error (does not return false)", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       await expect(git.checkTagExist("v1.0.0")).rejects.toThrow(
         "Failed to run `git rev-parse -q --verify refs/tags/v1.0.0`",
@@ -427,12 +432,12 @@ describe("Git", () => {
         "tag",
         "--delete",
         "v1.0.0",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error: tag not found");
+      mockedExec.mockRejectedValue(new Error("error: tag not found"));
 
       await expect(git.deleteTag("v9.9.9")).rejects.toThrow(
         "Failed to run `git tag --delete v9.9.9`",
@@ -446,12 +451,12 @@ describe("Git", () => {
 
       const result = await git.stageAll();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "."]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "."], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: not a git repository");
+      mockedExec.mockRejectedValue(new Error("fatal: not a git repository"));
 
       await expect(git.stageAll()).rejects.toThrow("Failed to run `git add .`");
     });
@@ -463,12 +468,12 @@ describe("Git", () => {
 
       const result = await git.stash();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["stash"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["stash"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error");
+      mockedExec.mockRejectedValue(new Error("error"));
 
       await expect(git.stash()).rejects.toThrow("Failed to run `git stash`");
     });
@@ -480,12 +485,12 @@ describe("Git", () => {
 
       const result = await git.popStash();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["stash", "pop"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["stash", "pop"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("error: no stash entries");
+      mockedExec.mockRejectedValue(new Error("error: no stash entries"));
 
       await expect(git.popStash()).rejects.toThrow(
         "Failed to run `git stash pop`",
@@ -499,12 +504,12 @@ describe("Git", () => {
 
       const result = await git.stage("src/index.ts");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "src/index.ts"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "src/index.ts"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: pathspec not found");
+      mockedExec.mockRejectedValue(new Error("fatal: pathspec not found"));
 
       await expect(git.stage("nonexistent.ts")).rejects.toThrow(
         "Failed to run `git add nonexistent.ts`",
@@ -522,7 +527,7 @@ describe("Git", () => {
         "reset",
         "HEAD~1",
         "--hard",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -531,7 +536,7 @@ describe("Git", () => {
 
       const result = await git.reset("HEAD~1");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -540,7 +545,7 @@ describe("Git", () => {
 
       const result = await git.reset();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -549,11 +554,11 @@ describe("Git", () => {
 
       await git.reset("HEAD~1", undefined);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], { throwOnError: true });
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: ambiguous argument");
+      mockedExec.mockRejectedValue(new Error("fatal: ambiguous argument"));
 
       await expect(git.reset("bad-ref", "--hard")).rejects.toThrow(
         "Failed to run `git reset bad-ref --hard`",
@@ -568,12 +573,12 @@ describe("Git", () => {
 
       const result = await git.latestCommit();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["rev-parse", "HEAD"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["rev-parse", "HEAD"], { throwOnError: true });
       expect(result).toBe(hash);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: not a git repository");
+      mockedExec.mockRejectedValue(new Error("fatal: not a git repository"));
 
       await expect(git.latestCommit()).rejects.toThrow(
         "Failed to run `git rev-parse HEAD`",
@@ -592,12 +597,12 @@ describe("Git", () => {
         "rev-list",
         "--max-parents=0",
         "HEAD",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(hash);
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: bad default revision");
+      mockedExec.mockRejectedValue(new Error("fatal: bad default revision"));
 
       await expect(git.firstCommit()).rejects.toThrow(
         "Failed to run `git rev-list --max-parents=0 HEAD`",
@@ -623,16 +628,16 @@ describe("Git", () => {
         "commit",
         "-m",
         "fix: something",
-      ]);
+      ], { throwOnError: true });
       expect(mockedExec).toHaveBeenNthCalledWith(2, "git", [
         "rev-parse",
         "HEAD",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe(hash);
     });
 
     it("throws GitError when commit fails", async () => {
-      mockStderr("error: nothing to commit");
+      mockedExec.mockRejectedValue(new Error("error: nothing to commit"));
 
       await expect(git.commit("test")).rejects.toThrow(
         "Failed to run `git commit -m test`",
@@ -650,12 +655,12 @@ describe("Git", () => {
         "remote",
         "get-url",
         "origin",
-      ]);
+      ], { throwOnError: true });
       expect(result).toBe("https://github.com/user/repo.git");
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: No such remote");
+      mockedExec.mockRejectedValue(new Error("fatal: No such remote"));
 
       await expect(git.repository()).rejects.toThrow(
         "Failed to run `git remote get-url origin`",
@@ -669,7 +674,7 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -679,7 +684,7 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0", hash);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0", hash]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0", hash], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -688,11 +693,11 @@ describe("Git", () => {
 
       await git.createTag("v1.0.0", undefined);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"]);
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], { throwOnError: true });
     });
 
     it("throws GitError on failure", async () => {
-      mockStderr("fatal: tag already exists");
+      mockedExec.mockRejectedValue(new Error("fatal: tag already exists"));
 
       await expect(git.createTag("v1.0.0")).rejects.toThrow(
         "Failed to run `git tag v1.0.0`",

@@ -83,13 +83,21 @@ describe("JsrRegisry", () => {
 
       await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--help"]);
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--help"], { throwOnError: true });
     });
 
-    it("throws stderr when stderr is non-empty", async () => {
-      mockStderr("error");
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "some warning" } as any);
 
-      await expect(registry.version()).rejects.toBe("error");
+      const result = await registry.isInstalled();
+
+      expect(result).toBe(true);
+    });
+
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("error"));
+
+      await expect(registry.version()).rejects.toThrow("error");
     });
   });
 
@@ -128,7 +136,7 @@ describe("JsrRegisry", () => {
 
       const result = await registry.ping();
 
-      expect(mockedExec).toHaveBeenCalledWith("ping", ["jsr.io", "-c", "1"]);
+      expect(mockedExec).toHaveBeenCalledWith("ping", ["jsr.io", "-c", "1"], { throwOnError: true });
       expect(result).toBe(true);
     });
 
@@ -141,17 +149,6 @@ describe("JsrRegisry", () => {
       const result = await registry.ping();
 
       expect(result).toBe(false);
-    });
-
-    it("throws JsrError when stderr is non-empty", async () => {
-      mockedExec.mockResolvedValue({
-        stdout: "",
-        stderr: "ping: unknown host",
-      } as any);
-
-      await expect(registry.ping()).rejects.toThrow(
-        "Failed to run `ping jsr.io` -c 1",
-      );
     });
 
     it("throws JsrError when exec rejects", async () => {
@@ -192,7 +189,7 @@ describe("JsrRegisry", () => {
 
       const result = await registry.version();
 
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"]);
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], { throwOnError: true });
       expect(result).toBe("0.1.0");
     });
   });

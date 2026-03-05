@@ -4,12 +4,11 @@ import { NpmRegistry } from "./npm.js";
 
 export class CustomRegistry extends NpmRegistry {
   async npm(args: string[]): Promise<string> {
-    const { stdout, stderr } = await exec(
+    const { stdout } = await exec(
       "npm",
       args.concat("--registry", this.registry),
+      { throwOnError: true },
     );
-
-    if (stderr) throw stderr;
 
     return stdout;
   }
