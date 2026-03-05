@@ -41,9 +41,7 @@ describe("notifyNewVersion", () => {
     await notifyNewVersion();
 
     expect(consoleSpy).toHaveBeenCalledOnce();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Update available: 1.0.0 → 2.0.0",
-    );
+    expect(consoleSpy).toHaveBeenCalledWith("Update available: 1.0.0 → 2.0.0");
   });
 
   it("does not print when no update is available", async () => {
