@@ -1,0 +1,23 @@
+{
+  "name": "pubm-marketplace",
+  "owner": {
+    "name": "pubm"
+  },
+  "metadata": {
+    "description": "Plugin marketplace for pubm - multi-registry package publishing tool",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "pubm-plugin",
+      "source": "./plugins/pubm-plugin",
+      "description": "Publish packages to multiple registries (npm, jsr, crates.io) with pubm. Includes /publish, /publish-preview, and /publish-setup commands.",
+      "version": "1.0.0",
+      "author": {
+        "name": "pubm"
+      },
+      "keywords": ["publish", "npm", "jsr", "crates", "registry", "release"],
+      "category": "devtools"
+    }
+  ]
+}
