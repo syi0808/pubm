@@ -20,7 +20,6 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-
 describe("Git", () => {
   describe("git(args)", () => {
     it("returns stdout on success", async () => {
@@ -28,12 +27,17 @@ describe("Git", () => {
 
       const result = await git.git(["status"]);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["status"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["status"], {
+        throwOnError: true,
+      });
       expect(result).toBe("output");
     });
 
     it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({ stdout: "output", stderr: "warning: something" } as any);
+      mockedExec.mockResolvedValue({
+        stdout: "output",
+        stderr: "warning: something",
+      } as any);
 
       const result = await git.git(["status"]);
 
@@ -53,11 +57,11 @@ describe("Git", () => {
 
       const result = await git.userName();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "config",
-        "--get",
-        "user.name",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["config", "--get", "user.name"],
+        { throwOnError: true },
+      );
       expect(result).toBe("John Doe");
     });
 
@@ -76,11 +80,11 @@ describe("Git", () => {
 
       const result = await git.latestTag();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "describe",
-        "--tags",
-        "--abbrev=0",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["describe", "--tags", "--abbrev=0"],
+        { throwOnError: true },
+      );
       expect(result).toBe("v1.2.3");
     });
 
@@ -99,7 +103,9 @@ describe("Git", () => {
 
       const result = await git.tags();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "-l"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "-l"], {
+        throwOnError: true,
+      });
       expect(result).toEqual(["v1.0.0", "v1.1.0", "v2.0.0"]);
     });
 
@@ -201,7 +207,9 @@ describe("Git", () => {
 
       const result = await git.dryFetch();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch", "--dry-run"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch", "--dry-run"], {
+        throwOnError: true,
+      });
       expect(result).toBe("From https://github.com/user/repo\n");
     });
 
@@ -220,7 +228,9 @@ describe("Git", () => {
 
       const result = await git.fetch();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["fetch"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -237,12 +247,16 @@ describe("Git", () => {
 
       const result = await git.pull();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["pull"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["pull"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
     it("throws GitError on failure", async () => {
-      mockedExec.mockRejectedValue(new Error("fatal: Not possible to fast-forward"));
+      mockedExec.mockRejectedValue(
+        new Error("fatal: Not possible to fast-forward"),
+      );
 
       await expect(git.pull()).rejects.toThrow("Failed to run `git pull`");
     });
@@ -254,12 +268,11 @@ describe("Git", () => {
 
       const result = await git.revisionDiffsCount();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "rev-list",
-        "@{u}...HEAD",
-        "--count",
-        "--left-only",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["rev-list", "@{u}...HEAD", "--count", "--left-only"],
+        { throwOnError: true },
+      );
       expect(result).toBe(5);
     });
 
@@ -286,7 +299,11 @@ describe("Git", () => {
 
       const result = await git.status();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["status", "--porcelain"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["status", "--porcelain"],
+        { throwOnError: true },
+      );
       expect(result).toBe("M src/index.ts\n?? new-file.ts");
     });
 
@@ -315,11 +332,11 @@ describe("Git", () => {
 
       const result = await git.commits("v1.0.0", "HEAD");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "log",
-        "v1.0.0...HEAD",
-        "--format=%H %s",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["log", "v1.0.0...HEAD", "--format=%H %s"],
+        { throwOnError: true },
+      );
       expect(result).toEqual([
         { id: hash1, message: "first commit" },
         { id: hash2, message: "second commit" },
@@ -358,7 +375,9 @@ describe("Git", () => {
 
       const result = await git.version();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["--version"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["--version"], {
+        throwOnError: true,
+      });
       expect(result).toBe("2.39.0");
     });
 
@@ -386,11 +405,11 @@ describe("Git", () => {
 
       const result = await git.branch();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "rev-parse",
-        "--abbrev-ref",
-        "HEAD",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        { throwOnError: true },
+      );
       expect(result).toBe("main");
     });
 
@@ -409,7 +428,9 @@ describe("Git", () => {
 
       const result = await git.switch("develop");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["switch", "develop"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["switch", "develop"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -428,12 +449,11 @@ describe("Git", () => {
 
       const result = await git.checkTagExist("v1.0.0");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "rev-parse",
-        "-q",
-        "--verify",
-        "refs/tags/v1.0.0",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["rev-parse", "-q", "--verify", "refs/tags/v1.0.0"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
@@ -460,11 +480,11 @@ describe("Git", () => {
 
       const result = await git.deleteTag("v1.0.0");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "tag",
-        "--delete",
-        "v1.0.0",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["tag", "--delete", "v1.0.0"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
@@ -483,7 +503,9 @@ describe("Git", () => {
 
       const result = await git.stageAll();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "."], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "."], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -500,7 +522,9 @@ describe("Git", () => {
 
       const result = await git.stash();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["stash"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["stash"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -517,7 +541,9 @@ describe("Git", () => {
 
       const result = await git.popStash();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["stash", "pop"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["stash", "pop"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -536,7 +562,9 @@ describe("Git", () => {
 
       const result = await git.stage("src/index.ts");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "src/index.ts"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["add", "src/index.ts"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -555,11 +583,11 @@ describe("Git", () => {
 
       const result = await git.reset("HEAD~1", "--hard");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "reset",
-        "HEAD~1",
-        "--hard",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["reset", "HEAD~1", "--hard"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
@@ -568,7 +596,9 @@ describe("Git", () => {
 
       const result = await git.reset("HEAD~1");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -577,7 +607,9 @@ describe("Git", () => {
 
       const result = await git.reset();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -586,7 +618,9 @@ describe("Git", () => {
 
       await git.reset("HEAD~1", undefined);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["reset", "HEAD~1"], {
+        throwOnError: true,
+      });
     });
 
     it("throws GitError on failure", async () => {
@@ -605,7 +639,9 @@ describe("Git", () => {
 
       const result = await git.latestCommit();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["rev-parse", "HEAD"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["rev-parse", "HEAD"], {
+        throwOnError: true,
+      });
       expect(result).toBe(hash);
     });
 
@@ -625,11 +661,11 @@ describe("Git", () => {
 
       const result = await git.firstCommit();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "rev-list",
-        "--max-parents=0",
-        "HEAD",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["rev-list", "--max-parents=0", "HEAD"],
+        { throwOnError: true },
+      );
       expect(result).toBe(hash);
     });
 
@@ -656,15 +692,18 @@ describe("Git", () => {
 
       const result = await git.commit("fix: something");
 
-      expect(mockedExec).toHaveBeenNthCalledWith(1, "git", [
-        "commit",
-        "-m",
-        "fix: something",
-      ], { throwOnError: true });
-      expect(mockedExec).toHaveBeenNthCalledWith(2, "git", [
-        "rev-parse",
-        "HEAD",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenNthCalledWith(
+        1,
+        "git",
+        ["commit", "-m", "fix: something"],
+        { throwOnError: true },
+      );
+      expect(mockedExec).toHaveBeenNthCalledWith(
+        2,
+        "git",
+        ["rev-parse", "HEAD"],
+        { throwOnError: true },
+      );
       expect(result).toBe(hash);
     });
 
@@ -683,11 +722,11 @@ describe("Git", () => {
 
       const result = await git.repository();
 
-      expect(mockedExec).toHaveBeenCalledWith("git", [
-        "remote",
-        "get-url",
-        "origin",
-      ], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["remote", "get-url", "origin"],
+        { throwOnError: true },
+      );
       expect(result).toBe("https://github.com/user/repo.git");
     });
 
@@ -706,7 +745,9 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -716,7 +757,9 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0", hash);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0", hash], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0", hash], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -725,7 +768,9 @@ describe("Git", () => {
 
       await git.createTag("v1.0.0", undefined);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], {
+        throwOnError: true,
+      });
     });
 
     it("throws GitError on failure", async () => {

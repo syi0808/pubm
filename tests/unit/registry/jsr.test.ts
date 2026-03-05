@@ -87,11 +87,16 @@ describe("JsrRegisry", () => {
 
       await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
+        throwOnError: true,
+      });
     });
 
     it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "some warning" } as any);
+      mockedExec.mockResolvedValue({
+        stdout: "ok",
+        stderr: "some warning",
+      } as any);
 
       const result = await registry.isInstalled();
 
@@ -140,7 +145,9 @@ describe("JsrRegisry", () => {
 
       const result = await registry.ping();
 
-      expect(mockedExec).toHaveBeenCalledWith("ping", ["jsr.io", "-c", "1"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("ping", ["jsr.io", "-c", "1"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -193,7 +200,9 @@ describe("JsrRegisry", () => {
 
       const result = await registry.version();
 
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
+        throwOnError: true,
+      });
       expect(result).toBe("0.1.0");
     });
   });

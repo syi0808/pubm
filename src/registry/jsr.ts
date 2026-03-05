@@ -1,4 +1,4 @@
-import { NonZeroExitError, exec } from "tinyexec";
+import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
 import { Db } from "../utils/db.js";
