@@ -94,12 +94,20 @@ describe("Git", () => {
   });
 
   describe("tags()", () => {
-    it("returns sorted list with v prefix stripped", async () => {
+    it("returns sorted list with v prefix preserved", async () => {
       mockStdout("v1.0.0\nv2.0.0\nv1.1.0\n");
 
       const result = await git.tags();
 
       expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "-l"], { throwOnError: true });
+      expect(result).toEqual(["v1.0.0", "v1.1.0", "v2.0.0"]);
+    });
+
+    it("returns sorted list with unprefixed tags preserved", async () => {
+      mockStdout("1.0.0\n2.0.0\n1.1.0\n");
+
+      const result = await git.tags();
+
       expect(result).toEqual(["1.0.0", "1.1.0", "2.0.0"]);
     });
 
@@ -108,7 +116,7 @@ describe("Git", () => {
 
       const result = await git.tags();
 
-      expect(result).toEqual(["1.0.0"]);
+      expect(result).toEqual(["v1.0.0"]);
     });
 
     it("throws GitError on failure", async () => {
@@ -119,10 +127,34 @@ describe("Git", () => {
   });
 
   describe("previousTag(tag)", () => {
-    it("returns the tag before the given tag", async () => {
+    it("returns the tag before the given tag (prefixed tags, prefixed input)", async () => {
+      mockStdout("v1.0.0\nv2.0.0\nv3.0.0\n");
+
+      const result = await git.previousTag("v2.0.0");
+
+      expect(result).toBe("v1.0.0");
+    });
+
+    it("returns the tag before the given tag (unprefixed tags, unprefixed input)", async () => {
+      mockStdout("1.0.0\n2.0.0\n3.0.0\n");
+
+      const result = await git.previousTag("2.0.0");
+
+      expect(result).toBe("1.0.0");
+    });
+
+    it("matches unprefixed input against prefixed tags", async () => {
       mockStdout("v1.0.0\nv2.0.0\nv3.0.0\n");
 
       const result = await git.previousTag("2.0.0");
+
+      expect(result).toBe("v1.0.0");
+    });
+
+    it("matches prefixed input against unprefixed tags", async () => {
+      mockStdout("1.0.0\n2.0.0\n3.0.0\n");
+
+      const result = await git.previousTag("v2.0.0");
 
       expect(result).toBe("1.0.0");
     });
@@ -130,25 +162,25 @@ describe("Git", () => {
     it("returns the last tag when given tag is the first (wraps around with at(-1))", async () => {
       mockStdout("v1.0.0\nv2.0.0\nv3.0.0\n");
 
-      const result = await git.previousTag("1.0.0");
+      const result = await git.previousTag("v1.0.0");
 
       // at(findIndex(0) - 1) = at(-1) = last element
-      expect(result).toBe("3.0.0");
+      expect(result).toBe("v3.0.0");
     });
 
     it("returns a tag via wrap-around when tag is not found", async () => {
       mockStdout("v1.0.0\nv2.0.0\n");
 
-      const result = await git.previousTag("9.9.9");
+      const result = await git.previousTag("v9.9.9");
 
       // findIndex returns -1, at(-1 - 1) = at(-2), which wraps to index 0
-      expect(result).toBe("1.0.0");
+      expect(result).toBe("v1.0.0");
     });
 
     it("returns null when tag list has only one element and tag is not found", async () => {
       mockStdout("v1.0.0\n");
 
-      const result = await git.previousTag("9.9.9");
+      const result = await git.previousTag("v9.9.9");
 
       // findIndex returns -1, at(-2) on a 1-element array returns undefined -> null
       expect(result).toBeNull();

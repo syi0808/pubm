@@ -36,7 +36,6 @@ export class Git {
       return (await this.git(["tag", "-l"]))
         .trim()
         .split("\n")
-        .map((v) => v.slice(1))
         .sort(semver.compareIdentifiers);
     } catch (error) {
       throw new GitError("Failed to run `git config --get user.name`", {
@@ -48,8 +47,11 @@ export class Git {
   async previousTag(tag: string): Promise<string | null> {
     try {
       const tags = await this.tags();
+      const strip = (t: string) => t.replace(/^v/, "");
 
-      return tags.at(tags.findIndex((t) => t === tag) - 1) ?? null;
+      return (
+        tags.at(tags.findIndex((t) => strip(t) === strip(tag)) - 1) ?? null
+      );
     } catch {
       return null;
     }
