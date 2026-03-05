@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PackageConfig, PubmConfig } from "../../../src/types/config.js";
+import type { PackageConfig, PubmConfig } from "../../../src/config/types.js";
 
 describe("Config types", () => {
   it("allows PackageConfig with required fields", () => {

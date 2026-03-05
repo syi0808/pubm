@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defineConfig, loadConfig } from "../../../src/config/loader.js";
+import { loadConfig } from "../../../src/config/loader.js";
+import { defineConfig } from "../../../src/config/types.js";
 
 describe("defineConfig", () => {
   it("returns the config as-is (identity function)", () => {

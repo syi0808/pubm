@@ -32,6 +32,7 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
+  registries: ["npm", "jsr"] as string[],
   rollbackStrategy: "individual" as const,
 };
 
