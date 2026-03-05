@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", () => ({
-  exec: vi.fn(),
-}));
+vi.mock("tinyexec", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("tinyexec")>();
+  return {
+    ...actual,
+    exec: vi.fn(),
+  };
+});
 
 vi.mock("../../../src/utils/db.js", () => ({
   Db: vi.fn().mockImplementation(() => ({
