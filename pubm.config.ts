@@ -1,5 +1,5 @@
-import { defineConfig } from './dist/index.js'
+import { defineConfig } from "./dist/index.js";
 
 export default defineConfig({
-  registries: ['npm', 'jsr'],
-})
+  registries: ["npm", "jsr"],
+});

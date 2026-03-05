@@ -8,6 +8,7 @@ import { registerMigrateCommand } from "./commands/migrate.js";
 import { registerPreCommand } from "./commands/pre.js";
 import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerStatusCommand } from "./commands/status.js";
+import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
 import { consoleError } from "./error.js";
 import { Git } from "./git.js";
@@ -149,6 +150,7 @@ registerPreCommand(cli);
 registerSnapshotCommand(cli);
 registerInitCommand(cli);
 registerMigrateCommand(cli);
+registerUpdateCommand(cli);
 
 // Default command: publish (backward compatible with `pubm [version]`)
 const defaultCmd = cli.command("[version]", "Publish packages to registries");
