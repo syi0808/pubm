@@ -74,9 +74,6 @@ importers:
       jsr:
         specifier: ^0.13.2
         version: 0.13.2
-      pubm:
-        specifier: ^0.0.2-14
-        version: 0.0.2-14
       tsup:
         specifier: ^8.3.0
         version: 8.3.0(jiti@2.6.1)(postcss@8.4.47)(typescript@5.6.2)(yaml@2.8.2)
@@ -1056,11 +1053,6 @@ packages:
   postcss@8.4.47:
     resolution: {integrity: sha512-56rxCq7G/XfB4EkXq9Egn5GCqugWvDFjafDOThIdMBsI15iqPqR5r15TfSr1YPYeEI19YeaXMCbY6u88Y76GLQ==}
     engines: {node: ^10 || ^12 || >=14}
-
-  pubm@0.0.2-14:
-    resolution: {integrity: sha512-dSZp3/h1YrA7EV/q7E9q3n3Dz0mwkNQTpiupCMJxHHoE3f5EJId/ABbWCYO/Jk0qvXud6VptpM8+bjLciRHiVg==}
-    engines: {git: '>=2.11.0', node: '>=18'}
-    hasBin: true
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -2130,17 +2122,6 @@ snapshots:
       nanoid: 3.3.7
       picocolors: 1.1.0
       source-map-js: 1.2.1
-
-  pubm@0.0.2-14:
-    dependencies:
-      '@listr2/prompt-adapter-enquirer': 2.0.12(enquirer@2.4.1)
-      '@npmcli/promise-spawn': 8.0.1
-      cac: 6.7.14
-      enquirer: 2.4.1
-      listr2: 8.2.5(patch_hash=dzzw7eoo3mv4jvfzuqul4v6lc4)
-      semver: 7.6.3
-      std-env: 3.7.0
-      tinyexec: 0.3.0
 
   punycode@2.3.1: {}
 
