@@ -117,15 +117,23 @@ Then proceed to the corresponding Step 2 section.
    - `crates` (crates.io)
    - Private registry (provide the URL)
 
-4. **Generate config file**: Read `references/config-examples.md` and select the appropriate template based on the user's answers. Create `pubm.config.ts` using `defineConfig()` for type safety.
+4. **Generate missing registry config files**: For each selected registry, check if its required config file exists. If missing, generate it from whichever source file is available:
+   - **jsr selected, no `jsr.json`**: Generate from `package.json` -- map name, version, exports (flatten nested import/require to plain string), publish.include/exclude from files array and .npmignore/.gitignore
+   - **npm/custom selected, no `package.json`**: Generate from `jsr.json` -- map name, version, files from publish.include + negated publish.exclude, exports (wrap flat strings in `{ import: ... }`)
+   - **crates selected, no `Cargo.toml`**: Generate from `package.json` -- map name (strip `@scope/`), version, edition=2021, description, license, repository.url, author. Also create `src/lib.rs` or `src/main.rs` if `src/` doesn't exist (ask user which type).
+   - If the required file already exists, skip silently.
+   - If neither source nor target exists, inform the user and ask them to create one manually.
+   - Before writing, show the generated content and ask for confirmation.
 
-5. **Update .gitignore**: Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted JSR tokens and should not be committed.
+5. **Generate pubm config file**: Read `references/config-examples.md` and select the appropriate template based on the user's answers. Create `pubm.config.ts` using `defineConfig()` for type safety.
 
-6. **Add npm scripts** (JS projects only): Add convenience scripts to `package.json`:
+6. **Update .gitignore**: Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted JSR tokens and should not be committed.
+
+7. **Add npm scripts** (JS projects only): Add convenience scripts to `package.json`:
    - `"release": "pubm"` -- for interactive local publishing
    - `"ci:release": "pubm --publish-only"` -- for CI environments
 
-7. **Present summary**: List all files created or modified, and remind the user about any required authentication steps (e.g., `npm login`, setting up tokens).
+8. **Present summary**: List all files created or modified, and remind the user about any required authentication steps (e.g., `npm login`, setting up tokens).
 
 ## Step 2B: Publish Execution Workflow
 
