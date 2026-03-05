@@ -1,8 +1,8 @@
 export {
-	validateEntryPoints,
-	type EntryPointError,
-} from './entry-points.js';
+  type EntryPointError,
+  validateEntryPoints,
+} from "./entry-points.js";
 export {
-	detectExtraneousFiles,
-	type ExtraneousFile,
-} from './extraneous-files.js';
+  detectExtraneousFiles,
+  type ExtraneousFile,
+} from "./extraneous-files.js";

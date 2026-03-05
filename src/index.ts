@@ -18,67 +18,60 @@ export async function pubm(options: Options): Promise<void> {
   await run(resolvedOptions);
 }
 
-export type { Options } from "./types/options.js";
-
-// Config
-export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+export type {
+  BumpType,
+  ChangelogEntry,
+  Changeset,
+  DependencyUpdate,
+  MigrationResult,
+  PackageStatus,
+  Release,
+  Status,
+  VersionBump,
+} from "./changeset/index.js";
+// Changeset workflow
+export {
+  calculateVersionBumps,
+  generateChangelog,
+  generateChangesetContent,
+  generateChangesetId,
+  getStatus,
+  migrateFromChangesets,
+  parseChangeset,
+  readChangesets,
+  writeChangeset,
+} from "./changeset/index.js";
 export type {
   PackageConfig,
   PubmConfig,
   ResolvedPubmConfig,
 } from "./config/index.js";
-
-// Changeset workflow
-export {
-  parseChangeset,
-  writeChangeset,
-  generateChangesetContent,
-  generateChangesetId,
-  readChangesets,
-  getStatus,
-  calculateVersionBumps,
-  generateChangelog,
-  migrateFromChangesets,
-} from "./changeset/index.js";
-
-export type {
-  Changeset,
-  Release,
-  BumpType,
-  PackageStatus,
-  Status,
-  VersionBump,
-  ChangelogEntry,
-  DependencyUpdate,
-  MigrationResult,
-} from "./changeset/index.js";
+// Config
+export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+export type { PackageNode, WorkspaceInfo } from "./monorepo/index.js";
 
 // Monorepo
 export {
-  detectWorkspace,
-  buildDependencyGraph,
-  topologicalSort,
-  resolveGroups,
   applyFixedGroup,
   applyLinkedGroup,
+  buildDependencyGraph,
+  detectWorkspace,
+  resolveGroups,
+  topologicalSort,
 } from "./monorepo/index.js";
-
-export type { WorkspaceInfo, PackageNode } from "./monorepo/index.js";
+export type { PreState, SnapshotOptions } from "./prerelease/index.js";
 
 // Pre-release
 export {
-  readPreState,
   enterPreMode,
   exitPreMode,
   generateSnapshotVersion,
+  readPreState,
 } from "./prerelease/index.js";
-
-export type { PreState, SnapshotOptions } from "./prerelease/index.js";
-
+export type { Options } from "./types/options.js";
+export type { EntryPointError, ExtraneousFile } from "./validate/index.js";
 // Validation
 export {
-  validateEntryPoints,
   detectExtraneousFiles,
+  validateEntryPoints,
 } from "./validate/index.js";
-
-export type { EntryPointError, ExtraneousFile } from "./validate/index.js";

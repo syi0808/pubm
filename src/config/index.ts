@@ -1,10 +1,10 @@
-export { loadConfig } from './loader.js';
-export { resolveConfig } from './defaults.js';
-export { defineConfig } from './types.js';
+export { resolveConfig } from "./defaults.js";
+export { loadConfig } from "./loader.js";
 export type {
-	PubmConfig,
-	ResolvedPubmConfig,
-	PackageConfig,
-	ValidateConfig,
-	SnapshotConfig,
-} from './types.js';
+  PackageConfig,
+  PubmConfig,
+  ResolvedPubmConfig,
+  SnapshotConfig,
+  ValidateConfig,
+} from "./types.js";
+export { defineConfig } from "./types.js";
