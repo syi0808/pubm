@@ -21,6 +21,7 @@ export interface SnapshotConfig {
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
+  registries?: RegistryType[];
   packages?: PackageConfig[];
   changelog?: boolean | string;
   changelogFormat?: "default" | "github" | string;

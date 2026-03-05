@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import type { PubmConfig } from "../types/config.js";
+import type { PubmConfig } from "./types.js";
 
 const CONFIG_FILES = [
   "pubm.config.ts",
@@ -10,10 +10,6 @@ const CONFIG_FILES = [
   "pubm.config.mjs",
   "pubm.config.cjs",
 ];
-
-export function defineConfig(config: PubmConfig): PubmConfig {
-  return config;
-}
 
 async function findConfigFile(cwd: string): Promise<string | null> {
   for (const file of CONFIG_FILES) {
