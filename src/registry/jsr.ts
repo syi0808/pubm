@@ -1,4 +1,4 @@
-import { exec } from "tinyexec";
+import { NonZeroExitError, exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
 import { Db } from "../utils/db.js";
@@ -81,8 +81,10 @@ export class JsrRegisry extends Registry {
 
       return true;
     } catch (error) {
+      const stderr =
+        error instanceof NonZeroExitError ? error.output?.stderr : undefined;
       throw new JsrError(
-        "Failed to run `jsr publish --allow-dirty --token ***`",
+        `Failed to run \`jsr publish --allow-dirty --token ***\`${stderr ? `\n${stderr}` : ""}`,
         {
           cause: error,
         },
