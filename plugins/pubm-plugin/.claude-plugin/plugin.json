@@ -1,11 +1,11 @@
 {
   "name": "pubm-plugin",
   "description": "Publish packages to multiple registries (npm, jsr, crates.io) with pubm",
-  "version": "1.0.0",
+  "version": "0.1.2",
   "author": {
     "name": "pubm"
   },
   "homepage": "https://github.com/niceplugin/pubm",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": ["publish", "npm", "jsr", "crates", "registry", "release"]
 }
