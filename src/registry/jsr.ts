@@ -33,9 +33,7 @@ export class JsrRegisry extends Registry {
   }
 
   protected async jsr(args: string[]): Promise<string> {
-    const { stdout, stderr } = await exec("jsr", args);
-
-    if (stderr) throw stderr;
+    const { stdout } = await exec("jsr", args, { throwOnError: true });
 
     return stdout;
   }
@@ -56,13 +54,11 @@ export class JsrRegisry extends Registry {
 
   async ping(): Promise<boolean> {
     try {
-      const { stdout, stderr } = await exec("ping", [
-        new URL(this.registry).hostname,
-        "-c",
-        "1",
-      ]);
-
-      if (stderr) throw stderr;
+      const { stdout } = await exec(
+        "ping",
+        [new URL(this.registry).hostname, "-c", "1"],
+        { throwOnError: true },
+      );
 
       return stdout.includes("1 packets transmitted");
     } catch (error) {

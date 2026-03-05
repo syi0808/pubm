@@ -8,9 +8,7 @@ class GitError extends AbstractError {
 
 export class Git {
   async git(args: string[]): Promise<string> {
-    const { stdout, stderr } = await exec("git", args);
-
-    if (stderr) throw stderr;
+    const { stdout } = await exec("git", args, { throwOnError: true });
 
     return stdout;
   }

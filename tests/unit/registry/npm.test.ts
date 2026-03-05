@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", () => ({
-  exec: vi.fn(),
-}));
+vi.mock("tinyexec", async (importOriginal) => {
+  const original = await importOriginal<typeof import("tinyexec")>();
+  return {
+    ...original,
+    exec: vi.fn(),
+  };
+});
 
 vi.mock("../../../src/utils/package-name.js", () => ({
   isValidPackageName: vi.fn(),
@@ -12,7 +16,7 @@ vi.mock("../../../src/utils/package.js", () => ({
   getPackageJson: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
+import { NonZeroExitError, exec } from "tinyexec";
 import { NpmRegistry, npmRegistry } from "../../../src/registry/npm.js";
 import { getPackageJson } from "../../../src/utils/package.js";
 import { isValidPackageName } from "../../../src/utils/package-name.js";
@@ -35,8 +39,12 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-function mockStderr(stderr: string) {
-  mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
+function mockNonZeroExitError(stderr: string) {
+  const error = new NonZeroExitError(
+    { exitCode: 1 } as any,
+    { stderr, stdout: "" },
+  );
+  mockedExec.mockRejectedValue(error);
 }
 
 describe("NpmRegistry", () => {
@@ -45,20 +53,30 @@ describe("NpmRegistry", () => {
   });
 
   describe("npm(args)", () => {
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "npm warn deprecated" } as any);
+
+      const result = await registry.isInstalled();
+
+      expect(result).toBe(true);
+    });
+
     it("calls exec with npm and returns stdout", async () => {
       mockStdout("help output");
 
       // npm() is protected, test indirectly via isInstalled
       const result = await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
-    it("throws stderr when stderr is non-empty", async () => {
-      mockStderr("fatal error");
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal error"));
 
-      // npm() throws stderr, which bubbles up through version() catch as NpmError
+      // npm() throws via throwOnError, which bubbles up through version() catch as NpmError
       await expect(registry.version()).rejects.toThrow();
     });
   });
@@ -69,7 +87,9 @@ describe("NpmRegistry", () => {
 
       const result = await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -88,16 +108,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.installGlobally("some-pkg");
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "install",
-        "-g",
-        "some-pkg",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["install", "-g", "some-pkg"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
     it("throws NpmError on failure", async () => {
-      mockStderr("ERR! code EACCES");
+      mockedExec.mockRejectedValue(new Error("ERR! code EACCES"));
 
       await expect(registry.installGlobally("some-pkg")).rejects.toThrow(
         "Failed to run `npm install -g some-pkg`",
@@ -140,12 +160,14 @@ describe("NpmRegistry", () => {
 
       const result = await registry.userName();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["whoami"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["whoami"], {
+        throwOnError: true,
+      });
       expect(result).toBe("testuser");
     });
 
     it("throws NpmError on failure", async () => {
-      mockStderr("ENEEDAUTH");
+      mockedExec.mockRejectedValue(new Error("ENEEDAUTH"));
 
       await expect(registry.userName()).rejects.toThrow(
         "Failed to run `npm whoami`",
@@ -159,12 +181,14 @@ describe("NpmRegistry", () => {
 
       const result = await registry.isLoggedIn();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["whoami"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["whoami"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
     it("returns false when error includes ENEEDAUTH", async () => {
-      mockStderr("ENEEDAUTH");
+      mockNonZeroExitError("ENEEDAUTH");
 
       const result = await registry.isLoggedIn();
 
@@ -172,7 +196,7 @@ describe("NpmRegistry", () => {
     });
 
     it("throws NpmError for other errors", async () => {
-      mockStderr("ECONNREFUSED");
+      mockedExec.mockRejectedValue(new Error("ECONNREFUSED"));
 
       await expect(registry.isLoggedIn()).rejects.toThrow(
         "Failed to run `npm whoami`",
@@ -187,18 +211,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.collaborators();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "access",
-        "list",
-        "collaborators",
-        "my-package",
-        "--json",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["access", "list", "collaborators", "my-package", "--json"],
+        { throwOnError: true },
+      );
       expect(result).toEqual(data);
     });
 
     it("throws NpmError on failure", async () => {
-      mockStderr("ERR!");
+      mockedExec.mockRejectedValue(new Error("ERR!"));
 
       await expect(registry.collaborators()).rejects.toThrow(
         "Failed to run `npm access list collaborators my-package --json`",
@@ -254,17 +276,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.distTags();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "view",
-        "my-package",
-        "dist-tags",
-        "--json",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["view", "my-package", "dist-tags", "--json"],
+        { throwOnError: true },
+      );
       expect(result).toEqual(["latest", "beta"]);
     });
 
     it("throws NpmError on failure", async () => {
-      mockStderr("ERR! 404");
+      mockedExec.mockRejectedValue(new Error("ERR! 404"));
 
       await expect(registry.distTags()).rejects.toThrow(
         "Failed to run `npm view my-package dist-tags --json`",
@@ -278,14 +299,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.version();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
+        throwOnError: true,
+      });
       expect(result).toBe("10.2.0");
     });
 
-    it("throws on failure (no await in source, so raw stderr escapes catch)", async () => {
-      mockStderr("some error");
+    it("throws on failure (no await, so raw error escapes catch)", async () => {
+      mockedExec.mockRejectedValue(new Error("some error"));
 
-      await expect(registry.version()).rejects.toBe("some error");
+      await expect(registry.version()).rejects.toThrow("some error");
     });
   });
 
@@ -314,17 +337,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.publishProvenance();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "publish",
-        "--provenance",
-        "--access",
-        "public",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["publish", "--provenance", "--access", "public"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
     it("returns false when error includes EOTP", async () => {
-      mockStderr("EOTP");
+      mockNonZeroExitError("EOTP");
 
       const result = await registry.publishProvenance();
 
@@ -346,7 +368,9 @@ describe("NpmRegistry", () => {
 
       const result = await registry.publish();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["publish"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["publish"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 
@@ -355,16 +379,16 @@ describe("NpmRegistry", () => {
 
       const result = await registry.publish("123456");
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "publish",
-        "--otp",
-        "123456",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["publish", "--otp", "123456"],
+        { throwOnError: true },
+      );
       expect(result).toBe(true);
     });
 
     it("returns false when error includes EOTP (without otp)", async () => {
-      mockStderr("EOTP");
+      mockNonZeroExitError("EOTP");
 
       const result = await registry.publish();
 
@@ -372,7 +396,7 @@ describe("NpmRegistry", () => {
     });
 
     it("returns false when error includes EOTP (with otp)", async () => {
-      mockStderr("EOTP");
+      mockNonZeroExitError("EOTP");
 
       const result = await registry.publish("123456");
 

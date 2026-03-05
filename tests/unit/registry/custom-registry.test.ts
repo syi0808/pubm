@@ -35,10 +35,6 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-function mockStderr(stderr: string) {
-  mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
-}
-
 describe("CustomRegistry", () => {
   it("extends NpmRegistry", () => {
     expect(registry).toBeInstanceOf(NpmRegistry);
@@ -50,11 +46,19 @@ describe("CustomRegistry", () => {
 
       await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "--help",
-        "--registry",
-        "https://registry.npmjs.org",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["--help", "--registry", "https://registry.npmjs.org"],
+        { throwOnError: true },
+      );
+    });
+
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "npm warn deprecated" } as any);
+
+      const result = await registry.isInstalled();
+
+      expect(result).toBe(true);
     });
 
     it("returns stdout on success", async () => {
@@ -65,10 +69,10 @@ describe("CustomRegistry", () => {
       expect(result).toBe("10.0.0");
     });
 
-    it("throws stderr when stderr is non-empty", async () => {
-      mockStderr("fatal error");
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal error"));
 
-      // The overridden npm() throws stderr directly; version() catches it and
+      // The overridden npm() throws via throwOnError; version() catches it and
       // wraps in NpmError
       await expect(registry.version()).rejects.toThrow();
     });
@@ -80,11 +84,11 @@ describe("CustomRegistry", () => {
 
       await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "--help",
-        "--registry",
-        "https://registry.npmjs.org",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["--help", "--registry", "https://registry.npmjs.org"],
+        { throwOnError: true },
+      );
     });
 
     it("publish calls npm with --registry appended", async () => {
@@ -92,11 +96,11 @@ describe("CustomRegistry", () => {
 
       await registry.publish();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "publish",
-        "--registry",
-        "https://registry.npmjs.org",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["publish", "--registry", "https://registry.npmjs.org"],
+        { throwOnError: true },
+      );
     });
 
     it("publish with otp calls npm with --registry appended", async () => {
@@ -104,13 +108,11 @@ describe("CustomRegistry", () => {
 
       await registry.publish("123456");
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "publish",
-        "--otp",
-        "123456",
-        "--registry",
-        "https://registry.npmjs.org",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["publish", "--otp", "123456", "--registry", "https://registry.npmjs.org"],
+        { throwOnError: true },
+      );
     });
 
     it("userName calls npm with --registry appended", async () => {
@@ -118,11 +120,11 @@ describe("CustomRegistry", () => {
 
       const result = await registry.userName();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", [
-        "whoami",
-        "--registry",
-        "https://registry.npmjs.org",
-      ]);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["whoami", "--registry", "https://registry.npmjs.org"],
+        { throwOnError: true },
+      );
       expect(result).toBe("testuser");
     });
   });

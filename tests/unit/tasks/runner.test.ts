@@ -476,11 +476,8 @@ describe("run", () => {
   });
 
   describe("inner task execution", () => {
-    it("runs test task and throws on stderr", async () => {
-      mockedExec.mockResolvedValueOnce({
-        stdout: "",
-        stderr: "test error",
-      } as any);
+    it("runs test task and throws on exec rejection", async () => {
+      mockedExec.mockRejectedValueOnce(new Error("test error"));
 
       const options = createOptions();
       await run(options);
