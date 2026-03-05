@@ -1,4 +1,4 @@
-import { NonZeroExitError, exec } from "tinyexec";
+import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
@@ -66,7 +66,10 @@ export class NpmRegistry extends Registry {
 
       return true;
     } catch (error) {
-      if (error instanceof NonZeroExitError && error.output?.stderr.includes("ENEEDAUTH")) {
+      if (
+        error instanceof NonZeroExitError &&
+        error.output?.stderr.includes("ENEEDAUTH")
+      ) {
         return false;
       }
 
@@ -141,7 +144,10 @@ export class NpmRegistry extends Registry {
 
       return true;
     } catch (error) {
-      if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
+      if (
+        error instanceof NonZeroExitError &&
+        error.output?.stderr.includes("EOTP")
+      ) {
         return false;
       }
 
@@ -162,7 +168,10 @@ export class NpmRegistry extends Registry {
 
       return true;
     } catch (error) {
-      if (error instanceof NonZeroExitError && error.output?.stderr.includes("EOTP")) {
+      if (
+        error instanceof NonZeroExitError &&
+        error.output?.stderr.includes("EOTP")
+      ) {
         return false;
       }
 

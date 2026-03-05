@@ -16,7 +16,7 @@ vi.mock("../../../src/utils/package.js", () => ({
   getPackageJson: vi.fn(),
 }));
 
-import { NonZeroExitError, exec } from "tinyexec";
+import { exec, NonZeroExitError } from "tinyexec";
 import { NpmRegistry, npmRegistry } from "../../../src/registry/npm.js";
 import { getPackageJson } from "../../../src/utils/package.js";
 import { isValidPackageName } from "../../../src/utils/package-name.js";
@@ -40,10 +40,10 @@ function mockStdout(stdout: string) {
 }
 
 function mockNonZeroExitError(stderr: string) {
-  const error = new NonZeroExitError(
-    { exitCode: 1 } as any,
-    { stderr, stdout: "" },
-  );
+  const error = new NonZeroExitError({ exitCode: 1 } as any, {
+    stderr,
+    stdout: "",
+  });
   mockedExec.mockRejectedValue(error);
 }
 
@@ -54,7 +54,10 @@ describe("NpmRegistry", () => {
 
   describe("npm(args)", () => {
     it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "npm warn deprecated" } as any);
+      mockedExec.mockResolvedValue({
+        stdout: "ok",
+        stderr: "npm warn deprecated",
+      } as any);
 
       const result = await registry.isInstalled();
 

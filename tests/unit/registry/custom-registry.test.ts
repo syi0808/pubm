@@ -54,7 +54,10 @@ describe("CustomRegistry", () => {
     });
 
     it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "npm warn deprecated" } as any);
+      mockedExec.mockResolvedValue({
+        stdout: "ok",
+        stderr: "npm warn deprecated",
+      } as any);
 
       const result = await registry.isInstalled();
 
@@ -110,7 +113,13 @@ describe("CustomRegistry", () => {
 
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
-        ["publish", "--otp", "123456", "--registry", "https://registry.npmjs.org"],
+        [
+          "publish",
+          "--otp",
+          "123456",
+          "--registry",
+          "https://registry.npmjs.org",
+        ],
         { throwOnError: true },
       );
     });
