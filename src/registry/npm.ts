@@ -19,7 +19,7 @@ export class NpmRegistry extends Registry {
 
   async isInstalled(): Promise<boolean> {
     try {
-      await this.npm(["--help"]);
+      await this.npm(["--version"]);
 
       return true;
     } catch {

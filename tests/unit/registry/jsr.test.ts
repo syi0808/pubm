@@ -83,7 +83,7 @@ describe("JsrRegisry", () => {
 
       await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--help"], { throwOnError: true });
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], { throwOnError: true });
     });
 
     it("does not throw when command succeeds with stderr output", async () => {
@@ -102,7 +102,7 @@ describe("JsrRegisry", () => {
   });
 
   describe("isInstalled()", () => {
-    it("returns true when jsr --help succeeds", async () => {
+    it("returns true when jsr --version succeeds", async () => {
       mockStdout("help output");
 
       const result = await registry.isInstalled();
@@ -110,7 +110,7 @@ describe("JsrRegisry", () => {
       expect(result).toBe(true);
     });
 
-    it("returns false when jsr --help fails", async () => {
+    it("returns false when jsr --version fails", async () => {
       mockedExec.mockRejectedValue(new Error("not found"));
 
       const result = await registry.isInstalled();

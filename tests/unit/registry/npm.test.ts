@@ -67,7 +67,7 @@ describe("NpmRegistry", () => {
       // npm() is protected, test indirectly via isInstalled
       const result = await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"], {
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
         throwOnError: true,
       });
       expect(result).toBe(true);
@@ -82,18 +82,18 @@ describe("NpmRegistry", () => {
   });
 
   describe("isInstalled()", () => {
-    it("returns true when npm --help succeeds", async () => {
-      mockStdout("help output");
+    it("returns true when npm --version succeeds", async () => {
+      mockStdout("11.5.1");
 
       const result = await registry.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--help"], {
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
         throwOnError: true,
       });
       expect(result).toBe(true);
     });
 
-    it("returns false when npm --help fails", async () => {
+    it("returns false when npm --version fails", async () => {
       mockedExec.mockRejectedValue(new Error("not found"));
 
       const result = await registry.isInstalled();

@@ -40,7 +40,7 @@ export class JsrRegisry extends Registry {
 
   async isInstalled(): Promise<boolean> {
     try {
-      await this.jsr(["--help"]);
+      await this.jsr(["--version"]);
 
       return true;
     } catch {

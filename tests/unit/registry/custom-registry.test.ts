@@ -48,7 +48,7 @@ describe("CustomRegistry", () => {
 
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
-        ["--help", "--registry", "https://registry.npmjs.org"],
+        ["--version", "--registry", "https://registry.npmjs.org"],
         { throwOnError: true },
       );
     });
@@ -86,7 +86,7 @@ describe("CustomRegistry", () => {
 
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
-        ["--help", "--registry", "https://registry.npmjs.org"],
+        ["--version", "--registry", "https://registry.npmjs.org"],
         { throwOnError: true },
       );
     });
