@@ -1,25 +1,25 @@
-import { describe, expect, it } from 'vitest';
-import { parseChangeset } from '../../../src/changeset/parser.js';
+import { describe, expect, it } from "vitest";
+import { parseChangeset } from "../../../src/changeset/parser.js";
 
-describe('parseChangeset', () => {
-	it('parses basic changeset with one package', () => {
-		const content = `---
+describe("parseChangeset", () => {
+  it("parses basic changeset with one package", () => {
+    const content = `---
 "pkg-name": minor
 ---
 
 Summary text here.`;
 
-		const result = parseChangeset(content, 'cool-change.md');
+    const result = parseChangeset(content, "cool-change.md");
 
-		expect(result).toEqual({
-			id: 'cool-change',
-			summary: 'Summary text here.',
-			releases: [{ name: 'pkg-name', type: 'minor' }],
-		});
-	});
+    expect(result).toEqual({
+      id: "cool-change",
+      summary: "Summary text here.",
+      releases: [{ name: "pkg-name", type: "minor" }],
+    });
+  });
 
-	it('parses changeset with multiple packages', () => {
-		const content = `---
+  it("parses changeset with multiple packages", () => {
+    const content = `---
 "pkg-a": major
 "@scope/pkg-b": patch
 "pkg-c": minor
@@ -27,48 +27,48 @@ Summary text here.`;
 
 Added a new feature.`;
 
-		const result = parseChangeset(content, 'multi-pkg.md');
+    const result = parseChangeset(content, "multi-pkg.md");
 
-		expect(result).toEqual({
-			id: 'multi-pkg',
-			summary: 'Added a new feature.',
-			releases: [
-				{ name: 'pkg-a', type: 'major' },
-				{ name: '@scope/pkg-b', type: 'patch' },
-				{ name: 'pkg-c', type: 'minor' },
-			],
-		});
-	});
+    expect(result).toEqual({
+      id: "multi-pkg",
+      summary: "Added a new feature.",
+      releases: [
+        { name: "pkg-a", type: "major" },
+        { name: "@scope/pkg-b", type: "patch" },
+        { name: "pkg-c", type: "minor" },
+      ],
+    });
+  });
 
-	it('parses empty changeset (no packages)', () => {
-		const content = `---
+  it("parses empty changeset (no packages)", () => {
+    const content = `---
 ---
 
 Just a note.`;
 
-		const result = parseChangeset(content, 'empty-releases.md');
+    const result = parseChangeset(content, "empty-releases.md");
 
-		expect(result).toEqual({
-			id: 'empty-releases',
-			summary: 'Just a note.',
-			releases: [],
-		});
-	});
+    expect(result).toEqual({
+      id: "empty-releases",
+      summary: "Just a note.",
+      releases: [],
+    });
+  });
 
-	it('trims whitespace from summary', () => {
-		const content = `---
+  it("trims whitespace from summary", () => {
+    const content = `---
 "pkg-name": patch
 ---
 
    Trimmed summary.   `;
 
-		const result = parseChangeset(content, 'whitespace.md');
+    const result = parseChangeset(content, "whitespace.md");
 
-		expect(result.summary).toBe('Trimmed summary.');
-	});
+    expect(result.summary).toBe("Trimmed summary.");
+  });
 
-	it('handles multiline summary', () => {
-		const content = `---
+  it("handles multiline summary", () => {
+    const content = `---
 "pkg-name": minor
 ---
 
@@ -79,30 +79,30 @@ Second paragraph with more details.
 - Bullet point one
 - Bullet point two`;
 
-		const result = parseChangeset(content, 'multiline.md');
+    const result = parseChangeset(content, "multiline.md");
 
-		expect(result.summary).toBe(
-			'First line of summary.\n\nSecond paragraph with more details.\n\n- Bullet point one\n- Bullet point two',
-		);
-	});
+    expect(result.summary).toBe(
+      "First line of summary.\n\nSecond paragraph with more details.\n\n- Bullet point one\n- Bullet point two",
+    );
+  });
 
-	it('strips .md extension from id', () => {
-		const content = `---
+  it("strips .md extension from id", () => {
+    const content = `---
 "pkg": patch
 ---
 
 Summary.`;
 
-		const result = parseChangeset(content, 'my-change.md');
+    const result = parseChangeset(content, "my-change.md");
 
-		expect(result.id).toBe('my-change');
-	});
+    expect(result.id).toBe("my-change");
+  });
 
-	it('throws on invalid frontmatter', () => {
-		const content = 'No frontmatter here, just text.';
+  it("throws on invalid frontmatter", () => {
+    const content = "No frontmatter here, just text.";
 
-		expect(() => parseChangeset(content, 'bad-file.md')).toThrow(
-			'Invalid changeset format in "bad-file.md": missing frontmatter',
-		);
-	});
+    expect(() => parseChangeset(content, "bad-file.md")).toThrow(
+      'Invalid changeset format in "bad-file.md": missing frontmatter',
+    );
+  });
 });

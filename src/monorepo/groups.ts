@@ -1,25 +1,25 @@
-import micromatch from 'micromatch';
-import { maxBump } from '../changeset/bump-utils.js';
-import type { BumpType } from '../changeset/parser.js';
+import micromatch from "micromatch";
+import { maxBump } from "../changeset/bump-utils.js";
+import type { BumpType } from "../changeset/parser.js";
 
 /**
  * Resolves glob patterns in groups to actual package names.
  * Exact names are passed through; glob patterns are matched against allPackages.
  */
 export function resolveGroups(
-	groups: string[][],
-	allPackages: string[],
+  groups: string[][],
+  allPackages: string[],
 ): string[][] {
-	return groups.map((group) => {
-		const resolved = new Set<string>();
-		for (const pattern of group) {
-			const matches = micromatch(allPackages, pattern);
-			for (const match of matches) {
-				resolved.add(match);
-			}
-		}
-		return [...resolved];
-	});
+  return groups.map((group) => {
+    const resolved = new Set<string>();
+    for (const pattern of group) {
+      const matches = micromatch(allPackages, pattern);
+      for (const match of matches) {
+        resolved.add(match);
+      }
+    }
+    return [...resolved];
+  });
 }
 
 /**
@@ -28,23 +28,23 @@ export function resolveGroups(
  * nothing is changed.
  */
 export function applyFixedGroup(
-	bumps: Map<string, BumpType>,
-	group: string[],
+  bumps: Map<string, BumpType>,
+  group: string[],
 ): void {
-	let max: BumpType | null = null;
+  let max: BumpType | null = null;
 
-	for (const pkg of group) {
-		const bump = bumps.get(pkg);
-		if (bump) {
-			max = max ? maxBump(max, bump) : bump;
-		}
-	}
+  for (const pkg of group) {
+    const bump = bumps.get(pkg);
+    if (bump) {
+      max = max ? maxBump(max, bump) : bump;
+    }
+  }
 
-	if (!max) return;
+  if (!max) return;
 
-	for (const pkg of group) {
-		bumps.set(pkg, max);
-	}
+  for (const pkg of group) {
+    bumps.set(pkg, max);
+  }
 }
 
 /**
@@ -52,23 +52,23 @@ export function applyFixedGroup(
  * to the maximum bump type. Packages without bumps are not added.
  */
 export function applyLinkedGroup(
-	bumps: Map<string, BumpType>,
-	group: string[],
+  bumps: Map<string, BumpType>,
+  group: string[],
 ): void {
-	let max: BumpType | null = null;
+  let max: BumpType | null = null;
 
-	for (const pkg of group) {
-		const bump = bumps.get(pkg);
-		if (bump) {
-			max = max ? maxBump(max, bump) : bump;
-		}
-	}
+  for (const pkg of group) {
+    const bump = bumps.get(pkg);
+    if (bump) {
+      max = max ? maxBump(max, bump) : bump;
+    }
+  }
 
-	if (!max) return;
+  if (!max) return;
 
-	for (const pkg of group) {
-		if (bumps.has(pkg)) {
-			bumps.set(pkg, max);
-		}
-	}
+  for (const pkg of group) {
+    if (bumps.has(pkg)) {
+      bumps.set(pkg, max);
+    }
+  }
 }

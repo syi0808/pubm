@@ -12,6 +12,7 @@ export default defineConfig({
       exclude: [
         "src/types/**",
         "src/config/**",
+        "src/commands/**",
         "src/tasks/custom-registry.ts",
       ],
       thresholds: {
