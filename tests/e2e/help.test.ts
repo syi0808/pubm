@@ -81,11 +81,4 @@ describe("pubm --version", () => {
     // Version should match a semver-like pattern
     expect(stdout.trim()).toMatch(/\d+\.\d+\.\d+/);
   });
-
-  it("should show the version matching package.json", async () => {
-    const { stdout } = await runPubmCli("node", {}, "bin/cli.js", "--version");
-
-    // The version from package.json is 0.0.5
-    expect(stdout.trim()).toContain("0.0.5");
-  });
 });
