@@ -1,6 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
+import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
@@ -19,13 +20,33 @@ class NpmAvailableError extends AbstractError {
 export const npmAvailableCheckTasks: ListrTask<Ctx> = {
   title: "Checking npm avaliable for publising",
   skip: (ctx) => !!ctx.preview,
-  task: async (): Promise<void> => {
+  task: async (ctx): Promise<void> => {
     const npm = await npmRegistry();
 
     if (!(await npm.isLoggedIn())) {
-      throw new NpmAvailableError(
-        "You are not logged in. Please log in first using `npm login`.",
-      );
+      if (ctx.promptEnabled) {
+        try {
+          await exec("npm", ["login"], {
+            throwOnError: true,
+            nodeOptions: { stdio: "inherit" },
+          });
+        } catch (error) {
+          throw new NpmAvailableError(
+            "npm login failed. Please run `npm login` manually and try again.",
+            { cause: error },
+          );
+        }
+
+        if (!(await npm.isLoggedIn())) {
+          throw new NpmAvailableError(
+            "Still not logged in after npm login. Please verify your credentials.",
+          );
+        }
+      } else {
+        throw new NpmAvailableError(
+          "Not logged in to npm. Set NODE_AUTH_TOKEN in your CI environment. For GitHub Actions, add it as a repository secret.",
+        );
+      }
     }
 
     if (await npm.isPublished()) {
@@ -90,7 +111,9 @@ export const npmPublishTasks: ListrTask<Ctx> = {
 
       if (!npmTokenEnv) {
         throw new NpmAvailableError(
-          "NODE_AUTH_TOKEN not found in the environment variables. Please set the token and try again.",
+          "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:\n" +
+            "  GitHub Actions: Add NODE_AUTH_TOKEN as a repository secret\n" +
+            "  Other CI: Export NODE_AUTH_TOKEN with your npm access token",
         );
       }
 
