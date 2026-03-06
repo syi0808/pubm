@@ -73,6 +73,56 @@ describe("rollback", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("continues executing remaining rollbacks when one throws", async () => {
+    const fn1 = vi.fn().mockRejectedValue(new Error("fn1 failed"));
+    const fn2 = vi.fn().mockResolvedValue(undefined);
+    const fn3 = vi.fn().mockResolvedValue(undefined);
+
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    addRollback(fn1, {});
+    addRollback(fn2, {});
+    addRollback(fn3, {});
+
+    await rollback();
+
+    expect(fn1).toHaveBeenCalledOnce();
+    expect(fn2).toHaveBeenCalledOnce();
+    expect(fn3).toHaveBeenCalledOnce();
+  });
+
+  it("logs failed rollback operations", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const fn = vi.fn().mockRejectedValue(new Error("disk full"));
+
+    addRollback(fn, {});
+    await rollback();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Rollback operation failed: disk full",
+    );
+  });
+
+  it("logs partial completion message when some rollbacks fail", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const fn1 = vi.fn().mockRejectedValue(new Error("oops"));
+    const fn2 = vi.fn().mockResolvedValue(undefined);
+
+    addRollback(fn1, {});
+    addRollback(fn2, {});
+
+    await rollback();
+
+    expect(logSpy).toHaveBeenCalledWith(
+      "Rollback completed with errors. Some operations may require manual recovery.",
+    );
+  });
+
   it("executes multiple rollbacks concurrently via Promise.all", async () => {
     const order: number[] = [];
 

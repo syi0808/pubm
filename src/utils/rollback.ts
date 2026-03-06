@@ -21,7 +21,24 @@ export async function rollback(): Promise<void> {
 
   console.log("Rollback...");
 
-  await Promise.all(rollbacks.map(({ fn, ctx }) => fn(ctx)));
+  const results = await Promise.allSettled(
+    rollbacks.map(({ fn, ctx }) => fn(ctx)),
+  );
 
-  console.log("Rollback completed");
+  const failures = results.filter(
+    (r): r is PromiseRejectedResult => r.status === "rejected",
+  );
+
+  if (failures.length > 0) {
+    for (const failure of failures) {
+      console.error(
+        `Rollback operation failed: ${failure.reason instanceof Error ? failure.reason.message : failure.reason}`,
+      );
+    }
+    console.log(
+      "Rollback completed with errors. Some operations may require manual recovery.",
+    );
+  } else {
+    console.log("Rollback completed");
+  }
 }
