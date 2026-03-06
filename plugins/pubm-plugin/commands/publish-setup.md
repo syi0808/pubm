@@ -126,4 +126,8 @@ Ask if the user wants to set up CI/CD for automated publishing. If yes, generate
 
 ### 9. Present summary
 
-List all files created/modified and remind about required authentication steps.
+List all files created/modified and remind about required authentication. Show only lines for registries the user selected:
+
+- **npm**: Run `npm login` locally, or set `NODE_AUTH_TOKEN` secret in GitHub
+- **jsr**: Run `pubm` locally (interactive token prompt), or set `JSR_TOKEN` secret in GitHub
+- **crates.io**: Run `cargo login` locally, or set `CARGO_REGISTRY_TOKEN` secret in GitHub
