@@ -58,7 +58,8 @@ function mockFetchResponse(status: number, body?: unknown) {
   mockedFetch.mockResolvedValue({
     status,
     ok: status >= 200 && status < 300,
-    statusText: status === 200 ? "OK" : status === 401 ? "Unauthorized" : "Error",
+    statusText:
+      status === 200 ? "OK" : status === 401 ? "Unauthorized" : "Error",
     json: vi.fn().mockResolvedValue(body),
   });
 }

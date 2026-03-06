@@ -148,9 +148,7 @@ export class JsrClient {
       if (response.status === 401) return null;
 
       if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText}`,
-        );
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -170,9 +168,7 @@ export class JsrClient {
       if (response.status === 401) return null;
 
       if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText}`,
-        );
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -193,17 +189,13 @@ export class JsrClient {
       if (response.status === 401) return [];
 
       if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText}`,
-        );
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const body = await response.json();
 
       if (!Array.isArray(body)) {
-        throw new Error(
-          `Expected array response but got ${typeof body}`,
-        );
+        throw new Error(`Expected array response but got ${typeof body}`);
       }
 
       return (body as JsrApi.Users.Scopes).map(({ scope }) => scope);
@@ -314,9 +306,7 @@ export class JsrClient {
       const response = await this.fetch(`/packages?query=${query}`);
 
       if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText}`,
-        );
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();

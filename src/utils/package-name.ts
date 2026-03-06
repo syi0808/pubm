@@ -10,10 +10,14 @@ export function getScope(packageName: string): string | null {
 
 export function getScopeAndName(packageName: string): [string, string] {
   const matches = packageName.match(/^@([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)$/);
-  const scope = matches?.[1];
-  const name = matches?.[2];
 
-  return [`${scope}`, `${name}`];
+  if (!matches) {
+    throw new Error(
+      `Invalid scoped package name: '${packageName}'. Expected format: @scope/name`,
+    );
+  }
+
+  return [matches[1], matches[2]];
 }
 
 // Based on https://github.com/npm/validate-npm-package-name/blob/main/lib/index.js

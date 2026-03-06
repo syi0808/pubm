@@ -97,8 +97,11 @@ export class CratesRegistry extends Registry {
         { headers: this.headers },
       );
       return !response.ok;
-    } catch {
-      return true;
+    } catch (error) {
+      throw new CratesError(
+        `Failed to check package name availability on crates.io`,
+        { cause: error },
+      );
     }
   }
 }

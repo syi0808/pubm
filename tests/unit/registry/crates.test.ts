@@ -137,5 +137,12 @@ describe("CratesRegistry", () => {
       mockedFetch.mockResolvedValue({ ok: true });
       expect(await registry.isPackageNameAvaliable()).toBe(false);
     });
+
+    it("throws CratesError on network error instead of returning true", async () => {
+      mockedFetch.mockRejectedValue(new Error("network error"));
+      await expect(registry.isPackageNameAvaliable()).rejects.toThrow(
+        "Failed to check package name availability on crates.io",
+      );
+    });
   });
 });

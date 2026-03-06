@@ -65,24 +65,26 @@ describe("getScopeAndName", () => {
     expect(getScopeAndName("@myOrg/myPkg")).toEqual(["myOrg", "myPkg"]);
   });
 
-  it('returns ["undefined", "undefined"] for unscoped packages', () => {
-    expect(getScopeAndName("package")).toEqual(["undefined", "undefined"]);
+  it("throws for unscoped packages", () => {
+    expect(() => getScopeAndName("package")).toThrow(
+      "Invalid scoped package name: 'package'. Expected format: @scope/name",
+    );
   });
 
-  it('returns ["undefined", "undefined"] for empty string', () => {
-    expect(getScopeAndName("")).toEqual(["undefined", "undefined"]);
+  it("throws for empty string", () => {
+    expect(() => getScopeAndName("")).toThrow(
+      "Invalid scoped package name: ''. Expected format: @scope/name",
+    );
   });
 
-  it('returns ["undefined", "undefined"] for non-matching scoped formats', () => {
+  it("throws for non-matching scoped formats", () => {
     // The regex requires only alphanumeric characters
-    expect(getScopeAndName("@my-org/my-pkg")).toEqual([
-      "undefined",
-      "undefined",
-    ]);
-    expect(getScopeAndName("@scope/name.with.dots")).toEqual([
-      "undefined",
-      "undefined",
-    ]);
+    expect(() => getScopeAndName("@my-org/my-pkg")).toThrow(
+      "Invalid scoped package name",
+    );
+    expect(() => getScopeAndName("@scope/name.with.dots")).toThrow(
+      "Invalid scoped package name",
+    );
   });
 });
 
