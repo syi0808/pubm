@@ -21,4 +21,5 @@ dist-ssr
 *.sw?
 
 .pubm
+.worktrees
 coverage
