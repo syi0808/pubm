@@ -235,6 +235,32 @@ describe("npmPublishTasks", () => {
       // Then the third publish succeeds
       expect(mockNpm.publish).toHaveBeenCalledTimes(3);
     });
+
+    it("throws after 3 failed OTP attempts", async () => {
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      // Initial publish fails, then all 3 OTP attempts fail
+      mockNpm.publish
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+
+      const mockRun = vi.fn().mockResolvedValue("000000");
+      task.prompt.mockReturnValue({ run: mockRun });
+
+      await expect(
+        (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
+      ).rejects.toThrow("OTP verification failed after 3 attempts.");
+
+      // Initial publish + 3 OTP attempts = 4 calls
+      expect(mockNpm.publish).toHaveBeenCalledTimes(4);
+      expect(mockRun).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe("task — CI mode (promptEnabled=false)", () => {

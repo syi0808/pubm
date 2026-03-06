@@ -60,18 +60,27 @@ export const npmPublishTasks: ListrTask<Ctx> = {
 
       if (!result) {
         task.title = "Running npm publish (OTP code needed)";
+        const maxAttempts = 3;
 
-        while (!result) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           result = await npm.publish(
             await task.prompt(ListrEnquirerPromptAdapter).run<string>({
               type: "password",
-              message: "npm OTP code",
+              message: `npm OTP code${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
             }),
           );
 
-          if (!result) {
-            task.output = "2FA failed";
+          if (result) break;
+
+          if (attempt < maxAttempts) {
+            task.output = "2FA failed. Please try again.";
           }
+        }
+
+        if (!result) {
+          throw new NpmAvailableError(
+            "OTP verification failed after 3 attempts.",
+          );
         }
 
         task.title = "Running npm publish (2FA passed)";
