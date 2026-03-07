@@ -74,7 +74,7 @@ jobs:
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm` locally (it bumps version, creates a git commit and tag, pushes tags).
+2. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
 3. The pushed `v*` tag triggers this workflow.
 4. `pubm --publish-only` reads the tag and publishes.
 

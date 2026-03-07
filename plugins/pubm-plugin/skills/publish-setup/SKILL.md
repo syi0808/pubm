@@ -78,19 +78,7 @@ export default defineConfig({
 
 Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted JSR tokens and should not be committed.
 
-### 7. Add npm scripts (JS projects only)
-
-Add to `package.json`:
-```json
-{
-  "scripts": {
-    "release": "pubm",
-    "ci:release": "pubm --publish-only"
-  }
-}
-```
-
-### 8. Ask about CI setup
+### 7. Ask about CI setup
 
 Ask if the user wants to set up CI/CD for automated publishing. If yes:
 
@@ -106,6 +94,30 @@ Ask if the user wants to set up CI/CD for automated publishing. If yes:
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
 
+### 8. Add npm scripts (JS projects only)
+
+Add to `package.json`. The `release` script depends on whether CI was set up in the previous step:
+
+**If CI was configured** (publishing is handled by CI):
+```json
+{
+  "scripts": {
+    "release": "pubm --no-publish",
+    "ci:release": "pubm --publish-only"
+  }
+}
+```
+`--no-publish` makes the local `release` command only bump the version, create a git commit and tag, and push — CI handles the actual publishing.
+
+**If CI was NOT configured** (publishing is done locally):
+```json
+{
+  "scripts": {
+    "release": "pubm"
+  }
+}
+```
+
 ### 9. Present summary
 
 List all files created/modified and remind about required authentication. Show only lines for registries the user selected:
@@ -119,7 +131,7 @@ List all files created/modified and remind about required authentication. Show o
 - Always use `defineConfig()` from `pubm` for type safety in config files.
 - Always add `.pubm/` to `.gitignore`.
 - If unsure which registries the user wants, ask. Do not assume.
-- When suggesting npm scripts, use `"release": "pubm"` for local and `"ci:release": "pubm --publish-only"` for CI.
+- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --publish-only"` for CI.
 - In CI, pubm ONLY supports `--publish-only` mode.
 
 ## References
