@@ -29,7 +29,16 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
           task.output = "Launching npm login...";
 
           await new Promise<void>((resolve, reject) => {
-            const child = spawn("npm", ["login"], { stdio: "inherit" });
+            const child = spawn("npm", ["login"], {
+              stdio: ["inherit", "pipe", "pipe"],
+            });
+
+            const onData = (data: Buffer) => {
+              task.output = data.toString().trim();
+            };
+
+            child.stdout?.on("data", onData);
+            child.stderr?.on("data", onData);
             child.on("close", (code) =>
               code === 0
                 ? resolve()
