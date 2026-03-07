@@ -111,7 +111,7 @@ Add to `package.json`. The `release` script depends on whether CI was set up in 
   }
 }
 ```
-`--no-publish` makes the local `release` command bump the version, create a git commit and tag, push — and run a dry-run publish validation before bumping. This catches issues like npm 2FA misconfiguration, packaging errors, and missing credentials before they fail in CI.
+`--no-publish` makes the local `release` command only bump the version, create a git commit and tag, and push — CI handles the actual publishing.
 
 **If CI was NOT configured** (publishing is done locally):
 ```json

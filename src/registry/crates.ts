@@ -89,23 +89,6 @@ export class CratesRegistry extends Registry {
     }
   }
 
-  async dryRunPublish(manifestDir?: string): Promise<void> {
-    try {
-      const args = ["publish", "--dry-run"];
-      if (manifestDir) {
-        args.push("--manifest-path", path.join(manifestDir, "Cargo.toml"));
-      }
-      await exec("cargo", args, { throwOnError: true });
-    } catch (error) {
-      const stderr =
-        error instanceof NonZeroExitError ? error.output?.stderr : undefined;
-      const message = stderr
-        ? `Dry-run failed for \`cargo publish\`:\n${stderr}`
-        : "Dry-run failed for `cargo publish`";
-      throw new CratesError(message, { cause: error });
-    }
-  }
-
   async isPublished(): Promise<boolean> {
     try {
       const response = await fetch(

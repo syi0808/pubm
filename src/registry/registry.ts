@@ -18,6 +18,4 @@ export abstract class Registry {
   abstract hasPermission(): Promise<boolean>;
   abstract isPackageNameAvaliable(): Promise<boolean>;
   abstract getRequirements(): RegistryRequirements;
-
-  async dryRunPublish(_manifestDir?: string): Promise<void> {}
 }

@@ -170,58 +170,6 @@ describe("CratesRegistry", () => {
     });
   });
 
-  describe("dryRunPublish()", () => {
-    it("calls cargo publish --dry-run", async () => {
-      mockStdout("warning: aborting due to dry run");
-
-      await registry.dryRunPublish();
-
-      expect(mockedExec).toHaveBeenCalledWith(
-        "cargo",
-        ["publish", "--dry-run"],
-        expect.objectContaining({ throwOnError: true }),
-      );
-    });
-
-    it("passes --manifest-path when manifestDir is provided", async () => {
-      mockStdout("warning: aborting due to dry run");
-
-      await registry.dryRunPublish("packages/my-crate");
-
-      expect(mockedExec).toHaveBeenCalledWith(
-        "cargo",
-        [
-          "publish",
-          "--dry-run",
-          "--manifest-path",
-          path.join("packages/my-crate", "Cargo.toml"),
-        ],
-        expect.objectContaining({ throwOnError: true }),
-      );
-    });
-
-    it("throws CratesError on failure", async () => {
-      mockedExec.mockRejectedValue(new Error("compilation failed"));
-
-      await expect(registry.dryRunPublish()).rejects.toThrow(
-        "Dry-run failed for `cargo publish`",
-      );
-    });
-
-    it("includes cargo stderr in error message when available", async () => {
-      const { NonZeroExitError } = await import("tinyexec");
-      const error = new NonZeroExitError({ exitCode: 101 } as any, {
-        stdout: "",
-        stderr: "error: could not compile `my-crate`",
-      });
-      mockedExec.mockRejectedValue(error);
-
-      await expect(registry.dryRunPublish()).rejects.toThrow(
-        /could not compile/,
-      );
-    });
-  });
-
   describe("isPublished()", () => {
     it("returns true when crate exists", async () => {
       mockedFetch.mockResolvedValue({ ok: true });
