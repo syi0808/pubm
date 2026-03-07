@@ -9,7 +9,11 @@ export const defaultOptions: Omit<Options, "version"> = {
 };
 
 export function resolveOptions(options: Options): ResolvedOptions {
-  const nextOptions = { ...options, ...defaultOptions };
+  const defined = Object.fromEntries(
+    Object.entries(options).filter(([, v]) => v !== undefined),
+  );
+
+  const nextOptions = { ...defaultOptions, ...defined };
 
   return nextOptions as ResolvedOptions;
 }
