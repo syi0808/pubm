@@ -1,6 +1,6 @@
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
-import { Registry } from "./registry.js";
+import { type RegistryRequirements, Registry } from "./registry.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -96,6 +96,13 @@ export class CratesRegistry extends Registry {
   async hasPermission(): Promise<boolean> {
     if (process.env.CARGO_REGISTRY_TOKEN) return true;
     return this.isInstalled();
+  }
+
+  getRequirements(): RegistryRequirements {
+    return {
+      needsPackageScripts: false,
+      requiredManifest: "Cargo.toml",
+    };
   }
 
   async isPackageNameAvaliable(): Promise<boolean> {

@@ -23,6 +23,17 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
+describe("getRequirements", () => {
+  it("returns needsPackageScripts false and requiredManifest Cargo.toml", () => {
+    const registry = new CratesRegistry("my-crate");
+    const requirements = registry.getRequirements();
+    expect(requirements).toEqual({
+      needsPackageScripts: false,
+      requiredManifest: "Cargo.toml",
+    });
+  });
+});
+
 describe("CratesRegistry", () => {
   it("has crates.io registry url", () => {
     expect(registry.registry).toBe("https://crates.io");

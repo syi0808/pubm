@@ -2,7 +2,7 @@ import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
-import { Registry } from "./registry.js";
+import { type RegistryRequirements, Registry } from "./registry.js";
 
 class NpmError extends AbstractError {
   name = "npm Error";
@@ -191,6 +191,13 @@ export class NpmRegistry extends Registry {
 
   async isPackageNameAvaliable(): Promise<boolean> {
     return isValidPackageName(this.packageName);
+  }
+
+  getRequirements(): RegistryRequirements {
+    return {
+      needsPackageScripts: true,
+      requiredManifest: "package.json",
+    };
   }
 
   private classifyPublishError(error: unknown): NpmError {
