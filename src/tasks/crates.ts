@@ -13,37 +13,50 @@ class CratesError extends AbstractError {
   }
 }
 
-async function getCrateName(): Promise<string> {
-  const eco = new RustEcosystem(process.cwd());
+async function getCrateName(packagePath?: string): Promise<string> {
+  const eco = new RustEcosystem(packagePath ?? process.cwd());
   return await eco.packageName();
 }
 
-export const cratesAvailableCheckTasks: ListrTask<Ctx> = {
-  title: "Checking crates.io availability",
-  task: async (): Promise<void> => {
-    const packageName = await getCrateName();
-    const registry = new CratesRegistry(packageName);
+export function createCratesAvailableCheckTask(
+  packagePath?: string,
+): ListrTask<Ctx> {
+  const label = packagePath ? ` (${packagePath})` : "";
+  return {
+    title: `Checking crates.io availability${label}`,
+    task: async (): Promise<void> => {
+      const packageName = await getCrateName(packagePath);
+      const registry = new CratesRegistry(packageName);
 
-    if (!(await registry.isInstalled())) {
-      throw new CratesError(
-        "cargo is not installed. Please install Rust toolchain to proceed.",
-      );
-    }
+      if (!(await registry.isInstalled())) {
+        throw new CratesError(
+          "cargo is not installed. Please install Rust toolchain to proceed.",
+        );
+      }
 
-    if (!(await registry.hasPermission())) {
-      throw new CratesError(
-        "No crates.io credentials found. Run `cargo login` or set CARGO_REGISTRY_TOKEN.",
-      );
-    }
-  },
-};
+      if (!(await registry.hasPermission())) {
+        throw new CratesError(
+          "No crates.io credentials found. Run `cargo login` or set CARGO_REGISTRY_TOKEN.",
+        );
+      }
+    },
+  };
+}
 
-export const cratesPublishTasks: ListrTask<Ctx> = {
-  title: "Publishing to crates.io",
-  task: async (): Promise<void> => {
-    const packageName = await getCrateName();
-    const registry = new CratesRegistry(packageName);
+export function createCratesPublishTask(packagePath?: string): ListrTask<Ctx> {
+  const label = packagePath ? ` (${packagePath})` : "";
+  return {
+    title: `Publishing to crates.io${label}`,
+    task: async (): Promise<void> => {
+      const packageName = await getCrateName(packagePath);
+      const registry = new CratesRegistry(packageName);
 
-    await registry.publish();
-  },
-};
+      await registry.publish(packagePath);
+    },
+  };
+}
+
+// Backward-compatible static exports (used when no packages config)
+export const cratesAvailableCheckTasks: ListrTask<Ctx> =
+  createCratesAvailableCheckTask();
+export const cratesPublishTasks: ListrTask<Ctx> = createCratesPublishTask();

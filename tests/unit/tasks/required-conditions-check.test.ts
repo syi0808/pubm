@@ -137,6 +137,14 @@ beforeEach(async () => {
     jsrAvailableCheckTasks: { title: "jsr-check-mock", task: vi.fn() },
   }));
 
+  vi.doMock("../../../src/tasks/crates.js", () => ({
+    cratesAvailableCheckTasks: { title: "crates-check-mock", task: vi.fn() },
+    createCratesAvailableCheckTask: vi.fn((pkgPath?: string) => ({
+      title: `crates-check-mock (${pkgPath})`,
+      task: vi.fn(),
+    })),
+  }));
+
   mockGitInstance = {
     version: vi.fn().mockResolvedValue("2.40.0"),
   };
@@ -793,6 +801,88 @@ describe("requiredConditionsCheckTask", () => {
       expect(innerParentTask.newListr).toHaveBeenCalledWith(expect.any(Array), {
         concurrent: true,
       });
+    });
+
+    it("maps crates registry to cratesAvailableCheckTasks", async () => {
+      const subtasks = await getSubtasks();
+      const registryTask = subtasks[4];
+      const ctx = createCtx({ registries: ["crates"] });
+
+      let innerSubtasks: any[] = [];
+      const innerParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          innerSubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      registryTask.task(ctx, innerParentTask);
+
+      const { cratesAvailableCheckTasks: cratesCheck } = await import(
+        "../../../src/tasks/crates.js"
+      );
+
+      expect(innerSubtasks).toHaveLength(1);
+      expect(innerSubtasks[0]).toBe(cratesCheck);
+    });
+
+    it("includes crates from packages config in ping registries", async () => {
+      const subtasks = await getSubtasks();
+      const pingTask = subtasks[0];
+      const ctx = createCtx({
+        registries: ["npm"],
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/my-crate", registries: ["crates"] },
+        ],
+      } as any);
+
+      let innerSubtasks: any[] = [];
+      const innerParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          innerSubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      pingTask.task(ctx, innerParentTask);
+
+      expect(innerSubtasks).toHaveLength(2);
+      expect(innerSubtasks[0].title).toBe("Ping to npm");
+      expect(innerSubtasks[1].title).toBe("Ping to crates");
+    });
+
+    it("creates per-package crates availability check tasks", async () => {
+      const subtasks = await getSubtasks();
+      const registryTask = subtasks[4];
+      const ctx = createCtx({
+        registries: ["npm"],
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/lib-a", registries: ["crates"] },
+          { path: "rust/crates/lib-b", registries: ["crates"] },
+        ],
+      } as any);
+
+      let innerSubtasks: any[] = [];
+      const innerParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          innerSubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      registryTask.task(ctx, innerParentTask);
+
+      // npm (from pkg 1) + crates lib-a + crates lib-b = 3
+      expect(innerSubtasks).toHaveLength(3);
+      expect(innerSubtasks[0].title).toBe("npm-check-mock");
+      expect(innerSubtasks[1].title).toBe(
+        "crates-check-mock (rust/crates/lib-a)",
+      );
+      expect(innerSubtasks[2].title).toBe(
+        "crates-check-mock (rust/crates/lib-b)",
+      );
     });
   });
 });

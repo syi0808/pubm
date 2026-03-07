@@ -9,7 +9,11 @@ import { warningBadge } from "../utils/cli.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createListr } from "../utils/listr.js";
 import { getPackageJson } from "../utils/package.js";
-import { cratesAvailableCheckTasks } from "./crates.js";
+import { collectRegistries } from "../utils/registries.js";
+import {
+  cratesAvailableCheckTasks,
+  createCratesAvailableCheckTask,
+} from "./crates.js";
 import { jsrAvailableCheckTasks } from "./jsr.js";
 import { npmAvailableCheckTasks } from "./npm.js";
 import type { Ctx } from "./runner.js";
@@ -52,7 +56,7 @@ export const requiredConditionsCheckTask = (
             title: "Ping registries",
             task: (ctx, parentTask): Listr<Ctx> =>
               parentTask.newListr(
-                ctx.registries.map((registryKey) => ({
+                collectRegistries(ctx).map((registryKey) => ({
                   title: `Ping to ${registryKey}`,
                   task: async (): Promise<void> => {
                     const registry = await getRegistry(registryKey);
@@ -72,7 +76,9 @@ export const requiredConditionsCheckTask = (
                 [
                   {
                     enabled: (ctx) =>
-                      ctx.registries.some((registry) => registry !== "jsr"),
+                      collectRegistries(ctx).some(
+                        (registry) => registry !== "jsr",
+                      ),
                     title: "Verifying if npm are installed",
                     task: async (): Promise<void> => {
                       const npm = await npmRegistry();
@@ -86,7 +92,9 @@ export const requiredConditionsCheckTask = (
                   },
                   {
                     enabled: (ctx) =>
-                      ctx.registries.some((registry) => registry === "jsr"),
+                      collectRegistries(ctx).some(
+                        (registry) => registry === "jsr",
+                      ),
                     title: "Verifying if jsr are installed",
                     task: async (_, task): Promise<void> => {
                       const jsr = await jsrRegistry();
@@ -123,7 +131,7 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: "Checking if test and build scripts exist",
-            skip: (ctx) => !needsPackageScripts(ctx.registries),
+            skip: (ctx) => !needsPackageScripts(collectRegistries(ctx)),
             task: async (ctx): Promise<void> => {
               const { scripts } = await getPackageJson();
 
@@ -156,9 +164,26 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: "Checking available registries for publishing",
-            task: (ctx, parentTask): Listr<Ctx> =>
-              parentTask.newListr(
-                ctx.registries.map((registryKey) => {
+            task: (ctx, parentTask): Listr<Ctx> => {
+              if (ctx.packages?.length) {
+                const tasks = ctx.packages.flatMap((pkg) =>
+                  pkg.registries.map((registryKey) => {
+                    switch (registryKey) {
+                      case "npm":
+                        return npmAvailableCheckTasks;
+                      case "jsr":
+                        return jsrAvailableCheckTasks;
+                      case "crates":
+                        return createCratesAvailableCheckTask(pkg.path);
+                      default:
+                        return npmAvailableCheckTasks;
+                    }
+                  }),
+                );
+                return parentTask.newListr(tasks, { concurrent: true });
+              }
+              return parentTask.newListr(
+                collectRegistries(ctx).map((registryKey) => {
                   switch (registryKey) {
                     case "npm":
                       return npmAvailableCheckTasks;
@@ -173,7 +198,8 @@ export const requiredConditionsCheckTask = (
                 {
                   concurrent: true,
                 },
-              ),
+              );
+            },
           },
         ],
         {

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("tinyexec", () => ({
@@ -118,6 +119,35 @@ describe("CratesRegistry", () => {
     it("throws on publish failure", async () => {
       mockedExec.mockRejectedValue(new Error("publish failed"));
       await expect(registry.publish()).rejects.toThrow(
+        "Failed to run `cargo publish`",
+      );
+    });
+
+    it("passes --manifest-path when manifestDir is provided", async () => {
+      mockStdout("Uploading my-crate v1.0.0");
+      expect(await registry.publish("packages/my-crate")).toBe(true);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "cargo",
+        [
+          "publish",
+          "--manifest-path",
+          path.join("packages/my-crate", "Cargo.toml"),
+        ],
+        expect.objectContaining({ throwOnError: true }),
+      );
+    });
+
+    it("constructs manifest path by joining manifestDir with Cargo.toml", async () => {
+      mockStdout("Uploading my-crate v1.0.0");
+      await registry.publish("some/nested/dir");
+      const callArgs = mockedExec.mock.calls[0];
+      expect(callArgs[1]).toContain("--manifest-path");
+      expect(callArgs[1]).toContain(path.join("some/nested/dir", "Cargo.toml"));
+    });
+
+    it("throws on publish failure with manifest path", async () => {
+      mockedExec.mockRejectedValue(new Error("publish failed"));
+      await expect(registry.publish("packages/my-crate")).rejects.toThrow(
         "Failed to run `cargo publish`",
       );
     });

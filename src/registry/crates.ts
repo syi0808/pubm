@@ -1,3 +1,4 @@
+import path from "node:path";
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
@@ -70,9 +71,13 @@ export class CratesRegistry extends Registry {
     }
   }
 
-  async publish(): Promise<boolean> {
+  async publish(manifestDir?: string): Promise<boolean> {
     try {
-      await exec("cargo", ["publish"], { throwOnError: true });
+      const args = ["publish"];
+      if (manifestDir) {
+        args.push("--manifest-path", path.join(manifestDir, "Cargo.toml"));
+      }
+      await exec("cargo", args, { throwOnError: true });
       return true;
     } catch (error) {
       throw new CratesError("Failed to run `cargo publish`", {
