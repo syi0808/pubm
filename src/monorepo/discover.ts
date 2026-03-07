@@ -70,7 +70,7 @@ export function discoverPackages(
     const dirs = resolvePatterns(cwd, workspace.patterns);
 
     for (const dir of dirs) {
-      const relativePath = path.relative(cwd, dir);
+      const relativePath = path.relative(cwd, dir).replace(/\\/g, "/");
       if (matchesIgnore(relativePath, ignore)) continue;
 
       const ecosystem = detectEcosystem(dir);
