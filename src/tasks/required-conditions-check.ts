@@ -75,11 +75,8 @@ export const requiredConditionsCheckTask = (
               parentTask.newListr(
                 [
                   {
-                    enabled: (ctx) =>
-                      collectRegistries(ctx).some(
-                        (registry) => registry !== "jsr",
-                      ),
-                    title: "Verifying if npm are installed",
+                    enabled: (ctx) => collectRegistries(ctx).includes("npm"),
+                    title: "Verifying if npm is installed",
                     task: async (): Promise<void> => {
                       const npm = await npmRegistry();
 
