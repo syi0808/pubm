@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultOptions, resolveOptions } from "../../src/options.js";
-import type { Options } from "../../src/types/options.js";
+import type { Options, RegistryType } from "../../src/types/options.js";
 
 describe("defaultOptions", () => {
   it("should have the expected default values", () => {
@@ -83,10 +83,24 @@ describe("resolveOptions", () => {
   });
 
   it("should retain version even though defaults are spread last", () => {
-    // version is not in defaultOptions, so it survives the spread bug.
+    // version is not in defaultOptions, so it is always preserved from user options.
     const result = resolveOptions({ version: "3.0.0-rc.1" });
 
     expect(result.version).toBe("3.0.0-rc.1");
+  });
+
+  it("should pass through packages from config", () => {
+    const packages = [
+      { path: ".", registries: ["npm", "jsr"] as RegistryType[] },
+      { path: "rust/crates/my-crate", registries: ["crates"] as RegistryType[] },
+    ];
+
+    const result = resolveOptions({
+      version: "1.0.0",
+      packages,
+    });
+
+    expect(result.packages).toStrictEqual(packages);
   });
 
   it("should return an object with all required ResolvedOptions fields", () => {
