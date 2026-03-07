@@ -3,6 +3,7 @@ import type { RegistryType } from "../types/options.js";
 export interface PackageConfig {
   path: string;
   registries: RegistryType[];
+  ecosystem?: "js" | "rust";
   buildCommand?: string;
   testCommand?: string;
 }
