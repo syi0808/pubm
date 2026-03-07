@@ -287,6 +287,17 @@ describe("JsrRegisry", () => {
   });
 });
 
+describe("getRequirements", () => {
+  it("returns needsPackageScripts false and requiredManifest jsr.json", () => {
+    const registry = new JsrRegisry("@scope/my-package");
+    const requirements = registry.getRequirements();
+    expect(requirements).toEqual({
+      needsPackageScripts: false,
+      requiredManifest: "jsr.json",
+    });
+  });
+});
+
 describe("JsrClient", () => {
   let client: JsrClient;
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PackageConfig } from "../../../src/config/types.js";
 import { defineConfig } from "../../../src/config/types.js";
 
 describe("defineConfig", () => {
@@ -57,5 +58,23 @@ describe("defineConfig", () => {
     });
     expect(config.versioning).toBe("independent");
     expect(config.fixed).toHaveLength(1);
+  });
+
+  it("PackageConfig accepts ecosystem field", () => {
+    const config: PackageConfig = {
+      path: "packages/core",
+      registries: ["npm"],
+      ecosystem: "js",
+    };
+    expect(config.ecosystem).toBe("js");
+  });
+
+  it("PackageConfig accepts rust ecosystem", () => {
+    const config: PackageConfig = {
+      path: "crates/parser",
+      registries: ["crates"],
+      ecosystem: "rust",
+    };
+    expect(config.ecosystem).toBe("rust");
   });
 });

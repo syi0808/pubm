@@ -27,8 +27,6 @@ const { prerelease } = SemVer;
 
 export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
-  npmOnly: boolean;
-  jsrOnly: boolean;
   cleanWorkingTree: boolean;
 }
 
@@ -36,8 +34,6 @@ export async function run(options: ResolvedOptions): Promise<void> {
   const ctx = <Ctx>{
     ...options,
     promptEnabled: !isCI && process.stdin.isTTY,
-    npmOnly: options.registries.every((registry) => registry !== "jsr"),
-    jsrOnly: options.registries.every((registry) => registry === "jsr"),
   };
 
   try {

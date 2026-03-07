@@ -481,6 +481,17 @@ describe("NpmRegistry", () => {
   });
 });
 
+describe("getRequirements", () => {
+  it("returns needsPackageScripts true and requiredManifest package.json", () => {
+    const registry = new NpmRegistry("my-package");
+    const requirements = registry.getRequirements();
+    expect(requirements).toEqual({
+      needsPackageScripts: true,
+      requiredManifest: "package.json",
+    });
+  });
+});
+
 describe("npmRegistry()", () => {
   it("creates NpmRegistry from package.json name", async () => {
     mockedGetPackageJson.mockResolvedValue({

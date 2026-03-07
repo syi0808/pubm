@@ -205,26 +205,7 @@ describe("run", () => {
       });
     });
 
-    it("sets npmOnly to true when registries contain only npm", async () => {
-      const options = createOptions({ registries: ["npm"] });
-      await run(options);
 
-      expect(mockedCreateListr).toHaveBeenCalled();
-    });
-
-    it("sets jsrOnly to true when registries contain only jsr", async () => {
-      const options = createOptions({ registries: ["jsr"] });
-      await run(options);
-
-      expect(mockedCreateListr).toHaveBeenCalled();
-    });
-
-    it("sets npmOnly and jsrOnly to false when registries contain both", async () => {
-      const options = createOptions({ registries: ["npm", "jsr"] });
-      await run(options);
-
-      expect(mockedCreateListr).toHaveBeenCalled();
-    });
   });
 
   describe("contents option", () => {
