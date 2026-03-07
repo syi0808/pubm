@@ -14,6 +14,18 @@ import { jsrAvailableCheckTasks } from "./jsr.js";
 import { npmAvailableCheckTasks } from "./npm.js";
 import type { Ctx } from "./runner.js";
 
+const registryRequirementsMap: Record<string, { needsPackageScripts: boolean }> = {
+  npm: { needsPackageScripts: true },
+  jsr: { needsPackageScripts: false },
+  crates: { needsPackageScripts: false },
+};
+
+function needsPackageScripts(registries: string[]): boolean {
+  return registries.some(
+    (r) => registryRequirementsMap[r]?.needsPackageScripts ?? true,
+  );
+}
+
 class RequiredConditionCheckError extends AbstractError {
   name = "Failed required condition check";
 
@@ -108,7 +120,7 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: "Checking if test and build scripts exist",
-            skip: (ctx) => ctx.jsrOnly,
+            skip: (ctx) => !needsPackageScripts(ctx.registries),
             task: async (ctx): Promise<void> => {
               const { scripts } = await getPackageJson();
 
