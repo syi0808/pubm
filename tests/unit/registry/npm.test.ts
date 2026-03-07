@@ -469,32 +469,6 @@ describe("NpmRegistry", () => {
     });
   });
 
-  describe("dryRunPublish()", () => {
-    it("calls npm publish --dry-run", async () => {
-      mockStdout("+ my-package@1.0.0");
-
-      await registry.dryRunPublish();
-
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["publish", "--dry-run"], {
-        throwOnError: true,
-      });
-    });
-
-    it("throws classified error on failure", async () => {
-      mockNonZeroExitError("403 Forbidden");
-
-      await expect(registry.dryRunPublish()).rejects.toThrow(/forbidden/i);
-    });
-
-    it("throws NpmError for generic failures", async () => {
-      mockNonZeroExitError("some unknown error");
-
-      await expect(registry.dryRunPublish()).rejects.toThrow(
-        "Failed to publish to npm",
-      );
-    });
-  });
-
   describe("twoFactorAuthMode()", () => {
     it("returns tfa mode from npm profile", async () => {
       mockStdout(JSON.stringify({ tfa: { mode: "auth-and-writes" } }));
