@@ -8,6 +8,10 @@ vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
 }));
 
+vi.mock("@npmcli/promise-spawn", () => ({
+  default: { open: vi.fn() },
+}));
+
 import { EventEmitter } from "node:events";
 import { spawn } from "node:child_process";
 import { npmRegistry } from "../../../src/registry/npm.js";
@@ -21,22 +25,26 @@ const mockedSpawn = vi.mocked(spawn);
 
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 
-function mockSpawnResult(code: number) {
-  const emitter = Object.assign(new EventEmitter(), {
+function createMockChildProcess() {
+  return Object.assign(new EventEmitter(), {
     stdout: new EventEmitter(),
     stderr: new EventEmitter(),
+    stdin: { write: vi.fn() },
   });
-  mockedSpawn.mockReturnValue(emitter as any);
-  process.nextTick(() => emitter.emit("close", code));
+}
+
+function mockSpawnResult(code: number) {
+  const child = createMockChildProcess();
+  mockedSpawn.mockReturnValue(child as any);
+  process.nextTick(() => child.emit("close", code));
+  return child;
 }
 
 function mockSpawnError(error: Error) {
-  const emitter = Object.assign(new EventEmitter(), {
-    stdout: new EventEmitter(),
-    stderr: new EventEmitter(),
-  });
-  mockedSpawn.mockReturnValue(emitter as any);
-  process.nextTick(() => emitter.emit("error", error));
+  const child = createMockChildProcess();
+  mockedSpawn.mockReturnValue(child as any);
+  process.nextTick(() => child.emit("error", error));
+  return child;
 }
 
 function createMockNpm() {
@@ -138,8 +146,45 @@ describe("npmAvailableCheckTasks", () => {
       )(ctx, task);
 
       expect(mockedSpawn).toHaveBeenCalledWith("npm", ["login"], {
-        stdio: ["inherit", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe"],
       });
+    });
+
+    it("parses login URL from stdout, opens browser, and sends ENTER", async () => {
+      const { open } = (await import("@npmcli/promise-spawn")).default;
+      const mockedOpen = vi.mocked(open);
+
+      mockNpm.isLoggedIn
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+
+      const child = createMockChildProcess();
+      mockedSpawn.mockReturnValue(child as any);
+
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      const promise = (
+        npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+      )(ctx, task);
+
+      // Wait for spawn to be called
+      await new Promise((r) => process.nextTick(r));
+
+      child.stdout.emit(
+        "data",
+        Buffer.from(
+          "Login at:\nhttps://www.npmjs.com/login?next=/login/cli/abc-123\nPress ENTER to open in the browser...",
+        ),
+      );
+
+      expect(mockedOpen).toHaveBeenCalledWith(
+        "https://www.npmjs.com/login?next=/login/cli/abc-123",
+      );
+      expect(child.stdin.write).toHaveBeenCalledWith("\n");
+
+      child.emit("close", 0);
+      await promise;
     });
 
     it("throws when npm login command fails in TTY mode", async () => {

@@ -1,11 +1,14 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
+import npmCli from "@npmcli/promise-spawn";
 import { color, type ListrTask } from "listr2";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
 import type { Ctx } from "./runner.js";
+
+const { open } = npmCli;
 
 class NpmAvailableError extends AbstractError {
   name = "npm is unavailable for publishing.";
@@ -30,11 +33,23 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
 
           await new Promise<void>((resolve, reject) => {
             const child = spawn("npm", ["login"], {
-              stdio: ["inherit", "pipe", "pipe"],
+              stdio: ["pipe", "pipe", "pipe"],
             });
 
+            let opened = false;
+
             const onData = (data: Buffer) => {
-              task.output = data.toString().trim();
+              const text = data.toString();
+              const urlMatch = text.match(
+                /https:\/\/www\.npmjs\.com\/login[^\s]*/,
+              );
+
+              if (urlMatch && !opened) {
+                opened = true;
+                task.output = `Login at: ${color.cyan(urlMatch[0])}`;
+                open(urlMatch[0]);
+                child.stdin?.write("\n");
+              }
             };
 
             child.stdout?.on("data", onData);
