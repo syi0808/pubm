@@ -1,3 +1,5 @@
+import type { PackageConfig } from "../config/types.js";
+
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
 /**
@@ -87,6 +89,10 @@ export interface Options {
    * @default ['npm', 'jsr']
    */
   registries?: RegistryType[];
+  /**
+   * @description Per-package publish configuration (from pubm.config.ts)
+   */
+  packages?: PackageConfig[];
 }
 
 export interface ResolvedOptions extends Options {
@@ -96,4 +102,5 @@ export interface ResolvedOptions extends Options {
   tag: string;
   saveToken: boolean;
   registries: RegistryType[];
+  packages?: PackageConfig[];
 }
