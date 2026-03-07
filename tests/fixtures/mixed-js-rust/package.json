@@ -1,0 +1,8 @@
+{
+  "name": "mixed-package",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo test",
+    "build": "echo build"
+  }
+}
