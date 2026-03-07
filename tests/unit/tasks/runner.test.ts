@@ -485,7 +485,7 @@ describe("run", () => {
       // Error triggers catch block with context message
       expect(mockedConsoleError).toHaveBeenCalled();
       const errorArg = mockedConsoleError.mock.calls[0][0];
-      expect(errorArg.message).toMatch(/Test script 'test' failed/);
+      expect((errorArg as Error).message).toMatch(/Test script 'test' failed/);
     });
 
     it("runs test task successfully when no stderr", async () => {

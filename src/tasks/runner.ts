@@ -105,7 +105,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   });
                 } catch (error) {
                   throw new AbstractError(
-                    `Failed to run \`${packageManager} run ${ctx.buildScript}\``,
+                    `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
                     { cause: error },
                   );
                 }
