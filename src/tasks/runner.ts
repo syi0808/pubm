@@ -65,10 +65,7 @@ async function collectPublishTasks(ctx: Ctx) {
     const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
     const sequentialCratesTask = {
       title: "Publishing to crates.io (sequential)",
-      task: (
-        _ctx: Ctx,
-        task: { newListr: (typeof Listr.prototype)["newListr"] },
-      ) =>
+      task: (_ctx: Ctx, task: { newListr: (...args: any[]) => any }) =>
         task.newListr(
           sortedPaths.map((p) => createCratesPublishTask(p)),
           { concurrent: false },

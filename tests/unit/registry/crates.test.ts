@@ -151,13 +151,10 @@ describe("CratesRegistry", () => {
 
     it("includes cargo stderr in error message when available", async () => {
       const { NonZeroExitError } = await import("tinyexec");
-      const error = new NonZeroExitError(
-        { exitCode: 101 } as any,
-        {
-          stdout: "",
-          stderr: "error: crate `update-kit` does not exist on crates.io",
-        },
-      );
+      const error = new NonZeroExitError({ exitCode: 101 } as any, {
+        stdout: "",
+        stderr: "error: crate `update-kit` does not exist on crates.io",
+      });
       mockedExec.mockRejectedValue(error);
 
       await expect(registry.publish()).rejects.toThrow(
