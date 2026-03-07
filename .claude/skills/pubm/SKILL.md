@@ -67,7 +67,10 @@ When you run `pubm [version]`, the following pipeline executes in order:
 pubm uses a config file (`pubm.config.ts` by default) with a `defineConfig()` helper for type safety. Config supports:
 
 - Single-package repos: set `registries` at the top level
-- Monorepo: set `packages` array with per-package `path` and `registries`
+- Monorepo: set `packages` array with per-package `path`, `registries`, and optional `ecosystem`
+- Mixed ecosystem projects: use `packages` with explicit `ecosystem: 'js' | 'rust'` to define packages scattered across directories without a formal workspace
+- Workspace auto-detect: pubm auto-discovers packages from pnpm/npm/yarn workspaces and merges with `packages` config (config values override auto-detected)
+- Ignore patterns: use `ignore` to exclude packages from auto-discovery (e.g. `['packages/internal-*']`)
 - Versioning: `'fixed'` (all packages share one version) or `'independent'`
 
 See `references/config-examples.md` for templates.
@@ -105,7 +108,7 @@ Then proceed to the corresponding Step 2 section.
 
 ## Step 2A: Onboarding/Setup Workflow
 
-1. **Detect ecosystem**: Use Glob to check for `package.json` (JavaScript/TypeScript) or `Cargo.toml` (Rust) in the project root. If both exist, note the multi-ecosystem setup.
+1. **Detect ecosystem and project structure**: Use Glob to check for `package.json` (JavaScript/TypeScript) or `Cargo.toml` (Rust) in the project root. Also check for workspace config (`pnpm-workspace.yaml`, `workspaces` in `package.json`). If multiple publishable packages exist across different directories (with or without a formal workspace), ask the user which packages they want to publish and configure them via `packages` in the config with explicit `path`, `registries`, and `ecosystem` fields.
 
 2. **Check if pubm is installed**: Check `package.json` devDependencies for `pubm`, or run `npx --no-install pubm --version`. If not installed, inform the user and ask whether to install it:
    - For JS projects: `npm install -D pubm` or `pnpm add -D pubm`
