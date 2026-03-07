@@ -58,6 +58,11 @@ npm i -g pubm
 pubm patch --preview
 ```
 
+> **Publishing to jsr?** Install the jsr CLI as a devDependency in your project:
+> ```bash
+> pnpm add -D jsr  # or npm i -D jsr / yarn add -D jsr
+> ```
+
 ---
 
 ## 🔑 Core CLI Options
