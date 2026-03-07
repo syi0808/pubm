@@ -1,5 +1,11 @@
 # JSR Registry Constraints
 
+## Prerequisites
+
+The `jsr` npm package must be installed as a devDependency in the project. pubm invokes the `jsr` CLI directly for publishing.
+
+Install using your project's package manager (detect from lock files: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm).
+
 ## Naming
 
 **JSR requires scoped names.** The `name` field MUST follow the format `@scope/package-name`.

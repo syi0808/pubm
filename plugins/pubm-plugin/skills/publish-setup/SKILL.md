@@ -42,6 +42,10 @@ Ask the user which registries to publish to:
 - `crates` (crates.io)
 - Private registry (provide URL)
 
+### 3.1. Install jsr CLI (if jsr selected)
+
+If the user selected jsr, check `package.json` devDependencies for `jsr`. If not installed, install it as a devDependency using the project's package manager (detect from lock files: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm).
+
 ### 4. Generate missing registry config files
 
 For each selected registry, check if its required config file exists. If missing, generate it from whichever source file is available.
