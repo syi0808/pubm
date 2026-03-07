@@ -342,20 +342,20 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[2].skip as (ctx: any) => boolean;
+      const skipFn = tasks[2].skip as () => boolean;
 
-      expect(skipFn({ preview: false })).toBe(true);
+      expect(skipFn()).toBe(true);
     });
 
-    it("skips dry-run publish when preview is set", async () => {
+    it("does not skip dry-run publish when preview is set", async () => {
       const options = createOptions({ preview: true });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[2].skip as (ctx: any) => boolean;
+      const skipFn = tasks[2].skip as () => boolean;
 
-      expect(skipFn({ preview: true })).toBe(true);
+      expect(skipFn()).toBe(false);
     });
 
     it("skips version bump when preview is set", async () => {
