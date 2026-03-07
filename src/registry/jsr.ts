@@ -8,7 +8,7 @@ import {
   getScopeAndName,
   isValidPackageName,
 } from "../utils/package-name.js";
-import { Registry } from "./registry.js";
+import { Registry, type RegistryRequirements } from "./registry.js";
 
 class JsrError extends AbstractError {
   name = "jsr Error";
@@ -117,6 +117,13 @@ export class JsrRegisry extends Registry {
 
   async isPackageNameAvaliable(): Promise<boolean> {
     return isValidPackageName(this.packageName);
+  }
+
+  getRequirements(): RegistryRequirements {
+    return {
+      needsPackageScripts: false,
+      requiredManifest: "jsr.json",
+    };
   }
 }
 

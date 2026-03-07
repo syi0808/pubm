@@ -1,3 +1,8 @@
+export interface RegistryRequirements {
+  needsPackageScripts: boolean;
+  requiredManifest: string;
+}
+
 export abstract class Registry {
   constructor(
     public packageName: string,
@@ -12,4 +17,5 @@ export abstract class Registry {
   abstract isPublished(): Promise<boolean>;
   abstract hasPermission(): Promise<boolean>;
   abstract isPackageNameAvaliable(): Promise<boolean>;
+  abstract getRequirements(): RegistryRequirements;
 }

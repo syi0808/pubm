@@ -43,9 +43,7 @@ import type { Ctx } from "../../../src/tasks/runner.js";
 function createCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
     promptEnabled: true,
-    npmOnly: false,
-    jsrOnly: false,
-    cleanWorkingTree: true,
+cleanWorkingTree: true,
     registries: ["npm"],
     version: "1.0.0",
     tag: "latest",
@@ -445,20 +443,28 @@ describe("requiredConditionsCheckTask", () => {
   });
 
   describe("Subtask 3: Scripts existence check", () => {
-    it("skips when ctx.jsrOnly is true", async () => {
+    it("skips when all registries have needsPackageScripts false (e.g., jsr only)", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[2];
-      const ctx = createCtx({ jsrOnly: true });
+      const ctx = createCtx({ registries: ["jsr"] });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
     });
 
-    it("does not skip when ctx.jsrOnly is false", async () => {
+    it("does not skip when any registry has needsPackageScripts true", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[2];
-      const ctx = createCtx({ jsrOnly: false });
+      const ctx = createCtx({ registries: ["npm", "jsr"] });
 
       expect(scriptsTask.skip(ctx)).toBe(false);
+    });
+
+    it("skips when registries contain only crates", async () => {
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[2];
+      const ctx = createCtx({ registries: ["crates"] });
+
+      expect(scriptsTask.skip(ctx)).toBe(true);
     });
 
     it("passes when both test and build scripts exist", async () => {
