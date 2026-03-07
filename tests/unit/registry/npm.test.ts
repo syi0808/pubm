@@ -198,7 +198,15 @@ describe("NpmRegistry", () => {
       expect(result).toBe(false);
     });
 
-    it("throws NpmError for other errors", async () => {
+    it("returns false for other NonZeroExitError", async () => {
+      mockNonZeroExitError("some other error");
+
+      const result = await registry.isLoggedIn();
+
+      expect(result).toBe(false);
+    });
+
+    it("throws NpmError for non-NonZeroExitError", async () => {
       mockedExec.mockRejectedValue(new Error("ECONNREFUSED"));
 
       await expect(registry.isLoggedIn()).rejects.toThrow(

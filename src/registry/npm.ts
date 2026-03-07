@@ -66,10 +66,7 @@ export class NpmRegistry extends Registry {
 
       return true;
     } catch (error) {
-      if (
-        error instanceof NonZeroExitError &&
-        error.output?.stderr.includes("ENEEDAUTH")
-      ) {
+      if (error instanceof NonZeroExitError) {
         return false;
       }
 
