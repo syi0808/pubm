@@ -283,7 +283,7 @@ describe("requiredConditionsCheckTask", () => {
   });
 
   describe("Subtask 2: npm/jsr installation check", () => {
-    it("npm enabled check returns true when registries include non-jsr", async () => {
+    it("npm enabled check returns true only when registries include npm", async () => {
       const subtasks = await getSubtasks();
       const installTask = subtasks[1];
 
@@ -300,13 +300,17 @@ describe("requiredConditionsCheckTask", () => {
       const npmSubtask = innerSubtasks[0];
       const jsrSubtask = innerSubtasks[1];
 
-      // npm enabled when registries include non-jsr
+      // npm enabled when registries include npm
       const ctxWithNpm = createCtx({ registries: ["npm"] });
       expect(npmSubtask.enabled(ctxWithNpm)).toBe(true);
 
       // npm not enabled when only jsr
       const ctxJsrOnly = createCtx({ registries: ["jsr"] });
       expect(npmSubtask.enabled(ctxJsrOnly)).toBe(false);
+
+      // npm not enabled when only crates
+      const ctxCratesOnly = createCtx({ registries: ["crates"] });
+      expect(npmSubtask.enabled(ctxCratesOnly)).toBe(false);
 
       // jsr enabled when registries include jsr
       expect(jsrSubtask.enabled(ctxWithNpm)).toBe(false);

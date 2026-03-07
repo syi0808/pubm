@@ -251,11 +251,30 @@ export async function run(options: ResolvedOptions): Promise<void> {
           ],
     ).run(ctx);
 
-    const npmPackageName = (await getPackageJson()).name;
-    const jsrPackageName = (await getJsrJson()).name;
+    const registries = collectRegistries(ctx);
+    const parts: string[] = [];
+
+    if (registries.includes("npm")) {
+      const npmPackageName = (await getPackageJson()).name;
+      parts.push(`${color.bold(npmPackageName)} on ${color.green("npm")}`);
+    }
+
+    if (registries.includes("jsr")) {
+      const jsrPackageName = (await getJsrJson()).name;
+      parts.push(`${color.bold(jsrPackageName)} on ${color.yellow("jsr")}`);
+    }
+
+    if (registries.includes("crates")) {
+      const crateNames = ctx.packages
+        ?.filter((pkg) => pkg.registries.includes("crates"))
+        .map((pkg) => pkg.path) ?? ["crate"];
+      for (const name of crateNames) {
+        parts.push(`${color.bold(name)} on ${color.red("crates.io")}`);
+      }
+    }
 
     console.log(
-      `\n\n🚀 Successfully published ${color.bold(npmPackageName)} on ${color.green("npm")} and ${color.bold(jsrPackageName)} on ${color.yellow("jsr")} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
+      `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
     );
   } catch (e: unknown) {
     consoleError(e as Error);

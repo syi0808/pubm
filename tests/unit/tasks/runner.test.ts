@@ -817,6 +817,38 @@ describe("run", () => {
       expect(logMessage).toContain("Successfully published");
     });
 
+    it("includes npm and jsr in success message for default registries", async () => {
+      const options = createOptions({ registries: ["npm", "jsr"] });
+      await run(options);
+
+      const logMessage = consoleSpy.mock.calls[0][0] as string;
+      expect(logMessage).toContain("npm");
+      expect(logMessage).toContain("jsr");
+    });
+
+    it("includes crates in success message when crates registry is used", async () => {
+      const options = createOptions({
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/my-crate", registries: ["crates"] },
+        ],
+      });
+      await run(options);
+
+      const logMessage = consoleSpy.mock.calls[0][0] as string;
+      expect(logMessage).toContain("crates.io");
+      expect(logMessage).toContain("rust/crates/my-crate");
+    });
+
+    it("does not include jsr in success message when only npm is configured", async () => {
+      const options = createOptions({ registries: ["npm"] });
+      await run(options);
+
+      const logMessage = consoleSpy.mock.calls[0][0] as string;
+      expect(logMessage).toContain("npm");
+      expect(logMessage).not.toContain("jsr");
+    });
+
     it("does not call process.exit on success", async () => {
       const options = createOptions();
       await run(options);
