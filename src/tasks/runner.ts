@@ -6,7 +6,7 @@ import { isCI } from "std-env";
 import { exec } from "tinyexec";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
-import type { ResolvedOptions } from "../types/options.js";
+import type { ResolvedOptions, RegistryType } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { createListr } from "../utils/listr.js";
 import {
@@ -24,6 +24,23 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
 const { open } = npmCli;
 const { prerelease } = SemVer;
+
+function collectRegistries(ctx: Ctx): RegistryType[] {
+  if (ctx.packages?.length) {
+    const seen = new Set<string>();
+    const result: RegistryType[] = [];
+    for (const pkg of ctx.packages) {
+      for (const reg of pkg.registries) {
+        if (!seen.has(reg)) {
+          seen.add(reg);
+          result.push(reg);
+        }
+      }
+    }
+    return result;
+  }
+  return ctx.registries;
+}
 
 export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
@@ -55,7 +72,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
             title: "Publishing",
             task: (ctx, parentTask): Listr<Ctx> =>
               parentTask.newListr(
-                ctx.registries.map((registry) => {
+                collectRegistries(ctx).map((registry) => {
                   switch (registry) {
                     case "npm":
                       return npmPublishTasks;
@@ -165,7 +182,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
               title: "Publishing",
               task: (ctx, parentTask): Listr<Ctx> =>
                 parentTask.newListr(
-                  ctx.registries.map((registry) => {
+                  collectRegistries(ctx).map((registry) => {
                     switch (registry) {
                       case "npm":
                         return npmPublishTasks;
