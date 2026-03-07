@@ -119,4 +119,45 @@ serde = { version = "1.0.0", features = ["derive"] }
       expect(eco.supportedRegistries()).toEqual(["crates"]);
     });
   });
+
+  describe("dependencies", () => {
+    it("returns dependency names from [dependencies] and [build-dependencies]", async () => {
+      const cargoWithDeps = `[package]
+name = "my-crate"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+my-lib = { version = "0.1.0", path = "../my-lib" }
+
+[build-dependencies]
+cc = "1.0"
+my-build-tool = { path = "../my-build-tool" }
+
+[dev-dependencies]
+tokio = "1.0"
+`;
+      mockedReadFile.mockResolvedValue(cargoWithDeps as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const deps = await eco.dependencies();
+
+      expect(deps).toContain("serde");
+      expect(deps).toContain("my-lib");
+      expect(deps).toContain("cc");
+      expect(deps).toContain("my-build-tool");
+      expect(deps).not.toContain("tokio");
+    });
+
+    it("returns empty array when no dependencies", async () => {
+      const cargoNoDeps = `[package]
+name = "my-crate"
+version = "0.1.0"
+`;
+      mockedReadFile.mockResolvedValue(cargoNoDeps as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      expect(await eco.dependencies()).toEqual([]);
+    });
+  });
 });
