@@ -25,6 +25,7 @@ function getApiEndpoint(registry: string): string {
 export class JsrRegisry extends Registry {
   registry = "https://jsr.io";
   client: JsrClient;
+  packageCreationUrls?: string[];
 
   constructor(packageName: string, registry?: string) {
     super(packageName, registry);
@@ -79,10 +80,23 @@ export class JsrRegisry extends Registry {
         },
       );
 
+      this.packageCreationUrls = undefined;
       return true;
     } catch (error) {
       const stderr =
         error instanceof NonZeroExitError ? error.output?.stderr : undefined;
+
+      if (stderr?.includes("don't exist")) {
+        const urls = [...stderr.matchAll(/https:\/\/jsr\.io\/new\S+/g)].map(
+          (m) => m[0],
+        );
+
+        if (urls.length > 0) {
+          this.packageCreationUrls = urls;
+          return false;
+        }
+      }
+
       throw new JsrError(
         `Failed to run \`jsr publish --allow-dirty --token ***\`${stderr ? `\n${stderr}` : ""}`,
         {
