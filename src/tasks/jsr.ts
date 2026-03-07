@@ -1,5 +1,6 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
+import npmCli from "@npmcli/promise-spawn";
 import { color, type ListrTask } from "listr2";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
@@ -11,6 +12,8 @@ import { patchCachedJsrJson } from "../utils/package.js";
 import { getScope, isScopedPackage } from "../utils/package-name.js";
 import { addRollback } from "../utils/rollback.js";
 import type { Ctx } from "./runner.js";
+
+const { open } = npmCli;
 
 class JsrAvailableError extends AbstractError {
   name = "jsr is unavailable for publishing.";
@@ -259,6 +262,46 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
       JsrClient.token = jsrTokenEnv;
     }
 
-    await jsr.publish();
+    let result = await jsr.publish();
+
+    if (!result && jsr.packageCreationUrls) {
+      if (ctx.promptEnabled) {
+        task.title = "Running jsr publish (package creation needed)";
+        const urls = jsr.packageCreationUrls;
+        const maxAttempts = 3;
+
+        task.output = `Package doesn't exist on jsr. Create it at:\n${urls.map((url) => `  ${color.cyan(url)}`).join("\n")}`;
+
+        open(urls[0]);
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+            type: "input",
+            message: `Press ${color.bold("enter")} after creating the package on jsr.io${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
+          });
+
+          result = await jsr.publish();
+
+          if (result) break;
+
+          if (attempt < maxAttempts) {
+            task.output =
+              "Package still doesn't exist. Please create it and try again.";
+          }
+        }
+
+        if (!result) {
+          throw new JsrAvailableError(
+            "Package creation not completed after 3 attempts.",
+          );
+        }
+
+        task.title = "Running jsr publish (package created)";
+      } else {
+        throw new JsrAvailableError(
+          `Package doesn't exist on jsr. Create it at:\n${jsr.packageCreationUrls.join("\n")}`,
+        );
+      }
+    }
   },
 };
