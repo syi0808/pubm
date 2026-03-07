@@ -1,6 +1,8 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import type { PackageConfig } from "../config/types.js";
+import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
 import type { JsrJson } from "../types/jsr-json.js";
 import type {
@@ -220,7 +222,10 @@ export async function version({ cwd = process.cwd() } = {}): Promise<string> {
 
 const versionRegex = /("version"\s*:\s*")[^"]*(")/;
 
-export async function replaceVersion(version: string): Promise<string[]> {
+export async function replaceVersion(
+  version: string,
+  packages?: PackageConfig[],
+): Promise<string[]> {
   const results = await Promise.all([
     (async () => {
       const packageJsonPath = await findOutFile("package.json");
@@ -264,7 +269,21 @@ export async function replaceVersion(version: string): Promise<string[]> {
 
       return "jsr.json";
     })(),
+    ...(packages ?? [])
+      .filter((pkg) => pkg.registries.includes("crates"))
+      .map(async (pkg) => {
+        const eco = new RustEcosystem(path.resolve(pkg.path));
+        try {
+          await eco.writeVersion(version);
+        } catch (error) {
+          throw new AbstractError(
+            `Failed to write version to Cargo.toml at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
+            { cause: error },
+          );
+        }
+        return path.join(pkg.path, "Cargo.toml");
+      }),
   ]);
 
-  return results.filter((v) => v) as unknown as string[];
+  return results.filter((v) => v) as string[];
 }

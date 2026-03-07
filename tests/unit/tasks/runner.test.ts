@@ -52,10 +52,20 @@ vi.mock("../../../src/tasks/crates.js", () => ({
     title: "crates publish",
     task: vi.fn(),
   },
+  createCratesPublishTask: vi.fn((packagePath?: string) => ({
+    title: `crates publish (${packagePath})`,
+    task: vi.fn(),
+  })),
 }));
 vi.mock("@npmcli/promise-spawn", () => ({
   default: { open: vi.fn() },
 }));
+
+vi.mock("../../../src/utils/registries.js", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../../src/utils/registries.js")>();
+  return { ...original };
+});
 
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn(),
@@ -496,7 +506,20 @@ describe("run", () => {
 
       // addRollback should have been called for version bump
       expect(mockedAddRollback).toHaveBeenCalled();
-      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0");
+      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", undefined);
+    });
+
+    it("passes packages to replaceVersion when packages config exists", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+
+      const packages = [
+        { path: ".", registries: ["npm", "jsr"] },
+        { path: "rust/crates/my-crate", registries: ["crates"] },
+      ];
+      const options = createOptions({ packages: packages as any });
+      await run(options);
+
+      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", packages);
     });
 
     it("registers rollback that handles tag deletion and commit reset", async () => {
@@ -669,7 +692,7 @@ describe("run", () => {
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
     });
 
-    it("deduplicates registries from multiple packages", async () => {
+    it("creates publish tasks per-package (not deduplicated)", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
@@ -694,7 +717,68 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      expect(allSubtasks).toHaveLength(2); // npm, jsr (npm not duplicated)
+      // npm + jsr (from pkg 1) + npm (from pkg 2) = 3 tasks
+      expect(allSubtasks).toHaveLength(3);
+    });
+
+    it("creates per-package crate publish tasks with package path", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+
+      const options = createOptions({
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/lib-a", registries: ["crates"] },
+          { path: "rust/crates/lib-b", registries: ["crates"] },
+        ] as any,
+      });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const publishTask = tasks[3];
+
+      const mockParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await publishTask.task(
+        { ...options, promptEnabled: true },
+        mockParentTask,
+      );
+
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
+      // npm (from pkg 1) + crates lib-a + crates lib-b = 3 tasks
+      expect(allSubtasks).toHaveLength(3);
+      expect(allSubtasks[0].title).toBe("npm publish");
+      expect(allSubtasks[1].title).toBe("crates publish (rust/crates/lib-a)");
+      expect(allSubtasks[2].title).toBe("crates publish (rust/crates/lib-b)");
+    });
+
+    it("creates per-package crate publish tasks in publishOnly mode", async () => {
+      const options = createOptions({
+        publishOnly: true,
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/my-crate", registries: ["crates"] },
+        ] as any,
+      });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const taskDef = callArgs[0] as any;
+
+      const mockParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await taskDef.task({ ...options, promptEnabled: true }, mockParentTask);
+
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
+      expect(allSubtasks).toHaveLength(2);
+      expect(allSubtasks[0].title).toBe("npm publish");
+      expect(allSubtasks[1].title).toBe(
+        "crates publish (rust/crates/my-crate)",
+      );
     });
 
     it("falls back to ctx.registries when no packages config is present", async () => {

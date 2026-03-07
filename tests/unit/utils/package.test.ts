@@ -7,6 +7,12 @@ vi.mock("node:fs/promises", () => ({
   stat: vi.fn(),
 }));
 
+vi.mock("../../../src/ecosystem/rust.js", () => ({
+  RustEcosystem: vi.fn().mockImplementation(() => ({
+    writeVersion: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 // Suppress console.log output from the module (e.g. warningBadge messages)
 vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -729,6 +735,148 @@ describe("replaceVersion", () => {
     await expect(replaceVersion("2.0.0")).rejects.toThrow(
       /Failed to write version to jsr\.json/,
     );
+  });
+
+  it("updates Cargo.toml for crates packages when packages config is provided", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion }) as any,
+    );
+
+    const packages = [
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    const result = await replaceVersion("2.0.0", packages);
+
+    expect(mockWriteVersion).toHaveBeenCalledWith("2.0.0");
+    expect(result).toContain(path.join("rust/crates/my-crate", "Cargo.toml"));
+  });
+
+  it("updates multiple Cargo.toml files for multiple crates packages", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion }) as any,
+    );
+
+    const packages = [
+      { path: ".", registries: ["npm", "jsr"] as any[] },
+      { path: "rust/crates/lib-a", registries: ["crates"] as any[] },
+      { path: "rust/crates/lib-b", registries: ["crates"] as any[] },
+    ];
+
+    const result = await replaceVersion("3.0.0", packages);
+
+    expect(mockWriteVersion).toHaveBeenCalledTimes(2);
+    expect(result).toContain(path.join("rust/crates/lib-a", "Cargo.toml"));
+    expect(result).toContain(path.join("rust/crates/lib-b", "Cargo.toml"));
+  });
+
+  it("skips non-crates packages when updating Cargo.toml", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion }) as any,
+    );
+
+    const packages = [{ path: ".", registries: ["npm", "jsr"] as any[] }];
+
+    const result = await replaceVersion("2.0.0", packages);
+
+    expect(mockWriteVersion).not.toHaveBeenCalled();
+    expect(result).not.toContain(expect.stringContaining("Cargo.toml"));
+  });
+
+  it("throws when Cargo.toml write fails", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    vi.mocked(RustEcosystem).mockImplementation(
+      () =>
+        ({
+          writeVersion: vi
+            .fn()
+            .mockRejectedValue(new Error("EACCES: permission denied")),
+        }) as any,
+    );
+
+    const packages = [
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    await expect(replaceVersion("2.0.0", packages)).rejects.toThrow(
+      /Failed to write version to Cargo\.toml at rust\/crates\/my-crate/,
+    );
+  });
+
+  it("handles mixed JS and Rust packages together", async () => {
+    const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockImplementation(async (filePath) => {
+      const fp = String(filePath);
+      if (fp.endsWith("package.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from('{\n  "version": "1.0.0"\n}'));
+    mockWriteFile.mockResolvedValue(undefined);
+
+    const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion }) as any,
+    );
+
+    const packages = [
+      { path: ".", registries: ["npm", "jsr"] as any[] },
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    const result = await replaceVersion("2.0.0", packages);
+
+    expect(result).toContain("package.json");
+    expect(result).toContain(path.join("rust/crates/my-crate", "Cargo.toml"));
+    expect(mockWriteVersion).toHaveBeenCalledWith("2.0.0");
+  });
+
+  it("does not process Cargo.toml when packages is undefined", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const mockWriteVersion = vi.fn();
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion }) as any,
+    );
+
+    await replaceVersion("1.0.0");
+
+    expect(mockWriteVersion).not.toHaveBeenCalled();
   });
 });
 

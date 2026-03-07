@@ -4,9 +4,10 @@ import { color, type Listr } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
 import { exec } from "tinyexec";
+import type { PackageConfig } from "../config/types.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
-import type { RegistryType, ResolvedOptions } from "../types/options.js";
+import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { createListr } from "../utils/listr.js";
 import {
@@ -15,8 +16,9 @@ import {
   replaceVersion,
 } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
+import { collectRegistries } from "../utils/registries.js";
 import { addRollback, rollback } from "../utils/rollback.js";
-import { cratesPublishTasks } from "./crates.js";
+import { cratesPublishTasks, createCratesPublishTask } from "./crates.js";
 import { jsrPublishTasks } from "./jsr.js";
 import { npmPublishTasks } from "./npm.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
@@ -25,26 +27,35 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 const { open } = npmCli;
 const { prerelease } = SemVer;
 
-function collectRegistries(ctx: Ctx): RegistryType[] {
-  if (ctx.packages?.length) {
-    const seen = new Set<string>();
-    const result: RegistryType[] = [];
-    for (const pkg of ctx.packages) {
-      for (const reg of pkg.registries) {
-        if (!seen.has(reg)) {
-          seen.add(reg);
-          result.push(reg);
-        }
-      }
-    }
-    return result;
-  }
-  return ctx.registries;
-}
-
 export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
   cleanWorkingTree: boolean;
+}
+
+function registryTask(registry: string) {
+  switch (registry) {
+    case "npm":
+      return npmPublishTasks;
+    case "jsr":
+      return jsrPublishTasks;
+    case "crates":
+      return cratesPublishTasks;
+    default:
+      return npmPublishTasks;
+  }
+}
+
+function collectPublishTasks(ctx: Ctx) {
+  if (ctx.packages?.length) {
+    return ctx.packages.flatMap((pkg: PackageConfig) =>
+      pkg.registries.map((reg) =>
+        reg === "crates"
+          ? createCratesPublishTask(pkg.path)
+          : registryTask(reg),
+      ),
+    );
+  }
+  return collectRegistries(ctx).map(registryTask);
 }
 
 export async function run(options: ResolvedOptions): Promise<void> {
@@ -71,21 +82,9 @@ export async function run(options: ResolvedOptions): Promise<void> {
         ? {
             title: "Publishing",
             task: (ctx, parentTask): Listr<Ctx> =>
-              parentTask.newListr(
-                collectRegistries(ctx).map((registry) => {
-                  switch (registry) {
-                    case "npm":
-                      return npmPublishTasks;
-                    case "jsr":
-                      return jsrPublishTasks;
-                    case "crates":
-                      return cratesPublishTasks;
-                    default:
-                      return npmPublishTasks;
-                  }
-                }),
-                { concurrent: true },
-              ),
+              parentTask.newListr(collectPublishTasks(ctx), {
+                concurrent: true,
+              }),
           }
         : [
             {
@@ -160,7 +159,10 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 }, ctx);
 
                 await git.reset();
-                const replaced = await replaceVersion(ctx.version);
+                const replaced = await replaceVersion(
+                  ctx.version,
+                  ctx.packages,
+                );
 
                 for (const replacedFile of replaced) {
                   await git.stage(replacedFile);
@@ -181,21 +183,9 @@ export async function run(options: ResolvedOptions): Promise<void> {
               skip: (ctx) => options.skipPublish || !!ctx.preview,
               title: "Publishing",
               task: (ctx, parentTask): Listr<Ctx> =>
-                parentTask.newListr(
-                  collectRegistries(ctx).map((registry) => {
-                    switch (registry) {
-                      case "npm":
-                        return npmPublishTasks;
-                      case "jsr":
-                        return jsrPublishTasks;
-                      case "crates":
-                        return cratesPublishTasks;
-                      default:
-                        return npmPublishTasks;
-                    }
-                  }),
-                  { concurrent: true },
-                ),
+                parentTask.newListr(collectPublishTasks(ctx), {
+                  concurrent: true,
+                }),
             },
             {
               title: "Pushing tags to GitHub",
