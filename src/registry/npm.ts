@@ -186,6 +186,25 @@ export class NpmRegistry extends Registry {
     }
   }
 
+  async dryRunPublish(): Promise<void> {
+    try {
+      await this.npm(["publish", "--dry-run"]);
+    } catch (error) {
+      throw this.classifyPublishError(error);
+    }
+  }
+
+  async twoFactorAuthMode(): Promise<string | null> {
+    try {
+      const output = await this.npm(["profile", "get", "--json"]);
+      const profile = JSON.parse(output);
+
+      return profile?.tfa?.mode ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async isPackageNameAvaliable(): Promise<boolean> {
     return isValidPackageName(this.packageName);
   }
