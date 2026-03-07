@@ -15,5 +15,6 @@ export async function getPackageManager(): Promise<PackageManager> {
     }
   }
 
+  console.warn("No lock file found, defaulting to npm.");
   return "npm";
 }

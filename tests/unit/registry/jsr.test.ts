@@ -426,6 +426,24 @@ describe("JsrClient", () => {
       expect(result).toEqual(pkgData);
     });
 
+    it("returns null on 404", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockFetchResponse(404);
+
+      const result = await client.package("@myscope/mypkg");
+
+      expect(result).toBeNull();
+    });
+
+    it("throws JsrError with API error on non-404 failure status", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockFetchResponse(500);
+
+      await expect(client.package("@myscope/mypkg")).rejects.toThrow(
+        /API error/,
+      );
+    });
+
     it("throws JsrError when fetch fails", async () => {
       mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
       mockedFetch.mockRejectedValue(new Error("network error"));

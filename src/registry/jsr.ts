@@ -217,10 +217,17 @@ export class JsrClient {
     try {
       const response = await this.fetch(`/scopes/${scope}/packages/${name}`);
 
-      if (!response.ok) return null;
+      if (response.status === 404) return null;
+
+      if (!response.ok) {
+        throw new JsrError(
+          `JSR API error (HTTP ${response.status}) for package '${packageName}'`,
+        );
+      }
 
       return await response.json();
     } catch (error) {
+      if (error instanceof JsrError) throw error;
       throw new JsrError(
         `Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages/${name}\``,
         {

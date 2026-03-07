@@ -26,32 +26,52 @@ export class Db {
         mkdirSync(this.path);
       }
     } catch {
-      mkdirSync(this.path);
+      try {
+        mkdirSync(this.path);
+      } catch (error) {
+        throw new Error(
+          `Failed to create token storage directory at '${this.path}': ${error instanceof Error ? error.message : error}`,
+        );
+      }
     }
   }
 
   set(field: string, value: unknown): void {
-    writeFileSync(
-      path.resolve(this.path, Buffer.from(e(field, field)).toString("base64")),
-      Buffer.from(e(`${value}`, field)),
-      { encoding: "binary" },
-    );
+    try {
+      writeFileSync(
+        path.resolve(
+          this.path,
+          Buffer.from(e(field, field)).toString("base64"),
+        ),
+        Buffer.from(e(`${value}`, field)),
+        { encoding: "binary" },
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to save token for '${field}': ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   get(field: string): string | null {
+    const filePath = path.resolve(
+      this.path,
+      Buffer.from(e(field, field)).toString("base64"),
+    );
+
+    let raw: Buffer;
     try {
-      return d(
-        Buffer.from(
-          readFileSync(
-            path.resolve(
-              this.path,
-              Buffer.from(e(field, field)).toString("base64"),
-            ),
-          ),
-        ).toString(),
-        field,
-      );
+      raw = readFileSync(filePath);
     } catch {
+      return null;
+    }
+
+    try {
+      return d(Buffer.from(raw).toString(), field);
+    } catch {
+      console.warn(
+        `Stored token for '${field}' appears corrupted. It will be re-requested.`,
+      );
       return null;
     }
   }
