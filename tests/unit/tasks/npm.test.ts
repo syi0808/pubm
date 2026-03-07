@@ -22,13 +22,19 @@ const mockedSpawn = vi.mocked(spawn);
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 
 function mockSpawnResult(code: number) {
-  const emitter = new EventEmitter();
+  const emitter = Object.assign(new EventEmitter(), {
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+  });
   mockedSpawn.mockReturnValue(emitter as any);
   process.nextTick(() => emitter.emit("close", code));
 }
 
 function mockSpawnError(error: Error) {
-  const emitter = new EventEmitter();
+  const emitter = Object.assign(new EventEmitter(), {
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+  });
   mockedSpawn.mockReturnValue(emitter as any);
   process.nextTick(() => emitter.emit("error", error));
 }
@@ -132,7 +138,7 @@ describe("npmAvailableCheckTasks", () => {
       )(ctx, task);
 
       expect(mockedSpawn).toHaveBeenCalledWith("npm", ["login"], {
-        stdio: "inherit",
+        stdio: ["inherit", "pipe", "pipe"],
       });
     });
 
