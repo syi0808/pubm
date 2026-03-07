@@ -38,7 +38,7 @@ export class Git {
         .split("\n")
         .sort(semver.compareIdentifiers);
     } catch (error) {
-      throw new GitError("Failed to run `git config --get user.name`", {
+      throw new GitError("Failed to run `git tag -l`", {
         cause: error,
       });
     }

@@ -229,10 +229,17 @@ export async function replaceVersion(version: string): Promise<string[]> {
 
       const packageJson = (await readFile(packageJsonPath)).toString();
 
-      await writeFile(
-        packageJsonPath,
-        packageJson.replace(versionRegex, `$1${version}$2`),
-      );
+      try {
+        await writeFile(
+          packageJsonPath,
+          packageJson.replace(versionRegex, `$1${version}$2`),
+        );
+      } catch (error) {
+        throw new AbstractError(
+          `Failed to write version to package.json: ${error instanceof Error ? error.message : error}`,
+          { cause: error },
+        );
+      }
 
       return "package.json";
     })(),
@@ -243,10 +250,17 @@ export async function replaceVersion(version: string): Promise<string[]> {
 
       const jsrJson = (await readFile(jsrJsonPath)).toString();
 
-      await writeFile(
-        jsrJsonPath,
-        jsrJson.replace(versionRegex, `$1${version}$2`),
-      );
+      try {
+        await writeFile(
+          jsrJsonPath,
+          jsrJson.replace(versionRegex, `$1${version}$2`),
+        );
+      } catch (error) {
+        throw new AbstractError(
+          `Failed to write version to jsr.json: ${error instanceof Error ? error.message : error}`,
+          { cause: error },
+        );
+      }
 
       return "jsr.json";
     })(),

@@ -79,16 +79,22 @@ export class NpmRegistry extends Registry {
 
   async collaborators(): Promise<Record<string, string>> {
     try {
-      return JSON.parse(
-        await this.npm([
-          "access",
-          "list",
-          "collaborators",
-          this.packageName,
-          "--json",
-        ]),
-      );
+      const output = await this.npm([
+        "access",
+        "list",
+        "collaborators",
+        this.packageName,
+        "--json",
+      ]);
+      try {
+        return JSON.parse(output);
+      } catch {
+        throw new NpmError(
+          `Unexpected response from npm registry for collaborators of '${this.packageName}'`,
+        );
+      }
     } catch (error) {
+      if (error instanceof NpmError) throw error;
       throw new NpmError(
         `Failed to run \`npm access list collaborators ${this.packageName} --json\``,
         { cause: error },
@@ -106,12 +112,21 @@ export class NpmRegistry extends Registry {
 
   async distTags(): Promise<string[]> {
     try {
-      return Object.keys(
-        JSON.parse(
-          await this.npm(["view", this.packageName, "dist-tags", "--json"]),
-        ),
-      );
+      const output = await this.npm([
+        "view",
+        this.packageName,
+        "dist-tags",
+        "--json",
+      ]);
+      try {
+        return Object.keys(JSON.parse(output));
+      } catch {
+        throw new NpmError(
+          `Unexpected response from npm registry for dist-tags of '${this.packageName}'`,
+        );
+      }
     } catch (error) {
+      if (error instanceof NpmError) throw error;
       throw new NpmError(
         `Failed to run \`npm view ${this.packageName} dist-tags --json\``,
         { cause: error },
@@ -151,12 +166,7 @@ export class NpmRegistry extends Registry {
         return false;
       }
 
-      throw new NpmError(
-        "Failed to run `npm publish --provenance --access public`",
-        {
-          cause: error,
-        },
-      );
+      throw this.classifyPublishError(error);
     }
   }
 
@@ -175,14 +185,36 @@ export class NpmRegistry extends Registry {
         return false;
       }
 
-      throw new NpmError(`Failed to run \`npm ${args.join(" ")}\``, {
-        cause: error,
-      });
+      throw this.classifyPublishError(error);
     }
   }
 
   async isPackageNameAvaliable(): Promise<boolean> {
     return isValidPackageName(this.packageName);
+  }
+
+  private classifyPublishError(error: unknown): NpmError {
+    if (error instanceof NonZeroExitError) {
+      const stderr = error.output?.stderr ?? "";
+
+      if (stderr.includes("EOTP")) {
+        return new NpmError("OTP required for publishing", { cause: error });
+      }
+      if (stderr.includes("403") || stderr.includes("Forbidden")) {
+        return new NpmError(
+          "Permission denied (403 Forbidden). Check your npm access token permissions.",
+          { cause: error },
+        );
+      }
+      if (stderr.includes("429") || stderr.includes("Too Many Requests")) {
+        return new NpmError(
+          "Rate limited by npm registry. Please wait and try again.",
+          { cause: error },
+        );
+      }
+    }
+
+    return new NpmError("Failed to publish to npm", { cause: error });
   }
 }
 

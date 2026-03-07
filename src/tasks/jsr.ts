@@ -50,21 +50,48 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
       task.output = "Retrieving jsr API token";
 
       if (ctx.promptEnabled) {
-        while (true) {
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           JsrClient.token = await task
             .prompt(ListrEnquirerPromptAdapter)
             .run<string>({
               type: "password",
-              message: `Please enter the jsr ${color.bold("API token")}`,
+              message: `Please enter the jsr ${color.bold("API token")}${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
               footer: `\nGenerate a token from ${color.bold(link("jsr.io", "https://jsr.io/account/tokens/create/"))}. ${color.red("You should select")} ${color.bold("'Interact with the JSR API'")}.`,
             });
 
           try {
             if (await jsr.client.user()) break;
 
-            task.output =
-              "The jsr API token is invalid. Please re-enter a valid token.";
-          } catch {}
+            if (attempt < maxAttempts) {
+              task.output =
+                "The jsr API token is invalid. Please re-enter a valid token.";
+            }
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              (error.message.includes("fetch") ||
+                error.message.includes("network") ||
+                error.message.includes("ENOTFOUND"))
+            ) {
+              throw new JsrAvailableError(
+                "JSR API is unreachable. Check your network connection.",
+                { cause: error },
+              );
+            }
+
+            if (attempt < maxAttempts) {
+              task.output =
+                "The jsr API token is invalid. Please re-enter a valid token.";
+            }
+          }
+
+          if (attempt === maxAttempts) {
+            throw new JsrAvailableError(
+              "JSR token verification failed after 3 attempts.",
+            );
+          }
         }
       } else {
         const jsrTokenEnv = process.env.JSR_TOKEN;

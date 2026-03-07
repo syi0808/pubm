@@ -324,7 +324,7 @@ describe("prerequisitesCheckTask", () => {
       expect(task.prompt).not.toHaveBeenCalled();
     });
 
-    it("prompts when dirty and sets ctx.cleanWorkingTree to true (always set at end) when user skips", async () => {
+    it("sets ctx.cleanWorkingTree to false when dirty and user skips", async () => {
       const subtasks = await getSubtasks();
       const workingTreeTask = subtasks[2];
       const ctx = createCtx();
@@ -334,10 +334,7 @@ describe("prerequisitesCheckTask", () => {
 
       await workingTreeTask.task(ctx, task);
 
-      // Note: The source code sets ctx.cleanWorkingTree = false inside the if block,
-      // but then unconditionally sets ctx.cleanWorkingTree = true after the if block.
-      // This means cleanWorkingTree is always true at the end.
-      expect(ctx.cleanWorkingTree).toBe(true);
+      expect(ctx.cleanWorkingTree).toBe(false);
       expect(task.prompt).toHaveBeenCalledOnce();
     });
 

@@ -81,9 +81,16 @@ export async function run(options: ResolvedOptions): Promise<void> {
               task: async (ctx): Promise<void> => {
                 const packageManager = await getPackageManager();
 
-                await exec(packageManager, ["run", ctx.testScript], {
-                  throwOnError: true,
-                });
+                try {
+                  await exec(packageManager, ["run", ctx.testScript], {
+                    throwOnError: true,
+                  });
+                } catch (error) {
+                  throw new AbstractError(
+                    `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
+                    { cause: error },
+                  );
+                }
               },
             },
             {
@@ -98,7 +105,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   });
                 } catch (error) {
                   throw new AbstractError(
-                    `Failed to run \`${packageManager} run ${ctx.buildScript}\``,
+                    `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
                     { cause: error },
                   );
                 }
@@ -114,16 +121,28 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                 addRollback(async () => {
                   if (tagCreated) {
-                    console.log("Deleting tag...");
-                    await git.deleteTag(`${await git.latestTag()}`);
+                    try {
+                      console.log("Deleting tag...");
+                      await git.deleteTag(`${await git.latestTag()}`);
+                    } catch (error) {
+                      console.error(
+                        `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
+                      );
+                    }
                   }
 
                   if (commited) {
-                    console.log("Reset commits...");
-                    await git.reset();
-                    await git.stash();
-                    await git.reset("HEAD^", "--hard");
-                    await git.popStash();
+                    try {
+                      console.log("Reset commits...");
+                      await git.reset();
+                      await git.stash();
+                      await git.reset("HEAD^", "--hard");
+                      await git.popStash();
+                    } catch (error) {
+                      console.error(
+                        `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
+                      );
+                    }
                   }
                 }, ctx);
 

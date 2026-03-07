@@ -213,6 +213,7 @@ defaultCmd.action(
       );
     } catch (e) {
       consoleError(e as Error);
+      process.exitCode = 1;
     }
   },
 );

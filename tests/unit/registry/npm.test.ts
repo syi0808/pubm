@@ -229,6 +229,14 @@ describe("NpmRegistry", () => {
         "Failed to run `npm access list collaborators my-package --json`",
       );
     });
+
+    it("throws NpmError with unexpected response message on invalid JSON", async () => {
+      mockStdout("not valid json");
+
+      await expect(registry.collaborators()).rejects.toThrow(
+        /unexpected response/i,
+      );
+    });
   });
 
   describe("hasPermission()", () => {
@@ -293,6 +301,12 @@ describe("NpmRegistry", () => {
       await expect(registry.distTags()).rejects.toThrow(
         "Failed to run `npm view my-package dist-tags --json`",
       );
+    });
+
+    it("throws NpmError with unexpected response message on invalid JSON", async () => {
+      mockStdout("not valid json");
+
+      await expect(registry.distTags()).rejects.toThrow(/unexpected response/i);
     });
   });
 
@@ -360,8 +374,20 @@ describe("NpmRegistry", () => {
       mockNonZeroExitError("ENEEDAUTH");
 
       await expect(registry.publishProvenance()).rejects.toThrow(
-        "Failed to run `npm publish --provenance --access public`",
+        "Failed to publish to npm",
       );
+    });
+
+    it("throws NpmError with forbidden message for 403 errors", async () => {
+      mockNonZeroExitError("403 Forbidden");
+
+      await expect(registry.publishProvenance()).rejects.toThrow(/forbidden/i);
+    });
+
+    it("throws NpmError with rate limit message for 429 errors", async () => {
+      mockNonZeroExitError("429 Too Many Requests");
+
+      await expect(registry.publishProvenance()).rejects.toThrow(/rate/i);
     });
 
     it("returns true when publish succeeds without EOTP", async () => {
@@ -418,8 +444,20 @@ describe("NpmRegistry", () => {
       mockNonZeroExitError("ENEEDAUTH");
 
       await expect(registry.publish()).rejects.toThrow(
-        "Failed to run `npm publish`",
+        "Failed to publish to npm",
       );
+    });
+
+    it("throws NpmError with forbidden message for 403 errors", async () => {
+      mockNonZeroExitError("403 Forbidden");
+
+      await expect(registry.publish()).rejects.toThrow(/forbidden/i);
+    });
+
+    it("throws NpmError with rate limit message for 429 errors", async () => {
+      mockNonZeroExitError("429 Too Many Requests");
+
+      await expect(registry.publish()).rejects.toThrow(/rate/i);
     });
   });
 

@@ -61,6 +61,18 @@ describe("getPackageManager", () => {
     expect(result).toBe("npm");
   });
 
+  it("warns when no lock file is found", async () => {
+    mockFindOutFile.mockResolvedValue(null);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await getPackageManager();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("No lock file found"),
+    );
+    warnSpy.mockRestore();
+  });
+
   it("checks npm lock files before pnpm and yarn due to object iteration order", async () => {
     // When both npm and pnpm lock files exist, npm should win
     // because it comes first in the lockFile record
