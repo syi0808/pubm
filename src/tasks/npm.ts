@@ -1,7 +1,7 @@
+import { spawn } from "node:child_process";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
-import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
@@ -20,15 +20,24 @@ class NpmAvailableError extends AbstractError {
 export const npmAvailableCheckTasks: ListrTask<Ctx> = {
   title: "Checking npm avaliable for publising",
   skip: (ctx) => !!ctx.preview,
-  task: async (ctx): Promise<void> => {
+  task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
     if (!(await npm.isLoggedIn())) {
       if (ctx.promptEnabled) {
         try {
-          await exec("npm", ["login"], {
-            throwOnError: true,
-            nodeOptions: { stdio: "inherit" },
+          task.output = "Launching npm login...";
+
+          await new Promise<void>((resolve, reject) => {
+            const child = spawn("npm", ["login"], { stdio: "inherit" });
+            child.on("close", (code) =>
+              code === 0
+                ? resolve()
+                : reject(
+                    new Error(`npm login exited with code ${code}`),
+                  ),
+            );
+            child.on("error", reject);
           });
         } catch (error) {
           throw new NpmAvailableError(

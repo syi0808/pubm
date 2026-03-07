@@ -4,11 +4,12 @@ vi.mock("../../../src/registry/npm.js", () => ({
   npmRegistry: vi.fn(),
 }));
 
-vi.mock("tinyexec", () => ({
-  exec: vi.fn(),
+vi.mock("node:child_process", () => ({
+  spawn: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
+import { EventEmitter } from "node:events";
+import { spawn } from "node:child_process";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
@@ -16,9 +17,21 @@ import {
 } from "../../../src/tasks/npm.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
 
-const mockedExec = vi.mocked(exec);
+const mockedSpawn = vi.mocked(spawn);
 
 const mockedNpmRegistry = vi.mocked(npmRegistry);
+
+function mockSpawnResult(code: number) {
+  const emitter = new EventEmitter();
+  mockedSpawn.mockReturnValue(emitter as any);
+  process.nextTick(() => emitter.emit("close", code));
+}
+
+function mockSpawnError(error: Error) {
+  const emitter = new EventEmitter();
+  mockedSpawn.mockReturnValue(emitter as any);
+  process.nextTick(() => emitter.emit("error", error));
+}
 
 function createMockNpm() {
   return {
@@ -110,24 +123,29 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isLoggedIn
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
-      mockedExec.mockResolvedValue({} as any);
+      mockSpawnResult(0);
       const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
 
-      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx);
+      await (
+        npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+      )(ctx, task);
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["login"], {
-        throwOnError: true,
-        nodeOptions: { stdio: "inherit" },
+      expect(mockedSpawn).toHaveBeenCalledWith("npm", ["login"], {
+        stdio: "inherit",
       });
     });
 
     it("throws when npm login command fails in TTY mode", async () => {
       mockNpm.isLoggedIn.mockResolvedValue(false);
-      mockedExec.mockRejectedValue(new Error("login process failed"));
+      mockSpawnResult(1);
       const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+        (
+          npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow(
         "npm login failed. Please run `npm login` manually and try again.",
       );
@@ -137,11 +155,14 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isLoggedIn
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false);
-      mockedExec.mockResolvedValue({} as any);
+      mockSpawnResult(0);
       const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+        (
+          npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow(
         "Still not logged in after npm login. Please verify your credentials.",
       );
