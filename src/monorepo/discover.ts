@@ -86,10 +86,11 @@ export function discoverPackages(
 
   // Merge config packages (config overrides auto-detected)
   for (const configPkg of configPackages) {
-    const existing = discovered.get(configPkg.path);
+    const normalizedPath = configPkg.path.replace(/\\/g, "/");
+    const existing = discovered.get(normalizedPath);
 
     if (existing) {
-      discovered.set(configPkg.path, {
+      discovered.set(normalizedPath, {
         ...existing,
         registries: configPkg.registries ?? existing.registries,
         ecosystem: configPkg.ecosystem ?? existing.ecosystem,
@@ -99,8 +100,8 @@ export function discoverPackages(
       const ecosystem = configPkg.ecosystem ?? detectEcosystem(absPath);
 
       if (ecosystem) {
-        discovered.set(configPkg.path, {
-          path: configPkg.path,
+        discovered.set(normalizedPath, {
+          path: normalizedPath,
           registries: configPkg.registries ?? defaultRegistries[ecosystem],
           ecosystem,
         });

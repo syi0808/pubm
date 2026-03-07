@@ -1,6 +1,6 @@
 type Rollback<Ctx extends {}> = (ctx: Ctx) => Promise<unknown>;
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// biome-ignore lint/suspicious/noExplicitAny: generic rollback storage requires any
 const rollbacks: { fn: Rollback<any>; ctx: unknown }[] = [];
 
 export function addRollback<Ctx extends {}>(

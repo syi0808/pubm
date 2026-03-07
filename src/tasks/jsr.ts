@@ -118,7 +118,7 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 
       const scopes = await jsr.client.scopes();
 
-      // biome-ignore lint/suspicious/noConfusingLabels: <explanation>
+      // biome-ignore lint/suspicious/noConfusingLabels: label used for break control flow
       checkScopeTask: if (!jsrName) {
         task.output = "Select an existing published package to publish.";
 

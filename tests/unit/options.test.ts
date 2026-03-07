@@ -92,7 +92,10 @@ describe("resolveOptions", () => {
   it("should pass through packages from config", () => {
     const packages = [
       { path: ".", registries: ["npm", "jsr"] as RegistryType[] },
-      { path: "rust/crates/my-crate", registries: ["crates"] as RegistryType[] },
+      {
+        path: "rust/crates/my-crate",
+        registries: ["crates"] as RegistryType[],
+      },
     ];
 
     const result = resolveOptions({

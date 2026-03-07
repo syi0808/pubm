@@ -204,8 +204,6 @@ describe("run", () => {
         configurable: true,
       });
     });
-
-
   });
 
   describe("contents option", () => {
@@ -644,7 +642,6 @@ describe("run", () => {
       );
 
       // Should include npm, jsr (from package 1) AND crates (from package 2)
-      // biome-ignore lint/suspicious/noExplicitAny: mock type
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
     });
@@ -666,12 +663,8 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
 
-      await taskDef.task(
-        { ...options, promptEnabled: true },
-        mockParentTask,
-      );
+      await taskDef.task({ ...options, promptEnabled: true }, mockParentTask);
 
-      // biome-ignore lint/suspicious/noExplicitAny: mock type
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
     });
@@ -700,7 +693,6 @@ describe("run", () => {
         mockParentTask,
       );
 
-      // biome-ignore lint/suspicious/noExplicitAny: mock type
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(2); // npm, jsr (npm not duplicated)
     });
@@ -726,7 +718,6 @@ describe("run", () => {
         mockParentTask,
       );
 
-      // biome-ignore lint/suspicious/noExplicitAny: mock type
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(1); // only npm
     });
