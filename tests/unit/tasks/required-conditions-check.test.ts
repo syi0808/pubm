@@ -43,7 +43,7 @@ import type { Ctx } from "../../../src/tasks/runner.js";
 function createCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
     promptEnabled: true,
-cleanWorkingTree: true,
+    cleanWorkingTree: true,
     registries: ["npm"],
     version: "1.0.0",
     tag: "latest",

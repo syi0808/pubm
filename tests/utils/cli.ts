@@ -111,7 +111,6 @@ export class CliController {
   }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: type guard accepts unknown input
 function isWritable(stream: any): stream is Writable {
   return stream && typeof stream?.write === "function";
 }
@@ -136,11 +135,8 @@ export async function runPubmCli(
 
   const subprocess = exec(command, args, options as Options).process;
   const controller = new CliController({
-    // biome-ignore lint/style/noNonNullAssertion: subprocess streams guaranteed by stdio option
     stdin: subprocess!.stdin!,
-    // biome-ignore lint/style/noNonNullAssertion: subprocess streams guaranteed by stdio option
     stdout: subprocess!.stdout!,
-    // biome-ignore lint/style/noNonNullAssertion: subprocess streams guaranteed by stdio option
     stderr: subprocess!.stderr!,
   });
 

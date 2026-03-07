@@ -25,7 +25,10 @@ vi.mock("../../src/config/defaults.js", () => ({
     releaseNotes: true,
     rollbackStrategy: "individual",
     validate: { cleanInstall: true, entryPoints: true, extraneousFiles: true },
-    snapshot: { useCalculatedVersion: false, prereleaseTemplate: "{tag}-{timestamp}" },
+    snapshot: {
+      useCalculatedVersion: false,
+      prereleaseTemplate: "{tag}-{timestamp}",
+    },
   })),
 }));
 vi.mock("../../src/options.js", () => ({

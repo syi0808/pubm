@@ -57,9 +57,7 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
             child.on("close", (code) =>
               code === 0
                 ? resolve()
-                : reject(
-                    new Error(`npm login exited with code ${code}`),
-                  ),
+                : reject(new Error(`npm login exited with code ${code}`)),
             );
             child.on("error", reject);
           });

@@ -12,8 +12,8 @@ vi.mock("@npmcli/promise-spawn", () => ({
   default: { open: vi.fn() },
 }));
 
-import { EventEmitter } from "node:events";
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
@@ -194,9 +194,10 @@ describe("npmAvailableCheckTasks", () => {
       const task = createMockTask();
 
       await expect(
-        (
-          npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
-        )(ctx, task),
+        (npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
       ).rejects.toThrow(
         "npm login failed. Please run `npm login` manually and try again.",
       );
@@ -211,9 +212,10 @@ describe("npmAvailableCheckTasks", () => {
       const task = createMockTask();
 
       await expect(
-        (
-          npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
-        )(ctx, task),
+        (npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
       ).rejects.toThrow(
         "Still not logged in after npm login. Please verify your credentials.",
       );
