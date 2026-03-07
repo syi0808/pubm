@@ -44,6 +44,20 @@ export class RustEcosystem extends Ecosystem {
     await writeFile(filePath, stringify(cargo));
   }
 
+  async dependencies(): Promise<string[]> {
+    const cargo = await this.readCargoToml();
+    const deps: string[] = [];
+
+    for (const section of ["dependencies", "build-dependencies"]) {
+      const sectionData = cargo[section] as Record<string, unknown> | undefined;
+      if (sectionData) {
+        deps.push(...Object.keys(sectionData));
+      }
+    }
+
+    return deps;
+  }
+
   manifestFiles(): string[] {
     return ["Cargo.toml"];
   }
