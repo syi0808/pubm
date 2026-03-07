@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultOptions, resolveOptions } from "../../src/options.js";
+import type { Options } from "../../src/types/options.js";
 
 describe("defaultOptions", () => {
   it("should have the expected default values", () => {
@@ -35,11 +36,7 @@ describe("resolveOptions", () => {
     expect(result.version).toBe("2.5.0");
   });
 
-  // BUG: resolveOptions uses { ...options, ...defaultOptions }, which means
-  // defaultOptions always overwrites any matching keys from the user-provided
-  // options. The spread order should be { ...defaultOptions, ...options } for
-  // user options to take precedence.
-  it("should allow user options to override defaults (BUG: defaults overwrite user options)", () => {
+  it("should allow user options to override defaults", () => {
     const result = resolveOptions({
       version: "1.0.0",
       testScript: "my-test",
@@ -49,13 +46,22 @@ describe("resolveOptions", () => {
       registries: ["npm"],
     });
 
-    // These assertions document the current buggy behavior:
-    // user-supplied values are overwritten by defaults.
-    expect(result.testScript).toBe("test"); // BUG: expected 'my-test'
-    expect(result.buildScript).toBe("build"); // BUG: expected 'my-build'
-    expect(result.branch).toBe("main"); // BUG: expected 'develop'
-    expect(result.tag).toBe("latest"); // BUG: expected 'beta'
-    expect(result.registries).toStrictEqual(["npm", "jsr"]); // BUG: expected ['npm']
+    expect(result.testScript).toBe("my-test");
+    expect(result.buildScript).toBe("my-build");
+    expect(result.branch).toBe("develop");
+    expect(result.tag).toBe("beta");
+    expect(result.registries).toStrictEqual(["npm"]);
+  });
+
+  it("should ignore undefined user options and use defaults instead", () => {
+    const result = resolveOptions({
+      version: "1.0.0",
+      testScript: undefined,
+      registries: undefined,
+    } as Options);
+
+    expect(result.testScript).toBe("test");
+    expect(result.registries).toStrictEqual(["npm", "jsr"]);
   });
 
   it("should preserve user options that are not in defaultOptions", () => {
