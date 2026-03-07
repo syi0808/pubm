@@ -9,6 +9,7 @@ import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
+import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { createListr } from "../utils/listr.js";
 import {
   getJsrJson,
@@ -45,15 +46,36 @@ function registryTask(registry: string) {
   }
 }
 
-function collectPublishTasks(ctx: Ctx) {
+async function collectPublishTasks(ctx: Ctx) {
   if (ctx.packages?.length) {
-    return ctx.packages.flatMap((pkg: PackageConfig) =>
-      pkg.registries.map((reg) =>
-        reg === "crates"
-          ? createCratesPublishTask(pkg.path)
-          : registryTask(reg),
-      ),
+    const nonCratesTasks = ctx.packages.flatMap((pkg: PackageConfig) =>
+      pkg.registries
+        .filter((reg) => reg !== "crates")
+        .map((reg) => registryTask(reg)),
     );
+
+    const cratesPaths = ctx.packages
+      .filter((pkg) => pkg.registries.includes("crates"))
+      .map((pkg) => pkg.path);
+
+    if (cratesPaths.length === 0) {
+      return nonCratesTasks;
+    }
+
+    const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
+    const sequentialCratesTask = {
+      title: "Publishing to crates.io (sequential)",
+      task: (
+        _ctx: Ctx,
+        task: { newListr: (typeof Listr.prototype)["newListr"] },
+      ) =>
+        task.newListr(
+          sortedPaths.map((p) => createCratesPublishTask(p)),
+          { concurrent: false },
+        ),
+    };
+
+    return [...nonCratesTasks, sequentialCratesTask];
   }
   return collectRegistries(ctx).map(registryTask);
 }
@@ -81,8 +103,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
       options.publishOnly
         ? {
             title: "Publishing",
-            task: (ctx, parentTask): Listr<Ctx> =>
-              parentTask.newListr(collectPublishTasks(ctx), {
+            task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
+              parentTask.newListr(await collectPublishTasks(ctx), {
                 concurrent: true,
               }),
           }
@@ -182,8 +204,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
             {
               skip: (ctx) => options.skipPublish || !!ctx.preview,
               title: "Publishing",
-              task: (ctx, parentTask): Listr<Ctx> =>
-                parentTask.newListr(collectPublishTasks(ctx), {
+              task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
+                parentTask.newListr(await collectPublishTasks(ctx), {
                   concurrent: true,
                 }),
             },

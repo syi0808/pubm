@@ -60,6 +60,9 @@ vi.mock("../../../src/tasks/crates.js", () => ({
 vi.mock("@npmcli/promise-spawn", () => ({
   default: { open: vi.fn() },
 }));
+vi.mock("../../../src/utils/crate-graph.js", () => ({
+  sortCratesByDependencyOrder: vi.fn(),
+}));
 
 vi.mock("../../../src/utils/registries.js", async (importOriginal) => {
   const original =
@@ -86,6 +89,7 @@ import {
   replaceVersion,
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
+import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
@@ -103,6 +107,7 @@ const mockedReplaceVersion = vi.mocked(replaceVersion);
 const mockedAddRollback = vi.mocked(addRollback);
 const mockedLink = vi.mocked(link);
 const mockedGit = vi.mocked(Git);
+const mockedSortCrates = vi.mocked(sortCratesByDependencyOrder);
 
 function createOptions(
   overrides: Partial<ResolvedOptions> = {},
@@ -191,6 +196,8 @@ beforeEach(() => {
   mockedRequiredConditionsCheckTask.mockReturnValue({
     run: vi.fn().mockResolvedValue(undefined),
   } as any);
+
+  mockedSortCrates.mockImplementation(async (paths) => paths);
 
   setupCreateListrMock();
 });
@@ -747,11 +754,12 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      // npm (from pkg 1) + crates lib-a + crates lib-b = 3 tasks
-      expect(allSubtasks).toHaveLength(3);
+      // npm (from pkg 1) + sequential crates wrapper = 2 tasks
+      expect(allSubtasks).toHaveLength(2);
       expect(allSubtasks[0].title).toBe("npm publish");
-      expect(allSubtasks[1].title).toBe("crates publish (rust/crates/lib-a)");
-      expect(allSubtasks[2].title).toBe("crates publish (rust/crates/lib-b)");
+      expect(allSubtasks[1].title).toBe(
+        "Publishing to crates.io (sequential)",
+      );
     });
 
     it("creates per-package crate publish tasks in publishOnly mode", async () => {
@@ -777,8 +785,96 @@ describe("run", () => {
       expect(allSubtasks).toHaveLength(2);
       expect(allSubtasks[0].title).toBe("npm publish");
       expect(allSubtasks[1].title).toBe(
-        "crates publish (rust/crates/my-crate)",
+        "Publishing to crates.io (sequential)",
       );
+    });
+
+    it("calls sortCratesByDependencyOrder for crate packages", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+      mockedSortCrates.mockResolvedValue([
+        "rust/crates/update-kit",
+        "rust/crates/update-kit-cli",
+      ]);
+
+      const options = createOptions({
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/update-kit", registries: ["crates"] },
+          { path: "rust/crates/update-kit-cli", registries: ["crates"] },
+        ],
+      });
+      await run(options);
+
+      expect(mockedSortCrates).toHaveBeenCalledWith([
+        "rust/crates/update-kit",
+        "rust/crates/update-kit-cli",
+      ]);
+    });
+
+    it("does not call sortCratesByDependencyOrder when no crates packages", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+
+      const options = createOptions({
+        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      });
+      await run(options);
+
+      expect(mockedSortCrates).not.toHaveBeenCalled();
+    });
+
+    it("wraps crates in a sequential task with concurrent: false", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+      mockedSortCrates.mockResolvedValue([
+        "rust/crates/lib-a",
+        "rust/crates/lib-b",
+      ]);
+
+      const options = createOptions({
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/lib-a", registries: ["crates"] },
+          { path: "rust/crates/lib-b", registries: ["crates"] },
+        ],
+      });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const publishTask = tasks[3];
+
+      const mockParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await publishTask.task(
+        { ...options, promptEnabled: true },
+        mockParentTask,
+      );
+
+      // Should have 2 subtasks: npm (concurrent) + sequential crates wrapper
+      const subtasks = (mockParentTask.newListr as any).mock.calls[0][0];
+      expect(subtasks).toHaveLength(2);
+      expect(subtasks[0].title).toBe("npm publish");
+      expect(subtasks[1].title).toBe("Publishing to crates.io (sequential)");
+
+      // Call the sequential crates wrapper task to verify it creates subtasks with concurrent: false
+      const innerParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+      subtasks[1].task({}, innerParentTask);
+
+      const innerSubtasks = (innerParentTask.newListr as any).mock
+        .calls[0][0];
+      const innerOptions = (innerParentTask.newListr as any).mock
+        .calls[0][1];
+      expect(innerSubtasks).toHaveLength(2);
+      expect(innerSubtasks[0].title).toBe(
+        "crates publish (rust/crates/lib-a)",
+      );
+      expect(innerSubtasks[1].title).toBe(
+        "crates publish (rust/crates/lib-b)",
+      );
+      expect(innerOptions.concurrent).toBe(false);
     });
 
     it("falls back to ctx.registries when no packages config is present", async () => {
