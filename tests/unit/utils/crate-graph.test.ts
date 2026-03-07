@@ -86,12 +86,8 @@ describe("sortCratesByDependencyOrder", () => {
   });
 
   it("throws on circular dependency", async () => {
-    mockPackageName
-      .mockResolvedValueOnce("a")
-      .mockResolvedValueOnce("b");
-    mockDependencies
-      .mockResolvedValueOnce(["b"])
-      .mockResolvedValueOnce(["a"]);
+    mockPackageName.mockResolvedValueOnce("a").mockResolvedValueOnce("b");
+    mockDependencies.mockResolvedValueOnce(["b"]).mockResolvedValueOnce(["a"]);
 
     await expect(
       sortCratesByDependencyOrder(["crates/a", "crates/b"]),

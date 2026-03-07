@@ -82,6 +82,7 @@ import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditi
 import { run } from "../../../src/tasks/runner.js";
 import type { ResolvedOptions } from "../../../src/types/options.js";
 import { link } from "../../../src/utils/cli.js";
+import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { createListr } from "../../../src/utils/listr.js";
 import {
   getJsrJson,
@@ -89,7 +90,6 @@ import {
   replaceVersion,
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
-import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
@@ -757,9 +757,7 @@ describe("run", () => {
       // npm (from pkg 1) + sequential crates wrapper = 2 tasks
       expect(allSubtasks).toHaveLength(2);
       expect(allSubtasks[0].title).toBe("npm publish");
-      expect(allSubtasks[1].title).toBe(
-        "Publishing to crates.io (sequential)",
-      );
+      expect(allSubtasks[1].title).toBe("Publishing to crates.io (sequential)");
     });
 
     it("creates per-package crate publish tasks in publishOnly mode", async () => {
@@ -784,9 +782,7 @@ describe("run", () => {
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(2);
       expect(allSubtasks[0].title).toBe("npm publish");
-      expect(allSubtasks[1].title).toBe(
-        "Publishing to crates.io (sequential)",
-      );
+      expect(allSubtasks[1].title).toBe("Publishing to crates.io (sequential)");
     });
 
     it("calls sortCratesByDependencyOrder for crate packages", async () => {
@@ -863,17 +859,11 @@ describe("run", () => {
       };
       subtasks[1].task({}, innerParentTask);
 
-      const innerSubtasks = (innerParentTask.newListr as any).mock
-        .calls[0][0];
-      const innerOptions = (innerParentTask.newListr as any).mock
-        .calls[0][1];
+      const innerSubtasks = (innerParentTask.newListr as any).mock.calls[0][0];
+      const innerOptions = (innerParentTask.newListr as any).mock.calls[0][1];
       expect(innerSubtasks).toHaveLength(2);
-      expect(innerSubtasks[0].title).toBe(
-        "crates publish (rust/crates/lib-a)",
-      );
-      expect(innerSubtasks[1].title).toBe(
-        "crates publish (rust/crates/lib-b)",
-      );
+      expect(innerSubtasks[0].title).toBe("crates publish (rust/crates/lib-a)");
+      expect(innerSubtasks[1].title).toBe("crates publish (rust/crates/lib-b)");
       expect(innerOptions.concurrent).toBe(false);
     });
 
