@@ -74,10 +74,9 @@ jobs:
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm --preview` locally to validate that publishing will succeed (runs tests, build, and dry-run publish checks without actually bumping or publishing). This catches 2FA issues, packaging errors, and credential problems before they fail in CI.
-3. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
-4. The pushed `v*` tag triggers this workflow.
-5. `pubm --publish-only` reads the tag and publishes.
+2. Run `pubm --no-publish` locally — it runs tests, build, dry-run publish validation, then bumps version, creates a git commit and tag, and pushes tags. The dry-run step catches 2FA issues, packaging errors, and credential problems before they fail in CI.
+3. The pushed `v*` tag triggers this workflow.
+4. `pubm --publish-only` reads the tag and publishes.
 
 ## Template: GitHub Actions -- Manual Trigger (workflow_dispatch)
 

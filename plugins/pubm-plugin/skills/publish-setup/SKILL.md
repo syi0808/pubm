@@ -107,13 +107,11 @@ Add to `package.json`. The `release` script depends on whether CI was set up in 
 {
   "scripts": {
     "release": "pubm --no-publish",
-    "release:preview": "pubm --preview",
     "ci:release": "pubm --publish-only"
   }
 }
 ```
-- `--no-publish` makes the local `release` command only bump the version, create a git commit and tag, and push — CI handles the actual publishing.
-- `--preview` runs the full pipeline (tests, build, dry-run publish validation) without actually bumping or publishing. Use this to verify that publishing will succeed in CI before pushing a release tag. It catches issues like npm 2FA misconfiguration, packaging errors, and missing credentials.
+`--no-publish` makes the local `release` command bump the version, create a git commit and tag, push — and run a dry-run publish validation before bumping. This catches issues like npm 2FA misconfiguration, packaging errors, and missing credentials before they fail in CI.
 
 **If CI was NOT configured** (publishing is done locally):
 ```json

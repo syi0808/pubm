@@ -143,10 +143,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 }
               },
             },
-            {
-              ...dryRunPublishTask,
-              skip: () => !!options.skipPublish,
-            },
+            dryRunPublishTask,
             {
               title: "Bumping version",
               skip: (ctx) => !!ctx.preview,
