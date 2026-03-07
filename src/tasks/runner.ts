@@ -6,7 +6,7 @@ import { isCI } from "std-env";
 import { exec } from "tinyexec";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
-import type { ResolvedOptions, RegistryType } from "../types/options.js";
+import type { RegistryType, ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { createListr } from "../utils/listr.js";
 import {

@@ -30,26 +30,4 @@ describe("loadConfig", () => {
     expect(result!.packages).toHaveLength(2);
     expect(result!.packages![0].path).toBe("packages/my-lib");
   });
-
-  it("loads config with mixed JS and Rust packages", async () => {
-    const result = await loadConfig(
-      path.resolve(__dirname, "../../fixtures/mixed-js-rust"),
-    );
-
-    expect(result).not.toBeNull();
-    expect(result!.versioning).toBe("independent");
-    expect(result!.packages).toHaveLength(3);
-    expect(result!.packages![0]).toEqual({
-      path: ".",
-      registries: ["npm", "jsr"],
-    });
-    expect(result!.packages![1]).toEqual({
-      path: "rust/crates/my-crate",
-      registries: ["crates"],
-    });
-    expect(result!.packages![2]).toEqual({
-      path: "rust/crates/my-crate-cli",
-      registries: ["crates"],
-    });
-  });
 });

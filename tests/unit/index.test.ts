@@ -44,14 +44,12 @@ vi.mock("../../src/tasks/runner.js", () => ({
 }));
 
 import { loadConfig } from "../../src/config/loader.js";
-import { resolveConfig } from "../../src/config/defaults.js";
 import { pubm } from "../../src/index.js";
 import { resolveOptions } from "../../src/options.js";
 import { run } from "../../src/tasks/runner.js";
 import type { Options } from "../../src/types/options.js";
 
 const mockedLoadConfig = vi.mocked(loadConfig);
-const mockedResolveConfig = vi.mocked(resolveConfig);
 const mockedResolveOptions = vi.mocked(resolveOptions);
 const mockedRun = vi.mocked(run);
 

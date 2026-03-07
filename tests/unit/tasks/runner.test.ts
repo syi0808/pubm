@@ -644,7 +644,8 @@ describe("run", () => {
       );
 
       // Should include npm, jsr (from package 1) AND crates (from package 2)
-      const allSubtasks = mockParentTask.newListr.mock.calls[0][0];
+      // biome-ignore lint/suspicious/noExplicitAny: mock type
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
     });
 
@@ -670,7 +671,8 @@ describe("run", () => {
         mockParentTask,
       );
 
-      const allSubtasks = mockParentTask.newListr.mock.calls[0][0];
+      // biome-ignore lint/suspicious/noExplicitAny: mock type
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
     });
 
@@ -698,7 +700,8 @@ describe("run", () => {
         mockParentTask,
       );
 
-      const allSubtasks = mockParentTask.newListr.mock.calls[0][0];
+      // biome-ignore lint/suspicious/noExplicitAny: mock type
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(2); // npm, jsr (npm not duplicated)
     });
 
@@ -723,7 +726,8 @@ describe("run", () => {
         mockParentTask,
       );
 
-      const allSubtasks = mockParentTask.newListr.mock.calls[0][0];
+      // biome-ignore lint/suspicious/noExplicitAny: mock type
+      const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(1); // only npm
     });
   });
