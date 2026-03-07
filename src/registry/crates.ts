@@ -1,5 +1,5 @@
 import path from "node:path";
-import { exec } from "tinyexec";
+import { NonZeroExitError, exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
@@ -80,9 +80,14 @@ export class CratesRegistry extends Registry {
       await exec("cargo", args, { throwOnError: true });
       return true;
     } catch (error) {
-      throw new CratesError("Failed to run `cargo publish`", {
-        cause: error,
-      });
+      const stderr =
+        error instanceof NonZeroExitError
+          ? error.output?.stderr
+          : undefined;
+      const message = stderr
+        ? `Failed to run \`cargo publish\`:\n${stderr}`
+        : "Failed to run `cargo publish`";
+      throw new CratesError(message, { cause: error });
     }
   }
 

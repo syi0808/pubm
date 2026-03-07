@@ -1,9 +1,13 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", () => ({
-  exec: vi.fn(),
-}));
+vi.mock("tinyexec", async (importOriginal) => {
+  const original = await importOriginal<typeof import("tinyexec")>();
+  return {
+    ...original,
+    exec: vi.fn(),
+  };
+});
 
 import { exec } from "tinyexec";
 import { CratesRegistry } from "../../../src/registry/crates.js";
@@ -143,6 +147,22 @@ describe("CratesRegistry", () => {
       const callArgs = mockedExec.mock.calls[0];
       expect(callArgs[1]).toContain("--manifest-path");
       expect(callArgs[1]).toContain(path.join("some/nested/dir", "Cargo.toml"));
+    });
+
+    it("includes cargo stderr in error message when available", async () => {
+      const { NonZeroExitError } = await import("tinyexec");
+      const error = new NonZeroExitError(
+        { exitCode: 101 } as any,
+        {
+          stdout: "",
+          stderr: "error: crate `update-kit` does not exist on crates.io",
+        },
+      );
+      mockedExec.mockRejectedValue(error);
+
+      await expect(registry.publish()).rejects.toThrow(
+        /crate `update-kit` does not exist/,
+      );
     });
 
     it("throws on publish failure with manifest path", async () => {
