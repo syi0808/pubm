@@ -1,5 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/config/loader.js", () => ({
+  loadConfig: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("../../src/config/defaults.js", () => ({
+  resolveConfig: vi.fn((config: any) => ({
+    ...config,
+    packages: config.packages ?? [{ path: ".", registries: ["npm", "jsr"] }],
+    registries: config.registries ?? ["npm", "jsr"],
+    versioning: config.versioning ?? "independent",
+    branch: config.branch ?? "main",
+    changelog: true,
+    changelogFormat: "default",
+    commit: false,
+    access: "public",
+    fixed: [],
+    linked: [],
+    updateInternalDependencies: "patch",
+    ignore: [],
+    tag: config.tag ?? "latest",
+    contents: config.contents ?? ".",
+    saveToken: true,
+    releaseDraft: true,
+    releaseNotes: true,
+    rollbackStrategy: "individual",
+    validate: { cleanInstall: true, entryPoints: true, extraneousFiles: true },
+    snapshot: { useCalculatedVersion: false, prereleaseTemplate: "{tag}-{timestamp}" },
+  })),
+}));
 vi.mock("../../src/options.js", () => ({
   resolveOptions: vi.fn((options: any) => ({
     ...options,
@@ -15,11 +43,15 @@ vi.mock("../../src/tasks/runner.js", () => ({
   run: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { loadConfig } from "../../src/config/loader.js";
+import { resolveConfig } from "../../src/config/defaults.js";
 import { pubm } from "../../src/index.js";
 import { resolveOptions } from "../../src/options.js";
 import { run } from "../../src/tasks/runner.js";
 import type { Options } from "../../src/types/options.js";
 
+const mockedLoadConfig = vi.mocked(loadConfig);
+const mockedResolveConfig = vi.mocked(resolveConfig);
 const mockedResolveOptions = vi.mocked(resolveOptions);
 const mockedRun = vi.mocked(run);
 
@@ -120,5 +152,43 @@ describe("pubm", () => {
     const result = await pubm({ version: "1.0.0" });
 
     expect(result).toBeUndefined();
+  });
+
+  it("loads config file and merges packages into resolved options", async () => {
+    const configPackages = [
+      { path: ".", registries: ["npm", "jsr"] },
+      { path: "rust/crates/my-crate", registries: ["crates"] },
+    ];
+
+    mockedLoadConfig.mockResolvedValueOnce({
+      versioning: "independent",
+      packages: configPackages,
+    });
+
+    await pubm({ version: "1.0.0" });
+
+    expect(mockedLoadConfig).toHaveBeenCalledOnce();
+    const passedOptions = mockedResolveOptions.mock.calls[0][0];
+    expect(passedOptions.packages).toStrictEqual(configPackages);
+  });
+
+  it("works without a config file (loadConfig returns null)", async () => {
+    mockedLoadConfig.mockResolvedValueOnce(null);
+
+    await pubm({ version: "1.0.0" });
+
+    expect(mockedLoadConfig).toHaveBeenCalledOnce();
+    expect(mockedRun).toHaveBeenCalledOnce();
+  });
+
+  it("merges config registries when no CLI registries are specified", async () => {
+    mockedLoadConfig.mockResolvedValueOnce({
+      registries: ["npm", "jsr", "crates"],
+    });
+
+    await pubm({ version: "1.0.0" });
+
+    const passedOptions = mockedResolveOptions.mock.calls[0][0];
+    expect(passedOptions.registries).toStrictEqual(["npm", "jsr", "crates"]);
   });
 });

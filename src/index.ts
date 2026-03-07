@@ -1,3 +1,5 @@
+import { resolveConfig } from "./config/defaults.js";
+import { loadConfig } from "./config/loader.js";
 import { resolveOptions } from "./options.js";
 import { run } from "./tasks/runner.js";
 import type { Options } from "./types/options.js";
@@ -13,7 +15,20 @@ import type { Options } from "./types/options.js";
  * @function
  */
 export async function pubm(options: Options): Promise<void> {
-  const resolvedOptions = resolveOptions({ ...options });
+  const config = await loadConfig();
+  const configOptions: Partial<Options> = {};
+
+  if (config) {
+    const resolved = resolveConfig(config);
+    if (resolved.packages) {
+      configOptions.packages = resolved.packages;
+    }
+    if (!options.registries && resolved.registries) {
+      configOptions.registries = resolved.registries;
+    }
+  }
+
+  const resolvedOptions = resolveOptions({ ...configOptions, ...options });
 
   await run(resolvedOptions);
 }
