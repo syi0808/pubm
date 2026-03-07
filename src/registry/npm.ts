@@ -2,7 +2,7 @@ import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
-import { type RegistryRequirements, Registry } from "./registry.js";
+import { Registry, type RegistryRequirements } from "./registry.js";
 
 class NpmError extends AbstractError {
   name = "npm Error";

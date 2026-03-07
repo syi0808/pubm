@@ -58,7 +58,9 @@ function resolvePatterns(cwd: string, patterns: string[]): string[] {
   return matched.map((d) => path.resolve(cwd, d));
 }
 
-export function discoverPackages(options: DiscoverOptions): DiscoveredPackage[] {
+export function discoverPackages(
+  options: DiscoverOptions,
+): DiscoveredPackage[] {
   const { cwd, ignore = [], configPackages = [] } = options;
 
   const workspace = detectWorkspace(cwd);

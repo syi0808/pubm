@@ -1,6 +1,6 @@
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
-import { type RegistryRequirements, Registry } from "./registry.js";
+import { Registry, type RegistryRequirements } from "./registry.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";

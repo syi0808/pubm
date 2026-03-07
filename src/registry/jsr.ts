@@ -8,7 +8,7 @@ import {
   getScopeAndName,
   isValidPackageName,
 } from "../utils/package-name.js";
-import { type RegistryRequirements, Registry } from "./registry.js";
+import { Registry, type RegistryRequirements } from "./registry.js";
 
 class JsrError extends AbstractError {
   name = "jsr Error";

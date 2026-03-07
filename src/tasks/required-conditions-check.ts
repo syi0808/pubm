@@ -14,7 +14,10 @@ import { jsrAvailableCheckTasks } from "./jsr.js";
 import { npmAvailableCheckTasks } from "./npm.js";
 import type { Ctx } from "./runner.js";
 
-const registryRequirementsMap: Record<string, { needsPackageScripts: boolean }> = {
+const registryRequirementsMap: Record<
+  string,
+  { needsPackageScripts: boolean }
+> = {
   npm: { needsPackageScripts: true },
   jsr: { needsPackageScripts: false },
   crates: { needsPackageScripts: false },

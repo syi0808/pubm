@@ -12,8 +12,8 @@ vi.mock("../../../src/monorepo/workspace.js", () => ({
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { detectWorkspace } from "../../../src/monorepo/workspace.js";
 import { discoverPackages } from "../../../src/monorepo/discover.js";
+import { detectWorkspace } from "../../../src/monorepo/workspace.js";
 
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
@@ -25,10 +25,15 @@ beforeEach(() => {
 });
 
 function setupDirectoryEntries(entries: string[]) {
-  mockedReaddirSync.mockReturnValue(entries as unknown as ReturnType<typeof readdirSync>);
-  mockedStatSync.mockImplementation(() => ({
-    isDirectory: () => true,
-  }) as ReturnType<typeof statSync>);
+  mockedReaddirSync.mockReturnValue(
+    entries as unknown as ReturnType<typeof readdirSync>,
+  );
+  mockedStatSync.mockImplementation(
+    () =>
+      ({
+        isDirectory: () => true,
+      }) as ReturnType<typeof statSync>,
+  );
 }
 
 describe("discoverPackages", () => {
