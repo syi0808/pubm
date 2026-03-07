@@ -95,6 +95,7 @@ export class Git {
     try {
       return Number.parseInt(
         await this.git(["rev-list", "@{u}...HEAD", "--count", "--left-only"]),
+        10,
       );
     } catch (error) {
       throw new GitError(

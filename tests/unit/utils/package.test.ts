@@ -35,6 +35,7 @@ describe("findOutFile", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join("/projects/my-app", "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -52,6 +53,7 @@ describe("findOutFile", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join("/projects", "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -82,6 +84,7 @@ describe("findOutFile", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -98,10 +101,12 @@ describe("findOutFile", () => {
     mockStat.mockImplementation(async (filePath) => {
       // In /projects/my-app it exists but is a directory
       if (filePath === path.join("/projects/my-app", "target")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => false } as any;
       }
       // In /projects it is an actual file
       if (filePath === path.join("/projects", "target")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -126,6 +131,7 @@ describe("getPackageJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -146,6 +152,7 @@ describe("getPackageJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -174,6 +181,7 @@ describe("getPackageJson", () => {
     // package.json not found
     mockStat.mockImplementation(async (filePath) => {
       if (String(filePath).endsWith("jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -202,6 +210,7 @@ describe("getPackageJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -233,6 +242,7 @@ describe("getJsrJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -257,6 +267,7 @@ describe("getJsrJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -285,6 +296,7 @@ describe("getJsrJson", () => {
     // jsr.json not found, but package.json exists
     mockStat.mockImplementation(async (filePath) => {
       if (String(filePath).endsWith("package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -313,6 +325,7 @@ describe("getJsrJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -342,6 +355,7 @@ describe("packageJsonToJsrJson", () => {
       name: "my-pkg",
       version: "1.0.0",
       exports: "./index.js",
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     expect(result.name).toBe("my-pkg");
@@ -367,6 +381,7 @@ describe("packageJsonToJsrJson", () => {
           import: "./dist/utils.js",
         },
       },
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     expect(result.exports).toEqual({
@@ -385,6 +400,7 @@ describe("packageJsonToJsrJson", () => {
       name: "my-pkg",
       version: "1.0.0",
       files: ["dist", "lib", "!test"],
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     expect(result.publish?.include).toEqual(["dist", "lib"]);
@@ -400,6 +416,7 @@ describe("packageJsonToJsrJson", () => {
     const result = await packageJsonToJsrJson({
       name: "my-pkg",
       version: "1.0.0",
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     expect(result.exports).toBeUndefined();
@@ -414,6 +431,7 @@ describe("packageJsonToJsrJson", () => {
     const result = await packageJsonToJsrJson({
       name: "my-pkg",
       version: "1.0.0",
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     expect(result.publish?.include).toEqual([]);
@@ -437,6 +455,7 @@ describe("packageJsonToJsrJson", () => {
           },
         },
       },
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
     } as any);
 
     // The nested object under import should be recursively converted
@@ -520,6 +539,7 @@ describe("jsrJsonToPackageJson", () => {
     const result = jsrJsonToPackageJson({
       name: "@scope/my-pkg",
       version: "1.0.0",
+      // biome-ignore lint/suspicious/noExplicitAny: mock package data
       exports: undefined as any,
     });
 
@@ -539,6 +559,7 @@ describe("version", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -559,6 +580,7 @@ describe("version", () => {
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json") || fp.endsWith("jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -592,6 +614,7 @@ describe("version", () => {
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json") || fp.endsWith("jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -628,6 +651,7 @@ describe("replaceVersion", () => {
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json") || fp.endsWith("jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -666,6 +690,7 @@ describe("replaceVersion", () => {
     // Only package.json exists
     mockStat.mockImplementation(async (filePath) => {
       if (String(filePath).endsWith("package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -698,6 +723,7 @@ describe("replaceVersion", () => {
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("package.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -718,6 +744,7 @@ describe("replaceVersion", () => {
     mockStat.mockImplementation(async (filePath) => {
       const fp = String(filePath);
       if (fp.endsWith("jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
@@ -750,6 +777,7 @@ describe("patchCachedJsrJson", () => {
 
     mockStat.mockImplementation(async (filePath) => {
       if (filePath === path.join(cwd, "jsr.json")) {
+        // biome-ignore lint/suspicious/noExplicitAny: mock stat result
         return { isFile: () => true } as any;
       }
       throw new Error("ENOENT");
