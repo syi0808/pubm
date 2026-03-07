@@ -28,6 +28,8 @@ export async function pubm(options: Options): Promise<void> {
     }
   }
 
+  // CLI options spread last to take precedence over config.
+  // resolveOptions filters undefined values, so config.packages survives.
   const resolvedOptions = resolveOptions({ ...configOptions, ...options });
 
   await run(resolvedOptions);
