@@ -20,6 +20,7 @@ import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
 import { addRollback, rollback } from "../utils/rollback.js";
 import { cratesPublishTasks, createCratesPublishTask } from "./crates.js";
+import { dryRunPublishTask } from "./dry-run-publish.js";
 import { jsrPublishTasks } from "./jsr.js";
 import { npmPublishTasks } from "./npm.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
@@ -141,6 +142,10 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   );
                 }
               },
+            },
+            {
+              ...dryRunPublishTask,
+              skip: (ctx) => options.skipPublish || !!ctx.preview,
             },
             {
               title: "Bumping version",

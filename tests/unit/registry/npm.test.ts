@@ -469,6 +469,71 @@ describe("NpmRegistry", () => {
     });
   });
 
+  describe("dryRunPublish()", () => {
+    it("calls npm publish --dry-run", async () => {
+      mockStdout("+ my-package@1.0.0");
+
+      await registry.dryRunPublish();
+
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["publish", "--dry-run"], {
+        throwOnError: true,
+      });
+    });
+
+    it("throws classified error on failure", async () => {
+      mockNonZeroExitError("403 Forbidden");
+
+      await expect(registry.dryRunPublish()).rejects.toThrow(/forbidden/i);
+    });
+
+    it("throws NpmError for generic failures", async () => {
+      mockNonZeroExitError("some unknown error");
+
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "Failed to publish to npm",
+      );
+    });
+  });
+
+  describe("twoFactorAuthMode()", () => {
+    it("returns tfa mode from npm profile", async () => {
+      mockStdout(JSON.stringify({ tfa: { mode: "auth-and-writes" } }));
+
+      const result = await registry.twoFactorAuthMode();
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["profile", "get", "--json"],
+        { throwOnError: true },
+      );
+      expect(result).toBe("auth-and-writes");
+    });
+
+    it("returns auth-only mode", async () => {
+      mockStdout(JSON.stringify({ tfa: { mode: "auth-only" } }));
+
+      const result = await registry.twoFactorAuthMode();
+
+      expect(result).toBe("auth-only");
+    });
+
+    it("returns null when tfa is not set", async () => {
+      mockStdout(JSON.stringify({}));
+
+      const result = await registry.twoFactorAuthMode();
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null on command failure", async () => {
+      mockedExec.mockRejectedValue(new Error("not logged in"));
+
+      const result = await registry.twoFactorAuthMode();
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("isPackageNameAvaliable()", () => {
     it("returns true when package name is valid", async () => {
       mockedIsValidPackageName.mockReturnValue(true);

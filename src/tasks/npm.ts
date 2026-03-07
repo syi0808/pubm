@@ -22,7 +22,6 @@ class NpmAvailableError extends AbstractError {
 
 export const npmAvailableCheckTasks: ListrTask<Ctx> = {
   title: "Checking npm avaliable for publising",
-  skip: (ctx) => !!ctx.preview,
   task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
@@ -95,6 +94,16 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
         `Package is not published on ${color.green("npm")}, and the package name is not available. Please change the package name.
 More information: ${link("npm naming rules", "https://github.com/npm/validate-npm-package-name?tab=readme-ov-file#naming-rules")}`,
       );
+    }
+
+    if (!ctx.promptEnabled) {
+      const tfaMode = await npm.twoFactorAuthMode();
+
+      if (tfaMode === "auth-and-writes") {
+        throw new NpmAvailableError(
+          `npm account has 2FA enabled for writes (auth-and-writes). CI publish will fail with EOTP. Use an automation token or configure granular access token at https://www.npmjs.com/package/${npm.packageName}/access`,
+        );
+      }
     }
   },
 };

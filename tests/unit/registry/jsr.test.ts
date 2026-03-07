@@ -197,6 +197,28 @@ describe("JsrRegisry", () => {
     });
   });
 
+  describe("dryRunPublish()", () => {
+    it("calls jsr publish --dry-run with token", async () => {
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      await registry.dryRunPublish();
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "jsr",
+        ["publish", "--dry-run", "--allow-dirty", "--token", "test-token"],
+        { throwOnError: true },
+      );
+    });
+
+    it("throws JsrError on failure", async () => {
+      mockedExec.mockRejectedValue(new Error("validation failed"));
+
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "Dry-run failed for `jsr publish`",
+      );
+    });
+  });
+
   describe("version()", () => {
     it("returns jsr version string", async () => {
       mockStdout("0.1.0");

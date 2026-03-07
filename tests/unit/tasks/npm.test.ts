@@ -54,6 +54,7 @@ function createMockNpm() {
     isPublished: vi.fn().mockResolvedValue(false),
     hasPermission: vi.fn().mockResolvedValue(true),
     isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
+    twoFactorAuthMode: vi.fn().mockResolvedValue(null),
     publish: vi.fn().mockResolvedValue(true),
     publishProvenance: vi.fn().mockResolvedValue(true),
   };
@@ -101,24 +102,8 @@ beforeEach(() => {
 });
 
 describe("npmAvailableCheckTasks", () => {
-  describe("skip", () => {
-    it("returns true when preview is true", () => {
-      const ctx = createCtx({ preview: true });
-      const result = (npmAvailableCheckTasks.skip as (ctx: Ctx) => boolean)(
-        ctx,
-      );
-
-      expect(result).toBe(true);
-    });
-
-    it("returns false when preview is undefined", () => {
-      const ctx = createCtx();
-      const result = (npmAvailableCheckTasks.skip as (ctx: Ctx) => boolean)(
-        ctx,
-      );
-
-      expect(result).toBe(false);
-    });
+  it("does not have a skip condition", () => {
+    expect(npmAvailableCheckTasks.skip).toBeUndefined();
   });
 
   describe("task", () => {
@@ -235,7 +220,9 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.hasPermission.mockResolvedValue(true);
 
       await expect(
-        (npmAvailableCheckTasks.task as () => Promise<void>)(),
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
+          createCtx({ promptEnabled: true }),
+        ),
       ).resolves.toBeUndefined();
     });
 
@@ -243,7 +230,9 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPublished.mockResolvedValue(false);
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
 
-      await (npmAvailableCheckTasks.task as () => Promise<void>)();
+      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
+        createCtx({ promptEnabled: true }),
+      );
 
       expect(mockNpm.isPackageNameAvaliable).toHaveBeenCalledOnce();
     });
@@ -262,8 +251,44 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
 
       await expect(
-        (npmAvailableCheckTasks.task as () => Promise<void>)(),
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
+          createCtx({ promptEnabled: true }),
+        ),
       ).resolves.toBeUndefined();
+    });
+
+    it("throws when 2FA auth-and-writes is enabled in CI mode", async () => {
+      mockNpm.isPublished.mockResolvedValue(false);
+      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.twoFactorAuthMode.mockResolvedValue("auth-and-writes");
+      const ctx = createCtx({ promptEnabled: false });
+
+      await expect(
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+      ).rejects.toThrow(
+        "npm account has 2FA enabled for writes (auth-and-writes)",
+      );
+    });
+
+    it("passes when 2FA is auth-only in CI mode", async () => {
+      mockNpm.isPublished.mockResolvedValue(false);
+      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.twoFactorAuthMode.mockResolvedValue("auth-only");
+      const ctx = createCtx({ promptEnabled: false });
+
+      await expect(
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+      ).resolves.toBeUndefined();
+    });
+
+    it("skips 2FA check in TTY mode", async () => {
+      mockNpm.isPublished.mockResolvedValue(false);
+      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      const ctx = createCtx({ promptEnabled: true });
+
+      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx);
+
+      expect(mockNpm.twoFactorAuthMode).not.toHaveBeenCalled();
     });
   });
 });
