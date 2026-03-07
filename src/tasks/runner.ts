@@ -81,9 +81,16 @@ export async function run(options: ResolvedOptions): Promise<void> {
               task: async (ctx): Promise<void> => {
                 const packageManager = await getPackageManager();
 
-                await exec(packageManager, ["run", ctx.testScript], {
-                  throwOnError: true,
-                });
+                try {
+                  await exec(packageManager, ["run", ctx.testScript], {
+                    throwOnError: true,
+                  });
+                } catch (error) {
+                  throw new AbstractError(
+                    `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
+                    { cause: error },
+                  );
+                }
               },
             },
             {

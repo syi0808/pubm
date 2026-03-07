@@ -77,9 +77,19 @@ describe("CratesRegistry", () => {
       expect(await registry.version()).toBe("1.2.3");
     });
 
-    it("throws when crate not found", async () => {
+    it("throws with 'not found' message on 404", async () => {
       mockedFetch.mockResolvedValue({ ok: false, status: 404 });
-      await expect(registry.version()).rejects.toThrow();
+      await expect(registry.version()).rejects.toThrow(/not found/i);
+    });
+
+    it("throws with 'API error' message on 5xx", async () => {
+      mockedFetch.mockResolvedValue({ ok: false, status: 500 });
+      await expect(registry.version()).rejects.toThrow(/API error.*HTTP 500/i);
+    });
+
+    it("throws with 'Cannot reach' message on network error", async () => {
+      mockedFetch.mockRejectedValue(new Error("network failure"));
+      await expect(registry.version()).rejects.toThrow(/cannot reach/i);
     });
   });
 

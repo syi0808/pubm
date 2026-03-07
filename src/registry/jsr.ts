@@ -237,8 +237,19 @@ export class JsrClient {
         body: JSON.stringify({ scope }),
       });
 
-      return response.status === 200 || response.status === 201;
+      if (response.status === 200 || response.status === 201) return true;
+
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body.message || body.error || JSON.stringify(body);
+      } catch {}
+
+      throw new JsrError(
+        `Failed to create scope '${scope}': HTTP ${response.status}${detail ? ` — ${detail}` : ""}`,
+      );
     } catch (error) {
+      if (error instanceof JsrError) throw error;
       throw new JsrError(`Failed to fetch \`${this.apiEndpoint}/scopes\``, {
         cause: error,
       });
@@ -251,8 +262,19 @@ export class JsrClient {
         method: "DELETE",
       });
 
-      return response.status === 200 || response.status === 204;
+      if (response.status === 200 || response.status === 204) return true;
+
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body.message || body.error || JSON.stringify(body);
+      } catch {}
+
+      throw new JsrError(
+        `Failed to delete scope '${scope}': HTTP ${response.status}${detail ? ` — ${detail}` : ""}`,
+      );
     } catch (error) {
+      if (error instanceof JsrError) throw error;
       throw new JsrError(
         `Failed to fetch \`${this.apiEndpoint}/scopes/${scope}\``,
         {
@@ -271,8 +293,19 @@ export class JsrClient {
         body: JSON.stringify({ package: name }),
       });
 
-      return response.status === 200 || response.status === 201;
+      if (response.status === 200 || response.status === 201) return true;
+
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body.message || body.error || JSON.stringify(body);
+      } catch {}
+
+      throw new JsrError(
+        `Failed to create package '${packageName}': HTTP ${response.status}${detail ? ` — ${detail}` : ""}`,
+      );
     } catch (error) {
+      if (error instanceof JsrError) throw error;
       throw new JsrError(
         `Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages\``,
         {
@@ -290,8 +323,19 @@ export class JsrClient {
         method: "DELETE",
       });
 
-      return response.status === 200 || response.status === 204;
+      if (response.status === 200 || response.status === 204) return true;
+
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body.message || body.error || JSON.stringify(body);
+      } catch {}
+
+      throw new JsrError(
+        `Failed to delete package '${packageName}': HTTP ${response.status}${detail ? ` — ${detail}` : ""}`,
+      );
     } catch (error) {
+      if (error instanceof JsrError) throw error;
       throw new JsrError(
         `Failed to fetch \`${this.apiEndpoint}/scopes/${scope}/packages/${name}\``,
         {

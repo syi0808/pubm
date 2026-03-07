@@ -690,6 +690,46 @@ describe("replaceVersion", () => {
     const result = await replaceVersion("1.0.0");
     expect(result).toEqual([]);
   });
+
+  it("throws AbstractError with context when writeFile fails for package.json", async () => {
+    const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      const fp = String(filePath);
+      if (fp.endsWith("package.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from('{\n  "version": "1.0.0"\n}'));
+    mockWriteFile.mockRejectedValue(new Error("EACCES: permission denied"));
+
+    await expect(replaceVersion("2.0.0")).rejects.toThrow(
+      /Failed to write version to package\.json/,
+    );
+  });
+
+  it("throws AbstractError with context when writeFile fails for jsr.json", async () => {
+    const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      const fp = String(filePath);
+      if (fp.endsWith("jsr.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from('{\n  "version": "1.0.0"\n}'));
+    mockWriteFile.mockRejectedValue(new Error("EACCES: permission denied"));
+
+    await expect(replaceVersion("2.0.0")).rejects.toThrow(
+      /Failed to write version to jsr\.json/,
+    );
+  });
 });
 
 describe("patchCachedJsrJson", () => {

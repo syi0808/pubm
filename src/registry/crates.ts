@@ -47,7 +47,14 @@ export class CratesRegistry extends Registry {
       );
 
       if (!response.ok) {
-        throw new Error(`Crate '${this.packageName}' not found`);
+        if (response.status === 404) {
+          throw new CratesError(
+            `Crate '${this.packageName}' not found on crates.io`,
+          );
+        }
+        throw new CratesError(
+          `crates.io API error (HTTP ${response.status}) for crate '${this.packageName}'`,
+        );
       }
 
       const data = (await response.json()) as {
@@ -55,8 +62,9 @@ export class CratesRegistry extends Registry {
       };
       return data.crate.max_version;
     } catch (error) {
+      if (error instanceof CratesError) throw error;
       throw new CratesError(
-        `Failed to fetch version for crate '${this.packageName}'`,
+        `Cannot reach crates.io to fetch version for '${this.packageName}'`,
         { cause: error },
       );
     }
