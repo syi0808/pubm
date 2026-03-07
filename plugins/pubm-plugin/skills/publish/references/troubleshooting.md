@@ -4,6 +4,7 @@
 
 | Error / Symptom | Cause | Fix |
 |---|---|---|
+| `jsr: command not found` or jsr CLI missing | `jsr` package not installed | Install `jsr` as a devDependency using your package manager (e.g. `pnpm add -D jsr`) |
 | "Not logged in" or 401/403 from registry | Missing authentication | Run `npm login` for npm; check `NODE_AUTH_TOKEN` env var in CI; for jsr, re-authenticate |
 | "Permission denied" or 403 on publish | No publish permission | Check npm org/team permissions; verify the package name is available or you have access |
 | "Version already published" or 409 | Version exists on registry | Bump to a new version; cannot republish an existing version |

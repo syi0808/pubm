@@ -256,6 +256,7 @@ jobs:
 - **`id-token: write` permission** is needed for npm provenance. pubm automatically uses `npm publish --provenance --access public` in CI.
 - **`fetch-depth: 0`** is required on `actions/checkout` so that `git describe --tags --abbrev=0` can find the latest tag. Without full history, the tag lookup fails.
 - **`registry-url` on `actions/setup-node`** configures the npm registry URL. This is required for `NODE_AUTH_TOKEN` to be picked up by npm.
+- **jsr CLI dependency:** If publishing to jsr, ensure `jsr` is listed as a devDependency in `package.json`. The `npm install` step in CI will make it available. pubm invokes `jsr` directly for jsr publishing.
 - **The `--registry` flag** defaults to `npm,jsr`. Use `--registry npm` for npm-only, `--registry jsr` for jsr-only, or `--registry npm,jsr,crates` for all three.
 - **crates.io publishing** uses `cargo publish` under the hood. The `CARGO_REGISTRY_TOKEN` environment variable is read by cargo automatically.
 - **2FA limitation:** In CI, npm publish with 2FA (OTP) is not supported. If your package requires 2FA for token-based writes, disable it in the package access settings on npmjs.com.
