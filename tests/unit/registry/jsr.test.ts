@@ -58,7 +58,8 @@ function mockFetchResponse(status: number, body?: unknown) {
   mockedFetch.mockResolvedValue({
     status,
     ok: status >= 200 && status < 300,
-    statusText: status === 200 ? "OK" : status === 401 ? "Unauthorized" : "Error",
+    statusText:
+      status === 200 ? "OK" : status === 401 ? "Unauthorized" : "Error",
     json: vi.fn().mockResolvedValue(body),
   });
 }
@@ -425,6 +426,24 @@ describe("JsrClient", () => {
       expect(result).toEqual(pkgData);
     });
 
+    it("returns null on 404", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockFetchResponse(404);
+
+      const result = await client.package("@myscope/mypkg");
+
+      expect(result).toBeNull();
+    });
+
+    it("throws JsrError with API error on non-404 failure status", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockFetchResponse(500);
+
+      await expect(client.package("@myscope/mypkg")).rejects.toThrow(
+        /API error/,
+      );
+    });
+
     it("throws JsrError when fetch fails", async () => {
       mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
       mockedFetch.mockRejectedValue(new Error("network error"));
@@ -462,12 +481,30 @@ describe("JsrClient", () => {
       expect(result).toBe(true);
     });
 
-    it("returns false on other status codes", async () => {
-      mockFetchResponse(409);
+    it("throws JsrError with API detail on other status codes", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 409,
+        ok: false,
+        statusText: "Conflict",
+        json: vi.fn().mockResolvedValue({ message: "Scope already exists" }),
+      });
 
-      const result = await client.createScope("myscope");
+      await expect(client.createScope("myscope")).rejects.toThrow(
+        /Failed to create scope 'myscope': HTTP 409/,
+      );
+    });
 
-      expect(result).toBe(false);
+    it("includes API error detail in thrown error message", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 422,
+        ok: false,
+        statusText: "Unprocessable Entity",
+        json: vi.fn().mockResolvedValue({ message: "Invalid scope name" }),
+      });
+
+      await expect(client.createScope("myscope")).rejects.toThrow(
+        /Invalid scope name/,
+      );
     });
 
     it("throws JsrError when fetch fails", async () => {
@@ -505,12 +542,17 @@ describe("JsrClient", () => {
       expect(result).toBe(true);
     });
 
-    it("returns false on other status codes", async () => {
-      mockFetchResponse(404);
+    it("throws JsrError with API detail on other status codes", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 404,
+        ok: false,
+        statusText: "Not Found",
+        json: vi.fn().mockResolvedValue({ message: "Scope not found" }),
+      });
 
-      const result = await client.deleteScope("myscope");
-
-      expect(result).toBe(false);
+      await expect(client.deleteScope("myscope")).rejects.toThrow(
+        /Failed to delete scope 'myscope': HTTP 404/,
+      );
     });
 
     it("throws JsrError when fetch fails", async () => {
@@ -552,13 +594,18 @@ describe("JsrClient", () => {
       expect(result).toBe(true);
     });
 
-    it("returns false on other status codes", async () => {
+    it("throws JsrError with API detail on other status codes", async () => {
       mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
-      mockFetchResponse(409);
+      mockedFetch.mockResolvedValue({
+        status: 409,
+        ok: false,
+        statusText: "Conflict",
+        json: vi.fn().mockResolvedValue({ message: "Package already exists" }),
+      });
 
-      const result = await client.createPackage("@myscope/mypkg");
-
-      expect(result).toBe(false);
+      await expect(client.createPackage("@myscope/mypkg")).rejects.toThrow(
+        /Failed to create package '@myscope\/mypkg': HTTP 409/,
+      );
     });
 
     it("throws JsrError when fetch fails", async () => {
@@ -600,13 +647,18 @@ describe("JsrClient", () => {
       expect(result).toBe(true);
     });
 
-    it("returns false on other status codes", async () => {
+    it("throws JsrError with API detail on other status codes", async () => {
       mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
-      mockFetchResponse(404);
+      mockedFetch.mockResolvedValue({
+        status: 404,
+        ok: false,
+        statusText: "Not Found",
+        json: vi.fn().mockResolvedValue({ message: "Package not found" }),
+      });
 
-      const result = await client.deletePackage("@myscope/mypkg");
-
-      expect(result).toBe(false);
+      await expect(client.deletePackage("@myscope/mypkg")).rejects.toThrow(
+        /Failed to delete package '@myscope\/mypkg': HTTP 404/,
+      );
     });
 
     it("throws JsrError when fetch fails", async () => {

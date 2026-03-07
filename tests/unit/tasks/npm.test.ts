@@ -4,12 +4,19 @@ vi.mock("../../../src/registry/npm.js", () => ({
   npmRegistry: vi.fn(),
 }));
 
+vi.mock("tinyexec", () => ({
+  exec: vi.fn(),
+}));
+
+import { exec } from "tinyexec";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
   npmPublishTasks,
 } from "../../../src/tasks/npm.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
+
+const mockedExec = vi.mocked(exec);
 
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 
@@ -88,13 +95,55 @@ describe("npmAvailableCheckTasks", () => {
   });
 
   describe("task", () => {
-    it("throws when not logged in", async () => {
+    it("throws with CI-specific message when not logged in and promptEnabled is false", async () => {
       mockNpm.isLoggedIn.mockResolvedValue(false);
+      const ctx = createCtx({ promptEnabled: false });
 
       await expect(
-        (npmAvailableCheckTasks.task as () => Promise<void>)(),
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
       ).rejects.toThrow(
-        "You are not logged in. Please log in first using `npm login`.",
+        "Not logged in to npm. Set NODE_AUTH_TOKEN in your CI environment.",
+      );
+    });
+
+    it("attempts npm login in TTY mode when not logged in", async () => {
+      mockNpm.isLoggedIn
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      mockedExec.mockResolvedValue({} as any);
+      const ctx = createCtx({ promptEnabled: true });
+
+      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx);
+
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["login"], {
+        throwOnError: true,
+        nodeOptions: { stdio: "inherit" },
+      });
+    });
+
+    it("throws when npm login command fails in TTY mode", async () => {
+      mockNpm.isLoggedIn.mockResolvedValue(false);
+      mockedExec.mockRejectedValue(new Error("login process failed"));
+      const ctx = createCtx({ promptEnabled: true });
+
+      await expect(
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+      ).rejects.toThrow(
+        "npm login failed. Please run `npm login` manually and try again.",
+      );
+    });
+
+    it("throws when still not logged in after npm login succeeds in TTY mode", async () => {
+      mockNpm.isLoggedIn
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+      mockedExec.mockResolvedValue({} as any);
+      const ctx = createCtx({ promptEnabled: true });
+
+      await expect(
+        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+      ).rejects.toThrow(
+        "Still not logged in after npm login. Please verify your credentials.",
       );
     });
 
@@ -235,6 +284,32 @@ describe("npmPublishTasks", () => {
       // Then the third publish succeeds
       expect(mockNpm.publish).toHaveBeenCalledTimes(3);
     });
+
+    it("throws after 3 failed OTP attempts", async () => {
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      // Initial publish fails, then all 3 OTP attempts fail
+      mockNpm.publish
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+
+      const mockRun = vi.fn().mockResolvedValue("000000");
+      task.prompt.mockReturnValue({ run: mockRun });
+
+      await expect(
+        (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
+      ).rejects.toThrow("OTP verification failed after 3 attempts.");
+
+      // Initial publish + 3 OTP attempts = 4 calls
+      expect(mockNpm.publish).toHaveBeenCalledTimes(4);
+      expect(mockRun).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe("task — CI mode (promptEnabled=false)", () => {
@@ -251,7 +326,7 @@ describe("npmPublishTasks", () => {
             task,
           ),
         ).rejects.toThrow(
-          "NODE_AUTH_TOKEN not found in the environment variables",
+          "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:",
         );
       } finally {
         if (originalEnv !== undefined) {

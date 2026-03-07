@@ -77,9 +77,19 @@ describe("CratesRegistry", () => {
       expect(await registry.version()).toBe("1.2.3");
     });
 
-    it("throws when crate not found", async () => {
+    it("throws with 'not found' message on 404", async () => {
       mockedFetch.mockResolvedValue({ ok: false, status: 404 });
-      await expect(registry.version()).rejects.toThrow();
+      await expect(registry.version()).rejects.toThrow(/not found/i);
+    });
+
+    it("throws with 'API error' message on 5xx", async () => {
+      mockedFetch.mockResolvedValue({ ok: false, status: 500 });
+      await expect(registry.version()).rejects.toThrow(/API error.*HTTP 500/i);
+    });
+
+    it("throws with 'Cannot reach' message on network error", async () => {
+      mockedFetch.mockRejectedValue(new Error("network failure"));
+      await expect(registry.version()).rejects.toThrow(/cannot reach/i);
     });
   });
 
@@ -136,6 +146,13 @@ describe("CratesRegistry", () => {
     it("returns false when crate name is taken", async () => {
       mockedFetch.mockResolvedValue({ ok: true });
       expect(await registry.isPackageNameAvaliable()).toBe(false);
+    });
+
+    it("throws CratesError on network error instead of returning true", async () => {
+      mockedFetch.mockRejectedValue(new Error("network error"));
+      await expect(registry.isPackageNameAvaliable()).rejects.toThrow(
+        "Failed to check package name availability on crates.io",
+      );
     });
   });
 });

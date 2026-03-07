@@ -249,13 +249,13 @@ describe("jsrAvailableCheckTasks", () => {
       expect(JsrClient.token).toBe("good-token");
     });
 
-    it("TTY: prompts for token and retries when user() throws", async () => {
+    it("TTY: prompts for token and retries when user() throws non-network error", async () => {
       const ctx = createCtx({ promptEnabled: true });
       const task = createMockTask();
 
-      // First call throws (catch block), second succeeds
+      // First call throws a non-network error (catch block), second succeeds
       mockJsr.client.user
-        .mockRejectedValueOnce(new Error("network error"))
+        .mockRejectedValueOnce(new Error("some error"))
         .mockResolvedValueOnce({ id: "user-1" });
 
       task._mockRun
@@ -268,6 +268,58 @@ describe("jsrAvailableCheckTasks", () => {
 
       expect(task.prompt).toHaveBeenCalledTimes(2);
       expect(JsrClient.token).toBe("good-token");
+    });
+
+    it("TTY: throws after 3 failed token attempts", async () => {
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      // All three attempts return null (invalid token)
+      mockJsr.client.user
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      task._mockRun
+        .mockResolvedValueOnce("bad-token-1")
+        .mockResolvedValueOnce("bad-token-2")
+        .mockResolvedValueOnce("bad-token-3");
+
+      await expect(
+        (
+          jsrAvailableCheckTasks.task as (
+            ctx: JsrCtx,
+            task: any,
+          ) => Promise<void>
+        )(ctx, task),
+      ).rejects.toThrow("JSR token verification failed after 3 attempts.");
+
+      expect(task.prompt).toHaveBeenCalledTimes(3);
+    });
+
+    it("TTY: throws immediately on network error during token validation", async () => {
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      mockJsr.client.user.mockRejectedValueOnce(
+        new Error("fetch failed: ENOTFOUND jsr.io"),
+      );
+
+      task._mockRun.mockResolvedValueOnce("some-token");
+
+      await expect(
+        (
+          jsrAvailableCheckTasks.task as (
+            ctx: JsrCtx,
+            task: any,
+          ) => Promise<void>
+        )(ctx, task),
+      ).rejects.toThrow(
+        "JSR API is unreachable. Check your network connection.",
+      );
+
+      // Should only prompt once — network error causes immediate throw
+      expect(task.prompt).toHaveBeenCalledTimes(1);
     });
 
     it("CI: reads JSR_TOKEN from environment", async () => {

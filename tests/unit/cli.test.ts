@@ -462,6 +462,30 @@ describe("CLI action handler - error handling", () => {
     expect(mockConsoleError).toHaveBeenCalledWith(error);
   });
 
+  it("should set process.exitCode to 1 when an error occurs", async () => {
+    mockIsCI.isCI = false;
+    const mockRun = vi.fn();
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
+    const error = new Error("publish failed");
+    mockPubm.mockRejectedValue(error);
+    process.exitCode = undefined;
+
+    await capturedAction.value!("1.0.0", {
+      publish: true,
+      releaseDraft: true,
+      tests: true,
+      build: true,
+      preCheck: true,
+      conditionCheck: true,
+      tag: "latest",
+      publishOnly: false,
+    });
+
+    expect(process.exitCode).toBe(1);
+    // Reset for other tests
+    process.exitCode = undefined;
+  });
+
   it("should call consoleError when requiredMissingInformationTasks throws", async () => {
     mockIsCI.isCI = false;
     const error = new Error("interactive task failed");

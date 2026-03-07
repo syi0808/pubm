@@ -119,6 +119,7 @@ export const prerequisitesCheckTask = (
               }
 
               ctx.cleanWorkingTree = false;
+              return;
             }
 
             ctx.cleanWorkingTree = true;

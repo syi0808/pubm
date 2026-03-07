@@ -125,10 +125,10 @@ describe("Git", () => {
       expect(result).toEqual(["v1.0.0"]);
     });
 
-    it("throws GitError on failure", async () => {
+    it("throws GitError with correct error message on failure", async () => {
       mockedExec.mockRejectedValue(new Error("error"));
 
-      await expect(git.tags()).rejects.toThrow("Failed to run");
+      await expect(git.tags()).rejects.toThrow("Failed to run `git tag -l`");
     });
   });
 

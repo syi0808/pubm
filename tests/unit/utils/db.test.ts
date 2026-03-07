@@ -136,5 +136,76 @@ describe("Db", () => {
 
       expect(db.get("key")).toBe("new");
     });
+
+    it("returns null without warning when file does not exist", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const db = new Db();
+
+      const result = db.get("nonexistent-field");
+
+      expect(result).toBeNull();
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("warns and returns null when stored data is corrupted", async () => {
+      const { writeFileSync: mockWriteFileSync } = await import("node:fs");
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const db = new Db();
+
+      // Write corrupted data directly to the file path
+      db.set("corrupt-field", "valid-value");
+
+      // Now corrupt the stored file by writing invalid data
+      const calls = vi.mocked(mockWriteFileSync).mock.calls;
+      const lastFilePath = calls[calls.length - 1][0] as string;
+      store[lastFilePath] = "not-valid-hex-data";
+
+      const result = db.get("corrupt-field");
+
+      expect(result).toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("corrupted"),
+      );
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe("set error handling", () => {
+    it("throws descriptive error when writeFileSync fails", async () => {
+      const { writeFileSync: mockWriteFileSync } = await import("node:fs");
+      vi.mocked(mockWriteFileSync).mockImplementation(() => {
+        throw new Error("EACCES: permission denied");
+      });
+
+      const db = new Db();
+
+      expect(() => db.set("token", "value")).toThrow(
+        "Failed to save token for 'token'",
+      );
+
+      // Restore writeFileSync for other tests
+      vi.mocked(mockWriteFileSync).mockImplementation(
+        (filePath: any, data: any) => {
+          store[filePath] = typeof data === "string" ? data : data.toString();
+        },
+      );
+    });
+  });
+
+  describe("constructor error handling", () => {
+    it("throws descriptive error when mkdirSync fails", async () => {
+      const { mkdirSync: mockMkdirSync } = await import("node:fs");
+      vi.mocked(mockMkdirSync).mockImplementation(() => {
+        throw new Error("EACCES: permission denied");
+      });
+
+      vi.resetModules();
+      const mod = await import("../../../src/utils/db.js");
+
+      expect(() => new mod.Db()).toThrow(
+        "Failed to create token storage directory",
+      );
+    });
   });
 });

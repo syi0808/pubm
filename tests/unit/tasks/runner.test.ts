@@ -476,14 +476,16 @@ describe("run", () => {
   });
 
   describe("inner task execution", () => {
-    it("runs test task and throws on exec rejection", async () => {
+    it("runs test task and throws AbstractError with context on exec rejection", async () => {
       mockedExec.mockRejectedValueOnce(new Error("test error"));
 
       const options = createOptions();
       await run(options);
 
-      // Error triggers catch block
+      // Error triggers catch block with context message
       expect(mockedConsoleError).toHaveBeenCalled();
+      const errorArg = mockedConsoleError.mock.calls[0][0];
+      expect((errorArg as Error).message).toMatch(/Test script 'test' failed/);
     });
 
     it("runs test task successfully when no stderr", async () => {
