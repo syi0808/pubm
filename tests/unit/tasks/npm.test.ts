@@ -40,7 +40,6 @@ function mockSpawnResult(code: number) {
   return child;
 }
 
-
 function createMockNpm() {
   return {
     packageName: "my-package",
