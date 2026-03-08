@@ -91,7 +91,7 @@ export class CratesRegistry extends Registry {
 
   async dryRunPublish(manifestDir?: string): Promise<void> {
     try {
-      const args = ["publish", "--dry-run"];
+      const args = ["publish", "--dry-run", "--no-verify"];
       if (manifestDir) {
         args.push("--manifest-path", path.join(manifestDir, "Cargo.toml"));
       }
