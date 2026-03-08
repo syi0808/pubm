@@ -5,6 +5,8 @@ export interface TokenEntry {
   dbKey: string;
   ghSecretName: string;
   promptLabel: string;
+  tokenUrl: string;
+  tokenUrlLabel: string;
 }
 
 export const TOKEN_CONFIG: Record<string, TokenEntry> = {
@@ -13,18 +15,25 @@ export const TOKEN_CONFIG: Record<string, TokenEntry> = {
     dbKey: "npm-token",
     ghSecretName: "NODE_AUTH_TOKEN",
     promptLabel: "npm access token",
+    tokenUrl:
+      "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
+    tokenUrlLabel: "npmjs.com",
   },
   jsr: {
     envVar: "JSR_TOKEN",
     dbKey: "jsr-token",
     ghSecretName: "JSR_TOKEN",
     promptLabel: "jsr API token",
+    tokenUrl: "https://jsr.io/account/tokens/create",
+    tokenUrlLabel: "jsr.io",
   },
   crates: {
     envVar: "CARGO_REGISTRY_TOKEN",
     dbKey: "cargo-token",
     ghSecretName: "CARGO_REGISTRY_TOKEN",
     promptLabel: "crates.io API token",
+    tokenUrl: "https://crates.io/settings/tokens/new",
+    tokenUrlLabel: "crates.io",
   },
 };
 

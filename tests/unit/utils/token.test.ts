@@ -27,18 +27,25 @@ describe("TOKEN_CONFIG", () => {
       dbKey: "npm-token",
       ghSecretName: "NODE_AUTH_TOKEN",
       promptLabel: "npm access token",
+      tokenUrl:
+        "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
+      tokenUrlLabel: "npmjs.com",
     });
     expect(TOKEN_CONFIG.jsr).toEqual({
       envVar: "JSR_TOKEN",
       dbKey: "jsr-token",
       ghSecretName: "JSR_TOKEN",
       promptLabel: "jsr API token",
+      tokenUrl: "https://jsr.io/account/tokens/create",
+      tokenUrlLabel: "jsr.io",
     });
     expect(TOKEN_CONFIG.crates).toEqual({
       envVar: "CARGO_REGISTRY_TOKEN",
       dbKey: "cargo-token",
       ghSecretName: "CARGO_REGISTRY_TOKEN",
       promptLabel: "crates.io API token",
+      tokenUrl: "https://crates.io/settings/tokens/new",
+      tokenUrlLabel: "crates.io",
     });
   });
 });

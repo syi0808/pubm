@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
+import { color } from "listr2";
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
+import { link } from "../utils/cli.js";
 import { Db } from "../utils/db.js";
 import { loadTokensFromDb, TOKEN_CONFIG } from "../utils/token.js";
 
@@ -21,10 +23,18 @@ export async function collectTokens(
     const config = TOKEN_CONFIG[registry];
     if (!config || tokens[registry]) continue;
 
+    let { tokenUrl } = config;
+    if (registry === "npm" && tokenUrl.includes("~")) {
+      const result = await exec("npm", ["whoami"]);
+      const username = result.stdout.trim();
+      if (username) tokenUrl = tokenUrl.replace("~", username);
+    }
+
     task.output = `Enter ${config.promptLabel}`;
     const token = await task.prompt(ListrEnquirerPromptAdapter).run({
       type: "password",
       message: `Enter ${config.promptLabel}`,
+      footer: `\nGenerate a token from ${color.bold(link(config.tokenUrlLabel, tokenUrl))}`,
     });
 
     tokens[registry] = token;
