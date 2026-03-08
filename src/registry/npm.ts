@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { getPackageJson } from "../utils/package.js";
@@ -188,11 +190,22 @@ export class NpmRegistry extends Registry {
 
   async dryRunPublish(): Promise<void> {
     try {
-      await this.npm(["publish", "--dry-run"]);
-    } catch (error) {
-      throw new NpmError("Failed to run `npm publish --dry-run`", {
-        cause: error,
+      await exec("npm", ["publish", "--dry-run"], {
+        throwOnError: true,
+        nodeOptions: {
+          env: {
+            ...process.env,
+            npm_config_cache: join(tmpdir(), "pubm-npm-cache"),
+          },
+        },
       });
+    } catch (error) {
+      const stderr =
+        error instanceof NonZeroExitError ? error.output?.stderr : undefined;
+      throw new NpmError(
+        `Failed to run \`npm publish --dry-run\`${stderr ? `\n${stderr}` : ""}`,
+        { cause: error },
+      );
     }
   }
 
