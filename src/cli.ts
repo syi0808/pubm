@@ -187,8 +187,7 @@ defaultCmd.action(
 
     try {
       if (options.preflight) {
-        // Preflight doesn't need a real version (no bump/publish)
-        context.version = nextVersion || "0.0.0-preflight";
+        await requiredMissingInformationTasks().run(context);
       } else if (isCI) {
         if (options.publishOnly) {
           const git = new Git();
