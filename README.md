@@ -70,6 +70,7 @@ pubm patch --preview
 | Flag | Purpose |
 |------|---------|
 | `-p, --preview` | Dry‑run: show tasks, no side‑effects |
+| `--preflight` | Simulate CI publish locally (token‑based auth + dry‑run) |
 | `--registry <list>` | Comma‑separated targets, e.g. `npm,jsr,https://registry.example.com` |
 | `--branch <name>` / `--any-branch` | Release branch guard control |
 | `--no-pre-check` / `--no-condition-check` | Skip guard stages |
@@ -84,8 +85,24 @@ pubm patch --preview
 2. **Required condition checks** – registry ping, login & permission, engine versions.
 3. **Test & build** *(optional)*
 4. **Version bump & tag** (SemVer)
-5. **Concurrent publish** – npm (OTP/provenance), jsr, plugins.
+5. **Concurrent publish** – npm (OTP/provenance), jsr, crates.io, plugins.
 6. **Git push & GitHub release draft**
+
+### Preflight Mode
+
+Validate that your CI publish pipeline will work **before** pushing:
+
+```bash
+pubm --preflight
+```
+
+Preflight collects registry tokens interactively, then runs the entire pipeline with `promptEnabled=false` (simulating CI). Publish steps are replaced with dry‑run. If a token is invalid, it re‑prompts and retries.
+
+After validation, pubm offers to sync tokens to GitHub Secrets via `gh secret set`. You can also sync manually:
+
+```bash
+pubm secrets sync
+```
 
 ---
 

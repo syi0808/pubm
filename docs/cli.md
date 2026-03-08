@@ -37,6 +37,7 @@
 | `--no-publish` | Run every step **except** the actual publish (useful for validation). |
 | `--no-release-draft` | Do not create a GitHub release draft. |
 | `--publish-only` | Skip everything except the publish step (assumes current commit is already tagged). |
+| `--preflight` | Simulate CI publish locally: collect tokens, run full pipeline with dry‑run publish. |
 
 ---
 
@@ -54,6 +55,7 @@
 |----------|---------|
 | `NODE_AUTH_TOKEN` | npm auth (automation) token for CI. |
 | `JSR_TOKEN` | jsr auth token. |
+| `CARGO_REGISTRY_TOKEN` | crates.io auth token. |
 
 ---
 
@@ -65,6 +67,40 @@ pubm is **interactive‑first**. Prompts are automatically disabled when either:
 * `stdin` is not a TTY.
 
 In non‑interactive mode you must supply the necessary tokens/flags via env‑vars or CLI options.
+
+---
+
+## Subcommands
+
+### `pubm secrets sync`
+
+Syncs stored tokens to GitHub Secrets via the `gh` CLI. Tokens are stored encrypted during `pubm --preflight` or interactive runs.
+
+```bash
+pubm secrets sync [--registry <...registries>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--registry <list>` | `npm,jsr,crates` | Filter to specific registries. |
+
+Requires `gh` CLI installed and authenticated (`gh auth login`).
+
+---
+
+## Preflight mode
+
+`pubm --preflight` validates that your CI publish pipeline will succeed, **without** creating any version bumps or tags.
+
+### Pipeline
+
+1. **Collect tokens** – loads stored tokens from encrypted Db, prompts only for missing ones, saves new tokens.
+2. **Sync to GitHub Secrets** *(optional prompt)* – calls `gh secret set` for each token.
+3. **Switch to CI simulation** – sets `promptEnabled=false` to simulate non‑interactive CI.
+4. **Run full pipeline** – prerequisites, conditions, tests, build.
+5. **Dry‑run publish** – `npm publish --dry-run`, `jsr publish --dry-run`, `cargo publish --dry-run` for each configured registry.
+
+If a token auth error is detected during dry‑run, pubm re‑prompts for the token, saves it, and retries once.
 
 ---
 
@@ -81,6 +117,13 @@ pubm minor --registry npm --tag beta --no-tests
 export NODE_AUTH_TOKEN="$NPM_AUTOMATION_TOKEN"
 export JSR_TOKEN="$JSR_TOKEN"
 pubm --publish-only --registry npm,jsr
+
+# 4. Validate CI setup locally (preflight)
+pubm --preflight
+
+# 5. Sync stored tokens to GitHub Secrets
+pubm secrets sync
+pubm secrets sync --registry npm
 ```
 
 ---
