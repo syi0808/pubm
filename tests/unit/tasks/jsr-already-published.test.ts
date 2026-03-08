@@ -40,6 +40,25 @@ describe("jsrPublishTasks — already published", () => {
     expect(mockTask.title).toContain("already published");
   });
 
+  it("skips publish when publish throws 'already published' error (fallback)", async () => {
+    const mockJsr = {
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      publish: vi.fn().mockRejectedValue(
+        new Error("Failed: version already published"),
+      ),
+      packageName: "@scope/test",
+      packageCreationUrls: undefined,
+    };
+    mockedJsrRegistry.mockResolvedValue(mockJsr as any);
+
+    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+
+    await (jsrPublishTasks as any).task(ctx, mockTask);
+
+    expect(mockTask.skip).toHaveBeenCalled();
+    expect(mockTask.title).toContain("already published");
+  });
+
   it("proceeds with publish when version is not published", async () => {
     const mockJsr = {
       isVersionPublished: vi.fn().mockResolvedValue(false),

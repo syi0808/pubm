@@ -39,6 +39,24 @@ describe("npmPublishTasks — already published", () => {
     expect(mockTask.title).toContain("already published");
   });
 
+  it("skips publish when publish throws 'already published' error (fallback)", async () => {
+    const mockNpm = {
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      publish: vi.fn().mockRejectedValue(
+        new Error("You cannot publish over the previously published versions"),
+      ),
+      packageName: "test-package",
+    };
+    mockedNpmRegistry.mockResolvedValue(mockNpm as any);
+
+    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+
+    await (npmPublishTasks as any).task(ctx, mockTask);
+
+    expect(mockTask.skip).toHaveBeenCalled();
+    expect(mockTask.title).toContain("already published");
+  });
+
   it("proceeds with publish when version is not published", async () => {
     const mockNpm = {
       isVersionPublished: vi.fn().mockResolvedValue(false),
