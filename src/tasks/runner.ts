@@ -9,6 +9,7 @@ import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
+import { RustEcosystem } from "../ecosystem/rust.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { createListr } from "../utils/listr.js";
 import {
@@ -115,11 +116,16 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
     }
 
     const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
+    const siblingCrateNames = await Promise.all(
+      cratesPaths.map((p) => new RustEcosystem(p).packageName()),
+    );
     const sequentialCratesTask = {
       title: "Dry-run crates.io publish (sequential)",
       task: (_ctx: Ctx, task: { newListr: (...args: any[]) => any }) =>
         task.newListr(
-          sortedPaths.map((p) => createCratesDryRunPublishTask(p)),
+          sortedPaths.map((p) =>
+            createCratesDryRunPublishTask(p, siblingCrateNames),
+          ),
           { concurrent: false },
         ),
     };

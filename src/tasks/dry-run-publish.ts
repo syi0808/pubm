@@ -76,19 +76,65 @@ async function getCrateName(packagePath?: string): Promise<string> {
   return await eco.packageName();
 }
 
+const MISSING_CRATE_PATTERN =
+  /no matching package named `([^`]+)` found/;
+
+async function findUnpublishedSiblingDeps(
+  packagePath: string | undefined,
+  siblingCrateNames: string[],
+): Promise<string[]> {
+  const eco = new RustEcosystem(packagePath ?? process.cwd());
+  const deps = await eco.dependencies();
+  const siblingDeps = deps.filter((d) => siblingCrateNames.includes(d));
+
+  const results = await Promise.all(
+    siblingDeps.map(async (name) => {
+      const registry = new CratesRegistry(name);
+      const published = await registry.isPublished();
+      return published ? null : name;
+    }),
+  );
+
+  return results.filter((name): name is string => name !== null);
+}
+
 export function createCratesDryRunPublishTask(
   packagePath?: string,
+  siblingCrateNames?: string[],
 ): ListrTask<Ctx> {
   const label = packagePath ? ` (${packagePath})` : "";
   return {
     title: `Dry-run crates.io publish${label}`,
     task: async (_, task): Promise<void> => {
+      // Proactive: skip if any sibling dependency is not yet on crates.io
+      if (siblingCrateNames?.length) {
+        const unpublished = await findUnpublishedSiblingDeps(
+          packagePath,
+          siblingCrateNames,
+        );
+        if (unpublished.length > 0) {
+          task.title = `Dry-run crates.io publish${label} [skipped: sibling crate \`${unpublished.join("`, `")}\` not yet published]`;
+          return;
+        }
+      }
+
       task.output = "Running cargo publish --dry-run...";
-      await withTokenRetry("crates", task, async () => {
-        const packageName = await getCrateName(packagePath);
-        const registry = new CratesRegistry(packageName);
-        await registry.dryRunPublish(packagePath);
-      });
+      try {
+        await withTokenRetry("crates", task, async () => {
+          const packageName = await getCrateName(packagePath);
+          const registry = new CratesRegistry(packageName);
+          await registry.dryRunPublish(packagePath);
+        });
+      } catch (error) {
+        // Reactive fallback: catch sibling-related errors
+        const message = error instanceof Error ? error.message : String(error);
+        const match = message.match(MISSING_CRATE_PATTERN);
+        if (match && siblingCrateNames?.includes(match[1])) {
+          task.title = `Dry-run crates.io publish${label} [skipped: sibling crate \`${match[1]}\` not yet published]`;
+          return;
+        }
+        throw error;
+      }
     },
   };
 }
