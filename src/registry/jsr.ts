@@ -120,9 +120,15 @@ export class JsrRegisry extends Registry {
         { throwOnError: true },
       );
     } catch (error) {
-      throw new JsrError("Failed to run `jsr publish --dry-run`", {
-        cause: error,
-      });
+      const stderr =
+        error instanceof NonZeroExitError ? error.output?.stderr : undefined;
+
+      throw new JsrError(
+        `Failed to run \`jsr publish --dry-run\`${stderr ? `\n${stderr}` : ""}`,
+        {
+          cause: error,
+        },
+      );
     }
   }
 
