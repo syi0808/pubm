@@ -15,6 +15,7 @@ export abstract class Registry {
   abstract version(): Promise<string>;
   abstract publish(): Promise<boolean>;
   abstract isPublished(): Promise<boolean>;
+  abstract isVersionPublished(version: string): Promise<boolean>;
   abstract hasPermission(): Promise<boolean>;
   abstract isPackageNameAvaliable(): Promise<boolean>;
   abstract getRequirements(): RegistryRequirements;

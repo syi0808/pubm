@@ -143,6 +143,21 @@ export class JsrRegisry extends Registry {
     }
   }
 
+  async isVersionPublished(version: string): Promise<boolean> {
+    try {
+      const [scope, name] = getScopeAndName(this.packageName);
+      const response = await fetch(
+        `${this.registry}/@${scope}/${name}/${version}`,
+      );
+      return response.status === 200;
+    } catch (error) {
+      throw new JsrError(
+        `Failed to fetch \`${this.registry}/${this.packageName}/${version}\``,
+        { cause: error },
+      );
+    }
+  }
+
   async hasPermission(): Promise<boolean> {
     return (
       this.client.scopePermission(`${getScope(this.packageName)}`) !== null

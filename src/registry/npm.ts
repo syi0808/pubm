@@ -54,6 +54,20 @@ export class NpmRegistry extends Registry {
     }
   }
 
+  async isVersionPublished(version: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.registry}/${this.packageName}/${version}`,
+      );
+      return response.status === 200;
+    } catch (error) {
+      throw new NpmError(
+        `Failed to fetch \`${this.registry}/${this.packageName}/${version}\``,
+        { cause: error },
+      );
+    }
+  }
+
   async userName(): Promise<string> {
     try {
       return (await this.npm(["whoami"])).trim();

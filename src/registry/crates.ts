@@ -106,6 +106,21 @@ export class CratesRegistry extends Registry {
     }
   }
 
+  async isVersionPublished(version: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.registry}/api/v1/crates/${this.packageName}/${version}`,
+        { headers: this.headers },
+      );
+      return response.ok;
+    } catch (error) {
+      throw new CratesError(
+        `Failed to check version ${version} for '${this.packageName}' on crates.io`,
+        { cause: error },
+      );
+    }
+  }
+
   async isPublished(): Promise<boolean> {
     try {
       const response = await fetch(
