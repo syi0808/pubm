@@ -25,6 +25,8 @@ vi.mock("../../../src/utils/package.js", () => ({
 vi.mock("../../../src/utils/rollback.js", () => ({
   rollback: vi.fn(),
   addRollback: vi.fn(),
+  rollbackLog: vi.fn(),
+  rollbackError: vi.fn(),
 }));
 vi.mock("../../../src/utils/cli.js", () => ({
   link: vi.fn(),
@@ -140,7 +142,12 @@ import {
   replaceVersion,
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
-import { addRollback, rollback } from "../../../src/utils/rollback.js";
+import {
+  addRollback,
+  rollback,
+  rollbackError,
+  rollbackLog,
+} from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
@@ -600,11 +607,7 @@ describe("run", () => {
 
       // Execute the captured rollback
       expect(capturedRollback).toBeDefined();
-      const rollbackConsoleSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
       await capturedRollback!();
-      rollbackConsoleSpy.mockRestore();
     });
 
     it("push tags handles GH006 protected branch by pushing only tags", async () => {
