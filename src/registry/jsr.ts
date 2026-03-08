@@ -19,7 +19,7 @@ function getApiEndpoint(registry: string): string {
 
   url.host = `api.${url.host}`;
 
-  return `${url}`;
+  return url.href.replace(/\/$/, "");
 }
 
 export class JsrRegisry extends Registry {
@@ -160,7 +160,8 @@ export class JsrRegisry extends Registry {
 
   async hasPermission(): Promise<boolean> {
     return (
-      this.client.scopePermission(`${getScope(this.packageName)}`) !== null
+      (await this.client.scopePermission(`${getScope(this.packageName)}`)) !==
+      null
     );
   }
 

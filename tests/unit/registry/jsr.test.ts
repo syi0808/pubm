@@ -77,7 +77,7 @@ describe("JsrRegisry", () => {
 
   it("creates a JsrClient with the api endpoint", () => {
     expect(registry.client).toBeInstanceOf(JsrClient);
-    expect(registry.client.apiEndpoint).toBe("https://api.jsr.io/");
+    expect(registry.client.apiEndpoint).toBe("https://api.jsr.io");
   });
 
   describe("jsr(args)", () => {
@@ -277,14 +277,13 @@ describe("JsrRegisry", () => {
       expect(result).toBe(true);
     });
 
-    it("returns true even when scopePermission returns null (missing await in source)", async () => {
+    it("returns false when scopePermission returns null", async () => {
       mockedGetScope.mockReturnValue("scope");
       vi.spyOn(registry.client, "scopePermission").mockResolvedValue(null);
 
       const result = await registry.hasPermission();
 
-      // Source code compares Promise !== null (missing await), which is always true
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
   });
 
@@ -327,7 +326,7 @@ describe("JsrClient", () => {
     mockedFetch = vi.fn();
     vi.stubGlobal("fetch", mockedFetch);
     JsrClient.token = "test-token";
-    client = new JsrClient("https://api.jsr.io/");
+    client = new JsrClient("https://api.jsr.io");
   });
 
   describe("user()", () => {
@@ -360,7 +359,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.user()).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//user`",
+        "Failed to fetch `https://api.jsr.io/user`",
       );
     });
   });
@@ -395,7 +394,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.scopePermission("myscope")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//user/member/myscope`",
+        "Failed to fetch `https://api.jsr.io/user/member/myscope`",
       );
     });
   });
@@ -433,7 +432,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.scopes()).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//user/scopes`",
+        "Failed to fetch `https://api.jsr.io/user/scopes`",
       );
     });
   });
@@ -481,7 +480,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.package("@myscope/mypkg")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//scopes/myscope/packages/mypkg`",
+        "Failed to fetch `https://api.jsr.io/scopes/myscope/packages/mypkg`",
       );
     });
   });
@@ -543,7 +542,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.createScope("myscope")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//scopes`",
+        "Failed to fetch `https://api.jsr.io/scopes`",
       );
     });
   });
@@ -591,7 +590,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.deleteScope("myscope")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//scopes/myscope`",
+        "Failed to fetch `https://api.jsr.io/scopes/myscope`",
       );
     });
   });
@@ -645,7 +644,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.createPackage("@myscope/mypkg")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//scopes/myscope/packages`",
+        "Failed to fetch `https://api.jsr.io/scopes/myscope/packages`",
       );
     });
   });
@@ -698,7 +697,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.deletePackage("@myscope/mypkg")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//scopes/myscope/packages/mypkg`",
+        "Failed to fetch `https://api.jsr.io/scopes/myscope/packages/mypkg`",
       );
     });
   });
@@ -725,7 +724,7 @@ describe("JsrClient", () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
 
       await expect(client.searchPackage("my-query")).rejects.toThrow(
-        "Failed to fetch `https://api.jsr.io//packages?query=my-query`",
+        "Failed to fetch `https://api.jsr.io/packages?query=my-query`",
       );
     });
   });
