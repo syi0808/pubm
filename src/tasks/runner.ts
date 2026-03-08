@@ -183,53 +183,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 concurrent: true,
               }),
           }
-        : options.preflight
-          ? [
-              {
-                skip: options.skipTests,
-                title: "Running tests",
-                task: async (ctx): Promise<void> => {
-                  const packageManager = await getPackageManager();
-
-                  try {
-                    await exec(packageManager, ["run", ctx.testScript], {
-                      throwOnError: true,
-                    });
-                  } catch (error) {
-                    throw new AbstractError(
-                      `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
-                      { cause: error },
-                    );
-                  }
-                },
-              },
-              {
-                skip: options.skipBuild,
-                title: "Building the project",
-                task: async (ctx): Promise<void> => {
-                  const packageManager = await getPackageManager();
-
-                  try {
-                    await exec(packageManager, ["run", ctx.buildScript], {
-                      throwOnError: true,
-                    });
-                  } catch (error) {
-                    throw new AbstractError(
-                      `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
-                      { cause: error },
-                    );
-                  }
-                },
-              },
-              {
-                title: "Validating publish (dry-run)",
-                task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                  parentTask.newListr(await collectDryRunPublishTasks(ctx), {
-                    concurrent: true,
-                  }),
-              },
-            ]
-          : [
+        : [
               {
                 skip: options.skipTests,
                 title: "Running tests",
@@ -323,10 +277,19 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 },
               },
               {
-                skip: (ctx) => options.skipPublish || !!ctx.preview,
+                skip: (ctx) =>
+                  options.skipPublish || !!ctx.preview || options.preflight,
                 title: "Publishing",
                 task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
                   parentTask.newListr(await collectPublishTasks(ctx), {
+                    concurrent: true,
+                  }),
+              },
+              {
+                skip: !options.preflight,
+                title: "Validating publish (dry-run)",
+                task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
+                  parentTask.newListr(await collectDryRunPublishTasks(ctx), {
                     concurrent: true,
                   }),
               },
