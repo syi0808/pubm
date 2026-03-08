@@ -469,6 +469,25 @@ describe("NpmRegistry", () => {
     });
   });
 
+  describe("dryRunPublish()", () => {
+    it("runs npm publish --dry-run", async () => {
+      mockStdout("");
+      await registry.dryRunPublish();
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["publish", "--dry-run"],
+        expect.objectContaining({ throwOnError: true }),
+      );
+    });
+
+    it("throws on dry-run failure", async () => {
+      mockedExec.mockRejectedValue(new Error("dry-run failed"));
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "Failed to run `npm publish --dry-run`",
+      );
+    });
+  });
+
   describe("twoFactorAuthMode()", () => {
     it("returns tfa mode from npm profile", async () => {
       mockStdout(JSON.stringify({ tfa: { mode: "auth-and-writes" } }));

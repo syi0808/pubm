@@ -71,6 +71,11 @@ export interface Options {
    */
   publishOnly?: boolean;
   /**
+   * @description Simulate CI publish locally (dry-run with token-based auth)
+   * @default false
+   */
+  preflight?: boolean;
+  /**
    * @description Publish under a specific dist-tag
    * @default "latest"
    */

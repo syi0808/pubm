@@ -186,6 +186,16 @@ export class NpmRegistry extends Registry {
     }
   }
 
+  async dryRunPublish(): Promise<void> {
+    try {
+      await this.npm(["publish", "--dry-run"]);
+    } catch (error) {
+      throw new NpmError("Failed to run `npm publish --dry-run`", {
+        cause: error,
+      });
+    }
+  }
+
   async twoFactorAuthMode(): Promise<string | null> {
     try {
       const output = await this.npm(["profile", "get", "--json"]);

@@ -195,6 +195,40 @@ describe("CratesRegistry", () => {
     });
   });
 
+  describe("dryRunPublish()", () => {
+    it("runs cargo publish --dry-run", async () => {
+      mockStdout("");
+      await registry.dryRunPublish();
+      expect(mockedExec).toHaveBeenCalledWith(
+        "cargo",
+        ["publish", "--dry-run"],
+        expect.objectContaining({ throwOnError: true }),
+      );
+    });
+
+    it("passes --manifest-path when manifestDir is provided", async () => {
+      mockStdout("");
+      await registry.dryRunPublish("packages/my-crate");
+      expect(mockedExec).toHaveBeenCalledWith(
+        "cargo",
+        [
+          "publish",
+          "--dry-run",
+          "--manifest-path",
+          path.join("packages/my-crate", "Cargo.toml"),
+        ],
+        expect.objectContaining({ throwOnError: true }),
+      );
+    });
+
+    it("throws on dry-run failure", async () => {
+      mockedExec.mockRejectedValue(new Error("dry-run failed"));
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "Failed to run `cargo publish --dry-run`",
+      );
+    });
+  });
+
   describe("isPackageNameAvaliable()", () => {
     it("returns true when crate name is not taken", async () => {
       mockedFetch.mockResolvedValue({ ok: false, status: 404 });

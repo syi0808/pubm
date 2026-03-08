@@ -6,6 +6,7 @@ import { registerAddCommand } from "./commands/add.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerMigrateCommand } from "./commands/migrate.js";
 import { registerPreCommand } from "./commands/pre.js";
+import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerUpdateCommand } from "./commands/update.js";
@@ -32,6 +33,7 @@ interface CliOptions {
   build: boolean;
   publish: boolean;
   publishOnly: boolean;
+  preflight?: boolean;
   releaseDraft: boolean;
   tag: string;
   contents?: string;
@@ -105,6 +107,11 @@ const publishOptions: {
     options: { type: Boolean },
   },
   {
+    rawName: "--preflight",
+    description: "Simulate CI publish locally (dry-run with token-based auth)",
+    options: { type: Boolean },
+  },
+  {
     rawName: "-t, --tag <name>",
     description: "Publish under a specific dist-tag",
     options: { default: "latest", type: String },
@@ -137,6 +144,7 @@ export function resolveCliOptions(options: CliOptions): Options {
     registries: options.registry?.split(","),
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
+    preflight: options.preflight,
   };
 }
 
@@ -151,6 +159,7 @@ registerSnapshotCommand(cli);
 registerInitCommand(cli);
 registerMigrateCommand(cli);
 registerUpdateCommand(cli);
+registerSecretsCommand(cli);
 
 // Default command: publish (backward compatible with `pubm [version]`)
 const defaultCmd = cli.command("[version]", "Publish packages to registries");
@@ -177,7 +186,10 @@ defaultCmd.action(
     };
 
     try {
-      if (isCI) {
+      if (options.preflight) {
+        // Preflight doesn't need a real version (no bump/publish)
+        context.version = nextVersion || "0.0.0-preflight";
+      } else if (isCI) {
         if (options.publishOnly) {
           const git = new Git();
           const latestVersion = (await git.latestTag())?.slice(1);

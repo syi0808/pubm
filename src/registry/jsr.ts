@@ -106,6 +106,26 @@ export class JsrRegisry extends Registry {
     }
   }
 
+  async dryRunPublish(): Promise<void> {
+    try {
+      await exec(
+        "jsr",
+        [
+          "publish",
+          "--dry-run",
+          "--allow-dirty",
+          "--token",
+          `${JsrClient.token}`,
+        ],
+        { throwOnError: true },
+      );
+    } catch (error) {
+      throw new JsrError("Failed to run `jsr publish --dry-run`", {
+        cause: error,
+      });
+    }
+  }
+
   async version(): Promise<string> {
     return await this.jsr(["--version"]);
   }

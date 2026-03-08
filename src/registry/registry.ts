@@ -18,4 +18,8 @@ export abstract class Registry {
   abstract hasPermission(): Promise<boolean>;
   abstract isPackageNameAvaliable(): Promise<boolean>;
   abstract getRequirements(): RegistryRequirements;
+
+  async dryRunPublish(_manifestDir?: string): Promise<void> {
+    // Default no-op: registries that support dry-run override this
+  }
 }
