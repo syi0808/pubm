@@ -52,6 +52,8 @@ export function loadTokensFromDb(registries: string[]): Record<string, string> {
   return tokens;
 }
 
+const NPM_AUTH_ENV_VAR = "npm_config_//registry.npmjs.org/:_authToken";
+
 export function injectTokensToEnv(tokens: Record<string, string>): () => void {
   const originals: Record<string, string | undefined> = {};
 
@@ -61,6 +63,11 @@ export function injectTokensToEnv(tokens: Record<string, string>): () => void {
 
     originals[config.envVar] = process.env[config.envVar];
     process.env[config.envVar] = token;
+
+    if (registry === "npm") {
+      originals[NPM_AUTH_ENV_VAR] = process.env[NPM_AUTH_ENV_VAR];
+      process.env[NPM_AUTH_ENV_VAR] = token;
+    }
   }
 
   return () => {
