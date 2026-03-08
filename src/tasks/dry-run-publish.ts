@@ -51,10 +51,17 @@ async function withTokenRetry(
 
 export const npmDryRunPublishTask: ListrTask<Ctx> = {
   title: "Dry-run npm publish",
-  task: async (_, task): Promise<void> => {
+  task: async (ctx, task): Promise<void> => {
+    const npm = await npmRegistry();
+
+    if (await npm.isVersionPublished(ctx.version)) {
+      task.title = `[SKIPPED] Dry-run npm publish: v${ctx.version} already published`;
+      task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+      return task.skip();
+    }
+
     task.output = "Running npm publish --dry-run...";
     await withTokenRetry("npm", task, async () => {
-      const npm = await npmRegistry();
       await npm.dryRunPublish();
     });
   },
@@ -62,10 +69,17 @@ export const npmDryRunPublishTask: ListrTask<Ctx> = {
 
 export const jsrDryRunPublishTask: ListrTask<Ctx> = {
   title: "Dry-run jsr publish",
-  task: async (_, task): Promise<void> => {
+  task: async (ctx, task): Promise<void> => {
+    const jsr = await jsrRegistry();
+
+    if (await jsr.isVersionPublished(ctx.version)) {
+      task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.version} already published`;
+      task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+      return task.skip();
+    }
+
     task.output = "Running jsr publish --dry-run...";
     await withTokenRetry("jsr", task, async () => {
-      const jsr = await jsrRegistry();
       await jsr.dryRunPublish();
     });
   },
@@ -105,7 +119,17 @@ export function createCratesDryRunPublishTask(
   const label = packagePath ? ` (${packagePath})` : "";
   return {
     title: `Dry-run crates.io publish${label}`,
-    task: async (_, task): Promise<void> => {
+    task: async (ctx, task): Promise<void> => {
+      // Pre-check: skip if version already published
+      const packageName = await getCrateName(packagePath);
+      const registry = new CratesRegistry(packageName);
+
+      if (await registry.isVersionPublished(ctx.version)) {
+        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${ctx.version} already published`;
+        task.output = `⚠ ${packageName}@${ctx.version} is already published on crates.io`;
+        return task.skip();
+      }
+
       // Proactive: skip if any sibling dependency is not yet on crates.io
       if (siblingCrateNames?.length) {
         const unpublished = await findUnpublishedSiblingDeps(
