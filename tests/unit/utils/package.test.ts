@@ -10,6 +10,7 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("../../../src/ecosystem/rust.js", () => ({
   RustEcosystem: vi.fn().mockImplementation(() => ({
     writeVersion: vi.fn().mockResolvedValue(undefined),
+    syncLockfile: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
@@ -746,7 +747,7 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion }) as any,
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
     );
 
     const packages = [
@@ -768,7 +769,7 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion }) as any,
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
     );
 
     const packages = [
@@ -793,7 +794,7 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion }) as any,
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
     );
 
     const packages = [{ path: ".", registries: ["npm", "jsr"] as any[] }];
@@ -817,6 +818,7 @@ describe("replaceVersion", () => {
           writeVersion: vi
             .fn()
             .mockRejectedValue(new Error("EACCES: permission denied")),
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
         }) as any,
     );
 
@@ -847,7 +849,7 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion }) as any,
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
     );
 
     const packages = [
@@ -862,6 +864,55 @@ describe("replaceVersion", () => {
     expect(mockWriteVersion).toHaveBeenCalledWith("2.0.0");
   });
 
+  it("includes Cargo.lock path when syncLockfile returns a path", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    const lockfilePath = path.resolve("rust/Cargo.lock");
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(lockfilePath) }) as any,
+    );
+
+    const packages = [
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    const result = await replaceVersion("2.0.0", packages);
+
+    expect(result).toContain(path.join("rust/crates/my-crate", "Cargo.toml"));
+    expect(result).toContain(lockfilePath);
+  });
+
+  it("deduplicates Cargo.lock when multiple crates share a workspace", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    const lockfilePath = path.resolve("rust/Cargo.lock");
+    vi.mocked(RustEcosystem).mockImplementation(
+      () => ({
+        writeVersion: vi.fn().mockResolvedValue(undefined),
+        syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+      }) as any,
+    );
+
+    const packages = [
+      { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+      { path: "rust/crates/crate-b", registries: ["crates"] as any[] },
+    ];
+
+    const result = await replaceVersion("2.0.0", packages);
+
+    const lockfileCount = result.filter((f) => f === lockfilePath).length;
+    expect(lockfileCount).toBe(1);
+  });
+
   it("does not process Cargo.toml when packages is undefined", async () => {
     const { mockStat } = await getFsMocks();
     const { replaceVersion } = await freshImport();
@@ -871,7 +922,7 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn();
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion }) as any,
+      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
     );
 
     await replaceVersion("1.0.0");

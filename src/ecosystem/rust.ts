@@ -1,6 +1,7 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
+import { exec } from "tinyexec";
 import type { RegistryType } from "../types/options.js";
 import { Ecosystem } from "./ecosystem.js";
 
@@ -42,6 +43,33 @@ export class RustEcosystem extends Ecosystem {
     pkg.version = newVersion;
 
     await writeFile(filePath, stringify(cargo));
+  }
+
+  async syncLockfile(): Promise<string | undefined> {
+    const lockfilePath = await this.findLockfile();
+    if (!lockfilePath) return undefined;
+
+    const name = await this.packageName();
+    await exec("cargo", ["update", "--package", name], {
+      nodeOptions: { cwd: path.dirname(lockfilePath) },
+    });
+
+    return lockfilePath;
+  }
+
+  private async findLockfile(): Promise<string | undefined> {
+    let dir = this.packagePath;
+    const { root } = path.parse(dir);
+
+    while (dir !== root) {
+      const candidate = path.join(dir, "Cargo.lock");
+      try {
+        if ((await stat(candidate)).isFile()) return candidate;
+      } catch {}
+      dir = path.dirname(dir);
+    }
+
+    return undefined;
   }
 
   async dependencies(): Promise<string[]> {
