@@ -40,12 +40,6 @@ function mockSpawnResult(code: number) {
   return child;
 }
 
-function mockSpawnError(error: Error) {
-  const child = createMockChildProcess();
-  mockedSpawn.mockReturnValue(child as any);
-  process.nextTick(() => child.emit("error", error));
-  return child;
-}
 
 function createMockNpm() {
   return {

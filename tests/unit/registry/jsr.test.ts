@@ -50,9 +50,6 @@ function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-function mockStderr(stderr: string) {
-  mockedExec.mockResolvedValue({ stdout: "", stderr } as any);
-}
 
 function mockFetchResponse(status: number, body?: unknown) {
   mockedFetch.mockResolvedValue({

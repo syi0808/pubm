@@ -11,7 +11,6 @@ vi.mock("update-kit", () => ({
   },
 }));
 
-import { UpdateKit } from "update-kit";
 import { notifyNewVersion } from "../../../src/utils/notify-new-version.js";
 
 let consoleSpy: ReturnType<typeof vi.spyOn>;

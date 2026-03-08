@@ -278,7 +278,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
             },
             {
               skip: (ctx) =>
-                options.skipPublish || !!ctx.preview || options.preflight,
+                !!options.skipPublish || !!ctx.preview || !!options.preflight,
               title: "Publishing",
               task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
                 parentTask.newListr(await collectPublishTasks(ctx), {
@@ -310,7 +310,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
               },
             },
             {
-              skip: (ctx) => options.skipReleaseDraft || !!ctx.preview,
+              skip: (ctx) => !!options.skipReleaseDraft || !!ctx.preview,
               title: "Creating release draft on GitHub",
               task: async (ctx, task): Promise<void> => {
                 const git = new Git();
