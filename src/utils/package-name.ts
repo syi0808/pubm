@@ -9,7 +9,7 @@ export function getScope(packageName: string): string | null {
 }
 
 export function getScopeAndName(packageName: string): [string, string] {
-  const matches = packageName.match(/^@([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)$/);
+  const matches = packageName.match(/^@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)$/);
 
   if (!matches) {
     throw new Error(
