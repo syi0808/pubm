@@ -65,6 +65,22 @@ describe("getScopeAndName", () => {
     expect(getScopeAndName("@myOrg/myPkg")).toEqual(["myOrg", "myPkg"]);
   });
 
+  it("returns scope and name for packages with hyphens, underscores, and dots", () => {
+    expect(getScopeAndName("@my-org/my-pkg")).toEqual(["my-org", "my-pkg"]);
+    expect(getScopeAndName("@syi0808/update-kit")).toEqual([
+      "syi0808",
+      "update-kit",
+    ]);
+    expect(getScopeAndName("@scope/name.with.dots")).toEqual([
+      "scope",
+      "name.with.dots",
+    ]);
+    expect(getScopeAndName("@scope/under_score")).toEqual([
+      "scope",
+      "under_score",
+    ]);
+  });
+
   it("throws for unscoped packages", () => {
     expect(() => getScopeAndName("package")).toThrow(
       "Invalid scoped package name: 'package'. Expected format: @scope/name",
@@ -77,12 +93,14 @@ describe("getScopeAndName", () => {
     );
   });
 
-  it("throws for non-matching scoped formats", () => {
-    // The regex requires only alphanumeric characters
-    expect(() => getScopeAndName("@my-org/my-pkg")).toThrow(
+  it("throws for invalid scoped formats", () => {
+    expect(() => getScopeAndName("@/package")).toThrow(
       "Invalid scoped package name",
     );
-    expect(() => getScopeAndName("@scope/name.with.dots")).toThrow(
+    expect(() => getScopeAndName("@scope/")).toThrow(
+      "Invalid scoped package name",
+    );
+    expect(() => getScopeAndName("@scope")).toThrow(
       "Invalid scoped package name",
     );
   });

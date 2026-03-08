@@ -262,9 +262,14 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     try {
                       rollbackLog("Resetting commits");
                       await git.reset();
-                      await git.stash();
+                      const dirty = (await git.status()) !== "";
+                      if (dirty) {
+                        await git.stash();
+                      }
                       await git.reset("HEAD^", "--hard");
-                      await git.popStash();
+                      if (dirty) {
+                        await git.popStash();
+                      }
                     } catch (error) {
                       rollbackError(
                         `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
