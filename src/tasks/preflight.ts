@@ -40,10 +40,14 @@ export async function syncGhSecrets(
     const config = TOKEN_CONFIG[registry];
     if (!config) continue;
 
-    await exec("gh", ["secret", "set", config.ghSecretName], {
+    const result = exec("gh", ["secret", "set", config.ghSecretName], {
       throwOnError: true,
-      nodeOptions: { input: token },
     });
+    const proc = result.process;
+    if (proc?.stdin) {
+      proc.stdin.end(token);
+    }
+    await result;
   }
 }
 
