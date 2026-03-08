@@ -394,6 +394,32 @@ describe("NpmRegistry", () => {
       );
     });
 
+    it("falls back to publish without provenance on provenance error", async () => {
+      const provenanceError = new NonZeroExitError({ exitCode: 1 } as any, {
+        stderr:
+          'Error verifying sigstore provenance bundle: Unsupported GitHub Actions source repository visibility: "private"',
+        stdout: "",
+      });
+      mockedExec.mockRejectedValueOnce(provenanceError).mockResolvedValueOnce({
+        stdout: "+ my-package@1.0.0",
+        stderr: "",
+      } as any);
+
+      const result = await registry.publishProvenance();
+
+      expect(result).toBe(true);
+      expect(mockedExec).toHaveBeenCalledTimes(2);
+      expect(mockedExec).toHaveBeenNthCalledWith(
+        1,
+        "npm",
+        ["publish", "--provenance", "--access", "public"],
+        { throwOnError: true },
+      );
+      expect(mockedExec).toHaveBeenNthCalledWith(2, "npm", ["publish"], {
+        throwOnError: true,
+      });
+    });
+
     it("throws NpmError with forbidden message for 403 errors", async () => {
       mockNonZeroExitError("403 Forbidden");
 
