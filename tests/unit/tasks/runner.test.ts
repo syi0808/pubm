@@ -142,10 +142,7 @@ import {
   replaceVersion,
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
-import {
-  addRollback,
-  rollback,
-} from "../../../src/utils/rollback.js";
+import { addRollback, rollback } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);

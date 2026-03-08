@@ -53,6 +53,7 @@ describe("collectTokens", () => {
 
   it("prompts for missing tokens", async () => {
     mockedLoadTokens.mockReturnValue({});
+    mockedExec.mockResolvedValue({ stdout: "testuser\n", stderr: "" } as any);
 
     const mockPromptAdapter = {
       run: vi.fn().mockResolvedValue("new-token"),
