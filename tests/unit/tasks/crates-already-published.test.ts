@@ -54,6 +54,21 @@ describe("cratesPublishTask — already published", () => {
     expect(mockTask.title).toContain("already published");
   });
 
+  it("skips publish when publish throws 'already uploaded' error (fallback)", async () => {
+    mockIsVersionPublished.mockResolvedValue(false);
+    mockPublish.mockRejectedValue(
+      new Error("crate version `1.0.0` is already uploaded"),
+    );
+
+    const task = createCratesPublishTask();
+    const ctx = { version: "1.0.0" } as any;
+
+    await (task as any).task(ctx, mockTask);
+
+    expect(mockTask.skip).toHaveBeenCalled();
+    expect(mockTask.title).toContain("already published");
+  });
+
   it("proceeds with publish when version is not published", async () => {
     mockIsVersionPublished.mockResolvedValue(false);
 
