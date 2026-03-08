@@ -160,4 +160,85 @@ version = "0.1.0"
       expect(await eco.dependencies()).toEqual([]);
     });
   });
+
+  describe("updateSiblingDependencyVersions", () => {
+    it("adds version field to path dependencies matching sibling crates", async () => {
+      const cargo = `[package]
+name = "my-cli"
+version = "0.1.0"
+
+[dependencies]
+my-lib = { path = "../my-lib" }
+serde = "1.0"
+`;
+      mockedReadFile.mockResolvedValue(cargo as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const siblings = new Map([["my-lib", "2.0.0"]]);
+      const modified = await eco.updateSiblingDependencyVersions(siblings);
+
+      expect(modified).toBe(true);
+      expect(mockedWriteFile).toHaveBeenCalled();
+      const written = mockedWriteFile.mock.calls[0][1] as string;
+      expect(written).toContain('version = "2.0.0"');
+      expect(written).toContain('path = "../my-lib"');
+    });
+
+    it("updates existing version field for sibling path dependencies", async () => {
+      const cargo = `[package]
+name = "my-cli"
+version = "1.0.0"
+
+[dependencies]
+my-lib = { version = "0.1.0", path = "../my-lib" }
+`;
+      mockedReadFile.mockResolvedValue(cargo as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const siblings = new Map([["my-lib", "2.0.0"]]);
+      const modified = await eco.updateSiblingDependencyVersions(siblings);
+
+      expect(modified).toBe(true);
+      const written = mockedWriteFile.mock.calls[0][1] as string;
+      expect(written).toContain('version = "2.0.0"');
+      expect(written).not.toContain('version = "0.1.0"');
+    });
+
+    it("does not modify non-sibling dependencies", async () => {
+      const cargo = `[package]
+name = "my-cli"
+version = "0.1.0"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+`;
+      mockedReadFile.mockResolvedValue(cargo as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const siblings = new Map([["my-lib", "2.0.0"]]);
+      const modified = await eco.updateSiblingDependencyVersions(siblings);
+
+      expect(modified).toBe(false);
+      expect(mockedWriteFile).not.toHaveBeenCalled();
+    });
+
+    it("handles build-dependencies section", async () => {
+      const cargo = `[package]
+name = "my-cli"
+version = "0.1.0"
+
+[build-dependencies]
+my-build = { path = "../my-build" }
+`;
+      mockedReadFile.mockResolvedValue(cargo as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const siblings = new Map([["my-build", "3.0.0"]]);
+      const modified = await eco.updateSiblingDependencyVersions(siblings);
+
+      expect(modified).toBe(true);
+      const written = mockedWriteFile.mock.calls[0][1] as string;
+      expect(written).toContain('version = "3.0.0"');
+    });
+  });
 });

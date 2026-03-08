@@ -747,7 +747,11 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
+        }) as any,
     );
 
     const packages = [
@@ -768,8 +772,19 @@ describe("replaceVersion", () => {
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
+    let callCount = 0;
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
+          packageName: vi
+            .fn()
+            .mockImplementation(() =>
+              Promise.resolve(`lib-${++callCount === 1 ? "a" : "b"}`),
+            ),
+          updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
+        }) as any,
     );
 
     const packages = [
@@ -794,7 +809,11 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
+        }) as any,
     );
 
     const packages = [{ path: ".", registries: ["npm", "jsr"] as any[] }];
@@ -849,7 +868,11 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
+        }) as any,
     );
 
     const packages = [
@@ -874,7 +897,11 @@ describe("replaceVersion", () => {
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     const lockfilePath = path.resolve("rust/Cargo.lock");
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(lockfilePath) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+        }) as any,
     );
 
     const packages = [
@@ -895,11 +922,19 @@ describe("replaceVersion", () => {
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
     const lockfilePath = path.resolve("rust/Cargo.lock");
+    let callCount = 0;
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({
-        writeVersion: vi.fn().mockResolvedValue(undefined),
-        syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
-      }) as any,
+      () =>
+        ({
+          writeVersion: vi.fn().mockResolvedValue(undefined),
+          syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+          packageName: vi
+            .fn()
+            .mockImplementation(() =>
+              Promise.resolve(`crate-${++callCount === 1 ? "a" : "b"}`),
+            ),
+          updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
+        }) as any,
     );
 
     const packages = [
@@ -922,7 +957,11 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn();
     vi.mocked(RustEcosystem).mockImplementation(
-      () => ({ writeVersion: mockWriteVersion, syncLockfile: vi.fn().mockResolvedValue(undefined) }) as any,
+      () =>
+        ({
+          writeVersion: mockWriteVersion,
+          syncLockfile: vi.fn().mockResolvedValue(undefined),
+        }) as any,
     );
 
     await replaceVersion("1.0.0");

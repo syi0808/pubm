@@ -269,32 +269,66 @@ export async function replaceVersion(
 
       return "jsr.json";
     })(),
-    ...(packages ?? [])
-      .filter((pkg) => pkg.registries.includes("crates"))
-      .map(async (pkg) => {
-        const eco = new RustEcosystem(path.resolve(pkg.path));
-        try {
-          await eco.writeVersion(version);
-        } catch (error) {
-          throw new AbstractError(
-            `Failed to write version to Cargo.toml at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
-            { cause: error },
-          );
-        }
-
-        let lockfilePath: string | undefined;
-        try {
-          lockfilePath = await eco.syncLockfile();
-        } catch (error) {
-          throw new AbstractError(
-            `Failed to sync Cargo.lock at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
-            { cause: error },
-          );
-        }
-
-        return [path.join(pkg.path, "Cargo.toml"), lockfilePath];
-      }),
   ]);
 
-  return [...new Set(results.flat().filter((v): v is string => !!v))];
+  // Handle Rust crates separately — sibling deps must be updated sequentially
+  const cratePackages = (packages ?? []).filter((pkg) =>
+    pkg.registries.includes("crates"),
+  );
+
+  const crateFiles: string[] = [];
+
+  if (cratePackages.length > 0) {
+    const ecosystems: { eco: RustEcosystem; pkg: PackageConfig }[] = [];
+
+    // Phase 1: Write versions to all crate Cargo.tomls
+    for (const pkg of cratePackages) {
+      const eco = new RustEcosystem(path.resolve(pkg.path));
+      try {
+        await eco.writeVersion(version);
+      } catch (error) {
+        throw new AbstractError(
+          `Failed to write version to Cargo.toml at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
+          { cause: error },
+        );
+      }
+      ecosystems.push({ eco, pkg });
+    }
+
+    // Phase 2: Update sibling dependency versions
+    if (ecosystems.length > 1) {
+      const siblingVersions = new Map<string, string>();
+      for (const { eco } of ecosystems) {
+        siblingVersions.set(await eco.packageName(), version);
+      }
+
+      await Promise.all(
+        ecosystems.map(({ eco }) =>
+          eco.updateSiblingDependencyVersions(siblingVersions),
+        ),
+      );
+    }
+
+    // Phase 3: Sync lockfiles
+    for (const { eco, pkg } of ecosystems) {
+      crateFiles.push(path.join(pkg.path, "Cargo.toml"));
+      try {
+        const lockfilePath = await eco.syncLockfile();
+        if (lockfilePath) crateFiles.push(lockfilePath);
+      } catch (error) {
+        throw new AbstractError(
+          `Failed to sync Cargo.lock at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
+          { cause: error },
+        );
+      }
+    }
+  }
+
+  const allFiles: string[] = [];
+  for (const r of results) {
+    if (r) allFiles.push(r);
+  }
+  allFiles.push(...crateFiles);
+
+  return [...new Set(allFiles)];
 }
