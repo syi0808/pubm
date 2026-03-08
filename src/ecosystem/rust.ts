@@ -45,6 +45,44 @@ export class RustEcosystem extends Ecosystem {
     await writeFile(filePath, stringify(cargo));
   }
 
+  /**
+   * Update the `version` field of dependencies that match sibling crate names.
+   * This ensures `cargo publish` works when crates depend on each other via path.
+   */
+  async updateSiblingDependencyVersions(
+    siblingVersions: Map<string, string>,
+  ): Promise<boolean> {
+    const filePath = path.join(this.packagePath, "Cargo.toml");
+    const raw = await readFile(filePath, "utf-8");
+    const cargo = parse(raw);
+
+    let modified = false;
+
+    for (const section of ["dependencies", "build-dependencies"]) {
+      const sectionData = cargo[section] as Record<string, unknown> | undefined;
+      if (!sectionData) continue;
+
+      for (const [depName, depValue] of Object.entries(sectionData)) {
+        if (
+          typeof depValue === "object" &&
+          depValue !== null &&
+          "path" in depValue &&
+          siblingVersions.has(depName)
+        ) {
+          const dep = depValue as Record<string, unknown>;
+          dep.version = siblingVersions.get(depName) as string;
+          modified = true;
+        }
+      }
+    }
+
+    if (modified) {
+      await writeFile(filePath, stringify(cargo));
+    }
+
+    return modified;
+  }
+
   async syncLockfile(): Promise<string | undefined> {
     const lockfilePath = await this.findLockfile();
     if (!lockfilePath) return undefined;
