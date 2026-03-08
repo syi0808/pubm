@@ -145,8 +145,6 @@ import { getPackageManager } from "../../../src/utils/package-manager.js";
 import {
   addRollback,
   rollback,
-  rollbackError,
-  rollbackLog,
 } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 
