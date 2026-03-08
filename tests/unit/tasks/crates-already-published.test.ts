@@ -1,0 +1,68 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+const { mockIsVersionPublished, mockPublish, MockCratesRegistryCtor } =
+  vi.hoisted(() => ({
+    mockIsVersionPublished: vi.fn().mockResolvedValue(false),
+    mockPublish: vi.fn().mockResolvedValue(true),
+    MockCratesRegistryCtor: vi.fn(),
+  }));
+
+vi.mock("../../../src/registry/crates.js", () => ({
+  CratesRegistry: class MockCratesRegistry {
+    constructor(name: string) {
+      MockCratesRegistryCtor(name);
+    }
+    isVersionPublished = mockIsVersionPublished;
+    publish = mockPublish;
+  },
+}));
+
+vi.mock("../../../src/ecosystem/rust.js", () => ({
+  RustEcosystem: class MockRustEcosystem {
+    packageName = vi.fn().mockResolvedValue("test-crate");
+  },
+}));
+
+import { createCratesPublishTask } from "../../../src/tasks/crates.js";
+
+describe("cratesPublishTask — already published", () => {
+  const mockTask = {
+    output: "",
+    title: "",
+    skip: vi.fn(),
+  };
+
+  beforeEach(() => {
+    mockIsVersionPublished.mockClear().mockResolvedValue(false);
+    mockPublish.mockClear().mockResolvedValue(true);
+    MockCratesRegistryCtor.mockClear();
+    mockTask.output = "";
+    mockTask.title = "";
+    mockTask.skip.mockClear();
+  });
+
+  it("skips publish when version is already published", async () => {
+    mockIsVersionPublished.mockResolvedValue(true);
+
+    const task = createCratesPublishTask();
+    const ctx = { version: "1.0.0" } as any;
+
+    await (task as any).task(ctx, mockTask);
+
+    expect(mockIsVersionPublished).toHaveBeenCalledWith("1.0.0");
+    expect(mockTask.skip).toHaveBeenCalled();
+    expect(mockTask.title).toContain("already published");
+  });
+
+  it("proceeds with publish when version is not published", async () => {
+    mockIsVersionPublished.mockResolvedValue(false);
+
+    const task = createCratesPublishTask();
+    const ctx = { version: "1.0.0" } as any;
+
+    await (task as any).task(ctx, mockTask);
+
+    expect(mockPublish).toHaveBeenCalled();
+    expect(mockTask.skip).not.toHaveBeenCalled();
+  });
+});

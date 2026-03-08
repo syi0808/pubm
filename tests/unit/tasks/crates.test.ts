@@ -4,6 +4,7 @@ const {
   mockIsInstalled,
   mockHasPermission,
   mockPublish,
+  mockIsVersionPublished,
   mockPackageName,
   MockCratesRegistryCtor,
   MockRustEcosystemCtor,
@@ -11,6 +12,7 @@ const {
   mockIsInstalled: vi.fn().mockResolvedValue(true),
   mockHasPermission: vi.fn().mockResolvedValue(true),
   mockPublish: vi.fn().mockResolvedValue(true),
+  mockIsVersionPublished: vi.fn().mockResolvedValue(false),
   mockPackageName: vi.fn().mockResolvedValue("my-crate"),
   MockCratesRegistryCtor: vi.fn(),
   MockRustEcosystemCtor: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock("../../../src/registry/crates.js", () => ({
     isInstalled = mockIsInstalled;
     hasPermission = mockHasPermission;
     publish = mockPublish;
+    isVersionPublished = mockIsVersionPublished;
   },
 }));
 
@@ -49,6 +52,7 @@ beforeEach(() => {
   mockIsInstalled.mockClear().mockResolvedValue(true);
   mockHasPermission.mockClear().mockResolvedValue(true);
   mockPublish.mockClear().mockResolvedValue(true);
+  mockIsVersionPublished.mockClear().mockResolvedValue(false);
   mockPackageName.mockClear().mockResolvedValue("my-crate");
 });
 
@@ -131,6 +135,15 @@ describe("createCratesAvailableCheckTask with path", () => {
 // 4. createCratesPublishTask without path
 // ---------------------------------------------------------------------------
 describe("createCratesPublishTask without path", () => {
+  const mockCtx = { version: "1.0.0" } as any;
+  const mockTask = { output: "", title: "", skip: vi.fn() };
+
+  beforeEach(() => {
+    mockTask.output = "";
+    mockTask.title = "";
+    mockTask.skip.mockClear();
+  });
+
   it("has title without label", () => {
     const task = createCratesPublishTask();
     expect(task.title).toBe("Publishing to crates.io");
@@ -138,7 +151,7 @@ describe("createCratesPublishTask without path", () => {
 
   it("calls registry.publish() with no args (undefined)", async () => {
     const task = createCratesPublishTask();
-    await (task.task as () => Promise<void>)();
+    await (task.task as any)(mockCtx, mockTask);
 
     expect(MockRustEcosystemCtor).toHaveBeenCalledWith(process.cwd());
     expect(MockCratesRegistryCtor).toHaveBeenCalledWith("my-crate");
@@ -151,6 +164,14 @@ describe("createCratesPublishTask without path", () => {
 // ---------------------------------------------------------------------------
 describe("createCratesPublishTask with path", () => {
   const packagePath = "rust/crates/my-crate";
+  const mockCtx = { version: "1.0.0" } as any;
+  const mockTask = { output: "", title: "", skip: vi.fn() };
+
+  beforeEach(() => {
+    mockTask.output = "";
+    mockTask.title = "";
+    mockTask.skip.mockClear();
+  });
 
   it("has title with path label", () => {
     const task = createCratesPublishTask(packagePath);
@@ -159,14 +180,14 @@ describe("createCratesPublishTask with path", () => {
 
   it("calls registry.publish with the package path", async () => {
     const task = createCratesPublishTask(packagePath);
-    await (task.task as () => Promise<void>)();
+    await (task.task as any)(mockCtx, mockTask);
 
     expect(mockPublish).toHaveBeenCalledWith(packagePath);
   });
 
   it("constructs RustEcosystem with the given path", async () => {
     const task = createCratesPublishTask(packagePath);
-    await (task.task as () => Promise<void>)();
+    await (task.task as any)(mockCtx, mockTask);
 
     expect(MockRustEcosystemCtor).toHaveBeenCalledWith(packagePath);
   });
