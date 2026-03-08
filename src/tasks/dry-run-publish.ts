@@ -90,8 +90,7 @@ async function getCrateName(packagePath?: string): Promise<string> {
   return await eco.packageName();
 }
 
-const MISSING_CRATE_PATTERN =
-  /no matching package named `([^`]+)` found/;
+const MISSING_CRATE_PATTERN = /no matching package named `([^`]+)` found/;
 
 async function findUnpublishedSiblingDeps(
   packagePath: string | undefined,
