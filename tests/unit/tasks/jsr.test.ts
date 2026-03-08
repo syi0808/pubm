@@ -70,6 +70,7 @@ function createMockJsr() {
       scopePermission: vi.fn().mockResolvedValue(null),
     },
     isPublished: vi.fn().mockResolvedValue(false),
+    isVersionPublished: vi.fn().mockResolvedValue(false),
     hasPermission: vi.fn().mockResolvedValue(true),
     isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
     publish: vi.fn().mockResolvedValue(true),

@@ -248,60 +248,79 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
   task: async (ctx, task): Promise<void> => {
     const jsr = await jsrRegistry();
 
-    task.output = "Publishing on jsr...";
-
-    if (!JsrClient.token && !ctx.promptEnabled) {
-      const jsrTokenEnv = process.env.JSR_TOKEN;
-
-      if (!jsrTokenEnv) {
-        throw new JsrAvailableError(
-          "JSR_TOKEN not found in the environment variables. Please set the token and try again.",
-        );
-      }
-
-      JsrClient.token = jsrTokenEnv;
+    // Pre-check: skip if version already published
+    if (await jsr.isVersionPublished(ctx.version)) {
+      task.title = `[SKIPPED] jsr: v${ctx.version} already published`;
+      task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+      return task.skip();
     }
 
-    let result = await jsr.publish();
+    task.output = "Publishing on jsr...";
 
-    if (!result && jsr.packageCreationUrls) {
-      if (ctx.promptEnabled) {
-        task.title = "Running jsr publish (package creation needed)";
-        const urls = jsr.packageCreationUrls;
-        const maxAttempts = 3;
+    try {
+      if (!JsrClient.token && !ctx.promptEnabled) {
+        const jsrTokenEnv = process.env.JSR_TOKEN;
 
-        task.output = `Package doesn't exist on jsr. Create it at:\n${urls.map((url) => `  ${color.cyan(url)}`).join("\n")}`;
-
-        open(urls[0]);
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-            type: "input",
-            message: `Press ${color.bold("enter")} after creating the package on jsr.io${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
-          });
-
-          result = await jsr.publish();
-
-          if (result) break;
-
-          if (attempt < maxAttempts) {
-            task.output =
-              "Package still doesn't exist. Please create it and try again.";
-          }
-        }
-
-        if (!result) {
+        if (!jsrTokenEnv) {
           throw new JsrAvailableError(
-            "Package creation not completed after 3 attempts.",
+            "JSR_TOKEN not found in the environment variables. Please set the token and try again.",
           );
         }
 
-        task.title = "Running jsr publish (package created)";
-      } else {
-        throw new JsrAvailableError(
-          `Package doesn't exist on jsr. Create it at:\n${jsr.packageCreationUrls.join("\n")}`,
-        );
+        JsrClient.token = jsrTokenEnv;
       }
+
+      let result = await jsr.publish();
+
+      if (!result && jsr.packageCreationUrls) {
+        if (ctx.promptEnabled) {
+          task.title = "Running jsr publish (package creation needed)";
+          const urls = jsr.packageCreationUrls;
+          const maxAttempts = 3;
+
+          task.output = `Package doesn't exist on jsr. Create it at:\n${urls.map((url) => `  ${color.cyan(url)}`).join("\n")}`;
+
+          open(urls[0]);
+
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+              type: "input",
+              message: `Press ${color.bold("enter")} after creating the package on jsr.io${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
+            });
+
+            result = await jsr.publish();
+
+            if (result) break;
+
+            if (attempt < maxAttempts) {
+              task.output =
+                "Package still doesn't exist. Please create it and try again.";
+            }
+          }
+
+          if (!result) {
+            throw new JsrAvailableError(
+              "Package creation not completed after 3 attempts.",
+            );
+          }
+
+          task.title = "Running jsr publish (package created)";
+        } else {
+          throw new JsrAvailableError(
+            `Package doesn't exist on jsr. Create it at:\n${jsr.packageCreationUrls.join("\n")}`,
+          );
+        }
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("already published")
+      ) {
+        task.title = `[SKIPPED] jsr: v${ctx.version} already published`;
+        task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+        return task.skip();
+      }
+      throw error;
     }
   },
 };
