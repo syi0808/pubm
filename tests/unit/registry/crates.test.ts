@@ -227,6 +227,24 @@ describe("CratesRegistry", () => {
         "Failed to run `cargo publish --dry-run`",
       );
     });
+
+    it("filters noise lines from cargo stderr", async () => {
+      const { NonZeroExitError } = await import("tinyexec");
+      const error = new NonZeroExitError({ exitCode: 101 } as any, {
+        stdout: "",
+        stderr:
+          "    Updating crates.io index\nwarning: manifest has no description\n    Updating crates.io index\nerror: failed to prepare local package",
+      });
+      mockedExec.mockRejectedValue(error);
+
+      try {
+        await registry.dryRunPublish();
+      } catch (e: any) {
+        expect(e.message).not.toContain("Updating crates.io index");
+        expect(e.message).toContain("warning: manifest has no description");
+        expect(e.message).toContain("error: failed to prepare local package");
+      }
+    });
   });
 
   describe("isPackageNameAvaliable()", () => {
