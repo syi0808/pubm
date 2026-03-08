@@ -179,6 +179,10 @@ export class NpmRegistry extends Registry {
         return false;
       }
 
+      if (this.isProvenanceError(error)) {
+        return this.publish();
+      }
+
       throw this.classifyPublishError(error);
     }
   }
@@ -243,6 +247,15 @@ export class NpmRegistry extends Registry {
       needsPackageScripts: true,
       requiredManifest: "package.json",
     };
+  }
+
+  private isProvenanceError(error: unknown): boolean {
+    if (!(error instanceof NonZeroExitError)) return false;
+    const stderr = error.output?.stderr ?? "";
+    return (
+      stderr.includes("verifying sigstore provenance") ||
+      stderr.includes("provenance bundle")
+    );
   }
 
   private classifyPublishError(error: unknown): NpmError {
