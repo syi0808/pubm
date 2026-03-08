@@ -85,31 +85,34 @@ describe("collectTokens", () => {
 });
 
 describe("syncGhSecrets", () => {
-  it("calls gh secret set for each token", async () => {
-    mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+  it("calls gh secret set for each token and writes to stdin", async () => {
+    const mockStdin = { end: vi.fn() };
+    const mockResult = Object.assign(Promise.resolve({ stdout: "", stderr: "" }), {
+      process: { stdin: mockStdin },
+    });
+    mockedExec.mockReturnValue(mockResult as any);
 
     await syncGhSecrets({ npm: "tok-123", jsr: "tok-456" });
 
     expect(mockedExec).toHaveBeenCalledWith(
       "gh",
       ["secret", "set", "NODE_AUTH_TOKEN"],
-      expect.objectContaining({
-        throwOnError: true,
-        nodeOptions: { input: "tok-123" },
-      }),
+      { throwOnError: true },
     );
     expect(mockedExec).toHaveBeenCalledWith(
       "gh",
       ["secret", "set", "JSR_TOKEN"],
-      expect.objectContaining({
-        throwOnError: true,
-        nodeOptions: { input: "tok-456" },
-      }),
+      { throwOnError: true },
     );
+    expect(mockStdin.end).toHaveBeenCalledWith("tok-123");
+    expect(mockStdin.end).toHaveBeenCalledWith("tok-456");
   });
 
   it("throws when gh is not installed", async () => {
-    mockedExec.mockRejectedValue(new Error("not found"));
+    const mockResult = Object.assign(Promise.reject(new Error("not found")), {
+      process: undefined,
+    });
+    mockedExec.mockReturnValue(mockResult as any);
 
     await expect(syncGhSecrets({ npm: "tok-123" })).rejects.toThrow();
   });
