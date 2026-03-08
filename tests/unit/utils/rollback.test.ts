@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let addRollback: typeof import("../../../src/utils/rollback.js").addRollback;
 let rollback: typeof import("../../../src/utils/rollback.js").rollback;
+let rollbackLog: typeof import("../../../src/utils/rollback.js").rollbackLog;
+let rollbackError: typeof import("../../../src/utils/rollback.js").rollbackError;
 
 beforeEach(async () => {
   vi.resetModules();
   const mod = await import("../../../src/utils/rollback.js");
   addRollback = mod.addRollback;
   rollback = mod.rollback;
+  rollbackLog = mod.rollbackLog;
+  rollbackError = mod.rollbackError;
 });
 
 describe("addRollback", () => {
@@ -38,15 +42,21 @@ describe("rollback", () => {
     expect(fn2).toHaveBeenCalledWith(ctx2);
   });
 
-  it('logs "Rollback..." and "Rollback completed"', async () => {
+  it("logs styled rollback start and completion", async () => {
     const spy = vi.spyOn(console, "log");
     const fn = vi.fn().mockResolvedValue(undefined);
 
     addRollback(fn, {});
     await rollback();
 
-    expect(spy).toHaveBeenCalledWith("Rollback...");
-    expect(spy).toHaveBeenCalledWith("Rollback completed");
+    const startCall = spy.mock.calls.find((c) =>
+      (c[0] as string).includes("Rolling back"),
+    );
+    const doneCall = spy.mock.calls.find((c) =>
+      (c[0] as string).includes("Rollback completed"),
+    );
+    expect(startCall).toBeDefined();
+    expect(doneCall).toBeDefined();
   });
 
   it("is idempotent — second call is a no-op and does not log again", async () => {
@@ -92,7 +102,7 @@ describe("rollback", () => {
     expect(fn3).toHaveBeenCalledOnce();
   });
 
-  it("logs failed rollback operations", async () => {
+  it("logs styled failed rollback operations", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -101,12 +111,13 @@ describe("rollback", () => {
     addRollback(fn, {});
     await rollback();
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      "Rollback operation failed: disk full",
+    const failCall = errorSpy.mock.calls.find((c) =>
+      (c[0] as string).includes("disk full"),
     );
+    expect(failCall).toBeDefined();
   });
 
-  it("logs partial completion message when some rollbacks fail", async () => {
+  it("logs styled error completion message when some rollbacks fail", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -118,9 +129,10 @@ describe("rollback", () => {
 
     await rollback();
 
-    expect(logSpy).toHaveBeenCalledWith(
-      "Rollback completed with errors. Some operations may require manual recovery.",
+    const errorCompletion = logSpy.mock.calls.find((c) =>
+      (c[0] as string).includes("Rollback completed with errors"),
     );
+    expect(errorCompletion).toBeDefined();
   });
 
   it("executes multiple rollbacks concurrently via Promise.all", async () => {
@@ -149,5 +161,29 @@ describe("rollback", () => {
     expect(order).toContain(1);
     expect(order).toContain(2);
     expect(order).toContain(3);
+  });
+});
+
+describe("rollbackLog", () => {
+  it("logs sub-operation with arrow prefix", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    rollbackLog("Deleting tag");
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("↩");
+    expect(output).toContain("Deleting tag");
+  });
+});
+
+describe("rollbackError", () => {
+  it("logs error with cross prefix", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    rollbackError("Failed to delete tag");
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("✗");
+    expect(output).toContain("Failed to delete tag");
   });
 });

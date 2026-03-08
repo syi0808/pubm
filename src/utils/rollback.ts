@@ -1,3 +1,5 @@
+import { color } from "listr2";
+
 type Rollback<Ctx extends {}> = (ctx: Ctx) => Promise<unknown>;
 
 // biome-ignore lint/suspicious/noExplicitAny: generic rollback storage requires any
@@ -10,6 +12,14 @@ export function addRollback<Ctx extends {}>(
   rollbacks.push({ fn: rollback, ctx: context });
 }
 
+export function rollbackLog(message: string): void {
+  console.log(`  ${color.yellow("↩")} ${message}`);
+}
+
+export function rollbackError(message: string): void {
+  console.error(`  ${color.red("✗")} ${message}`);
+}
+
 let called = false;
 
 export async function rollback(): Promise<void> {
@@ -19,7 +29,7 @@ export async function rollback(): Promise<void> {
 
   if (rollbacks.length <= 0) return void 0;
 
-  console.log("Rollback...");
+  console.log(`\n${color.yellow("⟲")} ${color.yellow("Rolling back...")}`);
 
   const results = await Promise.allSettled(
     rollbacks.map(({ fn, ctx }) => fn(ctx)),
@@ -31,14 +41,16 @@ export async function rollback(): Promise<void> {
 
   if (failures.length > 0) {
     for (const failure of failures) {
-      console.error(
-        `Rollback operation failed: ${failure.reason instanceof Error ? failure.reason.message : failure.reason}`,
+      rollbackError(
+        failure.reason instanceof Error
+          ? failure.reason.message
+          : failure.reason,
       );
     }
     console.log(
-      "Rollback completed with errors. Some operations may require manual recovery.",
+      `${color.red("✗")} ${color.red("Rollback completed with errors.")} Some operations may require manual recovery.`,
     );
   } else {
-    console.log("Rollback completed");
+    console.log(`${color.green("✓")} Rollback completed`);
   }
 }
