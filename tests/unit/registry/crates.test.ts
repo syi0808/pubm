@@ -201,7 +201,7 @@ describe("CratesRegistry", () => {
       await registry.dryRunPublish();
       expect(mockedExec).toHaveBeenCalledWith(
         "cargo",
-        ["publish", "--dry-run"],
+        ["publish", "--dry-run", "--no-verify"],
         expect.objectContaining({ throwOnError: true }),
       );
     });
@@ -214,6 +214,7 @@ describe("CratesRegistry", () => {
         [
           "publish",
           "--dry-run",
+          "--no-verify",
           "--manifest-path",
           path.join("packages/my-crate", "Cargo.toml"),
         ],
