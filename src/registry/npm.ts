@@ -254,16 +254,21 @@ export class NpmRegistry extends Registry {
       }
       if (stderr.includes("403") || stderr.includes("Forbidden")) {
         return new NpmError(
-          "Permission denied (403 Forbidden). Check your npm access token permissions.",
+          `Permission denied (403 Forbidden). Check your npm access token permissions.${stderr ? `\n${stderr}` : ""}`,
           { cause: error },
         );
       }
       if (stderr.includes("429") || stderr.includes("Too Many Requests")) {
         return new NpmError(
-          "Rate limited by npm registry. Please wait and try again.",
+          `Rate limited by npm registry. Please wait and try again.${stderr ? `\n${stderr}` : ""}`,
           { cause: error },
         );
       }
+
+      return new NpmError(
+        `Failed to publish to npm${stderr ? `\n${stderr}` : ""}`,
+        { cause: error },
+      );
     }
 
     return new NpmError("Failed to publish to npm", { cause: error });
