@@ -19,7 +19,7 @@ import {
 } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
-import { addRollback, rollback } from "../utils/rollback.js";
+import { addRollback, rollback, rollbackError, rollbackLog } from "../utils/rollback.js";
 import { injectTokensToEnv } from "../utils/token.js";
 import { cratesPublishTasks, createCratesPublishTask } from "./crates.js";
 import {
@@ -237,10 +237,10 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 addRollback(async () => {
                   if (tagCreated) {
                     try {
-                      console.log("Deleting tag...");
+                      rollbackLog("Deleting tag");
                       await git.deleteTag(`${await git.latestTag()}`);
                     } catch (error) {
-                      console.error(
+                      rollbackError(
                         `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
                       );
                     }
@@ -248,13 +248,13 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                   if (commited) {
                     try {
-                      console.log("Reset commits...");
+                      rollbackLog("Resetting commits");
                       await git.reset();
                       await git.stash();
                       await git.reset("HEAD^", "--hard");
                       await git.popStash();
                     } catch (error) {
-                      console.error(
+                      rollbackError(
                         `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
                       );
                     }
