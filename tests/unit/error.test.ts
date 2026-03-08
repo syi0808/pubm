@@ -154,16 +154,15 @@ describe("consoleError", () => {
   it("should include stack traces when DEBUG=pubm is set", () => {
     const originalDebug = process.env.DEBUG;
     process.env.DEBUG = "pubm";
-
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const error = new Error("debug test");
-
-    consoleError(error);
-
-    const output = spy.mock.calls[0][0] as string;
-    expect(output).toContain("at");
-
-    process.env.DEBUG = originalDebug;
+    try {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const error = new Error("debug test");
+      consoleError(error);
+      const output = spy.mock.calls[0][0] as string;
+      expect(output).toMatch(/at .+\.\w+:\d+:\d+/);
+    } finally {
+      process.env.DEBUG = originalDebug;
+    }
   });
 
   it("should format stderr blocks with gutter lines", () => {
@@ -208,6 +207,17 @@ describe("consoleError", () => {
     const output = spy.mock.calls[0][0] as string;
     expect(output).toContain("Caused by:");
     expect(output).toContain("network timeout");
+  });
+
+  it("should skip cause when it has the same message as parent", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("connection failed");
+    const error = new AbstractError("connection failed", { cause });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).not.toContain("Caused by:");
   });
 
   it("should format deeply nested cause chains", () => {
