@@ -76,6 +76,7 @@ describe("npmDryRunPublishTask", () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
     await (npmDryRunPublishTask as any).task({}, { output: "" });
@@ -92,6 +93,7 @@ describe("jsrDryRunPublishTask", () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
     mockedJsrRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
     await (jsrDryRunPublishTask as any).task({}, { output: "" });
@@ -121,7 +123,11 @@ describe("createCratesDryRunPublishTask", () => {
         }) as any,
     );
     mockedCratesRegistry.mockImplementation(
-      () => ({ dryRunPublish: mockDryRun }) as any,
+      () =>
+        ({
+          dryRunPublish: mockDryRun,
+          isVersionPublished: vi.fn().mockResolvedValue(false),
+        }) as any,
     );
 
     const task = createCratesDryRunPublishTask("packages/my-crate");
@@ -141,6 +147,7 @@ describe("createCratesDryRunPublishTask", () => {
       (name: string) =>
         ({
           isPublished: vi.fn().mockResolvedValue(name !== "my-lib"),
+          isVersionPublished: vi.fn().mockResolvedValue(false),
           dryRunPublish: vi.fn(),
         }) as any,
     );
@@ -168,6 +175,7 @@ describe("createCratesDryRunPublishTask", () => {
       () =>
         ({
           isPublished: vi.fn().mockResolvedValue(true),
+          isVersionPublished: vi.fn().mockResolvedValue(false),
           dryRunPublish: mockDryRun,
         }) as any,
     );
@@ -198,6 +206,7 @@ describe("createCratesDryRunPublishTask", () => {
       () =>
         ({
           isPublished: vi.fn().mockResolvedValue(true),
+          isVersionPublished: vi.fn().mockResolvedValue(false),
           dryRunPublish: mockDryRun,
         }) as any,
     );
@@ -229,6 +238,7 @@ describe("createCratesDryRunPublishTask", () => {
       () =>
         ({
           isPublished: vi.fn().mockResolvedValue(true),
+          isVersionPublished: vi.fn().mockResolvedValue(false),
           dryRunPublish: mockDryRun,
         }) as any,
     );
@@ -254,7 +264,11 @@ describe("createCratesDryRunPublishTask", () => {
         }) as any,
     );
     mockedCratesRegistry.mockImplementation(
-      () => ({ dryRunPublish: mockDryRun }) as any,
+      () =>
+        ({
+          dryRunPublish: mockDryRun,
+          isVersionPublished: vi.fn().mockResolvedValue(false),
+        }) as any,
     );
 
     const mockTask = { output: "" };
@@ -271,6 +285,7 @@ describe("withTokenRetry", () => {
       .mockResolvedValueOnce(undefined);
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
     const mockPromptAdapter = {
@@ -294,6 +309,7 @@ describe("withTokenRetry", () => {
     const mockDryRun = vi.fn().mockRejectedValue(new Error("network timeout"));
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
     const mockTask = { output: "", prompt: vi.fn() };
@@ -313,6 +329,7 @@ describe("withTokenRetry", () => {
       .mockResolvedValueOnce(undefined);
     mockedJsrRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
     const mockDbSet = vi.fn();
