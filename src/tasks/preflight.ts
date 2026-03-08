@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
@@ -51,11 +52,30 @@ export async function syncGhSecrets(
   }
 }
 
+function tokensSyncHash(tokens: Record<string, string>): string {
+  const sorted = Object.entries(tokens).sort(([a], [b]) => a.localeCompare(b));
+  return createHash("sha256")
+    .update(JSON.stringify(sorted))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+const SYNC_HASH_DB_KEY = "gh-secrets-sync-hash";
+
 export async function promptGhSecretsSync(
   tokens: Record<string, string>,
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
 ): Promise<void> {
+  const db = new Db();
+  const currentHash = tokensSyncHash(tokens);
+  const storedHash = db.get(SYNC_HASH_DB_KEY);
+
+  if (storedHash === currentHash) {
+    task.output = "Tokens already synced to GitHub Secrets.";
+    return;
+  }
+
   const shouldSync = await task.prompt(ListrEnquirerPromptAdapter).run({
     type: "toggle",
     message: "Sync tokens to GitHub Secrets?",
@@ -67,6 +87,7 @@ export async function promptGhSecretsSync(
     task.output = "Syncing tokens to GitHub Secrets...";
     try {
       await syncGhSecrets(tokens);
+      db.set(SYNC_HASH_DB_KEY, currentHash);
       task.output = "Tokens synced to GitHub Secrets.";
     } catch (error) {
       throw new PreflightError(
