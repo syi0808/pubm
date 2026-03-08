@@ -19,7 +19,12 @@ import {
 } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
-import { addRollback, rollback, rollbackError, rollbackLog } from "../utils/rollback.js";
+import {
+  addRollback,
+  rollback,
+  rollbackError,
+  rollbackLog,
+} from "../utils/rollback.js";
 import { injectTokensToEnv } from "../utils/token.js";
 import { cratesPublishTasks, createCratesPublishTask } from "./crates.js";
 import {

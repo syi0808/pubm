@@ -71,7 +71,8 @@ function formatError(error: AbstractError | string): string {
 
   // Show cause only if meaningful
   if (error.cause && !isNoisyCause(error.cause)) {
-    const causeMsg = error.cause instanceof Error ? error.cause.message : String(error.cause);
+    const causeMsg =
+      error.cause instanceof Error ? error.cause.message : String(error.cause);
     if (causeMsg !== summary) {
       result += `\n${color.dim("Caused by:")} `;
       result += formatError(error.cause as AbstractError);
