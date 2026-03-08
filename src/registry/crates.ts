@@ -9,6 +9,18 @@ class CratesError extends AbstractError {
 
 const USER_AGENT = "pubm (https://github.com/syi0808/pubm)";
 
+function cleanCargoStderr(stderr: string): string {
+  return stderr
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (trimmed === "Updating crates.io index") return false;
+      if (trimmed === "") return false;
+      return true;
+    })
+    .join("\n");
+}
+
 export class CratesRegistry extends Registry {
   registry = "https://crates.io";
 
@@ -83,7 +95,7 @@ export class CratesRegistry extends Registry {
       const stderr =
         error instanceof NonZeroExitError ? error.output?.stderr : undefined;
       const message = stderr
-        ? `Failed to run \`cargo publish\`:\n${stderr}`
+        ? `Failed to run \`cargo publish\`:\n${cleanCargoStderr(stderr)}`
         : "Failed to run `cargo publish`";
       throw new CratesError(message, { cause: error });
     }
@@ -100,7 +112,7 @@ export class CratesRegistry extends Registry {
       const stderr =
         error instanceof NonZeroExitError ? error.output?.stderr : undefined;
       const message = stderr
-        ? `Failed to run \`cargo publish --dry-run\`:\n${stderr}`
+        ? `Failed to run \`cargo publish --dry-run\`:\n${cleanCargoStderr(stderr)}`
         : "Failed to run `cargo publish --dry-run`";
       throw new CratesError(message, { cause: error });
     }
