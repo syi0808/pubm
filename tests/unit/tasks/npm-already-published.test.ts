@@ -42,9 +42,13 @@ describe("npmPublishTasks — already published", () => {
   it("skips publish when publish throws 'already published' error (fallback)", async () => {
     const mockNpm = {
       isVersionPublished: vi.fn().mockResolvedValue(false),
-      publish: vi.fn().mockRejectedValue(
-        new Error("You cannot publish over the previously published versions"),
-      ),
+      publish: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "You cannot publish over the previously published versions",
+          ),
+        ),
       packageName: "test-package",
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
