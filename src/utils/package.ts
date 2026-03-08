@@ -281,9 +281,20 @@ export async function replaceVersion(
             { cause: error },
           );
         }
-        return path.join(pkg.path, "Cargo.toml");
+
+        let lockfilePath: string | undefined;
+        try {
+          lockfilePath = await eco.syncLockfile();
+        } catch (error) {
+          throw new AbstractError(
+            `Failed to sync Cargo.lock at ${pkg.path}: ${error instanceof Error ? error.message : error}`,
+            { cause: error },
+          );
+        }
+
+        return [path.join(pkg.path, "Cargo.toml"), lockfilePath];
       }),
   ]);
 
-  return results.filter((v) => v) as string[];
+  return [...new Set(results.flat().filter((v): v is string => !!v))];
 }
