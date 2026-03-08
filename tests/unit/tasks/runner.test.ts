@@ -57,6 +57,52 @@ vi.mock("../../../src/tasks/crates.js", () => ({
     task: vi.fn(),
   })),
 }));
+vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
+  npmDryRunPublishTask: {
+    title: "Dry-run npm publish",
+    task: vi.fn(),
+  },
+  jsrDryRunPublishTask: {
+    title: "Dry-run jsr publish",
+    task: vi.fn(),
+  },
+  cratesDryRunPublishTask: {
+    title: "Dry-run crates publish",
+    task: vi.fn(),
+  },
+  createCratesDryRunPublishTask: vi.fn((packagePath?: string) => ({
+    title: `Dry-run crates publish (${packagePath})`,
+    task: vi.fn(),
+  })),
+}));
+vi.mock("../../../src/tasks/preflight.js", () => ({
+  collectTokens: vi.fn(),
+  promptGhSecretsSync: vi.fn(),
+}));
+vi.mock("../../../src/utils/token.js", () => ({
+  TOKEN_CONFIG: {
+    npm: {
+      envVar: "NODE_AUTH_TOKEN",
+      dbKey: "npm-token",
+      ghSecretName: "NODE_AUTH_TOKEN",
+      promptLabel: "npm access token",
+    },
+    jsr: {
+      envVar: "JSR_TOKEN",
+      dbKey: "jsr-token",
+      ghSecretName: "JSR_TOKEN",
+      promptLabel: "jsr API token",
+    },
+    crates: {
+      envVar: "CARGO_REGISTRY_TOKEN",
+      dbKey: "cargo-token",
+      ghSecretName: "CARGO_REGISTRY_TOKEN",
+      promptLabel: "crates.io API token",
+    },
+  },
+  loadTokensFromDb: vi.fn(),
+  injectTokensToEnv: vi.fn().mockReturnValue(vi.fn()),
+}));
 vi.mock("@npmcli/promise-spawn", () => ({
   default: { open: vi.fn() },
 }));
@@ -77,6 +123,10 @@ vi.mock("../../../src/utils/listr.js", () => ({
 import { exec } from "tinyexec";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
+import {
+  collectTokens,
+  promptGhSecretsSync,
+} from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
@@ -91,6 +141,7 @@ import {
 } from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
+import { injectTokensToEnv } from "../../../src/utils/token.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
@@ -108,6 +159,9 @@ const mockedAddRollback = vi.mocked(addRollback);
 const mockedLink = vi.mocked(link);
 const mockedGit = vi.mocked(Git);
 const mockedSortCrates = vi.mocked(sortCratesByDependencyOrder);
+const mockedCollectTokens = vi.mocked(collectTokens);
+const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
+const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
 
 function createOptions(
   overrides: Partial<ResolvedOptions> = {},
@@ -198,6 +252,9 @@ beforeEach(() => {
   } as any);
 
   mockedSortCrates.mockImplementation(async (paths) => paths);
+  mockedCollectTokens.mockResolvedValue({ npm: "test-token" });
+  mockedPromptGhSecretsSync.mockResolvedValue(undefined);
+  mockedInjectTokensToEnv.mockReturnValue(vi.fn());
 
   setupCreateListrMock();
 });
@@ -947,6 +1004,66 @@ describe("run", () => {
       await run(options);
 
       expect(mockedRollback).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("preflight mode", () => {
+    it("runs prerequisites and conditions checks in preflight mode", async () => {
+      const options = createOptions({ preflight: true });
+      await run(options);
+
+      expect(mockedPrerequisitesCheckTask).toHaveBeenCalled();
+      expect(mockedRequiredConditionsCheckTask).toHaveBeenCalled();
+    });
+
+    it("creates task list with dry-run publish instead of real publish", async () => {
+      const options = createOptions({ preflight: true });
+      await run(options);
+
+      // First createListr call is token collection, second is pipeline
+      const pipelineCall = mockedCreateListr.mock.calls[1];
+      const tasks = pipelineCall[0] as any[];
+
+      expect(Array.isArray(tasks)).toBe(true);
+      expect(tasks).toHaveLength(3);
+      expect(tasks[0].title).toBe("Running tests");
+      expect(tasks[1].title).toBe("Building the project");
+      expect(tasks[2].title).toBe("Validating publish (dry-run)");
+    });
+
+    it("injects tokens into env and cleans up after pipeline", async () => {
+      const cleanupFn = vi.fn();
+      mockedInjectTokensToEnv.mockReturnValue(cleanupFn);
+
+      const options = createOptions({ preflight: true });
+      await run(options);
+
+      expect(mockedInjectTokensToEnv).toHaveBeenCalledWith({
+        npm: "test-token",
+      });
+      expect(cleanupFn).toHaveBeenCalled();
+    });
+
+    it("does not run bump, push tags, or release draft", async () => {
+      const options = createOptions({ preflight: true });
+      await run(options);
+
+      const pipelineCall = mockedCreateListr.mock.calls[1];
+      const tasks = pipelineCall[0] as any[];
+
+      const titles = tasks.map((t: any) => t.title);
+      expect(titles).not.toContain("Bumping version");
+      expect(titles).not.toContain("Publishing");
+      expect(titles).not.toContain("Pushing tags to GitHub");
+      expect(titles).not.toContain("Creating release draft on GitHub");
+    });
+
+    it("shows preflight success message", async () => {
+      const options = createOptions({ preflight: true });
+      await run(options);
+
+      const logMessage = consoleSpy.mock.calls[0][0] as string;
+      expect(logMessage).toContain("Preflight check passed");
     });
   });
 });

@@ -66,6 +66,7 @@ vi.mock("std-env", () => mockIsCI);
 
 vi.mock("../../src/error.js", () => ({
   consoleError: mockConsoleError,
+  AbstractError: class extends Error {},
 }));
 
 vi.mock("../../src/git.js", () => ({
@@ -114,6 +115,10 @@ vi.mock("../../src/commands/status.js", () => ({
 
 vi.mock("../../src/commands/version-cmd.js", () => ({
   registerVersionCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/secrets.js", () => ({
+  registerSecretsCommand: vi.fn(),
 }));
 
 beforeEach(() => {
