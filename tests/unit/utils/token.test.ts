@@ -77,7 +77,13 @@ describe("injectTokensToEnv", () => {
     const cleanup = injectTokensToEnv({ npm: "test-token" });
 
     expect(process.env.NODE_AUTH_TOKEN).toBe("test-token");
+    expect(process.env["npm_config_//registry.npmjs.org/:_authToken"]).toBe(
+      "test-token",
+    );
     cleanup();
     expect(process.env.NODE_AUTH_TOKEN).toBe(originalEnv.NODE_AUTH_TOKEN);
+    expect(process.env["npm_config_//registry.npmjs.org/:_authToken"]).toBe(
+      originalEnv["npm_config_//registry.npmjs.org/:_authToken"],
+    );
   });
 });
