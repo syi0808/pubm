@@ -386,10 +386,26 @@ describe("NpmRegistry", () => {
       );
     });
 
+    it("includes stderr in error message for non-EOTP errors", async () => {
+      mockNonZeroExitError("npm error code ENEEDAUTH");
+
+      await expect(registry.publishProvenance()).rejects.toThrow(
+        /Failed to publish to npm\nnpm error code ENEEDAUTH/,
+      );
+    });
+
     it("throws NpmError with forbidden message for 403 errors", async () => {
       mockNonZeroExitError("403 Forbidden");
 
       await expect(registry.publishProvenance()).rejects.toThrow(/forbidden/i);
+    });
+
+    it("includes stderr in forbidden error message", async () => {
+      mockNonZeroExitError("403 Forbidden - you don't have access");
+
+      await expect(registry.publishProvenance()).rejects.toThrow(
+        /403 Forbidden - you don't have access/,
+      );
     });
 
     it("throws NpmError with rate limit message for 429 errors", async () => {
@@ -453,6 +469,14 @@ describe("NpmRegistry", () => {
 
       await expect(registry.publish()).rejects.toThrow(
         "Failed to publish to npm",
+      );
+    });
+
+    it("includes stderr in error message for non-EOTP errors", async () => {
+      mockNonZeroExitError("npm error code ENEEDAUTH");
+
+      await expect(registry.publish()).rejects.toThrow(
+        /Failed to publish to npm\nnpm error code ENEEDAUTH/,
       );
     });
 
