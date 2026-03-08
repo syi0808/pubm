@@ -43,9 +43,9 @@ describe("jsrPublishTasks — already published", () => {
   it("skips publish when publish throws 'already published' error (fallback)", async () => {
     const mockJsr = {
       isVersionPublished: vi.fn().mockResolvedValue(false),
-      publish: vi.fn().mockRejectedValue(
-        new Error("Failed: version already published"),
-      ),
+      publish: vi
+        .fn()
+        .mockRejectedValue(new Error("Failed: version already published")),
       packageName: "@scope/test",
       packageCreationUrls: undefined,
     };
