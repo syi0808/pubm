@@ -148,6 +148,13 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
   let cleanupEnv: (() => void) | undefined;
 
+  const onSigint = async () => {
+    cleanupEnv?.();
+    await rollback();
+    process.exit(130);
+  };
+  process.on("SIGINT", onSigint);
+
   try {
     if (options.contents) process.chdir(options.contents);
 
@@ -390,6 +397,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
       }
     }
 
+    process.removeListener("SIGINT", onSigint);
+
     if (options.preflight) {
       cleanupEnv?.();
       console.log(
@@ -401,6 +410,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
       );
     }
   } catch (e: unknown) {
+    process.removeListener("SIGINT", onSigint);
     cleanupEnv?.();
     consoleError(e as Error);
 

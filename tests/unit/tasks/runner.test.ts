@@ -1006,6 +1006,64 @@ describe("run", () => {
     });
   });
 
+  describe("SIGINT handling", () => {
+    it("registers a SIGINT handler when run starts", async () => {
+      const onSpy = vi.spyOn(process, "on");
+
+      const options = createOptions();
+      await run(options);
+
+      expect(onSpy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
+      onSpy.mockRestore();
+    });
+
+    it("removes the SIGINT handler on success", async () => {
+      const removeSpy = vi.spyOn(process, "removeListener");
+
+      const options = createOptions();
+      await run(options);
+
+      expect(removeSpy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
+      removeSpy.mockRestore();
+    });
+
+    it("removes the SIGINT handler on error", async () => {
+      const removeSpy = vi.spyOn(process, "removeListener");
+      const error = new Error("Task failed");
+      mockedPrerequisitesCheckTask.mockReturnValueOnce({
+        run: vi.fn().mockRejectedValue(error),
+      } as any);
+
+      const options = createOptions();
+      await run(options);
+
+      expect(removeSpy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
+      removeSpy.mockRestore();
+    });
+
+    it("calls rollback and exits with 130 when SIGINT fires", async () => {
+      let sigintHandler: (() => Promise<void>) | undefined;
+      const onSpy = vi
+        .spyOn(process, "on")
+        // @ts-expect-error: simplified mock for SIGINT capture
+        .mockImplementation((event: string, handler: any) => {
+          if (event === "SIGINT") sigintHandler = handler;
+          return process;
+        });
+
+      const options = createOptions();
+      await run(options);
+
+      expect(sigintHandler).toBeDefined();
+      await sigintHandler!();
+
+      expect(mockedRollback).toHaveBeenCalledOnce();
+      expect(processExitSpy).toHaveBeenCalledWith(130);
+
+      onSpy.mockRestore();
+    });
+  });
+
   describe("preflight mode", () => {
     it("runs prerequisites and conditions checks in preflight mode", async () => {
       const options = createOptions({ preflight: true });
