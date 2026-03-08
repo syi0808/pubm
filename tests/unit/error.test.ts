@@ -91,7 +91,7 @@ describe("consoleError", () => {
     expect(spy).toHaveBeenCalledOnce();
     const output = spy.mock.calls[0][0] as string;
     expect(output).toContain("top level");
-    expect(output).toContain("Caused:");
+    expect(output).toContain("Caused by:");
     expect(output).toContain("root cause");
   });
 
@@ -141,15 +141,73 @@ describe("consoleError", () => {
     expect(output).toContain("42");
   });
 
-  it("should include stack trace information in Error output", () => {
+  it("should NOT include stack traces by default", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const error = new Error("stack test");
 
     consoleError(error);
 
     const output = spy.mock.calls[0][0] as string;
-    // The formatted output should contain 'at' from the stack trace
+    expect(output).not.toMatch(/at .+\.\w+:\d+:\d+/);
+  });
+
+  it("should include stack traces when DEBUG=pubm is set", () => {
+    const originalDebug = process.env.DEBUG;
+    process.env.DEBUG = "pubm";
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new Error("debug test");
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
     expect(output).toContain("at");
+
+    process.env.DEBUG = originalDebug;
+  });
+
+  it("should format stderr blocks with gutter lines", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new AbstractError(
+      "Failed to run `cargo publish --dry-run`:\nerror: failed to prepare\n\nCaused by:\n  no matching package",
+    );
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("Failed to run");
+    expect(output).toContain("│");
+    expect(output).toContain("error: failed to prepare");
+  });
+
+  it("should skip NonZeroExitError in cause chain", async () => {
+    const { NonZeroExitError } = await import("tinyexec");
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const cause = new NonZeroExitError({ exitCode: 101 } as any, {
+      stdout: "",
+      stderr: "",
+    });
+    const error = new AbstractError("Failed to publish", { cause });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("Failed to publish");
+    expect(output).not.toContain("Caused");
+    expect(output).not.toContain("non-zero");
+  });
+
+  it("should show cause chain when cause has meaningful info", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new AbstractError("network timeout");
+    const error = new AbstractError("Failed to ping registry", { cause });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("Caused by:");
+    expect(output).toContain("network timeout");
   });
 
   it("should format deeply nested cause chains", () => {

@@ -1,4 +1,5 @@
 import { color } from "listr2";
+import { NonZeroExitError } from "tinyexec";
 
 export class AbstractError extends Error {
   cause?: unknown;
@@ -15,28 +16,66 @@ function replaceCode(code: string): string {
   return code.replace(/`([^`].+)`/g, color.bold(color.underline("$1")));
 }
 
+function formatStderr(stderr: string): string {
+  return stderr
+    .split("\n")
+    .map((line) => `  ${color.dim("│")} ${line}`)
+    .join("\n");
+}
+
+function isNoisyCause(cause: unknown): boolean {
+  if (cause instanceof NonZeroExitError) return true;
+  if (
+    cause instanceof Error &&
+    /Process exited with non-zero status/i.test(cause.message)
+  )
+    return true;
+  return false;
+}
+
 function formatError(error: AbstractError | string): string {
   if (!(error instanceof Error)) return `${error}`;
 
-  const message =
+  const rawMessage =
     typeof error.message === "string"
-      ? replaceCode(error.message)
-      : /* v8 ignore next */ formatError(error);
+      ? error.message
+      : /* v8 ignore next */ String(error);
 
-  let stringifyError = `${color.bgRed(` ${error.name} `)}${color.reset("")} ${message}\n`;
-  stringifyError += error.stack
-    ?.split("\n")
-    .slice(1)
-    .join("\n")
-    .replace(/at/g, color.dim("at"))
-    .replace(/\(([^(].+)\)/g, `(${color.blue("$1")})`);
+  // Split message into summary + stderr detail
+  const newlineIndex = rawMessage.indexOf("\n");
+  let summary: string;
+  let detail: string | undefined;
 
-  if (error.cause) {
-    stringifyError += "\n\nCaused: ";
-    stringifyError += formatError(error.cause as AbstractError);
+  if (newlineIndex !== -1) {
+    summary = rawMessage.slice(0, newlineIndex);
+    detail = rawMessage.slice(newlineIndex + 1);
+  } else {
+    summary = rawMessage;
   }
 
-  return stringifyError;
+  let result = `${color.bgRed(` ${error.name} `)}${color.reset("")} ${replaceCode(summary)}\n`;
+
+  if (detail) {
+    result += `\n${formatStderr(detail)}\n`;
+  }
+
+  // Stack trace only in debug mode
+  if (process.env.DEBUG === "pubm" && error.stack) {
+    result += error.stack
+      .split("\n")
+      .slice(1)
+      .join("\n")
+      .replace(/at/g, color.dim("at"))
+      .replace(/\(([^(].+)\)/g, `(${color.blue("$1")})`);
+  }
+
+  // Show cause only if meaningful
+  if (error.cause && !isNoisyCause(error.cause)) {
+    result += `\n${color.dim("Caused by:")} `;
+    result += formatError(error.cause as AbstractError);
+  }
+
+  return result;
 }
 
 export function consoleError(error: string | Error): void {
