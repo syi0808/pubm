@@ -47,11 +47,31 @@ export function createCratesPublishTask(packagePath?: string): ListrTask<Ctx> {
   const label = packagePath ? ` (${packagePath})` : "";
   return {
     title: `Publishing to crates.io${label}`,
-    task: async (): Promise<void> => {
+    task: async (ctx, task): Promise<void> => {
       const packageName = await getCrateName(packagePath);
       const registry = new CratesRegistry(packageName);
 
-      await registry.publish(packagePath);
+      // Pre-check: skip if version already published
+      if (await registry.isVersionPublished(ctx.version)) {
+        task.title = `[SKIPPED] crates.io${label}: v${ctx.version} already published`;
+        task.output = `⚠ ${packageName}@${ctx.version} is already published on crates.io`;
+        return task.skip();
+      }
+
+      try {
+        await registry.publish(packagePath);
+      } catch (error) {
+        // Fallback: catch "already uploaded" errors
+        if (
+          error instanceof Error &&
+          error.message.includes("is already uploaded")
+        ) {
+          task.title = `[SKIPPED] crates.io${label}: v${ctx.version} already published`;
+          task.output = `⚠ ${packageName}@${ctx.version} is already published on crates.io`;
+          return task.skip();
+        }
+        throw error;
+      }
     },
   };
 }
