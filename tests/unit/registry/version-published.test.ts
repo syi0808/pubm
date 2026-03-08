@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { NpmRegistry } from "../../../src/registry/npm.js";
 import { CratesRegistry } from "../../../src/registry/crates.js";
 import { JsrRegisry } from "../../../src/registry/jsr.js";
+import { NpmRegistry } from "../../../src/registry/npm.js";
 
 describe("isVersionPublished", () => {
   describe("NpmRegistry", () => {
@@ -68,9 +68,7 @@ describe("isVersionPublished", () => {
       );
 
       expect(await jsr.isVersionPublished("1.0.0")).toBe(true);
-      expect(fetch).toHaveBeenCalledWith(
-        "https://jsr.io/@scope/name/1.0.0",
-      );
+      expect(fetch).toHaveBeenCalledWith("https://jsr.io/@scope/name/1.0.0");
     });
 
     it("returns false when version does not exist (HTTP 404)", async () => {

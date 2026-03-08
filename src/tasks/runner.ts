@@ -5,11 +5,11 @@ import SemVer from "semver";
 import { isCI } from "std-env";
 import { exec } from "tinyexec";
 import type { PackageConfig } from "../config/types.js";
+import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
-import { RustEcosystem } from "../ecosystem/rust.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { createListr } from "../utils/listr.js";
 import {

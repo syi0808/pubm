@@ -190,11 +190,13 @@ describe("createCratesDryRunPublishTask", () => {
   });
 
   it("reactive fallback: skips when dry-run fails with sibling error", async () => {
-    const mockDryRun = vi.fn().mockRejectedValue(
-      new Error(
-        'no matching package named `my-lib` found\nlocation searched: crates.io index',
-      ),
-    );
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "no matching package named `my-lib` found\nlocation searched: crates.io index",
+        ),
+      );
     mockedRustEcosystem.mockImplementation(
       () =>
         ({
@@ -222,11 +224,13 @@ describe("createCratesDryRunPublishTask", () => {
   });
 
   it("throws when error is about a non-sibling missing crate", async () => {
-    const mockDryRun = vi.fn().mockRejectedValue(
-      new Error(
-        'no matching package named `unknown-crate` found\nlocation searched: crates.io index',
-      ),
-    );
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "no matching package named `unknown-crate` found\nlocation searched: crates.io index",
+        ),
+      );
     mockedRustEcosystem.mockImplementation(
       () =>
         ({
@@ -254,9 +258,9 @@ describe("createCratesDryRunPublishTask", () => {
   });
 
   it("throws when no siblingCrateNames provided", async () => {
-    const mockDryRun = vi.fn().mockRejectedValue(
-      new Error('no matching package named `my-lib` found'),
-    );
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValue(new Error("no matching package named `my-lib` found"));
     mockedRustEcosystem.mockImplementation(
       () =>
         ({
