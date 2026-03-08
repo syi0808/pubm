@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
-    "release": "pnpm build && node bin/cli.js --no-publish",
+    "release": "pnpm build && node bin/cli.js --preflight",
     "ci:release": "node bin/cli.js --publish-only"
   },
   "dependencies": {
