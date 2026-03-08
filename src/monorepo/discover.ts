@@ -30,12 +30,17 @@ function detectEcosystem(packageDir: string): EcosystemType | null {
   return null;
 }
 
+function toForwardSlash(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
 function matchesIgnore(pkgPath: string, ignorePatterns: string[]): boolean {
+  const normalized = toForwardSlash(pkgPath);
   return ignorePatterns.some((pattern) => {
     const regex = new RegExp(
-      `^${pattern.replace(/\*/g, ".*").replace(/\?/g, ".")}$`,
+      `^${toForwardSlash(pattern).replace(/\*/g, ".*").replace(/\?/g, ".")}$`,
     );
-    return regex.test(pkgPath);
+    return regex.test(normalized);
   });
 }
 
@@ -70,13 +75,13 @@ export function discoverPackages(
     const dirs = resolvePatterns(cwd, workspace.patterns);
 
     for (const dir of dirs) {
-      const relativePath = path.relative(cwd, dir).replace(/\\/g, "/");
+      const relativePath = path.relative(cwd, dir);
       if (matchesIgnore(relativePath, ignore)) continue;
 
       const ecosystem = detectEcosystem(dir);
       if (!ecosystem) continue;
 
-      discovered.set(relativePath, {
+      discovered.set(toForwardSlash(relativePath), {
         path: relativePath,
         registries: defaultRegistries[ecosystem],
         ecosystem,
@@ -86,11 +91,12 @@ export function discoverPackages(
 
   // Merge config packages (config overrides auto-detected)
   for (const configPkg of configPackages) {
-    const normalizedPath = configPkg.path.replace(/\\/g, "/");
-    const existing = discovered.get(normalizedPath);
+    const key = toForwardSlash(configPkg.path);
+    const nativePath = path.normalize(configPkg.path);
+    const existing = discovered.get(key);
 
     if (existing) {
-      discovered.set(normalizedPath, {
+      discovered.set(key, {
         ...existing,
         registries: configPkg.registries ?? existing.registries,
         ecosystem: configPkg.ecosystem ?? existing.ecosystem,
@@ -100,8 +106,8 @@ export function discoverPackages(
       const ecosystem = configPkg.ecosystem ?? detectEcosystem(absPath);
 
       if (ecosystem) {
-        discovered.set(normalizedPath, {
-          path: normalizedPath,
+        discovered.set(key, {
+          path: nativePath,
           registries: configPkg.registries ?? defaultRegistries[ecosystem],
           ecosystem,
         });
