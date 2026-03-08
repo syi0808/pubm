@@ -1,0 +1,56 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+vi.mock("../../../src/registry/npm.js", () => ({
+  npmRegistry: vi.fn(),
+}));
+
+import { npmRegistry } from "../../../src/registry/npm.js";
+import { npmPublishTasks } from "../../../src/tasks/npm.js";
+
+const mockedNpmRegistry = vi.mocked(npmRegistry);
+
+describe("npmPublishTasks — already published", () => {
+  const mockTask = {
+    output: "",
+    title: "Running npm publish",
+    skip: vi.fn(),
+    prompt: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTask.output = "";
+    mockTask.title = "Running npm publish";
+  });
+
+  it("skips publish when version is already published", async () => {
+    const mockNpm = {
+      isVersionPublished: vi.fn().mockResolvedValue(true),
+      packageName: "test-package",
+    };
+    mockedNpmRegistry.mockResolvedValue(mockNpm as any);
+
+    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+
+    await (npmPublishTasks as any).task(ctx, mockTask);
+
+    expect(mockNpm.isVersionPublished).toHaveBeenCalledWith("1.0.0");
+    expect(mockTask.skip).toHaveBeenCalled();
+    expect(mockTask.title).toContain("already published");
+  });
+
+  it("proceeds with publish when version is not published", async () => {
+    const mockNpm = {
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      publish: vi.fn().mockResolvedValue(true),
+      packageName: "test-package",
+    };
+    mockedNpmRegistry.mockResolvedValue(mockNpm as any);
+
+    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+
+    await (npmPublishTasks as any).task(ctx, mockTask);
+
+    expect(mockNpm.publish).toHaveBeenCalled();
+  });
+});

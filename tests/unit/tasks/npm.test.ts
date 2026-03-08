@@ -48,6 +48,7 @@ function createMockNpm() {
     hasPermission: vi.fn().mockResolvedValue(true),
     isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
     twoFactorAuthMode: vi.fn().mockResolvedValue(null),
+    isVersionPublished: vi.fn().mockResolvedValue(false),
     publish: vi.fn().mockResolvedValue(true),
     publishProvenance: vi.fn().mockResolvedValue(true),
   };

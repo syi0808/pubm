@@ -114,56 +114,81 @@ export const npmPublishTasks: ListrTask<Ctx> = {
   task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
+    // Pre-check: skip if version already published
+    if (await npm.isVersionPublished(ctx.version)) {
+      task.title = `[SKIPPED] npm: v${ctx.version} already published`;
+      task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+      return task.skip();
+    }
+
     task.output = "Publishing on npm...";
 
-    if (ctx.promptEnabled) {
-      let result = await npm.publish();
+    try {
+      if (ctx.promptEnabled) {
+        let result = await npm.publish();
 
-      if (!result) {
-        task.title = "Running npm publish (OTP code needed)";
-        const maxAttempts = 3;
+        if (!result) {
+          task.title = "Running npm publish (OTP code needed)";
+          const maxAttempts = 3;
 
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          result = await npm.publish(
-            await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-              type: "password",
-              message: `npm OTP code${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
-            }),
-          );
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            result = await npm.publish(
+              await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+                type: "password",
+                message: `npm OTP code${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
+              }),
+            );
 
-          if (result) break;
+            if (result) break;
 
-          if (attempt < maxAttempts) {
-            task.output = "2FA failed. Please try again.";
+            if (attempt < maxAttempts) {
+              task.output = "2FA failed. Please try again.";
+            }
           }
+
+          if (!result) {
+            throw new NpmAvailableError(
+              "OTP verification failed after 3 attempts.",
+            );
+          }
+
+          task.title = "Running npm publish (2FA passed)";
         }
+      } else {
+        const npmTokenEnv = process.env.NODE_AUTH_TOKEN;
+
+        if (!npmTokenEnv) {
+          throw new NpmAvailableError(
+            "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:\n" +
+              "  GitHub Actions: Add NODE_AUTH_TOKEN as a repository secret\n" +
+              "  Other CI: Export NODE_AUTH_TOKEN with your npm access token",
+          );
+        }
+
+        const result = await npm.publishProvenance();
 
         if (!result) {
           throw new NpmAvailableError(
-            "OTP verification failed after 3 attempts.",
+            `In CI environment, publishing with 2FA is not allowed. Please disable 2FA when accessing with a token from https://www.npmjs.com/package/${npm.packageName}/access `,
           );
         }
-
-        task.title = "Running npm publish (2FA passed)";
       }
-    } else {
-      const npmTokenEnv = process.env.NODE_AUTH_TOKEN;
-
-      if (!npmTokenEnv) {
-        throw new NpmAvailableError(
-          "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:\n" +
-            "  GitHub Actions: Add NODE_AUTH_TOKEN as a repository secret\n" +
-            "  Other CI: Export NODE_AUTH_TOKEN with your npm access token",
-        );
+    } catch (error) {
+      // Fallback: catch "already published" errors
+      if (
+        error instanceof Error &&
+        (error.message.includes(
+          "cannot publish over the previously published",
+        ) ||
+          error.message.includes(
+            "You cannot publish over the previously published",
+          ))
+      ) {
+        task.title = `[SKIPPED] npm: v${ctx.version} already published`;
+        task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+        return task.skip();
       }
-
-      const result = await npm.publishProvenance();
-
-      if (!result) {
-        throw new NpmAvailableError(
-          `In CI environment, publishing with 2FA is not allowed. Please disable 2FA when accessing with a token from https://www.npmjs.com/package/${npm.packageName}/access `,
-        );
-      }
+      throw error;
     }
   },
 };
