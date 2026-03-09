@@ -1,3 +1,4 @@
+import process from "node:process";
 import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
@@ -55,18 +56,20 @@ export class JsrRegisry extends Registry {
 
   async ping(): Promise<boolean> {
     try {
+      const flag = process.platform === "win32" ? "-n" : "-c";
       const { stdout } = await exec(
         "ping",
-        [new URL(this.registry).hostname, "-c", "1"],
+        [flag, "1", new URL(this.registry).hostname],
         { throwOnError: true },
       );
 
-      return stdout.includes("1 packets transmitted");
-    } catch (error) {
-      throw new JsrError(
-        `Failed to run \`ping ${new URL(this.registry).hostname}\` -c 1`,
-        { cause: error },
+      return (
+        stdout.includes("1 packets transmitted") || stdout.includes("Sent = 1")
       );
+    } catch (error) {
+      throw new JsrError(`Failed to ping ${new URL(this.registry).hostname}`, {
+        cause: error,
+      });
     }
   }
 

@@ -105,7 +105,9 @@ describe("pubm", () => {
 
     expect(mockedRun).toHaveBeenCalledOnce();
     const resolvedOptions = mockedResolveOptions.mock.results[0].value;
-    expect(mockedRun).toHaveBeenCalledWith(resolvedOptions);
+    expect(mockedRun).toHaveBeenCalledWith(
+      expect.objectContaining(resolvedOptions),
+    );
   });
 
   it("calls resolveOptions before run", async () => {

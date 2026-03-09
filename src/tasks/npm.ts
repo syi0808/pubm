@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import npmCli from "@npmcli/promise-spawn";
+import spawn from "cross-spawn";
 import { color, type ListrTask } from "listr2";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";

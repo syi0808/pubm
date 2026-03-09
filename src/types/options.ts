@@ -1,4 +1,5 @@
 import type { PackageConfig } from "../config/types.js";
+import type { PluginRunner } from "../plugin/runner.js";
 
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
@@ -108,4 +109,5 @@ export interface ResolvedOptions extends Options {
   saveToken: boolean;
   registries: RegistryType[];
   packages?: PackageConfig[];
+  pluginRunner?: PluginRunner;
 }

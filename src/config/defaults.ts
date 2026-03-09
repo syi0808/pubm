@@ -46,5 +46,6 @@ export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
     packages,
     validate: { ...defaultValidate, ...config.validate },
     snapshot: { ...defaultSnapshot, ...config.snapshot },
+    plugins: config.plugins ?? [],
   };
 }
