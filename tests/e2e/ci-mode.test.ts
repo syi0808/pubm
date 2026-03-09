@@ -2,18 +2,18 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runPubmCli } from "../utils/cli.js";
 
-const binPath = path.resolve("bin/cli.js");
+const cliPath = path.resolve("src/cli.ts");
 
 describe("CI mode", () => {
   it("should show error when version is not provided and --publish-only is not set", async () => {
     const { stderr } = await runPubmCli(
-      "node",
+      "bun",
       {
         nodeOptions: {
           env: { ...process.env, CI: "true" },
         },
       },
-      binPath,
+      cliPath,
     );
 
     expect(stderr).toContain("Version must be set in the CI environment");
@@ -31,14 +31,14 @@ describe("CI mode", () => {
 
     try {
       const { stderr } = await runPubmCli(
-        "node",
+        "bun",
         {
           nodeOptions: {
             env: { ...process.env, CI: "true" },
             cwd: tmpDir,
           },
         },
-        binPath,
+        cliPath,
         "--publish-only",
       );
 
@@ -54,13 +54,13 @@ describe("CI mode", () => {
 
   it("should include error formatting in CI error output", async () => {
     const { stderr } = await runPubmCli(
-      "node",
+      "bun",
       {
         nodeOptions: {
           env: { ...process.env, CI: "true" },
         },
       },
-      binPath,
+      cliPath,
     );
 
     // The error output should contain the error name/type info

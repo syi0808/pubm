@@ -72,6 +72,11 @@ export interface Options {
    */
   publishOnly?: boolean;
   /**
+   * @description CI mode: publish from latest tag and create GitHub Release with assets
+   * @default false
+   */
+  ci?: boolean;
+  /**
    * @description Simulate CI publish locally (dry-run with token-based auth)
    * @default false
    */

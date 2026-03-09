@@ -9,8 +9,7 @@ pubm is a CLI tool for publishing packages to multiple registries (npm, jsr, and
 ## Commands
 
 ```bash
-bun run build          # Build with Bun (outputs ESM/CJS to dist/, CLI to bin/)
-bun run build:compile  # Build + compile single binaries for all platforms
+bun run build          # Build SDK (dist/) + cross-compiled platform binaries (npm/)
 bun run check          # Lint and format check with Biome
 bun run format         # Auto-fix lint and formatting issues
 bun run typecheck      # TypeScript type checking (tsc --noEmit)
@@ -78,9 +77,8 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 
 `build.ts` uses Bun's bundler API to produce:
 - Library: `src/index.ts` → `dist/` (ESM + CJS + types)
-- CLI: `src/cli.ts` → `bin/cli.js` (ESM with Node shebang)
-
-With the `--compile` flag, it also produces single-binary executables for all platforms via `bun build --compile`.
+- CLI: Cross-compiled single binaries for all platforms → `npm/@pubm-*/bin/`
+- `bin/cli.js` is a static wrapper that delegates to the platform-specific binary (not a build output)
 
 `listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
 

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
   --sl-color-accent-low: #1a1a2e;
@@ -12,11 +12,11 @@
   --sl-color-gray-5: #272d3d;
   --sl-color-gray-6: #161b26;
   --sl-color-black: #0f1117;
-  --sl-font: 'Instrument Sans', sans-serif;
-  --sl-font-mono: 'JetBrains Mono', monospace;
+  --sl-font: "Instrument Sans", sans-serif;
+  --sl-font-mono: "JetBrains Mono", monospace;
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
   --sl-color-bg: #0f1117;
   --sl-color-bg-nav: rgba(22, 27, 38, 0.85);
   --sl-color-bg-sidebar: #0f1117;

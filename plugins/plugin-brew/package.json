@@ -1,0 +1,20 @@
+{
+  "name": "@pubm/plugin-brew",
+  "version": "0.2.12",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "pubm": ">=0.2.12"
+  }
+}

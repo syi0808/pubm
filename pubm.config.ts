@@ -1,4 +1,5 @@
 import { defineConfig, externalVersionSync } from "./dist/index.js";
+import { brewTap } from "./plugins/plugin-brew/src/index.js";
 
 export default defineConfig({
   registries: ["npm", "jsr"],
@@ -11,5 +12,6 @@ export default defineConfig({
         },
       ],
     }),
+    brewTap({ formula: "Formula/pubm.rb" }),
   ],
 });

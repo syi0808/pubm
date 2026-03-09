@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runPubmCli } from "../utils/cli.js";
 
-const binPath = path.resolve("bin/cli.js");
+const cliPath = path.resolve("src/cli.ts");
 
 describe("pubm sync --discover", () => {
   let tmpDir: string;
@@ -31,9 +31,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
     );
 
@@ -41,7 +41,7 @@ describe("pubm sync --discover", () => {
   });
 
   it("should show sync help via pubm sync --help", async () => {
-    const { stdout } = await runPubmCli("node", {}, binPath, "sync", "--help");
+    const { stdout } = await runPubmCli("bun", {}, cliPath, "sync", "--help");
 
     expect(stdout).toContain("sync");
   });
@@ -58,9 +58,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -83,9 +83,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -103,9 +103,9 @@ describe("pubm sync --discover", () => {
     writeFileSync(path.join(dir, "readme.txt"), "Hello world\n");
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -125,9 +125,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -151,9 +151,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -177,9 +177,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -195,9 +195,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );
@@ -218,9 +218,9 @@ describe("pubm sync --discover", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "sync",
       "--discover",
     );

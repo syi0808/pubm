@@ -10,14 +10,16 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  release:
     environment: Publish
     permissions:
-      contents: read
+      contents: write
       id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -27,24 +29,9 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - run: bun install --frozen-lockfile
       - run: bun run build
-      - name: Publish to npm and jsr
-        run: bun run ci:release
+      - name: Publish and release
+        run: bun src/cli.ts --ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-
-  build-binaries:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - run: bun run build:compile
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: releases/*
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
