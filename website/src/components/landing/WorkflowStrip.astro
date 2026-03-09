@@ -1,41 +1,101 @@
-<section class="workflow section-divider">
-  <div class="workflow-container">
-    <div class="workflow-pipeline">
-      <div class="workflow-step" data-index="0">
-        <div class="step-card" style="--step-color: var(--accent-violet);">
-          <code class="step-cmd">pubm add</code>
-          <h3 class="step-label">Describe changes</h3>
-          <p class="step-sub">Create a changeset</p>
+---
+---
+
+<section class="workflow-pipeline section-divider" id="workflow">
+  <div class="container">
+    <div class="pipeline-header fade-in-up">
+      <div class="header-badge">Automated Delivery</div>
+      <h2 class="display-title">Ship with <span class="text-glow">Absolute Certainty.</span></h2>
+      <p class="header-desc">
+        Pubm manages the entire release lifecycle, ensuring every step is 
+        validated and every failure is automatically recovered.
+      </p>
+    </div>
+
+    <div class="pipeline-visual fade-in-up">
+      <!-- Step 1: Changeset -->
+      <div class="pipeline-step active">
+        <div class="step-meta">
+          <span class="step-index">01</span>
+          <span class="step-status-tag running">Running</span>
+        </div>
+        <div class="step-content-box">
+          <div class="step-icon-v3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </div>
+          <div class="step-text">
+            <h4>Generate Changeset</h4>
+            <div class="code-pill"><code>pubm add</code></div>
+          </div>
+          <div class="step-progress-bar">
+            <div class="progress-fill"></div>
+          </div>
         </div>
       </div>
 
-      <span class="workflow-arrow">&rarr;</span>
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-dot"></div>
+      </div>
 
-      <div class="workflow-step" data-index="1">
-        <div class="step-card" style="--step-color: var(--accent-cyan);">
-          <code class="step-cmd">pubm version</code>
-          <h3 class="step-label">Bump & changelog</h3>
-          <p class="step-sub">Consume changesets, update versions</p>
+      <!-- Step 2: Version -->
+      <div class="pipeline-step pending">
+        <div class="step-meta">
+          <span class="step-index">02</span>
+          <span class="step-status-tag waiting">Waiting</span>
+        </div>
+        <div class="step-content-box">
+          <div class="step-icon-v3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </div>
+          <div class="step-text">
+            <h4>Bump & Changelog</h4>
+            <div class="code-pill"><code>pubm version</code></div>
+          </div>
         </div>
       </div>
 
-      <span class="workflow-arrow">&rarr;</span>
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-dot"></div>
+      </div>
 
-      <div class="workflow-step" data-index="2">
-        <div class="step-card" style="--step-color: var(--accent-green);">
-          <code class="step-cmd">pubm patch</code>
-          <h3 class="step-label">Publish everywhere</h3>
-          <p class="step-sub">All registries, atomic rollback</p>
+      <!-- Step 3: Publish -->
+      <div class="pipeline-step pending">
+        <div class="step-meta">
+          <span class="step-index">03</span>
+          <span class="step-status-tag waiting">Waiting</span>
+        </div>
+        <div class="step-content-box">
+          <div class="step-icon-v3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+          <div class="step-text">
+            <h4>Multi-Registry Publish</h4>
+            <div class="code-pill"><code>pubm patch</code></div>
+          </div>
         </div>
       </div>
 
-      <span class="workflow-arrow">&rarr;</span>
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-dot"></div>
+      </div>
 
-      <div class="workflow-step" data-index="3">
-        <div class="step-card step-done" style="--step-color: var(--accent-green);">
-          <span class="step-check">&#10003;</span>
-          <h3 class="step-label">Released</h3>
-          <p class="step-sub">Tags pushed, GitHub release drafted</p>
+      <!-- Step 4: Success -->
+      <div class="pipeline-step success-node">
+        <div class="step-meta">
+          <span class="step-index">04</span>
+          <span class="step-status-tag completed">Goal</span>
+        </div>
+        <div class="step-content-box success-accent">
+          <div class="step-icon-v3 check-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <div class="step-text">
+            <h4>Deployment Verified</h4>
+            <p>12 packages live across 3 registries</p>
+          </div>
         </div>
       </div>
     </div>
@@ -43,159 +103,185 @@
 </section>
 
 <style>
-  .workflow {
-    padding: 6rem 1.5rem;
+  .workflow-pipeline {
+    padding: 12rem 1.5rem;
+    background: #050505;
+  }
+
+  .pipeline-header {
+    text-align: center;
+    margin-bottom: 8rem;
+  }
+
+  .pipeline-visual {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .pipeline-step {
+    flex: 1;
+    position: relative;
+    max-width: 280px;
+  }
+
+  .step-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .step-index {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .step-status-tag {
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .running { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.2); }
+  .waiting { background: rgba(255, 255, 255, 0.03); color: var(--text-muted); border: 1px solid var(--border); }
+  .completed { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.2); }
+
+  .step-content-box {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .pipeline-step.active .step-content-box {
+    border-color: rgba(6, 182, 212, 0.3);
+    background: rgba(6, 182, 212, 0.02);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  .step-icon-v3 {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
     display: flex;
     justify-content: center;
+    align-items: center;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
   }
 
-  .workflow-container {
-    max-width: 1100px;
+  .active .step-icon-v3 {
+    background: var(--accent-cyan);
+    color: #000;
+  }
+
+  .step-text h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .code-pill {
+    display: inline-block;
+    background: #000;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .step-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
     width: 100%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  .workflow-pipeline {
+  .progress-fill {
+    width: 65%;
+    height: 100%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: progress-shimmer 2s infinite linear;
+  }
+
+  @keyframes progress-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Connector */
+  .pipeline-connector {
+    flex: 0.5;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    position: relative;
+    height: 2px;
+    margin-top: 4rem; /* Align with boxes */
   }
 
-  .workflow-step {
-    opacity: 0;
-    transform: translateY(12px);
-    transition: opacity 0.4s ease, transform 0.4s ease;
+  .connector-line {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    position: relative;
   }
 
-  .workflow.visible .workflow-step[data-index="0"] {
-    opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0s;
+  .connector-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    left: 50%;
+    transform: translateX(-50%);
   }
 
-  .workflow.visible .workflow-step[data-index="1"] {
-    opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.15s;
+  .success-accent {
+    border-color: rgba(16, 185, 129, 0.3) !important;
+    background: rgba(16, 185, 129, 0.02) !important;
   }
 
-  .workflow.visible .workflow-step[data-index="2"] {
-    opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.3s;
+  .check-icon {
+    background: var(--accent-green) !important;
+    color: #000 !important;
   }
 
-  .workflow.visible .workflow-step[data-index="3"] {
-    opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.45s;
-  }
-
-  .workflow-arrow {
-    color: var(--text-muted);
-    font-size: 1.25rem;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .workflow.visible .workflow-arrow {
-    opacity: 1;
-    transition-delay: 0.2s;
-  }
-
-  .step-card {
-    background: var(--bg-glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    border-left: 4px solid var(--step-color);
-    padding: 1.25rem 1.5rem;
-    min-width: 200px;
-  }
-
-  .step-cmd {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--text-primary);
-  }
-
-  .step-label {
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0.25rem 0 0;
-  }
-
-  .step-sub {
-    color: var(--text-muted);
+  .step-text p {
     font-size: 0.8rem;
-    margin: 0.25rem 0 0;
+    color: var(--text-muted);
   }
 
-  .step-check {
-    font-size: 1.1rem;
-    color: var(--accent-green);
-    font-weight: 700;
-  }
-
-  .step-done {
-    animation: none;
-  }
-
-  .workflow.visible .step-done {
-    animation: pulse 2.5s ease-in-out infinite;
-    animation-delay: 0.8s;
-  }
-
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.2); }
-    50% { box-shadow: 0 0 12px 4px rgba(52, 211, 153, 0.15); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .workflow-step,
-    .workflow-arrow {
-      opacity: 1;
-      transform: none;
-      transition: none;
+  @media (max-width: 1024px) {
+    .pipeline-visual {
+      flex-direction: column;
+      gap: 2rem;
     }
-
-    .step-done {
-      animation: none;
+    .pipeline-step {
+      max-width: 100%;
+      width: 100%;
     }
-  }
-
-  @media (max-width: 900px) {
-    .workflow-pipeline {
-      overflow-x: auto;
-      justify-content: flex-start;
-      padding-bottom: 1rem;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .step-card {
-      min-width: 170px;
+    .pipeline-connector {
+      display: none;
     }
   }
 </style>
-
-<script>
-  const workflow = document.querySelector('.workflow');
-  if (workflow) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
-    observer.observe(workflow);
-  }
-</script>
