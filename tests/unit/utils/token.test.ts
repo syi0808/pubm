@@ -1,20 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/utils/db.js", () => ({
-  Db: vi.fn().mockImplementation(() => ({
+vi.mock("../../../src/utils/secure-store.js", () => ({
+  SecureStore: vi.fn().mockImplementation(() => ({
     get: vi.fn(),
     set: vi.fn(),
   })),
 }));
 
-import { Db } from "../../../src/utils/db.js";
+import { SecureStore } from "../../../src/utils/secure-store.js";
 import {
   injectTokensToEnv,
   loadTokensFromDb,
   TOKEN_CONFIG,
 } from "../../../src/utils/token.js";
 
-const mockedDb = vi.mocked(Db);
+const mockedSecureStore = vi.mocked(SecureStore);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,11 +51,29 @@ describe("TOKEN_CONFIG", () => {
 });
 
 describe("loadTokensFromDb", () => {
-  it("returns tokens found in Db", () => {
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const config of Object.values(TOKEN_CONFIG)) {
+      savedEnv[config.envVar] = process.env[config.envVar];
+      delete process.env[config.envVar];
+    }
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("returns tokens found in SecureStore", () => {
     const mockGet = vi.fn((key: string) =>
       key === "npm-token" ? "npm-tok-123" : null,
     );
-    mockedDb.mockImplementation(() => ({ get: mockGet, set: vi.fn() }) as any);
+    mockedSecureStore.mockImplementation(
+      () => ({ get: mockGet, set: vi.fn() }) as any,
+    );
 
     const result = loadTokensFromDb(["npm", "jsr"]);
     expect(result).toEqual({ npm: "npm-tok-123" });
@@ -63,11 +81,25 @@ describe("loadTokensFromDb", () => {
 
   it("skips registries with no token config", () => {
     const mockGet = vi.fn().mockReturnValue(null);
-    mockedDb.mockImplementation(() => ({ get: mockGet, set: vi.fn() }) as any);
+    mockedSecureStore.mockImplementation(
+      () => ({ get: mockGet, set: vi.fn() }) as any,
+    );
 
     const result = loadTokensFromDb(["npm", "custom-registry"]);
     expect(mockGet).toHaveBeenCalledTimes(1);
     expect(result).toEqual({});
+  });
+
+  it("prefers env var over SecureStore", () => {
+    process.env.NODE_AUTH_TOKEN = "env-token";
+    const mockGet = vi.fn().mockReturnValue("stored-token");
+    mockedSecureStore.mockImplementation(
+      () => ({ get: mockGet, set: vi.fn() }) as any,
+    );
+
+    const result = loadTokensFromDb(["npm"]);
+    expect(result).toEqual({ npm: "env-token" });
+    expect(mockGet).not.toHaveBeenCalled();
   });
 });
 

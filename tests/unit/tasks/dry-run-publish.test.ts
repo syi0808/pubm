@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@listr2/prompt-adapter-enquirer", () => ({
   ListrEnquirerPromptAdapter: vi.fn(),
 }));
-vi.mock("../../../src/utils/db.js", () => ({
-  Db: vi.fn().mockImplementation(() => ({
+vi.mock("../../../src/utils/secure-store.js", () => ({
+  SecureStore: vi.fn().mockImplementation(() => ({
     get: vi.fn(),
     set: vi.fn(),
   })),
@@ -54,17 +54,19 @@ import {
   jsrDryRunPublishTask,
   npmDryRunPublishTask,
 } from "../../../src/tasks/dry-run-publish.js";
-import { Db } from "../../../src/utils/db.js";
+import { SecureStore } from "../../../src/utils/secure-store.js";
 
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 const mockedJsrRegistry = vi.mocked(jsrRegistry);
 const mockedCratesRegistry = vi.mocked(CratesRegistry);
 const mockedRustEcosystem = vi.mocked(RustEcosystem);
-const mockedDb = vi.mocked(Db);
+const mockedSecureStore = vi.mocked(SecureStore);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedDb.mockImplementation(() => ({ get: vi.fn(), set: vi.fn() }) as any);
+  mockedSecureStore.mockImplementation(
+    () => ({ get: vi.fn(), set: vi.fn() }) as any,
+  );
 });
 
 describe("npmDryRunPublishTask", () => {
@@ -337,7 +339,7 @@ describe("withTokenRetry", () => {
     } as any);
 
     const mockDbSet = vi.fn();
-    mockedDb.mockImplementation(
+    mockedSecureStore.mockImplementation(
       () => ({ get: vi.fn(), set: mockDbSet }) as any,
     );
 

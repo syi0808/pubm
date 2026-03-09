@@ -4,7 +4,7 @@ import { RustEcosystem } from "../ecosystem/rust.js";
 import { CratesRegistry } from "../registry/crates.js";
 import { jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
-import { Db } from "../utils/db.js";
+import { SecureStore } from "../utils/secure-store.js";
 import { TOKEN_CONFIG } from "../utils/token.js";
 import type { Ctx } from "./runner.js";
 
@@ -42,7 +42,7 @@ async function withTokenRetry(
       message: `Re-enter ${config.promptLabel}`,
     });
 
-    new Db().set(config.dbKey, newToken);
+    new SecureStore().set(config.dbKey, newToken);
     process.env[config.envVar] = newToken;
 
     await action();

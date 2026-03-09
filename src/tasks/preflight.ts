@@ -4,7 +4,7 @@ import { color } from "listr2";
 import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { link } from "../utils/cli.js";
-import { Db } from "../utils/db.js";
+import { SecureStore } from "../utils/secure-store.js";
 import { loadTokensFromDb, TOKEN_CONFIG } from "../utils/token.js";
 
 class PreflightError extends AbstractError {
@@ -38,7 +38,7 @@ export async function collectTokens(
     });
 
     tokens[registry] = token;
-    new Db().set(config.dbKey, token);
+    new SecureStore().set(config.dbKey, token);
   }
 
   return tokens;
@@ -77,7 +77,7 @@ export async function promptGhSecretsSync(
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
 ): Promise<void> {
-  const db = new Db();
+  const db = new SecureStore();
   const currentHash = tokensSyncHash(tokens);
   const storedHash = db.get(SYNC_HASH_DB_KEY);
 

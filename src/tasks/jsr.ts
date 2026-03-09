@@ -7,10 +7,10 @@ import { Git } from "../git.js";
 import { JsrClient, jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
-import { Db } from "../utils/db.js";
 import { patchCachedJsrJson } from "../utils/package.js";
 import { getScope, isScopedPackage } from "../utils/package-name.js";
 import { addRollback } from "../utils/rollback.js";
+import { SecureStore } from "../utils/secure-store.js";
 import type { Ctx } from "./runner.js";
 
 const { open } = npmCli;
@@ -107,11 +107,11 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
         JsrClient.token = jsrTokenEnv;
       }
 
-      if (ctx.saveToken) new Db().set("jsr-token", JsrClient.token);
+      if (ctx.saveToken) new SecureStore().set("jsr-token", JsrClient.token);
     }
 
     if (!isScopedPackage(jsr.packageName)) {
-      let jsrName = new Db().get(jsr.packageName);
+      let jsrName = new SecureStore().get(jsr.packageName);
 
       task.output =
         "The package name is not scoped. Searching for available scopes on jsr.";

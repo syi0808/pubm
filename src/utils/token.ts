@@ -1,4 +1,4 @@
-import { Db } from "./db.js";
+import { SecureStore } from "./secure-store.js";
 
 export interface TokenEntry {
   envVar: string;
@@ -37,20 +37,28 @@ export const TOKEN_CONFIG: Record<string, TokenEntry> = {
   },
 };
 
-export function loadTokensFromDb(registries: string[]): Record<string, string> {
-  const db = new Db();
+export function loadTokens(registries: string[]): Record<string, string> {
+  const store = new SecureStore();
   const tokens: Record<string, string> = {};
 
   for (const registry of registries) {
     const config = TOKEN_CONFIG[registry];
     if (!config) continue;
 
-    const token = db.get(config.dbKey);
-    if (token) tokens[registry] = token;
+    const envValue = process.env[config.envVar];
+    if (envValue) {
+      tokens[registry] = envValue;
+      continue;
+    }
+
+    const stored = store.get(config.dbKey);
+    if (stored) tokens[registry] = stored;
   }
 
   return tokens;
 }
+
+export const loadTokensFromDb = loadTokens;
 
 const NPM_AUTH_ENV_VAR = "npm_config_//registry.npmjs.org/:_authToken";
 
