@@ -5,7 +5,7 @@ import { runPubmCli } from "../utils/cli.js";
 
 const cliPath = path.resolve("src/cli.ts");
 
-describe("pubm version --dry-run", () => {
+describe("pubm changesets version --dry-run", () => {
   let tmpDir: string;
 
   afterEach(() => {
@@ -43,6 +43,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       {},
       cliPath,
+      "changesets",
       "version",
       "--help",
     );
@@ -61,6 +62,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       { nodeOptions: { cwd: dir } },
       cliPath,
+      "changesets",
       "version",
       "--dry-run",
     );
@@ -80,6 +82,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       { nodeOptions: { cwd: dir } },
       cliPath,
+      "changesets",
       "version",
       "--dry-run",
     );
@@ -102,6 +105,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       { nodeOptions: { cwd: dir } },
       cliPath,
+      "changesets",
       "version",
       "--dry-run",
     );
@@ -130,6 +134,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       { nodeOptions: { cwd: dir } },
       cliPath,
+      "changesets",
       "version",
       "--dry-run",
     );
@@ -158,6 +163,7 @@ describe("pubm version --dry-run", () => {
       "bun",
       { nodeOptions: { cwd: dir } },
       cliPath,
+      "changesets",
       "version",
       "--dry-run",
     );

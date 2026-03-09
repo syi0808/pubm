@@ -1,17 +1,11 @@
-import cac from "cac";
-import type { OptionConfig } from "cac/deno/Option.js";
+import { Command } from "commander";
 import semver from "semver";
 import { isCI } from "std-env";
-import { registerAddCommand } from "./commands/add.js";
+import { registerChangesetsCommand } from "./commands/changesets.js";
 import { registerInitCommand } from "./commands/init.js";
-import { registerMigrateCommand } from "./commands/migrate.js";
-import { registerPreCommand } from "./commands/pre.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
-import { registerSnapshotCommand } from "./commands/snapshot.js";
-import { registerStatusCommand } from "./commands/status.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
-import { registerVersionCommand } from "./commands/version-cmd.js";
 import { loadConfig } from "./config/loader.js";
 import { consoleError } from "./error.js";
 import { Git } from "./git.js";
@@ -44,105 +38,6 @@ interface CliOptions {
   saveToken: boolean;
 }
 
-const publishOptions: {
-  rawName: string;
-  description: string;
-  options?: OptionConfig;
-}[] = [
-  {
-    rawName: "--test-script <script>",
-    description: "The npm script to run tests before publishing",
-    options: { default: "test", type: String },
-  },
-  {
-    rawName: "--build-script <script>",
-    description: "The npm script to run build before publishing",
-    options: { default: "build", type: String },
-  },
-  {
-    rawName: "-p, --preview",
-    description: "Show tasks without actually executing publish",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "-b, --branch <name>",
-    description: "Name of the release branch",
-    options: { default: "main", type: String },
-  },
-  {
-    rawName: "-a, --any-branch",
-    description: "Allow publishing from any branch",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-pre-check",
-    description: "Skip prerequisites check task",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-condition-check",
-    description: "Skip required conditions check task",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-tests",
-    description: "Skip running tests before publishing",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-build",
-    description: "Skip build before publishing",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-publish",
-    description: "Skip publishing task",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--no-release-draft",
-    description: "Skip creating a GitHub release draft",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--publish-only",
-    description: "Run only publish task for latest tag",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--ci",
-    description:
-      "CI mode: publish from latest tag and create GitHub Release with assets",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--preflight",
-    description: "Simulate CI publish locally (dry-run with token-based auth)",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "-t, --tag <name>",
-    description: "Publish under a specific dist-tag",
-    options: { default: "latest", type: String },
-  },
-  {
-    rawName: "-c, --contents <path>",
-    description: "Subdirectory to publish",
-    options: { type: String },
-  },
-  {
-    rawName: "--no-save-token",
-    description: "Do not save jsr tokens (request the token each time)",
-    options: { type: Boolean },
-  },
-  {
-    rawName: "--registry <...registries>",
-    description:
-      "Target registries for publish\n        registry can be npm | jsr | https://url.for.private-registries",
-    options: { type: String, default: "npm,jsr" },
-  },
-];
-
 export function resolveCliOptions(options: CliOptions): Options {
   return {
     ...options,
@@ -158,98 +53,130 @@ export function resolveCliOptions(options: CliOptions): Options {
   };
 }
 
-const cli = cac("pubm");
+export function createProgram(): Command {
+  const program = new Command("pubm");
 
-// Register subcommands
-registerAddCommand(cli);
-registerVersionCommand(cli);
-registerStatusCommand(cli);
-registerPreCommand(cli);
-registerSnapshotCommand(cli);
-registerInitCommand(cli);
-registerMigrateCommand(cli);
-registerUpdateCommand(cli);
-registerSecretsCommand(cli);
-registerSyncCommand(cli);
+  program.description("Publish packages to registries");
 
-// Default command: publish (backward compatible with `pubm [version]`)
-const defaultCmd = cli.command("[version]", "Publish packages to registries");
+  // Register subcommands
+  registerChangesetsCommand(program);
+  registerInitCommand(program);
+  registerUpdateCommand(program);
+  registerSecretsCommand(program);
+  registerSyncCommand(program);
 
-for (const option of publishOptions) {
-  // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-  defaultCmd.option(option.rawName, option.description, option.options as any);
+  // Default command: publish (backward compatible with `pubm [version]`)
+  program
+    .argument("[version]", `Version: ${RELEASE_TYPES.join(" | ")} | 1.2.3`)
+    .option(
+      "--test-script <script>",
+      "The npm script to run tests before publishing",
+      "test",
+    )
+    .option(
+      "--build-script <script>",
+      "The npm script to run build before publishing",
+      "build",
+    )
+    .option("-p, --preview", "Show tasks without actually executing publish")
+    .option("-b, --branch <name>", "Name of the release branch", "main")
+    .option("-a, --any-branch", "Allow publishing from any branch")
+    .option("--no-pre-check", "Skip prerequisites check task")
+    .option("--no-condition-check", "Skip required conditions check task")
+    .option("--no-tests", "Skip running tests before publishing")
+    .option("--no-build", "Skip build before publishing")
+    .option("--no-publish", "Skip publishing task")
+    .option("--no-release-draft", "Skip creating a GitHub release draft")
+    .option("--publish-only", "Run only publish task for latest tag")
+    .option(
+      "--ci",
+      "CI mode: publish from latest tag and create GitHub Release with assets",
+    )
+    .option(
+      "--preflight",
+      "Simulate CI publish locally (dry-run with token-based auth)",
+    )
+    .option("-t, --tag <name>", "Publish under a specific dist-tag", "latest")
+    .option("-c, --contents <path>", "Subdirectory to publish")
+    .option(
+      "--no-save-token",
+      "Do not save jsr tokens (request the token each time)",
+    )
+    .option(
+      "--registry <registries>",
+      "Target registries for publish\n        registry can be npm | jsr | https://url.for.private-registries",
+      "npm,jsr",
+    )
+    .action(
+      async (
+        nextVersion: string | undefined,
+        options: Omit<CliOptions, "version">,
+      ): Promise<void> => {
+        console.clear();
+
+        if (!isCI) {
+          await notifyNewVersion();
+        }
+
+        const context = {
+          version: nextVersion,
+          tag: options.tag,
+        };
+
+        try {
+          if (options.preflight) {
+            await requiredMissingInformationTasks().run(context);
+          } else if (isCI) {
+            if (options.publishOnly || options.ci) {
+              const git = new Git();
+              const latestVersion = (await git.latestTag())?.slice(1);
+
+              if (!latestVersion) {
+                throw new Error(
+                  "Cannot find the latest tag. Please ensure tags exist in the repository.",
+                );
+              }
+
+              if (!valid(latestVersion)) {
+                throw new Error(
+                  "Cannot parse the latest tag to a valid SemVer version. Please check the tag format.",
+                );
+              }
+
+              context.version = latestVersion;
+            } else {
+              throw new Error(
+                "Version must be set in the CI environment. Please define the version before proceeding.",
+              );
+            }
+          } else {
+            await requiredMissingInformationTasks().run(context);
+          }
+
+          await pubm(
+            resolveCliOptions({
+              ...options,
+              version: context.version,
+              tag: context.tag,
+            } as CliOptions),
+          );
+        } catch (e) {
+          consoleError(e as Error);
+          process.exitCode = 1;
+        }
+      },
+    );
+
+  program.addHelpText("after", () => {
+    return `\n  Version can be:\n    ${RELEASE_TYPES.join(" | ")} | 1.2.3\n`;
+  });
+
+  return program;
 }
 
-defaultCmd.action(
-  async (
-    nextVersion: string | undefined,
-    options: Omit<CliOptions, "version">,
-  ): Promise<void> => {
-    console.clear();
-
-    if (!isCI) {
-      await notifyNewVersion();
-    }
-
-    const context = {
-      version: nextVersion,
-      tag: options.tag,
-    };
-
-    try {
-      if (options.preflight) {
-        await requiredMissingInformationTasks().run(context);
-      } else if (isCI) {
-        if (options.publishOnly || options.ci) {
-          const git = new Git();
-          const latestVersion = (await git.latestTag())?.slice(1);
-
-          if (!latestVersion) {
-            throw new Error(
-              "Cannot find the latest tag. Please ensure tags exist in the repository.",
-            );
-          }
-
-          if (!valid(latestVersion)) {
-            throw new Error(
-              "Cannot parse the latest tag to a valid SemVer version. Please check the tag format.",
-            );
-          }
-
-          context.version = latestVersion;
-        } else {
-          throw new Error(
-            "Version must be set in the CI environment. Please define the version before proceeding.",
-          );
-        }
-      } else {
-        await requiredMissingInformationTasks().run(context);
-      }
-
-      await pubm(
-        resolveCliOptions({
-          ...options,
-          version: context.version,
-          tag: context.tag,
-        } as CliOptions),
-      );
-    } catch (e) {
-      consoleError(e as Error);
-      process.exitCode = 1;
-    }
-  },
-);
-
-cli.help((sections): void => {
-  sections[1].body += `\n\n  Version can be:\n    ${RELEASE_TYPES.join(" | ")} | 1.2.3`;
-  sections.splice(2, 2);
-  if (sections.at(2)) {
-    sections[2].body = sections[2].body.replace(/ \(default: true\)/g, "");
-  }
-  sections.push({ body: "\n" });
-});
-
 (async () => {
+  const program = createProgram();
+
   // Register plugin commands before parsing
   const config = await loadConfig();
   const plugins = config?.plugins ?? [];
@@ -258,10 +185,12 @@ cli.help((sections): void => {
     for (const cmd of plugin.commands ?? []) {
       if (cmd.subcommands) {
         for (const sub of cmd.subcommands) {
-          const subCmd = cli.command(
-            `${cmd.name} ${sub.name}`,
-            sub.description,
-          );
+          const parentCmd = program
+            .command(cmd.name)
+            .description(cmd.description ?? "");
+          const subCmd = parentCmd
+            .command(sub.name)
+            .description(sub.description);
           for (const opt of sub.options ?? []) {
             subCmd.option(opt.name, opt.description);
           }
@@ -271,6 +200,6 @@ cli.help((sections): void => {
     }
   }
 
-  cli.version(await version({ cwd: import.meta.dirname }));
-  cli.parse();
+  program.version(await version({ cwd: import.meta.dirname }));
+  await program.parseAsync();
 })();

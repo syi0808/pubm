@@ -1,9 +1,10 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { migrateFromChangesets } from "../changeset/migrate.js";
 
-export function registerMigrateCommand(cli: CAC): void {
-  cli
-    .command("migrate", "Migrate from .changeset/ to .pubm/")
+export function registerMigrateCommand(parent: Command): void {
+  parent
+    .command("migrate")
+    .description("Migrate from .changeset/ to .pubm/")
     .action(async () => {
       const result = migrateFromChangesets();
 

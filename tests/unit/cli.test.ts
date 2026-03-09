@@ -1,66 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  capturedAction,
-  capturedHelpCallback,
-  mockCli,
   mockIsCI,
   mockConsoleError,
   mockGitInstance,
   mockPubm,
   mockRequiredMissingInformationTasks,
   mockNotifyNewVersion,
-  optionCallCount,
 } = vi.hoisted(() => {
-  const ref = {
-    capturedAction: { value: undefined as Function | undefined },
-    capturedHelpCallback: { value: undefined as Function | undefined },
-  };
-
-  // Track calls that happen during module initialization and survive clearAllMocks
-  const optionCallCount = { value: 0 };
-
-  const mockCommand: Record<string, ReturnType<typeof vi.fn>> = {
-    option: vi.fn((..._args: unknown[]) => {
-      optionCallCount.value++;
-      return mockCommand;
-    }),
-    action: vi.fn((fn: Function) => {
-      ref.capturedAction.value = fn;
-      return mockCommand;
-    }),
-  };
-
-  const mockCli = {
-    option: vi.fn((..._args: unknown[]) => {
-      optionCallCount.value++;
-      return mockCli;
-    }),
-    command: vi.fn(() => mockCommand),
-    help: vi.fn((fn: Function) => {
-      ref.capturedHelpCallback.value = fn;
-    }),
-    version: vi.fn(),
-    parse: vi.fn(),
-  };
-
   return {
-    capturedAction: ref.capturedAction,
-    capturedHelpCallback: ref.capturedHelpCallback,
-    mockCli,
     mockIsCI: { isCI: false },
     mockConsoleError: vi.fn(),
     mockGitInstance: { latestTag: vi.fn() },
     mockPubm: vi.fn(),
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
     mockNotifyNewVersion: vi.fn(),
-    optionCallCount,
   };
 });
-
-vi.mock("cac", () => ({
-  default: vi.fn(() => mockCli),
-}));
 
 vi.mock("std-env", () => mockIsCI);
 
@@ -89,165 +45,86 @@ vi.mock("../../src/utils/package.js", () => ({
   version: vi.fn().mockResolvedValue("1.0.0"),
 }));
 
-vi.mock("../../src/commands/add.js", () => ({
-  registerAddCommand: vi.fn(),
+vi.mock("../../src/commands/changesets.js", () => ({
+  registerChangesetsCommand: vi.fn(),
 }));
 
 vi.mock("../../src/commands/init.js", () => ({
   registerInitCommand: vi.fn(),
 }));
 
-vi.mock("../../src/commands/migrate.js", () => ({
-  registerMigrateCommand: vi.fn(),
-}));
-
-vi.mock("../../src/commands/pre.js", () => ({
-  registerPreCommand: vi.fn(),
-}));
-
-vi.mock("../../src/commands/snapshot.js", () => ({
-  registerSnapshotCommand: vi.fn(),
-}));
-
-vi.mock("../../src/commands/status.js", () => ({
-  registerStatusCommand: vi.fn(),
-}));
-
-vi.mock("../../src/commands/version-cmd.js", () => ({
-  registerVersionCommand: vi.fn(),
+vi.mock("../../src/commands/update.js", () => ({
+  registerUpdateCommand: vi.fn(),
 }));
 
 vi.mock("../../src/commands/secrets.js", () => ({
   registerSecretsCommand: vi.fn(),
 }));
 
+vi.mock("../../src/commands/sync.js", () => ({
+  registerSyncCommand: vi.fn(),
+}));
+
+import type { Command } from "commander";
+import { createProgram } from "../../src/cli.js";
+
+async function run(...args: string[]): Promise<Command> {
+  const program = createProgram();
+  program.exitOverride();
+  await program.parseAsync(["node", "pubm", ...args]);
+  return program;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsCI.isCI = false;
   vi.spyOn(console, "clear").mockImplementation(() => {});
-});
-
-// Import cli.ts - this triggers the IIFE which calls cli.version() and cli.parse()
-// and registers the command action handler.
-import "../../src/cli.js";
-
-describe("cli setup", () => {
-  // These tests verify state captured during module initialization.
-  // Since vi.clearAllMocks() resets spy call counts, we use the persistent
-  // ref objects and a manual counter instead.
-
-  it("should register at least 13 options via cli.option()", () => {
-    expect(optionCallCount.value).toBeGreaterThanOrEqual(13);
-  });
-
-  it("should capture the command action handler", () => {
-    expect(capturedAction.value).toBeDefined();
-    expect(typeof capturedAction.value).toBe("function");
-  });
-
-  it("should capture the help callback", () => {
-    expect(capturedHelpCallback.value).toBeDefined();
-    expect(typeof capturedHelpCallback.value).toBe("function");
-  });
+  process.exitCode = undefined;
 });
 
 describe("resolveCliOptions (tested through CLI action)", () => {
-  it("should map publish=false to skipPublish=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: false,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-publish to skipPublish=true", async () => {
+    await run("1.0.0", "--no-publish");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipPublish: true }),
     );
   });
 
-  it("should map tests=false to skipTests=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: false,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-tests to skipTests=true", async () => {
+    await run("1.0.0", "--no-tests");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipTests: true }),
     );
   });
 
-  it("should map build=false to skipBuild=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: false,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-build to skipBuild=true", async () => {
+    await run("1.0.0", "--no-build");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipBuild: true }),
     );
   });
 
-  it("should map releaseDraft=false to skipReleaseDraft=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: false,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-release-draft to skipReleaseDraft=true", async () => {
+    await run("1.0.0", "--no-release-draft");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipReleaseDraft: true }),
     );
   });
 
-  it("should map preCheck=false to skipPrerequisitesCheck=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: false,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-pre-check to skipPrerequisitesCheck=true", async () => {
+    await run("1.0.0", "--no-pre-check");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipPrerequisitesCheck: true }),
     );
   });
 
-  it("should map conditionCheck=false to skipConditionsCheck=true", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: false,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should map --no-condition-check to skipConditionsCheck=true", async () => {
+    await run("1.0.0", "--no-condition-check");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ skipConditionsCheck: true }),
@@ -255,17 +132,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   });
 
   it("should split comma-separated registry string into array", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-      registry: "npm,jsr,https://custom.registry.com",
-    });
+    await run("1.0.0", "--registry", "npm,jsr,https://custom.registry.com");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -274,40 +141,22 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     );
   });
 
-  it("should set registries to undefined when registry is not provided", async () => {
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+  it("should use default registry value when --registry is not provided", async () => {
+    await run("1.0.0");
 
     expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({ registries: undefined }),
+      expect.objectContaining({
+        registries: ["npm", "jsr"],
+      }),
     );
   });
 });
 
 describe("CLI action handler - non-CI mode", () => {
-  const defaultOptions = {
-    publish: true,
-    releaseDraft: true,
-    tests: true,
-    build: true,
-    preCheck: true,
-    conditionCheck: true,
-    tag: "latest",
-    publishOnly: false,
-  };
-
   it("should call notifyNewVersion when not in CI", async () => {
     mockIsCI.isCI = false;
 
-    await capturedAction.value!(undefined, { ...defaultOptions });
+    await run("1.0.0");
 
     expect(mockNotifyNewVersion).toHaveBeenCalledOnce();
   });
@@ -317,7 +166,7 @@ describe("CLI action handler - non-CI mode", () => {
     const mockRun = vi.fn();
     mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
 
-    await capturedAction.value!(undefined, { ...defaultOptions });
+    await run("1.0.0");
 
     expect(mockRequiredMissingInformationTasks).toHaveBeenCalled();
     expect(mockRun).toHaveBeenCalledWith(
@@ -330,7 +179,7 @@ describe("CLI action handler - non-CI mode", () => {
     const mockRun = vi.fn();
     mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
 
-    await capturedAction.value!("1.2.3", { ...defaultOptions });
+    await run("1.2.3");
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({ version: "1.2.3" }),
@@ -340,32 +189,18 @@ describe("CLI action handler - non-CI mode", () => {
   it("should call console.clear at the start", async () => {
     const clearSpy = vi.spyOn(console, "clear").mockImplementation(() => {});
 
-    await capturedAction.value!(undefined, { ...defaultOptions });
+    await run("1.0.0");
 
     expect(clearSpy).toHaveBeenCalled();
   });
 });
 
 describe("CLI action handler - CI mode", () => {
-  const defaultOptions = {
-    publish: true,
-    releaseDraft: true,
-    tests: true,
-    build: true,
-    preCheck: true,
-    conditionCheck: true,
-    tag: "latest",
-    publishOnly: false,
-  };
-
-  it("should get version from latest git tag when publishOnly is true", async () => {
+  it("should get version from latest git tag when --publish-only is set", async () => {
     mockIsCI.isCI = true;
     mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: true,
-    });
+    await run("--publish-only");
 
     expect(mockGitInstance.latestTag).toHaveBeenCalled();
     expect(mockPubm).toHaveBeenCalledWith(
@@ -373,14 +208,11 @@ describe("CLI action handler - CI mode", () => {
     );
   });
 
-  it("should throw when no latest tag exists in publishOnly mode", async () => {
+  it("should throw when no latest tag exists in --publish-only mode", async () => {
     mockIsCI.isCI = true;
     mockGitInstance.latestTag.mockResolvedValue(null);
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: true,
-    });
+    await run("--publish-only");
 
     expect(mockConsoleError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -389,14 +221,11 @@ describe("CLI action handler - CI mode", () => {
     );
   });
 
-  it("should throw when latest tag is not valid semver in publishOnly mode", async () => {
+  it("should throw when latest tag is not valid semver in --publish-only mode", async () => {
     mockIsCI.isCI = true;
     mockGitInstance.latestTag.mockResolvedValue("vnot-semver");
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: true,
-    });
+    await run("--publish-only");
 
     expect(mockConsoleError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -405,13 +234,10 @@ describe("CLI action handler - CI mode", () => {
     );
   });
 
-  it("should throw when version not provided and not publishOnly in CI", async () => {
+  it("should throw when version not provided and not --publish-only in CI", async () => {
     mockIsCI.isCI = true;
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: false,
-    });
+    await run();
 
     expect(mockConsoleError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -424,22 +250,18 @@ describe("CLI action handler - CI mode", () => {
 
   it("should not call notifyNewVersion in CI mode", async () => {
     mockIsCI.isCI = true;
+    mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: false,
-    });
+    await run("--publish-only");
 
     expect(mockNotifyNewVersion).not.toHaveBeenCalled();
   });
 
   it("should not call requiredMissingInformationTasks in CI mode", async () => {
     mockIsCI.isCI = true;
+    mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
 
-    await capturedAction.value!(undefined, {
-      ...defaultOptions,
-      publishOnly: false,
-    });
+    await run("--publish-only");
 
     expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
   });
@@ -453,16 +275,7 @@ describe("CLI action handler - error handling", () => {
     const error = new Error("publish failed");
     mockPubm.mockRejectedValue(error);
 
-    await capturedAction.value!("1.0.0", {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+    await run("1.0.0");
 
     expect(mockConsoleError).toHaveBeenCalledWith(error);
   });
@@ -473,22 +286,10 @@ describe("CLI action handler - error handling", () => {
     mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
     const error = new Error("publish failed");
     mockPubm.mockRejectedValue(error);
-    process.exitCode = undefined;
 
-    await capturedAction.value!("1.0.0", {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+    await run("1.0.0");
 
     expect(process.exitCode).toBe(1);
-    // Reset for other tests
-    process.exitCode = undefined;
   });
 
   it("should call consoleError when requiredMissingInformationTasks throws", async () => {
@@ -498,101 +299,8 @@ describe("CLI action handler - error handling", () => {
       run: vi.fn().mockRejectedValue(error),
     });
 
-    await capturedAction.value!(undefined, {
-      publish: true,
-      releaseDraft: true,
-      tests: true,
-      build: true,
-      preCheck: true,
-      conditionCheck: true,
-      tag: "latest",
-      publishOnly: false,
-    });
+    await run("1.0.0");
 
     expect(mockConsoleError).toHaveBeenCalledWith(error);
-  });
-});
-
-describe("help customization", () => {
-  it("should append version format info to the second section", () => {
-    const sections = [
-      { body: "Usage info" },
-      { body: "Commands" },
-      { body: "placeholder1" },
-      { body: "placeholder2" },
-      { body: "Options with (default: true) text" },
-    ];
-
-    capturedHelpCallback.value!(sections);
-
-    expect(sections[1].body).toContain("Version can be:");
-    // semver.RELEASE_TYPES includes all release types
-    expect(sections[1].body).toContain("major");
-    expect(sections[1].body).toContain("minor");
-    expect(sections[1].body).toContain("patch");
-    expect(sections[1].body).toContain("premajor");
-    expect(sections[1].body).toContain("prerelease");
-    expect(sections[1].body).toContain("1.2.3");
-  });
-
-  it("should splice out two sections at index 2", () => {
-    const sections = [
-      { body: "section0" },
-      { body: "section1" },
-      { body: "will be removed 1" },
-      { body: "will be removed 2" },
-      { body: "Options (default: true) here" },
-    ];
-
-    capturedHelpCallback.value!(sections);
-
-    // After splice(2, 2), the removed sections should no longer be present
-    expect(sections.some((s) => s.body === "will be removed 1")).toBe(false);
-    expect(sections.some((s) => s.body === "will be removed 2")).toBe(false);
-  });
-
-  it('should strip "(default: true)" from the options section', () => {
-    const sections = [
-      { body: "section0" },
-      { body: "section1" },
-      { body: "removed1" },
-      { body: "removed2" },
-      { body: "--no-tests (default: true)\n--no-build (default: true)" },
-    ];
-
-    capturedHelpCallback.value!(sections);
-
-    // After splice(2, 2), the options section is at index 2
-    expect(sections[2].body).not.toContain("(default: true)");
-    expect(sections[2].body).toContain("--no-tests");
-    expect(sections[2].body).toContain("--no-build");
-  });
-
-  it("should push a trailing newline section", () => {
-    const sections = [
-      { body: "section0" },
-      { body: "section1" },
-      { body: "removed1" },
-      { body: "removed2" },
-      { body: "options" },
-    ];
-
-    capturedHelpCallback.value!(sections);
-
-    const lastSection = sections[sections.length - 1];
-    expect(lastSection.body).toBe("\n");
-  });
-
-  it("should handle case where sections.at(2) is undefined after splice", () => {
-    const sections = [
-      { body: "section0" },
-      { body: "section1" },
-      { body: "removed1" },
-      { body: "removed2" },
-    ];
-
-    // After splice(2, 2), there is no section at index 2
-    // This should not throw
-    expect(() => capturedHelpCallback.value!(sections)).not.toThrow();
   });
 });

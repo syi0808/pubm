@@ -1,9 +1,10 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { UpdateKit } from "update-kit";
 
-export function registerUpdateCommand(cli: CAC): void {
-  cli
-    .command("update", "Update pubm to the latest version")
+export function registerUpdateCommand(parent: Command): void {
+  parent
+    .command("update")
+    .description("Update pubm to the latest version")
     .action(async (): Promise<void> => {
       const kit = await UpdateKit.create({
         sources: [{ type: "npm", packageName: "pubm" }],

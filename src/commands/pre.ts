@@ -1,13 +1,16 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { enterPreMode, exitPreMode } from "../prerelease/pre.js";
 
-export function registerPreCommand(cli: CAC): void {
-  cli
-    .command("pre <action> [tag]", "Manage pre-release mode")
+export function registerPreCommand(parent: Command): void {
+  parent
+    .command("pre")
+    .description("Manage pre-release mode")
+    .argument("<action>", '"enter" or "exit"')
+    .argument("[tag]", "Pre-release tag (required for enter)")
     .action(async (action: string, tag?: string) => {
       if (action === "enter") {
         if (!tag) {
-          console.error("Usage: pubm pre enter <tag>");
+          console.error("Usage: pubm changesets pre enter <tag>");
           process.exit(1);
         }
         enterPreMode(tag);

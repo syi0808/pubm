@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { inc } from "semver";
 import type { ChangelogEntry } from "../changeset/changelog.js";
 import { generateChangelog } from "../changeset/changelog.js";
@@ -256,9 +256,10 @@ function deleteChangesetFiles(cwd: string, changesets: Changeset[]): void {
   }
 }
 
-export function registerVersionCommand(cli: CAC): void {
-  cli
-    .command("version", "Consume changesets and bump versions")
+export function registerVersionCommand(parent: Command): void {
+  parent
+    .command("version")
+    .description("Consume changesets and bump versions")
     .option("--dry-run", "Show changes without writing")
     .action(async (options: { dryRun?: boolean }) => {
       await runVersionCommand(process.cwd(), { dryRun: options.dryRun });

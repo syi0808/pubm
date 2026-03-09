@@ -7,29 +7,20 @@ vi.mock("../../../src/tasks/preflight.js", () => ({
   syncGhSecrets: vi.fn(),
 }));
 
+import { Command } from "commander";
 import { syncGhSecrets } from "../../../src/tasks/preflight.js";
 import { loadTokensFromDb } from "../../../src/utils/token.js";
 
 const mockedLoadTokens = vi.mocked(loadTokensFromDb);
 const mockedSyncGhSecrets = vi.mocked(syncGhSecrets);
 
-// We need to test the command action directly
-// Import registerSecretsCommand and create a mock CAC instance
 import { registerSecretsCommand } from "../../../src/commands/secrets.js";
 
-function createMockCli() {
-  let registeredAction: any;
-  const cmd = {
-    option: vi.fn().mockReturnThis(),
-    action: vi.fn((fn: any) => {
-      registeredAction = fn;
-      return cmd;
-    }),
-  };
-  const cli = {
-    command: vi.fn().mockReturnValue(cmd),
-  };
-  return { cli, cmd, getAction: () => registeredAction };
+function createParentAndParse(...args: string[]) {
+  const parent = new Command();
+  parent.exitOverride();
+  registerSecretsCommand(parent);
+  return parent.parseAsync(["node", "test", ...args]);
 }
 
 beforeEach(() => {
@@ -37,23 +28,20 @@ beforeEach(() => {
 });
 
 describe("registerSecretsCommand", () => {
-  it("registers 'secrets sync' command", () => {
-    const { cli } = createMockCli();
-    registerSecretsCommand(cli as any);
-    expect(cli.command).toHaveBeenCalledWith(
-      "secrets sync",
-      expect.any(String),
-    );
+  it("registers 'secrets' command with 'sync' subcommand", () => {
+    const parent = new Command();
+    registerSecretsCommand(parent);
+    const secrets = parent.commands.find((c) => c.name() === "secrets");
+    expect(secrets).toBeDefined();
+    const sync = secrets!.commands.find((c) => c.name() === "sync");
+    expect(sync).toBeDefined();
   });
 
   it("syncs all stored tokens when no registry filter", async () => {
-    const { cli, getAction } = createMockCli();
-    registerSecretsCommand(cli as any);
-
     mockedLoadTokens.mockReturnValue({ npm: "tok-1", jsr: "tok-2" });
     mockedSyncGhSecrets.mockResolvedValue(undefined);
 
-    await getAction()({});
+    await createParentAndParse("secrets", "sync");
 
     expect(mockedLoadTokens).toHaveBeenCalledWith(["npm", "jsr", "crates"]);
     expect(mockedSyncGhSecrets).toHaveBeenCalledWith({
@@ -63,25 +51,19 @@ describe("registerSecretsCommand", () => {
   });
 
   it("filters registries when --registry is specified", async () => {
-    const { cli, getAction } = createMockCli();
-    registerSecretsCommand(cli as any);
-
     mockedLoadTokens.mockReturnValue({ npm: "tok-1" });
     mockedSyncGhSecrets.mockResolvedValue(undefined);
 
-    await getAction()({ registry: "npm" });
+    await createParentAndParse("secrets", "sync", "--registry", "npm");
 
     expect(mockedLoadTokens).toHaveBeenCalledWith(["npm"]);
   });
 
   it("shows message when no tokens found", async () => {
-    const { cli, getAction } = createMockCli();
-    registerSecretsCommand(cli as any);
-
     mockedLoadTokens.mockReturnValue({});
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    await getAction()({});
+    await createParentAndParse("secrets", "sync");
 
     expect(mockedSyncGhSecrets).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(

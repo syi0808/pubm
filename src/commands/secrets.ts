@@ -1,15 +1,15 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { consoleError } from "../error.js";
 import { syncGhSecrets } from "../tasks/preflight.js";
 import { loadTokensFromDb } from "../utils/token.js";
 
-export function registerSecretsCommand(cli: CAC): void {
-  cli
-    .command("secrets sync", "Sync stored tokens to GitHub Secrets")
-    .option("--registry <...registries>", "Filter to specific registries", {
-      // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-      type: String as any,
-    })
+export function registerSecretsCommand(parent: Command): void {
+  const secrets = parent.command("secrets").description("Manage stored tokens");
+
+  secrets
+    .command("sync")
+    .description("Sync stored tokens to GitHub Secrets")
+    .option("--registry <registries>", "Filter to specific registries")
     .action(async (options: { registry?: string }) => {
       try {
         const registries = options.registry
