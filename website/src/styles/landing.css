@@ -9,9 +9,13 @@
   --accent-green: #10b981;
   --accent-cyan: #06b6d4;
   --accent-violet: #8b5cf6;
-  --accent-gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
-  --font-display: 'Instrument Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --accent-gradient: linear-gradient(
+    135deg,
+    var(--accent-cyan),
+    var(--accent-violet)
+  );
+  --font-display: "Instrument Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 /* Grainy texture overlay */
@@ -46,8 +50,11 @@ body {
 
 /* Dot grid background */
 .landing-bg {
-  background-image: 
-    radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-image: radial-gradient(
+    circle at 2px 2px,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 0
+  );
   background-size: 32px 32px;
 }
 
@@ -63,14 +70,23 @@ body {
 }
 
 .glass-panel::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   padding: 1px;
   border-radius: inherit;
-  background: linear-gradient(to bottom right, var(--border-bright), transparent, var(--border));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  background: linear-gradient(
+    to bottom right,
+    var(--border-bright),
+    transparent,
+    var(--border)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -99,13 +115,25 @@ body {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.5; filter: blur(40px); }
-  50% { opacity: 0.8; filter: blur(60px); }
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: blur(40px);
+  }
+  50% {
+    opacity: 0.8;
+    filter: blur(60px);
+  }
 }
 
 /* Utility: Gradient Text */
@@ -156,7 +184,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-in-up, .float {
+  .fade-in-up,
+  .float {
     animation: none;
     opacity: 1;
     transform: none;

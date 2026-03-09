@@ -1,375 +1,291 @@
-<section class="registry-strip section-divider">
-  <div class="registry-container">
-    <div class="registry-graph">
-      <!-- npm -->
-      <div class="registry-node node-outer" data-index="0">
-        <span class="node-dot" style="background: #cb3837;"></span>
-        <span class="node-label">npm</span>
-      </div>
+---
+---
 
-      <!-- jsr -->
-      <div class="registry-node node-outer" data-index="1">
-        <span class="node-dot" style="background: #f7df1e;"></span>
-        <span class="node-label">jsr</span>
-      </div>
-
-      <!-- pubm center -->
-      <div class="registry-node node-center" data-index="center">
-        <span class="node-dot" style="background: var(--accent-cyan);"></span>
-        <span class="node-label">pubm</span>
-      </div>
-
-      <!-- crates.io -->
-      <div class="registry-node node-outer" data-index="2">
-        <span class="node-dot" style="background: #e6822e;"></span>
-        <span class="node-label">crates.io</span>
-      </div>
-
-      <!-- private -->
-      <div class="registry-node node-outer" data-index="3">
-        <span class="node-dot" style="background: var(--accent-violet);"></span>
-        <span class="node-label">private</span>
-      </div>
-
-      <!-- Connection lines -->
-      <div class="connection-line line-0">
-        <span class="traveling-dot" style="background: #cb3837;"></span>
-      </div>
-      <div class="connection-line line-1">
-        <span class="traveling-dot" style="background: #f7df1e;"></span>
-      </div>
-      <div class="connection-line line-2">
-        <span class="traveling-dot" style="background: #e6822e;"></span>
-      </div>
-      <div class="connection-line line-3">
-        <span class="traveling-dot" style="background: var(--accent-violet);"></span>
-      </div>
+<section class="registry-hub section-divider">
+  <div class="container">
+    <div class="hub-header fade-in-up">
+      <div class="header-badge">Connectivity</div>
+      <h2 class="display-title">One Hub, <span class="text-glow">Every Registry.</span></h2>
+      <p class="header-desc">
+        Pubm acts as a smart proxy for your distribution, handling authentication 
+        and protocol differences across all major package ecosystems.
+      </p>
     </div>
 
-    <p class="registry-caption">
-      One command. Every registry. Atomic rollback if anything fails.
-    </p>
+    <div class="hub-visual fade-in-up">
+      <!-- Background Ambient Glow -->
+      <div class="ambient-glow"></div>
+      
+      <!-- Central Core -->
+      <div class="core-node">
+        <div class="core-inner">
+          <img src="/logo.svg" alt="pubm" width="48" height="48" />
+        </div>
+        <div class="core-rings">
+          <div class="ring"></div>
+          <div class="ring"></div>
+        </div>
+      </div>
+
+      <!-- Registry Cards (Floating around core) -->
+      <div class="registry-cards">
+        <div class="reg-card npm" style="--angle: -140deg; --dist: 220px;">
+          <div class="reg-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zm6.666 6.664H5.334v-4H4v4H1.334v-5.332h5.332v5.332zm6.668 0h-1.334v-5.332h5.334v5.332h-1.334v-4h-1.334v4h-1.332v-4h-1.334v4zm8 0h-1.334v-4h-1.334v4h-1.334v-5.332H21.334v5.332z"/></svg>
+          </div>
+          <div class="reg-info">
+            <span class="reg-name">npm</span>
+            <span class="reg-status">Connected</span>
+          </div>
+        </div>
+
+        <div class="reg-card jsr" style="--angle: -40deg; --dist: 240px;">
+          <div class="reg-icon jsr-icon">JSR</div>
+          <div class="reg-info">
+            <span class="reg-name">JSR.io</span>
+            <span class="reg-status">Ready</span>
+          </div>
+        </div>
+
+        <div class="reg-card crates" style="--angle: 40deg; --dist: 220px;">
+          <div class="reg-icon crates-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="reg-info">
+            <span class="reg-name">Crates.io</span>
+            <span class="reg-status">Connected</span>
+          </div>
+        </div>
+
+        <div class="reg-card private" style="--angle: 140deg; --dist: 240px;">
+          <div class="reg-icon private-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <div class="reg-info">
+            <span class="reg-name">Enterprise</span>
+            <span class="reg-status">Private</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connecting Beams (Visual only) -->
+      <div class="beams-container">
+        <div class="beam b1"></div>
+        <div class="beam b2"></div>
+        <div class="beam b3"></div>
+        <div class="beam b4"></div>
+      </div>
+    </div>
   </div>
 </section>
 
 <style>
-  .registry-strip {
-    padding: 6rem 1.5rem;
+  .registry-hub {
+    padding: 12rem 1.5rem;
+    overflow: hidden;
+    background: #000; /* Deep black for higher contrast */
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .hub-header {
+    text-align: center;
+    margin-bottom: 8rem;
+  }
+
+  .header-badge {
+    display: inline-block;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 1.5rem;
+    background: rgba(6, 182, 212, 0.1);
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+  }
+
+  .display-title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+  }
+
+  .text-glow {
+    color: var(--text-primary);
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+  }
+
+  .header-desc {
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    max-width: 650px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Visual Core */
+  .hub-visual {
+    position: relative;
+    height: 600px;
     display: flex;
     justify-content: center;
-  }
-
-  .registry-container {
-    max-width: 1000px;
-    width: 100%;
-  }
-
-  .registry-graph {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     align-items: center;
-    gap: 0;
+  }
+
+  .ambient-glow {
+    position: absolute;
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+    filter: blur(80px);
+    z-index: 0;
+  }
+
+  .core-node {
     position: relative;
-    padding: 2rem 0;
-    opacity: 0;
-    transition: opacity 0.4s ease;
+    z-index: 10;
   }
 
-  .registry-strip.visible .registry-graph {
-    opacity: 1;
-  }
-
-  .registry-node {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    z-index: 2;
-    opacity: 0;
-    transform: scale(0.8);
-    transition: opacity 0.4s ease, transform 0.4s ease;
-  }
-
-  .registry-strip.visible .node-center {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.1s;
-  }
-
-  .registry-strip.visible .node-outer[data-index="0"] {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.5s;
-  }
-
-  .registry-strip.visible .node-outer[data-index="1"] {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.6s;
-  }
-
-  .registry-strip.visible .node-outer[data-index="2"] {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.7s;
-  }
-
-  .registry-strip.visible .node-outer[data-index="3"] {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.8s;
-  }
-
-  .node-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .node-label {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: color 0.3s ease;
-  }
-
-  .registry-node:hover .node-label {
-    color: var(--text-primary);
-  }
-
-  .node-center .node-label {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .registry-node {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 1.25rem 0.75rem;
+  .core-inner {
     width: 100px;
-    justify-self: center;
-    transition: all 0.3s ease;
+    height: 100px;
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.05);
+    transform: rotate(15deg);
+    transition: transform 0.5s ease;
   }
 
-  .registry-node:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: var(--border-bright);
-    transform: translateY(-2px);
+  .core-node:hover .core-inner {
+    transform: rotate(0deg) scale(1.05);
+    border-color: var(--accent-cyan);
   }
 
-  .node-center {
-    background: rgba(6, 182, 212, 0.05);
-    border-color: rgba(6, 182, 212, 0.3);
-    box-shadow: 0 0 30px rgba(6, 182, 212, 0.1);
-    width: 110px;
-    padding: 1.5rem 0.75rem;
-  }
-
-  .node-center .node-dot {
-    width: 12px;
-    height: 12px;
-    box-shadow: 0 0 10px var(--accent-cyan);
-  }
-
-  /* Connection lines */
-  .connection-line {
+  .core-rings .ring {
     position: absolute;
     top: 50%;
-    height: 1px;
-    background: var(--border);
-    z-index: 1;
-    transform-origin: right center;
-    transform: scaleX(0);
-    transition: transform 0.4s ease;
-    overflow: visible;
-  }
-
-  .registry-strip.visible .connection-line {
-    transform: scaleX(1);
-  }
-
-  .line-0 {
-    left: 10%;
-    width: 30%;
-    transform-origin: right center;
-    transition-delay: 0.25s;
-  }
-
-  .line-1 {
-    left: 30%;
-    width: 10%;
-    transform-origin: right center;
-    transition-delay: 0.3s;
-  }
-
-  .line-2 {
-    left: 60%;
-    width: 10%;
-    transform-origin: left center;
-    transition-delay: 0.35s;
-  }
-
-  .line-3 {
-    left: 60%;
-    width: 30%;
-    transform-origin: left center;
-    transition-delay: 0.4s;
-  }
-
-  .registry-strip.visible .line-0,
-  .registry-strip.visible .line-1 {
-    transform-origin: right center;
-    transform: scaleX(1);
-  }
-
-  .registry-strip.visible .line-2,
-  .registry-strip.visible .line-3 {
-    transform-origin: left center;
-    transform: scaleX(1);
-  }
-
-  /* Traveling dots */
-  .traveling-dot {
-    position: absolute;
-    width: 4px;
-    height: 4px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 50%;
-    top: -1.5px;
-    opacity: 0;
+    pointer-events: none;
   }
 
-  .registry-strip.visible .traveling-dot {
-    opacity: 1;
-    animation: travelOut 3s ease-in-out infinite;
-    animation-delay: 1s;
+  .ring:nth-child(1) { width: 300px; height: 300px; }
+  .ring:nth-child(2) { width: 500px; height: 500px; opacity: 0.5; }
+
+  /* Registry Cards */
+  .reg-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(
+      calc(cos(var(--angle)) * var(--dist) - 50%),
+      calc(sin(var(--angle)) * var(--dist) - 50%)
+    );
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 160px;
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 15;
   }
 
-  .line-0 .traveling-dot,
-  .line-1 .traveling-dot {
-    right: 0;
-    animation-name: travelLeft;
+  .reg-card:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translate(
+      calc(cos(var(--angle)) * (var(--dist) + 10px) - 50%),
+      calc(sin(var(--angle)) * (var(--dist) + 10px) - 50%)
+    ) scale(1.05);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
   }
 
-  .registry-strip.visible .line-0 .traveling-dot,
-  .registry-strip.visible .line-1 .traveling-dot {
-    animation-name: travelLeft;
+  .reg-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-primary);
   }
 
-  .line-2 .traveling-dot,
-  .line-3 .traveling-dot {
-    left: 0;
+  .reg-icon svg { width: 20px; height: 20px; }
+  .jsr-icon { font-weight: 900; font-size: 0.7rem; color: #f7df1e; }
+  
+  .reg-info {
+    display: flex;
+    flex-direction: column;
   }
 
-  .registry-strip.visible .line-2 .traveling-dot,
-  .registry-strip.visible .line-3 .traveling-dot {
-    animation-name: travelRight;
+  .reg-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
-  .registry-strip.visible .line-1 .traveling-dot {
-    animation-delay: 1.2s;
-  }
-  .registry-strip.visible .line-2 .traveling-dot {
-    animation-delay: 1.4s;
-  }
-  .registry-strip.visible .line-3 .traveling-dot {
-    animation-delay: 1.6s;
-  }
-
-  @keyframes travelRight {
-    0% { left: 0; opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { left: 100%; opacity: 0; }
-  }
-
-  @keyframes travelLeft {
-    0% { right: 0; opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { right: 100%; opacity: 0; }
-  }
-
-  .registry-caption {
-    text-align: center;
+  .reg-status {
+    font-size: 0.7rem;
     color: var(--text-muted);
-    font-size: 1rem;
-    max-width: 600px;
-    margin: 2.5rem auto 0;
-    line-height: 1.6;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 0.4s ease 0.9s, transform 0.4s ease 0.9s;
+    font-family: var(--font-mono);
   }
 
-  .registry-strip.visible .registry-caption {
-    opacity: 1;
-    transform: translateY(0);
+  /* Beams */
+  .beams-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .registry-graph,
-    .registry-node,
-    .registry-caption {
-      opacity: 1;
-      transform: none;
-      transition: none;
-    }
-
-    .connection-line {
-      transform: scaleX(1);
-      transition: none;
-    }
-
-    .traveling-dot {
-      animation: none;
-      opacity: 0;
-    }
+  .beam {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent-cyan), transparent);
+    transform-origin: left center;
+    opacity: 0.2;
   }
 
-  @media (max-width: 640px) {
-    .registry-graph {
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: auto auto;
-      gap: 1.5rem 0.5rem;
-      justify-items: center;
+  .b1 { width: 220px; transform: rotate(-140deg); }
+  .b2 { width: 240px; transform: rotate(-40deg); }
+  .b3 { width: 220px; transform: rotate(40deg); }
+  .b4 { width: 240px; transform: rotate(140deg); }
+
+  @media (max-width: 768px) {
+    .hub-visual { height: auto; padding: 4rem 0; }
+    .core-node, .ring, .beams-container { display: none; }
+    .registry-cards {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      width: 100%;
     }
-
-    .registry-node:nth-child(1) { grid-column: 1; grid-row: 1; }
-    .registry-node:nth-child(2) { grid-column: 3; grid-row: 1; }
-    .registry-node:nth-child(3) { grid-column: 2; grid-row: 1; }
-    .registry-node:nth-child(4) { grid-column: 1; grid-row: 2; }
-    .registry-node:nth-child(5) { grid-column: 3; grid-row: 2; }
-
-    .connection-line {
-      display: none;
-    }
-
-    .registry-caption {
-      font-size: 0.9375rem;
+    .reg-card {
+      position: static;
+      transform: none !important;
+      min-width: 0;
     }
   }
 </style>
-
-<script>
-  const strip = document.querySelector('.registry-strip');
-  if (strip) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
-    observer.observe(strip);
-  }
-</script>
