@@ -28,6 +28,14 @@ export interface ExecResult {
   exitCode: number;
 }
 
+function getEnhancedPath(): string {
+  const cwd = process.cwd();
+  const pathSep = process.platform === "win32" ? ";" : ":";
+  const binPath = `${cwd}/node_modules/.bin`;
+
+  return `${binPath}${pathSep}${process.env.PATH ?? ""}`;
+}
+
 export async function exec(
   command: string,
   args: string[] = [],
@@ -36,7 +44,11 @@ export async function exec(
   const proc = Bun.spawn([command, ...args], {
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...options.nodeOptions?.env },
+    env: {
+      ...process.env,
+      PATH: getEnhancedPath(),
+      ...options.nodeOptions?.env,
+    },
     cwd: options.nodeOptions?.cwd,
   });
 
