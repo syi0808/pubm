@@ -62,12 +62,12 @@ const base = import.meta.env.BASE_URL;
 
   .hero-grid {
     position: relative;
-    max-width: 1200px;
+    max-width: 1100px;
     width: 100%;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 4rem;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 3rem;
     align-items: center;
     z-index: 1;
   }
@@ -76,12 +76,14 @@ const base = import.meta.env.BASE_URL;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    padding-right: 2rem;
   }
 
   .hero-badge {
-    display: inline-block;
-    background: rgba(6, 182, 212, 0.1);
-    border: 1px solid rgba(6, 182, 212, 0.2);
+    display: inline-flex;
+    align-items: center;
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.15);
     border-radius: 9999px;
     padding: 0.35rem 1rem;
     font-family: var(--font-mono);
@@ -89,24 +91,25 @@ const base = import.meta.env.BASE_URL;
     font-weight: 500;
     color: var(--accent-cyan);
     margin-bottom: 2rem;
+    backdrop-filter: blur(4px);
   }
 
   h1 {
     font-family: var(--font-display);
-    font-size: 4rem;
+    font-size: 4.5rem;
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
     color: var(--text-primary);
     margin: 0 0 1.5rem;
   }
 
   .hero-sub {
     color: var(--text-muted);
-    font-size: 1.25rem;
-    max-width: 520px;
-    margin: 0 0 2.5rem;
-    line-height: 1.6;
+    font-size: 1.35rem;
+    max-width: 540px;
+    margin: 0 0 3rem;
+    line-height: 1.5;
   }
 
   .text-highlight {
@@ -123,26 +126,28 @@ const base = import.meta.env.BASE_URL;
   .hero-terminal {
     display: flex;
     justify-content: flex-end;
-    perspective: 1000px;
+    perspective: 1200px;
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4));
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1100px) {
     .hero-grid {
       grid-template-columns: 1fr;
       text-align: center;
-      gap: 3rem;
+      gap: 5rem;
     }
 
     .hero-content {
       align-items: center;
+      padding-right: 0;
     }
 
     h1 {
-      font-size: 3.25rem;
+      font-size: 3.75rem;
     }
 
     .hero-sub {
-      max-width: none;
+      max-width: 600px;
     }
 
     .hero-cta {
@@ -155,8 +160,22 @@ const base = import.meta.env.BASE_URL;
   }
 
   @media (max-width: 640px) {
+    .hero {
+      padding: 7rem 1.25rem 4rem;
+    }
     h1 {
-      font-size: 2.5rem;
+      font-size: 2.75rem;
+    }
+    .hero-sub {
+      font-size: 1.15rem;
+    }
+    .hero-cta {
+      flex-direction: column;
+      width: 100%;
+    }
+    .btn-primary, .btn-ghost {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

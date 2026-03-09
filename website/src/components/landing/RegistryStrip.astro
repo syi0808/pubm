@@ -130,35 +130,51 @@
   .node-label {
     font-family: var(--font-mono);
     font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.3s ease;
+  }
+
+  .registry-node:hover .node-label {
     color: var(--text-primary);
   }
 
   .node-center .node-label {
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--text-primary);
   }
 
   .registry-node {
-    background: var(--bg-glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1rem 0.75rem;
-    width: 80px;
+    border-radius: 20px;
+    padding: 1.25rem 0.75rem;
+    width: 100px;
     justify-self: center;
+    transition: all 0.3s ease;
+  }
+
+  .registry-node:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
   }
 
   .node-center {
-    border-color: rgba(34, 211, 238, 0.3);
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.08);
-    width: 90px;
-    padding: 1.25rem 0.75rem;
+    background: rgba(6, 182, 212, 0.05);
+    border-color: rgba(6, 182, 212, 0.3);
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.1);
+    width: 110px;
+    padding: 1.5rem 0.75rem;
   }
 
   .node-center .node-dot {
     width: 12px;
     height: 12px;
+    box-shadow: 0 0 10px var(--accent-cyan);
   }
 
   /* Connection lines */
