@@ -22,5 +22,6 @@ dist-ssr
 
 .pubm
 .worktrees
+.astro
 coverage
 releases

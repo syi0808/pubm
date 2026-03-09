@@ -1,0 +1,359 @@
+<section class="registry-strip section-divider">
+  <div class="registry-container">
+    <div class="registry-graph">
+      <!-- npm -->
+      <div class="registry-node node-outer" data-index="0">
+        <span class="node-dot" style="background: #cb3837;"></span>
+        <span class="node-label">npm</span>
+      </div>
+
+      <!-- jsr -->
+      <div class="registry-node node-outer" data-index="1">
+        <span class="node-dot" style="background: #f7df1e;"></span>
+        <span class="node-label">jsr</span>
+      </div>
+
+      <!-- pubm center -->
+      <div class="registry-node node-center" data-index="center">
+        <span class="node-dot" style="background: var(--accent-cyan);"></span>
+        <span class="node-label">pubm</span>
+      </div>
+
+      <!-- crates.io -->
+      <div class="registry-node node-outer" data-index="2">
+        <span class="node-dot" style="background: #e6822e;"></span>
+        <span class="node-label">crates.io</span>
+      </div>
+
+      <!-- private -->
+      <div class="registry-node node-outer" data-index="3">
+        <span class="node-dot" style="background: var(--accent-violet);"></span>
+        <span class="node-label">private</span>
+      </div>
+
+      <!-- Connection lines -->
+      <div class="connection-line line-0">
+        <span class="traveling-dot" style="background: #cb3837;"></span>
+      </div>
+      <div class="connection-line line-1">
+        <span class="traveling-dot" style="background: #f7df1e;"></span>
+      </div>
+      <div class="connection-line line-2">
+        <span class="traveling-dot" style="background: #e6822e;"></span>
+      </div>
+      <div class="connection-line line-3">
+        <span class="traveling-dot" style="background: var(--accent-violet);"></span>
+      </div>
+    </div>
+
+    <p class="registry-caption">
+      One command. Every registry. Atomic rollback if anything fails.
+    </p>
+  </div>
+</section>
+
+<style>
+  .registry-strip {
+    padding: 6rem 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .registry-container {
+    max-width: 1000px;
+    width: 100%;
+  }
+
+  .registry-graph {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    padding: 2rem 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .registry-strip.visible .registry-graph {
+    opacity: 1;
+  }
+
+  .registry-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 2;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .registry-strip.visible .node-center {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.1s;
+  }
+
+  .registry-strip.visible .node-outer[data-index="0"] {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.5s;
+  }
+
+  .registry-strip.visible .node-outer[data-index="1"] {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.6s;
+  }
+
+  .registry-strip.visible .node-outer[data-index="2"] {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.7s;
+  }
+
+  .registry-strip.visible .node-outer[data-index="3"] {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.8s;
+  }
+
+  .node-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .node-label {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+
+  .node-center .node-label {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .registry-node {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem 0.75rem;
+    width: 80px;
+    justify-self: center;
+  }
+
+  .node-center {
+    border-color: rgba(34, 211, 238, 0.3);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.08);
+    width: 90px;
+    padding: 1.25rem 0.75rem;
+  }
+
+  .node-center .node-dot {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Connection lines */
+  .connection-line {
+    position: absolute;
+    top: 50%;
+    height: 1px;
+    background: var(--border);
+    z-index: 1;
+    transform-origin: right center;
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+    overflow: visible;
+  }
+
+  .registry-strip.visible .connection-line {
+    transform: scaleX(1);
+  }
+
+  .line-0 {
+    left: 10%;
+    width: 30%;
+    transform-origin: right center;
+    transition-delay: 0.25s;
+  }
+
+  .line-1 {
+    left: 30%;
+    width: 10%;
+    transform-origin: right center;
+    transition-delay: 0.3s;
+  }
+
+  .line-2 {
+    left: 60%;
+    width: 10%;
+    transform-origin: left center;
+    transition-delay: 0.35s;
+  }
+
+  .line-3 {
+    left: 60%;
+    width: 30%;
+    transform-origin: left center;
+    transition-delay: 0.4s;
+  }
+
+  .registry-strip.visible .line-0,
+  .registry-strip.visible .line-1 {
+    transform-origin: right center;
+    transform: scaleX(1);
+  }
+
+  .registry-strip.visible .line-2,
+  .registry-strip.visible .line-3 {
+    transform-origin: left center;
+    transform: scaleX(1);
+  }
+
+  /* Traveling dots */
+  .traveling-dot {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    top: -1.5px;
+    opacity: 0;
+  }
+
+  .registry-strip.visible .traveling-dot {
+    opacity: 1;
+    animation: travelOut 3s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+
+  .line-0 .traveling-dot,
+  .line-1 .traveling-dot {
+    right: 0;
+    animation-name: travelLeft;
+  }
+
+  .registry-strip.visible .line-0 .traveling-dot,
+  .registry-strip.visible .line-1 .traveling-dot {
+    animation-name: travelLeft;
+  }
+
+  .line-2 .traveling-dot,
+  .line-3 .traveling-dot {
+    left: 0;
+  }
+
+  .registry-strip.visible .line-2 .traveling-dot,
+  .registry-strip.visible .line-3 .traveling-dot {
+    animation-name: travelRight;
+  }
+
+  .registry-strip.visible .line-1 .traveling-dot {
+    animation-delay: 1.2s;
+  }
+  .registry-strip.visible .line-2 .traveling-dot {
+    animation-delay: 1.4s;
+  }
+  .registry-strip.visible .line-3 .traveling-dot {
+    animation-delay: 1.6s;
+  }
+
+  @keyframes travelRight {
+    0% { left: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+
+  @keyframes travelLeft {
+    0% { right: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { right: 100%; opacity: 0; }
+  }
+
+  .registry-caption {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1rem;
+    max-width: 600px;
+    margin: 2.5rem auto 0;
+    line-height: 1.6;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s ease 0.9s, transform 0.4s ease 0.9s;
+  }
+
+  .registry-strip.visible .registry-caption {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .registry-graph,
+    .registry-node,
+    .registry-caption {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .connection-line {
+      transform: scaleX(1);
+      transition: none;
+    }
+
+    .traveling-dot {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .registry-graph {
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: auto auto;
+      gap: 1.5rem 0.5rem;
+      justify-items: center;
+    }
+
+    .registry-node:nth-child(1) { grid-column: 1; grid-row: 1; }
+    .registry-node:nth-child(2) { grid-column: 3; grid-row: 1; }
+    .registry-node:nth-child(3) { grid-column: 2; grid-row: 1; }
+    .registry-node:nth-child(4) { grid-column: 1; grid-row: 2; }
+    .registry-node:nth-child(5) { grid-column: 3; grid-row: 2; }
+
+    .connection-line {
+      display: none;
+    }
+
+    .registry-caption {
+      font-size: 0.9375rem;
+    }
+  }
+</style>
+
+<script>
+  const strip = document.querySelector('.registry-strip');
+  if (strip) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+    observer.observe(strip);
+  }
+</script>

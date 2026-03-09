@@ -1,0 +1,201 @@
+<section class="workflow section-divider">
+  <div class="workflow-container">
+    <div class="workflow-pipeline">
+      <div class="workflow-step" data-index="0">
+        <div class="step-card" style="--step-color: var(--accent-violet);">
+          <code class="step-cmd">pubm add</code>
+          <h3 class="step-label">Describe changes</h3>
+          <p class="step-sub">Create a changeset</p>
+        </div>
+      </div>
+
+      <span class="workflow-arrow">&rarr;</span>
+
+      <div class="workflow-step" data-index="1">
+        <div class="step-card" style="--step-color: var(--accent-cyan);">
+          <code class="step-cmd">pubm version</code>
+          <h3 class="step-label">Bump & changelog</h3>
+          <p class="step-sub">Consume changesets, update versions</p>
+        </div>
+      </div>
+
+      <span class="workflow-arrow">&rarr;</span>
+
+      <div class="workflow-step" data-index="2">
+        <div class="step-card" style="--step-color: var(--accent-green);">
+          <code class="step-cmd">pubm patch</code>
+          <h3 class="step-label">Publish everywhere</h3>
+          <p class="step-sub">All registries, atomic rollback</p>
+        </div>
+      </div>
+
+      <span class="workflow-arrow">&rarr;</span>
+
+      <div class="workflow-step" data-index="3">
+        <div class="step-card step-done" style="--step-color: var(--accent-green);">
+          <span class="step-check">&#10003;</span>
+          <h3 class="step-label">Released</h3>
+          <p class="step-sub">Tags pushed, GitHub release drafted</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .workflow {
+    padding: 6rem 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .workflow-container {
+    max-width: 1100px;
+    width: 100%;
+  }
+
+  .workflow-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .workflow-step {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .workflow.visible .workflow-step[data-index="0"] {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
+
+  .workflow.visible .workflow-step[data-index="1"] {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.15s;
+  }
+
+  .workflow.visible .workflow-step[data-index="2"] {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.3s;
+  }
+
+  .workflow.visible .workflow-step[data-index="3"] {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.45s;
+  }
+
+  .workflow-arrow {
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .workflow.visible .workflow-arrow {
+    opacity: 1;
+    transition-delay: 0.2s;
+  }
+
+  .step-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    border-left: 4px solid var(--step-color);
+    padding: 1.25rem 1.5rem;
+    min-width: 200px;
+  }
+
+  .step-cmd {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+
+  .step-label {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0.25rem 0 0;
+  }
+
+  .step-sub {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin: 0.25rem 0 0;
+  }
+
+  .step-check {
+    font-size: 1.1rem;
+    color: var(--accent-green);
+    font-weight: 700;
+  }
+
+  .step-done {
+    animation: none;
+  }
+
+  .workflow.visible .step-done {
+    animation: pulse 2.5s ease-in-out infinite;
+    animation-delay: 0.8s;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.2); }
+    50% { box-shadow: 0 0 12px 4px rgba(52, 211, 153, 0.15); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workflow-step,
+    .workflow-arrow {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .step-done {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .workflow-pipeline {
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .step-card {
+      min-width: 170px;
+    }
+  }
+</style>
+
+<script>
+  const workflow = document.querySelector('.workflow');
+  if (workflow) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+    observer.observe(workflow);
+  }
+</script>

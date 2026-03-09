@@ -1,0 +1,139 @@
+---
+import TerminalPanel from './TerminalPanel.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-grid">
+    <div class="hero-content">
+      <span class="hero-badge fade-in-up" style="animation-delay: 0s;">v0.2.12</span>
+      <h1 class="fade-in-up" style="animation-delay: 0.1s;">
+        Publish everywhere.<br />Roll back safely.
+      </h1>
+      <p class="hero-sub fade-in-up" style="animation-delay: 0.2s;">
+        Multi-registry publish orchestration for npm, jsr, crates.io, and private registries.
+      </p>
+      <div class="hero-cta fade-in-up" style="animation-delay: 0.3s;">
+        <a href={`${base}guides/quick-start`} class="btn-primary">Get Started &rarr;</a>
+        <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn-ghost">View on GitHub</a>
+      </div>
+    </div>
+    <div class="hero-terminal fade-in-up" style="animation-delay: 0.3s;">
+      <TerminalPanel />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 1.5rem 4rem;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 600px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(34, 211, 238, 0.06) 0%,
+      rgba(139, 92, 246, 0.04) 40%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .hero-grid {
+    position: relative;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    background: var(--bg-glass);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent-cyan);
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 3.25rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text-primary);
+    margin: 0 0 1.25rem;
+  }
+
+  .hero-sub {
+    color: var(--text-muted);
+    font-size: 1.125rem;
+    max-width: 480px;
+    margin: 0 0 2rem;
+    line-height: 1.6;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .hero-terminal {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 768px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .hero-content {
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+    }
+
+    .hero-sub {
+      max-width: none;
+    }
+
+    .hero-cta {
+      justify-content: center;
+    }
+
+    .hero-terminal {
+      justify-content: center;
+    }
+  }
+</style>

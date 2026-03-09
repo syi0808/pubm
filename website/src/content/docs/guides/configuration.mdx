@@ -1,0 +1,43 @@
+---
+title: Configuration
+description: Configure pubm for your project.
+---
+
+## Configuration File
+
+Configure pubm through `pubm.config.ts`:
+
+```ts
+import { defineConfig } from "pubm";
+
+export default defineConfig({
+  plugins: [
+    {
+      name: "my-plugin",
+      hooks: {
+        beforePublish: async (ctx) => {
+          console.log(`Publishing v${ctx.version}...`);
+        },
+        afterPublish: async (ctx) => {
+          await notifySlack(`Released v${ctx.version}`);
+        },
+        onError: async (ctx, error) => {
+          await alertTeam(error);
+        },
+      },
+    },
+  ],
+});
+```
+
+## Plugins
+
+Plugins can hook into any stage of the pipeline (`beforeTest`, `afterBuild`, `beforePublish`, `onRollback`, `onSuccess`, etc.) and can register custom `Registry` and `Ecosystem` implementations for additional language ecosystems.
+
+## Token Storage
+
+pubm stores tokens in your OS native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) via `@napi-rs/keyring`. Environment variables always take priority over stored tokens.
+
+If the keychain is unavailable, tokens are encrypted with AES-256-CBC as a fallback.
+
+Use `--no-save-token` to be prompted each time instead of saving.

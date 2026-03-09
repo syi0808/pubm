@@ -1,0 +1,83 @@
+---
+---
+
+<div class="terminal glass-panel">
+  <div class="terminal-header">
+    <span class="terminal-dot" style="background: #ff5f57;"></span>
+    <span class="terminal-dot" style="background: #febc2e;"></span>
+    <span class="terminal-dot" style="background: #28c840;"></span>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-line" style="animation-delay: 0.4s;">
+      <span class="prompt">$</span> pubm patch --registry npm,jsr
+    </div>
+    <div class="terminal-line" style="animation-delay: 0.8s;">&nbsp;</div>
+    <div class="terminal-line" style="animation-delay: 1.0s;">
+      <span class="check">&#10003;</span> Prerequisites validated
+    </div>
+    <div class="terminal-line" style="animation-delay: 1.3s;">
+      <span class="check">&#10003;</span> Registry connections verified
+    </div>
+    <div class="terminal-line" style="animation-delay: 1.6s;">
+      <span class="check">&#10003;</span> Version bumped to 1.3.0
+    </div>
+    <div class="terminal-line" style="animation-delay: 1.9s;">
+      <span class="spinner">&#9673;</span> Publishing to registries...
+    </div>
+    <div class="terminal-line" style="animation-delay: 2.3s;">
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="check">&#10003;</span> npm <span class="dots">···········</span> published
+    </div>
+    <div class="terminal-line" style="animation-delay: 2.6s;">
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="check">&#10003;</span> jsr <span class="dots">···········</span> published
+    </div>
+    <div class="terminal-line" style="animation-delay: 3.0s;">
+      <span class="check">&#10003;</span> Git tag v1.3.0 pushed
+    </div>
+  </div>
+</div>
+
+<style>
+  .terminal {
+    max-width: 520px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .terminal-header {
+    display: flex;
+    gap: 6px;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .terminal-body {
+    padding: 1rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+
+  .prompt {
+    color: var(--accent-cyan);
+  }
+
+  .check {
+    color: var(--accent-green);
+  }
+
+  .spinner {
+    color: var(--accent-cyan);
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  }
+
+  .dots {
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+</style>

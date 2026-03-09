@@ -1,0 +1,144 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<section class="install section-divider">
+  <h2 class="install-headline fade-in-up">Get started in seconds</h2>
+
+  <div class="install-terminal glass-panel fade-in-up">
+    <div class="terminal-header">
+      <span class="terminal-dot" style="background: #ff5f57;"></span>
+      <span class="terminal-dot" style="background: #febc2e;"></span>
+      <span class="terminal-dot" style="background: #28c840;"></span>
+    </div>
+    <div class="terminal-body">
+      <button class="copy-btn" aria-label="Copy commands">
+        <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="5" width="9" height="9" rx="1.5" />
+          <path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5V3.5A1.5 1.5 0 0 1 3.5 2h6A1.5 1.5 0 0 1 11 3.5V5" />
+        </svg>
+        <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <polyline points="3 8.5 6.5 12 13 4" />
+        </svg>
+      </button>
+      <pre><code><span class="prompt">$</span> npm i -g pubm
+
+<span class="prompt">$</span> pubm patch --preview   <span class="comment"># see what would happen</span>
+<span class="prompt">$</span> pubm patch              <span class="comment"># publish for real</span></code></pre>
+    </div>
+  </div>
+
+  <div class="install-cta fade-in-up">
+    <a href={`${base}guides/quick-start`} class="btn-primary">Read the Docs &rarr;</a>
+    <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn-ghost">View on GitHub</a>
+  </div>
+</section>
+
+<script>
+  const btn = document.querySelector('.install .copy-btn') as HTMLButtonElement;
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const text = 'npm i -g pubm\npubm patch --preview\npubm patch';
+      navigator.clipboard.writeText(text).then(() => {
+        const clipboard = btn.querySelector('.icon-clipboard') as SVGElement;
+        const check = btn.querySelector('.icon-check') as SVGElement;
+        clipboard.style.display = 'none';
+        check.style.display = 'block';
+        setTimeout(() => {
+          clipboard.style.display = 'block';
+          check.style.display = 'none';
+        }, 2000);
+      });
+    });
+  }
+</script>
+
+<style>
+  .install {
+    padding: 6rem 1.5rem;
+    text-align: center;
+  }
+
+  .install-headline {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 2rem;
+  }
+
+  .install-terminal {
+    max-width: 560px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  .terminal-header {
+    display: flex;
+    gap: 6px;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .terminal-body {
+    position: relative;
+    padding: 1rem 1.25rem;
+  }
+
+  .terminal-body pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.8;
+    text-align: left;
+  }
+
+  .terminal-body code {
+    font-family: inherit;
+    color: var(--text-primary);
+  }
+
+  .prompt {
+    color: var(--accent-cyan);
+  }
+
+  .comment {
+    color: var(--text-muted);
+  }
+
+  .copy-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .copy-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+
+  .install-cta {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+</style>

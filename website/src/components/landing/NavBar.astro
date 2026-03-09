@@ -1,0 +1,67 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<nav class="navbar glass-panel">
+  <div class="navbar-inner">
+    <a href={base} class="navbar-logo">
+      <img src={`${base}logo.svg`} alt="pubm" height="28" />
+      <span>pubm</span>
+    </a>
+    <div class="navbar-links">
+      <a href={`${base}guides/quick-start`}>Docs</a>
+      <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    border-radius: 0;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .navbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .navbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+
+  .navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .navbar-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+  }
+
+  .navbar-links a:hover {
+    color: var(--text-primary);
+  }
+</style>
