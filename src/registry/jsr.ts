@@ -1,7 +1,7 @@
 import process from "node:process";
-import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
+import { exec, NonZeroExitError } from "../utils/exec.js";
 import { getJsrJson, version } from "../utils/package.js";
 import {
   getScope,

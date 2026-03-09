@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", () => ({
+vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 
@@ -12,12 +12,12 @@ vi.mock("../../../src/utils/package-name.js", () => ({
   isValidPackageName: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
 import {
   CustomRegistry,
   customRegistry,
 } from "../../../src/registry/custom-registry.js";
 import { NpmRegistry } from "../../../src/registry/npm.js";
+import { exec } from "../../../src/utils/exec.js";
 import { getPackageJson } from "../../../src/utils/package.js";
 
 const mockedExec = vi.mocked(exec);

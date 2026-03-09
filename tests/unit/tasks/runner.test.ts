@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("std-env", () => ({ isCI: false }));
-vi.mock("tinyexec", () => ({
+vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 vi.mock("../../../src/git.js", () => ({
@@ -105,8 +105,8 @@ vi.mock("../../../src/utils/token.js", () => ({
   loadTokensFromDb: vi.fn(),
   injectTokensToEnv: vi.fn().mockReturnValue(vi.fn()),
 }));
-vi.mock("@npmcli/promise-spawn", () => ({
-  default: { open: vi.fn() },
+vi.mock("../../../src/utils/open-url.js", () => ({
+  openUrl: vi.fn(),
 }));
 vi.mock("../../../src/utils/crate-graph.js", () => ({
   sortCratesByDependencyOrder: vi.fn(),
@@ -122,7 +122,6 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
@@ -136,6 +135,7 @@ import { run } from "../../../src/tasks/runner.js";
 import type { ResolvedOptions } from "../../../src/types/options.js";
 import { link } from "../../../src/utils/cli.js";
 import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
+import { exec } from "../../../src/utils/exec.js";
 import { createListr } from "../../../src/utils/listr.js";
 import {
   getJsrJson,
@@ -645,7 +645,7 @@ describe("run", () => {
     });
 
     it("release draft generates body with commits and opens browser", async () => {
-      const { default: npmCli } = await import("@npmcli/promise-spawn");
+      const { openUrl } = await import("../../../src/utils/open-url.js");
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       mockedGit.mockImplementation(
@@ -676,7 +676,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      expect(npmCli.open).toHaveBeenCalled();
+      expect(openUrl).toHaveBeenCalled();
     });
 
     it("publishOnly maps default registry to npmPublishTasks", async () => {

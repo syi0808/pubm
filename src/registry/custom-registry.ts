@@ -1,4 +1,4 @@
-import { exec } from "tinyexec";
+import { exec } from "../utils/exec.js";
 import { getPackageJson } from "../utils/package.js";
 import { NpmRegistry } from "./npm.js";
 

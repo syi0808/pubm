@@ -1,16 +1,17 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", async (importOriginal) => {
-  const original = await importOriginal<typeof import("tinyexec")>();
+vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../../src/utils/exec.js")>();
   return {
     ...original,
     exec: vi.fn(),
   };
 });
 
-import { exec } from "tinyexec";
 import { CratesRegistry } from "../../../src/registry/crates.js";
+import { exec } from "../../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
 
@@ -150,8 +151,8 @@ describe("CratesRegistry", () => {
     });
 
     it("includes cargo stderr in error message when available", async () => {
-      const { NonZeroExitError } = await import("tinyexec");
-      const error = new NonZeroExitError({ exitCode: 101 } as any, {
+      const { NonZeroExitError } = await import("../../../src/utils/exec.js");
+      const error = new NonZeroExitError("cargo", 101, {
         stdout: "",
         stderr: "error: crate `update-kit` does not exist on crates.io",
       });
@@ -229,8 +230,8 @@ describe("CratesRegistry", () => {
     });
 
     it("filters noise lines from cargo stderr", async () => {
-      const { NonZeroExitError } = await import("tinyexec");
-      const error = new NonZeroExitError({ exitCode: 101 } as any, {
+      const { NonZeroExitError } = await import("../../../src/utils/exec.js");
+      const error = new NonZeroExitError("cargo", 101, {
         stdout: "",
         stderr:
           "    Updating crates.io index\nwarning: manifest has no description\n    Updating crates.io index\nerror: failed to prepare local package",

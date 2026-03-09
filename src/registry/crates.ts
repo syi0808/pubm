@@ -1,6 +1,6 @@
 import path from "node:path";
-import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
+import { exec, NonZeroExitError } from "../utils/exec.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
 class CratesError extends AbstractError {

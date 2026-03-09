@@ -1,11 +1,10 @@
 import { color } from "listr2";
-import { NonZeroExitError } from "tinyexec";
+import { NonZeroExitError } from "./utils/exec.js";
 
 export class AbstractError extends Error {
   cause?: unknown;
 
   constructor(message: string, { cause }: { cause?: unknown } = {}) {
-    // @ts-expect-error
     super(message, { cause });
 
     this.cause = cause;

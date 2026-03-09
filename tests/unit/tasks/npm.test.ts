@@ -4,39 +4,84 @@ vi.mock("../../../src/registry/npm.js", () => ({
   npmRegistry: vi.fn(),
 }));
 
-vi.mock("cross-spawn", () => ({
-  default: vi.fn(),
+vi.mock("../../../src/utils/open-url.js", () => ({
+  openUrl: vi.fn(),
 }));
 
-vi.mock("@npmcli/promise-spawn", () => ({
-  default: { open: vi.fn() },
+vi.mock("../../../src/utils/spawn-interactive.js", () => ({
+  spawnInteractive: vi.fn(),
 }));
 
-import { EventEmitter } from "node:events";
-import spawn from "cross-spawn";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
   npmPublishTasks,
 } from "../../../src/tasks/npm.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
+import { openUrl } from "../../../src/utils/open-url.js";
+import { spawnInteractive } from "../../../src/utils/spawn-interactive.js";
 
-const mockedSpawn = vi.mocked(spawn);
+const mockedOpenUrl = vi.mocked(openUrl);
+const mockedSpawnInteractive = vi.mocked(spawnInteractive);
 
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 
-function createMockChildProcess() {
-  return Object.assign(new EventEmitter(), {
-    stdout: new EventEmitter(),
-    stderr: new EventEmitter(),
-    stdin: { write: vi.fn() },
-  });
+interface MockChild {
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  stdin: { write: ReturnType<typeof vi.fn>; flush: ReturnType<typeof vi.fn> };
+  exited: Promise<number>;
+  _pushStdout: (text: string) => void;
+  _pushStderr: (text: string) => void;
+  _closeStdout: () => void;
+  _closeStderr: () => void;
+  _resolveExited: (code: number) => void;
 }
 
-function mockSpawnResult(code: number) {
-  const child = createMockChildProcess();
-  mockedSpawn.mockReturnValue(child as any);
-  process.nextTick(() => child.emit("close", code));
+function createMockChild(): MockChild {
+  let stdoutController: ReadableStreamDefaultController<Uint8Array>;
+  let stderrController: ReadableStreamDefaultController<Uint8Array>;
+  let resolveExited: (code: number) => void;
+
+  const stdout = new ReadableStream<Uint8Array>({
+    start(controller) {
+      stdoutController = controller;
+    },
+  });
+  const stderr = new ReadableStream<Uint8Array>({
+    start(controller) {
+      stderrController = controller;
+    },
+  });
+  const exited = new Promise<number>((resolve) => {
+    resolveExited = resolve;
+  });
+
+  const encoder = new TextEncoder();
+
+  return {
+    stdout,
+    stderr,
+    stdin: { write: vi.fn(), flush: vi.fn() },
+    exited,
+    _pushStdout: (text: string) =>
+      stdoutController.enqueue(encoder.encode(text)),
+    _pushStderr: (text: string) =>
+      stderrController.enqueue(encoder.encode(text)),
+    _closeStdout: () => stdoutController.close(),
+    _closeStderr: () => stderrController.close(),
+    _resolveExited: (code: number) => resolveExited(code),
+  };
+}
+
+function mockSpawnResult(code: number): MockChild {
+  const child = createMockChild();
+  mockedSpawnInteractive.mockReturnValue(child as any);
+  process.nextTick(() => {
+    child._closeStdout();
+    child._closeStderr();
+    child._resolveExited(code);
+  });
   return child;
 }
 
@@ -91,6 +136,7 @@ let mockNpm: ReturnType<typeof createMockNpm>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   mockNpm = createMockNpm();
   mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 });
@@ -124,21 +170,16 @@ describe("npmAvailableCheckTasks", () => {
         npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
       )(ctx, task);
 
-      expect(mockedSpawn).toHaveBeenCalledWith("npm", ["login"], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+      expect(mockedSpawnInteractive).toHaveBeenCalledWith(["npm", "login"]);
     });
 
     it("parses login URL from stdout, opens browser, and sends ENTER", async () => {
-      const { open } = (await import("@npmcli/promise-spawn")).default;
-      const mockedOpen = vi.mocked(open);
-
       mockNpm.isLoggedIn
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
 
-      const child = createMockChildProcess();
-      mockedSpawn.mockReturnValue(child as any);
+      const child = createMockChild();
+      mockedSpawnInteractive.mockReturnValue(child as any);
 
       const ctx = createCtx({ promptEnabled: true });
       const task = createMockTask();
@@ -150,19 +191,21 @@ describe("npmAvailableCheckTasks", () => {
       // Wait for spawn to be called
       await new Promise((r) => process.nextTick(r));
 
-      child.stdout.emit(
-        "data",
-        Buffer.from(
-          "Login at:\nhttps://www.npmjs.com/login?next=/login/cli/abc-123\nPress ENTER to open in the browser...",
-        ),
+      child._pushStdout(
+        "Login at:\nhttps://www.npmjs.com/login?next=/login/cli/abc-123\nPress ENTER to open in the browser...",
       );
 
-      expect(mockedOpen).toHaveBeenCalledWith(
+      // Allow the stream reader to process
+      await new Promise((r) => process.nextTick(r));
+
+      expect(mockedOpenUrl).toHaveBeenCalledWith(
         "https://www.npmjs.com/login?next=/login/cli/abc-123",
       );
       expect(child.stdin.write).toHaveBeenCalledWith("\n");
 
-      child.emit("close", 0);
+      child._closeStdout();
+      child._closeStderr();
+      child._resolveExited(0);
       await promise;
     });
 

@@ -1,6 +1,6 @@
 import semver from "semver";
-import { exec } from "tinyexec";
 import { AbstractError } from "./error.js";
+import { exec } from "./utils/exec.js";
 
 class GitError extends AbstractError {
   name = "Git Error";

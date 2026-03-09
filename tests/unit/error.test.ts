@@ -180,10 +180,10 @@ describe("consoleError", () => {
   });
 
   it("should skip NonZeroExitError in cause chain", async () => {
-    const { NonZeroExitError } = await import("tinyexec");
+    const { NonZeroExitError } = await import("../../src/utils/exec.js");
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const cause = new NonZeroExitError({ exitCode: 101 } as any, {
+    const cause = new NonZeroExitError("cargo", 101, {
       stdout: "",
       stderr: "",
     });

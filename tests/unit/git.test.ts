@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", () => ({
+vi.mock("../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
 import { Git } from "../../src/git.js";
+import { exec } from "../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
 

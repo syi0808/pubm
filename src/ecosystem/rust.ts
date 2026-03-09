@@ -1,8 +1,8 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
-import { exec } from "tinyexec";
 import type { RegistryType } from "../types/options.js";
+import { exec } from "../utils/exec.js";
 import { Ecosystem } from "./ecosystem.js";
 
 export class RustEcosystem extends Ecosystem {
