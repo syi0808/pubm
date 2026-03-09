@@ -1,3 +1,4 @@
+import type { PubmPlugin } from "../plugin/types.js";
 import type { RegistryType } from "../types/options.js";
 
 export interface PackageConfig {
@@ -40,6 +41,7 @@ export interface PubmConfig {
   releaseDraft?: boolean;
   releaseNotes?: boolean;
   rollbackStrategy?: "individual" | "all";
+  plugins?: PubmPlugin[];
 }
 
 export interface ResolvedPubmConfig

@@ -8,6 +8,7 @@ import type { PackageConfig } from "../config/types.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
+import { PluginRunner } from "../plugin/runner.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
@@ -45,6 +46,7 @@ const { prerelease } = SemVer;
 export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
   cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
 }
 
 function registryTask(registry: string) {
@@ -86,9 +88,26 @@ async function collectPublishTasks(ctx: Ctx) {
         ),
     };
 
-    return [...nonCratesTasks, sequentialCratesTask];
+    return [
+      ...nonCratesTasks,
+      sequentialCratesTask,
+      ...pluginPublishTasks(ctx),
+    ];
   }
-  return collectRegistries(ctx).map(registryTask);
+  return [
+    ...collectRegistries(ctx).map(registryTask),
+    ...pluginPublishTasks(ctx),
+  ];
+}
+
+function pluginPublishTasks(ctx: Ctx) {
+  const pluginRegistries = ctx.pluginRunner.collectRegistries();
+  return pluginRegistries.map((registry) => ({
+    title: `Publishing to ${registry.packageName} (plugin)`,
+    task: async (): Promise<void> => {
+      await registry.publish();
+    },
+  }));
 }
 
 function dryRunRegistryTask(registry: string) {
@@ -144,6 +163,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
   const ctx = <Ctx>{
     ...options,
     promptEnabled: !isCI && process.stdin.isTTY,
+    pluginRunner: options.pluginRunner ?? new PluginRunner([]),
   };
 
   let cleanupEnv: (() => void) | undefined;
@@ -206,6 +226,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
               skip: options.skipTests,
               title: "Running tests",
               task: async (ctx): Promise<void> => {
+                await ctx.pluginRunner.runHook("beforeTest", ctx);
                 const packageManager = await getPackageManager();
 
                 try {
@@ -218,12 +239,14 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     { cause: error },
                   );
                 }
+                await ctx.pluginRunner.runHook("afterTest", ctx);
               },
             },
             {
               skip: options.skipBuild,
               title: "Building the project",
               task: async (ctx): Promise<void> => {
+                await ctx.pluginRunner.runHook("beforeBuild", ctx);
                 const packageManager = await getPackageManager();
 
                 try {
@@ -236,12 +259,14 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     { cause: error },
                   );
                 }
+                await ctx.pluginRunner.runHook("afterBuild", ctx);
               },
             },
             {
               title: "Bumping version",
               skip: (ctx) => !!ctx.preview,
               task: async (ctx, task): Promise<void> => {
+                await ctx.pluginRunner.runHook("beforeVersion", ctx);
                 const git = new Git();
                 let tagCreated = false;
                 let commited = false;
@@ -297,16 +322,27 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 await git.createTag(nextVersion, commit);
 
                 tagCreated = true;
+                await ctx.pluginRunner.runHook("afterVersion", ctx);
               },
             },
             {
               skip: (ctx) =>
                 !!options.skipPublish || !!ctx.preview || !!options.preflight,
               title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                parentTask.newListr(await collectPublishTasks(ctx), {
+              task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                await ctx.pluginRunner.runHook("beforePublish", ctx);
+                return parentTask.newListr(await collectPublishTasks(ctx), {
                   concurrent: true,
-                }),
+                });
+              },
+            },
+            {
+              skip: (ctx) =>
+                !!options.skipPublish || !!ctx.preview || !!options.preflight,
+              title: "Running post-publish hooks",
+              task: async (ctx): Promise<void> => {
+                await ctx.pluginRunner.runHook("afterPublish", ctx);
+              },
             },
             {
               skip: !options.preflight,
@@ -319,7 +355,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
             {
               title: "Pushing tags to GitHub",
               skip: (ctx) => !!ctx.preview,
-              task: async (_, task): Promise<void> => {
+              task: async (ctx, task): Promise<void> => {
+                await ctx.pluginRunner.runHook("beforePush", ctx);
                 const git = new Git();
 
                 const result = await git.push("--follow-tags");
@@ -330,6 +367,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                   await git.push("--tags");
                 }
+                await ctx.pluginRunner.runHook("afterPush", ctx);
               },
             },
             {
@@ -414,12 +452,18 @@ export async function run(options: ResolvedOptions): Promise<void> {
         `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
       );
     }
+
+    await ctx.pluginRunner.runHook("onSuccess", ctx);
   } catch (e: unknown) {
     process.removeListener("SIGINT", onSigint);
     cleanupEnv?.();
-    consoleError(e as Error);
 
+    await ctx.pluginRunner.runErrorHook(ctx, e as Error);
+
+    consoleError(e as Error);
     await rollback();
+
+    await ctx.pluginRunner.runHook("onRollback", ctx);
 
     process.exit(1);
   }

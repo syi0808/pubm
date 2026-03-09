@@ -40,6 +40,7 @@
     "@listr2/prompt-adapter-enquirer": "^2.0.12",
     "@npmcli/promise-spawn": "^8.0.1",
     "cac": "^6.7.14",
+    "cross-spawn": "^7.0.6",
     "enquirer": "^2.4.1",
     "jiti": "^2.6.1",
     "listr2": "^8.2.5",
@@ -53,6 +54,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
+    "@types/cross-spawn": "^6.0.6",
     "@types/micromatch": "^4.0.10",
     "@types/node": "^22.7.4",
     "@types/npm": "^7.19.3",

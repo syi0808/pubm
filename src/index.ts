@@ -1,6 +1,7 @@
 import { resolveConfig } from "./config/defaults.js";
 import { loadConfig } from "./config/loader.js";
 import { resolveOptions } from "./options.js";
+import { PluginRunner } from "./plugin/runner.js";
 import { run } from "./tasks/runner.js";
 import type { Options } from "./types/options.js";
 
@@ -16,6 +17,8 @@ import type { Options } from "./types/options.js";
  */
 export async function pubm(options: Options): Promise<void> {
   const config = await loadConfig();
+  const plugins = config?.plugins ?? [];
+  const pluginRunner = new PluginRunner(plugins);
   const configOptions: Partial<Options> = {};
 
   if (config) {
@@ -32,7 +35,7 @@ export async function pubm(options: Options): Promise<void> {
   // resolveOptions filters undefined values, so config.packages survives.
   const resolvedOptions = resolveOptions({ ...configOptions, ...options });
 
-  await run(resolvedOptions);
+  await run({ ...resolvedOptions, pluginRunner });
 }
 
 export type {
@@ -76,8 +79,15 @@ export {
   resolveGroups,
   topologicalSort,
 } from "./monorepo/index.js";
+export type {
+  ErrorHookFn,
+  HookFn,
+  HookName,
+  PluginHooks,
+  PubmPlugin,
+} from "./plugin/index.js";
+export { PluginRunner } from "./plugin/index.js";
 export type { PreState, SnapshotOptions } from "./prerelease/index.js";
-
 // Pre-release
 export {
   enterPreMode,
@@ -86,6 +96,8 @@ export {
   readPreState,
 } from "./prerelease/index.js";
 export type { Options } from "./types/options.js";
+export type { Runtime } from "./utils/runtime.js";
+export { detectRuntime, isBun } from "./utils/runtime.js";
 export type { EntryPointError, ExtraneousFile } from "./validate/index.js";
 // Validation
 export {

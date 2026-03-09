@@ -1,3 +1,4 @@
+import process from "node:process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("tinyexec", async (importOriginal) => {
@@ -144,7 +145,8 @@ describe("JsrRegisry", () => {
 
       const result = await registry.ping();
 
-      expect(mockedExec).toHaveBeenCalledWith("ping", ["jsr.io", "-c", "1"], {
+      const flag = process.platform === "win32" ? "-n" : "-c";
+      expect(mockedExec).toHaveBeenCalledWith("ping", [flag, "1", "jsr.io"], {
         throwOnError: true,
       });
       expect(result).toBe(true);
@@ -164,9 +166,7 @@ describe("JsrRegisry", () => {
     it("throws JsrError when exec rejects", async () => {
       mockedExec.mockRejectedValue(new Error("network error"));
 
-      await expect(registry.ping()).rejects.toThrow(
-        "Failed to run `ping jsr.io` -c 1",
-      );
+      await expect(registry.ping()).rejects.toThrow("Failed to ping jsr.io");
     });
   });
 

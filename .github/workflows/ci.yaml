@@ -96,6 +96,22 @@ jobs:
       - name: 'Test'
         run: pnpm run test
 
+  test-bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: 'Install Node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
   coverage:
     name: 'Coverage: node-24, ubuntu-latest'
     runs-on: ubuntu-latest

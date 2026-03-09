@@ -4,16 +4,16 @@ vi.mock("../../../src/registry/npm.js", () => ({
   npmRegistry: vi.fn(),
 }));
 
-vi.mock("node:child_process", () => ({
-  spawn: vi.fn(),
+vi.mock("cross-spawn", () => ({
+  default: vi.fn(),
 }));
 
 vi.mock("@npmcli/promise-spawn", () => ({
   default: { open: vi.fn() },
 }));
 
-import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
+import spawn from "cross-spawn";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,

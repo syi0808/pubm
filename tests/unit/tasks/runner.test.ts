@@ -125,6 +125,7 @@ vi.mock("../../../src/utils/listr.js", () => ({
 import { exec } from "tinyexec";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
+import { PluginRunner } from "../../../src/plugin/runner.js";
 import {
   collectTokens,
   promptGhSecretsSync,
@@ -363,14 +364,15 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(7);
+      expect(tasks).toHaveLength(8);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
       expect(tasks[3].title).toBe("Publishing");
-      expect(tasks[4].title).toBe("Validating publish (dry-run)");
-      expect(tasks[5].title).toBe("Pushing tags to GitHub");
-      expect(tasks[6].title).toBe("Creating release draft on GitHub");
+      expect(tasks[4].title).toBe("Running post-publish hooks");
+      expect(tasks[5].title).toBe("Validating publish (dry-run)");
+      expect(tasks[6].title).toBe("Pushing tags to GitHub");
+      expect(tasks[7].title).toBe("Creating release draft on GitHub");
     });
   });
 
@@ -445,7 +447,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[5].skip as (ctx: any) => boolean;
+      const skipFn = tasks[6].skip as (ctx: any) => boolean;
 
       expect(skipFn({ preview: true })).toBe(true);
     });
@@ -456,7 +458,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[6].skip as (ctx: any) => boolean;
+      const skipFn = tasks[7].skip as (ctx: any) => boolean;
 
       expect(skipFn({ preview: false })).toBe(true);
     });
@@ -467,7 +469,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[6].skip as (ctx: any) => boolean;
+      const skipFn = tasks[7].skip as (ctx: any) => boolean;
 
       expect(skipFn({ preview: true })).toBe(true);
     });
@@ -723,7 +725,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true },
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
         mockParentTask,
       );
 
@@ -749,7 +751,10 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
 
-      await taskDef.task({ ...options, promptEnabled: true }, mockParentTask);
+      await taskDef.task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        mockParentTask,
+      );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
@@ -775,7 +780,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true },
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
         mockParentTask,
       );
 
@@ -805,7 +810,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true },
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
         mockParentTask,
       );
 
@@ -833,7 +838,10 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
 
-      await taskDef.task({ ...options, promptEnabled: true }, mockParentTask);
+      await taskDef.task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        mockParentTask,
+      );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(2);
@@ -899,7 +907,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true },
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
         mockParentTask,
       );
 
@@ -940,7 +948,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true },
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
         mockParentTask,
       );
 
@@ -1082,14 +1090,15 @@ describe("run", () => {
       const tasks = pipelineCall[0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(7);
+      expect(tasks).toHaveLength(8);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
       expect(tasks[3].title).toBe("Publishing");
-      expect(tasks[4].title).toBe("Validating publish (dry-run)");
-      expect(tasks[5].title).toBe("Pushing tags to GitHub");
-      expect(tasks[6].title).toBe("Creating release draft on GitHub");
+      expect(tasks[4].title).toBe("Running post-publish hooks");
+      expect(tasks[5].title).toBe("Validating publish (dry-run)");
+      expect(tasks[6].title).toBe("Pushing tags to GitHub");
+      expect(tasks[7].title).toBe("Creating release draft on GitHub");
     });
 
     it("injects tokens into env and cleans up after pipeline", async () => {
@@ -1117,7 +1126,7 @@ describe("run", () => {
       expect(publishSkipFn({ preview: false })).toBe(true);
 
       // Dry-run should not be skipped in preflight
-      expect(tasks[4].skip).toBe(false);
+      expect(tasks[5].skip).toBe(false);
     });
 
     it("shows preflight success message", async () => {
