@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@listr2/prompt-adapter-enquirer": "^2.0.12",
+    "@napi-rs/keyring": "^1.2.0",
     "@npmcli/promise-spawn": "^8.0.1",
     "cac": "^6.7.14",
     "cross-spawn": "^7.0.6",

@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("tinyexec", () => ({
   exec: vi.fn(),
 }));
-vi.mock("../../../src/utils/db.js", () => ({
-  Db: vi.fn().mockImplementation(() => ({
+vi.mock("../../../src/utils/secure-store.js", () => ({
+  SecureStore: vi.fn().mockImplementation(() => ({
     get: vi.fn(),
     set: vi.fn(),
   })),
@@ -25,11 +25,11 @@ import {
   promptGhSecretsSync,
   syncGhSecrets,
 } from "../../../src/tasks/preflight.js";
-import { Db } from "../../../src/utils/db.js";
+import { SecureStore } from "../../../src/utils/secure-store.js";
 import { loadTokensFromDb } from "../../../src/utils/token.js";
 
 const mockedExec = vi.mocked(exec);
-const mockedDb = vi.mocked(Db);
+const mockedSecureStore = vi.mocked(SecureStore);
 const mockedLoadTokens = vi.mocked(loadTokensFromDb);
 
 beforeEach(() => {
@@ -64,7 +64,7 @@ describe("collectTokens", () => {
     };
 
     const mockDbSet = vi.fn();
-    mockedDb.mockImplementation(
+    mockedSecureStore.mockImplementation(
       () => ({ get: vi.fn(), set: mockDbSet }) as any,
     );
 
@@ -130,7 +130,7 @@ describe("promptGhSecretsSync", () => {
   it("skips prompt if tokens already synced (same hash)", async () => {
     const mockDbGet = vi.fn().mockReturnValue("somehash");
     const mockDbSet = vi.fn();
-    mockedDb.mockImplementation(
+    mockedSecureStore.mockImplementation(
       () => ({ get: mockDbGet, set: mockDbSet }) as any,
     );
 
@@ -160,7 +160,7 @@ describe("promptGhSecretsSync", () => {
   it("prompts when tokens have changed (different hash)", async () => {
     const mockDbGet = vi.fn().mockReturnValue("oldhash");
     const mockDbSet = vi.fn();
-    mockedDb.mockImplementation(
+    mockedSecureStore.mockImplementation(
       () => ({ get: mockDbGet, set: mockDbSet }) as any,
     );
 
@@ -190,7 +190,7 @@ describe("promptGhSecretsSync", () => {
   it("does not sync or save hash when user declines", async () => {
     const mockDbGet = vi.fn().mockReturnValue(null);
     const mockDbSet = vi.fn();
-    mockedDb.mockImplementation(
+    mockedSecureStore.mockImplementation(
       () => ({ get: mockDbGet, set: mockDbSet }) as any,
     );
 

@@ -2,13 +2,13 @@ import process from "node:process";
 import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
-import { Db } from "../utils/db.js";
 import { getJsrJson, version } from "../utils/package.js";
 import {
   getScope,
   getScopeAndName,
   isValidPackageName,
 } from "../utils/package-name.js";
+import { SecureStore } from "../utils/secure-store.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
 class JsrError extends AbstractError {
@@ -187,7 +187,7 @@ export class JsrRegisry extends Registry {
 }
 
 export class JsrClient {
-  static token = new Db().get("jsr-token");
+  static token = new SecureStore().get("jsr-token");
 
   constructor(public apiEndpoint: string) {}
 

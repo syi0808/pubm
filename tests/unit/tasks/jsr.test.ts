@@ -13,8 +13,8 @@ vi.mock("../../../src/git.js", () => ({
   Git: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/db.js", () => ({
-  Db: vi.fn().mockImplementation(() => ({
+vi.mock("../../../src/utils/secure-store.js", () => ({
+  SecureStore: vi.fn().mockImplementation(() => ({
     get: vi.fn().mockReturnValue(null),
     set: vi.fn(),
   })),
@@ -41,10 +41,10 @@ import {
   jsrPublishTasks,
 } from "../../../src/tasks/jsr.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
-import { Db } from "../../../src/utils/db.js";
 import { patchCachedJsrJson } from "../../../src/utils/package.js";
 import { getScope, isScopedPackage } from "../../../src/utils/package-name.js";
 import { addRollback } from "../../../src/utils/rollback.js";
+import { SecureStore } from "../../../src/utils/secure-store.js";
 
 const mockedGit = vi.mocked(Git);
 const mockedJsrRegistry = vi.mocked(jsrRegistry);
@@ -53,7 +53,7 @@ const mockedIsScopedPackage = vi.mocked(isScopedPackage);
 const mockedGetScope = vi.mocked(getScope);
 const mockedAddRollback = vi.mocked(addRollback);
 const mockedPatchCachedJsrJson = vi.mocked(patchCachedJsrJson);
-const mockedDb = vi.mocked(Db);
+const mockedDb = vi.mocked(SecureStore);
 
 function createMockJsr() {
   return {
