@@ -148,7 +148,7 @@ describe("consoleError", () => {
     consoleError(error);
 
     const output = spy.mock.calls[0][0] as string;
-    expect(output).not.toMatch(/at .+[\w/]:\d+:\d+/);
+    expect(output).not.toMatch(/\w+\.\w+:\d+:\d+/);
   });
 
   it("should include stack traces when DEBUG=pubm is set", () => {
@@ -159,7 +159,7 @@ describe("consoleError", () => {
       const error = new Error("debug test");
       consoleError(error);
       const output = spy.mock.calls[0][0] as string;
-      expect(output).toMatch(/at .+[\w/]:\d+:\d+/);
+      expect(output).toMatch(/\w+\.\w+:\d+:\d+/);
     } finally {
       process.env.DEBUG = originalDebug;
     }
