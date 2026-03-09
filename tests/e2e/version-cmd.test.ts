@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runPubmCli } from "../utils/cli.js";
 
-const binPath = path.resolve("bin/cli.js");
+const cliPath = path.resolve("src/cli.ts");
 
 describe("pubm version --dry-run", () => {
   let tmpDir: string;
@@ -40,9 +40,9 @@ describe("pubm version --dry-run", () => {
 
   it("should show help for version command", async () => {
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       {},
-      binPath,
+      cliPath,
       "version",
       "--help",
     );
@@ -58,9 +58,9 @@ describe("pubm version --dry-run", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "version",
       "--dry-run",
     );
@@ -77,9 +77,9 @@ describe("pubm version --dry-run", () => {
     createChangeset(dir, "add-feature", "my-pkg", "patch", "Fix a small bug");
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "version",
       "--dry-run",
     );
@@ -99,9 +99,9 @@ describe("pubm version --dry-run", () => {
     createChangeset(dir, "new-feature", "my-pkg", "minor", "Add new feature");
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "version",
       "--dry-run",
     );
@@ -127,9 +127,9 @@ describe("pubm version --dry-run", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "version",
       "--dry-run",
     );
@@ -155,9 +155,9 @@ describe("pubm version --dry-run", () => {
     );
 
     const { stdout } = await runPubmCli(
-      "node",
+      "bun",
       { nodeOptions: { cwd: dir } },
-      binPath,
+      cliPath,
       "version",
       "--dry-run",
     );

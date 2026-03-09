@@ -7,12 +7,20 @@
   },
   "description": "publish manager for multiple registry (jsr, npm and private registries)",
   "type": "module",
+  "workspaces": [
+    "npm/@pubm/*"
+  ],
+  "bin": {
+    "pubm": "./bin/cli.js"
+  },
   "author": "Yein Sung <syi778800@gmail.com>",
   "types": "./dist/index.d.ts",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "files": [
-    "dist"
+    "bin/",
+    "dist/",
+    "postinstall.js"
   ],
   "exports": {
     ".": {
@@ -23,14 +31,14 @@
   },
   "scripts": {
     "build": "bun run build.ts",
-    "build:compile": "bun run build.ts --compile",
+    "postinstall": "node ./postinstall.js",
     "check": "biome check",
     "format": "bun check --write",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
-    "release": "bun run build && node bin/cli.js --preflight",
-    "ci:release": "node bin/cli.js --publish-only",
+    "release": "bun run build && bun src/cli.ts --preflight",
+    "ci:release": "bun src/cli.ts --ci",
     "dev:site": "cd website && pnpm dev",
     "build:site": "cd website && pnpm build",
     "preview:site": "cd website && pnpm preview"

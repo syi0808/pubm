@@ -1,12 +1,21 @@
-import { rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { builtinModules } from "node:module";
+import { join } from "node:path";
+
+const ROOT = import.meta.dir;
+const NPM_DIR = join(ROOT, "npm");
+const ENTRY = join(ROOT, "src", "cli.ts");
+
+const pkg = await Bun.file(join(ROOT, "package.json")).json();
+const VERSION = pkg.version as string;
 
 // External packages: Node.js builtins
 const external = [...builtinModules, ...builtinModules.map((m) => `node:${m}`)];
 
+// ── SDK Build ───────────────────────────────────────────────────────────
+
 // Clean output directories
 rmSync("dist", { recursive: true, force: true });
-rmSync("bin", { recursive: true, force: true });
 
 // Build library ESM: src/index.ts → dist/index.js
 const esmResult = await Bun.build({
@@ -42,32 +51,9 @@ if (!cjsResult.success) {
   process.exit(1);
 }
 
-// Build CLI: src/cli.ts → bin/cli.js (ESM with Node shebang)
-const cliResult = await Bun.build({
-  entrypoints: ["src/cli.ts"],
-  outdir: "bin",
-  target: "node",
-  format: "esm",
-  splitting: false,
-  external: external,
-  packages: "bundle",
-  naming: "cli.js",
-});
-
-if (!cliResult.success) {
-  console.error("CLI build failed:", cliResult.logs);
-  process.exit(1);
-}
-
-// Prepend shebang to CLI output
-const cliPath = "bin/cli.js";
-const cliContent = await Bun.file(cliPath).text();
-await Bun.write(cliPath, `#!/usr/bin/env node\n${cliContent}`);
-
-console.log("Build complete.");
+console.log("SDK build complete.");
 console.log("  dist/index.js  (ESM)");
 console.log("  dist/index.cjs (CJS)");
-console.log("  bin/cli.js     (CLI)");
 
 // Generate type declarations
 console.log("Generating type declarations...");
@@ -82,39 +68,118 @@ if (tscExitCode !== 0) {
 }
 console.log("  dist/index.d.ts (types)");
 
-// Single binary (only when --compile flag passed)
-if (process.argv.includes("--compile")) {
-  const targets = [
-    "bun-linux-x64",
-    "bun-linux-arm64",
-    "bun-darwin-x64",
-    "bun-darwin-arm64",
-    "bun-windows-x64",
-  ];
+// ── Platform Binaries ───────────────────────────────────────────────────
 
-  const { mkdirSync } = await import("node:fs");
-  mkdirSync("releases", { recursive: true });
+interface Target {
+  os: string;
+  arch: "arm64" | "x64";
+}
 
-  for (const target of targets) {
-    const ext = target.includes("windows") ? ".exe" : "";
-    const outfile = `releases/pubm-${target}${ext}`;
-    const proc = Bun.spawn(
-      [
-        "bun",
-        "build",
-        "--compile",
-        `--target=${target}`,
-        "src/cli.ts",
-        "--outfile",
-        outfile,
-      ],
-      { stdout: "inherit", stderr: "inherit" },
+const allTargets: Target[] = [
+  { os: "darwin", arch: "arm64" },
+  { os: "darwin", arch: "x64" },
+  { os: "linux", arch: "arm64" },
+  { os: "linux", arch: "x64" },
+  { os: "win32", arch: "x64" },
+];
+
+function platformName(t: Target): string {
+  const os = t.os === "win32" ? "windows" : t.os;
+  return `@pubm/${os}-${t.arch}`;
+}
+
+function bunTarget(t: Target): string {
+  return `bun-${t.os === "win32" ? "windows" : t.os}-${t.arch}`;
+}
+
+const args = process.argv.slice(2);
+const currentOnly = args.includes("--current");
+
+let targets = allTargets;
+if (currentOnly) {
+  targets = allTargets.filter(
+    (t) => t.os === process.platform && t.arch === process.arch,
+  );
+  if (targets.length === 0) {
+    console.error(
+      `No matching target for current platform: ${process.platform}-${process.arch}`,
     );
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      console.error(`Failed to compile for target: ${target}`);
-      process.exit(1);
-    }
-    console.log(`Built: ${outfile}`);
+    process.exit(1);
   }
 }
+
+// Clean previous platform builds
+if (existsSync(NPM_DIR)) {
+  rmSync(NPM_DIR, { recursive: true });
+}
+
+console.log(
+  `\nBuilding pubm v${VERSION} binaries for ${targets.length} target(s)...\n`,
+);
+
+let succeeded = 0;
+let failed = 0;
+
+for (const target of targets) {
+  const name = platformName(target);
+  const pkgDir = join(NPM_DIR, name);
+  const binDir = join(pkgDir, "bin");
+  const isWindows = target.os === "win32";
+  const binaryName = isWindows ? "pubm.exe" : "pubm";
+  const outFile = join(binDir, binaryName);
+
+  mkdirSync(binDir, { recursive: true });
+
+  console.log(`[${name}] Compiling...`);
+
+  const result = Bun.spawnSync(
+    [
+      "bun",
+      "build",
+      "--compile",
+      `--target=${bunTarget(target)}`,
+      ENTRY,
+      "--outfile",
+      outFile,
+    ],
+    {
+      cwd: ROOT,
+      stdout: "inherit",
+      stderr: "inherit",
+    },
+  );
+
+  if (result.exitCode !== 0) {
+    console.error(`[${name}] Build failed with exit code ${result.exitCode}`);
+    if (currentOnly) process.exit(1);
+    failed++;
+    continue;
+  }
+
+  // Write platform package.json
+  const platformPkg = {
+    name,
+    version: VERSION,
+    description: `pubm binary for ${name.replace("@pubm/", "")}`,
+    license: "Apache-2.0",
+    author: "Sung YeIn",
+    repository: {
+      type: "git",
+      url: "git+https://github.com/syi0808/pubm.git",
+    },
+    homepage: "https://github.com/syi0808/pubm#readme",
+    os: [target.os],
+    cpu: [target.arch],
+  };
+
+  await Bun.write(
+    join(pkgDir, "package.json"),
+    `${JSON.stringify(platformPkg, null, 2)}\n`,
+  );
+
+  console.log(`[${name}] Done → ${outFile}\n`);
+  succeeded++;
+}
+
+console.log(`\nBuild complete: ${succeeded} succeeded, ${failed} failed.`);
+if (succeeded > 0) console.log(`Output: ${NPM_DIR}`);

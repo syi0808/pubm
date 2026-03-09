@@ -1,9 +1,14 @@
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { Registry } from "../registry/registry.js";
+import type { ReleaseContext } from "../tasks/github-release.js";
 import type { Ctx } from "../tasks/runner.js";
 
 export type HookFn = (ctx: Ctx) => Promise<void> | void;
 export type ErrorHookFn = (ctx: Ctx, error: Error) => Promise<void> | void;
+export type AfterReleaseHookFn = (
+  ctx: Ctx,
+  releaseCtx: ReleaseContext,
+) => Promise<void> | void;
 
 export interface PluginHooks {
   beforeTest?: HookFn;
@@ -16,6 +21,7 @@ export interface PluginHooks {
   afterPublish?: HookFn;
   beforePush?: HookFn;
   afterPush?: HookFn;
+  afterRelease?: AfterReleaseHookFn;
   onError?: ErrorHookFn;
   onRollback?: HookFn;
   onSuccess?: HookFn;
@@ -23,9 +29,29 @@ export interface PluginHooks {
 
 export type HookName = keyof PluginHooks;
 
+export interface PluginCommandOption {
+  name: string;
+  description: string;
+  required?: boolean;
+}
+
+export interface PluginSubcommand {
+  name: string;
+  description: string;
+  options?: PluginCommandOption[];
+  action: (args: Record<string, unknown>) => Promise<void>;
+}
+
+export interface PluginCommand {
+  name: string;
+  description: string;
+  subcommands?: PluginSubcommand[];
+}
+
 export interface PubmPlugin {
   name: string;
   registries?: Registry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
+  commands?: PluginCommand[];
 }

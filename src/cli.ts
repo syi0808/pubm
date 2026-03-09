@@ -12,6 +12,7 @@ import { registerStatusCommand } from "./commands/status.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
+import { loadConfig } from "./config/loader.js";
 import { consoleError } from "./error.js";
 import { Git } from "./git.js";
 import { pubm } from "./index.js";
@@ -34,6 +35,7 @@ interface CliOptions {
   build: boolean;
   publish: boolean;
   publishOnly: boolean;
+  ci?: boolean;
   preflight?: boolean;
   releaseDraft: boolean;
   tag: string;
@@ -108,6 +110,12 @@ const publishOptions: {
     options: { type: Boolean },
   },
   {
+    rawName: "--ci",
+    description:
+      "CI mode: publish from latest tag and create GitHub Release with assets",
+    options: { type: Boolean },
+  },
+  {
     rawName: "--preflight",
     description: "Simulate CI publish locally (dry-run with token-based auth)",
     options: { type: Boolean },
@@ -146,6 +154,7 @@ export function resolveCliOptions(options: CliOptions): Options {
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
     preflight: options.preflight,
+    ci: options.ci,
   };
 }
 
@@ -191,7 +200,7 @@ defaultCmd.action(
       if (options.preflight) {
         await requiredMissingInformationTasks().run(context);
       } else if (isCI) {
-        if (options.publishOnly) {
+        if (options.publishOnly || options.ci) {
           const git = new Git();
           const latestVersion = (await git.latestTag())?.slice(1);
 
@@ -241,6 +250,27 @@ cli.help((sections): void => {
 });
 
 (async () => {
+  // Register plugin commands before parsing
+  const config = await loadConfig();
+  const plugins = config?.plugins ?? [];
+
+  for (const plugin of plugins) {
+    for (const cmd of plugin.commands ?? []) {
+      if (cmd.subcommands) {
+        for (const sub of cmd.subcommands) {
+          const subCmd = cli.command(
+            `${cmd.name} ${sub.name}`,
+            sub.description,
+          );
+          for (const opt of sub.options ?? []) {
+            subCmd.option(opt.name, opt.description);
+          }
+          subCmd.action(sub.action);
+        }
+      }
+    }
+  }
+
   cli.version(await version({ cwd: import.meta.dirname }));
   cli.parse();
 })();

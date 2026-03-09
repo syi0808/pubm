@@ -34,6 +34,7 @@ import {
   jsrDryRunPublishTask,
   npmDryRunPublishTask,
 } from "./dry-run-publish.js";
+import { createGitHubRelease, type ReleaseContext } from "./github-release.js";
 import { jsrPublishTasks } from "./jsr.js";
 import { npmPublishTasks } from "./npm.js";
 import { collectTokens, promptGhSecretsSync } from "./preflight.js";
@@ -46,6 +47,7 @@ export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
   cleanWorkingTree: boolean;
   pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
 }
 
 function registryTask(registry: string) {
@@ -201,7 +203,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
       }).run(ctx);
     }
 
-    if (!options.publishOnly && !options.preflight) {
+    if (!options.publishOnly && !options.ci && !options.preflight) {
       await prerequisitesCheckTask({
         skip: options.skipPrerequisitesCheck,
       }).run(ctx);
@@ -212,211 +214,240 @@ export async function run(options: ResolvedOptions): Promise<void> {
     }
 
     await createListr<Ctx>(
-      options.publishOnly
-        ? {
-            title: "Publishing",
-            task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-              parentTask.newListr(await collectPublishTasks(ctx), {
-                concurrent: true,
-              }),
-          }
-        : [
+      options.ci
+        ? [
             {
-              skip: options.skipTests,
-              title: "Running tests",
-              task: async (ctx): Promise<void> => {
-                await ctx.pluginRunner.runHook("beforeTest", ctx);
-                const packageManager = await getPackageManager();
-
-                try {
-                  await exec(packageManager, ["run", ctx.testScript], {
-                    throwOnError: true,
-                  });
-                } catch (error) {
-                  throw new AbstractError(
-                    `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
-                    { cause: error },
-                  );
-                }
-                await ctx.pluginRunner.runHook("afterTest", ctx);
-              },
-            },
-            {
-              skip: options.skipBuild,
-              title: "Building the project",
-              task: async (ctx): Promise<void> => {
-                await ctx.pluginRunner.runHook("beforeBuild", ctx);
-                const packageManager = await getPackageManager();
-
-                try {
-                  await exec(packageManager, ["run", ctx.buildScript], {
-                    throwOnError: true,
-                  });
-                } catch (error) {
-                  throw new AbstractError(
-                    `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
-                    { cause: error },
-                  );
-                }
-                await ctx.pluginRunner.runHook("afterBuild", ctx);
-              },
-            },
-            {
-              title: "Bumping version",
-              skip: (ctx) => !!ctx.preview,
-              task: async (ctx, task): Promise<void> => {
-                await ctx.pluginRunner.runHook("beforeVersion", ctx);
-                const git = new Git();
-                let tagCreated = false;
-                let commited = false;
-
-                addRollback(async () => {
-                  if (tagCreated) {
-                    try {
-                      rollbackLog("Deleting tag");
-                      await git.deleteTag(`${await git.latestTag()}`);
-                    } catch (error) {
-                      rollbackError(
-                        `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
-                      );
-                    }
-                  }
-
-                  if (commited) {
-                    try {
-                      rollbackLog("Resetting commits");
-                      await git.reset();
-                      const dirty = (await git.status()) !== "";
-                      if (dirty) {
-                        await git.stash();
-                      }
-                      await git.reset("HEAD^", "--hard");
-                      if (dirty) {
-                        await git.popStash();
-                      }
-                    } catch (error) {
-                      rollbackError(
-                        `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
-                      );
-                    }
-                  }
-                }, ctx);
-
-                await git.reset();
-                const replaced = await replaceVersion(
-                  ctx.version,
-                  ctx.packages,
-                );
-
-                for (const replacedFile of replaced) {
-                  await git.stage(replacedFile);
-                }
-
-                await ctx.pluginRunner.runHook("afterVersion", ctx);
-                await git.stage(".");
-
-                const nextVersion = `v${ctx.version}`;
-                const commit = await git.commit(nextVersion);
-
-                commited = true;
-
-                task.output = "Creating tag...";
-                await git.createTag(nextVersion, commit);
-
-                tagCreated = true;
-              },
-            },
-            {
-              skip: (ctx) =>
-                !!options.skipPublish || !!ctx.preview || !!options.preflight,
               title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
-                await ctx.pluginRunner.runHook("beforePublish", ctx);
-                return parentTask.newListr(await collectPublishTasks(ctx), {
-                  concurrent: true,
-                });
-              },
-            },
-            {
-              skip: (ctx) =>
-                !!options.skipPublish || !!ctx.preview || !!options.preflight,
-              title: "Running post-publish hooks",
-              task: async (ctx): Promise<void> => {
-                await ctx.pluginRunner.runHook("afterPublish", ctx);
-              },
-            },
-            {
-              skip: !options.preflight,
-              title: "Validating publish (dry-run)",
               task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                parentTask.newListr(await collectDryRunPublishTasks(ctx), {
+                parentTask.newListr(await collectPublishTasks(ctx), {
                   concurrent: true,
                 }),
             },
             {
-              title: "Pushing tags to GitHub",
-              skip: (ctx) => !!ctx.preview,
-              task: async (ctx, task): Promise<void> => {
-                await ctx.pluginRunner.runHook("beforePush", ctx);
-                const git = new Git();
-
-                const result = await git.push("--follow-tags");
-
-                if (!result) {
-                  task.title +=
-                    " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
-
-                  await git.push("--tags");
-                }
-                await ctx.pluginRunner.runHook("afterPush", ctx);
+              title: "Creating GitHub Release",
+              task: async (ctx): Promise<void> => {
+                const result = await createGitHubRelease(ctx);
+                ctx.releaseContext = result;
               },
             },
             {
-              skip: (ctx) => !!options.skipReleaseDraft || !!ctx.preview,
-              title: "Creating release draft on GitHub",
-              task: async (ctx, task): Promise<void> => {
-                const git = new Git();
-
-                const repositoryUrl = await git.repository();
-
-                const latestTag = `${await git.latestTag()}`;
-
-                const lastRev =
-                  (await git.previousTag(latestTag)) ||
-                  (await git.firstCommit());
-
-                const commits = (
-                  await git.commits(lastRev, `${latestTag}`)
-                ).slice(1);
-
-                let body = commits
-                  .map(
-                    ({ id, message }) =>
-                      `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-                  )
-                  .join("\n");
-
-                body += `\n\n${repositoryUrl}/compare/${lastRev}...${latestTag}`;
-
-                const releaseDraftUrl = new URL(
-                  `${repositoryUrl}/releases/new`,
-                );
-
-                releaseDraftUrl.searchParams.set("tag", `${latestTag}`);
-                releaseDraftUrl.searchParams.set("body", body);
-                releaseDraftUrl.searchParams.set(
-                  "prerelease",
-                  `${!!prerelease(ctx.version)}`,
-                );
-
-                const linkUrl = link("Link", releaseDraftUrl.toString());
-
-                task.title += ` ${linkUrl}`;
-
-                await openUrl(releaseDraftUrl.toString());
+              title: "Running after-release hooks",
+              skip: (ctx) => !ctx.releaseContext,
+              task: async (ctx): Promise<void> => {
+                if (ctx.releaseContext) {
+                  await ctx.pluginRunner.runAfterReleaseHook(
+                    ctx,
+                    ctx.releaseContext,
+                  );
+                }
               },
             },
-          ],
+          ]
+        : options.publishOnly
+          ? {
+              title: "Publishing",
+              task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
+                parentTask.newListr(await collectPublishTasks(ctx), {
+                  concurrent: true,
+                }),
+            }
+          : [
+              {
+                skip: options.skipTests,
+                title: "Running tests",
+                task: async (ctx): Promise<void> => {
+                  await ctx.pluginRunner.runHook("beforeTest", ctx);
+                  const packageManager = await getPackageManager();
+
+                  try {
+                    await exec(packageManager, ["run", ctx.testScript], {
+                      throwOnError: true,
+                    });
+                  } catch (error) {
+                    throw new AbstractError(
+                      `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
+                      { cause: error },
+                    );
+                  }
+                  await ctx.pluginRunner.runHook("afterTest", ctx);
+                },
+              },
+              {
+                skip: options.skipBuild,
+                title: "Building the project",
+                task: async (ctx): Promise<void> => {
+                  await ctx.pluginRunner.runHook("beforeBuild", ctx);
+                  const packageManager = await getPackageManager();
+
+                  try {
+                    await exec(packageManager, ["run", ctx.buildScript], {
+                      throwOnError: true,
+                    });
+                  } catch (error) {
+                    throw new AbstractError(
+                      `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
+                      { cause: error },
+                    );
+                  }
+                  await ctx.pluginRunner.runHook("afterBuild", ctx);
+                },
+              },
+              {
+                title: "Bumping version",
+                skip: (ctx) => !!ctx.preview,
+                task: async (ctx, task): Promise<void> => {
+                  await ctx.pluginRunner.runHook("beforeVersion", ctx);
+                  const git = new Git();
+                  let tagCreated = false;
+                  let commited = false;
+
+                  addRollback(async () => {
+                    if (tagCreated) {
+                      try {
+                        rollbackLog("Deleting tag");
+                        await git.deleteTag(`${await git.latestTag()}`);
+                      } catch (error) {
+                        rollbackError(
+                          `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
+                        );
+                      }
+                    }
+
+                    if (commited) {
+                      try {
+                        rollbackLog("Resetting commits");
+                        await git.reset();
+                        const dirty = (await git.status()) !== "";
+                        if (dirty) {
+                          await git.stash();
+                        }
+                        await git.reset("HEAD^", "--hard");
+                        if (dirty) {
+                          await git.popStash();
+                        }
+                      } catch (error) {
+                        rollbackError(
+                          `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
+                        );
+                      }
+                    }
+                  }, ctx);
+
+                  await git.reset();
+                  const replaced = await replaceVersion(
+                    ctx.version,
+                    ctx.packages,
+                  );
+
+                  for (const replacedFile of replaced) {
+                    await git.stage(replacedFile);
+                  }
+
+                  await ctx.pluginRunner.runHook("afterVersion", ctx);
+                  await git.stage(".");
+
+                  const nextVersion = `v${ctx.version}`;
+                  const commit = await git.commit(nextVersion);
+
+                  commited = true;
+
+                  task.output = "Creating tag...";
+                  await git.createTag(nextVersion, commit);
+
+                  tagCreated = true;
+                },
+              },
+              {
+                skip: (ctx) =>
+                  !!options.skipPublish || !!ctx.preview || !!options.preflight,
+                title: "Publishing",
+                task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                  await ctx.pluginRunner.runHook("beforePublish", ctx);
+                  return parentTask.newListr(await collectPublishTasks(ctx), {
+                    concurrent: true,
+                  });
+                },
+              },
+              {
+                skip: (ctx) =>
+                  !!options.skipPublish || !!ctx.preview || !!options.preflight,
+                title: "Running post-publish hooks",
+                task: async (ctx): Promise<void> => {
+                  await ctx.pluginRunner.runHook("afterPublish", ctx);
+                },
+              },
+              {
+                skip: !options.preflight,
+                title: "Validating publish (dry-run)",
+                task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
+                  parentTask.newListr(await collectDryRunPublishTasks(ctx), {
+                    concurrent: true,
+                  }),
+              },
+              {
+                title: "Pushing tags to GitHub",
+                skip: (ctx) => !!ctx.preview,
+                task: async (ctx, task): Promise<void> => {
+                  await ctx.pluginRunner.runHook("beforePush", ctx);
+                  const git = new Git();
+
+                  const result = await git.push("--follow-tags");
+
+                  if (!result) {
+                    task.title +=
+                      " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
+
+                    await git.push("--tags");
+                  }
+                  await ctx.pluginRunner.runHook("afterPush", ctx);
+                },
+              },
+              {
+                skip: (ctx) => !!options.skipReleaseDraft || !!ctx.preview,
+                title: "Creating release draft on GitHub",
+                task: async (ctx, task): Promise<void> => {
+                  const git = new Git();
+
+                  const repositoryUrl = await git.repository();
+
+                  const latestTag = `${await git.latestTag()}`;
+
+                  const lastRev =
+                    (await git.previousTag(latestTag)) ||
+                    (await git.firstCommit());
+
+                  const commits = (
+                    await git.commits(lastRev, `${latestTag}`)
+                  ).slice(1);
+
+                  let body = commits
+                    .map(
+                      ({ id, message }) =>
+                        `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                    )
+                    .join("\n");
+
+                  body += `\n\n${repositoryUrl}/compare/${lastRev}...${latestTag}`;
+
+                  const releaseDraftUrl = new URL(
+                    `${repositoryUrl}/releases/new`,
+                  );
+
+                  releaseDraftUrl.searchParams.set("tag", `${latestTag}`);
+                  releaseDraftUrl.searchParams.set("body", body);
+                  releaseDraftUrl.searchParams.set(
+                    "prerelease",
+                    `${!!prerelease(ctx.version)}`,
+                  );
+
+                  const linkUrl = link("Link", releaseDraftUrl.toString());
+
+                  task.title += ` ${linkUrl}`;
+
+                  await openUrl(releaseDraftUrl.toString());
+                },
+              },
+            ],
     ).run(ctx);
 
     const registries = collectRegistries(ctx);

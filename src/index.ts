@@ -80,10 +80,14 @@ export {
   topologicalSort,
 } from "./monorepo/index.js";
 export type {
+  AfterReleaseHookFn,
   ErrorHookFn,
   HookFn,
   HookName,
+  PluginCommand,
+  PluginCommandOption,
   PluginHooks,
+  PluginSubcommand,
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
@@ -103,6 +107,7 @@ export {
   generateSnapshotVersion,
   readPreState,
 } from "./prerelease/index.js";
+export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export type { Options } from "./types/options.js";
 export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
