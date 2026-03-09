@@ -1,35 +1,20 @@
 import process from "node:process";
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { loadConfig } from "../config/loader.js";
 import { generateSnapshotVersion } from "../prerelease/snapshot.js";
 import { exec } from "../utils/exec.js";
 import { getPackageJson, replaceVersion } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 
-export function registerSnapshotCommand(cli: CAC): void {
-  cli
-    .command("snapshot [tag]", "Create a snapshot release")
-    .option(
-      "--snapshot-id <id>",
-      "Custom snapshot identifier (e.g., git SHA)",
-      {
-        // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-        type: String as any,
-      },
-    )
-    .option("--registry <registries>", "Target registries", {
-      // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-      type: String as any,
-      default: "npm,jsr",
-    })
-    .option("--no-build", "Skip build step", {
-      // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-      type: Boolean as any,
-    })
-    .option("--dry-run", "Show what would happen without publishing", {
-      // biome-ignore lint/suspicious/noExplicitAny: CAC option type mismatch
-      type: Boolean as any,
-    })
+export function registerSnapshotCommand(parent: Command): void {
+  parent
+    .command("snapshot")
+    .description("Create a snapshot release")
+    .argument("[tag]", "Snapshot tag name")
+    .option("--snapshot-id <id>", "Custom snapshot identifier (e.g., git SHA)")
+    .option("--registry <registries>", "Target registries", "npm,jsr")
+    .option("--no-build", "Skip build step")
+    .option("--dry-run", "Show what would happen without publishing")
     .action(
       async (
         tag?: string,

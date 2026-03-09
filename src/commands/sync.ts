@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { version } from "../utils/package.js";
 
 export interface DiscoveredReference {
@@ -154,9 +154,10 @@ export async function discoverVersionReferences(
   return results;
 }
 
-export function registerSyncCommand(cli: CAC): void {
-  cli
-    .command("sync", "Manage version synchronization across files")
+export function registerSyncCommand(parent: Command): void {
+  parent
+    .command("sync")
+    .description("Manage version synchronization across files")
     .option("--discover", "Discover version references in the project")
     .action(async (options: { discover?: boolean }) => {
       if (!options.discover) {

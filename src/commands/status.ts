@@ -1,9 +1,10 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import { getStatus } from "../changeset/status.js";
 
-export function registerStatusCommand(cli: CAC): void {
-  cli
-    .command("status", "Show pending changeset status")
+export function registerStatusCommand(parent: Command): void {
+  parent
+    .command("status")
+    .description("Show pending changeset status")
     .option("--verbose", "Show full changeset contents")
     .option("--since <ref>", "Only check changesets since git ref")
     .action(async (options: { verbose?: boolean; since?: string }) => {

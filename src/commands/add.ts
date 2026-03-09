@@ -1,10 +1,11 @@
-import type { CAC } from "cac";
+import type { Command } from "commander";
 import type { BumpType } from "../changeset/parser.js";
 import { writeChangeset } from "../changeset/writer.js";
 
-export function registerAddCommand(cli: CAC): void {
-  cli
-    .command("add", "Create a new changeset")
+export function registerAddCommand(parent: Command): void {
+  parent
+    .command("add")
+    .description("Create a new changeset")
     .option("--empty", "Create an empty changeset")
     .option("--packages <list>", "Comma-separated package names")
     .option("--bump <type>", "Bump type: patch, minor, major")
