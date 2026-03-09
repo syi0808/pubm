@@ -227,3 +227,17 @@ The only way to access jsr’s certified environment is through a direct API req
 The jsr token is encrypted and stored using various layers of information. As long as you have control over the local machine where pubm was run, it is highly unlikely the token can be compromised.
 
 If you prefer not to save tokens, you can use the `--no-save-token` option, which will request the token each time.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+## Author
+
+**Yein Sung** — [GitHub](https://github.com/syi0808)
