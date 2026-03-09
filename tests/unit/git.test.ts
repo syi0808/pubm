@@ -745,9 +745,13 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0");
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], {
-        throwOnError: true,
-      });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["tag", "-a", "v1.0.0", "-m", "v1.0.0"],
+        {
+          throwOnError: true,
+        },
+      );
       expect(result).toBe(true);
     });
 
@@ -757,9 +761,13 @@ describe("Git", () => {
 
       const result = await git.createTag("v1.0.0", hash);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0", hash], {
-        throwOnError: true,
-      });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["tag", "-a", "v1.0.0", "-m", "v1.0.0", hash],
+        {
+          throwOnError: true,
+        },
+      );
       expect(result).toBe(true);
     });
 
@@ -768,16 +776,20 @@ describe("Git", () => {
 
       await git.createTag("v1.0.0", undefined);
 
-      expect(mockedExec).toHaveBeenCalledWith("git", ["tag", "v1.0.0"], {
-        throwOnError: true,
-      });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["tag", "-a", "v1.0.0", "-m", "v1.0.0"],
+        {
+          throwOnError: true,
+        },
+      );
     });
 
     it("throws GitError on failure", async () => {
       mockedExec.mockRejectedValue(new Error("fatal: tag already exists"));
 
       await expect(git.createTag("v1.0.0")).rejects.toThrow(
-        "Failed to run `git tag v1.0.0`",
+        "Failed to run `git tag -a v1.0.0 -m v1.0.0`",
       );
     });
   });
