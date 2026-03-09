@@ -302,7 +302,9 @@ export class Git {
   }
 
   async createTag(tag: string, commitRev?: string): Promise<boolean> {
-    const args = ["tag", tag, commitRev].filter((v) => v) as string[];
+    const args = ["tag", "-a", tag, "-m", tag, commitRev].filter(
+      (v) => v,
+    ) as string[];
 
     try {
       await this.git(args);
