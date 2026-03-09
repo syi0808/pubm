@@ -109,6 +109,46 @@ describe("PluginRunner", () => {
     expect(runner.collectEcosystems()).toEqual([]);
   });
 
+  it("propagates hook errors", async () => {
+    const plugin: PubmPlugin = {
+      name: "failing-plugin",
+      hooks: {
+        beforePublish: () => {
+          throw new Error("hook failed");
+        },
+      },
+    };
+
+    const runner = new PluginRunner([plugin]);
+    await expect(runner.runHook("beforePublish", makeCtx())).rejects.toThrow(
+      "hook failed",
+    );
+  });
+
+  it("stops subsequent plugins when first plugin hook throws", async () => {
+    const secondHookSpy = vi.fn();
+    const plugin1: PubmPlugin = {
+      name: "failing-plugin",
+      hooks: {
+        beforeBuild: () => {
+          throw new Error("first plugin error");
+        },
+      },
+    };
+    const plugin2: PubmPlugin = {
+      name: "second-plugin",
+      hooks: {
+        beforeBuild: secondHookSpy,
+      },
+    };
+
+    const runner = new PluginRunner([plugin1, plugin2]);
+    await expect(runner.runHook("beforeBuild", makeCtx())).rejects.toThrow(
+      "first plugin error",
+    );
+    expect(secondHookSpy).not.toHaveBeenCalled();
+  });
+
   it("handles empty plugin list", async () => {
     const runner = new PluginRunner([]);
     await expect(

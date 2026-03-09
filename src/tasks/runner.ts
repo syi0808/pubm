@@ -313,6 +313,9 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   await git.stage(replacedFile);
                 }
 
+                await ctx.pluginRunner.runHook("afterVersion", ctx);
+                await git.stage(".");
+
                 const nextVersion = `v${ctx.version}`;
                 const commit = await git.commit(nextVersion);
 
@@ -322,7 +325,6 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 await git.createTag(nextVersion, commit);
 
                 tagCreated = true;
-                await ctx.pluginRunner.runHook("afterVersion", ctx);
               },
             },
             {
