@@ -1,0 +1,38 @@
+---
+import '../styles/landing.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content="Multi-registry publish orchestration for npm, jsr, crates.io, and private registries." />
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}logo.svg`} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  </head>
+  <body class="landing-bg">
+    <slot />
+  </body>
+</html>
+
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+</style>

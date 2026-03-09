@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --sl-color-accent-low: #1a1a2e;
+  --sl-color-accent: #22d3ee;
+  --sl-color-accent-high: #e8eaed;
+  --sl-color-white: #e8eaed;
+  --sl-color-gray-1: #c4c9d4;
+  --sl-color-gray-2: #9ba3b5;
+  --sl-color-gray-3: #7a8299;
+  --sl-color-gray-4: #3d4455;
+  --sl-color-gray-5: #272d3d;
+  --sl-color-gray-6: #161b26;
+  --sl-color-black: #0f1117;
+  --sl-font: 'Instrument Sans', sans-serif;
+  --sl-font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme='dark'] {
+  --sl-color-bg: #0f1117;
+  --sl-color-bg-nav: rgba(22, 27, 38, 0.85);
+  --sl-color-bg-sidebar: #0f1117;
+  --sl-color-hairline-light: rgba(255, 255, 255, 0.06);
+  --sl-color-hairline-shade: rgba(255, 255, 255, 0.03);
+}

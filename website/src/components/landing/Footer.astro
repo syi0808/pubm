@@ -1,0 +1,128 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-col footer-brand">
+      <img src={`${base}logo.svg`} height="24" alt="pubm" />
+      <p class="footer-tagline">Multi-registry publish orchestration</p>
+    </div>
+
+    <div class="footer-col footer-links">
+      <a href={`${base}guides/quick-start`}>Docs</a>
+      <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.npmjs.com/package/pubm" target="_blank" rel="noopener">npm</a>
+      <a href="https://jsr.io/@pubm/pubm" target="_blank" rel="noopener">jsr</a>
+    </div>
+
+    <div class="footer-col footer-badges">
+      <div class="badge-row">
+        <img src="https://img.shields.io/npm/v/pubm" alt="npm version" />
+        <img src="https://jsr.io/badges/@pubm/pubm/score" alt="jsr score" />
+      </div>
+      <span class="footer-license">Apache-2.0</span>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    &copy; 2026 Pubm
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: #0a0d12;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer-grid {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .footer-brand img {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-tagline {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .footer-links a {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .footer-links a:hover {
+    color: var(--text-primary);
+  }
+
+  .footer-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .badge-row img {
+    height: 20px;
+  }
+
+  .footer-license {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .footer-bottom {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1.5rem 2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+    padding-top: 2rem;
+    margin-top: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 768px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .footer-brand img {
+      margin: 0 auto 0.5rem;
+    }
+
+    .footer-links {
+      align-items: center;
+    }
+
+    .footer-badges {
+      align-items: center;
+    }
+  }
+</style>

@@ -30,7 +30,10 @@
     "test": "vitest --run",
     "coverage": "vitest --run --coverage",
     "release": "bun run build && node bin/cli.js --preflight",
-    "ci:release": "node bin/cli.js --publish-only"
+    "ci:release": "node bin/cli.js --publish-only",
+    "dev:site": "cd website && pnpm dev",
+    "build:site": "cd website && pnpm build",
+    "preview:site": "cd website && pnpm preview"
   },
   "dependencies": {
     "@listr2/prompt-adapter-enquirer": "^2.0.12",
