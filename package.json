@@ -20,7 +20,7 @@
   "files": [
     "bin/",
     "dist/",
-    "postinstall.js"
+    "postinstall.cjs"
   ],
   "exports": {
     ".": {
@@ -31,7 +31,7 @@
   },
   "scripts": {
     "build": "bun run build.ts",
-    "postinstall": "node ./postinstall.js",
+    "postinstall": "node ./postinstall.cjs",
     "check": "biome check",
     "format": "bun check --write",
     "typecheck": "tsc --noEmit",
