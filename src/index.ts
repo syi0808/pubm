@@ -87,6 +87,14 @@ export type {
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
+export type {
+  ExternalVersionSyncOptions,
+  JsonTarget,
+  RegexTarget,
+  SyncTarget,
+} from "./plugins/external-version-sync/index.js";
+// External version sync plugin
+export { externalVersionSync } from "./plugins/external-version-sync/index.js";
 export type { PreState, SnapshotOptions } from "./prerelease/index.js";
 // Pre-release
 export {

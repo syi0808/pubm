@@ -130,6 +130,32 @@ List all files created/modified and remind about required authentication. Show o
 - **jsr**: Run `pubm` locally (interactive token prompt), or set `JSR_TOKEN` secret in GitHub
 - **crates.io**: Run `cargo login` locally, or set `CARGO_REGISTRY_TOKEN` secret in GitHub
 
+### 10. External Version Sync (Optional)
+
+Ask if the project has version references outside of package manifest files (e.g., plugin metadata, docs with install commands, CI configs).
+
+If yes:
+1. Run `pubm sync --discover` to scan for references
+2. Show discovered references and ask which to include
+3. Add `externalVersionSync()` plugin to `pubm.config.ts`:
+
+```typescript
+import { defineConfig, externalVersionSync } from "pubm";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+  plugins: [
+    externalVersionSync({
+      targets: [
+        // discovered targets here
+      ],
+    }),
+  ],
+});
+```
+
+If no, skip this step.
+
 ## Constraints
 
 - Always use `defineConfig()` from `pubm` for type safety in config files.
