@@ -1,7 +1,7 @@
+import { type SpawnOptions, spawn } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { stripVTControlCharacters } from "node:util";
 import { isCI } from "std-env";
-import { exec, type Options } from "tinyexec";
 
 // Based on https://github.com/vitest-dev/vitest/blob/main/test/test-utils/index.ts
 
@@ -115,9 +115,16 @@ function isWritable(stream: any): stream is Writable {
   return stream && typeof stream?.write === "function";
 }
 
+interface CliExecOptions {
+  nodeOptions?: {
+    env?: NodeJS.ProcessEnv;
+    cwd?: string;
+  };
+}
+
 export async function runPubmCli(
   command: string,
-  _options?: Partial<Options>,
+  _options?: Partial<CliExecOptions>,
   ...args: string[]
 ): Promise<{
   controller: CliController;
@@ -133,11 +140,18 @@ export async function runPubmCli(
     options = undefined;
   }
 
-  const subprocess = exec(command, args, options as Options).process;
+  const spawnOpts: SpawnOptions = {
+    stdio: ["pipe", "pipe", "pipe"],
+    ...(options?.nodeOptions?.env && { env: options.nodeOptions.env }),
+    ...(options?.nodeOptions?.cwd && { cwd: options.nodeOptions.cwd }),
+  };
+
+  const subprocess = spawn(command, args, spawnOpts);
+
   const controller = new CliController({
-    stdin: subprocess!.stdin!,
-    stdout: subprocess!.stdout!,
-    stderr: subprocess!.stderr!,
+    stdin: subprocess.stdin!,
+    stdout: subprocess.stdout!,
+    stderr: subprocess.stderr!,
   });
 
   let setDone: (value?: unknown) => void;
@@ -146,12 +160,12 @@ export async function runPubmCli(
     setDone = resolve;
   });
 
-  subprocess?.on("exit", () => setDone());
+  subprocess.on("exit", () => setDone());
 
   function output() {
     return {
       controller,
-      exitCode: subprocess?.exitCode ?? undefined,
+      exitCode: subprocess.exitCode ?? undefined,
       stdout: controller.stdout || "",
       stderr: controller.stderr || "",
       waitForClose: () => isDone,

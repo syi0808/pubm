@@ -1,33 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { keyringStore, dbStore, keyringControl } = vi.hoisted(() => ({
-  keyringStore: {} as Record<string, string>,
+const { dbStore, dbControl } = vi.hoisted(() => ({
   dbStore: {} as Record<string, string>,
-  keyringControl: { available: true },
-}));
-
-vi.mock("@napi-rs/keyring", () => ({
-  Entry: class MockEntry {
-    private key: string;
-    constructor(service: string, account: string) {
-      if (!keyringControl.available) throw new Error("keyring unavailable");
-      this.key = `${service}:${account}`;
-    }
-    getPassword(): string | null {
-      return keyringStore[this.key] ?? null;
-    }
-    setPassword(value: string): void {
-      keyringStore[this.key] = value;
-    }
-  },
+  dbControl: { available: true },
 }));
 
 vi.mock("../../../src/utils/db.js", () => ({
   Db: class MockDb {
     get(field: string): string | null {
+      if (!dbControl.available) throw new Error("db unavailable");
       return dbStore[field] ?? null;
     }
     set(field: string, value: unknown): void {
+      if (!dbControl.available) throw new Error("db unavailable");
       dbStore[field] = `${value}`;
     }
   },
@@ -36,9 +21,8 @@ vi.mock("../../../src/utils/db.js", () => ({
 let SecureStore: typeof import("../../../src/utils/secure-store.js").SecureStore;
 
 beforeEach(async () => {
-  for (const key of Object.keys(keyringStore)) delete keyringStore[key];
   for (const key of Object.keys(dbStore)) delete dbStore[key];
-  keyringControl.available = true;
+  dbControl.available = true;
   vi.resetModules();
   const mod = await import("../../../src/utils/secure-store.js");
   SecureStore = mod.SecureStore;
@@ -46,72 +30,46 @@ beforeEach(async () => {
 
 describe("SecureStore", () => {
   describe("get", () => {
-    it("returns value from keyring when available", () => {
-      keyringStore["pubm:test-field"] = "keyring-value";
-
-      const store = new SecureStore();
-      expect(store.get("test-field")).toBe("keyring-value");
-    });
-
-    it("falls back to Db when keyring returns null", () => {
+    it("returns value from Db", () => {
       dbStore["test-field"] = "db-value";
 
       const store = new SecureStore();
       expect(store.get("test-field")).toBe("db-value");
     });
 
-    it("falls back to Db when keyring throws", () => {
-      keyringControl.available = false;
-      dbStore["test-field"] = "db-fallback";
-
-      const store = new SecureStore();
-      expect(store.get("test-field")).toBe("db-fallback");
-    });
-
-    it("returns null when both keyring and Db have no value", () => {
+    it("returns null when Db has no value", () => {
       const store = new SecureStore();
       expect(store.get("nonexistent")).toBeNull();
     });
 
-    it("prefers keyring over Db when both have values", () => {
-      keyringStore["pubm:field"] = "keyring";
-      dbStore.field = "db";
+    it("returns null when Db throws", () => {
+      dbControl.available = false;
 
       const store = new SecureStore();
-      expect(store.get("field")).toBe("keyring");
+      expect(store.get("test-field")).toBeNull();
     });
   });
 
   describe("set", () => {
-    it("stores value in keyring", () => {
+    it("stores value in Db", () => {
       const store = new SecureStore();
       store.set("field", "secret");
 
-      expect(keyringStore["pubm:field"]).toBe("secret");
-    });
-
-    it("falls back to Db when keyring throws", () => {
-      keyringControl.available = false;
-
-      const store = new SecureStore();
-      store.set("field", "fallback-value");
-
-      expect(dbStore.field).toBe("fallback-value");
+      expect(dbStore.field).toBe("secret");
     });
 
     it("converts non-string values to string", () => {
       const store = new SecureStore();
       store.set("num", 42);
 
-      expect(keyringStore["pubm:num"]).toBe("42");
+      expect(dbStore.num).toBe("42");
     });
 
-    it("does not write to Db when keyring succeeds", () => {
-      const store = new SecureStore();
-      store.set("field", "value");
+    it("throws when Db is unavailable", () => {
+      dbControl.available = false;
 
-      expect(keyringStore["pubm:field"]).toBe("value");
-      expect(dbStore.field).toBeUndefined();
+      const store = new SecureStore();
+      expect(() => store.set("field", "value")).toThrow("db unavailable");
     });
   });
 });

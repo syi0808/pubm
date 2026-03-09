@@ -1,8 +1,8 @@
 import process from "node:process";
 import type { CAC } from "cac";
-import { exec } from "tinyexec";
 import { loadConfig } from "../config/loader.js";
 import { generateSnapshotVersion } from "../prerelease/snapshot.js";
+import { exec } from "../utils/exec.js";
 import { getPackageJson, replaceVersion } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 

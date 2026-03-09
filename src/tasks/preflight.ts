@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color } from "listr2";
-import { exec } from "tinyexec";
 import { AbstractError } from "../error.js";
 import { link } from "../utils/cli.js";
+import { exec } from "../utils/exec.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { loadTokensFromDb, TOKEN_CONFIG } from "../utils/token.js";
 
@@ -51,14 +51,9 @@ export async function syncGhSecrets(
     const config = TOKEN_CONFIG[registry];
     if (!config) continue;
 
-    const result = exec("gh", ["secret", "set", config.ghSecretName], {
+    await exec("gh", ["secret", "set", config.ghSecretName, "--body", token], {
       throwOnError: true,
     });
-    const proc = result.process;
-    if (proc?.stdin) {
-      proc.stdin.end(token);
-    }
-    await result;
   }
 }
 

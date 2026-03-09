@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { exec, NonZeroExitError } from "tinyexec";
 import { AbstractError } from "../error.js";
+import { exec, NonZeroExitError } from "../utils/exec.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
 import { Registry, type RegistryRequirements } from "./registry.js";

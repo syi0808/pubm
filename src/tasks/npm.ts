@@ -1,14 +1,12 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import npmCli from "@npmcli/promise-spawn";
-import spawn from "cross-spawn";
 import { color, type ListrTask } from "listr2";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
+import { openUrl } from "../utils/open-url.js";
+import { spawnInteractive } from "../utils/spawn-interactive.js";
 import type { Ctx } from "./runner.js";
-
-const { open } = npmCli;
 
 class NpmAvailableError extends AbstractError {
   name = "npm is unavailable for publishing.";
@@ -30,15 +28,29 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
         try {
           task.output = "Launching npm login...";
 
+          const child = spawnInteractive(["npm", "login"]);
+
+          let opened = false;
+
+          const readStream = async (
+            stream: ReadableStream<Uint8Array>,
+            onData: (text: string) => void,
+          ) => {
+            const reader = stream.getReader();
+            const decoder = new TextDecoder();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onData(decoder.decode(value));
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          };
+
           await new Promise<void>((resolve, reject) => {
-            const child = spawn("npm", ["login"], {
-              stdio: ["pipe", "pipe", "pipe"],
-            });
-
-            let opened = false;
-
-            const onData = (data: Buffer) => {
-              const text = data.toString();
+            const onData = (text: string) => {
               const urlMatch = text.match(
                 /https:\/\/www\.npmjs\.com\/login[^\s]*/,
               );
@@ -46,19 +58,24 @@ export const npmAvailableCheckTasks: ListrTask<Ctx> = {
               if (urlMatch && !opened) {
                 opened = true;
                 task.output = `Login at: ${color.cyan(urlMatch[0])}`;
-                open(urlMatch[0]);
-                child.stdin?.write("\n");
+                openUrl(urlMatch[0]);
+                child.stdin.write("\n");
+                child.stdin.flush();
               }
             };
 
-            child.stdout?.on("data", onData);
-            child.stderr?.on("data", onData);
-            child.on("close", (code) =>
-              code === 0
-                ? resolve()
-                : reject(new Error(`npm login exited with code ${code}`)),
-            );
-            child.on("error", reject);
+            Promise.all([
+              readStream(child.stdout, onData),
+              readStream(child.stderr, onData),
+            ]).catch(reject);
+
+            child.exited
+              .then((code) =>
+                code === 0
+                  ? resolve()
+                  : reject(new Error(`npm login exited with code ${code}`)),
+              )
+              .catch(reject);
           });
         } catch (error) {
           throw new NpmAvailableError(

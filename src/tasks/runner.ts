@@ -1,9 +1,7 @@
 import process from "node:process";
-import npmCli from "@npmcli/promise-spawn";
 import { color, type Listr } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
-import { exec } from "tinyexec";
 import type { PackageConfig } from "../config/types.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
@@ -12,7 +10,9 @@ import { PluginRunner } from "../plugin/runner.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
+import { exec } from "../utils/exec.js";
 import { createListr } from "../utils/listr.js";
+import { openUrl } from "../utils/open-url.js";
 import {
   getJsrJson,
   getPackageJson,
@@ -40,7 +40,6 @@ import { collectTokens, promptGhSecretsSync } from "./preflight.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
-const { open } = npmCli;
 const { prerelease } = SemVer;
 
 export interface Ctx extends ResolvedOptions {
@@ -414,7 +413,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                 task.title += ` ${linkUrl}`;
 
-                await open(releaseDraftUrl.toString());
+                await openUrl(releaseDraftUrl.toString());
               },
             },
           ],

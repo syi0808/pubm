@@ -9,17 +9,18 @@ pubm is a CLI tool for publishing packages to multiple registries (npm, jsr, and
 ## Commands
 
 ```bash
-pnpm build          # Build with tsup (outputs ESM/CJS to dist/, CLI to bin/)
-pnpm check          # Lint and format check with Biome
-pnpm format         # Auto-fix lint and formatting issues
-pnpm typecheck      # TypeScript type checking (tsc --noEmit)
-pnpm test           # Run tests with Vitest
-pnpm coverage       # Run tests with coverage report
+bun run build          # Build with Bun (outputs ESM/CJS to dist/, CLI to bin/)
+bun run build:compile  # Build + compile single binaries for all platforms
+bun run check          # Lint and format check with Biome
+bun run format         # Auto-fix lint and formatting issues
+bun run typecheck      # TypeScript type checking (tsc --noEmit)
+bun run test           # Run tests with Vitest
+bun run coverage       # Run tests with coverage report
 ```
 
 Run a single test file:
 ```bash
-pnpm vitest --run tests/unit/utils/rollback.test.ts
+bun vitest --run tests/unit/utils/rollback.test.ts
 ```
 
 Tests live in `tests/unit/` and `tests/e2e/`. Coverage thresholds are strict (95% lines/functions/statements, 90% branches). Tests run in `forks` pool with 30s timeout.
@@ -66,25 +67,30 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 - `src/monorepo/` — Workspace discovery, dependency graph, package grouping
 - `src/validate/` — Pre-publish validation (entry points, extraneous files)
 - `src/prerelease/` — Pre-release and snapshot version handling
-- `src/utils/db.ts` — AES-256-CBC encrypted token storage in `.pubm/`
+- `src/utils/db.ts` — AES-256-CBC encrypted token storage in `~/.pubm/`
+- `src/utils/exec.ts` — Bun.spawn wrapper for running shell commands
+- `src/utils/open-url.ts` — Cross-platform URL opener
+- `src/utils/spawn-interactive.ts` — Interactive process spawning (TTY passthrough)
 - `src/utils/rollback.ts` — Tracks and reverses git operations on failure
 - `src/utils/package.ts` — Reads/caches package.json and jsr.json, version replacement
 
 ### Build Configuration
 
-tsup produces two bundles (defined in `tsup.config.ts`):
+`build.ts` uses Bun's bundler API to produce:
 - Library: `src/index.ts` → `dist/` (ESM + CJS + types)
 - CLI: `src/cli.ts` → `bin/cli.js` (ESM with Node shebang)
 
-`listr2` is bundled (noExternal) to avoid dependency issues. Note: `listr2` has a pnpm patch applied (`patches/listr2.patch`).
+With the `--compile` flag, it also produces single-binary executables for all platforms via `bun build --compile`.
+
+`listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
 
 ## Pre-commit Checklist
 
 Before committing, always run these checks in order and fix any failures:
 
-1. `pnpm format` — auto-fix lint and formatting issues
-2. `pnpm typecheck` — ensure no type errors
-3. `pnpm test` — ensure all tests pass
+1. `bun run format` — auto-fix lint and formatting issues
+2. `bun run typecheck` — ensure no type errors
+3. `bun run test` — ensure all tests pass
 
 Only commit after all three pass.
 
@@ -92,6 +98,6 @@ Only commit after all three pass.
 
 - **Formatter/Linter**: Biome with recommended rules
 - **Indentation**: 2 spaces, single quotes
-- **Package manager**: pnpm (v9.11.0)
+- **Package manager**: bun
 - **Module system**: ESM (`"type": "module"`)
 - **TypeScript**: Strict mode, target ES2020, bundler module resolution

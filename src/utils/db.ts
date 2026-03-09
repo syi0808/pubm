@@ -1,9 +1,11 @@
 import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 
 const a = "aes-256-cbc";
-const n = statSync(import.meta.dirname);
+const h = homedir();
+const n = statSync(h);
 const k = `${n.rdev}${n.birthtimeMs}${n.nlink}${n.gid}`;
 const l = createHash("md5").update(k).digest();
 
@@ -18,7 +20,7 @@ function d(g: string, h: string): string {
 }
 
 export class Db {
-  path = path.resolve(import.meta.dirname, ".pubm");
+  path = path.resolve(h, ".pubm");
 
   constructor() {
     try {

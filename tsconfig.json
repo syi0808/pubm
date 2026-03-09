@@ -15,5 +15,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "exclude": ["pubm.config.ts"]
+  "exclude": ["pubm.config.ts", "build.ts"]
 }

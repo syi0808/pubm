@@ -1,8 +1,9 @@
 import process from "node:process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("tinyexec")>();
+vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../src/utils/exec.js")>();
   return {
     ...actual,
     exec: vi.fn(),
@@ -26,12 +27,12 @@ vi.mock("../../../src/utils/package-name.js", () => ({
   isValidPackageName: vi.fn(),
 }));
 
-import { exec } from "tinyexec";
 import {
   JsrClient,
   JsrRegisry,
   jsrRegistry,
 } from "../../../src/registry/jsr.js";
+import { exec } from "../../../src/utils/exec.js";
 import { getJsrJson } from "../../../src/utils/package.js";
 import {
   getScope,

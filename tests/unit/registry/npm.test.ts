@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("tinyexec", async (importOriginal) => {
-  const original = await importOriginal<typeof import("tinyexec")>();
+vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../../src/utils/exec.js")>();
   return {
     ...original,
     exec: vi.fn(),
@@ -16,8 +17,8 @@ vi.mock("../../../src/utils/package.js", () => ({
   getPackageJson: vi.fn(),
 }));
 
-import { exec, NonZeroExitError } from "tinyexec";
 import { NpmRegistry, npmRegistry } from "../../../src/registry/npm.js";
+import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import { getPackageJson } from "../../../src/utils/package.js";
 import { isValidPackageName } from "../../../src/utils/package-name.js";
 
@@ -40,7 +41,7 @@ function mockStdout(stdout: string) {
 }
 
 function mockNonZeroExitError(stderr: string) {
-  const error = new NonZeroExitError({ exitCode: 1 } as any, {
+  const error = new NonZeroExitError("npm", 1, {
     stderr,
     stdout: "",
   });
@@ -395,7 +396,7 @@ describe("NpmRegistry", () => {
     });
 
     it("falls back to publish without provenance on provenance error", async () => {
-      const provenanceError = new NonZeroExitError({ exitCode: 1 } as any, {
+      const provenanceError = new NonZeroExitError("npm", 1, {
         stderr:
           'Error verifying sigstore provenance bundle: Unsupported GitHub Actions source repository visibility: "private"',
         stdout: "",
