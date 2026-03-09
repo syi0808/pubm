@@ -3,35 +3,38 @@
 
 <div class="terminal glass-panel">
   <div class="terminal-header">
-    <span class="terminal-dot" style="background: #ff5f57;"></span>
-    <span class="terminal-dot" style="background: #febc2e;"></span>
-    <span class="terminal-dot" style="background: #28c840;"></span>
+    <div class="terminal-dots">
+      <span class="terminal-dot" style="background: #ff5f57;"></span>
+      <span class="terminal-dot" style="background: #febc2e;"></span>
+      <span class="terminal-dot" style="background: #28c840;"></span>
+    </div>
+    <div class="terminal-title">bash — pubm</div>
   </div>
   <div class="terminal-body">
-    <div class="terminal-line" style="animation-delay: 0.4s;">
+    <div class="terminal-line" style="animation-delay: 0.6s;">
       <span class="prompt">$</span> pubm patch --registry npm,jsr
     </div>
-    <div class="terminal-line" style="animation-delay: 0.8s;">&nbsp;</div>
-    <div class="terminal-line" style="animation-delay: 1.0s;">
-      <span class="check">&#10003;</span> Prerequisites validated
+    <div class="terminal-line" style="animation-delay: 1.2s;">&nbsp;</div>
+    <div class="terminal-line" style="animation-delay: 1.5s;">
+      <span class="check">✔</span> <span class="dim">Prerequisites validated</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 1.3s;">
-      <span class="check">&#10003;</span> Registry connections verified
+    <div class="terminal-line" style="animation-delay: 1.8s;">
+      <span class="check">✔</span> <span class="dim">Registry connections verified</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 1.6s;">
-      <span class="check">&#10003;</span> Version bumped to 1.3.0
+    <div class="terminal-line" style="animation-delay: 2.1s;">
+      <span class="check">✔</span> <span class="dim">Version bumped to 1.3.0</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 1.9s;">
-      <span class="spinner">&#9673;</span> Publishing to registries...
+    <div class="terminal-line" style="animation-delay: 2.4s;">
+      <span class="spinner">◒</span> <span class="text-cyan">Publishing to registries...</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 2.3s;">
-      &nbsp;&nbsp;&nbsp;&nbsp;<span class="check">&#10003;</span> npm <span class="dots">···········</span> published
+    <div class="terminal-line" style="animation-delay: 2.8s;">
+      &nbsp;&nbsp;<span class="check">✔</span> <span class="dim">npm</span> <span class="dots">···········</span> <span class="success">published</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 2.6s;">
-      &nbsp;&nbsp;&nbsp;&nbsp;<span class="check">&#10003;</span> jsr <span class="dots">···········</span> published
+    <div class="terminal-line" style="animation-delay: 3.1s;">
+      &nbsp;&nbsp;<span class="check">✔</span> <span class="dim">jsr</span> <span class="dots">···········</span> <span class="success">published</span>
     </div>
-    <div class="terminal-line" style="animation-delay: 3.0s;">
-      <span class="check">&#10003;</span> Git tag v1.3.0 pushed
+    <div class="terminal-line style-final" style="animation-delay: 3.5s;">
+      <span class="check">✔</span> <span class="success">Successfully published to 2 registries</span>
     </div>
   </div>
 </div>
@@ -40,44 +43,84 @@
   .terminal {
     max-width: 520px;
     width: 100%;
-    overflow: hidden;
+    background: rgba(3, 7, 18, 0.8);
+    box-shadow: 
+      0 20px 50px rgba(0, 0, 0, 0.5),
+      0 0 0 1px var(--border);
+    transform: rotateX(2deg) rotateY(-2deg);
+    transition: transform 0.5s ease;
+  }
+
+  .terminal:hover {
+    transform: rotateX(0) rotateY(0);
   }
 
   .terminal-header {
     display: flex;
-    gap: 6px;
+    align-items: center;
     padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
     border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 8px;
   }
 
   .terminal-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
+    opacity: 0.8;
+  }
+
+  .terminal-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    opacity: 0.5;
   }
 
   .terminal-body {
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    line-height: 1.7;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    min-height: 280px;
   }
 
-  .prompt {
-    color: var(--accent-cyan);
+  @keyframes typeLine {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  .check {
-    color: var(--accent-green);
+  .terminal-line {
+    animation: typeLine 0.3s ease-out forwards;
+    opacity: 0;
+    margin-bottom: 0.25rem;
   }
 
-  .spinner {
-    color: var(--accent-cyan);
-    text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  .prompt { color: var(--accent-cyan); margin-right: 8px; }
+  .check { color: var(--accent-green); margin-right: 8px; }
+  .spinner { color: var(--accent-cyan); display: inline-block; animation: spin 1s linear infinite; margin-right: 8px; }
+  .dim { color: var(--text-muted); }
+  .success { color: var(--accent-green); font-weight: 500; }
+  .text-cyan { color: var(--accent-cyan); }
+  .dots { color: var(--border); }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
-  .dots {
-    color: var(--text-muted);
-    opacity: 0.4;
+  .style-final {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border);
   }
 </style>

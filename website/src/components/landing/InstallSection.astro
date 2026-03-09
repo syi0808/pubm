@@ -2,35 +2,46 @@
 const base = import.meta.env.BASE_URL;
 ---
 
-<section class="install section-divider">
-  <h2 class="install-headline fade-in-up">Get started in seconds</h2>
-
-  <div class="install-terminal glass-panel fade-in-up">
-    <div class="terminal-header">
-      <span class="terminal-dot" style="background: #ff5f57;"></span>
-      <span class="terminal-dot" style="background: #febc2e;"></span>
-      <span class="terminal-dot" style="background: #28c840;"></span>
+<section class="install section-divider" id="install">
+  <div class="install-container">
+    <div class="install-header fade-in-up">
+      <h2 class="gradient-text">Get started in seconds</h2>
+      <p>Install the pubm CLI and start publishing with confidence.</p>
     </div>
-    <div class="terminal-body">
-      <button class="copy-btn" aria-label="Copy commands">
-        <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="5" y="5" width="9" height="9" rx="1.5" />
-          <path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5V3.5A1.5 1.5 0 0 1 3.5 2h6A1.5 1.5 0 0 1 11 3.5V5" />
-        </svg>
-        <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-          <polyline points="3 8.5 6.5 12 13 4" />
-        </svg>
-      </button>
-      <pre><code><span class="prompt">$</span> npm i -g pubm
 
-<span class="prompt">$</span> pubm patch --preview   <span class="comment"># see what would happen</span>
-<span class="prompt">$</span> pubm patch              <span class="comment"># publish for real</span></code></pre>
+    <div class="install-terminal glass-panel fade-in-up" style="animation-delay: 0.1s;">
+      <div class="terminal-header">
+        <div class="terminal-dots">
+          <span class="terminal-dot" style="background: #ff5f57;"></span>
+          <span class="terminal-dot" style="background: #febc2e;"></span>
+          <span class="terminal-dot" style="background: #28c840;"></span>
+        </div>
+        <div class="terminal-title">bash — install</div>
+        <button class="copy-btn" aria-label="Copy commands">
+          <svg class="icon-clipboard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <svg class="icon-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="terminal-body">
+        <pre><code><span class="prompt">❯</span> npm i -g pubm
+
+<span class="prompt">❯</span> pubm patch --preview   <span class="comment"># dry run</span>
+<span class="prompt">❯</span> pubm patch              <span class="comment"># publish everywhere</span></code></pre>
+      </div>
     </div>
-  </div>
 
-  <div class="install-cta fade-in-up">
-    <a href={`${base}guides/quick-start`} class="btn-primary">Read the Docs &rarr;</a>
-    <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn-ghost">View on GitHub</a>
+    <div class="install-cta fade-in-up" style="animation-delay: 0.2s;">
+      <a href={`${base}guides/quick-start`} class="btn-primary">
+        Read the Docs
+        <svg style="margin-left: 8px;" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn-ghost">View on GitHub</a>
+    </div>
   </div>
 </section>
 
@@ -44,9 +55,12 @@ const base = import.meta.env.BASE_URL;
         const check = btn.querySelector('.icon-check') as SVGElement;
         clipboard.style.display = 'none';
         check.style.display = 'block';
+        btn.classList.add('copied');
+        
         setTimeout(() => {
           clipboard.style.display = 'block';
           check.style.display = 'none';
+          btn.classList.remove('copied');
         }, 2000);
       });
     });
@@ -55,90 +69,137 @@ const base = import.meta.env.BASE_URL;
 
 <style>
   .install {
-    padding: 6rem 1.5rem;
+    padding: 10rem 1.5rem;
+    display: flex;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 100%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+  }
+
+  .install-container {
+    max-width: 800px;
+    width: 100%;
     text-align: center;
   }
 
-  .install-headline {
-    font-family: var(--font-display);
-    font-size: 2rem;
+  .install-header {
+    margin-bottom: 4rem;
+  }
+
+  .install-header h2 {
+    font-size: 3rem;
     font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .install-header p {
+    color: var(--text-muted);
+    font-size: 1.25rem;
   }
 
   .install-terminal {
-    max-width: 560px;
+    max-width: 600px;
     margin: 0 auto;
-    overflow: hidden;
+    background: rgba(3, 7, 18, 0.8);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    text-align: left;
   }
 
   .terminal-header {
     display: flex;
-    gap: 6px;
+    align-items: center;
     padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
     border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 8px;
   }
 
   .terminal-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
+    opacity: 0.8;
+  }
+
+  .terminal-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    opacity: 0.5;
   }
 
   .terminal-body {
-    position: relative;
-    padding: 1rem 1.25rem;
+    padding: 1.5rem 2rem;
   }
 
   .terminal-body pre {
     margin: 0;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     line-height: 1.8;
-    text-align: left;
-  }
-
-  .terminal-body code {
-    font-family: inherit;
-    color: var(--text-primary);
   }
 
   .prompt {
     color: var(--accent-cyan);
+    margin-right: 0.5rem;
   }
 
   .comment {
     color: var(--text-muted);
+    opacity: 0.7;
   }
 
   .copy-btn {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin-left: auto;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text-muted);
+    padding: 6px;
     cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
   }
 
   .copy-btn:hover {
     color: var(--text-primary);
-    border-color: var(--text-muted);
+    border-color: var(--border-bright);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
   }
 
   .install-cta {
     display: flex;
     justify-content: center;
-    gap: 1rem;
-    margin-top: 2rem;
+    gap: 1.25rem;
+    margin-top: 4rem;
   }
 
+  @media (max-width: 768px) {
+    .install-header h2 {
+      font-size: 2.5rem;
+    }
+    .install-cta {
+      flex-direction: column;
+      align-items: center;
+    }
+    .btn-primary, .btn-ghost {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 </style>
