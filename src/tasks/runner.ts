@@ -403,7 +403,10 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 },
               },
               {
-                skip: (ctx) => !!options.skipReleaseDraft || !!ctx.preview,
+                skip: (ctx) =>
+                  !!options.skipReleaseDraft ||
+                  !!ctx.preview ||
+                  !!options.preflight,
                 title: "Creating release draft on GitHub",
                 task: async (ctx, task): Promise<void> => {
                   const git = new Git();
