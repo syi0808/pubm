@@ -36,9 +36,7 @@ export async function exec(
   const proc = Bun.spawn([command, ...args], {
     stdout: "pipe",
     stderr: "pipe",
-    env: options.nodeOptions?.env
-      ? { ...process.env, ...options.nodeOptions.env }
-      : undefined,
+    env: { ...process.env, ...options.nodeOptions?.env },
     cwd: options.nodeOptions?.cwd,
   });
 
