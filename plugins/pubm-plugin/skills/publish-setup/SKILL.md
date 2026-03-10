@@ -34,13 +34,16 @@ Check `package.json` devDependencies for `pubm`. If not installed, ask whether t
 - `npm install -D pubm` or `pnpm add -D pubm`
 - pubm itself is an npm package, so even Rust projects need Node.js and npm to use it
 
-### 3. Ask which registries
+### 3. Ask setup scope
 
-Ask the user which registries to publish to:
-- `npm` (npmjs.com)
-- `jsr` (jsr.io)
-- `crates` (crates.io)
-- Private registry (provide URL)
+Ask the user all setup questions upfront before proceeding to configuration:
+
+1. **Which registries** to publish to? (npm, jsr, crates, private)
+2. **Set up CI/CD** for automated publishing?
+3. **Use changesets workflow?** (Track changes per PR, automate versioning + CHANGELOG)
+4. **Use external version sync?** (Sync version to non-manifest files)
+
+Store the answers and use them to conditionally execute subsequent steps.
 
 ### 3.1. Install jsr CLI (if jsr selected)
 
@@ -82,6 +85,8 @@ export default defineConfig({
 
 Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted JSR tokens and should not be committed.
 
+**Note:** If the user selected changesets workflow in Step 3, the `.gitignore` update will be handled by `pubm init --changesets` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
+
 ### 7. Ask about CI setup
 
 Ask if the user wants to set up CI/CD for automated publishing. If yes:
@@ -98,6 +103,53 @@ Ask if the user wants to set up CI/CD for automated publishing. If yes:
    - `NODE_AUTH_TOKEN` for npm (create at npmjs.com > Access Tokens > Automation)
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
+
+### 7.1. Changesets Workflow (if selected in Step 3)
+
+Run the CLI to set up the changesets workflow:
+
+```bash
+pubm init --changesets
+```
+
+This creates:
+- `.github/workflows/changeset-check.yml` — PR changeset detection with bot comments
+- Updates `.gitignore` to track `.pubm/changesets/` while ignoring other `.pubm/` contents
+
+After running, inform the user about the workflow:
+- Every PR with code changes needs a changeset (`pubm changesets add`)
+- `no-changeset` label skips the check for docs/CI-only changes
+- On release, pubm consumes changesets to determine version bumps and generate CHANGELOG
+
+Then write the following section to the project's `CLAUDE.md` (append if file exists, create if not):
+
+```markdown
+## Changesets Workflow
+
+This project uses pubm changesets to track changes and automate versioning.
+
+### Rules
+- Every PR that changes runtime code must include a changeset file
+- Add a changeset: `pubm changesets add`
+- PRs with `no-changeset` label skip the changeset check (use for docs, CI config, etc.)
+
+### Workflow
+1. Make changes on a feature branch
+2. Run `pubm changesets add` — select packages, bump type, and summary
+3. Commit the generated `.pubm/changesets/<id>.md` file with your PR
+4. On merge, changesets accumulate on main
+5. When releasing, `pubm` consumes pending changesets to determine versions and generate CHANGELOG
+
+### Bump Type Guide
+- **patch**: Bug fixes, internal refactors with no API changes
+- **minor**: New features, backward-compatible additions
+- **major**: Breaking changes, removed/renamed public APIs
+
+### Review Checklist
+- [ ] Changeset file included (or `no-changeset` label applied)
+- [ ] Bump type matches the scope of changes
+- [ ] Summary is clear and user-facing
+```
 
 ### 8. Add npm scripts (JS projects only)
 
@@ -164,6 +216,7 @@ If no, skip this step.
 - If unsure which registries the user wants, ask. Do not assume.
 - When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --ci"` for CI.
 - In CI, use `--ci` mode (publish + GitHub Release) or `--publish-only` mode (publish only).
+- When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init --changesets` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
 
 ## References
 
