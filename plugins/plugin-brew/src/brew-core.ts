@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { PubmPlugin } from "pubm";
 import { generateFormula, mapReleaseAssets, updateFormula } from "./formula.js";
+import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewCoreOptions } from "./types.js";
 
 export function brewCore(options: BrewCoreOptions): PubmPlugin {
@@ -84,6 +85,7 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
           `git clone --depth 1 https://github.com/${username}/homebrew-core.git ${tmpDir}`,
           { stdio: "inherit" },
         );
+        ensureGitIdentity(tmpDir);
 
         // Update or create the formula
         const formulaPath = join(tmpDir, "Formula", `${name}.rb`);
