@@ -1,17 +1,11 @@
-import { defineConfig, externalVersionSync } from "./dist/index.js";
-import { brewTap } from "./plugins/plugin-brew/src/index.js";
+import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  registries: ["npm", "jsr"],
-  plugins: [
-    externalVersionSync({
-      targets: [
-        {
-          file: "plugins/pubm-plugin/.claude-plugin/plugin.json",
-          jsonPath: "version",
-        },
-      ],
-    }),
-    brewTap({ formula: "Formula/pubm.rb" }),
+  versioning: "independent",
+  packages: [
+    { path: "packages/core", registries: ["npm", "jsr"] },
+    { path: "packages/cli", registries: ["npm"] },
+    { path: "packages/plugins/plugin-external-version-sync", registries: ["npm", "jsr"] },
+    { path: "packages/plugins/plugin-brew", registries: ["npm", "jsr"] },
   ],
 });

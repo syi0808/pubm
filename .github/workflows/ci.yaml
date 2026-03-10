@@ -18,8 +18,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun run typecheck
+      - run: turbo run check
+      - run: turbo run typecheck
 
   test:
     name: 'Test: ${{ matrix.os }}'
@@ -34,8 +34,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run test
+      - run: turbo run build
+      - run: turbo run test
 
   coverage:
     name: 'Coverage'
@@ -49,8 +49,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run coverage
+      - run: turbo run build
+      - run: turbo run coverage
       - name: 'Report Coverage'
         if: always()
         uses: davelosert/vitest-coverage-report-action@v2

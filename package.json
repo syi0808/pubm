@@ -1,6 +1,7 @@
 {
-  "name": "pubm",
+  "name": "pubm-monorepo",
   "version": "0.3.6",
+  "private": true,
   "engines": {
     "node": ">=18",
     "git": ">=2.11.0"
@@ -8,93 +9,31 @@
   "description": "publish manager for multiple registry (jsr, npm and private registries)",
   "type": "module",
   "workspaces": [
-    "npm/@pubm/*"
+    "packages/*",
+    "packages/plugins/*"
   ],
-  "bin": {
-    "pubm": "./bin/cli.js"
-  },
-  "author": "Yein Sung <syi778800@gmail.com>",
-  "types": "./dist/index.d.ts",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "files": [
-    "bin/",
-    "dist/",
-    "postinstall.cjs"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
   "scripts": {
-    "build": "bun run build.ts",
-    "postinstall": "node ./postinstall.cjs",
-    "check": "biome check",
-    "format": "bun check --write",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest --run",
-    "coverage": "vitest --run --coverage",
-    "release": "bun run build && bun src/cli.ts --preflight",
-    "ci:release": "bun src/cli.ts --ci",
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "format": "biome check --write",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "coverage": "turbo run coverage",
     "dev:site": "cd website && pnpm dev",
     "build:site": "cd website && pnpm build",
     "preview:site": "cd website && pnpm preview"
   },
-  "dependencies": {
-    "@listr2/prompt-adapter-enquirer": "^2.0.12",
-    "commander": "^14.0.3",
-    "enquirer": "^2.4.1",
-    "jiti": "^2.6.1",
-    "listr2": "^8.2.5",
-    "micromatch": "^4.0.8",
-    "semver": "^7.6.3",
-    "smol-toml": "^1.6.0",
-    "std-env": "^3.7.0",
-    "update-kit": "^0.1.1",
-    "yaml": "^2.8.2"
-  },
+  "license": "Apache-2.0",
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "@types/bun": "^1.3.10",
-    "@types/micromatch": "^4.0.10",
     "@types/node": "^22.7.4",
-    "@types/semver": "^7.5.8",
     "@vitest/coverage-v8": "^2.1.1",
     "jsr": "^0.13.2",
+    "turbo": "^2.4.0",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1"
   },
-  "optionalDependencies": {
-    "@pubm/darwin-arm64": "0.2.12",
-    "@pubm/darwin-x64": "0.2.12",
-    "@pubm/linux-arm64": "0.2.12",
-    "@pubm/linux-x64": "0.2.12",
-    "@pubm/windows-x64": "0.2.12"
-  },
-  "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/syi0808/pubm.git"
-  },
-  "bugs": {
-    "url": "https://github.com/syi0808/pubm/issues"
-  },
-  "keywords": [
-    "npm",
-    "jsr",
-    "registry",
-    "publish",
-    "np",
-    "publish manager",
-    "private registry",
-    "multiple publish"
-  ],
   "patchedDependencies": {
     "listr2@8.2.5": "patches/listr2.patch"
   }

@@ -1,0 +1,51 @@
+{
+  "name": "@pubm/core",
+  "version": "0.3.6",
+  "type": "module",
+  "description": "Core SDK for pubm - publish manager for multiple registries",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "bun run ../../build-core.ts",
+    "check": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage"
+  },
+  "dependencies": {
+    "@listr2/prompt-adapter-enquirer": "^2.0.12",
+    "enquirer": "^2.4.1",
+    "jiti": "^2.6.1",
+    "listr2": "^8.2.5",
+    "micromatch": "^4.0.8",
+    "semver": "^7.6.3",
+    "smol-toml": "^1.6.0",
+    "std-env": "^3.7.0",
+    "update-kit": "^0.1.1",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/micromatch": "^4.0.10",
+    "@types/semver": "^7.5.8"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git",
+    "directory": "packages/core"
+  }
+}
