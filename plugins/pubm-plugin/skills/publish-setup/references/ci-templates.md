@@ -5,23 +5,31 @@
 pubm detects CI environments using the `std-env` package (`isCI` flag). When running in CI:
 
 - Interactive prompts are disabled (`promptEnabled` is set to `false`).
-- **Only `--publish-only` mode is supported.** Running pubm without `--publish-only` in CI throws: `"Version must be set in the CI environment. Please define the version before proceeding."`
-- `--publish-only` reads the latest git tag (via `git describe --tags --abbrev=0`), strips the `v` prefix, and uses it as the publish version. The tag must already exist and be a valid semver.
+- **Use `--ci` mode** for the full CI pipeline: publish + GitHub Release with assets. Alternatively, use `--publish-only` if you only need the publish step.
+- Both modes read the latest git tag (via `git describe --tags --abbrev=0`), strip the `v` prefix, and use it as the publish version. The tag must already exist and be a valid semver.
 - Authentication is handled entirely through environment variables (no interactive login).
 
-### What `--publish-only` Does
+### What `--ci` Does
 
 - Skips prerequisites check (branch validation, remote status, working tree).
 - Skips required conditions check (registry ping, login validation).
-- Skips tests, build, version bump, git commit, tag creation, tag pushing, and release draft.
+- Skips tests, build, version bump, git commit, tag creation, and tag pushing.
+- Publishes to all configured registries concurrently.
+- Creates a GitHub Release with release notes and uploads platform binary assets.
+- Requires `GITHUB_TOKEN` environment variable.
+
+### What `--publish-only` Does
+
+- Same as `--ci` but **without** GitHub Release creation.
 - Runs **only** the publish step for all configured registries, concurrently.
 
-This means your CI workflow must ensure the git tag already exists before `pubm --publish-only` runs.
+Both modes require the git tag to already exist before running.
 
 ## Required Secrets
 
 | Secret | Registry | Description | How to Create |
 |---|---|---|---|
+| `GITHUB_TOKEN` | GitHub Releases | GitHub token for creating releases and uploading assets | Automatically available as `secrets.GITHUB_TOKEN` in GitHub Actions |
 | `NODE_AUTH_TOKEN` | npm | npm automation token | npmjs.com > Access Tokens > Generate New Token > Automation |
 | `JSR_TOKEN` | jsr | JSR API token | jsr.io/account/tokens/create (select "Interact with the JSR API") |
 | `CARGO_REGISTRY_TOKEN` | crates.io | crates.io API token | crates.io > Account Settings > API Tokens |
@@ -65,8 +73,9 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to registries
-        run: pubm --publish-only
+        run: pubm --ci
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
@@ -76,7 +85,7 @@ jobs:
 1. Develop and merge to main.
 2. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
 3. The pushed `v*` tag triggers this workflow.
-4. `pubm --publish-only` reads the tag and publishes.
+4. `pubm --ci` reads the tag, publishes, and creates a GitHub Release.
 
 ## Template: GitHub Actions -- Manual Trigger (workflow_dispatch)
 
@@ -130,8 +139,9 @@ jobs:
           git tag "v${{ inputs.version }}"
 
       - name: Publish to registries
-        run: pubm --publish-only
+        run: pubm --ci
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 
@@ -139,7 +149,7 @@ jobs:
         run: git push --follow-tags
 ```
 
-**Important:** Since `pubm --publish-only` requires an existing git tag, the workflow creates the tag before running pubm. The `--publish-only` flag then reads that tag as the version.
+**Important:** Since `pubm --ci` requires an existing git tag, the workflow creates the tag before running pubm. The `--ci` flag then reads that tag as the version.
 
 ## Template: Multi-Registry (npm + jsr + crates.io)
 
@@ -181,8 +191,9 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to all registries
-        run: pubm --publish-only --registry npm,jsr,crates
+        run: pubm --ci --registry npm,jsr,crates
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -244,15 +255,16 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to registries
-        run: pubm --publish-only
+        run: pubm --ci
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
 
 ## Notes
 
-- **`--publish-only` is mandatory in CI.** Without it, pubm throws an error. This flag skips version bump, tag creation, tests, and build -- it only runs the publish step.
+- **`--ci` is the recommended CI mode.** It publishes to all configured registries and creates a GitHub Release with assets. Use `--publish-only` if you only want the publish step without GitHub Release creation.
 - **`id-token: write` permission** is needed for npm provenance. pubm automatically uses `npm publish --provenance --access public` in CI.
 - **`fetch-depth: 0`** is required on `actions/checkout` so that `git describe --tags --abbrev=0` can find the latest tag. Without full history, the tag lookup fails.
 - **`registry-url` on `actions/setup-node`** configures the npm registry URL. This is required for `NODE_AUTH_TOKEN` to be picked up by npm.
