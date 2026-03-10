@@ -102,7 +102,7 @@ for (const target of targets) {
     version: VERSION,
     description: `pubm binary for ${name.replace("@pubm/", "")}`,
     license: "Apache-2.0",
-    author: "Sung YeIn",
+    author: "Yein Sung",
     repository: {
       type: "git",
       url: "git+https://github.com/syi0808/pubm.git",
