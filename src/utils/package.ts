@@ -9,7 +9,6 @@ import type {
   PackageExportsEntryObject,
   PackageJson,
 } from "../types/package-json.js";
-import { warningBadge } from "./cli.js";
 
 const cachedPackageJson: Record<string, PackageJson> = {};
 const cachedJsrJson: Record<string, JsrJson> = {};
@@ -65,10 +64,6 @@ export async function getPackageJson({
           "Can't find either package.json or jsr.json. Please create one of them.",
         );
       }
-
-      console.log(
-        `${warningBadge} The 'jsr.json' cannot populate fields in 'package.json'. Please ensure other fields are manually filled out in 'package.json'`,
-      );
 
       const packageJson = await jsrJsonToPackageJson(
         await getJsrJson({ fallbackPackage: false }),

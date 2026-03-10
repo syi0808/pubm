@@ -81,7 +81,7 @@ describe("externalVersionSync", () => {
     expect(result.ver).toBe("3.0.0");
   });
 
-  it("logs when a file is synced", async () => {
+  it("syncs version without console output", async () => {
     const filePath = join(tmpDir, "app.json");
     writeFileSync(filePath, JSON.stringify({ version: "0.0.0" }, null, "  "));
 
@@ -94,10 +94,11 @@ describe("externalVersionSync", () => {
     const ctx = { version: "1.0.0" } as Ctx;
     await plugin.hooks?.afterVersion?.(ctx);
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Synced version"),
-    );
+    expect(consoleSpy).not.toHaveBeenCalled();
     consoleSpy.mockRestore();
+
+    const result = JSON.parse(readFileSync(filePath, "utf-8"));
+    expect(result.version).toBe("1.0.0");
   });
 
   it("continues processing after one target fails", async () => {

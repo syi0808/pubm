@@ -28,15 +28,10 @@ export function externalVersionSync(
               ? target.file
               : path.resolve(cwd, target.file);
 
-            const changed = syncVersionInFile(filePath, ctx.version, target);
-
-            if (changed) {
-              console.log(`  Synced version in ${target.file}`);
-            }
+            syncVersionInFile(filePath, ctx.version, target);
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);
-            console.error(`  Failed to sync ${target.file}: ${message}`);
             errors.push(`${target.file}: ${message}`);
           }
         }
