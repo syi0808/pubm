@@ -6,27 +6,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 pubm is a CLI tool for publishing packages to multiple registries (npm, jsr, and private registries) simultaneously. It supports interactive prompts (TTY) and CI environments, with automatic rollback on failure.
 
+This repository is a monorepo managed with Turborepo and Bun workspaces.
+
+## Repository Layout
+
+```
+packages/
+  core/          — @pubm/core: Core SDK (ecosystem, registry, changeset, monorepo, plugin, config, tasks, validate, prerelease, git, utils)
+  cli/           — pubm: CLI using Commander, depends on @pubm/core
+plugins/
+  plugin-external-version-sync/  — @pubm/plugin-external-version-sync
+  plugin-brew/   — @pubm/plugin-brew
+```
+
 ## Commands
 
+Run from the repo root (Turborepo fans out to all packages):
+
 ```bash
-bun run build          # Build SDK (dist/) + cross-compiled platform binaries (npm/)
-bun run check          # Lint and format check with Biome
+bun run build          # Build all packages (via turbo)
+bun run check          # Lint and format check (via turbo)
 bun run format         # Auto-fix lint and formatting issues
-bun run typecheck      # TypeScript type checking (tsc --noEmit)
-bun run test           # Run tests with Vitest
-bun run coverage       # Run tests with coverage report
+bun run typecheck      # TypeScript type checking (via turbo)
+bun run test           # Run all tests (via turbo)
+bun run coverage       # Run tests with coverage (via turbo)
 ```
 
-Run a single test file:
+Run a single test file (within a package):
 ```bash
-bun vitest --run tests/unit/utils/rollback.test.ts
+cd packages/core && bun vitest --run tests/unit/utils/rollback.test.ts
 ```
 
-Tests live in `tests/unit/` and `tests/e2e/`. Coverage thresholds are strict (95% lines/functions/statements, 90% branches). Tests run in `forks` pool with 30s timeout.
+Tests live in `tests/unit/` and `tests/e2e/` within each package. Coverage thresholds are strict (95% lines/functions/statements, 90% branches). Tests run in `forks` pool with 30s timeout.
 
 ## Architecture
 
-### Core Flow (`src/tasks/runner.ts`)
+### Core Flow (`packages/core/src/tasks/runner.ts`)
 
 The publish pipeline runs as an ordered task chain using listr2:
 
@@ -41,7 +56,7 @@ The publish pipeline runs as an ordered task chain using listr2:
 
 A shared `Ctx` context object flows through all tasks.
 
-### Ecosystem Abstraction (`src/ecosystem/`)
+### Ecosystem Abstraction (`packages/core/src/ecosystem/`)
 
 `Ecosystem` is the abstract base class for language-specific behavior. Implementations:
 - `JsEcosystem` — JavaScript/TypeScript packages (npm, jsr registries)
@@ -49,7 +64,7 @@ A shared `Ctx` context object flows through all tasks.
 
 Auto-detection picks the ecosystem from registry config or manifest files (package.json, Cargo.toml).
 
-### Registry Abstraction (`src/registry/`)
+### Registry Abstraction (`packages/core/src/registry/`)
 
 `Registry` is the abstract base class. Concrete implementations:
 - `NpmRegistry` — npm CLI wrapper, OTP support, provenance in CI
@@ -57,28 +72,36 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 
 ### Key Modules
 
-- `src/cli.ts` — CLI entry point using CAC framework
-- `src/index.ts` — Programmatic API export
-- `src/options.ts` — Resolves CLI flags into normalized options
-- `src/git.ts` — Git operations wrapper (branch, tag, commit, push)
-- `src/commands/` — Subcommands: `add`, `init`, `migrate`, `pre`, `secrets`, `snapshot`, `status`, `update`, `version-cmd`
-- `src/changeset/` — Changeset management (parsing, reading, writing, versioning, changelog generation)
-- `src/monorepo/` — Workspace discovery, dependency graph, package grouping
-- `src/validate/` — Pre-publish validation (entry points, extraneous files)
-- `src/prerelease/` — Pre-release and snapshot version handling
-- `src/utils/db.ts` — AES-256-CBC encrypted token storage in `~/.pubm/`
-- `src/utils/exec.ts` — Bun.spawn wrapper for running shell commands
-- `src/utils/open-url.ts` — Cross-platform URL opener
-- `src/utils/spawn-interactive.ts` — Interactive process spawning (TTY passthrough)
-- `src/utils/rollback.ts` — Tracks and reverses git operations on failure
-- `src/utils/package.ts` — Reads/caches package.json and jsr.json, version replacement
+**packages/core:**
+- `packages/core/src/index.ts` — Programmatic API export
+- `packages/core/src/options.ts` — Resolves CLI flags into normalized options
+- `packages/core/src/git.ts` — Git operations wrapper (branch, tag, commit, push)
+- `packages/core/src/commands/` — Subcommands: `add`, `init`, `migrate`, `pre`, `secrets`, `snapshot`, `status`, `update`, `version-cmd`
+- `packages/core/src/changeset/` — Changeset management (parsing, reading, writing, versioning, changelog generation)
+- `packages/core/src/monorepo/` — Workspace discovery, dependency graph, package grouping
+- `packages/core/src/validate/` — Pre-publish validation (entry points, extraneous files)
+- `packages/core/src/prerelease/` — Pre-release and snapshot version handling
+- `packages/core/src/utils/db.ts` — AES-256-CBC encrypted token storage in `~/.pubm/`
+- `packages/core/src/utils/exec.ts` — Bun.spawn wrapper for running shell commands
+- `packages/core/src/utils/open-url.ts` — Cross-platform URL opener
+- `packages/core/src/utils/spawn-interactive.ts` — Interactive process spawning (TTY passthrough)
+- `packages/core/src/utils/rollback.ts` — Tracks and reverses git operations on failure
+- `packages/core/src/utils/package.ts` — Reads/caches package.json and jsr.json, version replacement
+
+**packages/cli:**
+- `packages/cli/src/cli.ts` — CLI entry point using Commander framework
+
+**plugins:**
+- `plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
+- `plugins/plugin-brew/src/index.ts` — Updates Homebrew formula on release
 
 ### Build Configuration
 
-`build.ts` uses Bun's bundler API to produce:
-- Library: `src/index.ts` → `dist/` (ESM + CJS + types)
-- CLI: Cross-compiled single binaries for all platforms → `npm/@pubm-*/bin/`
-- `bin/cli.js` is a static wrapper that delegates to the platform-specific binary (not a build output)
+Each package has its own `build.ts` using Bun's bundler API. Root `bun run build` runs them all via Turborepo.
+
+- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types)
+- `packages/cli`: Cross-compiled single binaries for all platforms → `../../npm/@pubm-*/bin/`
+- `bin/cli.js` (in packages/cli) is a static wrapper that delegates to the platform-specific binary (not a build output)
 
 `listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
 

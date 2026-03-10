@@ -24,3 +24,13 @@ dist-ssr
 .astro
 coverage
 npm
+
+# Package build outputs
+packages/*/dist/
+packages/plugins/*/dist/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Turbo
+.turbo/

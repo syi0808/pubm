@@ -15,5 +15,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "exclude": ["pubm.config.ts", "build.ts", "plugins", "website"]
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/cli" },
+    { "path": "packages/plugins/plugin-external-version-sync" },
+    { "path": "packages/plugins/plugin-brew" }
+  ],
+  "exclude": ["node_modules", "dist", "website"]
 }

@@ -28,9 +28,9 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: turbo run build
       - name: Publish and release
-        run: bun src/cli.ts --ci
+        run: bunx pubm --ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}

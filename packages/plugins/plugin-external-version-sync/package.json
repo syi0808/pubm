@@ -1,0 +1,36 @@
+{
+  "name": "@pubm/plugin-external-version-sync",
+  "version": "0.3.6",
+  "type": "module",
+  "description": "pubm plugin to sync versions to external files",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm && bunx tsc --project tsconfig.build.json",
+    "check": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage"
+  },
+  "peerDependencies": {
+    "@pubm/core": ">=0.3.6"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git",
+    "directory": "packages/plugins/plugin-external-version-sync"
+  }
+}

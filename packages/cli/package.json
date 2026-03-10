@@ -1,0 +1,63 @@
+{
+  "name": "pubm",
+  "version": "0.3.6",
+  "type": "module",
+  "description": "publish manager for multiple registry (jsr, npm and private registries)",
+  "bin": {
+    "pubm": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "postinstall.cjs"
+  ],
+  "scripts": {
+    "build": "bun run build.ts",
+    "postinstall": "node ./postinstall.cjs",
+    "check": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage"
+  },
+  "dependencies": {
+    "@pubm/core": "workspace:*",
+    "commander": "^14.0.3",
+    "enquirer": "^2.4.1",
+    "semver": "^7.6.3",
+    "std-env": "^3.7.0",
+    "update-kit": "^0.1.1"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.5.8"
+  },
+  "optionalDependencies": {
+    "@pubm/darwin-arm64": "0.2.12",
+    "@pubm/darwin-x64": "0.2.12",
+    "@pubm/linux-arm64": "0.2.12",
+    "@pubm/linux-x64": "0.2.12",
+    "@pubm/windows-x64": "0.2.12"
+  },
+  "engines": {
+    "node": ">=18",
+    "git": ">=2.11.0"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "npm",
+    "jsr",
+    "registry",
+    "publish",
+    "np",
+    "publish manager",
+    "private registry",
+    "multiple publish"
+  ]
+}
