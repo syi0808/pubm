@@ -73,9 +73,38 @@ describe("getPackageManager", () => {
     warnSpy.mockRestore();
   });
 
-  it("checks npm lock files before pnpm and yarn due to object iteration order", async () => {
-    // When both npm and pnpm lock files exist, npm should win
-    // because it comes first in the lockFile record
+  it('returns "bun" when bun.lock is found', async () => {
+    mockFindOutFile.mockImplementation(async (file) => {
+      if (file === "bun.lock") return "/project/bun.lock";
+      return null;
+    });
+
+    const result = await getPackageManager();
+    expect(result).toBe("bun");
+  });
+
+  it('returns "bun" when bun.lockb is found', async () => {
+    mockFindOutFile.mockImplementation(async (file) => {
+      if (file === "bun.lockb") return "/project/bun.lockb";
+      return null;
+    });
+
+    const result = await getPackageManager();
+    expect(result).toBe("bun");
+  });
+
+  it("checks bun before npm due to object iteration order", async () => {
+    mockFindOutFile.mockImplementation(async (file) => {
+      if (file === "bun.lock") return "/project/bun.lock";
+      if (file === "package-lock.json") return "/project/package-lock.json";
+      return null;
+    });
+
+    const result = await getPackageManager();
+    expect(result).toBe("bun");
+  });
+
+  it("checks npm lock files before pnpm and yarn", async () => {
     mockFindOutFile.mockImplementation(async (file) => {
       if (file === "package-lock.json") return "/project/package-lock.json";
       if (file === "pnpm-lock.yaml") return "/project/pnpm-lock.yaml";
@@ -102,6 +131,8 @@ describe("getPackageManager", () => {
 
     await getPackageManager();
 
+    expect(mockFindOutFile).toHaveBeenCalledWith("bun.lock");
+    expect(mockFindOutFile).toHaveBeenCalledWith("bun.lockb");
     expect(mockFindOutFile).toHaveBeenCalledWith("package-lock.json");
     expect(mockFindOutFile).toHaveBeenCalledWith("npm-shrinkwrap.json");
     expect(mockFindOutFile).toHaveBeenCalledWith("pnpm-lock.yaml");
