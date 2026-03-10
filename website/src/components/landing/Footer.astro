@@ -5,7 +5,7 @@ const base = import.meta.env.BASE_URL;
 <footer class="footer">
   <div class="footer-grid">
     <div class="footer-col footer-brand">
-      <img src={`${base}logo.svg`} height="24" alt="pubm" />
+      <span class="footer-logo-text">pubm</span>
       <p class="footer-tagline">Multi-registry publish orchestration</p>
     </div>
 
@@ -37,7 +37,7 @@ const base = import.meta.env.BASE_URL;
   }
 
   .footer-grid {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 3rem 1.5rem;
     display: grid;
@@ -46,9 +46,13 @@ const base = import.meta.env.BASE_URL;
     align-items: start;
   }
 
-  .footer-brand img {
+  .footer-brand .footer-logo-text {
     display: block;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
   }
 
   .footer-tagline {
@@ -96,7 +100,7 @@ const base = import.meta.env.BASE_URL;
   }
 
   .footer-bottom {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 0 1.5rem 2rem;
     color: var(--text-muted);

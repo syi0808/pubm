@@ -7,9 +7,6 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "pubm",
-      logo: {
-        src: "./src/assets/logo.svg",
-      },
       social: [
         {
           icon: "github",
