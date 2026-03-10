@@ -94,6 +94,7 @@ Ask if the user wants to set up CI/CD for automated publishing. If yes:
 3. **Determine registries**: Use the registries selected in step 3.
 4. **Generate workflow file**: Read `references/ci-templates.md` for the appropriate template. Create `.github/workflows/publish.yml`.
 5. **List required secrets**: Based on the target registries:
+   - `GITHUB_TOKEN` for GitHub Releases (automatically available as `secrets.GITHUB_TOKEN` in GitHub Actions — no manual setup needed)
    - `NODE_AUTH_TOKEN` for npm (create at npmjs.com > Access Tokens > Automation)
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
@@ -107,7 +108,7 @@ Add to `package.json`. The `release` script depends on whether CI was set up in 
 {
   "scripts": {
     "release": "pubm --no-publish",
-    "ci:release": "pubm --publish-only"
+    "ci:release": "pubm --ci"
   }
 }
 ```
@@ -161,8 +162,8 @@ If no, skip this step.
 - Always use `defineConfig()` from `pubm` for type safety in config files.
 - Always add `.pubm/` to `.gitignore`.
 - If unsure which registries the user wants, ask. Do not assume.
-- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --publish-only"` for CI.
-- In CI, pubm ONLY supports `--publish-only` mode.
+- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --ci"` for CI.
+- In CI, use `--ci` mode (publish + GitHub Release) or `--publish-only` mode (publish only).
 
 ## References
 
