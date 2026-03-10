@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -134,7 +135,6 @@ describe("detectDefaultBranch", () => {
   });
 
   it("returns 'main' as fallback for a repo without remote", () => {
-    const { execSync } = require("node:child_process");
     execSync("git init", { cwd: TEST_DIR, stdio: "pipe" });
     const result = detectDefaultBranch(TEST_DIR);
     expect(result).toBe("main");
