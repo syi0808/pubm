@@ -81,8 +81,23 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
         writeFileSync(formulaPath, content);
         console.log(`Formula updated at ${options.formula}`);
 
+        if (!options.repo) {
+          // Same repo: commit and push the formula file
+          const { execSync } = await import("node:child_process");
+
+          execSync(
+            [
+              `git add ${formulaPath}`,
+              `git commit -m "chore(brew): update formula to ${releaseCtx.version}"`,
+              "git push",
+            ].join(" && "),
+            { stdio: "inherit" },
+          );
+          return;
+        }
+
         if (options.repo) {
-          // Clone tap repo, update formula, commit and push
+          // Separate tap repo: clone, update formula, commit and push
           const { tmpdir } = await import("node:os");
           const { basename, join } = await import("node:path");
           const { execSync } = await import("node:child_process");
