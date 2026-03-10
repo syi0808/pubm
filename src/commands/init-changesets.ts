@@ -35,13 +35,13 @@ export function updateGitignoreForChangesets(cwd: string): boolean {
     if (pubmLineRegex.test(content)) {
       content = content.replace(pubmLineRegex, ".pubm/*");
     } else {
-      content = content.trimEnd() + "\n.pubm/*\n";
+      content = `${content.trimEnd()}\n.pubm/*\n`;
     }
   }
 
   if (!hasChangesetsExclusion) {
     // Insert `!.pubm/changesets/` right after `.pubm/*`
-    content = content.replace(".pubm/*", ".pubm/*\n!.pubm/changesets/");
+    content = content.replace(/^\.pubm\/\*/m, ".pubm/*\n!.pubm/changesets/");
   }
 
   writeFileSync(gitignorePath, content);
