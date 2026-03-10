@@ -1,6 +1,9 @@
 import { Command } from "commander";
 import semver from "semver";
 import { isCI } from "std-env";
+import { discoverCurrentVersions } from "./changeset/packages.js";
+import { getStatus } from "./changeset/status.js";
+import { calculateVersionBumps } from "./changeset/version.js";
 import { registerChangesetsCommand } from "./commands/changesets.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
@@ -118,7 +121,12 @@ export function createProgram(): Command {
           await notifyNewVersion();
         }
 
-        const context = {
+        const context: {
+          version?: string;
+          versions?: Map<string, string>;
+          changesetConsumed?: boolean;
+          tag: string;
+        } = {
           version: nextVersion,
           tag: options.tag,
         };
@@ -145,21 +153,69 @@ export function createProgram(): Command {
 
               context.version = latestVersion;
             } else {
-              throw new Error(
-                "Version must be set in the CI environment. Please define the version before proceeding.",
-              );
+              // Check for pending changesets in CI
+              const status = getStatus(process.cwd());
+              if (status.hasChangesets) {
+                const currentVersions = await discoverCurrentVersions(
+                  process.cwd(),
+                );
+                const bumps = calculateVersionBumps(
+                  currentVersions,
+                  process.cwd(),
+                );
+
+                if (bumps.size > 0) {
+                  // Apply fixed/linked groups from config if applicable
+                  const config = await loadConfig(process.cwd());
+
+                  if (bumps.size === 1) {
+                    // Single package
+                    const [, bump] = [...bumps][0];
+                    context.version = bump.newVersion;
+                  } else {
+                    // Multi-package
+                    context.versions = new Map(
+                      [...bumps].map(([name, bump]) => [name, bump.newVersion]),
+                    );
+                    // For fixed mode, also set context.version to the shared version
+                    if (config?.versioning === "fixed") {
+                      context.version = [...bumps.values()][0].newVersion;
+                    } else {
+                      // Independent mode: use first version as fallback for required version field
+                      context.version = [...bumps.values()][0].newVersion;
+                    }
+                  }
+                  context.changesetConsumed = true;
+
+                  console.log("Changesets detected:");
+                  for (const [name, bump] of bumps) {
+                    console.log(
+                      `  ${name}: ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType})`,
+                    );
+                  }
+                }
+              }
+
+              if (!context.version && !context.versions) {
+                throw new Error(
+                  "Version must be set in the CI environment. Please define the version before proceeding.",
+                );
+              }
             }
           } else {
             await requiredMissingInformationTasks().run(context);
           }
 
-          await pubm(
-            resolveCliOptions({
+          await pubm({
+            ...resolveCliOptions({
               ...options,
-              version: context.version,
+              version:
+                context.version ?? context.versions?.values().next().value,
               tag: context.tag,
             } as CliOptions),
-          );
+            changesetConsumed: context.changesetConsumed,
+            versions: context.versions,
+          });
         } catch (e) {
           consoleError(e as Error);
           process.exitCode = 1;

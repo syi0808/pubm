@@ -104,6 +104,15 @@ export interface Options {
    * @description Per-package publish configuration (from pubm.config.ts)
    */
   packages?: PackageConfig[];
+  /**
+   * @description Whether changesets should be consumed during version bump
+   * @default false
+   */
+  changesetConsumed?: boolean;
+  /**
+   * @description Per-package versions for independent versioning mode
+   */
+  versions?: Map<string, string>;
 }
 
 export interface ResolvedOptions extends Options {

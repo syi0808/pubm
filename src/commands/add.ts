@@ -1,6 +1,11 @@
+import path from "node:path";
+import process from "node:process";
 import type { Command } from "commander";
-import type { BumpType } from "../changeset/parser.js";
+import Enquirer from "enquirer";
+import type { BumpType, Release } from "../changeset/parser.js";
 import { writeChangeset } from "../changeset/writer.js";
+import { discoverPackages } from "../monorepo/discover.js";
+import { getPackageJson } from "../utils/package.js";
 
 export function registerAddCommand(parent: Command): void {
   parent
@@ -42,10 +47,112 @@ export function registerAddCommand(parent: Command): void {
           return;
         }
 
-        // Interactive mode placeholder
-        console.log(
-          "Interactive changeset creation coming soon. Use --packages, --bump, and --message flags for now.",
-        );
+        // Interactive mode
+        const cwd = process.cwd();
+        const discovered = discoverPackages({ cwd });
+
+        interface PackageInfo {
+          name: string;
+          version: string;
+        }
+
+        let availablePackages: PackageInfo[];
+
+        if (discovered.length > 0) {
+          // Monorepo: read each discovered package's name and version
+          const pkgInfos = await Promise.all(
+            discovered.map(async (pkg) => {
+              const pkgCwd = path.resolve(cwd, pkg.path);
+              try {
+                const json = await getPackageJson({ cwd: pkgCwd });
+                return {
+                  name: json.name ?? pkg.path,
+                  version: json.version ?? "0.0.0",
+                };
+              } catch {
+                return { name: pkg.path, version: "0.0.0" };
+              }
+            }),
+          );
+          availablePackages = pkgInfos;
+        } else {
+          // Single package
+          const json = await getPackageJson({ cwd });
+          availablePackages = [
+            { name: json.name ?? "unknown", version: json.version ?? "0.0.0" },
+          ];
+        }
+
+        // Step 1: Package selection
+        let selectedPackages: PackageInfo[];
+
+        if (availablePackages.length === 1) {
+          selectedPackages = availablePackages;
+          const pkg = selectedPackages[0];
+          console.log(`\u{1F4E6} ${pkg.name} (v${pkg.version})`);
+        } else {
+          const choices = availablePackages.map((pkg) => ({
+            name: pkg.name,
+            message: `${pkg.name} (v${pkg.version})`,
+            value: pkg.name,
+          }));
+
+          const { packages: selectedNames } = await Enquirer.prompt<{
+            packages: string[];
+          }>({
+            type: "multiselect",
+            name: "packages",
+            message: "Which packages would you like to include?",
+            choices,
+          });
+
+          if (selectedNames.length === 0) {
+            console.log("No packages selected. Aborting.");
+            return;
+          }
+
+          selectedPackages = availablePackages.filter((pkg) =>
+            selectedNames.includes(pkg.name),
+          );
+        }
+
+        // Step 2: Bump type selection per package
+        const bumpChoices = [
+          { name: "patch", message: "patch \u2014 Bug fixes, no API changes" },
+          {
+            name: "minor",
+            message: "minor \u2014 New features, backward compatible",
+          },
+          { name: "major", message: "major \u2014 Breaking changes" },
+        ];
+
+        const releases: Release[] = [];
+
+        for (const pkg of selectedPackages) {
+          const { bump: bumpType } = await Enquirer.prompt<{
+            bump: string;
+          }>({
+            type: "select",
+            name: "bump",
+            message: `Select bump type for ${pkg.name}`,
+            choices: bumpChoices,
+          });
+
+          releases.push({ name: pkg.name, type: bumpType as BumpType });
+        }
+
+        // Step 3: Summary input
+        const { summary } = await Enquirer.prompt<{ summary: string }>({
+          type: "input",
+          name: "summary",
+          message: "Summary of changes",
+        });
+
+        // Step 4: Write changeset
+        const filePath = writeChangeset(releases, summary, cwd);
+
+        // Step 5: Success output
+        console.log(`Created changeset: ${filePath}`);
       },
     );
 }

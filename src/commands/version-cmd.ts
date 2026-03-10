@@ -1,12 +1,19 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import type { Command } from "commander";
 import { inc } from "semver";
-import type { ChangelogEntry } from "../changeset/changelog.js";
-import { generateChangelog } from "../changeset/changelog.js";
-import type { BumpType, Changeset } from "../changeset/parser.js";
-import { readChangesets } from "../changeset/reader.js";
+import {
+  buildChangelogEntries,
+  generateChangelog,
+  writeChangelogToFile,
+} from "../changeset/changelog.js";
+import {
+  discoverCurrentVersions,
+  discoverPackageInfos,
+} from "../changeset/packages.js";
+import type { BumpType } from "../changeset/parser.js";
+import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import type { VersionBump } from "../changeset/version.js";
 import { calculateVersionBumps } from "../changeset/version.js";
 import { loadConfig } from "../config/loader.js";
@@ -18,7 +25,7 @@ import {
 } from "../monorepo/index.js";
 import type { PreState } from "../prerelease/pre.js";
 import { readPreState } from "../prerelease/pre.js";
-import { getPackageJson, replaceVersion } from "../utils/package.js";
+import { replaceVersion, replaceVersionAtPath } from "../utils/package.js";
 
 export interface VersionCommandOptions {
   dryRun?: boolean;
@@ -37,19 +44,13 @@ export async function runVersionCommand(
     return;
   }
 
-  // 2. Read current package version
-  const packageJson = await getPackageJson({ cwd });
-  const packageName = packageJson.name ?? "unknown";
-  const currentVersion = packageJson.version;
-
-  if (!currentVersion) {
-    throw new Error("No version found in package.json");
+  // 2. Discover all packages and their current versions
+  const currentVersions = await discoverCurrentVersions(cwd);
+  if (currentVersions.size === 0) {
+    throw new Error("No packages found.");
   }
 
   // 3. Calculate version bumps
-  const currentVersions = new Map<string, string>([
-    [packageName, currentVersion],
-  ]);
   const bumps = calculateVersionBumps(currentVersions, cwd);
 
   if (bumps.size === 0) {
@@ -84,6 +85,10 @@ export async function runVersionCommand(
   // 5. Check pre-release state
   const preState = readPreState(cwd);
 
+  // For multi-package: get package paths for per-package version writing
+  const packageInfos =
+    currentVersions.size > 1 ? await discoverPackageInfos(cwd) : null;
+
   // 6. Process each bump
   for (const [name, bump] of bumps) {
     let newVersion: string;
@@ -109,10 +114,25 @@ export async function runVersionCommand(
     }
 
     // Write version to manifest files
-    await replaceVersion(newVersion, config?.packages);
+    if (packageInfos) {
+      const pkgInfo = packageInfos.find((p) => p.name === name);
+      if (pkgInfo) {
+        const pkgPath = path.resolve(cwd, pkgInfo.path);
+        await replaceVersionAtPath(newVersion, pkgPath);
+      }
+    } else {
+      await replaceVersion(newVersion, config?.packages);
+    }
 
     // Prepend changelog to CHANGELOG.md
-    writeChangelog(cwd, changelogContent);
+    if (packageInfos) {
+      const pkgInfo = packageInfos.find((p) => p.name === name);
+      if (pkgInfo) {
+        writeChangelogToFile(path.resolve(cwd, pkgInfo.path), changelogContent);
+      }
+    } else {
+      writeChangelogToFile(cwd, changelogContent);
+    }
 
     // Update pre-release state
     if (preState) {
@@ -189,43 +209,6 @@ function computePreReleaseVersion(
   return `${bump.newVersion}-${preState.tag}.0`;
 }
 
-function buildChangelogEntries(
-  changesets: Changeset[],
-  packageName: string,
-): ChangelogEntry[] {
-  const entries: ChangelogEntry[] = [];
-
-  for (const changeset of changesets) {
-    for (const release of changeset.releases) {
-      if (release.name === packageName) {
-        entries.push({
-          summary: changeset.summary,
-          type: release.type,
-          id: changeset.id,
-        });
-      }
-    }
-  }
-
-  return entries;
-}
-
-function writeChangelog(cwd: string, newContent: string): void {
-  const changelogPath = path.join(cwd, "CHANGELOG.md");
-
-  let existing = "";
-  if (existsSync(changelogPath)) {
-    existing = readFileSync(changelogPath, "utf-8");
-  }
-
-  const header = "# Changelog\n\n";
-  const body = existing.startsWith("# Changelog")
-    ? existing.slice(existing.indexOf("\n\n") + 2)
-    : existing;
-
-  writeFileSync(changelogPath, `${header}${newContent}\n${body}`, "utf-8");
-}
-
 function updatePreState(
   cwd: string,
   preState: PreState,
@@ -243,17 +226,6 @@ function updatePreState(
 
   const preStatePath = path.join(cwd, ".pubm", "pre.json");
   writeFileSync(preStatePath, JSON.stringify(preState, null, 2), "utf-8");
-}
-
-function deleteChangesetFiles(cwd: string, changesets: Changeset[]): void {
-  const changesetsDir = path.join(cwd, ".pubm", "changesets");
-
-  for (const changeset of changesets) {
-    const filePath = path.join(changesetsDir, `${changeset.id}.md`);
-    if (existsSync(filePath)) {
-      rmSync(filePath);
-    }
-  }
 }
 
 export function registerVersionCommand(parent: Command): void {

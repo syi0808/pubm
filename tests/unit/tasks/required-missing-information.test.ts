@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/utils/package.js", () => ({
   version: vi.fn(),
+  getPackageJson: vi.fn(),
+}));
+vi.mock("../../../src/changeset/packages.js", () => ({
+  discoverCurrentVersions: vi.fn(),
+  discoverPackageInfos: vi.fn(),
+}));
+vi.mock("../../../src/changeset/status.js", () => ({
+  getStatus: vi.fn(),
+}));
+vi.mock("../../../src/changeset/version.js", () => ({
+  calculateVersionBumps: vi.fn(),
+}));
+vi.mock("../../../src/config/loader.js", () => ({
+  loadConfig: vi.fn(),
 }));
 vi.mock("../../../src/registry/npm.js", () => ({
   npmRegistry: vi.fn(),
@@ -19,6 +33,8 @@ vi.mock("../../../src/utils/listr.js", () => ({
   }),
 }));
 
+import { discoverPackageInfos } from "../../../src/changeset/packages.js";
+import { getStatus } from "../../../src/changeset/status.js";
 import { jsrRegistry } from "../../../src/registry/jsr.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
@@ -26,6 +42,8 @@ import { createListr } from "../../../src/utils/listr.js";
 import { version } from "../../../src/utils/package.js";
 
 const mockedVersion = vi.mocked(version);
+const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
+const mockedGetStatus = vi.mocked(getStatus);
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 const mockedJsrRegistry = vi.mocked(jsrRegistry);
 const mockedCreateListr = vi.mocked(createListr);
@@ -61,6 +79,15 @@ function getSubtasks(): any[] {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedVersion.mockResolvedValue("1.0.0");
+  // Single package by default
+  mockedDiscoverPackageInfos.mockResolvedValue([
+    { name: "my-pkg", version: "1.0.0", path: "." },
+  ]);
+  mockedGetStatus.mockReturnValue({
+    hasChangesets: false,
+    packages: new Map(),
+    changesets: [],
+  } as any);
   mockedNpmRegistry.mockResolvedValue({
     distTags: vi.fn().mockResolvedValue(["latest", "next", "beta"]),
   } as any);

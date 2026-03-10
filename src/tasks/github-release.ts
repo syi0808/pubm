@@ -24,6 +24,7 @@ export interface ReleaseContext {
 
 interface Ctx {
   version: string;
+  versions?: Map<string, string>;
 }
 
 class GitHubReleaseError extends AbstractError {
@@ -136,7 +137,10 @@ function formatReleaseNotes(
 /**
  * Create a GitHub Release using the GitHub REST API
  */
-export async function createGitHubRelease(ctx: Ctx): Promise<ReleaseContext> {
+export async function createGitHubRelease(
+  ctx: Ctx,
+  changelogBody?: string,
+): Promise<ReleaseContext> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new GitHubReleaseError(
@@ -157,14 +161,14 @@ export async function createGitHubRelease(ctx: Ctx): Promise<ReleaseContext> {
   const previousTag =
     (await git.previousTag(latestTag)) || (await git.firstCommit());
 
-  // Build release notes from commits
-  const commits = (await git.commits(previousTag, latestTag)).slice(1);
-  const body = formatReleaseNotes(
-    commits,
-    repositoryUrl,
-    previousTag,
-    latestTag,
-  );
+  // Use changelog content if provided, otherwise build from commits
+  let body: string;
+  if (changelogBody) {
+    body = changelogBody;
+  } else {
+    const commits = (await git.commits(previousTag, latestTag)).slice(1);
+    body = formatReleaseNotes(commits, repositoryUrl, previousTag, latestTag);
+  }
 
   // Create the release via GitHub API
   const createResponse = await fetch(
@@ -178,7 +182,12 @@ export async function createGitHubRelease(ctx: Ctx): Promise<ReleaseContext> {
       },
       body: JSON.stringify({
         tag_name: latestTag,
-        name: `pubm v${ctx.version}`,
+        name:
+          ctx.versions && ctx.versions.size > 1
+            ? [...ctx.versions]
+                .map(([name, ver]) => `${name}@${ver}`)
+                .join(", ")
+            : `pubm v${ctx.version}`,
         body,
         prerelease: !!prerelease(ctx.version),
       }),

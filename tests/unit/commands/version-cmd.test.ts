@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/changeset/reader.js", () => ({
   readChangesets: vi.fn(),
+  deleteChangesetFiles: vi.fn(),
 }));
 
 vi.mock("../../../src/changeset/version.js", () => ({
@@ -10,6 +11,8 @@ vi.mock("../../../src/changeset/version.js", () => ({
 
 vi.mock("../../../src/changeset/changelog.js", () => ({
   generateChangelog: vi.fn(),
+  buildChangelogEntries: vi.fn(),
+  writeChangelogToFile: vi.fn(),
 }));
 
 vi.mock("../../../src/config/loader.js", () => ({
@@ -20,9 +23,14 @@ vi.mock("../../../src/prerelease/pre.js", () => ({
   readPreState: vi.fn(),
 }));
 
+vi.mock("../../../src/changeset/packages.js", () => ({
+  discoverCurrentVersions: vi.fn(),
+  discoverPackageInfos: vi.fn(),
+}));
+
 vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
   replaceVersion: vi.fn(),
+  replaceVersionAtPath: vi.fn(),
 }));
 
 const mockGitInstance = {
@@ -37,39 +45,53 @@ vi.mock("node:fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
   return {
     ...actual,
-    existsSync: vi.fn(),
-    readFileSync: vi.fn(),
     writeFileSync: vi.fn(),
-    rmSync: vi.fn(),
   };
 });
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { generateChangelog } from "../../../src/changeset/changelog.js";
-import { readChangesets } from "../../../src/changeset/reader.js";
+import { writeFileSync } from "node:fs";
+import {
+  buildChangelogEntries,
+  generateChangelog,
+  writeChangelogToFile,
+} from "../../../src/changeset/changelog.js";
+import {
+  discoverCurrentVersions,
+  discoverPackageInfos,
+} from "../../../src/changeset/packages.js";
+import {
+  deleteChangesetFiles,
+  readChangesets,
+} from "../../../src/changeset/reader.js";
 import { calculateVersionBumps } from "../../../src/changeset/version.js";
 import { runVersionCommand } from "../../../src/commands/version-cmd.js";
 import { loadConfig } from "../../../src/config/loader.js";
 import { readPreState } from "../../../src/prerelease/pre.js";
-import { getPackageJson, replaceVersion } from "../../../src/utils/package.js";
+import { replaceVersion } from "../../../src/utils/package.js";
 
 const mockedReadChangesets = vi.mocked(readChangesets);
+const mockedDeleteChangesetFiles = vi.mocked(deleteChangesetFiles);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedGenerateChangelog = vi.mocked(generateChangelog);
+const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
+const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedLoadConfig = vi.mocked(loadConfig);
 const mockedReadPreState = vi.mocked(readPreState);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
+const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
+const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedReplaceVersion = vi.mocked(replaceVersion);
-const mockedExistsSync = vi.mocked(existsSync);
-const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedWriteFileSync = vi.mocked(writeFileSync);
-const mockedRmSync = vi.mocked(rmSync);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedLoadConfig.mockResolvedValue(null);
   mockedReadPreState.mockReturnValue(null);
+  mockedDiscoverCurrentVersions.mockResolvedValue(
+    new Map([["my-pkg", "1.0.0"]]),
+  );
+  mockedDiscoverPackageInfos.mockResolvedValue(null as any);
   mockedReplaceVersion.mockResolvedValue(["package.json"]);
+  mockedBuildChangelogEntries.mockReturnValue([]);
 });
 
 describe("runVersionCommand", () => {
@@ -92,10 +114,9 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "1.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "1.0.0"]]),
+    );
 
     const bumps = new Map([
       [
@@ -108,15 +129,13 @@ describe("runVersionCommand", () => {
       ],
     ]);
     mockedCalculateVersionBumps.mockReturnValue(bumps);
+    const entries = [
+      { summary: "Add new feature", type: "minor" as const, id: "add-feature" },
+    ];
+    mockedBuildChangelogEntries.mockReturnValue(entries);
     mockedGenerateChangelog.mockReturnValue(
       "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
     );
-    mockedExistsSync.mockImplementation((p) => {
-      const filePath = String(p);
-      if (filePath.includes("CHANGELOG.md")) return false;
-      if (filePath.includes("add-feature.md")) return true;
-      return false;
-    });
 
     const logSpy = vi.spyOn(console, "log");
 
@@ -128,18 +147,20 @@ describe("runVersionCommand", () => {
     );
     expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.1.0 (minor)");
     expect(mockedReplaceVersion).toHaveBeenCalledWith("1.1.0", undefined);
-    expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", [
-      { summary: "Add new feature", type: "minor", id: "add-feature" },
-    ]);
-    // Changelog written
-    expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      expect.stringContaining("CHANGELOG.md"),
-      expect.stringContaining("## 1.1.0"),
-      "utf-8",
+    expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(
+      changesets,
+      "my-pkg",
     );
-    // Changeset file deleted
-    expect(mockedRmSync).toHaveBeenCalledWith(
-      expect.stringContaining("add-feature.md"),
+    expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", entries);
+    // Changelog written via shared utility
+    expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
+      "/tmp/project",
+      "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
+    );
+    // Changeset files deleted via shared utility
+    expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
+      "/tmp/project",
+      changesets,
     );
   });
 
@@ -152,10 +173,9 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "1.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "1.0.0"]]),
+    );
 
     const bumps = new Map([
       [
@@ -168,19 +188,15 @@ describe("runVersionCommand", () => {
       ],
     ]);
     mockedCalculateVersionBumps.mockReturnValue(bumps);
+    mockedBuildChangelogEntries.mockReturnValue([
+      { summary: "Fix a bug", type: "patch" as const, id: "fix-bug" },
+    ]);
     mockedGenerateChangelog.mockReturnValue("## 1.0.1-beta.0\n");
 
     mockedReadPreState.mockReturnValue({
       mode: "pre",
       tag: "beta",
       packages: {},
-    });
-
-    mockedExistsSync.mockImplementation((p) => {
-      const filePath = String(p);
-      if (filePath.includes("CHANGELOG.md")) return false;
-      if (filePath.includes("fix-bug.md")) return true;
-      return false;
     });
 
     const logSpy = vi.spyOn(console, "log");
@@ -211,10 +227,9 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "1.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "1.0.0"]]),
+    );
 
     const bumps = new Map([
       [
@@ -227,6 +242,9 @@ describe("runVersionCommand", () => {
       ],
     ]);
     mockedCalculateVersionBumps.mockReturnValue(bumps);
+    mockedBuildChangelogEntries.mockReturnValue([
+      { summary: "Another fix", type: "patch" as const, id: "another-fix" },
+    ]);
     mockedGenerateChangelog.mockReturnValue("## 1.0.1-beta.2\n");
 
     mockedReadPreState.mockReturnValue({
@@ -235,13 +253,6 @@ describe("runVersionCommand", () => {
       packages: {
         "my-pkg": { baseVersion: "1.0.1", iteration: 1 },
       },
-    });
-
-    mockedExistsSync.mockImplementation((p) => {
-      const filePath = String(p);
-      if (filePath.includes("CHANGELOG.md")) return false;
-      if (filePath.includes("another-fix.md")) return true;
-      return false;
     });
 
     const logSpy = vi.spyOn(console, "log");
@@ -264,10 +275,9 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "2.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "2.0.0"]]),
+    );
 
     const bumps = new Map([
       [
@@ -280,6 +290,9 @@ describe("runVersionCommand", () => {
       ],
     ]);
     mockedCalculateVersionBumps.mockReturnValue(bumps);
+    mockedBuildChangelogEntries.mockReturnValue([
+      { summary: "New feature", type: "minor" as const, id: "new-feat" },
+    ]);
     mockedGenerateChangelog.mockReturnValue("## 2.1.0\n");
 
     const logSpy = vi.spyOn(console, "log");
@@ -288,7 +301,7 @@ describe("runVersionCommand", () => {
 
     expect(logSpy).toHaveBeenCalledWith("[dry-run] Would write version 2.1.0");
     expect(mockedReplaceVersion).not.toHaveBeenCalled();
-    expect(mockedRmSync).not.toHaveBeenCalled();
+    expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
   });
 
   it("returns early when bumps are empty", async () => {
@@ -299,10 +312,9 @@ describe("runVersionCommand", () => {
         releases: [{ name: "other-pkg", type: "patch" as const }],
       },
     ]);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "1.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "1.0.0"]]),
+    );
     mockedCalculateVersionBumps.mockReturnValue(new Map());
 
     const logSpy = vi.spyOn(console, "log");
@@ -322,10 +334,9 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedGetPackageJson.mockResolvedValue({
-      name: "my-pkg",
-      version: "1.0.0",
-    });
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["my-pkg", "1.0.0"]]),
+    );
 
     const bumps = new Map([
       [
@@ -338,34 +349,25 @@ describe("runVersionCommand", () => {
       ],
     ]);
     mockedCalculateVersionBumps.mockReturnValue(bumps);
+    const entries = [
+      { summary: "Fix it", type: "patch" as const, id: "fix-it" },
+    ];
+    mockedBuildChangelogEntries.mockReturnValue(entries);
     mockedGenerateChangelog.mockReturnValue(
       "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
 
-    mockedExistsSync.mockImplementation((p) => {
-      const filePath = String(p);
-      if (filePath.includes("CHANGELOG.md")) return true;
-      if (filePath.includes("fix-it.md")) return true;
-      return false;
-    });
-    mockedReadFileSync.mockReturnValue(
-      "# Changelog\n\n## 1.0.0\n\n### Patch Changes\n\n- Initial release\n",
-    );
-
     await runVersionCommand("/tmp/project");
 
-    expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      expect.stringContaining("CHANGELOG.md"),
-      expect.stringContaining("## 1.0.1"),
-      "utf-8",
+    // Changelog written via shared utility
+    expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
+      "/tmp/project",
+      "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
-    // Should also contain old content
-    const writeCall = mockedWriteFileSync.mock.calls.find((call) =>
-      String(call[0]).includes("CHANGELOG.md"),
+    // Changeset files deleted via shared utility
+    expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
+      "/tmp/project",
+      changesets,
     );
-    expect(writeCall).toBeDefined();
-    const writtenContent = String(writeCall![1]);
-    expect(writtenContent).toContain("## 1.0.0");
-    expect(writtenContent).toContain("## 1.0.1");
   });
 });

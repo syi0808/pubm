@@ -1,4 +1,6 @@
-import type { BumpType } from "./parser.js";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import type { BumpType, Changeset } from "./parser.js";
 
 export interface ChangelogEntry {
   summary: string;
@@ -46,4 +48,43 @@ export function generateChangelog(
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+export function buildChangelogEntries(
+  changesets: Changeset[],
+  packageName: string,
+): ChangelogEntry[] {
+  const entries: ChangelogEntry[] = [];
+
+  for (const changeset of changesets) {
+    for (const release of changeset.releases) {
+      if (release.name === packageName) {
+        entries.push({
+          summary: changeset.summary,
+          type: release.type,
+          id: changeset.id,
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
+export function writeChangelogToFile(cwd: string, newContent: string): void {
+  const changelogPath = path.join(cwd, "CHANGELOG.md");
+
+  let existing = "";
+  if (existsSync(changelogPath)) {
+    existing = readFileSync(changelogPath, "utf-8");
+  }
+
+  const header = "# Changelog\n\n";
+  const doubleNewline = existing.indexOf("\n\n");
+  const body =
+    existing.startsWith("# Changelog") && doubleNewline !== -1
+      ? existing.slice(doubleNewline + 2)
+      : existing;
+
+  writeFileSync(changelogPath, `${header}${newContent}\n${body}`, "utf-8");
 }
