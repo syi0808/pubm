@@ -6,6 +6,7 @@
       "name": "pubm",
       "devDependencies": {
         "@biomejs/biome": "2.4.4",
+        "@pubm/core": "workspace:^",
         "@types/bun": "^1.3.10",
         "@types/node": "^22.7.4",
         "@vitest/coverage-v8": "^2.1.1",
