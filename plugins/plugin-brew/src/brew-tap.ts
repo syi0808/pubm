@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { PubmPlugin } from "pubm";
 import { generateFormula, mapReleaseAssets, updateFormula } from "./formula.js";
+import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewTapOptions } from "./types.js";
 
 export function brewTap(options: BrewTapOptions): PubmPlugin {
@@ -82,17 +83,27 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
         console.log(`Formula updated at ${options.formula}`);
 
         if (!options.repo) {
-          // Same repo: commit and push the formula file
           const { execSync } = await import("node:child_process");
+          ensureGitIdentity();
 
+          execSync(`git add ${formulaPath}`, { stdio: "inherit" });
           execSync(
-            [
-              `git add ${formulaPath}`,
-              `git commit -m "chore(brew): update formula to ${releaseCtx.version}"`,
-              "git push",
-            ].join(" && "),
+            `git commit -m "chore(brew): update formula to ${releaseCtx.version}"`,
             { stdio: "inherit" },
           );
+
+          try {
+            execSync("git push", { stdio: "inherit" });
+          } catch {
+            const branch = `pubm/brew-formula-v${releaseCtx.version}`;
+            execSync(`git checkout -b ${branch}`, { stdio: "inherit" });
+            execSync(`git push origin ${branch}`, { stdio: "inherit" });
+            execSync(
+              `gh pr create --title "chore(brew): update formula to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
+              { stdio: "inherit" },
+            );
+            console.log(`Created PR on branch ${branch}`);
+          }
           return;
         }
 
@@ -108,6 +119,7 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           execSync(`git clone --depth 1 ${options.repo} ${tmpDir}`, {
             stdio: "inherit",
           });
+          ensureGitIdentity(tmpDir);
 
           const targetDir = join(tmpDir, "Formula");
           mkdirSync(targetDir, { recursive: true });
