@@ -159,41 +159,14 @@ jobs:
 
 ### 2.4 CLAUDE.md에 Changesets Workflow 섹션 추가
 
-기존 CLAUDE.md가 있으면 끝에 추가, 없으면 새로 생성. `## Changesets Workflow` 헤더가 이미 존재하면 스킵 (멱등성 보장):
-
-```markdown
-## Changesets Workflow
-
-This project uses pubm changesets to track changes and automate versioning.
-
-### Rules
-- Every PR that changes runtime code must include a changeset file
-- Add a changeset: `pubm changesets add`
-- PRs with `no-changeset` label skip the changeset check (use for docs, CI config, etc.)
-
-### Workflow
-1. Make changes on a feature branch
-2. Run `pubm changesets add` — select packages, bump type, and summary
-3. Commit the generated `.pubm/changesets/<id>.md` file with your PR
-4. On merge, changesets accumulate on main
-5. When releasing, `pubm` consumes pending changesets to determine versions and generate CHANGELOG
-
-### Bump Type Guide
-- **patch**: Bug fixes, internal refactors with no API changes
-- **minor**: New features, backward-compatible additions
-- **major**: Breaking changes, removed/renamed public APIs
-
-### Review Checklist
-- [ ] Changeset file included (or `no-changeset` label applied)
-- [ ] Bump type matches the scope of changes
-- [ ] Summary is clear and user-facing
-```
+CLAUDE.md 업데이트는 CLI가 아닌 **publish-setup 스킬**이 담당한다. 스킬이 `pubm init --changesets` 실행 후, 대상 프로젝트의 CLAUDE.md에 직접 changesets workflow 섹션을 작성한다. 내용은 스킬 SKILL.md의 Step 7.1에 정의되어 있다.
 
 ## 3. 변경 범위
 
 | 파일 | 변경 |
 |---|---|
-| `src/commands/init.ts` | `--changesets` 플래그 추가, workflow + CLAUDE.md + gitignore 생성 로직 |
+| `src/commands/init.ts` | `--changesets` 플래그 추가, workflow + gitignore 생성 로직 |
+| `src/commands/init-changesets.ts` (신규) | changeset 설정 헬퍼 함수들 (gitignore, workflow, branch 감지) |
 | `plugins/pubm-plugin/skills/publish-setup/SKILL.md` | Step 3 질문 통합 + changeset 단계 추가 |
 | `plugins/pubm-plugin/skills/publish-setup/references/ci-templates.md` | changeset-check 워크플로우 설명 추가 |
 | `tests/unit/commands/init.test.ts` (신규) | `--changesets` 플래그 파싱, 파일 생성/스킵/멱등성 테스트 |
@@ -206,12 +179,10 @@ $ pubm init --changesets
 ✅ Created .pubm/changesets/
 ✅ Updated .gitignore (changeset files tracked)
 ✅ Created .github/workflows/changeset-check.yml
-✅ Updated CLAUDE.md with changesets workflow guide
-
 Changeset workflow is ready!
 - Add changesets: pubm changesets add
 - PRs without changesets will fail the changeset-check CI
 - Use 'no-changeset' label to skip for non-code changes
 ```
 
-**멱등성:** 이미 파일이 존재하면 스킵하고, 부분적으로만 설정된 경우 누락분만 생성한다. CLAUDE.md는 `## Changesets Workflow` 헤더 존재 여부로 판단한다.
+**멱등성:** 이미 파일이 존재하면 스킵하고, 부분적으로만 설정된 경우 누락분만 생성한다.
