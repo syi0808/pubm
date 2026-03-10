@@ -51,14 +51,18 @@ export type {
 } from "./changeset/index.js";
 // Changeset workflow
 export {
+  buildChangelogEntries,
   calculateVersionBumps,
+  deleteChangesetFiles,
   generateChangelog,
   generateChangesetContent,
   generateChangesetId,
   getStatus,
   migrateFromChangesets,
+  parseChangelogSection,
   parseChangeset,
   readChangesets,
+  writeChangelogToFile,
   writeChangeset,
 } from "./changeset/index.js";
 export type {

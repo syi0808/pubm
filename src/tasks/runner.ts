@@ -1,7 +1,17 @@
+import { existsSync, readFileSync } from "node:fs";
+import path, { join } from "node:path";
 import process from "node:process";
 import { color, type Listr } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
+import {
+  buildChangelogEntries,
+  generateChangelog,
+  writeChangelogToFile,
+} from "../changeset/changelog.js";
+import { parseChangelogSection } from "../changeset/changelog-parser.js";
+import { discoverPackageInfos } from "../changeset/packages.js";
+import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import type { PackageConfig } from "../config/types.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
@@ -17,6 +27,7 @@ import {
   getJsrJson,
   getPackageJson,
   replaceVersion,
+  replaceVersionAtPath,
 } from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
@@ -226,7 +237,60 @@ export async function run(options: ResolvedOptions): Promise<void> {
             {
               title: "Creating GitHub Release",
               task: async (ctx): Promise<void> => {
-                const result = await createGitHubRelease(ctx);
+                let changelogBody: string | undefined;
+
+                if (ctx.versions && ctx.versions.size > 1) {
+                  // Multi-package: combine changelogs from per-package CHANGELOG.md files
+                  const { discoverPackageInfos: discoverPkgInfos } =
+                    await import("../changeset/packages.js");
+                  const packageInfos = await discoverPkgInfos(process.cwd());
+                  const sections: string[] = [];
+
+                  for (const [pkgName, pkgVersion] of ctx.versions) {
+                    const pkgInfo = packageInfos.find(
+                      (p) => p.name === pkgName,
+                    );
+                    if (!pkgInfo) continue;
+                    const pkgChangelogPath = join(
+                      process.cwd(),
+                      pkgInfo.path,
+                      "CHANGELOG.md",
+                    );
+                    if (existsSync(pkgChangelogPath)) {
+                      const content = readFileSync(pkgChangelogPath, "utf-8");
+                      const section = parseChangelogSection(
+                        content,
+                        pkgVersion,
+                      );
+                      if (section) {
+                        sections.push(
+                          `## ${pkgName} v${pkgVersion}\n\n${section}`,
+                        );
+                      }
+                    }
+                  }
+                  if (sections.length > 0) {
+                    changelogBody = sections.join("\n\n---\n\n");
+                  }
+                } else {
+                  // Single package: existing behavior
+                  const changelogPath = join(process.cwd(), "CHANGELOG.md");
+                  if (existsSync(changelogPath)) {
+                    const changelogContent = readFileSync(
+                      changelogPath,
+                      "utf-8",
+                    );
+                    const section = parseChangelogSection(
+                      changelogContent,
+                      ctx.version,
+                    );
+                    if (section) {
+                      changelogBody = section;
+                    }
+                  }
+                }
+
+                const result = await createGitHubRelease(ctx, changelogBody);
                 ctx.releaseContext = result;
               },
             },
@@ -301,11 +365,25 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   let tagCreated = false;
                   let commited = false;
 
+                  const isIndependent = ctx.versions && ctx.versions.size > 1;
+
                   addRollback(async () => {
                     if (tagCreated) {
                       try {
-                        rollbackLog("Deleting tag");
-                        await git.deleteTag(`${await git.latestTag()}`);
+                        rollbackLog("Deleting tag(s)");
+                        if (isIndependent && ctx.versions) {
+                          for (const [pkgName, pkgVersion] of ctx.versions) {
+                            try {
+                              await git.deleteTag(`${pkgName}@${pkgVersion}`);
+                            } catch (tagError) {
+                              rollbackError(
+                                `Failed to delete tag ${pkgName}@${pkgVersion}: ${tagError instanceof Error ? tagError.message : tagError}`,
+                              );
+                            }
+                          }
+                        } else {
+                          await git.deleteTag(`${await git.latestTag()}`);
+                        }
                       } catch (error) {
                         rollbackError(
                           `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
@@ -334,27 +412,114 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   }, ctx);
 
                   await git.reset();
-                  const replaced = await replaceVersion(
-                    ctx.version,
-                    ctx.packages,
-                  );
 
-                  for (const replacedFile of replaced) {
-                    await git.stage(replacedFile);
+                  if (isIndependent) {
+                    // Independent mode: per-package version replacement
+                    const packageInfos = await discoverPackageInfos(
+                      process.cwd(),
+                    );
+
+                    for (const [pkgName, pkgVersion] of ctx.versions!) {
+                      const pkgInfo = packageInfos.find(
+                        (p) => p.name === pkgName,
+                      );
+                      if (!pkgInfo) continue;
+                      const pkgPath = path.resolve(process.cwd(), pkgInfo.path);
+                      const replaced = await replaceVersionAtPath(
+                        pkgVersion,
+                        pkgPath,
+                      );
+                      for (const f of replaced) {
+                        await git.stage(f);
+                      }
+                    }
+
+                    // Changeset consumption for independent mode
+                    if (ctx.changesetConsumed) {
+                      const changesets = readChangesets(process.cwd());
+                      if (changesets.length > 0) {
+                        for (const [pkgName, pkgVersion] of ctx.versions!) {
+                          const entries = buildChangelogEntries(
+                            changesets,
+                            pkgName,
+                          );
+                          if (entries.length > 0) {
+                            const pkgInfo = packageInfos.find(
+                              (p) => p.name === pkgName,
+                            );
+                            const changelogDir = pkgInfo
+                              ? path.resolve(process.cwd(), pkgInfo.path)
+                              : process.cwd();
+                            const changelogContent = generateChangelog(
+                              pkgVersion,
+                              entries,
+                            );
+                            writeChangelogToFile(
+                              changelogDir,
+                              changelogContent,
+                            );
+                          }
+                        }
+                        deleteChangesetFiles(process.cwd(), changesets);
+                      }
+                    }
+
+                    await ctx.pluginRunner.runHook("afterVersion", ctx);
+                    await git.stage(".");
+
+                    // Create one commit with all version bumps
+                    const commitMsg = [...ctx.versions!]
+                      .map(([name, ver]) => `${name}@${ver}`)
+                      .join(", ");
+                    const commit = await git.commit(commitMsg);
+                    commited = true;
+
+                    // Create per-package tags
+                    task.output = "Creating tags...";
+                    for (const [pkgName, pkgVersion] of ctx.versions!) {
+                      await git.createTag(`${pkgName}@${pkgVersion}`, commit);
+                    }
+                    tagCreated = true;
+                  } else {
+                    // Fixed mode / single package: existing behavior
+                    const replaced = await replaceVersion(
+                      ctx.version,
+                      ctx.packages,
+                    );
+
+                    for (const replacedFile of replaced) {
+                      await git.stage(replacedFile);
+                    }
+
+                    if (ctx.changesetConsumed) {
+                      const changesets = readChangesets(process.cwd());
+                      if (changesets.length > 0) {
+                        const pkgJson = await getPackageJson();
+                        const pkgName = pkgJson.name ?? "";
+                        const entries = buildChangelogEntries(
+                          changesets,
+                          pkgName,
+                        );
+                        const changelogContent = generateChangelog(
+                          ctx.version,
+                          entries,
+                        );
+                        writeChangelogToFile(process.cwd(), changelogContent);
+                        deleteChangesetFiles(process.cwd(), changesets);
+                      }
+                    }
+
+                    await ctx.pluginRunner.runHook("afterVersion", ctx);
+                    await git.stage(".");
+
+                    const nextVersion = `v${ctx.version}`;
+                    const commit = await git.commit(nextVersion);
+                    commited = true;
+
+                    task.output = "Creating tag...";
+                    await git.createTag(nextVersion, commit);
+                    tagCreated = true;
                   }
-
-                  await ctx.pluginRunner.runHook("afterVersion", ctx);
-                  await git.stage(".");
-
-                  const nextVersion = `v${ctx.version}`;
-                  const commit = await git.commit(nextVersion);
-
-                  commited = true;
-
-                  task.output = "Creating tag...";
-                  await git.createTag(nextVersion, commit);
-
-                  tagCreated = true;
                 },
               },
               {
@@ -483,8 +648,12 @@ export async function run(options: ResolvedOptions): Promise<void> {
         `\n\n✅ Preflight check passed. CI publish should succeed for ${parts.join(", ")}.\n`,
       );
     } else {
+      const versionLabel =
+        ctx.versions && ctx.versions.size > 1
+          ? [...ctx.versions].map(([name, ver]) => `${name}@${ver}`).join(", ")
+          : `v${ctx.version}`;
       console.log(
-        `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(`v${ctx.version}`)} 🚀\n`,
+        `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(versionLabel)} 🚀\n`,
       );
     }
 

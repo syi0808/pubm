@@ -327,3 +327,100 @@ export async function replaceVersion(
 
   return [...new Set(allFiles)];
 }
+
+export async function replaceVersionAtPath(
+  version: string,
+  packagePath: string,
+): Promise<string[]> {
+  const files: string[] = [];
+
+  const packageJsonPath = path.join(packagePath, "package.json");
+  try {
+    const raw = (await readFile(packageJsonPath)).toString();
+    await writeFile(
+      packageJsonPath,
+      raw.replace(versionRegex, `$1${version}$2`),
+    );
+    files.push(packageJsonPath);
+  } catch {
+    // package.json may not exist for this package
+  }
+
+  const jsrJsonPath = path.join(packagePath, "jsr.json");
+  try {
+    const raw = (await readFile(jsrJsonPath)).toString();
+    await writeFile(jsrJsonPath, raw.replace(versionRegex, `$1${version}$2`));
+    files.push(jsrJsonPath);
+  } catch {
+    // jsr.json may not exist for this package
+  }
+
+  return files;
+}
+
+export async function replaceVersions(
+  versions: Map<string, string>,
+  packages: PackageConfig[],
+): Promise<string[]> {
+  const allFiles: string[] = [];
+
+  for (const pkg of packages) {
+    const pkgPath = path.resolve(pkg.path);
+    let pkgName: string | undefined;
+
+    try {
+      const raw = (
+        await readFile(path.join(pkgPath, "package.json"))
+      ).toString();
+      const json = JSON.parse(raw);
+      pkgName = json.name;
+    } catch {}
+
+    const version =
+      (pkgName && versions.get(pkgName)) ?? versions.values().next().value;
+    if (!version) continue;
+
+    const files = await replaceVersionAtPath(version, pkgPath);
+    allFiles.push(...files);
+  }
+
+  // Handle Rust crates (use first version as they share version in fixed mode)
+  const cratePackages = packages.filter((pkg) =>
+    pkg.registries.includes("crates"),
+  );
+
+  if (cratePackages.length > 0) {
+    const firstVersion = versions.values().next().value;
+    if (firstVersion) {
+      const ecosystems: { eco: RustEcosystem; pkg: PackageConfig }[] = [];
+
+      for (const pkg of cratePackages) {
+        const eco = new RustEcosystem(path.resolve(pkg.path));
+        await eco.writeVersion(firstVersion);
+        ecosystems.push({ eco, pkg });
+      }
+
+      if (ecosystems.length > 1) {
+        const siblingVersions = new Map<string, string>();
+        for (const { eco } of ecosystems) {
+          siblingVersions.set(await eco.packageName(), firstVersion);
+        }
+        await Promise.all(
+          ecosystems.map(({ eco }) =>
+            eco.updateSiblingDependencyVersions(siblingVersions),
+          ),
+        );
+      }
+
+      for (const { eco, pkg } of ecosystems) {
+        allFiles.push(path.join(pkg.path, "Cargo.toml"));
+        try {
+          const lockfilePath = await eco.syncLockfile();
+          if (lockfilePath) allFiles.push(lockfilePath);
+        } catch {}
+      }
+    }
+  }
+
+  return [...new Set(allFiles)];
+}

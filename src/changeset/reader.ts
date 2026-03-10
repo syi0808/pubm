@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import type { Changeset } from "./parser.js";
@@ -26,4 +26,18 @@ export function readChangesets(cwd: string = process.cwd()): Changeset[] {
   }
 
   return changesets;
+}
+
+export function deleteChangesetFiles(
+  cwd: string,
+  changesets: Changeset[],
+): void {
+  const changesetsDir = path.join(cwd, ".pubm", "changesets");
+
+  for (const changeset of changesets) {
+    const filePath = path.join(changesetsDir, `${changeset.id}.md`);
+    if (existsSync(filePath)) {
+      rmSync(filePath);
+    }
+  }
 }
