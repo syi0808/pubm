@@ -1,5 +1,20 @@
+import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+
+export function detectDefaultBranch(cwd: string): string {
+  try {
+    const ref = execSync("git symbolic-ref refs/remotes/origin/HEAD", {
+      cwd,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    // refs/remotes/origin/main → main
+    return ref.replace("refs/remotes/origin/", "");
+  } catch {
+    return "main";
+  }
+}
 
 export function updateGitignoreForChangesets(cwd: string): boolean {
   const gitignorePath = path.join(cwd, ".gitignore");
