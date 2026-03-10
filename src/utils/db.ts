@@ -71,9 +71,6 @@ export class Db {
     try {
       return d(Buffer.from(raw).toString(), field);
     } catch {
-      console.warn(
-        `Stored token for '${field}' appears corrupted. It will be re-requested.`,
-      );
       return null;
     }
   }

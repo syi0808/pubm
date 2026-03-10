@@ -148,9 +148,8 @@ describe("Db", () => {
       warnSpy.mockRestore();
     });
 
-    it("warns and returns null when stored data is corrupted", async () => {
+    it("returns null when stored data is corrupted", async () => {
       const { writeFileSync: mockWriteFileSync } = await import("node:fs");
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const db = new Db();
 
       // Write corrupted data directly to the file path
@@ -164,10 +163,6 @@ describe("Db", () => {
       const result = db.get("corrupt-field");
 
       expect(result).toBeNull();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("corrupted"),
-      );
-      warnSpy.mockRestore();
     });
   });
 

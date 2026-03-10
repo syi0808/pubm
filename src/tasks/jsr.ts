@@ -35,14 +35,10 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
 
     addRollback(async (ctx): Promise<void> => {
       if (ctx.packageCreated) {
-        console.log(`Deleting jsr package ${jsr.packageName}...`);
-
         await jsr.client.deletePackage(jsr.packageName);
       }
 
       if (ctx.scopeCreated) {
-        console.log(`Deleting jsr scope ${getScope(jsr.packageName)}...`);
-
         await jsr.client.deleteScope(`${getScope(jsr.packageName)}`);
       }
     }, ctx);
