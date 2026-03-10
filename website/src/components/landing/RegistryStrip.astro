@@ -1,25 +1,27 @@
 ---
 ---
 
-<section class="registry-hub section-divider">
+<section class="registry-hub section-divider" id="registry">
   <div class="container">
-    <div class="hub-header fade-in-up">
-      <div class="header-badge">Connectivity</div>
-      <h2 class="display-title">One Hub, <span class="text-glow">Every Registry.</span></h2>
-      <p class="header-desc">
-        Pubm acts as a smart proxy for your distribution, handling authentication 
-        and protocol differences across all major package ecosystems.
+    <div class="hub-header">
+      <div class="header-badge reveal-hub">Multi-Registry Support</div>
+      <h2 class="display-title reveal-hub">One Hub, <span class="text-glow">Every Registry.</span></h2>
+      <p class="header-desc reveal-hub">
+        Pubm acts as a smart orchestrator for your distribution, handling 
+        authentication and protocols across all major package ecosystems.
       </p>
     </div>
 
-    <div class="hub-visual fade-in-up">
-      <!-- Background Ambient Glow -->
+    <div class="hub-visual">
       <div class="ambient-glow"></div>
       
-      <!-- Central Core -->
       <div class="core-node">
         <div class="core-inner">
-          <img src="/logo.svg" alt="pubm" width="48" height="48" />
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+            <polyline points="3.29 7 12 12 20.71 7"></polyline>
+            <line x1="12" y1="22" x2="12" y2="12"></line>
+          </svg>
         </div>
         <div class="core-rings">
           <div class="ring"></div>
@@ -27,68 +29,134 @@
         </div>
       </div>
 
-      <!-- Registry Cards (Floating around core) -->
       <div class="registry-cards">
-        <div class="reg-card npm" style="--angle: -140deg; --dist: 220px;">
-          <div class="reg-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zm6.666 6.664H5.334v-4H4v4H1.334v-5.332h5.332v5.332zm6.668 0h-1.334v-5.332h5.334v5.332h-1.334v-4h-1.334v4h-1.332v-4h-1.334v4zm8 0h-1.334v-4h-1.334v4h-1.334v-5.332H21.334v5.332z"/></svg>
-          </div>
-          <div class="reg-info">
-            <span class="reg-name">npm</span>
-            <span class="reg-status">Connected</span>
-          </div>
+        <div class="reg-card npm" style="--angle: -140deg; --dist: 280px; --base-rot: -8deg;">
+          <div class="reg-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zm6.666 6.664H5.334v-4H4v4H1.334v-5.332h5.332v5.332zm6.668 0h-1.334v-5.332h5.334v5.332h-1.334v-4h-1.334v4h-1.332v-4h-1.334v4zm8 0h-1.334v-4h-1.334v4h-1.334v-5.332H21.334v5.332z"/></svg></div>
+          <div class="reg-info"><span class="reg-name">npm</span><span class="reg-status">Connected</span></div>
         </div>
-
-        <div class="reg-card jsr" style="--angle: -40deg; --dist: 240px;">
+        <div class="reg-card jsr" style="--angle: -40deg; --dist: 300px; --base-rot: 12deg;">
           <div class="reg-icon jsr-icon">JSR</div>
-          <div class="reg-info">
-            <span class="reg-name">JSR.io</span>
-            <span class="reg-status">Ready</span>
-          </div>
+          <div class="reg-info"><span class="reg-name">JSR.io</span><span class="reg-status">Ready</span></div>
         </div>
-
-        <div class="reg-card crates" style="--angle: 40deg; --dist: 220px;">
-          <div class="reg-icon crates-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <div class="reg-info">
-            <span class="reg-name">Crates.io</span>
-            <span class="reg-status">Connected</span>
-          </div>
+        <div class="reg-card crates" style="--angle: 40deg; --dist: 280px; --base-rot: -5deg;">
+          <div class="reg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <div class="reg-info"><span class="reg-name">Crates.io</span><span class="reg-status">Connected</span></div>
         </div>
-
-        <div class="reg-card private" style="--angle: 140deg; --dist: 240px;">
-          <div class="reg-icon private-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </div>
-          <div class="reg-info">
-            <span class="reg-name">Enterprise</span>
-            <span class="reg-status">Private</span>
-          </div>
+        <div class="reg-card private" style="--angle: 140deg; --dist: 300px; --base-rot: 15deg;">
+          <div class="reg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+          <div class="reg-info"><span class="reg-name">Enterprise</span><span class="reg-status">Private</span></div>
         </div>
       </div>
 
-      <!-- Connecting Beams (Visual only) -->
       <div class="beams-container">
-        <div class="beam b1"></div>
-        <div class="beam b2"></div>
-        <div class="beam b3"></div>
-        <div class="beam b4"></div>
+        <div class="beam b1" style="width: 280px;"><div class="package-stream"><div class="bit"></div><div class="bit"></div><div class="bit"></div></div></div>
+        <div class="beam b2" style="width: 300px;"><div class="package-stream"><div class="bit"></div><div class="bit"></div><div class="bit"></div></div></div>
+        <div class="beam b3" style="width: 280px;"><div class="package-stream"><div class="bit"></div><div class="bit"></div><div class="bit"></div></div></div>
+        <div class="beam b4" style="width: 300px;"><div class="package-stream"><div class="bit"></div><div class="bit"></div><div class="bit"></div></div></div>
       </div>
     </div>
   </div>
 </section>
 
+<script>
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  function initRegistry() {
+    const section = document.querySelector('#registry');
+    if (!section) return;
+
+    const cards = gsap.utils.toArray<HTMLElement>('.reg-card');
+    const reveals = gsap.utils.toArray<HTMLElement>('.reveal-hub');
+
+    gsap.set(reveals, { opacity: 0, y: 30 });
+    gsap.set(cards, { opacity: 0, scale: 0.9 });
+
+    ScrollTrigger.create({
+      trigger: section,
+      start: 'top 80%',
+      onEnter: () => {
+        gsap.to(reveals, { opacity: 1, y: 0, stagger: 0.1, duration: 1, ease: 'power3.out' });
+        gsap.to(cards, { opacity: 1, scale: 1, stagger: 0.1, duration: 1, ease: 'back.out(1.7)' });
+      }
+    });
+
+    cards.forEach((card, i) => {
+      const baseRot = parseFloat(card.style.getPropertyValue('--base-rot') || '0');
+      gsap.to(card, {
+        y: '+=15',
+        x: (i % 2 === 0 ? '+=8' : '-=8'),
+        rotate: baseRot + (i % 2 === 0 ? 3 : -3),
+        duration: 2.5 + Math.random() * 1.5,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+        delay: Math.random() * 2
+      });
+      
+      gsap.set(card, { rotate: baseRot });
+    });
+
+    const streams = gsap.utils.toArray<HTMLElement>('.package-stream');
+    streams.forEach((stream) => {
+      const bits = stream.querySelectorAll('.bit');
+      bits.forEach((bit, i) => {
+        gsap.fromTo(bit, 
+          { left: '0%', opacity: 0, scale: 0.3 },
+          { 
+            left: '100%', 
+            opacity: 1, 
+            scale: 0.8,
+            duration: 1.2 + Math.random() * 0.8,
+            repeat: -1,
+            delay: i * 0.5,
+            ease: 'power2.in',
+            onRepeat: () => {
+              const card = cards[streams.indexOf(stream)];
+              if (card) {
+                gsap.to(card, { scale: 1.03, duration: 0.2, yoyo: true, repeat: 1 });
+              }
+            }
+          }
+        );
+      });
+    });
+
+    gsap.to('.hub-visual', {
+      scrollTrigger: {
+        trigger: section,
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: 1.5,
+      },
+      rotate: 15,
+      scale: 1.05,
+      ease: 'none'
+    });
+
+    gsap.to('.core-inner', {
+      rotate: 360,
+      duration: 20,
+      repeat: -1,
+      ease: 'none'
+    });
+  }
+
+  if (document.readyState === 'complete') {
+    initRegistry();
+  } else {
+    window.addEventListener('load', initRegistry);
+  }
+  document.addEventListener('astro:after-swap', initRegistry);
+</script>
+
 <style>
   .registry-hub {
     padding: 12rem 1.5rem;
     overflow: hidden;
-    background: #000; /* Deep black for higher contrast */
-  }
-
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
+    background: var(--bg-primary);
   }
 
   .hub-header {
@@ -102,33 +170,29 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.15em;
     margin-bottom: 1.5rem;
-    background: rgba(6, 182, 212, 0.1);
-    padding: 0.4rem 1rem;
+    background: rgba(34, 211, 238, 0.08);
+    padding: 0.4rem 1.25rem;
     border-radius: 999px;
-    border: 1px solid rgba(6, 182, 212, 0.2);
+    border: 1px solid rgba(34, 211, 238, 0.15);
   }
 
   .display-title {
-    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
     font-weight: 800;
     letter-spacing: -0.04em;
-    line-height: 1.1;
+    line-height: 1.05;
     margin-bottom: 1.5rem;
-  }
-
-  .text-glow {
-    color: var(--text-primary);
-    text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
   }
 
   .header-desc {
     color: var(--text-muted);
-    font-size: 1.25rem;
-    max-width: 650px;
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+    max-width: 700px;
     margin: 0 auto;
     line-height: 1.6;
+    font-weight: 450;
   }
 
   /* Visual Core */
@@ -143,9 +207,9 @@
   .ambient-glow {
     position: absolute;
     width: 600px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
-    filter: blur(80px);
+    height: 600px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.08) 0%, transparent 70%);
+    filter: blur(100px);
     z-index: 0;
   }
 
@@ -155,22 +219,23 @@
   }
 
   .core-inner {
-    width: 100px;
-    height: 100px;
+    width: 110px;
+    height: 110px;
     background: #000;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 30px;
+    border: 1px solid var(--border-bright);
+    border-radius: 32px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(255, 255, 255, 0.05);
     transform: rotate(15deg);
-    transition: transform 0.5s ease;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .core-node:hover .core-inner {
-    transform: rotate(0deg) scale(1.05);
+    transform: rotate(0deg) scale(1.1);
     border-color: var(--accent-cyan);
+    box-shadow: 0 0 80px rgba(34, 211, 238, 0.2);
   }
 
   .core-rings .ring {
@@ -178,13 +243,13 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
     border-radius: 50%;
     pointer-events: none;
   }
 
-  .ring:nth-child(1) { width: 300px; height: 300px; }
-  .ring:nth-child(2) { width: 500px; height: 500px; opacity: 0.5; }
+  .ring:nth-child(1) { width: 320px; height: 320px; }
+  .ring:nth-child(2) { width: 540px; height: 540px; opacity: 0.5; }
 
   /* Registry Cards */
   .reg-card {
@@ -195,42 +260,43 @@
       calc(cos(var(--angle)) * var(--dist) - 50%),
       calc(sin(var(--angle)) * var(--dist) - 50%)
     );
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--bg-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border);
-    padding: 0.75rem 1rem;
-    border-radius: 16px;
+    padding: 0.85rem 1.25rem;
+    border-radius: 20px;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    min-width: 160px;
+    gap: 1.25rem;
+    min-width: 180px;
     transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     z-index: 15;
   }
 
   .reg-card:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--border-bright);
     transform: translate(
-      calc(cos(var(--angle)) * (var(--dist) + 10px) - 50%),
-      calc(sin(var(--angle)) * (var(--dist) + 10px) - 50%)
-    ) scale(1.05);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      calc(cos(var(--angle)) * (var(--dist) + 15px) - 50%),
+      calc(sin(var(--angle)) * (var(--dist) + 15px) - 50%)
+    ) scale(1.08);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
   }
 
   .reg-icon {
-    width: 36px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
     color: var(--text-primary);
+    border: 1px solid var(--border);
   }
 
-  .reg-icon svg { width: 20px; height: 20px; }
-  .jsr-icon { font-weight: 900; font-size: 0.7rem; color: #f7df1e; }
+  .reg-icon svg { width: 22px; height: 22px; }
+  .jsr-icon { font-weight: 800; font-size: 0.8rem; color: #fff; background: #000; border-color: #fff; }
   
   .reg-info {
     display: flex;
@@ -238,15 +304,17 @@
   }
 
   .reg-name {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.9375rem;
+    font-weight: 700;
     color: var(--text-primary);
+    letter-spacing: -0.01em;
   }
 
   .reg-status {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
+    font-weight: 500;
   }
 
   /* Beams */
@@ -257,35 +325,55 @@
     z-index: 5;
   }
 
+  .package-stream {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .bit {
+    position: absolute;
+    top: -2px;
+    width: 50px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan));
+    border-radius: 4px;
+    filter: drop-shadow(0 0 10px var(--accent-cyan));
+    opacity: 0;
+    will-change: left, opacity;
+  }
+
   .beam {
     position: absolute;
     top: 50%;
     left: 50%;
     height: 1px;
-    background: linear-gradient(90deg, var(--accent-cyan), transparent);
+    background: rgba(255, 255, 255, 0.04);
     transform-origin: left center;
-    opacity: 0.2;
+    opacity: 1;
   }
 
-  .b1 { width: 220px; transform: rotate(-140deg); }
-  .b2 { width: 240px; transform: rotate(-40deg); }
-  .b3 { width: 220px; transform: rotate(40deg); }
-  .b4 { width: 240px; transform: rotate(140deg); }
+  .b1 { transform: rotate(-140deg); }
+  .b2 { transform: rotate(-40deg); }
+  .b3 { transform: rotate(40deg); }
+  .b4 { transform: rotate(140deg); }
 
-  @media (max-width: 768px) {
+  @media (max-width: 860px) {
     .hub-visual { height: auto; padding: 4rem 0; }
     .core-node, .ring, .beams-container { display: none; }
     .registry-cards {
       position: relative;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      gap: 1.25rem;
       width: 100%;
     }
     .reg-card {
       position: static;
       transform: none !important;
       min-width: 0;
+      padding: 1rem;
     }
   }
 </style>

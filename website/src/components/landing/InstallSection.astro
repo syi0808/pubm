@@ -4,12 +4,12 @@ const base = import.meta.env.BASE_URL;
 
 <section class="install section-divider" id="install">
   <div class="install-container">
-    <div class="install-header fade-in-up">
+    <div class="install-header">
       <h2 class="gradient-text">Get started in seconds</h2>
       <p>Install the pubm CLI and start publishing with confidence.</p>
     </div>
 
-    <div class="install-terminal glass-panel fade-in-up" style="animation-delay: 0.1s;">
+    <div class="install-terminal glass-panel">
       <div class="terminal-header">
         <div class="terminal-dots">
           <span class="terminal-dot" style="background: #ff5f57;"></span>
@@ -35,7 +35,7 @@ const base = import.meta.env.BASE_URL;
       </div>
     </div>
 
-    <div class="install-cta fade-in-up" style="animation-delay: 0.2s;">
+    <div class="install-cta">
       <a href={`${base}guides/quick-start`} class="btn-primary">
         Read the Docs
         <svg style="margin-left: 8px;" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -46,25 +46,107 @@ const base = import.meta.env.BASE_URL;
 </section>
 
 <script>
-  const btn = document.querySelector('.install .copy-btn') as HTMLButtonElement;
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const text = 'npm i -g pubm\npubm patch --preview\npubm patch';
-      navigator.clipboard.writeText(text).then(() => {
-        const clipboard = btn.querySelector('.icon-clipboard') as SVGElement;
-        const check = btn.querySelector('.icon-check') as SVGElement;
-        clipboard.style.display = 'none';
-        check.style.display = 'block';
-        btn.classList.add('copied');
-        
-        setTimeout(() => {
-          clipboard.style.display = 'block';
-          check.style.display = 'none';
-          btn.classList.remove('copied');
-        }, 2000);
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  function initInstall() {
+    const section = document.querySelector('#install');
+    if (!section) return;
+
+    // Force absolute visibility first
+    const reveals = section.querySelectorAll('.install-header h2, .install-header p, .install-terminal, .install-cta');
+    gsap.set(reveals, { opacity: 1, visibility: 'visible', y: 0 });
+
+    // Simple reveal timeline without SplitText for now to confirm visibility
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: section,
+        start: 'top 90%',
+        onEnter: () => console.log('InstallSection entered'), // Debugging
+      }
+    });
+
+    tl.from('.install-header h2', {
+      y: 30,
+      opacity: 0,
+      duration: 1,
+      ease: 'expo.out'
+    })
+    .from('.install-header p', {
+      y: 20,
+      opacity: 0,
+      duration: 0.8,
+      ease: 'power2.out'
+    }, '-=0.6')
+    .from('.install-terminal', {
+      rotateX: -15,
+      y: 50,
+      opacity: 0,
+      duration: 1,
+      ease: 'expo.out'
+    }, '-=0.6')
+    .from('.install-cta', {
+      y: 20,
+      opacity: 0,
+      duration: 0.6
+    }, '-=0.8');
+
+    // Magnetic CTA Buttons
+    const btns = section.querySelectorAll<HTMLElement>('.btn-primary, .btn-ghost');
+    btns.forEach(btn => {
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        gsap.to(btn, {
+          x: x * 0.3,
+          y: y * 0.3,
+          duration: 0.5,
+          ease: 'power2.out'
+        });
+      });
+      btn.addEventListener('mouseleave', () => {
+        gsap.to(btn, {
+          x: 0,
+          y: 0,
+          duration: 0.7,
+          ease: 'elastic.out(1, 0.3)'
+        });
       });
     });
+
+    // Copy button
+    const copyBtn = section.querySelector('.copy-btn') as HTMLButtonElement;
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const text = 'npm i -g pubm\npubm patch --preview\npubm patch';
+        navigator.clipboard.writeText(text).then(() => {
+          const clipboard = copyBtn.querySelector('.icon-clipboard') as SVGElement;
+          const check = copyBtn.querySelector('.icon-check') as SVGElement;
+          clipboard.style.display = 'none';
+          check.style.display = 'block';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            clipboard.style.display = 'block';
+            check.style.display = 'none';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        });
+      });
+    }
   }
+
+  // Ensure ScrollTrigger refreshes after everything is loaded
+  window.addEventListener('load', () => {
+    initInstall();
+    ScrollTrigger.refresh();
+  });
+  document.addEventListener('astro:after-swap', () => {
+    initInstall();
+    ScrollTrigger.refresh();
+  });
 </script>
 
 <style>
@@ -89,11 +171,13 @@ const base = import.meta.env.BASE_URL;
     font-size: 3rem;
     font-weight: 700;
     margin-bottom: 1rem;
+    overflow: hidden;
   }
 
   .install-header p {
     color: var(--text-muted);
     font-size: 1.25rem;
+    overflow: hidden;
   }
 
   .install-terminal {
@@ -102,6 +186,7 @@ const base = import.meta.env.BASE_URL;
     background: rgba(3, 7, 18, 0.8);
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
     text-align: left;
+    will-change: transform, opacity;
   }
 
   .terminal-header {
@@ -180,6 +265,10 @@ const base = import.meta.env.BASE_URL;
   .copy-btn.copied {
     border-color: var(--accent-green);
     color: var(--accent-green);
+  }
+
+  .btn-primary, .btn-ghost {
+    will-change: transform;
   }
 
   .install-cta {

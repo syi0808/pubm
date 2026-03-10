@@ -4,7 +4,7 @@
 <section class="workflow-pipeline section-divider" id="workflow">
   <div class="container">
     <div class="pipeline-header fade-in-up">
-      <div class="header-badge">Automated Delivery</div>
+      <div class="header-badge">Delivery Pipeline</div>
       <h2 class="display-title">Ship with <span class="text-glow">Absolute Certainty.</span></h2>
       <p class="header-desc">
         Pubm manages the entire release lifecycle, ensuring every step is 
@@ -21,14 +21,11 @@
         </div>
         <div class="step-content-box">
           <div class="step-icon-v3">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
           </div>
           <div class="step-text">
             <h4>Generate Changeset</h4>
             <div class="code-pill"><code>pubm add</code></div>
-          </div>
-          <div class="step-progress-bar">
-            <div class="progress-fill"></div>
           </div>
         </div>
       </div>
@@ -46,7 +43,7 @@
         </div>
         <div class="step-content-box">
           <div class="step-icon-v3">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
           </div>
           <div class="step-text">
             <h4>Bump & Changelog</h4>
@@ -68,10 +65,10 @@
         </div>
         <div class="step-content-box">
           <div class="step-icon-v3">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
           </div>
           <div class="step-text">
-            <h4>Multi-Registry Publish</h4>
+            <h4>Global Publish</h4>
             <div class="code-pill"><code>pubm patch</code></div>
           </div>
         </div>
@@ -90,11 +87,11 @@
         </div>
         <div class="step-content-box success-accent">
           <div class="step-icon-v3 check-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
           </div>
           <div class="step-text">
-            <h4>Deployment Verified</h4>
-            <p>12 packages live across 3 registries</p>
+            <h4>Deployment Live</h4>
+            <p>Verified on all registries</p>
           </div>
         </div>
       </div>
@@ -102,15 +99,145 @@
   </div>
 </section>
 
+<script>
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  import { SplitText } from 'gsap/SplitText';
+
+  gsap.registerPlugin(ScrollTrigger, SplitText);
+
+  function initWorkflow() {
+    const section = document.querySelector('#workflow');
+    if (!section) return;
+
+    const title = section.querySelector('.display-title');
+    if (title) {
+      const split = new SplitText(title, { type: 'words,chars' });
+      gsap.from(split.chars, {
+        scrollTrigger: {
+          trigger: title,
+          start: 'top 90%',
+        },
+        y: 20,
+        opacity: 0,
+        stagger: 0.02,
+        duration: 0.8,
+        ease: 'power3.out'
+      });
+    }
+
+    const steps = gsap.utils.toArray<HTMLElement>('.pipeline-step');
+    const connectors = gsap.utils.toArray<HTMLElement>('.connector-line');
+
+    steps.forEach((step, i) => {
+      if (i > 0) {
+        gsap.set(step, { opacity: 0.2, filter: 'grayscale(100%)', scale: 0.95 });
+      }
+    });
+
+    const mainTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '.pipeline-visual',
+        start: 'top 85%',
+        end: 'top 20%',
+        scrub: 1,
+      }
+    });
+
+    steps.forEach((step, i) => {
+      mainTl.to(step, {
+        opacity: 1,
+        filter: 'grayscale(0%)',
+        scale: 1.05,
+        duration: 0.8,
+        onStart: () => {
+          step.classList.add('active');
+          const status = step.querySelector('.step-status-tag');
+          if (status && !step.classList.contains('success-node')) {
+            status.textContent = 'Running...';
+            status.className = 'step-status-tag running';
+          }
+        }
+      })
+      .to(step, { scale: 1, duration: 0.4 });
+
+      if (i < steps.length - 1) {
+        const connector = connectors[i];
+        if (connector) {
+          mainTl.to(connector, {
+            background: 'linear-gradient(90deg, var(--accent-cyan), rgba(34, 211, 238, 0.1))',
+            boxShadow: '0 0 20px rgba(34, 211, 238, 0.4)',
+            duration: 0.8,
+            ease: 'none'
+          }, '-=0.8');
+        }
+      }
+
+      if (i > 0) {
+        const prevStep = steps[i-1];
+        mainTl.add(() => {
+          const prevStatus = prevStep.querySelector('.step-status-tag');
+          if (prevStatus && !prevStep.classList.contains('success-node')) {
+            prevStatus.textContent = 'Completed';
+            prevStatus.className = 'step-status-tag completed';
+            gsap.to(prevStep.querySelector('.step-content-box'), {
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              duration: 0.5
+            });
+          }
+        }, '-=0.6');
+      }
+    });
+  }
+
+  if (document.readyState === 'complete') {
+    initWorkflow();
+  } else {
+    window.addEventListener('load', initWorkflow);
+  }
+  document.addEventListener('astro:after-swap', initWorkflow);
+</script>
+
 <style>
   .workflow-pipeline {
     padding: 12rem 1.5rem;
-    background: #050505;
+    background: var(--bg-primary);
   }
 
   .pipeline-header {
     text-align: center;
     margin-bottom: 8rem;
+  }
+
+  .header-badge {
+    display: inline-block;
+    color: var(--accent-violet);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 1.5rem;
+    background: rgba(167, 139, 250, 0.08);
+    padding: 0.4rem 1.25rem;
+    border-radius: 999px;
+    border: 1px solid rgba(167, 139, 250, 0.15);
+  }
+
+  .display-title {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-desc {
+    color: var(--text-muted);
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-weight: 450;
   }
 
   .pipeline-visual {
@@ -132,7 +259,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     padding: 0 0.5rem;
   }
 
@@ -140,92 +267,81 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--text-muted);
+    font-weight: 600;
     opacity: 0.5;
   }
 
   .step-status-tag {
-    font-size: 0.65rem;
+    font-size: 0.625rem;
     font-family: var(--font-mono);
     text-transform: uppercase;
     padding: 0.2rem 0.6rem;
-    border-radius: 4px;
+    border-radius: 6px;
     letter-spacing: 0.05em;
+    font-weight: 600;
   }
 
-  .running { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.2); }
+  .running { background: rgba(34, 211, 238, 0.1); color: var(--accent-cyan); border: 1px solid rgba(34, 211, 238, 0.2); }
   .waiting { background: rgba(255, 255, 255, 0.03); color: var(--text-muted); border: 1px solid var(--border); }
   .completed { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.2); }
 
   .step-content-box {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 1.5rem;
+    border-radius: 24px;
+    padding: 2rem;
     position: relative;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .pipeline-step.active .step-content-box {
-    border-color: rgba(6, 182, 212, 0.3);
-    background: rgba(6, 182, 212, 0.02);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(34, 211, 238, 0.3);
+    background: rgba(34, 211, 238, 0.05);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+    transform: translateY(-8px);
   }
 
   .step-icon-v3 {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
     display: flex;
     justify-content: center;
     align-items: center;
     color: var(--text-muted);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .active .step-icon-v3 {
     background: var(--accent-cyan);
     color: #000;
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+    transform: scale(1.1);
   }
 
   .step-text h4 {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.125rem;
+    font-weight: 700;
     margin-bottom: 0.75rem;
     color: var(--text-primary);
+    letter-spacing: -0.01em;
   }
 
   .code-pill {
     display: inline-block;
     background: #000;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-bright);
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-  }
-
-  .step-progress-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .progress-fill {
-    width: 65%;
-    height: 100%;
-    background: var(--accent-cyan);
-    box-shadow: 0 0 10px var(--accent-cyan);
-    animation: progress-shimmer 2s infinite linear;
-  }
-
-  @keyframes progress-shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
   }
 
   /* Connector */
@@ -236,7 +352,7 @@
     justify-content: center;
     position: relative;
     height: 2px;
-    margin-top: 4rem; /* Align with boxes */
+    margin-top: 4.5rem;
   }
 
   .connector-line {
@@ -258,23 +374,24 @@
 
   .success-accent {
     border-color: rgba(16, 185, 129, 0.3) !important;
-    background: rgba(16, 185, 129, 0.02) !important;
+    background: rgba(16, 185, 129, 0.03) !important;
   }
 
-  .check-icon {
+  .success-node.active .step-icon-v3 {
     background: var(--accent-green) !important;
-    color: #000 !important;
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);
   }
 
   .step-text p {
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     color: var(--text-muted);
+    font-weight: 450;
   }
 
   @media (max-width: 1024px) {
     .pipeline-visual {
       flex-direction: column;
-      gap: 2rem;
+      gap: 3rem;
     }
     .pipeline-step {
       max-width: 100%;

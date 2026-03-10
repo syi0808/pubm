@@ -22,7 +22,49 @@ const { title } = Astro.props;
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body class="landing-bg">
-    <slot />
+    <div class="background-blobs">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+    <div id="smooth-wrapper">
+      <div id="smooth-content">
+        <slot />
+      </div>
+    </div>
+
+    <script>
+      import { gsap } from 'gsap';
+      import { ScrollTrigger } from 'gsap/ScrollTrigger';
+      import { ScrollSmoother } from 'gsap/ScrollSmoother';
+
+      // GSAP Plugins
+      gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
+
+      // Initialize ScrollSmoother
+      const smoother = ScrollSmoother.create({
+        wrapper: '#smooth-wrapper',
+        content: '#smooth-content',
+        smooth: 1.5,
+        effects: true,
+        smoothTouch: 0.1,
+      });
+
+      // Global ScrollTrigger Defaults
+      ScrollTrigger.defaults({
+        markers: false,
+      });
+
+      // Refresh on images/fonts load
+      window.addEventListener('load', () => {
+        ScrollTrigger.refresh();
+      });
+
+      // Handle View Transitions
+      document.addEventListener('astro:after-swap', () => {
+        ScrollTrigger.refresh();
+      });
+    </script>
   </body>
 </html>
 
@@ -34,5 +76,22 @@ const { title } = Astro.props;
     font-family: var(--font-display);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  #smooth-wrapper {
+    overflow: hidden;
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  #smooth-content {
+    overflow: visible;
+    width: 100%;
   }
 </style>

@@ -4,73 +4,179 @@ import TerminalPanel from "./TerminalPanel.astro";
 const base = import.meta.env.BASE_URL;
 ---
 
-<section class="hero">
+<section class="hero" id="hero">
   <div class="hero-mesh"></div>
   <div class="hero-grid">
     <div class="hero-content">
-      <div class="hero-badge-v2 fade-in-up">
+      <div class="hero-badge reveal" data-speed="1.2">
         <span class="badge-dot"></span>
-        <span class="badge-text">v0.2.12 is live</span>
+        <span class="badge-text">v0.2.12 available</span>
       </div>
-      <h1 class="fade-in-up" style="animation-delay: 0.1s;">
+      <h1 class="hero-title split-text" data-speed="1.1">
         Publish everywhere.<br />
         <span class="gradient-text">Roll back safely.</span>
       </h1>
-      <p class="hero-sub fade-in-up" style="animation-delay: 0.2s;">
-        Modern multi-registry publish orchestration for <span class="text-highlight">npm, jsr, crates.io</span>, and private registries. Built for teams that ship with confidence.
+      <p class="hero-sub split-text" data-speed="1.05">
+        The modern multi-registry publish orchestrator for <span class="text-highlight">npm, jsr, crates.io</span>, and private registries. Ship with absolute confidence.
       </p>
-      <div class="hero-cta fade-in-up" style="animation-delay: 0.3s;">
+      <div class="hero-cta reveal" data-speed="1">
         <a href={`${base}guides/quick-start`} class="btn-primary-v2">
           Get Started
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="btn-ghost-v2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-          GitHub
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          Star on GitHub
         </a>
       </div>
     </div>
-    <div class="hero-terminal fade-in-up" style="animation-delay: 0.4s;">
-      <div class="terminal-container">
-        <TerminalPanel />
+    <div class="hero-terminal reveal">
+      <div class="terminal-wrapper">
+        <div class="terminal-container">
+          <TerminalPanel />
+        </div>
       </div>
     </div>
   </div>
 </section>
 
+<script>
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  import { SplitText } from 'gsap/SplitText';
+
+  gsap.registerPlugin(ScrollTrigger, SplitText);
+
+  let titleSplit: SplitText | null = null;
+  let subSplit: SplitText | null = null;
+
+  function initHero() {
+    if (titleSplit) titleSplit.revert();
+    if (subSplit) subSplit.revert();
+
+    const reveals = gsap.utils.toArray<HTMLElement>('.reveal');
+    const titleEl = document.querySelector('.hero-title');
+    const subEl = document.querySelector('.hero-sub');
+    
+    if (!titleEl || !subEl) return;
+
+    titleSplit = new SplitText(titleEl, { 
+      type: 'lines,words',
+      linesClass: 'line-wrapper',
+      wordsClass: 'word'
+    });
+
+    subSplit = new SplitText(subEl, { 
+      type: 'lines,words',
+      linesClass: 'line-wrapper',
+      wordsClass: 'word'
+    });
+
+    gsap.set(reveals, { opacity: 0, y: 20, visibility: 'visible' });
+    gsap.set([titleEl, subEl], { opacity: 1, visibility: 'visible' });
+    gsap.set([titleSplit.words, subSplit.words], { y: '100%' });
+
+    const tl = gsap.timeline({ 
+      defaults: { ease: 'expo.out', duration: 1.2 }
+    });
+
+    tl.to('.hero-badge', {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.8
+    })
+    .to(titleSplit.words, {
+      y: 0,
+      stagger: 0.05,
+      duration: 1,
+    }, '-=0.6')
+    .to(subSplit.words, {
+      y: 0,
+      stagger: 0.01,
+      duration: 0.8,
+    }, '-=0.8')
+    .to('.hero-cta', {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.8
+    }, '-=0.6')
+    .to('.hero-terminal', {
+      autoAlpha: 1,
+      clipPath: 'inset(0% 0% 0% 0%)',
+      y: 0,
+      duration: 1.5,
+      ease: 'expo.inOut'
+    }, '-=1');
+
+    gsap.to('.hero-grid', {
+      scrollTrigger: {
+        trigger: '#hero',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: true,
+      },
+      y: 100,
+      opacity: 0.2,
+      scale: 0.98,
+    });
+
+    gsap.to('.hero-mesh', {
+      scrollTrigger: {
+        trigger: '#hero',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: true,
+      },
+      y: 150,
+      opacity: 0.4,
+    });
+  }
+
+  if (document.readyState === 'complete') {
+    initHero();
+  } else {
+    window.addEventListener('load', initHero);
+  }
+  document.addEventListener('astro:after-swap', initHero);
+</script>
+
 <style>
   .hero {
     position: relative;
     min-height: 100vh;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 10rem 1.5rem 8rem;
-    background: #000;
+    padding: 8rem 1.5rem 6rem;
+    background: var(--bg-primary);
     overflow: hidden;
   }
 
   .hero-mesh {
     position: absolute;
-    inset: 0;
+    inset: -100px;
     background-image: 
-      radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.15) 0, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0, transparent 50%);
+      radial-gradient(at 20% 20%, rgba(34, 211, 238, 0.15) 0, transparent 50%),
+      radial-gradient(at 80% 20%, rgba(167, 139, 250, 0.15) 0, transparent 50%),
+      radial-gradient(at 50% 50%, rgba(15, 23, 42, 0) 0, var(--bg-primary) 100%);
     filter: blur(100px);
-    opacity: 0.5;
+    opacity: 0.8;
     z-index: 0;
+    pointer-events: none;
+    will-change: transform;
   }
 
   .hero-grid {
     position: relative;
-    max-width: 1300px;
+    max-width: 1200px;
     width: 100%;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 6rem;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 4rem;
     align-items: center;
-    z-index: 1;
+    z-index: 2;
   }
 
   .hero-content {
@@ -79,15 +185,15 @@ const base = import.meta.env.BASE_URL;
     align-items: flex-start;
   }
 
-  .hero-badge-v2 {
+  .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border);
+    padding: 0.4rem 1rem;
     border-radius: 999px;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
   }
 
   .badge-dot {
@@ -99,40 +205,56 @@ const base = import.meta.env.BASE_URL;
     animation: pulse 2s infinite;
   }
 
+  @keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
   .badge-text {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
-    color: var(--text-primary);
-    opacity: 0.8;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-badge,
+  h1,
+  .hero-sub,
+  .hero-cta {
+    opacity: 0;
+    visibility: hidden;
   }
 
   h1 {
     font-family: var(--font-display);
-    font-size: clamp(3.5rem, 6vw, 5.5rem);
+    font-size: clamp(3rem, 6vw, 5.5rem);
     font-weight: 800;
     line-height: 0.95;
     letter-spacing: -0.04em;
     color: var(--text-primary);
-    margin: 0 0 2rem;
+    margin: 0 0 1.5rem;
   }
 
   .hero-sub {
     color: var(--text-muted);
-    font-size: clamp(1.1rem, 2vw, 1.35rem);
-    max-width: 600px;
-    margin: 0 0 4rem;
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+    max-width: 540px;
+    margin: 0 0 3.5rem;
     line-height: 1.5;
+    font-weight: 450;
   }
 
   .text-highlight {
-    color: var(--text-primary);
-    font-weight: 500;
+    color: var(--text-secondary);
+    font-weight: 600;
   }
 
   .hero-cta {
     display: flex;
-    gap: 1.5rem;
+    gap: 1.25rem;
     align-items: center;
   }
 
@@ -140,19 +262,20 @@ const base = import.meta.env.BASE_URL;
     background: var(--text-primary);
     color: #000;
     font-weight: 700;
-    padding: 1.1rem 2.2rem;
-    border-radius: 12px;
+    padding: 1rem 2.25rem;
+    border-radius: 14px;
     text-decoration: none;
     font-size: 1rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 0 0 rgba(255,255,255,0);
   }
 
   .btn-primary-v2:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 15px 30px rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -10px rgba(255,255,255,0.2);
   }
 
   .btn-ghost-v2 {
@@ -160,8 +283,8 @@ const base = import.meta.env.BASE_URL;
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-weight: 600;
-    padding: 1.1rem 2.2rem;
-    border-radius: 12px;
+    padding: 1rem 2.25rem;
+    border-radius: 14px;
     text-decoration: none;
     font-size: 1rem;
     display: flex;
@@ -172,20 +295,37 @@ const base = import.meta.env.BASE_URL;
 
   .btn-ghost-v2:hover {
     background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
   }
 
   .hero-terminal {
-    perspective: 1200px;
+    perspective: 1000px;
+    opacity: 0; 
+    visibility: hidden;
+    clip-path: inset(10% 20% 80% 20%);
+    will-change: transform, clip-path;
   }
 
   .terminal-container {
-    transform: rotateY(-5deg) rotateX(2deg);
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform: rotateY(-8deg) rotateX(4deg) rotateZ(-1deg);
+    box-shadow: -40px 60px 100px -20px rgba(0,0,0,0.6);
+    transition: transform 0.5s ease;
   }
 
   .terminal-container:hover {
-    transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+    transform: rotateY(-4deg) rotateX(2deg) rotateZ(0deg);
+  }
+
+  :global(.line-wrapper) {
+    display: block;
+    overflow: hidden;
+  }
+
+  :global(.word) {
+    display: inline-block;
+    will-change: transform;
+    margin-right: 0.25em;
   }
 
   @media (max-width: 1100px) {
@@ -194,35 +334,23 @@ const base = import.meta.env.BASE_URL;
       text-align: center;
       gap: 5rem;
     }
-
     .hero-content {
       align-items: center;
     }
-
     .hero-sub {
-      max-width: 600px;
-    }
-
-    .hero-cta {
-      justify-content: center;
-      width: 100%;
-    }
-
-    .btn-primary-v2, .btn-ghost-v2 {
-      flex: 1;
-      justify-content: center;
+      margin-left: auto;
+      margin-right: auto;
     }
   }
 
   @media (max-width: 640px) {
-    .hero {
-      padding: 7rem 1.25rem 4rem;
-    }
     .hero-cta {
       flex-direction: column;
+      width: 100%;
     }
-    h1 {
-      font-size: 3rem;
+    .btn-primary-v2, .btn-ghost-v2 {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

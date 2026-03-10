@@ -1,127 +1,214 @@
-<section class="features section-divider">
+<section class="features section-divider" id="features">
   <div class="features-container">
-    <div class="features-header fade-in-up">
-      <h2 class="gradient-text">Built for confidence.</h2>
-      <p>Pubm handles the complexity of multi-registry publishing so you can focus on shipping.</p>
+    <div class="features-header">
+      <h2 class="gradient-text reveal-feature">Engineered for Reliability</h2>
+      <p class="reveal-feature">Pubm eliminates the friction of multi-registry publishing, providing a robust workflow for modern development teams.</p>
     </div>
     <div class="features-grid">
-      <div class="feature-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
+      <div class="feature-card reveal-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
         <div class="feature-icon-wrapper">
-          <svg class="feature-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="8" cy="24" r="3" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="24" cy="24" r="3" stroke="currentColor" stroke-width="1.5"/>
-            <line x1="14.5" y1="10.5" x2="9.5" y2="21.5" stroke="currentColor" stroke-width="1.5"/>
-            <line x1="17.5" y1="10.5" x2="22.5" y2="21.5" stroke="currentColor" stroke-width="1.5"/>
-            <line x1="11" y1="24" x2="21" y2="24" stroke="currentColor" stroke-width="1.5"/>
+          <svg class="feature-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+            <path d="M5 3v4M3 5h4M19 17v4M17 19h4"/>
           </svg>
         </div>
-        <h3 class="feature-title">Multi-Registry Publishing</h3>
-        <p class="feature-desc">npm, jsr, crates.io, and private registries — all in one command. Concurrent where possible, sequential where dependencies require it.</p>
+        <h3 class="feature-title">Multi-Registry Orchestration</h3>
+        <p class="feature-desc">npm, jsr, crates.io, and private registries — managed in a single, unified workflow. Concurrent publishing with dependency awareness.</p>
       </div>
 
-      <div class="feature-card" data-accent="green" style="--card-accent: var(--accent-green);">
+      <div class="feature-card reveal-card" data-accent="green" style="--card-accent: var(--accent-green);">
         <div class="feature-icon-wrapper">
-          <svg class="feature-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 8C12 8 8 12 8 16C8 20 12 24 16 24C20 24 24 20 24 16C24 12 20 8 20 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <polyline points="8,12 12,8 16,12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg class="feature-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="m12 7 0 5 3 2"/>
           </svg>
         </div>
-        <h3 class="feature-title">Atomic Rollback</h3>
-        <p class="feature-desc">If any registry fails, pubm auto-reverses git commits, tags, and stashes. No more half-released states to clean up manually.</p>
+        <h3 class="feature-title">Atomic Rollback System</h3>
+        <p class="feature-desc">Total failure safety. If a registry rejects your package, pubm automatically reverts git tags, commits, and local changes.</p>
       </div>
 
-      <div class="feature-card" data-accent="violet" style="--card-accent: var(--accent-violet);">
+      <div class="feature-card reveal-card" data-accent="violet" style="--card-accent: var(--accent-violet);">
         <div class="feature-icon-wrapper">
-          <svg class="feature-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4L6 10V18C6 23 10.5 27.5 16 28C21.5 27.5 26 23 26 18V10L16 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <polyline points="11,16 14.5,19.5 21,13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg class="feature-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+            <path d="m9 12 2 2 4-4"/>
           </svg>
         </div>
-        <h3 class="feature-title">Preflight Validation</h3>
-        <p class="feature-desc">Branch rules, clean tree, remote sync, registry ping, login status, and permissions — all checked before any side effect.</p>
+        <h3 class="feature-title">Smart Preflight Checks</h3>
+        <p class="feature-desc">Comprehensive validation before any side effects: branch rules, tree status, remote sync, and registry authentication.</p>
       </div>
 
-      <div class="feature-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
+      <div class="feature-card reveal-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
         <div class="feature-icon-wrapper">
-          <svg class="feature-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="1.5"/>
-            <text x="10" y="20" font-family="var(--font-mono)" font-size="10" fill="currentColor" font-weight="600">&gt;_</text>
+          <svg class="feature-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 17h16M4 13h16M4 9h16M4 5h16"/>
+            <path d="m20 19-3-3 3-3"/>
           </svg>
         </div>
-        <h3 class="feature-title">TTY-Aware</h3>
-        <p class="feature-desc">Interactive prompts in your terminal, headless in CI. Same command, both environments. No flags to remember.</p>
+        <h3 class="feature-title">CI/CD Native</h3>
+        <p class="feature-desc">Fully TTY-aware. Interactive prompts for local development, seamless headless execution for automated CI environments.</p>
       </div>
     </div>
   </div>
 </section>
 
+<script>
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  function initFeatures() {
+    const cards = gsap.utils.toArray<HTMLElement>('.reveal-card');
+    const headers = gsap.utils.toArray<HTMLElement>('.reveal-feature');
+    
+    if (cards.length === 0) return;
+
+    gsap.set(headers, { opacity: 0, y: 30 });
+    gsap.set(cards, { opacity: 0, y: 40, rotateX: 5 });
+
+    headers.forEach(header => {
+      gsap.to(header, {
+        scrollTrigger: {
+          trigger: header,
+          start: 'top 90%',
+        },
+        opacity: 1,
+        y: 0,
+        duration: 1,
+        ease: 'power3.out'
+      });
+    });
+
+    ScrollTrigger.batch(cards, {
+      start: 'top 85%',
+      onEnter: (batch) => gsap.to(batch, {
+        opacity: 1,
+        y: 0,
+        rotateX: 0,
+        stagger: 0.1,
+        duration: 0.8,
+        ease: 'power3.out',
+        overwrite: true
+      })
+    });
+
+    cards.forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // @ts-ignore
+        card.style.setProperty('--mouse-x', `${x}px`);
+        // @ts-ignore
+        card.style.setProperty('--mouse-y', `${y}px`);
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = ((y - centerY) / centerY) * -6;
+        const rotateY = ((x - centerX) / centerX) * 6;
+
+        gsap.to(card, {
+          rotateX: rotateX,
+          rotateY: rotateY,
+          scale: 1.01,
+          duration: 0.4,
+          ease: 'power2.out',
+          overwrite: true
+        });
+      });
+
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, {
+          rotateX: 0,
+          rotateY: 0,
+          scale: 1,
+          duration: 0.6,
+          ease: 'power2.out',
+          overwrite: true
+        });
+      });
+    });
+  }
+
+  if (document.readyState === 'complete') {
+    initFeatures();
+  } else {
+    window.addEventListener('load', initFeatures);
+  }
+  document.addEventListener('astro:after-swap', initFeatures);
+</script>
+
 <style>
   .features {
-    padding: 10rem 1.5rem;
+    padding: 12rem 1.5rem;
     display: flex;
     justify-content: center;
-    background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+    background: radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.05) 0%, transparent 60%);
   }
 
   .features-container {
-    max-width: 1100px;
+    max-width: 1200px;
     width: 100%;
   }
 
   .features-header {
     text-align: center;
-    margin-bottom: 5rem;
+    margin-bottom: 6rem;
   }
 
   .features-header h2 {
-    font-size: 3rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
   }
 
   .features-header p {
     color: var(--text-muted);
-    font-size: 1.25rem;
-    max-width: 600px;
+    font-size: clamp(1.1rem, 1.5vw, 1.25rem);
+    max-width: 640px;
     margin: 0 auto;
+    line-height: 1.6;
   }
 
   .features-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
+    perspective: 1200px;
   }
 
   .feature-card {
     background: var(--bg-glass);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 2.5rem;
+    border-radius: 24px;
+    padding: 3rem;
     position: relative;
     overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-    opacity: 0;
-    transform: translateY(30px);
+    transform-style: preserve-3d;
+    will-change: transform;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .feature-card::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
-                rgba(255, 255, 255, 0.06), transparent 40%);
+    background: radial-gradient(400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+                rgba(255, 255, 255, 0.08), transparent 40%);
     opacity: 0;
     transition: opacity 0.5s;
     pointer-events: none;
   }
 
   .feature-card:hover {
-    border-color: var(--card-accent);
-    transform: translateY(-5px) scale(1.01);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.02);
+    border-color: var(--border-bright);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
   }
 
   .feature-card:hover::before {
@@ -129,85 +216,47 @@
   }
 
   .feature-icon-wrapper {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
     color: var(--card-accent);
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .feature-card:hover .feature-icon-wrapper {
     background: var(--card-accent);
     color: #000;
-    transform: rotate(-5deg) scale(1.1);
+    transform: translateY(-5px) rotate(8deg);
+    box-shadow: 0 10px 20px -5px var(--card-accent);
   }
 
   .feature-title {
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 1rem;
     color: var(--text-primary);
+    letter-spacing: -0.01em;
   }
 
   .feature-desc {
     color: var(--text-muted);
     line-height: 1.7;
-    font-size: 1.05rem;
+    font-size: 1.0625rem;
+    font-weight: 450;
   }
 
-  /* Reveal animation */
-  .features.visible .feature-card {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .features.visible .feature-card:nth-child(1) { transition-delay: 0.1s; }
-  .features.visible .feature-card:nth-child(2) { transition-delay: 0.2s; }
-  .features.visible .feature-card:nth-child(3) { transition-delay: 0.3s; }
-  .features.visible .feature-card:nth-child(4) { transition-delay: 0.4s; }
-
-  @media (max-width: 768px) {
+  @media (max-width: 860px) {
     .features-grid {
       grid-template-columns: 1fr;
     }
-    .features-header h2 {
-      font-size: 2.25rem;
+    .feature-card {
+      padding: 2.5rem;
     }
   }
 </style>
-
-<script>
-  const features = document.querySelector('.features');
-  const cards = document.querySelectorAll('.feature-card');
-
-  if (features) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(features);
-  }
-
-  // Mouse move effect for cards
-  cards.forEach(card => {
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      card.style.setProperty('--mouse-x', `${x}px`);
-      card.style.setProperty('--mouse-y', `${y}px`);
-    });
-  });
-</script>
