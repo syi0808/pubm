@@ -1,7 +1,17 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { updateGitignoreForChangesets } from "../../../src/commands/init-changesets.js";
+import {
+  generateChangesetCheckWorkflow,
+  updateGitignoreForChangesets,
+  writeChangesetCheckWorkflow,
+} from "../../../src/commands/init-changesets.js";
 
 const TEST_DIR = path.resolve("tests/unit/commands/.tmp-init");
 
@@ -65,6 +75,51 @@ describe("updateGitignoreForChangesets", () => {
     );
 
     const result = updateGitignoreForChangesets(TEST_DIR);
+    expect(result).toBe(false);
+  });
+});
+
+describe("generateChangesetCheckWorkflow", () => {
+  it("generates workflow YAML with the given default branch", () => {
+    const yaml = generateChangesetCheckWorkflow("main");
+
+    expect(yaml).toContain("name: Changeset Check");
+    expect(yaml).toContain("branches: [main]");
+    expect(yaml).toContain("pull-requests: write");
+    expect(yaml).toContain("no-changeset");
+    expect(yaml).toContain(".pubm/changesets/*.md");
+    expect(yaml).toContain("changeset-check");
+  });
+
+  it("uses custom branch name in trigger", () => {
+    const yaml = generateChangesetCheckWorkflow("develop");
+    expect(yaml).toContain("branches: [develop]");
+  });
+});
+
+describe("writeChangesetCheckWorkflow", () => {
+  it("creates .github/workflows/changeset-check.yml", () => {
+    const result = writeChangesetCheckWorkflow(TEST_DIR, "main");
+
+    expect(result).toBe(true);
+    const filePath = path.join(
+      TEST_DIR,
+      ".github",
+      "workflows",
+      "changeset-check.yml",
+    );
+    expect(existsSync(filePath)).toBe(true);
+
+    const content = readFileSync(filePath, "utf8");
+    expect(content).toContain("name: Changeset Check");
+  });
+
+  it("returns false when workflow file already exists", () => {
+    const workflowDir = path.join(TEST_DIR, ".github", "workflows");
+    mkdirSync(workflowDir, { recursive: true });
+    writeFileSync(path.join(workflowDir, "changeset-check.yml"), "existing");
+
+    const result = writeChangesetCheckWorkflow(TEST_DIR, "main");
     expect(result).toBe(false);
   });
 });
