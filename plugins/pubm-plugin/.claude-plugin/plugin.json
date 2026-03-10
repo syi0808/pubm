@@ -1,7 +1,7 @@
 {
   "name": "pubm-plugin",
   "description": "Publish packages to multiple registries (npm, jsr, crates.io) with pubm",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "author": {
     "name": "pubm"
   },
