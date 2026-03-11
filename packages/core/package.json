@@ -26,7 +26,6 @@
   "dependencies": {
     "@listr2/prompt-adapter-enquirer": "^2.0.12",
     "enquirer": "^2.4.1",
-    "jiti": "^2.6.1",
     "listr2": "^8.2.5",
     "micromatch": "^4.0.8",
     "semver": "^7.6.3",
