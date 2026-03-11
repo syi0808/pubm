@@ -23,11 +23,12 @@ dist-ssr
 .worktrees
 .astro
 coverage
-npm
-
 # Package build outputs
 packages/*/dist/
 packages/plugins/*/dist/
+
+# Platform binary outputs
+packages/cli/platforms/*/bin/
 
 # TypeScript build info
 *.tsbuildinfo

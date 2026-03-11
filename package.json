@@ -11,7 +11,8 @@
   "packageManager": "bun@1.3.8",
   "workspaces": [
     "packages/*",
-    "packages/plugins/*"
+    "packages/plugins/*",
+    "packages/cli/platforms/*"
   ],
   "scripts": {
     "build": "turbo run build",
@@ -22,7 +23,9 @@
     "coverage": "turbo run coverage",
     "dev:site": "cd website && pnpm dev",
     "build:site": "cd website && pnpm build",
-    "preview:site": "cd website && pnpm preview"
+    "preview:site": "cd website && pnpm preview",
+    "release": "pubm --preflight",
+    "release:ci": "pubm --ci"
   },
   "license": "Apache-2.0",
   "devDependencies": {
@@ -34,7 +37,13 @@
     "turbo": "^2.4.0",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1",
-    "@pubm/core": "workspace:^"
+    "pubm": "workspace:*",
+    "@pubm/core": "workspace:*",
+    "@pubm/darwin-arm64": "workspace:*",
+    "@pubm/darwin-x64": "workspace:*",
+    "@pubm/linux-arm64": "workspace:*",
+    "@pubm/linux-x64": "workspace:*",
+    "@pubm/windows-x64": "workspace:*"
   },
   "patchedDependencies": {
     "listr2@8.2.5": "patches/listr2.patch"

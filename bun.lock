@@ -6,11 +6,17 @@
       "name": "pubm",
       "devDependencies": {
         "@biomejs/biome": "2.4.4",
-        "@pubm/core": "workspace:^",
+        "@pubm/core": "workspace:*",
+        "@pubm/darwin-arm64": "workspace:*",
+        "@pubm/darwin-x64": "workspace:*",
+        "@pubm/linux-arm64": "workspace:*",
+        "@pubm/linux-x64": "workspace:*",
+        "@pubm/windows-x64": "workspace:*",
         "@types/bun": "^1.3.10",
         "@types/node": "^22.7.4",
         "@vitest/coverage-v8": "^2.1.1",
         "jsr": "^0.13.2",
+        "pubm": "workspace:*",
         "turbo": "^2.4.0",
         "typescript": "^5.6.2",
         "vitest": "^2.1.1",
@@ -20,7 +26,7 @@
       "name": "pubm",
       "version": "0.3.6",
       "bin": {
-        "pubm": "./bin/cli.js",
+        "pubm": "./bin/cli.cjs",
       },
       "dependencies": {
         "@pubm/core": "workspace:*",
@@ -34,11 +40,46 @@
         "@types/semver": "^7.5.8",
       },
       "optionalDependencies": {
-        "@pubm/darwin-arm64": "0.2.12",
-        "@pubm/darwin-x64": "0.2.12",
-        "@pubm/linux-arm64": "0.2.12",
-        "@pubm/linux-x64": "0.2.12",
-        "@pubm/windows-x64": "0.2.12",
+        "@pubm/darwin-arm64": "workspace:*",
+        "@pubm/darwin-x64": "workspace:*",
+        "@pubm/linux-arm64": "workspace:*",
+        "@pubm/linux-x64": "workspace:*",
+        "@pubm/windows-x64": "workspace:*",
+      },
+    },
+    "packages/cli/platforms/darwin-arm64": {
+      "name": "@pubm/darwin-arm64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/cli/platforms/darwin-x64": {
+      "name": "@pubm/darwin-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/cli/platforms/linux-arm64": {
+      "name": "@pubm/linux-arm64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/cli/platforms/linux-x64": {
+      "name": "@pubm/linux-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/cli/platforms/windows-x64": {
+      "name": "@pubm/windows-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
       },
     },
     "packages/core": {
@@ -176,9 +217,19 @@
 
     "@pubm/core": ["@pubm/core@workspace:packages/core"],
 
+    "@pubm/darwin-arm64": ["@pubm/darwin-arm64@workspace:packages/cli/platforms/darwin-arm64"],
+
+    "@pubm/darwin-x64": ["@pubm/darwin-x64@workspace:packages/cli/platforms/darwin-x64"],
+
+    "@pubm/linux-arm64": ["@pubm/linux-arm64@workspace:packages/cli/platforms/linux-arm64"],
+
+    "@pubm/linux-x64": ["@pubm/linux-x64@workspace:packages/cli/platforms/linux-x64"],
+
     "@pubm/plugin-brew": ["@pubm/plugin-brew@workspace:packages/plugins/plugin-brew"],
 
     "@pubm/plugin-external-version-sync": ["@pubm/plugin-external-version-sync@workspace:packages/plugins/plugin-external-version-sync"],
+
+    "@pubm/windows-x64": ["@pubm/windows-x64@workspace:packages/cli/platforms/windows-x64"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.22.5", "", { "os": "android", "cpu": "arm" }, "sha512-SU5cvamg0Eyu/F+kLeMXS7GoahL+OoizlclVFX3l5Ql6yNlywJJ0OuqTzUx0v+aHhPHEB/56CT06GQrRrGNYww=="],
 
