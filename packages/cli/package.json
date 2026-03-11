@@ -4,7 +4,7 @@
   "type": "module",
   "description": "publish manager for multiple registry (jsr, npm and private registries)",
   "bin": {
-    "pubm": "./bin/cli.js"
+    "pubm": "./bin/cli.cjs"
   },
   "files": [
     "bin/",
@@ -12,7 +12,6 @@
     "postinstall.cjs"
   ],
   "scripts": {
-    "build": "bun run build.ts",
     "postinstall": "node ./postinstall.cjs",
     "check": "biome check",
     "typecheck": "tsc --noEmit",
@@ -31,11 +30,11 @@
     "@types/semver": "^7.5.8"
   },
   "optionalDependencies": {
-    "@pubm/darwin-arm64": "0.2.12",
-    "@pubm/darwin-x64": "0.2.12",
-    "@pubm/linux-arm64": "0.2.12",
-    "@pubm/linux-x64": "0.2.12",
-    "@pubm/windows-x64": "0.2.12"
+    "@pubm/darwin-arm64": "workspace:*",
+    "@pubm/darwin-x64": "workspace:*",
+    "@pubm/linux-arm64": "workspace:*",
+    "@pubm/linux-x64": "workspace:*",
+    "@pubm/windows-x64": "workspace:*"
   },
   "engines": {
     "node": ">=18",

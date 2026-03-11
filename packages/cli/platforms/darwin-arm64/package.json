@@ -1,0 +1,23 @@
+{
+  "name": "@pubm/darwin-arm64",
+  "version": "0.3.6",
+  "description": "pubm binary for darwin-arm64",
+  "license": "Apache-2.0",
+  "author": "Yein Sung",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git"
+  },
+  "homepage": "https://github.com/syi0808/pubm#readme",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "devDependencies": {
+    "@pubm/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
