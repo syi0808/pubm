@@ -15,6 +15,25 @@ export default defineConfig({
   ],
   plugins: [
     brewTap({ formula: "Formula/pubm.rb" }),
-    externalVersionSync({ targets: [] }),
+    externalVersionSync({
+      targets: [
+        {
+          file: "website/src/components/landing/Hero.astro",
+          pattern: /v\d+\.\d+\.\d+ available/,
+        },
+        {
+          file: "plugins/pubm-plugin/.claude-plugin/plugin.json",
+          jsonPath: "version",
+        },
+        {
+          file: ".claude-plugin/marketplace.json",
+          jsonPath: "metadata.version",
+        },
+        {
+          file: ".claude-plugin/marketplace.json",
+          jsonPath: "plugins.0.version",
+        },
+      ],
+    }),
   ],
 });
