@@ -1,0 +1,5 @@
+{
+  "name": "with-config-optional-dynamic-import",
+  "private": true,
+  "type": "module"
+}
