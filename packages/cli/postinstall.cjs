@@ -22,7 +22,11 @@ function main() {
     );
 
     if (!fs.existsSync(binaryPath)) {
-      console.warn("pubm: binary not found at " + binaryPath + ". Run `bun run build` to compile platform binaries.");
+      console.warn(
+        "pubm: binary not found at " +
+          binaryPath +
+          ". Run `bun run build` to compile platform binaries.",
+      );
       process.exit(0);
     }
 

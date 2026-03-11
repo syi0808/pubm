@@ -9,8 +9,12 @@
     "url": "git+https://github.com/syi0808/pubm.git"
   },
   "homepage": "https://github.com/syi0808/pubm#readme",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "scripts": {
     "build": "bun run build.ts"
   },
