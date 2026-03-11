@@ -39,6 +39,8 @@
     "vitest": "^2.1.1",
     "pubm": "workspace:*",
     "@pubm/core": "workspace:*",
+    "@pubm/plugin-brew": "workspace:*",
+    "@pubm/plugin-external-version-sync": "workspace:*",
     "@pubm/darwin-arm64": "workspace:*",
     "@pubm/darwin-x64": "workspace:*",
     "@pubm/linux-arm64": "workspace:*",

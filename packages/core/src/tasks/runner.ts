@@ -365,7 +365,11 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   let tagCreated = false;
                   let commited = false;
 
-                  const isIndependent = ctx.versions && ctx.versions.size > 1;
+                  const hasMultiPackageVersions =
+                    ctx.versions && ctx.versions.size > 0;
+                  const isIndependent =
+                    hasMultiPackageVersions &&
+                    new Set(ctx.versions!.values()).size > 1;
 
                   addRollback(async () => {
                     if (tagCreated) {
@@ -413,8 +417,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                   await git.reset();
 
-                  if (isIndependent) {
-                    // Independent mode: per-package version replacement
+                  if (hasMultiPackageVersions) {
+                    // Multi-package version replacement (fixed and independent)
                     const packageInfos = await discoverPackageInfos(
                       process.cwd(),
                     );
@@ -434,28 +438,47 @@ export async function run(options: ResolvedOptions): Promise<void> {
                       }
                     }
 
-                    // Changeset consumption for independent mode
+                    // Changeset consumption
                     if (ctx.changesetConsumed) {
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
-                        for (const [pkgName, pkgVersion] of ctx.versions!) {
-                          const entries = buildChangelogEntries(
-                            changesets,
-                            pkgName,
-                          );
-                          if (entries.length > 0) {
-                            const pkgInfo = packageInfos.find(
-                              (p) => p.name === pkgName,
+                        if (isIndependent) {
+                          // Independent: per-package changelogs
+                          for (const [pkgName, pkgVersion] of ctx.versions!) {
+                            const entries = buildChangelogEntries(
+                              changesets,
+                              pkgName,
                             );
-                            const changelogDir = pkgInfo
-                              ? path.resolve(process.cwd(), pkgInfo.path)
-                              : process.cwd();
+                            if (entries.length > 0) {
+                              const pkgInfo = packageInfos.find(
+                                (p) => p.name === pkgName,
+                              );
+                              const changelogDir = pkgInfo
+                                ? path.resolve(process.cwd(), pkgInfo.path)
+                                : process.cwd();
+                              const changelogContent = generateChangelog(
+                                pkgVersion,
+                                entries,
+                              );
+                              writeChangelogToFile(
+                                changelogDir,
+                                changelogContent,
+                              );
+                            }
+                          }
+                        } else {
+                          // Fixed monorepo: single changelog at root
+                          const allEntries = [...ctx.versions!.keys()].flatMap(
+                            (pkgName) =>
+                              buildChangelogEntries(changesets, pkgName),
+                          );
+                          if (allEntries.length > 0) {
                             const changelogContent = generateChangelog(
-                              pkgVersion,
-                              entries,
+                              ctx.version,
+                              allEntries,
                             );
                             writeChangelogToFile(
-                              changelogDir,
+                              process.cwd(),
                               changelogContent,
                             );
                           }
@@ -467,21 +490,34 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     await ctx.pluginRunner.runHook("afterVersion", ctx);
                     await git.stage(".");
 
-                    // Create one commit with all version bumps
-                    const commitMsg = [...ctx.versions!]
-                      .map(([name, ver]) => `${name}@${ver}`)
-                      .join(", ");
-                    const commit = await git.commit(commitMsg);
-                    commited = true;
+                    if (isIndependent) {
+                      // Independent: per-package commit message and tags
+                      const commitMsg = [...ctx.versions!]
+                        .map(([name, ver]) => `${name}@${ver}`)
+                        .join(", ");
+                      const commit = await git.commit(commitMsg);
+                      commited = true;
 
-                    // Create per-package tags
-                    task.output = "Creating tags...";
-                    for (const [pkgName, pkgVersion] of ctx.versions!) {
-                      await git.createTag(`${pkgName}@${pkgVersion}`, commit);
+                      task.output = "Creating tags...";
+                      for (const [pkgName, pkgVersion] of ctx.versions!) {
+                        await git.createTag(
+                          `${pkgName}@${pkgVersion}`,
+                          commit,
+                        );
+                      }
+                      tagCreated = true;
+                    } else {
+                      // Fixed monorepo: single version commit and tag
+                      const nextVersion = `v${ctx.version}`;
+                      const commit = await git.commit(nextVersion);
+                      commited = true;
+
+                      task.output = "Creating tag...";
+                      await git.createTag(nextVersion, commit);
+                      tagCreated = true;
                     }
-                    tagCreated = true;
                   } else {
-                    // Fixed mode / single package: existing behavior
+                    // Single package: existing behavior
                     const replaced = await replaceVersion(
                       ctx.version,
                       ctx.packages,

@@ -1,7 +1,6 @@
 import { defineConfig } from "@pubm/core";
-import { defineConfig as defineConfigVitest } from "vitest/config";
-
-console.log("vitest defineConfig loaded:", typeof defineConfigVitest);
+import { brewTap } from "@pubm/plugin-brew";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
   versioning: "independent",
@@ -13,5 +12,9 @@ export default defineConfig({
       registries: ["npm", "jsr"],
     },
     { path: "packages/plugins/plugin-brew", registries: ["npm", "jsr"] },
+  ],
+  plugins: [
+    brewTap({ formula: "Formula/pubm.rb" }),
+    externalVersionSync({ targets: [] }),
   ],
 });
