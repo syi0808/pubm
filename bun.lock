@@ -11,6 +11,8 @@
         "@pubm/darwin-x64": "workspace:*",
         "@pubm/linux-arm64": "workspace:*",
         "@pubm/linux-x64": "workspace:*",
+        "@pubm/plugin-brew": "workspace:*",
+        "@pubm/plugin-external-version-sync": "workspace:*",
         "@pubm/windows-x64": "workspace:*",
         "@types/bun": "^1.3.10",
         "@types/node": "^22.7.4",

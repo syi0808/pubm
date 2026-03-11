@@ -113,7 +113,8 @@ export const requiredMissingInformationTasks = (
       parentTask.newListr([
         {
           title: "Checking version information",
-          skip: (ctx) => !!ctx.version,
+          skip: (ctx) =>
+            !!ctx.version || (!!ctx.versions && ctx.versions.size > 0),
           task: async (ctx, task): Promise<void> => {
             const cwd = process.cwd();
             const packageInfos = await discoverPackageInfos(cwd);
@@ -403,6 +404,13 @@ async function handleFixedMode(
   }
 
   ctx.version = nextVersion;
+
+  // Set per-package versions so runner replaces all package.json files
+  const versions = new Map<string, string>();
+  for (const name of currentVersions.keys()) {
+    versions.set(name, nextVersion);
+  }
+  ctx.versions = versions;
 }
 
 /**
