@@ -500,10 +500,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                       task.output = "Creating tags...";
                       for (const [pkgName, pkgVersion] of ctx.versions!) {
-                        await git.createTag(
-                          `${pkgName}@${pkgVersion}`,
-                          commit,
-                        );
+                        await git.createTag(`${pkgName}@${pkgVersion}`, commit);
                       }
                       tagCreated = true;
                     } else {

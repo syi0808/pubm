@@ -9,8 +9,12 @@
     "url": "git+https://github.com/syi0808/pubm.git"
   },
   "homepage": "https://github.com/syi0808/pubm#readme",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "scripts": {
     "build": "bun run build.ts"
   },
