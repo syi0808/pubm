@@ -90,7 +90,6 @@
       "dependencies": {
         "@listr2/prompt-adapter-enquirer": "^2.0.12",
         "enquirer": "^2.4.1",
-        "jiti": "^2.6.1",
         "listr2": "^8.2.5",
         "micromatch": "^4.0.8",
         "semver": "^7.6.3",
@@ -380,8 +379,6 @@
     "istanbul-reports": ["istanbul-reports@3.1.7", "", { "dependencies": { "html-escaper": "2.0.2", "istanbul-lib-report": "3.0.1" } }, "sha512-BewmUXImeuRk2YY0PVbxgKAysvhRPUQE0h5QRM++nVWyubKGV0l8qQ5op8+B2DOmwSe63Jivj0BjkPQVf8fP5g=="],
 
     "jackspeak": ["jackspeak@3.4.3", "", { "dependencies": { "@isaacs/cliui": "8.0.2" }, "optionalDependencies": { "@pkgjs/parseargs": "0.11.0" } }, "sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw=="],
-
-    "jiti": ["jiti@2.6.1", "", { "bin": { "jiti": "lib/jiti-cli.mjs" } }, "sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ=="],
 
     "jsr": ["jsr@0.13.2", "", { "dependencies": { "kolorist": "1.8.0", "node-stream-zip": "1.15.0", "semiver": "1.1.0" }, "bin": { "jsr": "dist/bin.js" } }, "sha512-c4ir0ql2Xgpg9mSOSPKBANS9oTvlV8fSzpesCsHP04VAOJ3pBm7YygY2LVkHC0jz9G36JBGh1oiEZTWO4UyctA=="],
 

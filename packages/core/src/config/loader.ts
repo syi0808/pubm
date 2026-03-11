@@ -1,7 +1,8 @@
-import { stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import vm from "node:vm";
 import type { PubmConfig } from "./types.js";
 
 const CONFIG_FILES = [
@@ -25,19 +26,120 @@ async function findConfigFile(cwd: string): Promise<string | null> {
   return null;
 }
 
-function resolveModuleSpecifier(
-  specifier: string,
-  parentIdentifier: string,
-): string {
-  if (specifier.startsWith("file://")) {
-    return specifier;
+async function buildConfig(entrypoint: string) {
+  const build = globalThis.Bun?.build;
+  if (build) {
+    return build({
+      entrypoints: [entrypoint],
+      target: "bun",
+      format: "esm",
+      minify: true,
+      external: [],
+      packages: "bundle",
+      splitting: false,
+    });
   }
 
-  if (specifier.startsWith(".") || specifier.startsWith("/")) {
-    return new URL(specifier, pathToFileURL(parentIdentifier)).href;
+  const tempDir = await mkdtemp(path.join(tmpdir(), "pubm-config-"));
+  const outfile = path.join(tempDir, "pubm.config.mjs");
+
+  try {
+    const { stderr } = await new Promise<{ stderr: string }>(
+      (resolve, reject) => {
+        execFile(
+          "bun",
+          [
+            "build",
+            entrypoint,
+            "--target",
+            "bun",
+            "--format",
+            "esm",
+            "--minify",
+            "--packages",
+            "bundle",
+            "--outfile",
+            outfile,
+          ],
+          (error, _stdout, stderr) => {
+            if (error) {
+              reject(
+                new Error(
+                  stderr || `Failed to build config via bun: ${error.message}`,
+                ),
+              );
+              return;
+            }
+
+            resolve({ stderr });
+          },
+        );
+      },
+    );
+    const contents = await readFile(outfile, "utf8");
+
+    return {
+      success: true,
+      logs: stderr ? [{ message: stderr }] : [],
+      outputs: [
+        {
+          kind: "entry-point" as const,
+          text: async () => contents,
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      logs: [
+        {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to build config via bun",
+        },
+      ],
+      outputs: [],
+    };
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function rewriteImportMeta(source: string, configPath: string): string {
+  const replacements = [
+    ["import.meta.dirname", JSON.stringify(path.dirname(configPath))],
+    ["import.meta.filename", JSON.stringify(configPath)],
+    ["import.meta.path", JSON.stringify(configPath)],
+    ["import.meta.url", JSON.stringify(pathToFileURL(configPath).href)],
+    ["import.meta.dir", JSON.stringify(path.dirname(configPath))],
+  ] as const;
+
+  let rewritten = source;
+  for (const [pattern, value] of replacements) {
+    rewritten = rewritten.split(pattern).join(value);
   }
 
-  return specifier;
+  return rewritten;
+}
+
+async function importBundledConfig(
+  source: string,
+  configPath: string,
+): Promise<PubmConfig> {
+  const tempDir = await mkdtemp(path.join(tmpdir(), "pubm-config-module-"));
+  const tempFile = path.join(tempDir, "pubm.config.mjs");
+
+  try {
+    await writeFile(tempFile, rewriteImportMeta(source, configPath), "utf8");
+    const namespace = (await import(
+      `${pathToFileURL(tempFile).href}?t=${Date.now()}`
+    )) as { default?: PubmConfig } & PubmConfig;
+
+    return namespace.default ?? namespace;
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 }
 
 export async function loadConfig(
@@ -46,15 +148,7 @@ export async function loadConfig(
   const configPath = await findConfigFile(cwd);
   if (!configPath) return null;
 
-  const output = await Bun.build({
-    entrypoints: [configPath],
-    target: "bun",
-    format: "esm",
-    minify: true,
-    external: [],
-    packages: "bundle",
-    splitting: false,
-  });
+  const output = await buildConfig(configPath);
 
   if (!output.success) {
     const errors = output.logs.map((log) => log.message).join("\n");
@@ -66,57 +160,5 @@ export async function loadConfig(
     throw new Error(`Failed to build config: missing entrypoint output`);
   }
 
-  const moduleCache = new Map<string, vm.Module>();
-  const mod = new vm.SourceTextModule(await entrypoint.text(), {
-    identifier: configPath,
-    initializeImportMeta(meta) {
-      const dir = path.dirname(configPath);
-      Object.defineProperties(meta, {
-        url: { value: pathToFileURL(configPath).href, configurable: true },
-        dir: { value: dir, configurable: true },
-        dirname: { value: dir, configurable: true },
-        path: { value: configPath, configurable: true },
-        filename: { value: configPath, configurable: true },
-      });
-    },
-  });
-
-  await mod.link(async (specifier, referencingModule) => {
-    const resolvedSpecifier = resolveModuleSpecifier(
-      specifier,
-      referencingModule.identifier,
-    );
-    const cached = moduleCache.get(resolvedSpecifier);
-    if (cached) {
-      return cached;
-    }
-
-    const namespace = await import(resolvedSpecifier);
-    const exportNames = Array.from(
-      new Set(["default", ...Object.getOwnPropertyNames(namespace)]),
-    );
-    const linkedModule = new vm.SyntheticModule(
-      exportNames,
-      function setExports() {
-        for (const exportName of exportNames) {
-          this.setExport(
-            exportName,
-            namespace[exportName as keyof typeof namespace],
-          );
-        }
-      },
-      { identifier: resolvedSpecifier },
-    );
-
-    moduleCache.set(resolvedSpecifier, linkedModule);
-    await linkedModule.link(async (nestedSpecifier) => {
-      throw new Error(`Unexpected nested import: ${nestedSpecifier}`);
-    });
-    await linkedModule.evaluate();
-    return linkedModule;
-  });
-  await mod.evaluate();
-
-  const namespace = mod.namespace as { default?: PubmConfig } & PubmConfig;
-  return namespace.default ?? namespace;
+  return importBundledConfig(await entrypoint.text(), configPath);
 }
