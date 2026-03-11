@@ -8,18 +8,18 @@ const base = import.meta.env.BASE_URL;
   <div class="hero-mesh"></div>
   <div class="hero-grid">
     <div class="hero-content">
-      <div class="hero-badge reveal" data-speed="1.2">
+      <div class="hero-badge reveal">
         <span class="badge-dot"></span>
         <span class="badge-text">v0.2.12 available</span>
       </div>
-      <h1 class="hero-title split-text" data-speed="1.1">
-        Publish everywhere.<br />
-        <span class="gradient-text">Roll back safely.</span>
+      <h1 class="hero-title split-text">
+        One command.<br />
+        <span class="gradient-text">Every registry.</span>
       </h1>
-      <p class="hero-sub split-text" data-speed="1.05">
-        The modern multi-registry publish orchestrator for <span class="text-highlight">npm, jsr, crates.io</span>, and private registries. Ship with absolute confidence.
+      <p class="hero-sub split-text">
+        Publish to <span class="text-highlight">npm, jsr, crates.io</span>, and private registries in a single step. If anything fails, pubm rolls everything back automatically.
       </p>
-      <div class="hero-cta reveal" data-speed="1">
+      <div class="hero-cta reveal">
         <a href={`${base}guides/quick-start`} class="btn-primary-v2">
           Get Started
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -150,7 +150,8 @@ const base = import.meta.env.BASE_URL;
     justify-content: center;
     padding: 8rem 1.5rem 6rem;
     background: var(--bg-primary);
-    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 20px;
   }
 
   .hero-mesh {
