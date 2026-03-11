@@ -2,6 +2,7 @@
   "name": "@pubm/plugin-brew",
   "version": "0.2.12",
   "type": "module",
+  "description": "pubm plugin for Homebrew formula publishing workflows",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -11,10 +12,25 @@
     }
   },
   "files": [
-    "dist"
+    "dist/"
   ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm && bunx tsc --project tsconfig.build.json",
+    "check": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage"
+  },
   "license": "Apache-2.0",
   "peerDependencies": {
     "@pubm/core": ">=0.3.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git",
+    "directory": "packages/plugins/plugin-brew"
   }
 }
