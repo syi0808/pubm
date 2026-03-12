@@ -79,17 +79,14 @@ export default defineConfig({
       targets: [
         {
           file: "src/constants.ts",
-          type: "regex",
           pattern: /export const VERSION = "([^"]+)";/,
         },
         {
           file: "manifest.json",
-          type: "json",
-          jsonPath: "$.metadata.version",
+          jsonPath: "metadata.version",
         },
         {
           file: "README.md",
-          type: "regex",
           pattern: /pubm@([\\w.-]+)/,
         },
       ],
@@ -107,7 +104,6 @@ Use for arbitrary text files:
 ```ts
 {
   file: "README.md",
-  type: "regex",
   pattern: /pubm@([\\w.-]+)/,
 }
 ```
@@ -124,8 +120,7 @@ Use for machine-readable manifests:
 ```ts
 {
   file: "manifest.json",
-  type: "json",
-  jsonPath: "$.metadata.version",
+  jsonPath: "metadata.version",
 }
 ```
 
@@ -137,7 +132,7 @@ If you are not sure where versions appear in your repository, run:
 pubm sync --discover
 ```
 
-That command scans for likely version references and prints candidate `regex` or `json` targets you can copy into plugin config.
+That command scans for likely version references and prints candidate files and paths you can adapt into plugin config.
 
 ## Choosing between official and custom plugins
 
@@ -154,3 +149,16 @@ Build a custom plugin when:
 - you want additional CLI commands for operators
 
 Read the [Plugins API Reference](/pubm/reference/plugins/) if you need to extend beyond the official set.
+
+## Coding-agent setup automation
+
+Runtime plugins are only part of the story. This repository also ships a `pubm plugin` bundle under `plugins/pubm-plugin/skills/*` for coding-agent workflows such as:
+
+- release setup
+- preview-first publish assistance
+- version-sync discovery
+- plugin scaffolding
+
+If you are integrating `pubm` into an agent environment, pair runtime plugins with these skill-style assets so setup and publish flows stay explicit and repeatable.
+
+Read the [Coding Agent Integration](/pubm/guides/coding-agents/) guide for the recommended layout.

@@ -3,7 +3,15 @@ title: Config API Reference
 description: Every supported field in pubm.config.*, with defaults and usage notes.
 ---
 
-This reference describes the shape of `pubm.config.*` as exposed by `defineConfig()` from `@pubm/core`.
+This reference describes the typed shape of `pubm.config.*` as exposed by `defineConfig()` from `@pubm/core`.
+
+The config schema is broader than the current runtime wiring. Today, the most important fields in active publish flows are:
+
+- `registries`
+- `packages`
+- `plugins`
+- `versioning`, `fixed`, and `linked` for changeset/version planning
+- `snapshot.useCalculatedVersion` for snapshot releases
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -64,6 +72,7 @@ Controls how versions are assigned in multi-package repositories.
 - Default: `"main"`
 
 Branch that must match `HEAD` during guarded release runs.
+Typed config field for release-branch policy. If you need branch enforcement today, prefer the CLI `--branch` flag.
 
 ## `registries`
 
@@ -155,6 +164,7 @@ Package names or paths to exclude from workspace discovery.
 - Default: `"latest"`
 
 Default distribution tag for publish runs.
+Typed config field for distribution tags. Per-run tag selection is currently most reliable through the CLI `--tag` flag.
 
 ## `contents`
 
@@ -162,6 +172,7 @@ Default distribution tag for publish runs.
 - Default: `"."`
 
 Directory to `chdir` into before running the publish pipeline.
+Typed config field for alternate publish roots. Use the CLI `--contents` flag for the current runtime publish path.
 
 ## `saveToken`
 
@@ -169,6 +180,7 @@ Directory to `chdir` into before running the publish pipeline.
 - Default: `true`
 
 Whether supported registry tokens should be stored for reuse on local machines.
+Typed config field for token persistence policy. Operationally, `--no-save-token` is the flag that affects a publish run today.
 
 ## `releaseDraft`
 
@@ -176,6 +188,7 @@ Whether supported registry tokens should be stored for reuse on local machines.
 - Default: `true`
 
 Whether the normal publish flow should open the GitHub release draft step.
+Typed config field for release-draft policy. Use the CLI `--no-release-draft` flag to control the current publish path.
 
 ## `releaseNotes`
 
@@ -211,28 +224,28 @@ Registers plugins that can add hooks, commands, registries, or ecosystems.
 }
 ```
 
-Validation toggles used during release preparation and preflight.
+Typed validation config surface. These fields are part of the public schema, but they are not yet active toggles in the current publish pipeline.
 
 ### `validate.cleanInstall`
 
 - Type: `boolean`
 - Default: `true`
 
-Clean-install validation toggle.
+Reserved validation toggle.
 
 ### `validate.entryPoints`
 
 - Type: `boolean`
 - Default: `true`
 
-Checks that declared entry points resolve to real files.
+Reserved validation toggle.
 
 ### `validate.extraneousFiles`
 
 - Type: `boolean`
 - Default: `true`
 
-Checks for files that are likely to be published unintentionally.
+Reserved validation toggle.
 
 ## `snapshot`
 
@@ -338,7 +351,6 @@ interface SnapshotConfig {
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  branch: "main",
   registries: ["npm", "jsr"],
 });
 ```
