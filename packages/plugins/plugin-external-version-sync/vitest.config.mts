@@ -4,6 +4,12 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.{test,spec}.?(c|m)[jt]s?(x)"],
     setupFiles: ["tests/setup.ts"],
+    coverage: {
+      provider: "istanbul",
+      reporter: ["json-summary", "json", "text-summary"],
+      reportOnFailure: true,
+      include: ["src/**/*.ts"],
+    },
     pool: "forks",
     testTimeout: 30000,
     passWithNoTests: true,

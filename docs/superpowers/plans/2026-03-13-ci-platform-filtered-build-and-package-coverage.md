@@ -4,9 +4,9 @@
 
 **Goal:** Update GitHub Actions CI so each test matrix job only builds its matching pubm platform package and the PR coverage output shows separate blocks for each package.
 
-**Architecture:** Keep the change inside `.github/workflows/ci.yaml`. Replace workspace-wide build and coverage commands with explicit Turbo filters and package-scoped coverage/reporting steps, then synthesize an empty coverage payload for `@pubm/plugin-brew` so it appears in the same PR report stream.
+**Architecture:** Keep the change inside `.github/workflows/ci.yaml` plus the package Vitest configs. Replace workspace-wide build and coverage commands with explicit Turbo filters and package-scoped coverage/reporting steps, move the coverage provider and reporters into each package's Vitest config so `bun run coverage` is the canonical path, and synthesize an empty coverage payload for `@pubm/plugin-brew` so it appears in the same PR report stream.
 
-**Tech Stack:** GitHub Actions, Bun, Turborepo, Vitest coverage, `davelosert/vitest-coverage-report-action@v2`
+**Tech Stack:** GitHub Actions, Bun, Turborepo, Vitest coverage with Istanbul, `davelosert/vitest-coverage-report-action@v2`
 
 ---
 
@@ -15,6 +15,10 @@
 ### Task 1: Replace the test matrix with explicit platform metadata
 
 **Files:**
+- Modify: `package.json`
+- Modify: `packages/core/vitest.config.mts`
+- Modify: `packages/pubm/vitest.config.mts`
+- Modify: `packages/plugins/plugin-external-version-sync/vitest.config.mts`
 - Modify: `.github/workflows/ci.yaml`
 
 - [ ] **Step 1: Update the test matrix to use `include` entries**
@@ -73,40 +77,65 @@ git commit -m "ci: scope test builds to matrix platform"
 **Files:**
 - Modify: `.github/workflows/ci.yaml`
 
-- [ ] **Step 1: Remove the root `bun run build` and `bun run coverage` steps from the coverage job**
+- [ ] **Step 1: Replace the V8 coverage dependency with the Istanbul package**
 
-The coverage job should stop depending on workspace-wide commands that hide package boundaries.
+Update the root dev dependency list so Vitest loads Istanbul support through the workspace install:
 
-- [ ] **Step 2: Add package-specific coverage commands for buildable/tested packages**
+```json
+"@vitest/coverage-istanbul": "^4.0.18"
+```
+
+and remove:
+
+```json
+"@vitest/coverage-v8": "^4.0.18"
+```
+
+- [ ] **Step 2: Move the coverage provider and reporters into package Vitest configs**
+
+Update the package Vitest configs that own coverage so they define:
+
+- `provider: "istanbul"`
+- reporters for `json-summary`, `json`, and `text-summary`
+- `reportOnFailure: true`
+- existing include/exclude/threshold settings preserved
+
+Add the same coverage reporter setup to `packages/plugins/plugin-external-version-sync/vitest.config.mts`, which currently has no explicit coverage block.
+
+The result should make plain `bun run coverage` produce the report files expected by CI.
+
+- [ ] **Step 3: Simplify the coverage job to use Bun package commands**
+
+Remove the Node 24 setup and direct `node "$VITEST_BIN"` invocations.
 
 Add separate steps that execute coverage from each package directory:
 
 ```yaml
 - name: Coverage: @pubm/core
   working-directory: packages/core
-  run: bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
+  run: bun run coverage
 
 - name: Coverage: pubm
   working-directory: packages/pubm
-  run: bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
+  run: bun run coverage
 
 - name: Coverage: @pubm/plugin-external-version-sync
   working-directory: packages/plugins/plugin-external-version-sync
-  run: bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
+  run: bun run coverage
 ```
 
-- [ ] **Step 3: Add a synthetic empty coverage payload for `@pubm/plugin-brew`**
+- [ ] **Step 4: Add a synthetic empty coverage payload for `@pubm/plugin-brew`**
 
 Create the expected files inside `packages/plugins/plugin-brew/coverage/` so the reporting action can publish an explicit no-tests section for that package.
 
 Use a shell step that creates:
 
 - `coverage-summary.json`
-- `lcov.info`
+- `coverage-final.json`
 
 The JSON payload should represent zero totals rather than fabricated covered lines.
 
-- [ ] **Step 4: Report each package coverage block with a unique name**
+- [ ] **Step 5: Report each package coverage block with a unique name**
 
 Invoke `davelosert/vitest-coverage-report-action@v2` once per package, setting:
 
@@ -116,25 +145,26 @@ Invoke `davelosert/vitest-coverage-report-action@v2` once per package, setting:
 
 Keep all report steps in the same job so GitHub produces one PR comment/check with separate named sections.
 
-- [ ] **Step 5: Verify real coverage outputs exist for the tested packages**
+- [ ] **Step 6: Reinstall dependencies and verify real coverage outputs exist**
 
 Run:
 
 ```bash
-cd packages/core && bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
-cd packages/pubm && bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
-cd packages/plugins/plugin-external-version-sync && bun run coverage -- --reporter=json-summary --reporter=lcov --reporter=text-summary
+bun install --frozen-lockfile
+cd packages/core && bun run coverage
+cd packages/pubm && bun run coverage
+cd packages/plugins/plugin-external-version-sync && bun run coverage
 ```
 
-Expected: Each package writes `coverage/coverage-summary.json` and `coverage/lcov.info`.
+Expected: Each package writes `coverage/coverage-summary.json` and `coverage/coverage-final.json`.
 
-- [ ] **Step 6: Verify the synthetic `plugin-brew` payload exists**
+- [ ] **Step 7: Verify the synthetic `plugin-brew` payload exists**
 
 Run: `ls packages/plugins/plugin-brew/coverage`
 
-Expected: `coverage-summary.json` and `lcov.info` are present.
+Expected: `coverage-summary.json` and `coverage-final.json` are present.
 
-- [ ] **Step 7: Commit the coverage job update**
+- [ ] **Step 8: Commit the coverage job update**
 
 ```bash
 git add .github/workflows/ci.yaml

@@ -41,7 +41,10 @@ Keep coverage on a single Ubuntu job, but generate coverage package-by-package i
 
 For each package that should appear in the report:
 
-- run the package coverage command from that package directory
+- configure Vitest coverage inside each package's `vitest.config.mts` so CI and local execution use the same provider and reporters
+- switch coverage to Istanbul so `bun run coverage` can remain the execution path
+- enable `reportOnFailure` in config so coverage JSON files are still emitted when the existing test baseline fails
+- run the package coverage command from that package directory without CLI overrides
 - request reporters that generate the files expected by `davelosert/vitest-coverage-report-action`
 - keep each package's coverage output in its own coverage directory
 
@@ -61,6 +64,8 @@ The workflow should therefore create a synthetic empty coverage result for that 
   - replace the single root coverage run with package-scoped coverage runs
   - add repeated named coverage reporting steps
   - generate a synthetic empty coverage payload for `@pubm/plugin-brew`
+- Modify the root [`package.json`](/Users/sung-yein/Workspace/open-source/pubm/package.json) to replace the Vitest V8 coverage package with the Istanbul coverage package.
+- Modify package Vitest configs to make Istanbul plus the required JSON reporters the default coverage configuration.
 
 No production source packages need behavior changes for this CI fix.
 

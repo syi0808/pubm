@@ -22,11 +22,17 @@ jobs:
       - run: bun run typecheck
 
   test:
-    name: 'Test: ${{ matrix.os }}'
+    name: 'Test: ${{ matrix.os }} / ${{ matrix.platform_package }}'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform_package: '@pubm/linux-x64'
+          - os: macos-latest
+            platform_package: '@pubm/darwin-arm64'
+          - os: windows-latest
+            platform_package: '@pubm/windows-x64'
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +40,20 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run test
+      - name: 'Build matrix-target packages'
+        run: >
+          bunx turbo run build
+          --filter=@pubm/core
+          --filter=@pubm/plugin-brew
+          --filter=@pubm/plugin-external-version-sync
+          --filter=${{ matrix.platform_package }}
+      - name: 'Run scoped tests without dependency rebuilds'
+        run: >
+          bunx turbo run test --only
+          --filter=@pubm/core
+          --filter=@pubm/plugin-brew
+          --filter=@pubm/plugin-external-version-sync
+          --filter=pubm
 
   coverage:
     name: 'Coverage'
@@ -49,8 +67,110 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run coverage
-      - name: 'Report Coverage'
+      - name: 'Build packages required for coverage'
+        run: >
+          bunx turbo run build
+          --filter=@pubm/core
+          --filter=@pubm/plugin-brew
+          --filter=@pubm/plugin-external-version-sync
+          --filter=@pubm/linux-x64
+      - name: 'Coverage: @pubm/core'
+        id: coverage_core
+        continue-on-error: true
+        working-directory: packages/core
+        run: bun run coverage
+      - name: 'Ensure coverage artifacts: @pubm/core'
+        if: always()
+        working-directory: packages/core
+        shell: bash
+        run: |
+          mkdir -p coverage
+          if [ ! -f coverage/coverage-summary.json ]; then
+            cat > coverage/coverage-summary.json <<'EOF'
+            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
+            EOF
+          fi
+          if [ ! -f coverage/coverage-final.json ]; then
+            echo '{}' > coverage/coverage-final.json
+          fi
+      - name: 'Coverage: pubm'
+        if: always()
+        id: coverage_pubm
+        continue-on-error: true
+        working-directory: packages/pubm
+        run: bun run coverage
+      - name: 'Ensure coverage artifacts: pubm'
+        if: always()
+        working-directory: packages/pubm
+        shell: bash
+        run: |
+          mkdir -p coverage
+          if [ ! -f coverage/coverage-summary.json ]; then
+            cat > coverage/coverage-summary.json <<'EOF'
+            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
+            EOF
+          fi
+          if [ ! -f coverage/coverage-final.json ]; then
+            echo '{}' > coverage/coverage-final.json
+          fi
+      - name: 'Coverage: @pubm/plugin-external-version-sync'
+        if: always()
+        id: coverage_plugin_external_version_sync
+        continue-on-error: true
+        working-directory: packages/plugins/plugin-external-version-sync
+        run: bun run coverage
+      - name: 'Ensure coverage artifacts: @pubm/plugin-external-version-sync'
+        if: always()
+        working-directory: packages/plugins/plugin-external-version-sync
+        shell: bash
+        run: |
+          mkdir -p coverage
+          if [ ! -f coverage/coverage-summary.json ]; then
+            cat > coverage/coverage-summary.json <<'EOF'
+            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
+            EOF
+          fi
+          if [ ! -f coverage/coverage-final.json ]; then
+            echo '{}' > coverage/coverage-final.json
+          fi
+      - name: 'Coverage: @pubm/plugin-brew'
+        if: always()
+        working-directory: packages/plugins/plugin-brew
+        shell: bash
+        run: |
+          mkdir -p coverage
+          cat > coverage/coverage-summary.json <<'EOF'
+          {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
+          EOF
+          echo '{}' > coverage/coverage-final.json
+      - name: 'Report Coverage: @pubm/core'
         if: always()
         uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: '@pubm/core'
+          working-directory: packages/core
+          file-coverage-mode: none
+      - name: 'Report Coverage: pubm'
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: 'pubm'
+          working-directory: packages/pubm
+          file-coverage-mode: none
+      - name: 'Report Coverage: @pubm/plugin-external-version-sync'
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: '@pubm/plugin-external-version-sync'
+          working-directory: packages/plugins/plugin-external-version-sync
+          file-coverage-mode: none
+      - name: 'Report Coverage: @pubm/plugin-brew'
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: '@pubm/plugin-brew'
+          working-directory: packages/plugins/plugin-brew
+          file-coverage-mode: none
+      - name: 'Fail if a real coverage command failed'
+        if: ${{ always() && (steps.coverage_core.outcome == 'failure' || steps.coverage_pubm.outcome == 'failure' || steps.coverage_plugin_external_version_sync.outcome == 'failure') }}
+        run: exit 1
