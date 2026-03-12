@@ -1,129 +1,995 @@
 ---
+type SegmentTone =
+  | "plain"
+  | "dim"
+  | "prompt"
+  | "success"
+  | "warning"
+  | "selected"
+  | "summary";
+
+interface Segment {
+  text?: string;
+  tone?: SegmentTone;
+  strong?: boolean;
+  underline?: boolean;
+  spinner?: boolean;
+}
+
+interface TerminalLine {
+  blank?: boolean;
+  segments?: Segment[];
+}
+
+interface VersionPromptOption {
+  label: string;
+  value?: string;
+}
+
+type TerminalFrameAnimation =
+  | {
+      type: "task";
+    }
+  | {
+      type: "prompt-command";
+      commandBase: string;
+      commandSuffix: string;
+      erase?: boolean;
+    }
+  | {
+      type: "prompt-select";
+      options: VersionPromptOption[];
+      selectionOrder: number[];
+      selectionInterval?: number;
+      commandText: string;
+    };
+
+interface TerminalFrame {
+  duration: number;
+  lines: TerminalLine[];
+  animation?: TerminalFrameAnimation;
+}
+
+interface Props {
+  variant?: "hero" | "workflow";
+  mode?: "autoplay" | "manual";
+  initialFrame?: number;
+  title?: string;
+  panelClass?: string;
+}
+
+const terminalFrames: TerminalFrame[] = [
+  {
+    duration: 1600,
+    animation: {
+      type: "prompt-command",
+      commandBase: "",
+      commandSuffix: "pubm",
+      erase: false,
+    },
+    lines: [
+      {
+        segments: [
+          { text: "$ ", tone: "prompt" },
+          { text: "pubm" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 2200,
+    animation: {
+      type: "prompt-select",
+      commandText: "pubm",
+      selectionInterval: 320,
+      selectionOrder: [1, 2, 3, 4, 5, 3],
+      options: [
+        { label: "Keep current version ", value: "1.2.3" },
+        { label: "major ", value: "2.0.0" },
+        { label: "minor ", value: "1.3.0" },
+        { label: "patch ", value: "1.2.4" },
+        { label: "prepatch ", value: "1.2.4-0" },
+        { label: "prerelease ", value: "1.2.4-0" },
+        { label: "Custom version (specify)" },
+      ],
+    },
+    lines: [
+      {
+        segments: [
+          { text: "$ ", tone: "prompt" },
+          { text: "pubm" },
+        ],
+      },
+      { blank: true },
+      {
+        segments: [
+          { text: "? ", tone: "prompt" },
+          {
+            text: "Select SemVer increment or specify new version",
+            strong: true,
+          },
+          { text: " ...", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  Keep current version " },
+          { text: "1.2.3", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  major " },
+          { text: "2.0.0", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  minor " },
+          { text: "1.3.0", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "prompt" },
+          { text: "patch ", tone: "selected", underline: true },
+          { text: "1.2.4", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  prepatch " },
+          { text: "1.2.4-0", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  prerelease " },
+          { text: "1.2.4-0", tone: "dim" },
+        ],
+      },
+      {
+        segments: [{ text: "  Custom version (specify)" }],
+      },
+    ],
+  },
+  {
+    duration: 900,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          {
+            text: "Select SemVer increment or specify new version",
+            strong: true,
+          },
+          { text: " · ", tone: "dim" },
+          { text: "1.2.4", tone: "prompt" },
+        ],
+      },
+      { blank: true },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Checking required information" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Checking version information" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1400,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Checking required information" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Prerequisites check (for deployment reliability)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ✔ ", tone: "success" },
+          { text: "Verifying current branch is a release branch" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Checking if remote history is clean" },
+        ],
+      },
+      {
+        segments: [
+          { text: "    › ", tone: "dim" },
+          { text: "Checking for updates with `git fetch`", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ◼ ", tone: "dim" },
+          { text: "Checking if the local working tree is clean", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ◼ ", tone: "dim" },
+          { text: "Checking if commits exist since the last release", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ◼ ", tone: "dim" },
+          { text: "Checking git tag existence", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1500,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Prerequisites check (for deployment reliability)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Required conditions check (for pubm tasks)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Ping registries" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Verifying if npm and jsr are installed" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ✔ ", tone: "success" },
+          { text: "Checking if test and build scripts exist" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Checking git version" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ❯ ", tone: "warning" },
+          { text: "Checking available registries for publishing" },
+        ],
+      },
+      {
+        segments: [
+          { text: "    ◼ ", tone: "dim" },
+          { text: "JavaScript ecosystem", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1200,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Required conditions check (for pubm tasks)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Executing `pnpm run test`", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Building the project", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Bumping version", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Publishing", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Running post-publish hooks", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Pushing tags to GitHub", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1200,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Executing `pnpm run build`", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Bumping version", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Publishing", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Running post-publish hooks", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Pushing tags to GitHub", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1200,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Target version: v1.2.4", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Publishing", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Running post-publish hooks", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Pushing tags to GitHub", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1500,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Publishing (2 targets)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Running npm publish" },
+        ],
+      },
+      {
+        segments: [
+          { text: "    › ", tone: "dim" },
+          { text: "Publishing on npm...", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  ", tone: "plain" },
+          { spinner: true, tone: "warning" },
+          { text: " Running jsr publish" },
+        ],
+      },
+      {
+        segments: [
+          { text: "    › ", tone: "dim" },
+          { text: "Publishing on jsr...", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Running post-publish hooks", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Pushing tags to GitHub", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1100,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Publishing (2 targets)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Running post-publish hooks" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Completed plugin afterPublish hooks.", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Pushing tags to GitHub", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1100,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Publishing (2 targets)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running post-publish hooks" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Pushing tags to GitHub" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Executing `git push --follow-tags`...", tone: "dim" },
+        ],
+      },
+      {
+        segments: [
+          { text: "◼ ", tone: "dim" },
+          { text: "Creating release draft on GitHub", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 1300,
+    animation: { type: "task" },
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Publishing (2 targets)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running post-publish hooks" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Pushing tags to GitHub" },
+        ],
+      },
+      {
+        segments: [
+          { text: "❯ ", tone: "warning" },
+          { text: "Creating release draft on GitHub (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "  › ", tone: "dim" },
+          { text: "Opening release draft for v1.2.4...", tone: "dim" },
+        ],
+      },
+    ],
+  },
+  {
+    duration: 2200,
+    lines: [
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running tests (pnpm run test)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Building the project (pnpm run build)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Bumping version (v1.2.4)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Publishing (2 targets)" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Running post-publish hooks" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Pushing tags to GitHub" },
+        ],
+      },
+      {
+        segments: [
+          { text: "✔ ", tone: "success" },
+          { text: "Creating release draft on GitHub (v1.2.4)" },
+        ],
+      },
+      { blank: true },
+      {
+        segments: [
+          { text: "🚀 ", tone: "summary" },
+          { text: "Successfully published", tone: "summary", strong: true },
+        ],
+      },
+      {
+        segments: [
+          { text: "  pubm on npm, @pubm/pubm on jsr ", tone: "summary" },
+          { text: "v1.2.4", tone: "selected", strong: true },
+          { text: " 🚀", tone: "summary" },
+        ],
+      },
+    ],
+  },
+];
+
+const workflowTerminalFrames: TerminalFrame[] = [
+  terminalFrames[1],
+  terminalFrames[4],
+  terminalFrames[7],
+  terminalFrames[8],
+];
+
+const {
+  variant = "hero",
+  mode = "autoplay",
+  initialFrame = 0,
+  title = "zsh — pubm",
+  panelClass = "",
+} = Astro.props as Props;
+
+const frames = variant === "workflow" ? workflowTerminalFrames : terminalFrames;
+const normalizedInitialFrame = Math.max(
+  0,
+  Math.min(initialFrame, frames.length - 1),
+);
+const initialFrameData = frames[normalizedInitialFrame];
 ---
 
-<div class="terminal glass-panel">
-  <div class="terminal-header">
-    <div class="terminal-dots">
-      <span class="terminal-dot" style="background: #ff5f57;"></span>
-      <span class="terminal-dot" style="background: #febc2e;"></span>
-      <span class="terminal-dot" style="background: #28c840;"></span>
+<pubm-terminal-player
+  class={panelClass}
+  data-pubm-terminal
+  data-terminal-mode={mode}
+  data-terminal-initial-frame={String(normalizedInitialFrame)}
+>
+  <div class="terminal glass-panel">
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <span class="terminal-dot terminal-dot-close"></span>
+        <span class="terminal-dot terminal-dot-minimize"></span>
+        <span class="terminal-dot terminal-dot-maximize"></span>
+      </div>
+      <div class="terminal-title">{title}</div>
     </div>
-    <div class="terminal-title">bash — pubm</div>
+    <div class="terminal-body" data-terminal-screen>
+      {
+        initialFrameData.lines.map((line) =>
+          line.blank ? (
+            <div class="terminal-row terminal-row-blank" aria-hidden="true">
+              {" "}
+            </div>
+          ) : (
+            <div class="terminal-row">
+              {line.segments?.map((segment) => (
+                <span
+                  class:list={[
+                    "terminal-segment",
+                    segment.tone && `tone-${segment.tone}`,
+                    segment.strong && "is-strong",
+                    segment.underline && "is-underline",
+                  ]}
+                >
+                  {segment.spinner ? "⠋" : segment.text}
+                </span>
+              ))}
+            </div>
+          ),
+        )
+      }
+    </div>
+    <script
+      type="application/json"
+      data-terminal-frames
+      set:html={JSON.stringify(frames)}
+    />
   </div>
-  <div class="terminal-body">
-    <div class="terminal-line" style="animation-delay: 0.6s;">
-      <span class="prompt">$</span> pubm
-    </div>
-    <div class="terminal-line" style="animation-delay: 1.2s;">&nbsp;</div>
-    <div class="terminal-line" style="animation-delay: 1.5s;">
-      <span class="text-cyan">?</span> <span class="dim">Select version</span> <span class="dots">(current: 1.2.3)</span>
-    </div>
-    <div class="terminal-line" style="animation-delay: 1.8s;">
-      <span class="prompt">❯</span> <span class="success">patch</span> <span class="dim">1.2.3 → 1.2.4</span>
-    </div>
-    <div class="terminal-line" style="animation-delay: 2.1s;">
-      &nbsp;&nbsp;<span class="dim">minor 1.2.3 → 1.3.0</span>
-    </div>
-    <div class="terminal-line" style="animation-delay: 2.4s;">
-      &nbsp;&nbsp;<span class="dim">major 1.2.3 → 2.0.0</span>
-    </div>
-    <div class="terminal-line" style="animation-delay: 2.8s;">
-      <span class="check">✔</span> <span class="dim">Prerequisites validated</span>
-    </div>
-    <div class="terminal-line" style="animation-delay: 3.1s;">
-      <span class="check">✔</span> <span class="dim">Registry connections verified</span>
-    </div>
-    <div class="terminal-line style-final" style="animation-delay: 3.5s;">
-      <span class="spinner">◒</span> <span class="text-cyan">Publishing to registries...</span>
-    </div>
-    <div class="terminal-line style-final" style="animation-delay: 3.8s;">
-      <span class="check">✔</span> <span class="success">Published to every configured registry</span>
-    </div>
-  </div>
-</div>
+</pubm-terminal-player>
 
 <style>
-  .terminal {
-    max-width: 520px;
+  :global([data-pubm-terminal]) {
+    display: block;
     width: 100%;
-    background: rgba(3, 7, 18, 0.8);
-    box-shadow: 
-      0 20px 50px rgba(0, 0, 0, 0.5),
+  }
+
+  :global([data-pubm-terminal] .terminal) {
+    max-width: 560px;
+    width: 100%;
+    background:
+      linear-gradient(180deg, rgba(3, 7, 18, 0.92), rgba(2, 6, 23, 0.88)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 32%);
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.52),
       0 0 0 1px var(--border);
     transform: rotateX(2deg) rotateY(-2deg);
     transition: transform 0.5s ease;
   }
 
-  .terminal:hover {
+  :global([data-pubm-terminal] .terminal:hover) {
     transform: rotateX(0) rotateY(0);
   }
 
-  .terminal-header {
+  :global([data-pubm-terminal] .terminal-header) {
     display: flex;
     align-items: center;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 0.8rem 1rem;
+    background: rgba(255, 255, 255, 0.04);
     border-bottom: 1px solid var(--border);
     position: relative;
   }
 
-  .terminal-dots {
+  :global([data-pubm-terminal] .terminal-dots) {
     display: flex;
     gap: 8px;
   }
 
-  .terminal-dot {
+  :global([data-pubm-terminal] .terminal-dot) {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    opacity: 0.8;
+    opacity: 0.85;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
   }
 
-  .terminal-title {
+  :global([data-pubm-terminal] .terminal-dot-close) {
+    background: #ff5f57;
+  }
+
+  :global([data-pubm-terminal] .terminal-dot-minimize) {
+    background: #febc2e;
+  }
+
+  :global([data-pubm-terminal] .terminal-dot-maximize) {
+    background: #28c840;
+  }
+
+  :global([data-pubm-terminal] .terminal-title) {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    opacity: 0.5;
+    letter-spacing: 0.02em;
+    opacity: 0.7;
   }
 
-  .terminal-body {
-    padding: 1.25rem 1.5rem;
+  :global([data-pubm-terminal] .terminal-body) {
+    padding: 1.2rem 1.35rem;
+    min-height: 25rem;
     font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-size: 0.77rem;
     line-height: 1.6;
-    min-height: 280px;
+    white-space: pre;
+    overflow: hidden;
   }
 
-  @keyframes typeLine {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+  :global([data-pubm-terminal] .terminal-row) {
+    display: block;
+    min-height: 1.35em;
   }
 
-  .terminal-line {
-    animation: typeLine 0.3s ease-out forwards;
-    opacity: 0;
-    margin-bottom: 0.25rem;
+  :global([data-pubm-terminal] .terminal-row.is-entering) {
+    animation: terminal-row-in 180ms ease;
   }
 
-  .prompt { color: var(--accent-cyan); margin-right: 8px; }
-  .check { color: var(--accent-green); margin-right: 8px; }
-  .spinner { color: var(--accent-cyan); display: inline-block; animation: spin 1s linear infinite; margin-right: 8px; }
-  .dim { color: var(--text-muted); }
-  .success { color: var(--accent-green); font-weight: 500; }
-  .text-cyan { color: var(--accent-cyan); }
-  .dots { color: var(--border); }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  :global([data-pubm-terminal] .terminal-row-blank) {
+    opacity: 0.28;
   }
 
-  .style-final {
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px dashed var(--border);
+  :global([data-pubm-terminal] .terminal-segment) {
+    white-space: pre;
+  }
+
+  :global([data-pubm-terminal] .tone-plain) {
+    color: var(--text-primary);
+  }
+
+  :global([data-pubm-terminal] .tone-dim) {
+    color: var(--text-muted);
+  }
+
+  :global([data-pubm-terminal] .tone-prompt),
+  :global([data-pubm-terminal] .tone-selected) {
+    color: var(--accent-cyan);
+  }
+
+  :global([data-pubm-terminal] .tone-success) {
+    color: var(--accent-green);
+  }
+
+  :global([data-pubm-terminal] .tone-warning) {
+    color: #fbbf24;
+  }
+
+  :global([data-pubm-terminal] .tone-summary) {
+    color: #7dd3fc;
+  }
+
+  :global([data-pubm-terminal] .is-strong) {
+    font-weight: 700;
+  }
+
+  :global([data-pubm-terminal] .is-underline) {
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  @keyframes terminal-row-in {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 720px) {
+    :global([data-pubm-terminal] .terminal) {
+      max-width: 100%;
+      transform: none;
+    }
+
+    :global([data-pubm-terminal] .terminal:hover) {
+      transform: none;
+    }
+
+    :global([data-pubm-terminal] .terminal-body) {
+      min-height: 21rem;
+      font-size: 0.7rem;
+      padding: 1rem 1rem 1.1rem;
+    }
   }
 </style>

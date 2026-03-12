@@ -29,13 +29,7 @@ const base = import.meta.env.BASE_URL;
       </div>
       <div class="terminal-body">
         <pre><code><span class="prompt">❯</span> npm i -g pubm
-
-<span class="prompt">❯</span> pubm                   <span class="comment"># start the interactive release flow</span>
-
-<span class="comment">?</span> Select version <span class="comment">(current: 1.2.3)</span>
-<span class="comment">❯</span> patch <span class="comment">1.2.3 → 1.2.4</span>
-  <span class="comment">minor 1.2.3 → 1.3.0</span>
-  <span class="comment">major 1.2.3 → 2.0.0</span></code></pre>
+<span class="prompt">❯</span> pubm</code></pre>
       </div>
     </div>
 
@@ -68,7 +62,6 @@ const base = import.meta.env.BASE_URL;
       scrollTrigger: {
         trigger: section,
         start: 'top 90%',
-        onEnter: () => console.log('InstallSection entered'), // Debugging
       }
     });
 
