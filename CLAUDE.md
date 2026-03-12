@@ -12,11 +12,18 @@ This repository is a monorepo managed with Turborepo and Bun workspaces.
 
 ```
 packages/
-  core/          — @pubm/core: Core SDK (ecosystem, registry, changeset, monorepo, plugin, config, tasks, validate, prerelease, git, utils)
-  cli/           — pubm: CLI using Commander, depends on @pubm/core
+  core/                            — @pubm/core: Core SDK (ecosystem, registry, changeset, monorepo, plugin, config, tasks, validate, prerelease, git, utils)
+  cli/                             — pubm: CLI using Commander, depends on @pubm/core
+    platforms/                     — Cross-platform binaries (darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64)
+  plugins/
+    plugin-brew/                   — @pubm/plugin-brew: Homebrew formula publishing
+    plugin-external-version-sync/  — @pubm/plugin-external-version-sync: Syncs version to external files
 plugins/
-  plugin-external-version-sync/  — @pubm/plugin-external-version-sync
-  plugin-brew/   — @pubm/plugin-brew
+  pubm-plugin/                     — Claude Code plugin (skills for publish, setup, version-sync, etc.)
+website/                           — Astro-based documentation site
+docs/                              — Planning documents and strategy docs
+Formula/                           — Homebrew formula
+patches/                           — Dependency patches (listr2)
 ```
 
 ## Commands
@@ -26,10 +33,14 @@ Run from the repo root (Turborepo fans out to all packages):
 ```bash
 bun run build          # Build all packages (via turbo)
 bun run check          # Lint and format check (via turbo)
-bun run format         # Auto-fix lint and formatting issues
+bun run format         # Auto-fix lint and formatting issues (biome check --write)
 bun run typecheck      # TypeScript type checking (via turbo)
 bun run test           # Run all tests (via turbo)
 bun run coverage       # Run tests with coverage (via turbo)
+bun run dev:site       # Start Astro documentation dev server
+bun run build:site     # Build static documentation site
+bun run release        # Release with preflight checks
+bun run release:ci     # Release in CI environment
 ```
 
 Run a single test file (within a package):
@@ -69,6 +80,8 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 `Registry` is the abstract base class. Concrete implementations:
 - `NpmRegistry` — npm CLI wrapper, OTP support, provenance in CI
 - `JsrRegistry` — JSR API integration, encrypted token storage via `Db` class
+- `CratesRegistry` — crates.io publishing for Rust crates
+- `CustomRegistry` — User-defined custom registry support
 
 ### Key Modules
 
@@ -76,7 +89,6 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 - `packages/core/src/index.ts` — Programmatic API export
 - `packages/core/src/options.ts` — Resolves CLI flags into normalized options
 - `packages/core/src/git.ts` — Git operations wrapper (branch, tag, commit, push)
-- `packages/core/src/commands/` — Subcommands: `add`, `init`, `migrate`, `pre`, `secrets`, `snapshot`, `status`, `update`, `version-cmd`
 - `packages/core/src/changeset/` — Changeset management (parsing, reading, writing, versioning, changelog generation)
 - `packages/core/src/monorepo/` — Workspace discovery, dependency graph, package grouping
 - `packages/core/src/validate/` — Pre-publish validation (entry points, extraneous files)
@@ -90,18 +102,21 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 
 **packages/cli:**
 - `packages/cli/src/cli.ts` — CLI entry point using Commander framework
+- `packages/cli/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-changesets`, `migrate`, `pre`, `secrets`, `snapshot`, `status`, `sync`, `update`, `version-cmd`
 
-**plugins:**
-- `plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
-- `plugins/plugin-brew/src/index.ts` — Updates Homebrew formula on release
+**packages/plugins:**
+- `packages/plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
+- `packages/plugins/plugin-brew/src/index.ts` — Updates Homebrew formula on release
+  - `brew-core.ts`, `brew-tap.ts`, `formula.ts` — Homebrew publishing logic
+  - `git-identity.ts` — Git identity management for Homebrew PRs
 
 ### Build Configuration
 
 Each package has its own `build.ts` using Bun's bundler API. Root `bun run build` runs them all via Turborepo.
 
-- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types)
-- `packages/cli`: Cross-compiled single binaries for all platforms → `../../npm/@pubm-*/bin/`
-- `bin/cli.js` (in packages/cli) is a static wrapper that delegates to the platform-specific binary (not a build output)
+- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types). Build script: `build-core.ts` (root)
+- `packages/cli`: Cross-compiled single binaries for all platforms → `packages/cli/platforms/*/bin/`
+- `bin/cli.cjs` (in packages/cli) is a static wrapper that delegates to the platform-specific binary (not a build output)
 
 `listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
 
