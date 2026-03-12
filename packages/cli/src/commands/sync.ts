@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -76,9 +77,9 @@ export async function discoverVersionReferences(
   const results: DiscoveredReference[] = [];
 
   async function walk(dir: string): Promise<void> {
-    let entries: Awaited<ReturnType<typeof readdir>>;
+    let entries: Dirent<string>[];
     try {
-      entries = await readdir(dir, { withFileTypes: true });
+      entries = await readdir(dir, { encoding: "utf8", withFileTypes: true });
     } catch {
       return;
     }

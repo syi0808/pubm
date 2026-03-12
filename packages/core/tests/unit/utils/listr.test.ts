@@ -9,7 +9,9 @@ const { mockListrCtor, mockListrInstance } = vi.hoisted(() => {
 
   return {
     mockListrInstance: instance,
-    mockListrCtor: vi.fn(() => instance),
+    mockListrCtor: vi.fn(function () {
+      return instance;
+    }),
   };
 });
 

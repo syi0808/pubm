@@ -14,10 +14,12 @@ vi.mock("../../../src/git.js", () => ({
 }));
 
 vi.mock("../../../src/utils/secure-store.js", () => ({
-  SecureStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn().mockReturnValue(null),
-    set: vi.fn(),
-  })),
+  SecureStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn().mockReturnValue(null),
+      set: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock("../../../src/utils/package-name.js", () => ({
@@ -143,13 +145,14 @@ beforeEach(() => {
 
   mockedJsrRegistry.mockResolvedValue(mockJsr as any);
   mockedNpmRegistry.mockResolvedValue(mockNpm as any);
-  mockedDb.mockImplementation(() => mockDbInstance as any);
-  mockedGit.mockImplementation(
-    () =>
-      ({
-        userName: vi.fn().mockResolvedValue("gituser"),
-      }) as any,
-  );
+  mockedDb.mockImplementation(function () {
+    return mockDbInstance as any;
+  });
+  mockedGit.mockImplementation(function () {
+    return {
+      userName: vi.fn().mockResolvedValue("gituser"),
+    } as any;
+  });
 
   // Default: package is scoped so we skip the complex scope resolution
   mockedIsScopedPackage.mockReturnValue(true);

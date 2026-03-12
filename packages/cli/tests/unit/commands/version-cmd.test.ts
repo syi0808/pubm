@@ -18,7 +18,9 @@ vi.mock("@pubm/core", () => ({
   discoverPackageInfos: vi.fn(),
   replaceVersion: vi.fn(),
   replaceVersionAtPath: vi.fn(),
-  Git: vi.fn(() => mockGitInstance),
+  Git: vi.fn(function () {
+    return mockGitInstance;
+  }),
   applyFixedGroup: vi.fn(),
   applyLinkedGroup: vi.fn(),
 }));

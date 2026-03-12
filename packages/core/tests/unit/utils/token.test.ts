@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/utils/secure-store.js", () => ({
-  SecureStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-  })),
+  SecureStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+    };
+  }),
 }));
 
 import { SecureStore } from "../../../src/utils/secure-store.js";
@@ -71,9 +73,9 @@ describe("loadTokensFromDb", () => {
     const mockGet = vi.fn((key: string) =>
       key === "npm-token" ? "npm-tok-123" : null,
     );
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockGet, set: vi.fn() }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockGet, set: vi.fn() } as any;
+    });
 
     const result = loadTokensFromDb(["npm", "jsr"]);
     expect(result).toEqual({ npm: "npm-tok-123" });
@@ -81,9 +83,9 @@ describe("loadTokensFromDb", () => {
 
   it("skips registries with no token config", () => {
     const mockGet = vi.fn().mockReturnValue(null);
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockGet, set: vi.fn() }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockGet, set: vi.fn() } as any;
+    });
 
     const result = loadTokensFromDb(["npm", "custom-registry"]);
     expect(mockGet).toHaveBeenCalledTimes(1);
@@ -93,9 +95,9 @@ describe("loadTokensFromDb", () => {
   it("prefers env var over SecureStore", () => {
     process.env.NODE_AUTH_TOKEN = "env-token";
     const mockGet = vi.fn().mockReturnValue("stored-token");
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockGet, set: vi.fn() }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockGet, set: vi.fn() } as any;
+    });
 
     const result = loadTokensFromDb(["npm"]);
     expect(result).toEqual({ npm: "env-token" });

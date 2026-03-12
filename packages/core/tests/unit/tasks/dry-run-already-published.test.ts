@@ -14,17 +14,21 @@ vi.mock("../../../src/registry/crates.js", () => ({
 }));
 
 vi.mock("../../../src/ecosystem/rust.js", () => ({
-  RustEcosystem: vi.fn().mockImplementation(() => ({
-    packageName: vi.fn().mockResolvedValue("test-crate"),
-    dependencies: vi.fn().mockResolvedValue([]),
-  })),
+  RustEcosystem: vi.fn().mockImplementation(function () {
+    return {
+      packageName: vi.fn().mockResolvedValue("test-crate"),
+      dependencies: vi.fn().mockResolvedValue([]),
+    };
+  }),
 }));
 
 vi.mock("../../../src/utils/db.js", () => ({
-  Db: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-  })),
+  Db: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+    };
+  }),
 }));
 
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
@@ -89,20 +93,21 @@ describe("dry-run publish — already published", () => {
 
   describe("crates", () => {
     it("skips dry-run when version already published", async () => {
-      vi.mocked(RustEcosystem).mockImplementation(
-        () =>
-          ({
-            packageName: vi.fn().mockResolvedValue("test-crate"),
-            dependencies: vi.fn().mockResolvedValue([]),
-          }) as any,
-      );
+      vi.mocked(RustEcosystem).mockImplementation(function () {
+        return {
+          packageName: vi.fn().mockResolvedValue("test-crate"),
+          dependencies: vi.fn().mockResolvedValue([]),
+        } as any;
+      });
 
       const mockRegistry = {
         isVersionPublished: vi.fn().mockResolvedValue(true),
         dryRunPublish: vi.fn(),
         packageName: "test-crate",
       };
-      vi.mocked(CratesRegistry).mockImplementation(() => mockRegistry as any);
+      vi.mocked(CratesRegistry).mockImplementation(function () {
+        return mockRegistry as any;
+      });
 
       const task = createCratesDryRunPublishTask();
       const ctx = { version: "1.0.0" } as any;

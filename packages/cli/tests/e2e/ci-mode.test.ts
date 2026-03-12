@@ -42,11 +42,10 @@ describe("CI mode", () => {
         "--publish-only",
       );
 
-      // When run from a directory without package.json/jsr.json, the IIFE
-      // that reads the version crashes before the action handler runs.
-      // The error is about missing package.json/jsr.json.
+      // In publish-only mode, the CLI resolves the version from the latest git
+      // tag before it ever looks for manifest files.
       expect(stderr.length).toBeGreaterThan(0);
-      expect(stderr).toContain("package.json");
+      expect(stderr).toContain("Cannot find the latest tag");
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

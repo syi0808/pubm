@@ -3,8 +3,13 @@ import path from "node:path";
 
 const coreDir = path.join(import.meta.dir, "packages/core");
 const distDir = path.join(coreDir, "dist");
-const cliPackageJsonPath = path.join(import.meta.dir, "packages/cli/package.json");
-const cliPackageJson = JSON.parse(readFileSync(cliPackageJsonPath, "utf-8")) as {
+const cliPackageJsonPath = path.join(
+  import.meta.dir,
+  "packages/cli/package.json",
+);
+const cliPackageJson = JSON.parse(
+  readFileSync(cliPackageJsonPath, "utf-8"),
+) as {
   version: string;
   engines?: Partial<Record<string, string>>;
 };

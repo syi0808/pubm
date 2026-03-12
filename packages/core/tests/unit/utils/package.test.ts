@@ -8,10 +8,12 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 vi.mock("../../../src/ecosystem/rust.js", () => ({
-  RustEcosystem: vi.fn().mockImplementation(() => ({
-    writeVersion: vi.fn().mockResolvedValue(undefined),
-    syncLockfile: vi.fn().mockResolvedValue(undefined),
-  })),
+  RustEcosystem: vi.fn().mockImplementation(function () {
+    return {
+      writeVersion: vi.fn().mockResolvedValue(undefined),
+      syncLockfile: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 // Suppress console.log output from the module (e.g. warningBadge messages)
@@ -27,6 +29,7 @@ async function getFsMocks() {
 }
 
 async function freshImport() {
+  vi.clearAllMocks();
   vi.resetModules();
   return await import("../../../src/utils/package.js");
 }
@@ -794,13 +797,12 @@ describe("replaceVersion", () => {
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
 
     const packages = [
       { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
@@ -821,19 +823,18 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     let callCount = 0;
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-          packageName: vi
-            .fn()
-            .mockImplementation(() =>
-              Promise.resolve(`lib-${++callCount === 1 ? "a" : "b"}`),
-            ),
-          updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+        packageName: vi
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve(`lib-${++callCount === 1 ? "a" : "b"}`),
+          ),
+        updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
+      } as any;
+    });
 
     const packages = [
       { path: ".", registries: ["npm", "jsr"] as any[] },
@@ -856,13 +857,12 @@ describe("replaceVersion", () => {
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
 
     const packages = [{ path: ".", registries: ["npm", "jsr"] as any[] }];
 
@@ -879,15 +879,14 @@ describe("replaceVersion", () => {
 
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: vi
-            .fn()
-            .mockRejectedValue(new Error("EACCES: permission denied")),
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: vi
+          .fn()
+          .mockRejectedValue(new Error("EACCES: permission denied")),
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
 
     const packages = [
       { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
@@ -915,13 +914,12 @@ describe("replaceVersion", () => {
     mockWriteFile.mockResolvedValue(undefined);
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
 
     const packages = [
       { path: ".", registries: ["npm", "jsr"] as any[] },
@@ -944,13 +942,12 @@ describe("replaceVersion", () => {
 
     const mockWriteVersion = vi.fn().mockResolvedValue(undefined);
     const lockfilePath = path.resolve("rust/Cargo.lock");
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+      } as any;
+    });
 
     const packages = [
       { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
@@ -971,19 +968,18 @@ describe("replaceVersion", () => {
 
     const lockfilePath = path.resolve("rust/Cargo.lock");
     let callCount = 0;
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: vi.fn().mockResolvedValue(undefined),
-          syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
-          packageName: vi
-            .fn()
-            .mockImplementation(() =>
-              Promise.resolve(`crate-${++callCount === 1 ? "a" : "b"}`),
-            ),
-          updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: vi.fn().mockResolvedValue(undefined),
+        syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+        packageName: vi
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve(`crate-${++callCount === 1 ? "a" : "b"}`),
+          ),
+        updateSiblingDependencyVersions: vi.fn().mockResolvedValue(false),
+      } as any;
+    });
 
     const packages = [
       { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
@@ -1004,13 +1000,12 @@ describe("replaceVersion", () => {
     mockStat.mockRejectedValue(new Error("ENOENT"));
 
     const mockWriteVersion = vi.fn();
-    vi.mocked(RustEcosystem).mockImplementation(
-      () =>
-        ({
-          writeVersion: mockWriteVersion,
-          syncLockfile: vi.fn().mockResolvedValue(undefined),
-        }) as any,
-    );
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
 
     await replaceVersion("1.0.0");
 

@@ -241,26 +241,25 @@ beforeEach(() => {
 
   // Re-establish mock implementations (vi.restoreAllMocks in setup.ts clears them)
   mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
-  mockedGit.mockImplementation(
-    () =>
-      ({
-        reset: vi.fn().mockResolvedValue(undefined),
-        stage: vi.fn().mockResolvedValue(undefined),
-        commit: vi.fn().mockResolvedValue("abc123"),
-        createTag: vi.fn().mockResolvedValue(undefined),
-        deleteTag: vi.fn().mockResolvedValue(undefined),
-        push: vi.fn().mockResolvedValue(true),
-        latestTag: vi.fn().mockResolvedValue("v0.9.0"),
-        previousTag: vi.fn().mockResolvedValue("v0.8.0"),
-        firstCommit: vi.fn().mockResolvedValue("aaa"),
-        commits: vi
-          .fn()
-          .mockResolvedValue([{ id: "abc123", message: "feat: something" }]),
-        repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
-        stash: vi.fn().mockResolvedValue(undefined),
-        popStash: vi.fn().mockResolvedValue(undefined),
-      }) as any,
-  );
+  mockedGit.mockImplementation(function () {
+    return {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("abc123"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn().mockResolvedValue(true),
+      latestTag: vi.fn().mockResolvedValue("v0.9.0"),
+      previousTag: vi.fn().mockResolvedValue("v0.8.0"),
+      firstCommit: vi.fn().mockResolvedValue("aaa"),
+      commits: vi
+        .fn()
+        .mockResolvedValue([{ id: "abc123", message: "feat: something" }]),
+      repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+      stash: vi.fn().mockResolvedValue(undefined),
+      popStash: vi.fn().mockResolvedValue(undefined),
+    } as any;
+  });
   mockedGetPackageManager.mockResolvedValue("pnpm" as any);
   mockedGetPackageJson.mockResolvedValue({ name: "my-package" } as any);
   mockedGetJsrJson.mockResolvedValue({ name: "@scope/my-package" } as any);
@@ -759,31 +758,26 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       // Make push return false (GH006)
-      mockedGit.mockImplementation(
-        () =>
-          ({
-            reset: vi.fn().mockResolvedValue(undefined),
-            stage: vi.fn().mockResolvedValue(undefined),
-            commit: vi.fn().mockResolvedValue("abc123"),
-            createTag: vi.fn().mockResolvedValue(undefined),
-            push: vi
-              .fn()
-              .mockResolvedValueOnce(false)
-              .mockResolvedValueOnce(true),
-            latestTag: vi.fn().mockResolvedValue("v1.0.0"),
-            previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-            firstCommit: vi.fn().mockResolvedValue("aaa"),
-            commits: vi
-              .fn()
-              .mockResolvedValue([{ id: "abc", message: "feat" }]),
-            repository: vi
-              .fn()
-              .mockResolvedValue("https://github.com/user/repo"),
-            stash: vi.fn().mockResolvedValue(undefined),
-            popStash: vi.fn().mockResolvedValue(undefined),
-            deleteTag: vi.fn().mockResolvedValue(undefined),
-          }) as any,
-      );
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          push: vi
+            .fn()
+            .mockResolvedValueOnce(false)
+            .mockResolvedValueOnce(true),
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+          firstCommit: vi.fn().mockResolvedValue("aaa"),
+          commits: vi.fn().mockResolvedValue([{ id: "abc", message: "feat" }]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash: vi.fn().mockResolvedValue(undefined),
+          popStash: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+        } as any;
+      });
 
       const options = createOptions();
       await run(options);
@@ -796,30 +790,27 @@ describe("run", () => {
       const { openUrl } = await import("../../../src/utils/open-url.js");
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
-      mockedGit.mockImplementation(
-        () =>
-          ({
-            reset: vi.fn().mockResolvedValue(undefined),
-            stage: vi.fn().mockResolvedValue(undefined),
-            commit: vi.fn().mockResolvedValue("abc123"),
-            createTag: vi.fn().mockResolvedValue(undefined),
-            push: vi.fn().mockResolvedValue(true),
-            latestTag: vi.fn().mockResolvedValue("v1.0.0"),
-            previousTag: vi.fn().mockResolvedValue(null),
-            firstCommit: vi.fn().mockResolvedValue("first-commit"),
-            commits: vi.fn().mockResolvedValue([
-              { id: "dummy", message: "dummy" },
-              { id: "abc123", message: "feat: add feature" },
-              { id: "def456", message: "fix: fix #123 bug" },
-            ]),
-            repository: vi
-              .fn()
-              .mockResolvedValue("https://github.com/user/repo"),
-            stash: vi.fn().mockResolvedValue(undefined),
-            popStash: vi.fn().mockResolvedValue(undefined),
-            deleteTag: vi.fn().mockResolvedValue(undefined),
-          }) as any,
-      );
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          push: vi.fn().mockResolvedValue(true),
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue(null),
+          firstCommit: vi.fn().mockResolvedValue("first-commit"),
+          commits: vi.fn().mockResolvedValue([
+            { id: "dummy", message: "dummy" },
+            { id: "abc123", message: "feat: add feature" },
+            { id: "def456", message: "fix: fix #123 bug" },
+          ]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash: vi.fn().mockResolvedValue(undefined),
+          popStash: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+        } as any;
+      });
 
       const options = createOptions();
       await run(options);

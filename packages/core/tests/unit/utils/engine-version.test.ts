@@ -3,7 +3,7 @@ import { validateEngineVersion } from "../../../src/utils/engine-version.js";
 
 describe("validateEngineVersion", () => {
   it("returns true when the version satisfies the node constraint", async () => {
-    const result = await validateEngineVersion("node", "20.11.0");
+    const result = await validateEngineVersion("node", "24.11.0");
 
     expect(result).toBe(true);
   });
@@ -15,7 +15,7 @@ describe("validateEngineVersion", () => {
   });
 
   it("returns true for prerelease node versions when includePrerelease is enabled", async () => {
-    const result = await validateEngineVersion("node", "20.0.0-rc.1");
+    const result = await validateEngineVersion("node", "24.0.0-rc.1");
 
     expect(result).toBe(true);
   });
