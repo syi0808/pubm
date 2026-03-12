@@ -15,6 +15,11 @@ import {
   cratesAvailableCheckTasks,
   createCratesAvailableCheckTask,
 } from "./crates.js";
+import {
+  collectEcosystemRegistryGroups,
+  ecosystemLabel,
+  registryLabel,
+} from "./grouping.js";
 import { jsrAvailableCheckTasks } from "./jsr.js";
 import { npmAvailableCheckTasks } from "./npm.js";
 import type { Ctx } from "./runner.js";
@@ -47,6 +52,35 @@ class RequiredConditionCheckError extends AbstractError {
 export const requiredConditionsCheckTask = (
   options?: Omit<ListrTask<Ctx>, "title" | "task">,
 ): Listr<Ctx> => {
+  const createAvailabilityTask = (
+    registryKey: string,
+    packagePaths: string[],
+  ): ListrTask<Ctx> => {
+    switch (registryKey) {
+      case "npm":
+        return npmAvailableCheckTasks;
+      case "jsr":
+        return jsrAvailableCheckTasks;
+      case "crates":
+        if (packagePaths.length === 0) {
+          return cratesAvailableCheckTasks;
+        }
+
+        return {
+          title: "Checking crates.io availability",
+          task: (_ctx, parentTask): Listr<Ctx> =>
+            parentTask.newListr(
+              packagePaths.map((packagePath) =>
+                createCratesAvailableCheckTask(packagePath),
+              ),
+              { concurrent: true },
+            ),
+        };
+      default:
+        return npmAvailableCheckTasks;
+    }
+  };
+
   const taskDef: ListrTask<Ctx> = {
     ...options,
     title: "Required conditions check (for pubm tasks)",
@@ -57,13 +91,22 @@ export const requiredConditionsCheckTask = (
             title: "Ping registries",
             task: (ctx, parentTask): Listr<Ctx> =>
               parentTask.newListr(
-                collectRegistries(ctx).map((registryKey) => ({
-                  title: `Ping to ${registryKey}`,
-                  task: async (): Promise<void> => {
-                    const registry = await getRegistry(registryKey);
+                collectEcosystemRegistryGroups(ctx).map((group) => ({
+                  title: ecosystemLabel(group.ecosystem),
+                  task: (_ctx, ecosystemTask): Listr<Ctx> =>
+                    ecosystemTask.newListr(
+                      group.registries.map(({ registry }) => ({
+                        title: `Ping ${registryLabel(registry)}`,
+                        task: async (): Promise<void> => {
+                          const targetRegistry = await getRegistry(registry);
 
-                    await registry.ping();
-                  },
+                          await targetRegistry.ping();
+                        },
+                      })),
+                      {
+                        concurrent: true,
+                      },
+                    ),
                 })),
                 {
                   concurrent: true,
@@ -163,36 +206,17 @@ export const requiredConditionsCheckTask = (
           {
             title: "Checking available registries for publishing",
             task: (ctx, parentTask): Listr<Ctx> => {
-              if (ctx.packages?.length) {
-                const tasks = ctx.packages.flatMap((pkg) =>
-                  pkg.registries.map((registryKey) => {
-                    switch (registryKey) {
-                      case "npm":
-                        return npmAvailableCheckTasks;
-                      case "jsr":
-                        return jsrAvailableCheckTasks;
-                      case "crates":
-                        return createCratesAvailableCheckTask(pkg.path);
-                      default:
-                        return npmAvailableCheckTasks;
-                    }
-                  }),
-                );
-                return parentTask.newListr(tasks, { concurrent: true });
-              }
               return parentTask.newListr(
-                collectRegistries(ctx).map((registryKey) => {
-                  switch (registryKey) {
-                    case "npm":
-                      return npmAvailableCheckTasks;
-                    case "jsr":
-                      return jsrAvailableCheckTasks;
-                    case "crates":
-                      return cratesAvailableCheckTasks;
-                    default:
-                      return npmAvailableCheckTasks;
-                  }
-                }),
+                collectEcosystemRegistryGroups(ctx).map((group) => ({
+                  title: ecosystemLabel(group.ecosystem),
+                  task: (_ctx, ecosystemTask): Listr<Ctx> =>
+                    ecosystemTask.newListr(
+                      group.registries.map(({ registry, packagePaths }) =>
+                        createAvailabilityTask(registry, packagePaths),
+                      ),
+                      { concurrent: true },
+                    ),
+                })),
                 {
                   concurrent: true,
                 },
