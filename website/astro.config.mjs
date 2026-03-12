@@ -23,8 +23,22 @@ export default defineConfig({
           ],
         },
         {
+          label: "Guides",
+          items: [
+            { label: "Monorepo", slug: "guides/monorepo" },
+            { label: "Changesets", slug: "guides/changesets" },
+            { label: "Claude Code", slug: "guides/claude-code" },
+          ],
+        },
+        {
           label: "Reference",
-          items: [{ label: "CLI Reference", slug: "reference/cli" }],
+          items: [
+            { label: "CLI Reference", slug: "reference/cli" },
+            { label: "Config API", slug: "reference/config" },
+            { label: "Plugins API", slug: "reference/plugins" },
+            { label: "Official Plugins", slug: "reference/official-plugins" },
+            { label: "Plugin Marketplace", slug: "reference/marketplace" },
+          ],
         },
       ],
       customCss: ["./src/styles/custom.css"],

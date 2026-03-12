@@ -1,0 +1,141 @@
+---
+title: Plugins API Reference
+description: Extend pubm with custom hooks, registries, and ecosystems.
+---
+
+The `pubm` plugin system is designed to be highly flexible. You can use it to add custom lifecycle logic, integrate with external systems, or add support for entirely new language ecosystems.
+
+## `PubmPlugin` Interface
+
+A plugin is an object that follows this interface:
+
+```ts
+export interface PubmPlugin {
+  /** Unique name of the plugin */
+  name: string;
+  /** Custom registries to register */
+  registries?: Registry[];
+  /** Custom ecosystems to register */
+  ecosystems?: Ecosystem[];
+  /** Lifecycle hooks */
+  hooks?: PluginHooks;
+  /** Custom CLI commands */
+  commands?: PluginCommand[];
+}
+```
+
+## Lifecycle Hooks
+
+Hooks are the primary way to extend `pubm`. Each hook receives the `Ctx` (Context) object.
+
+```ts
+export interface PluginHooks {
+  beforeTest?: (ctx: Ctx) => Promise<void> | void;
+  afterTest?: (ctx: Ctx) => Promise<void> | void;
+  beforeBuild?: (ctx: Ctx) => Promise<void> | void;
+  afterBuild?: (ctx: Ctx) => Promise<void> | void;
+  beforeVersion?: (ctx: Ctx) => Promise<void> | void;
+  afterVersion?: (ctx: Ctx) => Promise<void> | void;
+  beforePublish?: (ctx: Ctx) => Promise<void> | void;
+  afterPublish?: (ctx: Ctx) => Promise<void> | void;
+  beforePush?: (ctx: Ctx) => Promise<void> | void;
+  afterPush?: (ctx: Ctx) => Promise<void> | void;
+  
+  /** Called after a GitHub release is created */
+  afterRelease?: (ctx: Ctx, releaseCtx: ReleaseContext) => Promise<void> | void;
+  
+  /** Called if any task in the pipeline fails */
+  onError?: (ctx: Ctx, error: Error) => Promise<void> | void;
+  
+  /** Called when a rollback is triggered */
+  onRollback?: (ctx: Ctx) => Promise<void> | void;
+  
+  /** Called when the entire pipeline succeeds */
+  onSuccess?: (ctx: Ctx) => Promise<void> | void;
+}
+```
+
+### The `Ctx` Object
+The `Ctx` object contains the current state of the release:
+- `version`: The next version to be released.
+- `versions`: A map of per-package versions (in monorepo).
+- `promptEnabled`: Whether the process is interactive.
+- `releaseContext`: Metadata about the GitHub release (only available in `afterRelease`).
+- `packages`: The package configurations being released.
+
+## Custom Registries
+
+You can add support for a new registry by extending the `Registry` class.
+
+```ts
+import { Registry } from "pubm";
+
+class MyRegistry extends Registry {
+  async ping() { /* ... */ }
+  async publish() { /* ... */ }
+  // ... other abstract methods
+}
+```
+
+## Custom Ecosystems
+
+You can add support for a new language by extending the `Ecosystem` class.
+
+```ts
+import { Ecosystem } from "pubm";
+
+class GoEcosystem extends Ecosystem {
+  async readVersion() { /* ... */ }
+  async writeVersion(v: string) { /* ... */ }
+  manifestFiles() { return ["go.mod"]; }
+  // ... other abstract methods
+}
+```
+
+## Adding CLI Commands
+
+Plugins can register subcommands to the `pubm` CLI.
+
+```ts
+const myPlugin = {
+  name: "my-plugin",
+  commands: [
+    {
+      name: "notify",
+      description: "Send a manual notification",
+      subcommands: [
+        {
+          name: "slack",
+          description: "Notify Slack",
+          options: [{ name: "channel", description: "Target channel", required: true }],
+          action: async (args) => {
+            console.log(`Notifying Slack channel ${args.channel}`);
+          },
+        },
+      ],
+    },
+  ],
+};
+```
+Now you can run `pubm notify slack --channel #general`.
+
+## Agentic Skills
+
+Beyond standard hooks and commands, plugins can define **Agentic Skills**. These are specialized instructions that allow AI agents (like Claude) to perform complex tasks using `pubm`.
+
+### Defining Skills
+A plugin can include a `skills/` directory where each skill is defined in its own subdirectory with a `SKILL.md` file. These files use frontmatter to define metadata and Markdown for the agent's instructions.
+
+Example structure:
+```
+my-plugin/
+  ├── skills/
+  │   ├── publish/
+  │   │   └── SKILL.md
+  │   └── version-sync/
+  │       └── SKILL.md
+  └── src/
+      └── index.ts
+```
+
+See the [Claude Code Integration](/pubm/guides/claude-code) guide for more details on how skills are used.
