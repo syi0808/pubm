@@ -74,7 +74,7 @@ In non‑interactive mode you must supply the necessary tokens/flags via env‑v
 
 ### `pubm secrets sync`
 
-Syncs stored tokens to GitHub Secrets via the `gh` CLI. Tokens are stored encrypted during `pubm --preflight` or interactive runs.
+Syncs stored tokens to GitHub Secrets via the `gh` CLI. Tokens are stored in the OS keychain via `@napi-rs/keyring` when available, with the encrypted Db store used as a fallback.
 
 ```bash
 pubm secrets sync [--registry <...registries>]
@@ -94,7 +94,7 @@ Requires `gh` CLI installed and authenticated (`gh auth login`).
 
 ### Pipeline
 
-1. **Collect tokens** – loads stored tokens from encrypted Db, prompts only for missing ones, saves new tokens.
+1. **Collect tokens** – loads stored tokens from the OS keychain first, falls back to the encrypted Db store, prompts only for missing ones, saves new tokens.
 2. **Sync to GitHub Secrets** *(optional prompt)* – calls `gh secret set` for each token.
 3. **Switch to CI simulation** – sets `promptEnabled=false` to simulate non‑interactive CI.
 4. **Run full pipeline** – prerequisites, conditions, tests, build.

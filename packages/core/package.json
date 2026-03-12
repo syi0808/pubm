@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@listr2/prompt-adapter-enquirer": "^2.0.12",
+    "@napi-rs/keyring": "^1.2.0",
     "enquirer": "^2.4.1",
     "listr2": "^8.2.5",
     "micromatch": "^4.0.8",
