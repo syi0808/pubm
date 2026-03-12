@@ -55,9 +55,9 @@ If you omit the version:
 - interactive terminals can prompt for the next version
 - CI runs require the version to be resolved non-interactively
 
-For most manual releases, omitting the version is the recommended UX because it keeps the command surface minimal while still making the version decision explicit.
+If you omit the version, `pubm` can prompt for the next version in an interactive terminal.
 
-### Recommended interactive usage
+### Interactive usage
 
 ```bash
 pubm
@@ -332,7 +332,7 @@ pubm changesets migrate
 
 In normal publish mode, failures also trigger rollback behavior where possible.
 
-## Recommended command patterns
+## Example command patterns
 
 ### First local release on a new repository
 
