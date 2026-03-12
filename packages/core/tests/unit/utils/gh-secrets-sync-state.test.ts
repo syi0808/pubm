@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const files: Record<string, string> = {};
-const DB_PATH = "/tmp/.pubm";
+const { files, DB_PATH } = vi.hoisted(() => ({
+  files: {} as Record<string, string>,
+  DB_PATH: "/tmp/.pubm",
+}));
+
+async function syncHashPath(): Promise<string> {
+  const path = await import("node:path");
+  return path.join(DB_PATH, "gh-secrets-sync-hash");
+}
 
 vi.mock("node:fs", () => ({
   readFileSync: vi.fn((filePath: string) => {
@@ -43,15 +50,15 @@ describe("gh-secrets-sync-state", () => {
     expect(readGhSecretsSyncHash()).toBeNull();
   });
 
-  it("reads a stored sync hash from ~/.pubm", () => {
-    files[`${DB_PATH}/gh-secrets-sync-hash`] = "abc123\n";
+  it("reads a stored sync hash from ~/.pubm", async () => {
+    files[await syncHashPath()] = "abc123\n";
 
     expect(readGhSecretsSyncHash()).toBe("abc123");
   });
 
-  it("writes the sync hash into ~/.pubm", () => {
+  it("writes the sync hash into ~/.pubm", async () => {
     writeGhSecretsSyncHash("def456");
 
-    expect(files[`${DB_PATH}/gh-secrets-sync-hash`]).toBe("def456\n");
+    expect(files[await syncHashPath()]).toBe("def456\n");
   });
 });

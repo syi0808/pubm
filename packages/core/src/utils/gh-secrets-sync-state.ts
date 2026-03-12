@@ -5,7 +5,7 @@ import { Db } from "./db.js";
 const SYNC_HASH_FILENAME = "gh-secrets-sync-hash";
 
 function syncHashFilePath(): string {
-  return path.resolve(new Db().path, SYNC_HASH_FILENAME);
+  return path.join(new Db().path, SYNC_HASH_FILENAME);
 }
 
 export function readGhSecretsSyncHash(): string | null {

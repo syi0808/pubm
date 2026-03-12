@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/utils/package.js", () => ({
@@ -94,6 +95,15 @@ function getSubtasks(): any[] {
   };
   const subtasks = (taskDef as any).task({}, mockParentTask);
   return subtasks;
+}
+
+function isPackageJsonWithin(filePath: unknown, ...dirSegments: string[]): boolean {
+  const normalized = path.normalize(String(filePath));
+
+  return (
+    path.basename(normalized) === "package.json" &&
+    path.dirname(normalized).endsWith(path.join(...dirSegments))
+  );
 }
 
 beforeEach(() => {
@@ -261,13 +271,13 @@ describe("requiredMissingInformationTasks", () => {
       );
       mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
       mockedReadFile.mockImplementation(async (filePath) => {
-        if (`${filePath}`.endsWith("packages/core/package.json")) {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
           return Buffer.from(
             JSON.stringify({ name: "@pubm/core", dependencies: {} }),
           );
         }
 
-        if (`${filePath}`.endsWith("packages/pubm/package.json")) {
+        if (isPackageJsonWithin(filePath, "packages", "pubm")) {
           return Buffer.from(
             JSON.stringify({
               name: "pubm",
