@@ -97,7 +97,10 @@ function getSubtasks(): any[] {
   return subtasks;
 }
 
-function isPackageJsonWithin(filePath: unknown, ...dirSegments: string[]): boolean {
+function isPackageJsonWithin(
+  filePath: unknown,
+  ...dirSegments: string[]
+): boolean {
   const normalized = path.normalize(String(filePath));
 
   return (
