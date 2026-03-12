@@ -251,7 +251,7 @@ describe("requiredMissingInformationTasks", () => {
     it("keeps the package summary visible while selecting independent versions", async () => {
       mockedDiscoverPackageInfos.mockResolvedValue([
         { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
-        { name: "pubm", version: "0.3.6", path: "packages/cli" },
+        { name: "pubm", version: "0.3.6", path: "packages/pubm" },
       ]);
       mockedDiscoverCurrentVersions.mockResolvedValue(
         new Map([
@@ -267,7 +267,7 @@ describe("requiredMissingInformationTasks", () => {
           );
         }
 
-        if (`${filePath}`.endsWith("packages/cli/package.json")) {
+        if (`${filePath}`.endsWith("packages/pubm/package.json")) {
           return Buffer.from(
             JSON.stringify({
               name: "pubm",

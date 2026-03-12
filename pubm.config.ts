@@ -6,7 +6,7 @@ export default defineConfig({
   versioning: "independent",
   packages: [
     { path: "packages/core", registries: ["npm", "jsr"] },
-    { path: "packages/cli", registries: ["npm"] },
+    { path: "packages/pubm", registries: ["npm"] },
     {
       path: "packages/plugins/plugin-external-version-sync",
       registries: ["npm", "jsr"],

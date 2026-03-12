@@ -4,7 +4,10 @@ import path from "node:path";
 const monorepoRoot = path.join(import.meta.dir, "../../");
 const coreDir = import.meta.dir;
 const distDir = path.join(coreDir, "dist");
-const cliPackageJsonPath = path.join(monorepoRoot, "packages/cli/package.json");
+const cliPackageJsonPath = path.join(
+  monorepoRoot,
+  "packages/pubm/package.json",
+);
 const cliPackageJson = JSON.parse(
   readFileSync(cliPackageJsonPath, "utf-8"),
 ) as {
