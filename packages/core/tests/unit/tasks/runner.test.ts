@@ -120,6 +120,7 @@ vi.mock("../../../src/utils/registries.js", async (importOriginal) => {
 
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn(),
+  createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
 }));
 
 import { consoleError } from "../../../src/error.js";
@@ -136,7 +137,7 @@ import type { ResolvedOptions } from "../../../src/types/options.js";
 import { link } from "../../../src/utils/cli.js";
 import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { exec } from "../../../src/utils/exec.js";
-import { createListr } from "../../../src/utils/listr.js";
+import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
 import {
   getJsrJson,
   getPackageJson,
@@ -151,6 +152,7 @@ const mockedRequiredConditionsCheckTask = vi.mocked(
   requiredConditionsCheckTask,
 );
 const mockedCreateListr = vi.mocked(createListr);
+const mockedCreateCiListrOptions = vi.mocked(createCiListrOptions);
 const mockedConsoleError = vi.mocked(consoleError);
 const mockedRollback = vi.mocked(rollback);
 const mockedExec = vi.mocked(exec);
@@ -203,6 +205,25 @@ function setupCreateListrMock() {
       }),
     } as any;
   });
+}
+
+function createMockTaskRecorder() {
+  const outputHistory: string[] = [];
+  let output = "";
+
+  return {
+    outputHistory,
+    task: {
+      get output() {
+        return output;
+      },
+      set output(value: string) {
+        output = value;
+        outputHistory.push(value);
+      },
+      title: "",
+    },
+  };
 }
 
 let processExitSpy: any;
@@ -258,6 +279,9 @@ beforeEach(() => {
   mockedCollectTokens.mockResolvedValue({ npm: "test-token" });
   mockedPromptGhSecretsSync.mockResolvedValue(undefined);
   mockedInjectTokensToEnv.mockReturnValue(vi.fn());
+  mockedCreateCiListrOptions.mockReturnValue({
+    renderer: "ci-renderer",
+  } as any);
 
   setupCreateListrMock();
 });
@@ -316,6 +340,19 @@ describe("run", () => {
       // publishOnly passes a single object, not an array
       expect(callArgs[0]).toHaveProperty("title", "Publishing");
       expect(Array.isArray(callArgs[0])).toBe(false);
+    });
+  });
+
+  describe("CI logging", () => {
+    it("passes CI renderer options to the pipeline when --ci is enabled", async () => {
+      const ciListrOptions = { renderer: "ci-renderer" } as any;
+      mockedCreateCiListrOptions.mockReturnValue(ciListrOptions);
+
+      const options = createOptions({ ci: true });
+      await run(options);
+
+      expect(mockedCreateCiListrOptions).toHaveBeenCalled();
+      expect(mockedCreateListr.mock.calls[0][1]).toBe(ciListrOptions);
     });
   });
 
@@ -534,6 +571,117 @@ describe("run", () => {
   });
 
   describe("inner task execution", () => {
+    it("annotates the test task title and output with the exact command", async () => {
+      const options = createOptions();
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const testTask = tasks[0];
+      const { task: mockTask } = createMockTaskRecorder();
+
+      await testTask.task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        mockTask,
+      );
+
+      expect(mockTask.title).toBe("Running tests (pnpm run test)");
+      expect(mockTask.output).toBe("Completed `pnpm run test`");
+    });
+
+    it("shows only the latest 4 lines of live test output on local TTY", async () => {
+      const originalIsTTY = process.stdout.isTTY;
+      try {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: true,
+          configurable: true,
+        });
+
+        const options = createOptions();
+        await run(options);
+
+        mockedExec.mockClear();
+        mockedExec.mockImplementationOnce(
+          async (_command, _args, execOptions) => {
+            execOptions.onStdout?.("line 1\nline 2\n");
+            execOptions.onStderr?.("warn 1\n");
+            execOptions.onStdout?.("line 3\nline 4\nline 5\n");
+
+            return {
+              exitCode: 0,
+              stderr: "warn 1\n",
+              stdout: "line 1\nline 2\nline 3\nline 4\nline 5\n",
+            };
+          },
+        );
+
+        const callArgs = mockedCreateListr.mock.calls[0];
+        const tasks = callArgs[0] as any[];
+        const testTask = tasks[0];
+        const { outputHistory, task: mockTask } = createMockTaskRecorder();
+
+        await testTask.task(
+          {
+            ...options,
+            ci: false,
+            promptEnabled: true,
+            pluginRunner: new PluginRunner([]),
+          },
+          mockTask,
+        );
+
+        expect(outputHistory).toContain(
+          "Executing `pnpm run test`\nwarn 1\nline 3\nline 4\nline 5",
+        );
+      } finally {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: originalIsTTY,
+          configurable: true,
+        });
+      }
+    });
+
+    it("does not attach live output callbacks in CI mode", async () => {
+      const originalIsTTY = process.stdout.isTTY;
+      try {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: true,
+          configurable: true,
+        });
+
+        const options = createOptions();
+        await run(options);
+
+        mockedExec.mockClear();
+
+        const callArgs = mockedCreateListr.mock.calls[0];
+        const tasks = callArgs[0] as any[];
+        const testTask = tasks[0];
+        const { task: mockTask } = createMockTaskRecorder();
+
+        await testTask.task(
+          {
+            ...options,
+            ci: true,
+            promptEnabled: false,
+            pluginRunner: new PluginRunner([]),
+          },
+          mockTask,
+        );
+
+        expect(mockedExec).toHaveBeenCalledWith("pnpm", ["run", "test"], {
+          onStderr: undefined,
+          onStdout: undefined,
+          throwOnError: true,
+        });
+      } finally {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: originalIsTTY,
+          configurable: true,
+        });
+      }
+    });
+
     it("runs test task and throws AbstractError with context on exec rejection", async () => {
       mockedExec.mockRejectedValueOnce(new Error("test error"));
 
@@ -700,6 +848,30 @@ describe("run", () => {
       await run(options);
 
       expect(mockedCreateListr).toHaveBeenCalled();
+    });
+
+    it("summarizes publish subtasks before starting concurrent publishing", async () => {
+      const options = createOptions();
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const publishTask = tasks[3];
+      const mockParentTask = {
+        output: "",
+        title: "Publishing",
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await publishTask.task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        mockParentTask,
+      );
+
+      expect(mockParentTask.title).toBe("Publishing (2 targets)");
+      expect(mockParentTask.output).toContain("Concurrent publish tasks");
+      expect(mockParentTask.output).toContain("npm publish");
+      expect(mockParentTask.output).toContain("jsr publish");
     });
   });
 
