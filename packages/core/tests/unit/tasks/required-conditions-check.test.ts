@@ -219,15 +219,28 @@ describe("requiredConditionsCheckTask", () => {
 
       pingTask.task(ctx, innerParentTask);
 
-      expect(innerSubtasks).toHaveLength(2);
-      expect(innerSubtasks[0].title).toBe("Ping to npm");
-      expect(innerSubtasks[1].title).toBe("Ping to jsr");
+      expect(innerSubtasks).toHaveLength(1);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
 
-      await innerSubtasks[0].task();
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[], _opts?: any) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(2);
+      expect(registrySubtasks[0].title).toBe("Ping npm");
+      expect(registrySubtasks[1].title).toBe("Ping jsr");
+
+      await registrySubtasks[0].task();
       expect(mockGetRegistry).toHaveBeenCalledWith("npm");
       expect(mockRegistry1.ping).toHaveBeenCalledOnce();
 
-      await innerSubtasks[1].task();
+      await registrySubtasks[1].task();
       expect(mockGetRegistry).toHaveBeenCalledWith("jsr");
       expect(mockRegistry2.ping).toHaveBeenCalledOnce();
     });
@@ -254,8 +267,22 @@ describe("requiredConditionsCheckTask", () => {
       pingTask.task(ctx, innerParentTask);
 
       expect(innerSubtasks).toHaveLength(1);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
 
-      await innerSubtasks[0].task();
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0].title).toBe("Ping npm");
+
+      await registrySubtasks[0].task();
       expect(mockRegistry.ping).toHaveBeenCalledOnce();
     });
 
@@ -282,7 +309,17 @@ describe("requiredConditionsCheckTask", () => {
 
       pingTask.task(ctx, innerParentTask);
 
-      await expect(innerSubtasks[0].task()).rejects.toThrow("ping failed");
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      await expect(registrySubtasks[0].task()).rejects.toThrow("ping failed");
     });
   });
 
@@ -721,7 +758,20 @@ describe("requiredConditionsCheckTask", () => {
       );
 
       expect(innerSubtasks).toHaveLength(1);
-      expect(innerSubtasks[0]).toBe(npmCheck);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0]).toBe(npmCheck);
     });
 
     it("maps jsr registry to jsrAvailableCheckTasks", async () => {
@@ -744,7 +794,20 @@ describe("requiredConditionsCheckTask", () => {
       );
 
       expect(innerSubtasks).toHaveLength(1);
-      expect(innerSubtasks[0]).toBe(jsrCheck);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0]).toBe(jsrCheck);
     });
 
     it("maps unknown registry to npmAvailableCheckTasks (default case)", async () => {
@@ -767,7 +830,20 @@ describe("requiredConditionsCheckTask", () => {
       );
 
       expect(innerSubtasks).toHaveLength(1);
-      expect(innerSubtasks[0]).toBe(npmCheck);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0]).toBe(npmCheck);
     });
 
     it("maps multiple registries correctly", async () => {
@@ -792,9 +868,22 @@ describe("requiredConditionsCheckTask", () => {
         "../../../src/tasks/jsr.js"
       );
 
-      expect(innerSubtasks).toHaveLength(2);
-      expect(innerSubtasks[0]).toBe(npmCheck);
-      expect(innerSubtasks[1]).toBe(jsrCheck);
+      expect(innerSubtasks).toHaveLength(1);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(2);
+      expect(registrySubtasks[0]).toBe(npmCheck);
+      expect(registrySubtasks[1]).toBe(jsrCheck);
     });
 
     it("passes concurrent option to newListr", async () => {
@@ -835,7 +924,20 @@ describe("requiredConditionsCheckTask", () => {
       );
 
       expect(innerSubtasks).toHaveLength(1);
-      expect(innerSubtasks[0]).toBe(cratesCheck);
+      expect(innerSubtasks[0].title).toBe("Rust ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0]).toBe(cratesCheck);
     });
 
     it("includes crates from packages config in ping registries", async () => {
@@ -860,8 +962,31 @@ describe("requiredConditionsCheckTask", () => {
       pingTask.task(ctx, innerParentTask);
 
       expect(innerSubtasks).toHaveLength(2);
-      expect(innerSubtasks[0].title).toBe("Ping to npm");
-      expect(innerSubtasks[1].title).toBe("Ping to crates");
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(innerSubtasks[1].title).toBe("Rust ecosystem");
+
+      let jsRegistrySubtasks: any[] = [];
+      const jsParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          jsRegistrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, jsParentTask);
+
+      let rustRegistrySubtasks: any[] = [];
+      const rustParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          rustRegistrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[1].task(ctx, rustParentTask);
+
+      expect(jsRegistrySubtasks[0].title).toBe("Ping npm");
+      expect(rustRegistrySubtasks[0].title).toBe("Ping crates.io");
     });
 
     it("creates per-package crates availability check tasks", async () => {
@@ -886,15 +1011,93 @@ describe("requiredConditionsCheckTask", () => {
 
       registryTask.task(ctx, innerParentTask);
 
-      // npm (from pkg 1) + crates lib-a + crates lib-b = 3
-      expect(innerSubtasks).toHaveLength(3);
-      expect(innerSubtasks[0].title).toBe("npm-check-mock");
-      expect(innerSubtasks[1].title).toBe(
+      expect(innerSubtasks).toHaveLength(2);
+      expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(innerSubtasks[1].title).toBe("Rust ecosystem");
+
+      let jsRegistrySubtasks: any[] = [];
+      const jsParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          jsRegistrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[0].task(ctx, jsParentTask);
+
+      expect(jsRegistrySubtasks).toHaveLength(1);
+      expect(jsRegistrySubtasks[0].title).toBe("npm-check-mock");
+
+      let rustRegistrySubtasks: any[] = [];
+      const rustParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          rustRegistrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      innerSubtasks[1].task(ctx, rustParentTask);
+
+      expect(rustRegistrySubtasks).toHaveLength(1);
+      expect(rustRegistrySubtasks[0].title).toBe(
+        "Checking crates.io availability",
+      );
+
+      let cratePackageSubtasks: any[] = [];
+      const cratesParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          cratePackageSubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      rustRegistrySubtasks[0].task(ctx, cratesParentTask);
+
+      expect(cratePackageSubtasks).toHaveLength(2);
+      expect(cratePackageSubtasks[0].title).toBe(
         "crates-check-mock (rust/crates/lib-a)",
       );
-      expect(innerSubtasks[2].title).toBe(
+      expect(cratePackageSubtasks[1].title).toBe(
         "crates-check-mock (rust/crates/lib-b)",
       );
+    });
+
+    it("deduplicates npm availability checks across js packages", async () => {
+      const subtasks = await getSubtasks();
+      const registryTask = subtasks[4];
+      const ctx = createCtx({
+        packages: [
+          { path: "packages/core", registries: ["npm", "jsr"] },
+          { path: "packages/cli", registries: ["npm"] },
+        ],
+      } as any);
+
+      let ecosystemSubtasks: any[] = [];
+      const parentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          ecosystemSubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      registryTask.task(ctx, parentTask);
+
+      expect(ecosystemSubtasks).toHaveLength(1);
+      expect(ecosystemSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      let registrySubtasks: any[] = [];
+      const ecosystemParentTask = {
+        newListr: vi.fn((tasks: any[]) => {
+          registrySubtasks = tasks;
+          return tasks;
+        }),
+      };
+
+      ecosystemSubtasks[0].task(ctx, ecosystemParentTask);
+
+      expect(registrySubtasks).toHaveLength(2);
+      expect(registrySubtasks[0].title).toBe("npm-check-mock");
+      expect(registrySubtasks[1].title).toBe("jsr-check-mock");
     });
   });
 });

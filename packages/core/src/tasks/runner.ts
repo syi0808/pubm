@@ -18,7 +18,6 @@ import {
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { discoverPackageInfos } from "../changeset/packages.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
-import type { PackageConfig } from "../config/types.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -52,6 +51,12 @@ import {
   npmDryRunPublishTask,
 } from "./dry-run-publish.js";
 import { createGitHubRelease, type ReleaseContext } from "./github-release.js";
+import {
+  collectEcosystemRegistryGroups,
+  countRegistryTargets,
+  ecosystemLabel,
+  registryLabel,
+} from "./grouping.js";
 import { jsrPublishTasks } from "./jsr.js";
 import { npmPublishTasks } from "./npm.js";
 import { collectTokens, promptGhSecretsSync } from "./preflight.js";
@@ -88,41 +93,41 @@ function registryTask(registry: string) {
 }
 
 async function collectPublishTasks(ctx: Ctx) {
-  if (ctx.packages?.length) {
-    const nonCratesTasks = ctx.packages.flatMap((pkg: PackageConfig) =>
-      pkg.registries
-        .filter((reg) => reg !== "crates")
-        .map((reg) => registryTask(reg)),
-    );
+  const groups = collectEcosystemRegistryGroups(ctx);
 
-    const cratesPaths = ctx.packages
-      .filter((pkg) => pkg.registries.includes("crates"))
-      .map((pkg) => pkg.path);
+  const ecosystemTasks = await Promise.all(
+    groups.map(async (group) => {
+      const registryTasks = await Promise.all(
+        group.registries.map(async ({ registry, packagePaths }) => {
+          if (registry !== "crates") {
+            return registryTask(registry);
+          }
 
-    if (cratesPaths.length === 0) {
-      return nonCratesTasks;
-    }
+          const sortedPaths = await sortCratesByDependencyOrder(packagePaths);
+          return {
+            title: "Publishing to crates.io (sequential)",
+            task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
+              task.newListr(
+                sortedPaths.map((packagePath) =>
+                  createCratesPublishTask(packagePath),
+                ),
+                { concurrent: false },
+              ),
+          };
+        }),
+      );
 
-    const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
-    const sequentialCratesTask = {
-      title: "Publishing to crates.io (sequential)",
-      task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
-        task.newListr(
-          sortedPaths.map((p) => createCratesPublishTask(p)),
-          { concurrent: false },
-        ),
-    };
+      return {
+        title: ecosystemLabel(group.ecosystem),
+        task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
+          task.newListr(registryTasks, {
+            concurrent: true,
+          }),
+      };
+    }),
+  );
 
-    return [
-      ...nonCratesTasks,
-      sequentialCratesTask,
-      ...pluginPublishTasks(ctx),
-    ];
-  }
-  return [
-    ...collectRegistries(ctx).map(registryTask),
-    ...pluginPublishTasks(ctx),
-  ];
+  return [...ecosystemTasks, ...pluginPublishTasks(ctx)];
 }
 
 function pluginPublishTasks(ctx: Ctx) {
@@ -149,55 +154,85 @@ function dryRunRegistryTask(registry: string) {
 }
 
 async function collectDryRunPublishTasks(ctx: Ctx) {
-  if (ctx.packages?.length) {
-    const nonCratesTasks = ctx.packages.flatMap((pkg: PackageConfig) =>
-      pkg.registries
-        .filter((reg) => reg !== "crates")
-        .map((reg) => dryRunRegistryTask(reg)),
-    );
+  const groups = collectEcosystemRegistryGroups(ctx);
 
-    const cratesPaths = ctx.packages
-      .filter((pkg) => pkg.registries.includes("crates"))
-      .map((pkg) => pkg.path);
+  return await Promise.all(
+    groups.map(async (group) => {
+      const registryTasks = await Promise.all(
+        group.registries.map(async ({ registry, packagePaths }) => {
+          if (registry !== "crates") {
+            return dryRunRegistryTask(registry);
+          }
 
-    if (cratesPaths.length === 0) {
-      return nonCratesTasks;
-    }
+          const sortedPaths = await sortCratesByDependencyOrder(packagePaths);
+          const siblingCrateNames = await Promise.all(
+            packagePaths.map((packagePath) =>
+              new RustEcosystem(packagePath).packageName(),
+            ),
+          );
 
-    const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
-    const siblingCrateNames = await Promise.all(
-      cratesPaths.map((p) => new RustEcosystem(p).packageName()),
-    );
-    const sequentialCratesTask = {
-      title: "Dry-run crates.io publish (sequential)",
-      task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
-        task.newListr(
-          sortedPaths.map((p) =>
-            createCratesDryRunPublishTask(p, siblingCrateNames),
-          ),
-          { concurrent: false },
-        ),
-    };
+          return {
+            title: "Dry-run crates.io publish (sequential)",
+            task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
+              task.newListr(
+                sortedPaths.map((packagePath) =>
+                  createCratesDryRunPublishTask(
+                    packagePath,
+                    siblingCrateNames,
+                  ),
+                ),
+                { concurrent: false },
+              ),
+          };
+        }),
+      );
 
-    return [...nonCratesTasks, sequentialCratesTask];
-  }
-  return collectRegistries(ctx).map(dryRunRegistryTask);
+      return {
+        title: ecosystemLabel(group.ecosystem),
+        task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
+          task.newListr(registryTasks, {
+            concurrent: true,
+          }),
+      };
+    }),
+  );
 }
 
-function formatTaskListSummary(
+function formatRegistryGroupSummary(
   heading: string,
-  tasks: Array<{ title?: string | string[] }>,
+  ctx: Pick<Ctx, "packages" | "registries" | "pluginRunner">,
+  includePluginTargets = false,
 ): string {
-  const titles = tasks
-    .map((task) =>
-      Array.isArray(task.title) ? task.title.join(" ") : task.title,
-    )
-    .filter((title): title is string => Boolean(title));
-  if (titles.length === 0) {
+  const lines = collectEcosystemRegistryGroups(ctx).flatMap((group) =>
+    group.registries.map(({ registry, packagePaths }) => {
+      const packageSummary =
+        registry === "crates" && packagePaths.length > 1
+          ? ` (${packagePaths.length} packages)`
+          : "";
+      return `- ${ecosystemLabel(group.ecosystem)} > ${registryLabel(registry)}${packageSummary}`;
+    }),
+  );
+
+  if (includePluginTargets) {
+    for (const registry of ctx.pluginRunner.collectRegistries()) {
+      lines.push(`- Plugin registry > ${registry.packageName}`);
+    }
+  }
+
+  if (lines.length === 0) {
     return heading;
   }
 
-  return `${heading}:\n${titles.map((title) => `- ${title}`).join("\n")}`;
+  return `${heading}:\n${lines.join("\n")}`;
+}
+
+function countPublishTargets(
+  ctx: Pick<Ctx, "packages" | "registries" | "pluginRunner">,
+): number {
+  return (
+    countRegistryTargets(collectEcosystemRegistryGroups(ctx)) +
+    ctx.pluginRunner.collectRegistries().length
+  );
 }
 
 function formatVersionSummary(ctx: Pick<Ctx, "version" | "versions">): string {
@@ -362,10 +397,11 @@ export async function run(options: ResolvedOptions): Promise<void> {
               title: "Publishing",
               task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
                 const publishTasks = await collectPublishTasks(ctx);
-                parentTask.title = `Publishing (${publishTasks.length} targets)`;
-                parentTask.output = formatTaskListSummary(
+                parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+                parentTask.output = formatRegistryGroupSummary(
                   "Concurrent publish tasks",
-                  publishTasks,
+                  ctx,
+                  true,
                 );
 
                 return parentTask.newListr(publishTasks, {
@@ -457,10 +493,11 @@ export async function run(options: ResolvedOptions): Promise<void> {
               title: "Publishing",
               task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
                 const publishTasks = await collectPublishTasks(ctx);
-                parentTask.title = `Publishing (${publishTasks.length} targets)`;
-                parentTask.output = formatTaskListSummary(
+                parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+                parentTask.output = formatRegistryGroupSummary(
                   "Concurrent publish tasks",
-                  publishTasks,
+                  ctx,
+                  true,
                 );
 
                 return parentTask.newListr(publishTasks, {
@@ -763,10 +800,11 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   parentTask.output = "Running plugin beforePublish hooks...";
                   await ctx.pluginRunner.runHook("beforePublish", ctx);
                   const publishTasks = await collectPublishTasks(ctx);
-                  parentTask.title = `Publishing (${publishTasks.length} targets)`;
-                  parentTask.output = formatTaskListSummary(
+                  parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+                  parentTask.output = formatRegistryGroupSummary(
                     "Concurrent publish tasks",
-                    publishTasks,
+                    ctx,
+                    true,
                   );
 
                   return parentTask.newListr(publishTasks, {
@@ -789,10 +827,12 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 title: "Validating publish (dry-run)",
                 task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
                   const dryRunTasks = await collectDryRunPublishTasks(ctx);
-                  parentTask.title = `Validating publish (${dryRunTasks.length} targets)`;
-                  parentTask.output = formatTaskListSummary(
+                  parentTask.title = `Validating publish (${countRegistryTargets(
+                    collectEcosystemRegistryGroups(ctx),
+                  )} targets)`;
+                  parentTask.output = formatRegistryGroupSummary(
                     "Dry-run publish tasks",
-                    dryRunTasks,
+                    ctx,
                   );
 
                   return parentTask.newListr(dryRunTasks, {

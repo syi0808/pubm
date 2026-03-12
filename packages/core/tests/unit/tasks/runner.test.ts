@@ -861,8 +861,8 @@ describe("run", () => {
 
       expect(mockParentTask.title).toBe("Publishing (2 targets)");
       expect(mockParentTask.output).toContain("Concurrent publish tasks");
-      expect(mockParentTask.output).toContain("npm publish");
-      expect(mockParentTask.output).toContain("jsr publish");
+      expect(mockParentTask.output).toContain("JavaScript ecosystem > npm");
+      expect(mockParentTask.output).toContain("JavaScript ecosystem > jsr");
     });
   });
 
@@ -892,9 +892,10 @@ describe("run", () => {
         mockParentTask,
       );
 
-      // Should include npm, jsr (from package 1) AND crates (from package 2)
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
+      expect(allSubtasks).toHaveLength(2);
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(allSubtasks[1].title).toBe("Rust ecosystem");
     });
 
     it("uses per-package registries in publishOnly mode", async () => {
@@ -920,10 +921,12 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      expect(allSubtasks).toHaveLength(3); // npm, jsr, crates
+      expect(allSubtasks).toHaveLength(2);
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(allSubtasks[1].title).toBe("Rust ecosystem");
     });
 
-    it("creates publish tasks per-package (not deduplicated)", async () => {
+    it("deduplicates js publish tasks across packages", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
@@ -948,8 +951,23 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      // npm + jsr (from pkg 1) + npm (from pkg 2) = 3 tasks
-      expect(allSubtasks).toHaveLength(3);
+      expect(allSubtasks).toHaveLength(1);
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      const ecosystemParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await allSubtasks[0].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        ecosystemParentTask,
+      );
+
+      const registrySubtasks = (ecosystemParentTask.newListr as any).mock
+        .calls[0][0];
+      expect(registrySubtasks).toHaveLength(2);
+      expect(registrySubtasks[0].title).toBe("npm publish");
+      expect(registrySubtasks[1].title).toBe("jsr publish");
     });
 
     it("creates per-package crate publish tasks with package path", async () => {
@@ -978,10 +996,32 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      // npm (from pkg 1) + sequential crates wrapper = 2 tasks
       expect(allSubtasks).toHaveLength(2);
-      expect(allSubtasks[0].title).toBe("npm publish");
-      expect(allSubtasks[1].title).toBe("Publishing to crates.io (sequential)");
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(allSubtasks[1].title).toBe("Rust ecosystem");
+
+      const jsParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+      const rustParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await allSubtasks[0].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        jsParentTask,
+      );
+      await allSubtasks[1].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        rustParentTask,
+      );
+
+      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock.calls[0][0];
+      const rustRegistrySubtasks = (rustParentTask.newListr as any).mock.calls[0][0];
+      expect(jsRegistrySubtasks[0].title).toBe("npm publish");
+      expect(rustRegistrySubtasks[0].title).toBe(
+        "Publishing to crates.io (sequential)",
+      );
     });
 
     it("creates per-package crate publish tasks in publishOnly mode", async () => {
@@ -1008,8 +1048,8 @@ describe("run", () => {
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(allSubtasks).toHaveLength(2);
-      expect(allSubtasks[0].title).toBe("npm publish");
-      expect(allSubtasks[1].title).toBe("Publishing to crates.io (sequential)");
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+      expect(allSubtasks[1].title).toBe("Rust ecosystem");
     });
 
     it("calls sortCratesByDependencyOrder for crate packages", async () => {
@@ -1074,17 +1114,40 @@ describe("run", () => {
         mockParentTask,
       );
 
-      // Should have 2 subtasks: npm (concurrent) + sequential crates wrapper
       const subtasks = (mockParentTask.newListr as any).mock.calls[0][0];
       expect(subtasks).toHaveLength(2);
-      expect(subtasks[0].title).toBe("npm publish");
-      expect(subtasks[1].title).toBe("Publishing to crates.io (sequential)");
+      expect(subtasks[0].title).toBe("JavaScript ecosystem");
+      expect(subtasks[1].title).toBe("Rust ecosystem");
 
-      // Call the sequential crates wrapper task to verify it creates subtasks with concurrent: false
+      const jsParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+      const rustParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await subtasks[0].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        jsParentTask,
+      );
+      await subtasks[1].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        rustParentTask,
+      );
+
+      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock.calls[0][0];
+      expect(jsRegistrySubtasks[0].title).toBe("npm publish");
+
+      const rustRegistrySubtasks = (rustParentTask.newListr as any).mock
+        .calls[0][0];
+      expect(rustRegistrySubtasks[0].title).toBe(
+        "Publishing to crates.io (sequential)",
+      );
+
       const innerParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
-      subtasks[1].task({}, innerParentTask);
+      rustRegistrySubtasks[0].task({}, innerParentTask);
 
       const innerSubtasks = (innerParentTask.newListr as any).mock.calls[0][0];
       const innerOptions = (innerParentTask.newListr as any).mock.calls[0][1];
@@ -1116,7 +1179,22 @@ describe("run", () => {
       );
 
       const allSubtasks = (mockParentTask.newListr as any).mock.calls[0][0];
-      expect(allSubtasks).toHaveLength(1); // only npm
+      expect(allSubtasks).toHaveLength(1);
+      expect(allSubtasks[0].title).toBe("JavaScript ecosystem");
+
+      const ecosystemParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await allSubtasks[0].task(
+        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        ecosystemParentTask,
+      );
+
+      const registrySubtasks = (ecosystemParentTask.newListr as any).mock
+        .calls[0][0];
+      expect(registrySubtasks).toHaveLength(1);
+      expect(registrySubtasks[0].title).toBe("npm publish");
     });
   });
 
