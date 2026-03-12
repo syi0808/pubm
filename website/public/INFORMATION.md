@@ -36,22 +36,8 @@ This file is intended to be plain text context for coding agents and automation 
 - before publishing, agents should inspect repository state and pending changesets
 - `pubm --preflight` is the main validation entry point for registry auth and dry-run publish checks
 
-## Common commands
-
-```bash
-pubm init
-pubm changesets add
-pubm changesets status --verbose
-pubm changesets version --dry-run
-pubm changesets version
-pubm --preflight
-pubm patch --preview
-pubm
-```
-
 ## Related docs
 
-- `/pubm/PUBM_PLUGIN.md`
 - `/pubm/guides/quick-start/`
 - `/pubm/guides/coding-agents/`
 - `/pubm/guides/configuration/`

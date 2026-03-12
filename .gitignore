@@ -22,6 +22,7 @@ dist-ssr
 .pubm
 .worktrees
 .astro
+website/public/plugins/pubm-plugin/
 coverage
 # Package build outputs
 packages/*/dist/
