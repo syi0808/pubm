@@ -18,7 +18,6 @@ vi.mock("../../../src/utils/db.js", () => ({
 
 vi.mock("../../../src/utils/package.js", () => ({
   getJsrJson: vi.fn(),
-  version: vi.fn().mockResolvedValue("0.0.5"),
 }));
 
 vi.mock("../../../src/utils/package-name.js", () => ({
@@ -342,6 +341,7 @@ describe("JsrClient", () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: "Bearer test-token",
+            "User-Agent": expect.stringContaining("pubm/"),
           }),
         }),
       );
@@ -377,6 +377,7 @@ describe("JsrClient", () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: "Bearer test-token",
+            "User-Agent": expect.stringContaining("pubm/"),
           }),
         }),
       );

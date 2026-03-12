@@ -1,8 +1,23 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 const coreDir = path.join(import.meta.dir, "packages/core");
 const distDir = path.join(coreDir, "dist");
+const cliPackageJsonPath = path.join(import.meta.dir, "packages/cli/package.json");
+const cliPackageJson = JSON.parse(readFileSync(cliPackageJsonPath, "utf-8")) as {
+  version: string;
+  engines?: Partial<Record<string, string>>;
+};
+const define = {
+  __PUBM_VERSION__: JSON.stringify(cliPackageJson.version),
+  __PUBM_NODE_ENGINE__: JSON.stringify(cliPackageJson.engines?.node ?? ">=18"),
+  __PUBM_GIT_ENGINE__: JSON.stringify(
+    cliPackageJson.engines?.git ?? ">=2.11.0",
+  ),
+  __PUBM_NPM_ENGINE__: JSON.stringify(cliPackageJson.engines?.npm ?? "*"),
+  __PUBM_PNPM_ENGINE__: JSON.stringify(cliPackageJson.engines?.pnpm ?? "*"),
+  __PUBM_YARN_ENGINE__: JSON.stringify(cliPackageJson.engines?.yarn ?? "*"),
+};
 
 // Clean dist and tsbuildinfo
 if (existsSync(distDir)) {
@@ -27,6 +42,7 @@ await Bun.build({
   splitting: false,
   external: nodeBuiltins,
   naming: "index.js",
+  define,
 });
 
 // CJS build
@@ -38,6 +54,7 @@ await Bun.build({
   splitting: false,
   external: nodeBuiltins,
   naming: "index.cjs",
+  define,
 });
 
 // Types

@@ -1,9 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["packages/cli/package.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "bin/**"]
     },
     "test": {
       "dependsOn": ["^build"]
