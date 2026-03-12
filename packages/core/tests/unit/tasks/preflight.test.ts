@@ -11,6 +11,10 @@ vi.mock("../../../src/utils/secure-store.js", () => ({
     };
   }),
 }));
+vi.mock("../../../src/utils/gh-secrets-sync-state.js", () => ({
+  readGhSecretsSyncHash: vi.fn(),
+  writeGhSecretsSyncHash: vi.fn(),
+}));
 vi.mock("../../../src/utils/token.js", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("../../../src/utils/token.js")>();
@@ -27,11 +31,17 @@ import {
   syncGhSecrets,
 } from "../../../src/tasks/preflight.js";
 import { exec } from "../../../src/utils/exec.js";
+import {
+  readGhSecretsSyncHash,
+  writeGhSecretsSyncHash,
+} from "../../../src/utils/gh-secrets-sync-state.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
 import { loadTokensFromDb } from "../../../src/utils/token.js";
 
 const mockedExec = vi.mocked(exec);
 const mockedSecureStore = vi.mocked(SecureStore);
+const mockedReadGhSecretsSyncHash = vi.mocked(readGhSecretsSyncHash);
+const mockedWriteGhSecretsSyncHash = vi.mocked(writeGhSecretsSyncHash);
 const mockedLoadTokens = vi.mocked(loadTokensFromDb);
 
 beforeEach(() => {
@@ -74,6 +84,23 @@ describe("collectTokens", () => {
 
     expect(tokens).toEqual({ npm: "new-token" });
     expect(mockDbSet).toHaveBeenCalledWith("npm-token", "new-token");
+  });
+
+  it("throws when a required token input is empty", async () => {
+    mockedLoadTokens.mockReturnValue({});
+    mockedExec.mockResolvedValue({ stdout: "testuser\n", stderr: "" } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("   "),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    await expect(collectTokens(["npm"], mockTask as any)).rejects.toThrow(
+      "npm access token is required to continue in preflight mode.",
+    );
   });
 
   it("skips registries without token config", async () => {
@@ -122,12 +149,6 @@ describe("syncGhSecrets", () => {
 
 describe("promptGhSecretsSync", () => {
   it("skips prompt if tokens already synced (same hash)", async () => {
-    const mockDbGet = vi.fn().mockReturnValue("somehash");
-    const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(function () {
-      return { get: mockDbGet, set: mockDbSet } as any;
-    });
-
     // Use a fixed token set — the hash will match what's stored
     // We mock db.get to return the current hash, so it should skip
     // To make this work, we need the hash to match. Let's just verify the prompt is not called.
@@ -142,21 +163,19 @@ describe("promptGhSecretsSync", () => {
       .digest("hex")
       .slice(0, 16);
 
-    mockDbGet.mockReturnValue(hash);
+    mockedReadGhSecretsSyncHash.mockReturnValue(hash);
 
     const mockTask = { output: "", prompt: vi.fn() };
     await promptGhSecretsSync(tokens, mockTask);
 
     expect(mockTask.prompt).not.toHaveBeenCalled();
-    expect(mockTask.output).toBe("Tokens already synced to GitHub Secrets.");
+    expect(mockTask.output).toBe(
+      "GitHub Secrets sync already acknowledged for the current tokens.",
+    );
   });
 
   it("prompts when tokens have changed (different hash)", async () => {
-    const mockDbGet = vi.fn().mockReturnValue("oldhash");
-    const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(function () {
-      return { get: mockDbGet, set: mockDbSet } as any;
-    });
+    mockedReadGhSecretsSyncHash.mockReturnValue("oldhash");
 
     mockedExec.mockResolvedValue({
       stdout: "",
@@ -174,18 +193,13 @@ describe("promptGhSecretsSync", () => {
 
     expect(mockTask.prompt).toHaveBeenCalled();
     expect(mockedExec).toHaveBeenCalled();
-    expect(mockDbSet).toHaveBeenCalledWith(
-      "gh-secrets-sync-hash",
+    expect(mockedWriteGhSecretsSyncHash).toHaveBeenCalledWith(
       expect.any(String),
     );
   });
 
-  it("does not sync or save hash when user declines", async () => {
-    const mockDbGet = vi.fn().mockReturnValue(null);
-    const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(function () {
-      return { get: mockDbGet, set: mockDbSet } as any;
-    });
+  it("does not sync but still saves hash when user declines", async () => {
+    mockedReadGhSecretsSyncHash.mockReturnValue(null);
 
     const mockPromptAdapter = { run: vi.fn().mockResolvedValue(false) };
     const mockTask = {
@@ -196,6 +210,25 @@ describe("promptGhSecretsSync", () => {
     await promptGhSecretsSync({ npm: "tok-1" }, mockTask);
 
     expect(mockedExec).not.toHaveBeenCalled();
-    expect(mockDbSet).not.toHaveBeenCalled();
+    expect(mockedWriteGhSecretsSyncHash).toHaveBeenCalledWith(
+      expect.any(String),
+    );
+  });
+
+  it("wraps sync hash persistence failures", async () => {
+    mockedReadGhSecretsSyncHash.mockReturnValue(null);
+    mockedWriteGhSecretsSyncHash.mockImplementation(() => {
+      throw new Error("EACCES");
+    });
+
+    const mockPromptAdapter = { run: vi.fn().mockResolvedValue(false) };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    await expect(
+      promptGhSecretsSync({ npm: "tok-1" }, mockTask),
+    ).rejects.toThrow("Failed to save GitHub Secrets sync state.");
   });
 });

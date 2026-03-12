@@ -4,6 +4,10 @@ import { color } from "listr2";
 import { AbstractError } from "../error.js";
 import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
+import {
+  readGhSecretsSyncHash,
+  writeGhSecretsSyncHash,
+} from "../utils/gh-secrets-sync-state.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { loadTokensFromDb, TOKEN_CONFIG } from "../utils/token.js";
 
@@ -37,6 +41,12 @@ export async function collectTokens(
       footer: `\nGenerate a token from ${color.bold(link(config.tokenUrlLabel, tokenUrl))}`,
     });
 
+    if (!`${token}`.trim()) {
+      throw new PreflightError(
+        `${config.promptLabel} is required to continue in preflight mode.`,
+      );
+    }
+
     tokens[registry] = token;
     new SecureStore().set(config.dbKey, token);
   }
@@ -65,19 +75,17 @@ function tokensSyncHash(tokens: Record<string, string>): string {
     .slice(0, 16);
 }
 
-const SYNC_HASH_DB_KEY = "gh-secrets-sync-hash";
-
 export async function promptGhSecretsSync(
   tokens: Record<string, string>,
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
 ): Promise<void> {
-  const db = new SecureStore();
   const currentHash = tokensSyncHash(tokens);
-  const storedHash = db.get(SYNC_HASH_DB_KEY);
+  const storedHash = readGhSecretsSyncHash();
 
   if (storedHash === currentHash) {
-    task.output = "Tokens already synced to GitHub Secrets.";
+    task.output =
+      "GitHub Secrets sync already acknowledged for the current tokens.";
     return;
   }
 
@@ -92,7 +100,6 @@ export async function promptGhSecretsSync(
     task.output = "Syncing tokens to GitHub Secrets...";
     try {
       await syncGhSecrets(tokens);
-      db.set(SYNC_HASH_DB_KEY, currentHash);
       task.output = "Tokens synced to GitHub Secrets.";
     } catch (error) {
       throw new PreflightError(
@@ -100,5 +107,13 @@ export async function promptGhSecretsSync(
         { cause: error },
       );
     }
+  }
+
+  try {
+    writeGhSecretsSyncHash(currentHash);
+  } catch (error) {
+    throw new PreflightError("Failed to save GitHub Secrets sync state.", {
+      cause: error,
+    });
   }
 }
