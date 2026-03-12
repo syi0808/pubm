@@ -25,17 +25,29 @@
   },
   "overrides": [
     {
-      "includes": ["tests/**"],
+      "includes": ["tests/**", "**/tests/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noExplicitAny": "off"
           },
+          "complexity": {
+            "noBannedTypes": "off",
+            "useArrowFunction": "off"
+          },
           "style": {
             "noNonNullAssertion": "off"
-          },
-          "complexity": {
-            "noBannedTypes": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
           }
         }
       }
