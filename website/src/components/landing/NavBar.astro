@@ -1,17 +1,13 @@
----
-const base = import.meta.env.BASE_URL;
----
-
 <nav class="navbar">
   <div class="navbar-inner glass-panel">
-    <a href={base} class="navbar-logo">
-      <img src={`${base}logo.svg`} alt="pubm" width="24" height="24" class="logo-img" />
+    <a href="." class="navbar-logo">
+      <img src="logo.svg" alt="pubm" width="24" height="24" class="logo-img" />
       <span class="logo-text">pubm</span>
     </a>
     <div class="navbar-links">
-      <a href={`${base}guides/quick-start`} class="nav-link">Docs</a>
+      <a href="guides/quick-start" class="nav-link">Docs</a>
       <a href="https://github.com/syi0808/pubm" target="_blank" rel="noopener" class="nav-link">GitHub</a>
-      <a href="#install" class="btn-cta">Get Started</a>
+      <a href="guides/quick-start" class="btn-cta">Get Started</a>
     </div>
   </div>
 </nav>
