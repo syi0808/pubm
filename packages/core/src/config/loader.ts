@@ -378,10 +378,19 @@ function createConfigModuleShimPlugin(): Bun.BunPlugin {
 
       builder.onLoad(
         { filter: /.*/, namespace: CONFIG_MODULE_NAMESPACE },
-        (args) => ({
-          contents: shims.get(args.path),
-          loader: "js",
-        }),
+        (args) => {
+          const contents = shims.get(args.path);
+          if (contents === undefined) {
+            throw new Error(
+              `Missing config module shim for "${args.path}" in ${CONFIG_MODULE_NAMESPACE}`,
+            );
+          }
+
+          return {
+            contents,
+            loader: "js",
+          };
+        },
       );
     },
   };

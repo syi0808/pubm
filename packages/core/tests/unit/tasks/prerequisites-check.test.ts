@@ -107,7 +107,9 @@ beforeEach(async () => {
   };
 
   const { Git: MockedGit } = await import("../../../src/git.js");
-  vi.mocked(MockedGit).mockImplementation(() => mockGitInstance as any);
+  vi.mocked(MockedGit).mockImplementation(function () {
+    return mockGitInstance as any;
+  });
 });
 
 describe("prerequisitesCheckTask", () => {

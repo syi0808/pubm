@@ -23,9 +23,7 @@ export const PUBM_VERSION = resolveDefine(
 
 export const PUBM_ENGINES: Record<Engine, string> = {
   node: resolveDefine(
-    typeof __PUBM_NODE_ENGINE__ === "string"
-      ? __PUBM_NODE_ENGINE__
-      : undefined,
+    typeof __PUBM_NODE_ENGINE__ === "string" ? __PUBM_NODE_ENGINE__ : undefined,
     cliEngines.node ?? ">=18",
   ),
   git: resolveDefine(
@@ -37,15 +35,11 @@ export const PUBM_ENGINES: Record<Engine, string> = {
     cliEngines.npm ?? "*",
   ),
   pnpm: resolveDefine(
-    typeof __PUBM_PNPM_ENGINE__ === "string"
-      ? __PUBM_PNPM_ENGINE__
-      : undefined,
+    typeof __PUBM_PNPM_ENGINE__ === "string" ? __PUBM_PNPM_ENGINE__ : undefined,
     cliEngines.pnpm ?? "*",
   ),
   yarn: resolveDefine(
-    typeof __PUBM_YARN_ENGINE__ === "string"
-      ? __PUBM_YARN_ENGINE__
-      : undefined,
+    typeof __PUBM_YARN_ENGINE__ === "string" ? __PUBM_YARN_ENGINE__ : undefined,
     cliEngines.yarn ?? "*",
   ),
 };

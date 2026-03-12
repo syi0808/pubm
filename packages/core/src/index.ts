@@ -68,7 +68,6 @@ export {
   writeChangelogToFile,
   writeChangeset,
 } from "./changeset/index.js";
-export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type {
   PackageConfig,
   PubmConfig,
@@ -86,7 +85,6 @@ export type {
   PackageNode,
   WorkspaceInfo,
 } from "./monorepo/index.js";
-
 // Monorepo
 export {
   applyFixedGroup,
@@ -132,6 +130,7 @@ export {
   version,
 } from "./utils/package.js";
 export { getPackageManager } from "./utils/package-manager.js";
+export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
 export { loadTokensFromDb } from "./utils/token.js";

@@ -25,7 +25,9 @@ vi.mock("std-env", () => mockIsCI);
 vi.mock("@pubm/core", () => ({
   consoleError: mockConsoleError,
   AbstractError: class extends Error {},
-  Git: vi.fn(() => mockGitInstance),
+  Git: vi.fn(function () {
+    return mockGitInstance;
+  }),
   pubm: mockPubm,
   PUBM_VERSION: mockPubmVersion,
   requiredMissingInformationTasks: mockRequiredMissingInformationTasks,

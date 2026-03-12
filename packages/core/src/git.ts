@@ -48,10 +48,16 @@ export class Git {
     try {
       const tags = await this.tags();
       const strip = (t: string) => t.replace(/^v/, "");
+      const currentIndex = tags.findIndex((t) => strip(t) === strip(tag));
 
-      return (
-        tags.at(tags.findIndex((t) => strip(t) === strip(tag)) - 1) ?? null
-      );
+      const previousIndex = currentIndex - 1;
+
+      if (previousIndex >= 0) {
+        return tags[previousIndex] ?? null;
+      }
+
+      const wrappedIndex = tags.length + previousIndex;
+      return wrappedIndex >= 0 ? (tags[wrappedIndex] ?? null) : null;
     } catch {
       return null;
     }

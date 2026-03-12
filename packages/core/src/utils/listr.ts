@@ -65,7 +65,7 @@ export function createListr<Context extends {}>(
 
   listr.isRoot = () => false;
 
-  // externalSignalHandler with pnpm patch
+  // externalSignalHandler is injected through the patched listr2 build.
   // we should make pr on listr2 for new option externalSignalHandler
   // @ts-expect-error
   listr.externalSignalHandler = rollback;

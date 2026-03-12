@@ -662,7 +662,9 @@ describe("requiredConditionsCheckTask", () => {
       const gitVersionTask = subtasks[3];
 
       const { Git: MockedGit } = await import("../../../src/git.js");
-      vi.mocked(MockedGit).mockImplementation(() => mockGitInstance as any);
+      vi.mocked(MockedGit).mockImplementation(function () {
+        return mockGitInstance as any;
+      });
       mockGitInstance.version.mockResolvedValue("2.40.0");
 
       const { validateEngineVersion: mockValidate } = await import(
@@ -680,7 +682,9 @@ describe("requiredConditionsCheckTask", () => {
       const gitVersionTask = subtasks[3];
 
       const { Git: MockedGit } = await import("../../../src/git.js");
-      vi.mocked(MockedGit).mockImplementation(() => mockGitInstance as any);
+      vi.mocked(MockedGit).mockImplementation(function () {
+        return mockGitInstance as any;
+      });
       mockGitInstance.version.mockResolvedValue("1.0.0");
 
       const { validateEngineVersion: mockValidate } = await import(

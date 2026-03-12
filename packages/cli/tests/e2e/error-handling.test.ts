@@ -55,9 +55,9 @@ describe("error handling", () => {
         "--publish-only",
       );
 
-      // The IIFE tries to read package.json for version; without it,
-      // an error about package.json is thrown.
-      expect(stderr).toContain("package.json");
+      // In publish-only mode, the CLI resolves the version from the latest git
+      // tag before it ever looks for manifest files.
+      expect(stderr).toContain("Cannot find the latest tag");
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

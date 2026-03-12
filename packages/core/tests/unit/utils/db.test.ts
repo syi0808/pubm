@@ -2,28 +2,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const store: Record<string, string> = {};
 
+function defaultStatSync(p: string) {
+  if (p.endsWith(".pubm")) {
+    throw new Error("ENOENT");
+  }
+
+  return {
+    rdev: 1,
+    birthtimeMs: 1000,
+    nlink: 1,
+    gid: 0,
+    isDirectory: () => true,
+  };
+}
+
+function defaultWriteFileSync(filePath: string, data: unknown) {
+  store[filePath] = typeof data === "string" ? data : (data?.toString() ?? "");
+}
+
+function defaultReadFileSync(filePath: string) {
+  if (!(filePath in store)) throw new Error("ENOENT");
+  return Buffer.from(store[filePath]);
+}
+
 vi.mock("node:fs", () => {
   return {
-    statSync: vi.fn((p: string) => {
-      if (p.endsWith(".pubm")) {
-        throw new Error("ENOENT");
-      }
-      return {
-        rdev: 1,
-        birthtimeMs: 1000,
-        nlink: 1,
-        gid: 0,
-        isDirectory: () => true,
-      };
-    }),
+    statSync: vi.fn(defaultStatSync),
     mkdirSync: vi.fn(),
-    writeFileSync: vi.fn((filePath: string, data: any) => {
-      store[filePath] = typeof data === "string" ? data : data.toString();
-    }),
-    readFileSync: vi.fn((filePath: string) => {
-      if (!(filePath in store)) throw new Error("ENOENT");
-      return Buffer.from(store[filePath]);
-    }),
+    writeFileSync: vi.fn(defaultWriteFileSync),
+    readFileSync: vi.fn(defaultReadFileSync),
   };
 });
 
@@ -33,6 +40,16 @@ beforeEach(async () => {
   for (const key of Object.keys(store)) {
     delete store[key];
   }
+  vi.clearAllMocks();
+
+  const { mkdirSync, readFileSync, statSync, writeFileSync } = await import(
+    "node:fs"
+  );
+  vi.mocked(statSync).mockImplementation(defaultStatSync as any);
+  vi.mocked(mkdirSync).mockImplementation(() => undefined);
+  vi.mocked(writeFileSync).mockImplementation(defaultWriteFileSync as any);
+  vi.mocked(readFileSync).mockImplementation(defaultReadFileSync as any);
+
   vi.resetModules();
   const mod = await import("../../../src/utils/db.js");
   Db = mod.Db;
@@ -181,9 +198,7 @@ describe("Db", () => {
 
       // Restore writeFileSync for other tests
       vi.mocked(mockWriteFileSync).mockImplementation(
-        (filePath: any, data: any) => {
-          store[filePath] = typeof data === "string" ? data : data.toString();
-        },
+        defaultWriteFileSync as any,
       );
     });
   });

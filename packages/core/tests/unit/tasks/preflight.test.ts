@@ -4,10 +4,12 @@ vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 vi.mock("../../../src/utils/secure-store.js", () => ({
-  SecureStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-  })),
+  SecureStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+    };
+  }),
 }));
 vi.mock("../../../src/utils/token.js", async (importOriginal) => {
   const original =
@@ -64,9 +66,9 @@ describe("collectTokens", () => {
     };
 
     const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(
-      () => ({ get: vi.fn(), set: mockDbSet }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: vi.fn(), set: mockDbSet } as any;
+    });
 
     const tokens = await collectTokens(["npm"], mockTask as any);
 
@@ -122,9 +124,9 @@ describe("promptGhSecretsSync", () => {
   it("skips prompt if tokens already synced (same hash)", async () => {
     const mockDbGet = vi.fn().mockReturnValue("somehash");
     const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockDbGet, set: mockDbSet }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockDbGet, set: mockDbSet } as any;
+    });
 
     // Use a fixed token set — the hash will match what's stored
     // We mock db.get to return the current hash, so it should skip
@@ -152,9 +154,9 @@ describe("promptGhSecretsSync", () => {
   it("prompts when tokens have changed (different hash)", async () => {
     const mockDbGet = vi.fn().mockReturnValue("oldhash");
     const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockDbGet, set: mockDbSet }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockDbGet, set: mockDbSet } as any;
+    });
 
     mockedExec.mockResolvedValue({
       stdout: "",
@@ -181,9 +183,9 @@ describe("promptGhSecretsSync", () => {
   it("does not sync or save hash when user declines", async () => {
     const mockDbGet = vi.fn().mockReturnValue(null);
     const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(
-      () => ({ get: mockDbGet, set: mockDbSet }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: mockDbGet, set: mockDbSet } as any;
+    });
 
     const mockPromptAdapter = { run: vi.fn().mockResolvedValue(false) };
     const mockTask = {

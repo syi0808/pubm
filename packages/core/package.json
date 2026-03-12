@@ -24,20 +24,23 @@
     "coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@listr2/prompt-adapter-enquirer": "^2.0.12",
+    "@listr2/prompt-adapter-enquirer": "^4.2.1",
     "@napi-rs/keyring": "^1.2.0",
     "enquirer": "^2.4.1",
-    "listr2": "^8.2.5",
+    "listr2": "^10.2.1",
     "micromatch": "^4.0.8",
     "semver": "^7.6.3",
     "smol-toml": "^1.6.0",
-    "std-env": "^3.7.0",
-    "update-kit": "^0.1.1",
+    "std-env": "^4.0.0",
+    "update-kit": "^0.1.12",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/micromatch": "^4.0.10",
-    "@types/semver": "^7.5.8"
+    "@types/semver": "^7.7.1"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "license": "Apache-2.0",
   "publishConfig": {

@@ -11,8 +11,8 @@ vi.mock("update-kit", () => ({
   },
 }));
 
-import { PUBM_VERSION } from "../../../src/utils/pubm-metadata.js";
 import { notifyNewVersion } from "../../../src/utils/notify-new-version.js";
+import { PUBM_VERSION } from "../../../src/utils/pubm-metadata.js";
 
 let consoleSpy: ReturnType<typeof vi.spyOn>;
 

@@ -4,10 +4,12 @@ vi.mock("@listr2/prompt-adapter-enquirer", () => ({
   ListrEnquirerPromptAdapter: vi.fn(),
 }));
 vi.mock("../../../src/utils/secure-store.js", () => ({
-  SecureStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-  })),
+  SecureStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+    };
+  }),
 }));
 vi.mock("../../../src/utils/token.js", () => ({
   TOKEN_CONFIG: {
@@ -64,9 +66,9 @@ const mockedSecureStore = vi.mocked(SecureStore);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedSecureStore.mockImplementation(
-    () => ({ get: vi.fn(), set: vi.fn() }) as any,
-  );
+  mockedSecureStore.mockImplementation(function () {
+    return { get: vi.fn(), set: vi.fn() } as any;
+  });
 });
 
 describe("npmDryRunPublishTask", () => {
@@ -117,20 +119,18 @@ describe("createCratesDryRunPublishTask", () => {
 
   it("calls dryRunPublish with manifestDir", async () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-crate"),
-          dependencies: vi.fn().mockResolvedValue([]),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      () =>
-        ({
-          dryRunPublish: mockDryRun,
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-crate"),
+        dependencies: vi.fn().mockResolvedValue([]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function () {
+      return {
+        dryRunPublish: mockDryRun,
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+      } as any;
+    });
 
     const task = createCratesDryRunPublishTask("packages/my-crate");
     await (task as any).task({}, { output: "" });
@@ -138,21 +138,19 @@ describe("createCratesDryRunPublishTask", () => {
   });
 
   it("proactively skips when sibling dependency is not published on crates.io", async () => {
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-cli"),
-          dependencies: vi.fn().mockResolvedValue(["my-lib", "serde"]),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      (name: string) =>
-        ({
-          isPublished: vi.fn().mockResolvedValue(name !== "my-lib"),
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-          dryRunPublish: vi.fn(),
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-cli"),
+        dependencies: vi.fn().mockResolvedValue(["my-lib", "serde"]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function (name: string) {
+      return {
+        isPublished: vi.fn().mockResolvedValue(name !== "my-lib"),
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+        dryRunPublish: vi.fn(),
+      } as any;
+    });
 
     const mockTask = { output: "", title: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
@@ -166,21 +164,19 @@ describe("createCratesDryRunPublishTask", () => {
 
   it("proceeds with dry-run when all sibling dependencies are published", async () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-cli"),
-          dependencies: vi.fn().mockResolvedValue(["my-lib"]),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      () =>
-        ({
-          isPublished: vi.fn().mockResolvedValue(true),
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-          dryRunPublish: mockDryRun,
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-cli"),
+        dependencies: vi.fn().mockResolvedValue(["my-lib"]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function () {
+      return {
+        isPublished: vi.fn().mockResolvedValue(true),
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+        dryRunPublish: mockDryRun,
+      } as any;
+    });
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
@@ -199,21 +195,19 @@ describe("createCratesDryRunPublishTask", () => {
           "no matching package named `my-lib` found\nlocation searched: crates.io index",
         ),
       );
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-cli"),
-          dependencies: vi.fn().mockResolvedValue([]),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      () =>
-        ({
-          isPublished: vi.fn().mockResolvedValue(true),
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-          dryRunPublish: mockDryRun,
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-cli"),
+        dependencies: vi.fn().mockResolvedValue([]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function () {
+      return {
+        isPublished: vi.fn().mockResolvedValue(true),
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+        dryRunPublish: mockDryRun,
+      } as any;
+    });
 
     const mockTask = { output: "", title: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
@@ -233,21 +227,19 @@ describe("createCratesDryRunPublishTask", () => {
           "no matching package named `unknown-crate` found\nlocation searched: crates.io index",
         ),
       );
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-cli"),
-          dependencies: vi.fn().mockResolvedValue([]),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      () =>
-        ({
-          isPublished: vi.fn().mockResolvedValue(true),
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-          dryRunPublish: mockDryRun,
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-cli"),
+        dependencies: vi.fn().mockResolvedValue([]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function () {
+      return {
+        isPublished: vi.fn().mockResolvedValue(true),
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+        dryRunPublish: mockDryRun,
+      } as any;
+    });
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
@@ -263,19 +255,17 @@ describe("createCratesDryRunPublishTask", () => {
     const mockDryRun = vi
       .fn()
       .mockRejectedValue(new Error("no matching package named `my-lib` found"));
-    mockedRustEcosystem.mockImplementation(
-      () =>
-        ({
-          packageName: vi.fn().mockResolvedValue("my-cli"),
-        }) as any,
-    );
-    mockedCratesRegistry.mockImplementation(
-      () =>
-        ({
-          dryRunPublish: mockDryRun,
-          isVersionPublished: vi.fn().mockResolvedValue(false),
-        }) as any,
-    );
+    mockedRustEcosystem.mockImplementation(function () {
+      return {
+        packageName: vi.fn().mockResolvedValue("my-cli"),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation(function () {
+      return {
+        dryRunPublish: mockDryRun,
+        isVersionPublished: vi.fn().mockResolvedValue(false),
+      } as any;
+    });
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli");
@@ -339,9 +329,9 @@ describe("withTokenRetry", () => {
     } as any);
 
     const mockDbSet = vi.fn();
-    mockedSecureStore.mockImplementation(
-      () => ({ get: vi.fn(), set: mockDbSet }) as any,
-    );
+    mockedSecureStore.mockImplementation(function () {
+      return { get: vi.fn(), set: mockDbSet } as any;
+    });
 
     const mockPromptAdapter = {
       run: vi.fn().mockResolvedValue("fresh-jsr-token"),
