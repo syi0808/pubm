@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("std-env", () => ({ isCI: false }));
+
 vi.mock("../../../src/git.js", () => ({
   Git: vi.fn(),
 }));
@@ -28,6 +30,7 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn((taskDef: any) => {
     return { _taskDef: taskDef, run: vi.fn() };
   }),
+  createCiListrOptions: vi.fn(),
 }));
 
 vi.mock("../../../src/tasks/npm.js", () => ({
@@ -127,6 +130,7 @@ beforeEach(async () => {
     createListr: vi.fn((taskDef: any) => {
       return { _taskDef: taskDef, run: vi.fn() };
     }),
+    createCiListrOptions: vi.fn(),
   }));
 
   vi.doMock("../../../src/tasks/npm.js", () => ({

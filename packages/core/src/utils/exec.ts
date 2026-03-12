@@ -16,6 +16,8 @@ export class NonZeroExitError extends Error {
 
 export interface ExecOptions {
   throwOnError?: boolean;
+  onStdout?: (chunk: string) => void;
+  onStderr?: (chunk: string) => void;
   nodeOptions?: {
     env?: Record<string, string | undefined>;
     cwd?: string;
@@ -36,6 +38,42 @@ function getEnhancedPath(): string {
   return `${binPath}${pathSep}${process.env.PATH ?? ""}`;
 }
 
+async function readProcessStream(
+  stream: ReadableStream<Uint8Array> | null | undefined,
+  onChunk?: (chunk: string) => void,
+): Promise<string> {
+  if (!stream) {
+    return "";
+  }
+
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let output = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        const trailing = decoder.decode();
+        if (trailing) {
+          output += trailing;
+          onChunk?.(trailing);
+        }
+        break;
+      }
+
+      const chunk = decoder.decode(value, { stream: true });
+      output += chunk;
+      onChunk?.(chunk);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return output;
+}
+
 export async function exec(
   command: string,
   args: string[] = [],
@@ -53,8 +91,8 @@ export async function exec(
   });
 
   const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
+    readProcessStream(proc.stdout, options.onStdout),
+    readProcessStream(proc.stderr, options.onStderr),
   ]);
 
   const exitCode = await proc.exited;

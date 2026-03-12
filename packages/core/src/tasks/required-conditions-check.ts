@@ -1,5 +1,6 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrTask } from "listr2";
+import { isCI } from "std-env";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { getRegistry } from "../registry/index.js";
@@ -7,7 +8,7 @@ import { jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { warningBadge } from "../utils/cli.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
-import { createListr } from "../utils/listr.js";
+import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { getPackageJson } from "../utils/package.js";
 import { collectRegistries } from "../utils/registries.js";
 import {
@@ -45,8 +46,8 @@ class RequiredConditionCheckError extends AbstractError {
 
 export const requiredConditionsCheckTask = (
   options?: Omit<ListrTask<Ctx>, "title" | "task">,
-): Listr<Ctx> =>
-  createListr({
+): Listr<Ctx> => {
+  const taskDef: ListrTask<Ctx> = {
     ...options,
     title: "Required conditions check (for pubm tasks)",
     task: (_, parentTask): Listr<Ctx> =>
@@ -203,4 +204,11 @@ export const requiredConditionsCheckTask = (
           concurrent: true,
         },
       ),
-  });
+  };
+
+  if (isCI) {
+    return createListr(taskDef, createCiListrOptions<Ctx>());
+  }
+
+  return createListr(taskDef);
+};

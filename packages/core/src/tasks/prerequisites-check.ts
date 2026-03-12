@@ -1,9 +1,10 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrTask } from "listr2";
+import { isCI } from "std-env";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { warningBadge } from "../utils/cli.js";
-import { createListr } from "../utils/listr.js";
+import { createCiListrOptions, createListr } from "../utils/listr.js";
 import type { Ctx } from "./runner.js";
 
 class PrerequisitesCheckError extends AbstractError {
@@ -20,8 +21,7 @@ export const prerequisitesCheckTask = (
   options?: Omit<ListrTask<Ctx>, "title" | "task">,
 ): Listr<Ctx> => {
   const git = new Git();
-
-  return createListr({
+  const taskDef: ListrTask<Ctx> = {
     ...options,
     exitOnError: true,
     title: "Prerequisites check (for deployment reliability)",
@@ -178,5 +178,11 @@ export const prerequisitesCheckTask = (
           },
         },
       ]),
-  });
+  };
+
+  if (isCI) {
+    return createListr(taskDef, createCiListrOptions<Ctx>());
+  }
+
+  return createListr(taskDef);
 };

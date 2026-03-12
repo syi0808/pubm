@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import path, { join } from "node:path";
 import process from "node:process";
-import { color, type Listr } from "listr2";
+import { stripVTControlCharacters } from "node:util";
+import {
+  color,
+  type Listr,
+  type ListrRenderer,
+  type ListrTaskWrapper,
+} from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
 import {
@@ -21,7 +27,7 @@ import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec } from "../utils/exec.js";
-import { createListr } from "../utils/listr.js";
+import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
 import {
   getJsrJson,
@@ -53,6 +59,7 @@ import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
 const { prerelease } = SemVer;
+const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
 
 export interface Ctx extends ResolvedOptions {
   promptEnabled: boolean;
@@ -60,6 +67,12 @@ export interface Ctx extends ResolvedOptions {
   pluginRunner: PluginRunner;
   releaseContext?: ReleaseContext;
 }
+
+type NewListrParentTask<Context extends {}> = ListrTaskWrapper<
+  Context,
+  typeof ListrRenderer,
+  typeof ListrRenderer
+>;
 
 function registryTask(registry: string) {
   switch (registry) {
@@ -93,7 +106,7 @@ async function collectPublishTasks(ctx: Ctx) {
     const sortedPaths = await sortCratesByDependencyOrder(cratesPaths);
     const sequentialCratesTask = {
       title: "Publishing to crates.io (sequential)",
-      task: (_ctx: Ctx, task: { newListr: (...args: any[]) => any }) =>
+      task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
         task.newListr(
           sortedPaths.map((p) => createCratesPublishTask(p)),
           { concurrent: false },
@@ -157,7 +170,7 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
     );
     const sequentialCratesTask = {
       title: "Dry-run crates.io publish (sequential)",
-      task: (_ctx: Ctx, task: { newListr: (...args: any[]) => any }) =>
+      task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
         task.newListr(
           sortedPaths.map((p) =>
             createCratesDryRunPublishTask(p, siblingCrateNames),
@@ -169,6 +182,121 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
     return [...nonCratesTasks, sequentialCratesTask];
   }
   return collectRegistries(ctx).map(dryRunRegistryTask);
+}
+
+function formatTaskListSummary(
+  heading: string,
+  tasks: Array<{ title?: string | string[] }>,
+): string {
+  const titles = tasks
+    .map((task) =>
+      Array.isArray(task.title) ? task.title.join(" ") : task.title,
+    )
+    .filter((title): title is string => Boolean(title));
+  if (titles.length === 0) {
+    return heading;
+  }
+
+  return `${heading}:\n${titles.map((title) => `- ${title}`).join("\n")}`;
+}
+
+function formatVersionSummary(ctx: Pick<Ctx, "version" | "versions">): string {
+  if (ctx.versions && ctx.versions.size > 1) {
+    return [...ctx.versions].map(([name, ver]) => `${name}@${ver}`).join(", ");
+  }
+
+  return `v${ctx.version}`;
+}
+
+function formatVersionPlan(ctx: Pick<Ctx, "version" | "versions">): string {
+  if (ctx.versions && ctx.versions.size > 0) {
+    return `Target versions:\n${[...ctx.versions]
+      .map(([name, version]) => `- ${name}@${version}`)
+      .join("\n")}`;
+  }
+
+  return `Target version: v${ctx.version}`;
+}
+
+function shouldRenderLiveCommandOutput(ctx: Pick<Ctx, "ci">): boolean {
+  return !ctx.ci && !isCI && Boolean(process.stdout.isTTY);
+}
+
+function normalizeLiveCommandOutputLine(line: string): string {
+  const normalized = stripVTControlCharacters(line).trimEnd();
+  return normalized.trim() ? normalized : "";
+}
+
+function createLiveCommandOutput(
+  task: Pick<NewListrParentTask<Ctx>, "output">,
+  command: string,
+) {
+  const recentLines: string[] = [];
+  const pending = {
+    stdout: "",
+    stderr: "",
+  };
+
+  const render = (partialLine?: string): void => {
+    const previewLines = partialLine
+      ? [...recentLines, partialLine].slice(-LIVE_COMMAND_OUTPUT_LINE_LIMIT)
+      : recentLines;
+
+    task.output =
+      previewLines.length > 0
+        ? [`Executing \`${command}\``, ...previewLines].join("\n")
+        : `Executing \`${command}\``;
+  };
+
+  const pushLine = (line: string): void => {
+    const normalized = normalizeLiveCommandOutputLine(line);
+    if (!normalized) {
+      return;
+    }
+
+    recentLines.push(normalized);
+    if (recentLines.length > LIVE_COMMAND_OUTPUT_LINE_LIMIT) {
+      recentLines.shift();
+    }
+  };
+
+  const updateFromChunk = (
+    source: keyof typeof pending,
+    chunk: string,
+  ): void => {
+    const segments =
+      `${pending[source]}${chunk.replace(/\r\n/g, "\n").replace(/\r/g, "\n")}`.split(
+        "\n",
+      );
+    pending[source] = segments.pop() ?? "";
+
+    for (const segment of segments) {
+      pushLine(segment);
+    }
+
+    const partialLine = normalizeLiveCommandOutputLine(pending[source]);
+    render(partialLine || undefined);
+  };
+
+  const finish = (): void => {
+    pushLine(pending.stdout);
+    pushLine(pending.stderr);
+    pending.stdout = "";
+    pending.stderr = "";
+    render();
+  };
+
+  render();
+
+  return {
+    onStdout: (chunk: string) => {
+      updateFromChunk("stdout", chunk);
+    },
+    onStderr: (chunk: string) => {
+      updateFromChunk("stderr", chunk);
+    },
+    finish,
+  };
 }
 
 export async function run(options: ResolvedOptions): Promise<void> {
@@ -224,22 +352,36 @@ export async function run(options: ResolvedOptions): Promise<void> {
       }).run(ctx);
     }
 
+    const pipelineListrOptions =
+      options.ci || isCI ? createCiListrOptions<Ctx>() : undefined;
+
     await createListr<Ctx>(
       options.ci
         ? [
             {
               title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                parentTask.newListr(await collectPublishTasks(ctx), {
+              task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                const publishTasks = await collectPublishTasks(ctx);
+                parentTask.title = `Publishing (${publishTasks.length} targets)`;
+                parentTask.output = formatTaskListSummary(
+                  "Concurrent publish tasks",
+                  publishTasks,
+                );
+
+                return parentTask.newListr(publishTasks, {
                   concurrent: true,
-                }),
+                });
+              },
             },
             {
               title: "Creating GitHub Release",
-              task: async (ctx): Promise<void> => {
+              task: async (ctx, task): Promise<void> => {
+                task.title = `Creating GitHub Release (${formatVersionSummary(ctx)})`;
                 let changelogBody: string | undefined;
 
                 if (ctx.versions && ctx.versions.size > 1) {
+                  task.output =
+                    "Collecting release notes from per-package CHANGELOG.md files...";
                   // Multi-package: combine changelogs from per-package CHANGELOG.md files
                   const { discoverPackageInfos: discoverPkgInfos } =
                     await import("../changeset/packages.js");
@@ -273,6 +415,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     changelogBody = sections.join("\n\n---\n\n");
                   }
                 } else {
+                  task.output = "Reading CHANGELOG.md for release notes...";
                   // Single package: existing behavior
                   const changelogPath = join(process.cwd(), "CHANGELOG.md");
                   if (existsSync(changelogPath)) {
@@ -291,14 +434,16 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 }
 
                 const result = await createGitHubRelease(ctx, changelogBody);
+                task.output = `GitHub Release created: ${result.releaseUrl}`;
                 ctx.releaseContext = result;
               },
             },
             {
               title: "Running after-release hooks",
               skip: (ctx) => !ctx.releaseContext,
-              task: async (ctx): Promise<void> => {
+              task: async (ctx, task): Promise<void> => {
                 if (ctx.releaseContext) {
+                  task.output = `Running after-release hooks for ${ctx.releaseContext.tag}...`;
                   await ctx.pluginRunner.runAfterReleaseHook(
                     ctx,
                     ctx.releaseContext,
@@ -310,73 +455,112 @@ export async function run(options: ResolvedOptions): Promise<void> {
         : options.publishOnly
           ? {
               title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                parentTask.newListr(await collectPublishTasks(ctx), {
+              task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                const publishTasks = await collectPublishTasks(ctx);
+                parentTask.title = `Publishing (${publishTasks.length} targets)`;
+                parentTask.output = formatTaskListSummary(
+                  "Concurrent publish tasks",
+                  publishTasks,
+                );
+
+                return parentTask.newListr(publishTasks, {
                   concurrent: true,
-                }),
+                });
+              },
             }
           : [
               {
                 skip: options.skipTests,
                 title: "Running tests",
-                task: async (ctx): Promise<void> => {
+                task: async (ctx, task): Promise<void> => {
+                  task.output = "Running plugin beforeTest hooks...";
                   await ctx.pluginRunner.runHook("beforeTest", ctx);
                   const packageManager = await getPackageManager();
+                  const command = `${packageManager} run ${ctx.testScript}`;
+                  task.title = `Running tests (${command})`;
+                  const liveOutput = shouldRenderLiveCommandOutput(ctx)
+                    ? createLiveCommandOutput(task, command)
+                    : undefined;
+                  task.output = `Executing \`${command}\``;
 
                   try {
                     await exec(packageManager, ["run", ctx.testScript], {
+                      onStdout: liveOutput?.onStdout,
+                      onStderr: liveOutput?.onStderr,
                       throwOnError: true,
                     });
                   } catch (error) {
+                    liveOutput?.finish();
                     throw new AbstractError(
-                      `Test script '${ctx.testScript}' failed. Run \`${packageManager} run ${ctx.testScript}\` locally to see full output.`,
+                      `Test script '${ctx.testScript}' failed. Run \`${command}\` locally to see full output.`,
                       { cause: error },
                     );
                   }
+                  liveOutput?.finish();
+                  task.output = "Running plugin afterTest hooks...";
                   await ctx.pluginRunner.runHook("afterTest", ctx);
+                  task.output = `Completed \`${command}\``;
                 },
               },
               {
                 skip: options.skipBuild,
                 title: "Building the project",
-                task: async (ctx): Promise<void> => {
+                task: async (ctx, task): Promise<void> => {
+                  task.output = "Running plugin beforeBuild hooks...";
                   await ctx.pluginRunner.runHook("beforeBuild", ctx);
                   const packageManager = await getPackageManager();
+                  const command = `${packageManager} run ${ctx.buildScript}`;
+                  task.title = `Building the project (${command})`;
+                  const liveOutput = shouldRenderLiveCommandOutput(ctx)
+                    ? createLiveCommandOutput(task, command)
+                    : undefined;
+                  task.output = `Executing \`${command}\``;
 
                   try {
                     await exec(packageManager, ["run", ctx.buildScript], {
+                      onStdout: liveOutput?.onStdout,
+                      onStderr: liveOutput?.onStderr,
                       throwOnError: true,
                     });
                   } catch (error) {
+                    liveOutput?.finish();
                     throw new AbstractError(
-                      `Build script '${ctx.buildScript}' failed. Run \`${packageManager} run ${ctx.buildScript}\` locally to see full output.`,
+                      `Build script '${ctx.buildScript}' failed. Run \`${command}\` locally to see full output.`,
                       { cause: error },
                     );
                   }
+                  liveOutput?.finish();
+                  task.output = "Running plugin afterBuild hooks...";
                   await ctx.pluginRunner.runHook("afterBuild", ctx);
+                  task.output = `Completed \`${command}\``;
                 },
               },
               {
                 title: "Bumping version",
                 skip: (ctx) => !!ctx.preview,
                 task: async (ctx, task): Promise<void> => {
+                  task.title = `Bumping version (${formatVersionSummary(ctx)})`;
+                  task.output = "Running plugin beforeVersion hooks...";
                   await ctx.pluginRunner.runHook("beforeVersion", ctx);
                   const git = new Git();
                   let tagCreated = false;
                   let commited = false;
 
+                  const versions = ctx.versions;
                   const hasMultiPackageVersions =
-                    ctx.versions && ctx.versions.size > 0;
+                    versions !== undefined && versions.size > 0;
                   const isIndependent =
                     hasMultiPackageVersions &&
-                    new Set(ctx.versions!.values()).size > 1;
+                    new Set(versions.values()).size > 1;
+
+                  task.output = formatVersionPlan(ctx);
 
                   addRollback(async () => {
                     if (tagCreated) {
                       try {
                         rollbackLog("Deleting tag(s)");
-                        if (isIndependent && ctx.versions) {
-                          for (const [pkgName, pkgVersion] of ctx.versions) {
+                        if (isIndependent && versions) {
+                          for (const [pkgName, pkgVersion] of versions) {
                             try {
                               await git.deleteTag(`${pkgName}@${pkgVersion}`);
                             } catch (tagError) {
@@ -415,15 +599,19 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     }
                   }, ctx);
 
+                  task.output =
+                    "Refreshing git index before version updates...";
                   await git.reset();
 
                   if (hasMultiPackageVersions) {
+                    task.output =
+                      "Updating package versions across the workspace...";
                     // Multi-package version replacement (fixed and independent)
                     const packageInfos = await discoverPackageInfos(
                       process.cwd(),
                     );
 
-                    for (const [pkgName, pkgVersion] of ctx.versions!) {
+                    for (const [pkgName, pkgVersion] of versions) {
                       const pkgInfo = packageInfos.find(
                         (p) => p.name === pkgName,
                       );
@@ -440,11 +628,13 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
                     // Changeset consumption
                     if (ctx.changesetConsumed) {
+                      task.output =
+                        "Applying changesets and generating changelog entries...";
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
                         if (isIndependent) {
                           // Independent: per-package changelogs
-                          for (const [pkgName, pkgVersion] of ctx.versions!) {
+                          for (const [pkgName, pkgVersion] of versions) {
                             const entries = buildChangelogEntries(
                               changesets,
                               pkgName,
@@ -468,7 +658,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                           }
                         } else {
                           // Fixed monorepo: single changelog at root
-                          const allEntries = [...ctx.versions!.keys()].flatMap(
+                          const allEntries = [...versions.keys()].flatMap(
                             (pkgName) =>
                               buildChangelogEntries(changesets, pkgName),
                           );
@@ -487,25 +677,29 @@ export async function run(options: ResolvedOptions): Promise<void> {
                       }
                     }
 
+                    task.output = "Running plugin afterVersion hooks...";
                     await ctx.pluginRunner.runHook("afterVersion", ctx);
+                    task.output = "Staging version updates...";
                     await git.stage(".");
 
                     if (isIndependent) {
                       // Independent: per-package commit message and tags
-                      const commitMsg = [...ctx.versions!]
+                      const commitMsg = [...versions]
                         .map(([name, ver]) => `${name}@${ver}`)
                         .join(", ");
+                      task.output = `Creating release commit ${commitMsg}...`;
                       const commit = await git.commit(commitMsg);
                       commited = true;
 
                       task.output = "Creating tags...";
-                      for (const [pkgName, pkgVersion] of ctx.versions!) {
+                      for (const [pkgName, pkgVersion] of versions) {
                         await git.createTag(`${pkgName}@${pkgVersion}`, commit);
                       }
                       tagCreated = true;
                     } else {
                       // Fixed monorepo: single version commit and tag
                       const nextVersion = `v${ctx.version}`;
+                      task.output = `Creating release commit ${nextVersion}...`;
                       const commit = await git.commit(nextVersion);
                       commited = true;
 
@@ -514,6 +708,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                       tagCreated = true;
                     }
                   } else {
+                    task.output = "Updating package manifest versions...";
                     // Single package: existing behavior
                     const replaced = await replaceVersion(
                       ctx.version,
@@ -525,6 +720,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
                     }
 
                     if (ctx.changesetConsumed) {
+                      task.output =
+                        "Applying changesets and generating changelog entries...";
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
                         const pkgJson = await getPackageJson();
@@ -542,10 +739,13 @@ export async function run(options: ResolvedOptions): Promise<void> {
                       }
                     }
 
+                    task.output = "Running plugin afterVersion hooks...";
                     await ctx.pluginRunner.runHook("afterVersion", ctx);
+                    task.output = "Staging version updates...";
                     await git.stage(".");
 
                     const nextVersion = `v${ctx.version}`;
+                    task.output = `Creating release commit ${nextVersion}...`;
                     const commit = await git.commit(nextVersion);
                     commited = true;
 
@@ -560,8 +760,16 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   !!options.skipPublish || !!ctx.preview || !!options.preflight,
                 title: "Publishing",
                 task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                  parentTask.output = "Running plugin beforePublish hooks...";
                   await ctx.pluginRunner.runHook("beforePublish", ctx);
-                  return parentTask.newListr(await collectPublishTasks(ctx), {
+                  const publishTasks = await collectPublishTasks(ctx);
+                  parentTask.title = `Publishing (${publishTasks.length} targets)`;
+                  parentTask.output = formatTaskListSummary(
+                    "Concurrent publish tasks",
+                    publishTasks,
+                  );
+
+                  return parentTask.newListr(publishTasks, {
                     concurrent: true,
                   });
                 },
@@ -570,34 +778,50 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 skip: (ctx) =>
                   !!options.skipPublish || !!ctx.preview || !!options.preflight,
                 title: "Running post-publish hooks",
-                task: async (ctx): Promise<void> => {
+                task: async (ctx, task): Promise<void> => {
+                  task.output = "Running plugin afterPublish hooks...";
                   await ctx.pluginRunner.runHook("afterPublish", ctx);
+                  task.output = "Completed plugin afterPublish hooks.";
                 },
               },
               {
                 skip: !options.preflight,
                 title: "Validating publish (dry-run)",
-                task: async (ctx, parentTask): Promise<Listr<Ctx>> =>
-                  parentTask.newListr(await collectDryRunPublishTasks(ctx), {
+                task: async (ctx, parentTask): Promise<Listr<Ctx>> => {
+                  const dryRunTasks = await collectDryRunPublishTasks(ctx);
+                  parentTask.title = `Validating publish (${dryRunTasks.length} targets)`;
+                  parentTask.output = formatTaskListSummary(
+                    "Dry-run publish tasks",
+                    dryRunTasks,
+                  );
+
+                  return parentTask.newListr(dryRunTasks, {
                     concurrent: true,
-                  }),
+                  });
+                },
               },
               {
                 title: "Pushing tags to GitHub",
                 skip: (ctx) => !!ctx.preview,
                 task: async (ctx, task): Promise<void> => {
+                  task.output = "Running plugin beforePush hooks...";
                   await ctx.pluginRunner.runHook("beforePush", ctx);
                   const git = new Git();
+                  task.output = "Executing `git push --follow-tags`...";
 
                   const result = await git.push("--follow-tags");
 
                   if (!result) {
                     task.title +=
                       " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
+                    task.output =
+                      "Protected branch detected. Falling back to `git push --tags`.";
 
                     await git.push("--tags");
                   }
+                  task.output = "Running plugin afterPush hooks...";
                   await ctx.pluginRunner.runHook("afterPush", ctx);
+                  task.output = "Push step completed.";
                 },
               },
               {
@@ -608,6 +832,9 @@ export async function run(options: ResolvedOptions): Promise<void> {
                 title: "Creating release draft on GitHub",
                 task: async (ctx, task): Promise<void> => {
                   const git = new Git();
+                  task.title = `Creating release draft on GitHub (${formatVersionSummary(ctx)})`;
+                  task.output =
+                    "Resolving repository metadata for the release draft...";
 
                   const repositoryUrl = await git.repository();
 
@@ -620,6 +847,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   const commits = (
                     await git.commits(lastRev, `${latestTag}`)
                   ).slice(1);
+                  task.output = `Collected ${commits.length} commits for ${latestTag}.`;
 
                   let body = commits
                     .map(
@@ -644,11 +872,13 @@ export async function run(options: ResolvedOptions): Promise<void> {
                   const linkUrl = link("Link", releaseDraftUrl.toString());
 
                   task.title += ` ${linkUrl}`;
+                  task.output = `Opening release draft for ${latestTag}...`;
 
                   await openUrl(releaseDraftUrl.toString());
                 },
               },
             ],
+      pipelineListrOptions,
     ).run(ctx);
 
     const registries = collectRegistries(ctx);
@@ -681,12 +911,8 @@ export async function run(options: ResolvedOptions): Promise<void> {
         `\n\n✅ Preflight check passed. CI publish should succeed for ${parts.join(", ")}.\n`,
       );
     } else {
-      const versionLabel =
-        ctx.versions && ctx.versions.size > 1
-          ? [...ctx.versions].map(([name, ver]) => `${name}@${ver}`).join(", ")
-          : `v${ctx.version}`;
       console.log(
-        `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(versionLabel)} 🚀\n`,
+        `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(formatVersionSummary(ctx))} 🚀\n`,
       );
     }
 

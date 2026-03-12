@@ -59,6 +59,7 @@ export function createCratesPublishTask(packagePath?: string): ListrTask<Ctx> {
       }
 
       try {
+        task.output = `Publishing ${packageName}@${ctx.version} on crates.io...`;
         await registry.publish(packagePath);
       } catch (error) {
         // Fallback: catch "already uploaded" errors
