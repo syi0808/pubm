@@ -93,8 +93,10 @@ export function collectEcosystemRegistryGroups(
   if (source.packages?.length) {
     for (const pkg of source.packages) {
       for (const registry of dedupeRegistries(pkg.registries)) {
-        ensureRegistrySet(resolveEcosystem(registry, pkg.ecosystem), registry)
-          .add(pkg.path);
+        ensureRegistrySet(
+          resolveEcosystem(registry, pkg.ecosystem),
+          registry,
+        ).add(pkg.path);
       }
     }
   } else {

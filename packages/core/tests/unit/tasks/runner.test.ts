@@ -1016,8 +1016,10 @@ describe("run", () => {
         rustParentTask,
       );
 
-      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock.calls[0][0];
-      const rustRegistrySubtasks = (rustParentTask.newListr as any).mock.calls[0][0];
+      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock
+        .calls[0][0];
+      const rustRegistrySubtasks = (rustParentTask.newListr as any).mock
+        .calls[0][0];
       expect(jsRegistrySubtasks[0].title).toBe("npm publish");
       expect(rustRegistrySubtasks[0].title).toBe(
         "Publishing to crates.io (sequential)",
@@ -1135,7 +1137,8 @@ describe("run", () => {
         rustParentTask,
       );
 
-      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock.calls[0][0];
+      const jsRegistrySubtasks = (jsParentTask.newListr as any).mock
+        .calls[0][0];
       expect(jsRegistrySubtasks[0].title).toBe("npm publish");
 
       const rustRegistrySubtasks = (rustParentTask.newListr as any).mock

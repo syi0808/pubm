@@ -69,10 +69,7 @@ const terminalFrames: TerminalFrame[] = [
     },
     lines: [
       {
-        segments: [
-          { text: "$ ", tone: "prompt" },
-          { text: "pubm" },
-        ],
+        segments: [{ text: "$ ", tone: "prompt" }, { text: "pubm" }],
       },
     ],
   },
@@ -95,10 +92,7 @@ const terminalFrames: TerminalFrame[] = [
     },
     lines: [
       {
-        segments: [
-          { text: "$ ", tone: "prompt" },
-          { text: "pubm" },
-        ],
+        segments: [{ text: "$ ", tone: "prompt" }, { text: "pubm" }],
       },
       { blank: true },
       {
@@ -118,16 +112,10 @@ const terminalFrames: TerminalFrame[] = [
         ],
       },
       {
-        segments: [
-          { text: "  major " },
-          { text: "2.0.0", tone: "dim" },
-        ],
+        segments: [{ text: "  major " }, { text: "2.0.0", tone: "dim" }],
       },
       {
-        segments: [
-          { text: "  minor " },
-          { text: "1.3.0", tone: "dim" },
-        ],
+        segments: [{ text: "  minor " }, { text: "1.3.0", tone: "dim" }],
       },
       {
         segments: [
@@ -137,16 +125,10 @@ const terminalFrames: TerminalFrame[] = [
         ],
       },
       {
-        segments: [
-          { text: "  prepatch " },
-          { text: "1.2.4-0", tone: "dim" },
-        ],
+        segments: [{ text: "  prepatch " }, { text: "1.2.4-0", tone: "dim" }],
       },
       {
-        segments: [
-          { text: "  prerelease " },
-          { text: "1.2.4-0", tone: "dim" },
-        ],
+        segments: [{ text: "  prerelease " }, { text: "1.2.4-0", tone: "dim" }],
       },
       {
         segments: [{ text: "  Custom version (specify)" }],
@@ -228,7 +210,10 @@ const terminalFrames: TerminalFrame[] = [
       {
         segments: [
           { text: "  ◼ ", tone: "dim" },
-          { text: "Checking if commits exist since the last release", tone: "dim" },
+          {
+            text: "Checking if commits exist since the last release",
+            tone: "dim",
+          },
         ],
       },
       {
