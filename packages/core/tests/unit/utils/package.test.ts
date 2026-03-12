@@ -144,6 +144,28 @@ describe("getPackageJson", () => {
     expect(result).toEqual(packageData);
   });
 
+  it("respects the provided cwd when reading package.json", async () => {
+    const { mockReadFile, mockStat } = await getFsMocks();
+    const { getPackageJson } = await freshImport();
+    const cwd = "/custom/workspace/packages/core";
+
+    const packageData = { name: "@scope/core", version: "1.2.3" };
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (filePath === path.join(cwd, "package.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from(JSON.stringify(packageData)));
+
+    const result = await getPackageJson({ cwd });
+
+    expect(result).toEqual(packageData);
+    expect(mockReadFile).toHaveBeenCalledWith(path.join(cwd, "package.json"));
+  });
+
   it("returns cached result on second call", async () => {
     const { mockReadFile, mockStat } = await getFsMocks();
     const { getPackageJson } = await freshImport();
@@ -249,6 +271,32 @@ describe("getJsrJson", () => {
 
     const result = await getJsrJson();
     expect(result).toEqual(jsrData);
+  });
+
+  it("respects the provided cwd when reading jsr.json", async () => {
+    const { mockReadFile, mockStat } = await getFsMocks();
+    const { getJsrJson } = await freshImport();
+    const cwd = "/custom/workspace/packages/core";
+
+    const jsrData = {
+      name: "@scope/core",
+      version: "1.2.3",
+      exports: "./mod.ts",
+    };
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (filePath === path.join(cwd, "jsr.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from(JSON.stringify(jsrData)));
+
+    const result = await getJsrJson({ cwd });
+
+    expect(result).toEqual(jsrData);
+    expect(mockReadFile).toHaveBeenCalledWith(path.join(cwd, "jsr.json"));
   });
 
   it("returns cached result on second call", async () => {
