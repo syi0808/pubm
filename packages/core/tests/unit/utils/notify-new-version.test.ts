@@ -11,6 +11,7 @@ vi.mock("update-kit", () => ({
   },
 }));
 
+import { PUBM_VERSION } from "../../../src/utils/pubm-metadata.js";
 import { notifyNewVersion } from "../../../src/utils/notify-new-version.js";
 
 let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -30,6 +31,8 @@ describe("notifyNewVersion", () => {
     await notifyNewVersion();
 
     expect(mockCreate).toHaveBeenCalledWith({
+      appName: "pubm",
+      currentVersion: PUBM_VERSION,
       sources: [{ type: "npm", packageName: "pubm" }],
     });
   });

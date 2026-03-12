@@ -1,3 +1,4 @@
+import { PUBM_VERSION } from "@pubm/core";
 import type { Command } from "commander";
 import { UpdateKit } from "update-kit";
 
@@ -7,6 +8,8 @@ export function registerUpdateCommand(parent: Command): void {
     .description("Update pubm to the latest version")
     .action(async (): Promise<void> => {
       const kit = await UpdateKit.create({
+        appName: "pubm",
+        currentVersion: PUBM_VERSION,
         sources: [{ type: "npm", packageName: "pubm" }],
         delegateMode: "execute",
       });
