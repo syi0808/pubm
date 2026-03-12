@@ -1,219 +1,158 @@
 ---
 title: Coding Agent Integration
-description: Use pubm with coding agents through repo-local skills, plugin commands, and agent-specific packaging.
+description: Integrate the pubm plugin into coding agents you already use, starting with Claude Code.
 ---
 
-`pubm` is a good fit for coding-agent workflows because the release path is explicit: inspect state, preview the plan, validate credentials, then publish. That makes it much easier to encode safe agent behavior without guessing.
+This guide is for teams that already use coding agents such as Claude Code or Codex and want to add `pubm` release workflows into that existing setup.
 
-## What this guide covers
+The goal is not to introduce a new agent. The goal is to make your current agent understand how this repository wants release work to happen.
 
-This page describes the recommended integration model:
+## What the `pubm plugin` gives your agent
 
-- expose release workflows as explicit CLI commands, plugin commands, or skills
-- keep preview and validation steps first-class
-- bundle setup automation with the same project that owns the release pipeline
-- mirror that bundle into agent-specific install surfaces when needed
+This repository already ships an agent-facing bundle under `plugins/pubm-plugin/`.
 
-## Good agent-assisted release tasks
+Today that bundle contains:
 
-Agent workflows are most valuable for tasks that are repetitive but still require repository awareness.
+- a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- a checked-in skill bundle under `plugins/pubm-plugin/skills/`
 
-Examples:
+That means the repo already has a concrete integration surface for agent-driven release work. Instead of writing ad hoc prompts like "set up publishing" or "release the project", you can install or adapt the `pubm plugin` bundle and keep the release workflow versioned with the codebase.
 
-- checking pending changesets before a release
-- generating or reviewing changelog content
-- running `pubm --preflight` and interpreting failures
-- discovering external version references with `pubm sync --discover`
-- scaffolding plugin or release configuration
+## Included skills
 
-## The `pubm plugin` bundle
+The current bundle focuses on skills rather than custom commands or subagents.
 
-This repository already includes a coding-agent bundle under:
+### `publish-setup`
+
+Source: `plugins/pubm-plugin/skills/publish-setup/SKILL.md`
+
+Use this first when wiring `pubm` into a repository through an agent. It is the entry point for installation, config generation, CI wiring, changesets, and optional version-sync setup.
+
+### `publish-preview`
+
+Source: `plugins/pubm-plugin/skills/publish-preview/SKILL.md`
+
+Use this when the agent should explain the release plan before it mutates git state or publishes anything.
+
+### `publish`
+
+Source: `plugins/pubm-plugin/skills/publish/SKILL.md`
+
+This is the guarded publish path. It is preview-first and requires confirmation before the real publish command.
+
+### `version-sync`
+
+Source: `plugins/pubm-plugin/skills/version-sync/SKILL.md`
+
+Use this to find and wire version references outside package manifests such as docs snippets, metadata files, and sidecar config.
+
+### `create-plugin`
+
+Source: `plugins/pubm-plugin/skills/create-plugin/SKILL.md`
+
+Use this when the agent needs to scaffold a new `pubm` plugin package with hooks, commands, and tests.
+
+## Integration model
+
+If you already have a preferred coding agent, keep the split like this:
+
+- keep runtime release behavior in `pubm` itself or in a `pubm` plugin
+- keep agent workflow and approval policy in checked-in skills
+- keep the bundle inside the repository that owns the release process
+
+That gives your agent one source of truth for:
+
+- which setup steps are allowed
+- which files may be generated
+- which preview and approval gates are mandatory
+- which repository conventions the agent must follow
+
+## Start with setup, not publish
+
+If you are integrating `pubm` into an agent-enabled repository for the first time, start with `publish-setup`.
+
+That skill is the bridge between the raw CLI and the repository's actual release conventions. It handles the setup tasks teams usually forget to encode:
+
+- registry selection
+- CI wiring
+- changesets workflow setup
+- `.gitignore` behavior for `.pubm/`
+- optional version-sync configuration
+
+That is why the [Quick Start](/pubm/guides/quick-start/) guide should point existing agent users to setup first and not straight to `pubm patch`.
+
+## Skills and command surface
+
+Skills should not replace the CLI. They should orchestrate it.
+
+For `pubm`, the practical rule is:
+
+- use `pubm` commands for deterministic release operations
+- use skills for setup sequencing, project inspection, safety checks, and approvals
+
+Typical pairings:
+
+- `publish-setup` inspects the repo and writes the right `pubm` config
+- `publish-preview` runs preview-oriented commands before publish
+- `version-sync` runs `pubm sync --discover` and then wires selected targets into config
+- `create-plugin` scaffolds a new `pubm` plugin package when you need repo-specific extensions
+
+## Claude Code installation
+
+Claude Code's official plugin model is marketplace-based: add a marketplace, install a plugin, then choose its installation scope. See Anthropic's official guides for [discovering plugins](https://code.claude.com/docs/en/discover-plugins) and [creating plugins](https://code.claude.com/docs/en/plugins).
+
+Anthropic's official install flow is:
+
+1. add the marketplace with `/plugin marketplace add ...`
+2. install the plugin with `/plugin install plugin-name@marketplace-name`
+3. choose the scope in the interactive UI when needed
+
+Examples from the Claude Code docs:
 
 ```text
-plugins/pubm-plugin/skills/
+/plugin marketplace add your-org/claude-plugins
+/plugin install plugin-name@marketplace-name
 ```
 
-The current skill set covers:
+Installation scopes matter:
 
-- `publish-setup`: install/configure `pubm`, registries, CI, and changesets
-- `publish-preview`: run preview-first release inspection
-- `publish`: guarded publish workflow with explicit confirmation
-- `version-sync`: find non-manifest version references
-- `create-plugin`: scaffold a new `pubm` plugin package
+- User scope: install for yourself across projects
+- Project scope: share the plugin through the repository and write it into `.claude/settings.json`
+- Local scope: install only for yourself in the current repository
 
-This is the pattern to copy when you want agent support to be a first-class part of your release tooling:
+When `pubm` is distributed through a marketplace, this is the installation model Claude Code users should follow.
 
-- keep the runtime plugin or CLI command in the repository
-- keep the skill prompts and safety rails in the repository
-- version both together
+## Safety rules to encode
 
-## Recommended release pattern with an agent
+Any coding-agent integration around `pubm` should strongly prefer:
 
-The safest operating pattern is:
-
-1. inspect the repository state
-2. review pending changesets
-3. run preview or dry-run commands
-4. ask for approval before real publish
-
-Typical command sequence:
-
-```bash
-pubm changesets status --verbose
-pubm changesets version --dry-run
-pubm patch --preview
-pubm --preflight
-```
-
-This gives the agent enough context to explain:
-
-- which packages will move
-- what the resulting versions look like
-- whether registry auth is ready
-- which step is likely to fail
-
-## Suggested command surfaces
-
-If you are building an internal coding-agent workflow around `pubm`, these commands tend to have the highest leverage.
-
-### `/publish-preview`
-
-Runs:
-
-```bash
-pubm changesets status --verbose
-pubm changesets version --dry-run
-pubm patch --preview
-```
-
-Use when you want a release summary without making changes.
-
-### `/publish-preflight`
-
-Runs:
-
-```bash
-pubm --preflight
-```
-
-Use when you want CI-style validation before merging or tagging.
-
-### `/version-sync`
-
-Runs:
-
-```bash
-pubm sync --discover
-```
-
-Use when you need to find version strings in docs, READMEs, or sidecar manifests.
-
-### `/changeset-check`
-
-Runs:
-
-```bash
-pubm changesets status --verbose
-```
-
-Use when reviewing a pull request to confirm the release intent is recorded clearly.
-
-## Skills plus plugin commands
-
-The best integrations usually combine both:
-
-- skills or prompts for sequencing, approvals, and repository inspection
-- `pubm` plugin commands for deterministic setup or organization-specific actions
-
-Examples:
-
-- `pubm brew init` for Homebrew scaffolding
-- a plugin command that bootstraps release metadata
-- a repo-local skill that decides when to call `pubm --preflight`
-
-## Agent-specific packaging
-
-Different coding agents expose different install surfaces, but the packaging model should stay consistent.
-
-### Agents with repo-local skills
-
-Point the agent at the checked-in skill bundle and keep the prompts next to the code they operate on.
-
-### Agents with slash-command systems
-
-Map the high-signal flows directly:
-
-- preview
-- preflight
-- setup
-- version sync
-- plugin scaffolding
-
-### Agents with marketplaces or extension registries
-
-Publish a thin wrapper that installs or exposes the same bundle. The marketplace package should describe:
-
-- which commands it runs
-- which files it may create or edit
-- which tokens or secrets it expects
-- which preview and approval steps are mandatory
-- how it stays version-aligned with the repository plugin/skill bundle
-
-Do not create a separate agent-only workflow that diverges from the repository's actual release process.
-
-## Safety rules worth encoding
-
-If you build a coding-agent skill or marketplace package around `pubm`, it should strongly prefer:
-
-- preview before publish
-- explicit user approval before irreversible steps
-- surfacing registry targets and versions in plain language
-- stopping when Git state or tokens are not ready
+- setup before publish in new repositories
+- preview before publish in existing repositories
+- explicit approval before irreversible actions
+- plain-language summaries of versions, registries, and side effects
+- stopping when git state, auth, or CI assumptions are not ready
 
 Bad agent behavior:
 
-- publishing just because a branch looks ready
-- creating versions without showing the resulting plan
-- swallowing a failed preflight and continuing
+- publishing because the branch "looks ready"
+- generating config files without showing the intended result
+- swallowing failed preflight output and continuing anyway
+- building a custom release path that skips the repository's checked-in setup skill
 
 Good agent behavior:
 
-- explain what is going to be published
-- show the exact command that would run
-- separate diagnosis from execution
-
-## What to ship in a marketplace listing
-
-If an agent ecosystem has a marketplace, publish the smallest installable unit that still contains the full workflow context:
-
-- the repo-local skill or prompt files
-- any plugin command names the skill depends on
-- the expected install location or activation step
-- a short safety policy
-- links to preview and troubleshooting commands
-
-That keeps the marketplace listing honest: it is a distribution mechanism, not a second source of truth.
-
-## Current status
-
-The `pubm` codebase already provides the main primitives a coding agent needs:
-
-- explicit changesets workflow
-- dry-run and preview commands
-- preflight validation
-- version-reference discovery
-- plugin-defined commands
-- a checked-in `pubm plugin` skill bundle
-
-That means you can build productive coding-agent integrations today even if the final packaging differs between agents.
+- starts with `publish-setup` when the repo is not wired yet
+- shows the exact preview command before asking to publish
+- explains the likely failure point when validation fails
+- keeps the repository bundle authoritative
 
 ## Practical advice
 
-- keep the skill prompt focused on repository inspection and release safety
+- treat `pubm plugin` as the integration layer for agents you already use
+- start with `publish-setup`, not `publish`
 - expose `pubm` commands directly rather than translating them into vague natural-language actions
+- keep setup automation and publish automation in the same checked-in bundle
+- use Claude Code's official marketplace install flow when a marketplace is available
 - treat `pubm patch` as the last step, not the default step
-- keep setup automation in the same bundle as publish automation
-- if you publish to an agent marketplace, mirror the repo bundle instead of rewriting it there
 
 For the underlying command surface, read the [CLI Reference](/pubm/reference/cli/).

@@ -3,7 +3,7 @@ title: Quick Start
 description: Install pubm, initialize a project, and ship your first release.
 ---
 
-`pubm` is a release orchestrator for projects that publish to more than one registry, more than one package, or more than one ecosystem. The best part of the local UX is that the default path is also the simplest one: install `pubm`, run `pubm`, pick the next version interactively, and let the pipeline continue from there.
+`pubm` is a release orchestrator for projects that publish to more than one registry, more than one package, or more than one ecosystem.
 
 ## Before you start
 
@@ -21,65 +21,21 @@ Install the CLI globally:
 npm i -g pubm
 ```
 
-## The fastest human workflow
-
-If you are releasing from your terminal and want the most ergonomic path, start here:
-
-```bash
-pubm
-```
-
-With no positional version argument, `pubm` can begin with an interactive version picker so you can choose:
-
-- `patch`
-- `minor`
-- `major`
-
-This is a great default when:
-
-- you are releasing manually
-- you want to decide the version at the last moment
-- you do not want to remember extra flags just to start the release flow
-
-Explicit commands such as `pubm patch` or `pubm 1.4.0` are still useful for scripts, CI, or when you already know the exact version you want.
+If you are using Claude Code or another coding agent, read [Coding Agent Integration](/pubm/guides/coding-agents/) before wiring release automation.
 
 ## 1. Initialize the repository
 
-Initialize the basic `pubm` layout:
+Create the basic `pubm` layout:
 
 ```bash
 pubm init
 ```
 
-This creates:
-
-- `pubm.config.ts`
-- `.pubm/changesets/`
-
-If you also want pull requests to require a changeset file, initialize the optional changeset workflow:
-
-```bash
-pubm init --changesets
-```
-
-That setup also:
-
-- updates `.gitignore` so changeset files remain tracked
-- creates `.github/workflows/changeset-check.yml`
-- documents the `no-changeset` label convention for docs-only or infra-only pull requests
+This creates `pubm.config.ts` and `.pubm/changesets/`.
 
 ## 2. Add a minimal config
 
-`pubm` discovers config from one of these files at the repository root:
-
-- `pubm.config.ts`
-- `pubm.config.mts`
-- `pubm.config.cts`
-- `pubm.config.js`
-- `pubm.config.mjs`
-- `pubm.config.cjs`
-
-Start with a minimal config:
+Set the registries you plan to publish to:
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -89,191 +45,49 @@ export default defineConfig({
 });
 ```
 
-CLI flags override values from `pubm.config.*`, so you can keep stable defaults in the file and make one-off changes from the command line.
+For config details, read [Configuration](/pubm/guides/configuration/).
 
-## 3. Record the changes you want to release
+## 3. Add a changeset
 
-`pubm` uses changesets stored in `.pubm/changesets/` as the source of truth for version bumps and changelog entries.
-
-Create one interactively:
+Create a changeset:
 
 ```bash
 pubm changesets add
 ```
 
-Or create it non-interactively:
+## 4. Write versions
+
+Apply pending changesets:
 
 ```bash
-pubm changesets add \
-  --packages @acme/core,@acme/cli \
-  --bump minor \
-  --message "Add the new release dashboard."
+pubm changesets version
 ```
 
-Each changeset declares:
-
-- which packages are affected
-- whether the change is `patch`, `minor`, or `major`
-- the summary that will later appear in `CHANGELOG.md`
-
-## 4. Preview the version bump
-
-Before writing anything, inspect the pending release state:
+You can inspect pending changes and the resulting versions with:
 
 ```bash
 pubm changesets status --verbose
 pubm changesets version --dry-run
 ```
 
-Use these commands to verify:
-
-- the right packages were selected
-- the highest required bump type is correct
-- the generated changelog section reads well
-
-## 5. Consume changesets and write versions
-
-When the pending release looks correct, apply it:
-
-```bash
-pubm changesets version
-```
-
-This command:
-
-- reads pending `.pubm/changesets/*.md` files
-- calculates the next version for each affected package
-- updates package manifests
-- prepends a new `CHANGELOG.md` section
-- deletes consumed changeset files
-- creates a Git commit for the version bump
-
-## 6. Validate the publish pipeline
-
-If you want a local rehearsal of the release pipeline, run:
+If you want to validate registry auth and dry-run publish steps first, run:
 
 ```bash
 pubm --preflight
 ```
 
-`--preflight` is useful before the first production release because it checks:
+## 5. Publish
 
-- required tokens
-- registry connectivity
-- test and build commands
-- dry-run publishing for configured registries
-
-## 7. Publish
-
-For a normal human-driven release, start with:
+Start the release flow:
 
 ```bash
 pubm
 ```
 
-This is the recommended default local experience because it starts with interactive version selection and then continues through the release pipeline.
-
-If you already know the exact versioning intent, you can still use an explicit command:
+Or choose an explicit version bump:
 
 ```bash
 pubm patch
 ```
 
-Other common variants:
-
-```bash
-pubm minor
-pubm major
-pubm 1.4.0
-pubm patch --preview
-```
-
-The publish pipeline can:
-
-- run tests
-- run the build
-- bump and tag the release
-- publish to every configured registry
-- push tags
-- open a GitHub release draft
-
-## Single-package example
-
-```bash
-pubm init
-pubm changesets add
-pubm changesets version
-pubm patch --preview
-pubm
-```
-
-## Monorepo example
-
-In a workspace, the workflow is the same. The difference is that `pubm` discovers packages and computes per-package bumps automatically.
-
-```bash
-pubm init --changesets
-pubm changesets add
-pubm changesets status
-pubm changesets version
-pubm patch --preview
-pubm
-```
-
-For independent versioning, tags look like `@scope/pkg@1.2.3`. For fixed versioning, the repository is tagged once as `v1.2.3`.
-
-## Publishing to specific registries
-
-Override the configured target registries for a single run:
-
-```bash
-pubm patch --registry npm
-pubm patch --registry npm,jsr
-pubm patch --registry npm,https://registry.example.com
-```
-
-## Snapshot releases
-
-Use snapshots when you need a temporary publish for validation, QA, or preview environments:
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
-Unlike the normal release command, snapshots temporarily rewrite the manifest version, publish, and then restore the original version.
-
-## Pre-releases
-
-Pre-release mode tracks repeated beta or next releases from the same base version:
-
-```bash
-pubm changesets pre enter beta
-pubm changesets version
-pubm patch --tag beta
-pubm changesets pre exit
-```
-
-Generated versions look like `1.2.0-beta.0`, `1.2.0-beta.1`, and so on.
-
-## Tokens used in CI
-
-In non-interactive environments, provide tokens through environment variables:
-
-| Variable | Registry |
-|----------|----------|
-| `NODE_AUTH_TOKEN` | npm |
-| `JSR_TOKEN` | jsr |
-| `CARGO_REGISTRY_TOKEN` | crates.io |
-
-If you prefer to sync locally stored tokens into GitHub Actions secrets, use:
-
-```bash
-pubm secrets sync
-```
-
-## Where to go next
-
-- Read the [Configuration](/pubm/guides/configuration/) guide to set repository defaults.
-- Read the [Monorepo](/pubm/guides/monorepo/) guide for `fixed`, `linked`, and package-specific publishing.
-- Read the [CLI Reference](/pubm/reference/cli/) when you need exact flags and subcommands.
+For CI, tokens, and preflight behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).
