@@ -106,33 +106,39 @@ function clearPanelTimers(state: PanelState): void {
   }
 }
 
-function getCommandText(animation: PromptCommandAnimation, elapsed: number): string {
+function getCommandText(
+  animation: PromptCommandAnimation,
+  elapsed: number,
+): string {
   const base = animation.commandBase;
   const suffix = animation.commandSuffix;
   const full = `${base}${suffix}`;
   const typeStep = 75;
   const deleteStep = 55;
-  const phases = animation.erase === false
-    ? [
-        { type: "hold", text: base, duration: 180 },
-        { type: "type", from: base, to: full, step: typeStep },
-        { type: "hold", text: full, duration: 900 },
-      ] as const
-    : [
-        { type: "hold", text: base, duration: 240 },
-        { type: "type", from: base, to: full, step: typeStep },
-        { type: "hold", text: full, duration: 420 },
-        { type: "delete", from: full, to: base, step: deleteStep },
-        { type: "hold", text: base, duration: 240 },
-      ] as const;
+  const phases =
+    animation.erase === false
+      ? ([
+          { type: "hold", text: base, duration: 180 },
+          { type: "type", from: base, to: full, step: typeStep },
+          { type: "hold", text: full, duration: 900 },
+        ] as const)
+      : ([
+          { type: "hold", text: base, duration: 240 },
+          { type: "type", from: base, to: full, step: typeStep },
+          { type: "hold", text: full, duration: 420 },
+          { type: "delete", from: full, to: base, step: deleteStep },
+          { type: "hold", text: base, duration: 240 },
+        ] as const);
 
-  let cycle = elapsed % phases.reduce((total, phase) => {
-    if (phase.type === "hold") {
-      return total + phase.duration;
-    }
+  let cycle =
+    elapsed %
+    phases.reduce((total, phase) => {
+      if (phase.type === "hold") {
+        return total + phase.duration;
+      }
 
-    return total + Math.abs(phase.to.length - phase.from.length) * phase.step;
-  }, 0);
+      return total + Math.abs(phase.to.length - phase.from.length) * phase.step;
+    }, 0);
 
   for (const phase of phases) {
     if (phase.type === "hold") {
@@ -189,11 +195,12 @@ function getPromptSelectLines(
   animation: PromptSelectAnimation,
   elapsed: number,
 ): TerminalLine[] {
-  const order = animation.selectionOrder.length > 0
-    ? animation.selectionOrder
-    : [0];
+  const order =
+    animation.selectionOrder.length > 0 ? animation.selectionOrder : [0];
   const selectedIndex =
-    order[Math.floor(elapsed / (animation.selectionInterval ?? 320)) % order.length] ?? 0;
+    order[
+      Math.floor(elapsed / (animation.selectionInterval ?? 320)) % order.length
+    ] ?? 0;
 
   return [
     {
@@ -275,7 +282,10 @@ function withTaskSpinner(lines: TerminalLine[]): TerminalLine[] {
   });
 }
 
-function getRenderableLines(frame: TerminalFrame, state: PanelState): TerminalLine[] {
+function getRenderableLines(
+  frame: TerminalFrame,
+  state: PanelState,
+): TerminalLine[] {
   const elapsed = Math.max(0, performance.now() - state.frameStartedAt);
 
   if (frame.animation?.type === "prompt-command") {
@@ -336,7 +346,8 @@ function buildFrame(
 
       if (segment.spinner) {
         span.dataset.spinner = "true";
-        span.textContent = spinnerFrames[state.spinnerIndex % spinnerFrames.length];
+        span.textContent =
+          spinnerFrames[state.spinnerIndex % spinnerFrames.length];
       } else {
         span.textContent = segment.text ?? "";
       }
@@ -415,7 +426,10 @@ function createPanelState(host: PubmTerminalPlayerElement): PanelState | null {
   }
 
   const mode = host.dataset.terminalMode === "manual" ? "manual" : "autoplay";
-  const initialFrame = Number.parseInt(host.dataset.terminalInitialFrame ?? "0", 10);
+  const initialFrame = Number.parseInt(
+    host.dataset.terminalInitialFrame ?? "0",
+    10,
+  );
   const state: PanelState = {
     currentFrame: clampFrameIndex(
       Number.isNaN(initialFrame) ? 0 : initialFrame,
@@ -452,9 +466,7 @@ function cleanupPanel(host: PubmTerminalPlayerElement): void {
 
 function setFrame(panel: Element | null, frameIndex: number): void {
   const host =
-    panel instanceof HTMLElement
-      ? panel.closest(panelSelector)
-      : null;
+    panel instanceof HTMLElement ? panel.closest(panelSelector) : null;
 
   if (!(host instanceof HTMLElement)) {
     return;

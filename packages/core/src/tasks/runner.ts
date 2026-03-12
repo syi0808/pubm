@@ -176,10 +176,7 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
             task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
               task.newListr(
                 sortedPaths.map((packagePath) =>
-                  createCratesDryRunPublishTask(
-                    packagePath,
-                    siblingCrateNames,
-                  ),
+                  createCratesDryRunPublishTask(packagePath, siblingCrateNames),
                 ),
                 { concurrent: false },
               ),
