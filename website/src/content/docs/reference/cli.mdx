@@ -1,126 +1,364 @@
 ---
 title: CLI Reference
-description: Complete CLI reference for pubm.
+description: Commands, flags, and execution modes for the pubm CLI.
 ---
 
-## Positional argument
+This reference is organized by command shape:
 
-| Argument | Description |
-|----------|-------------|
-| `<version>` | **SemVer** bump or explicit version. One of:<br/>`patch` · `minor` · `major` · `prepatch` · `preminor` · `premajor` · `prerelease` · `1.2.3`.<br/>If omitted, pubm prompts for the next version (interactive) or errors on CI. |
+- the top-level publish command: `pubm [version]`
+- management commands such as `init`, `secrets`, and `sync`
+- changeset workflow commands under `pubm changesets ...`
 
----
+For day-to-day human use, the most important command is simply:
 
-## Common flags
+```bash
+pubm
+```
 
-| Flag | Alias | Default | Description |
-|------|-------|---------|-------------|
-| `-p, --preview` | — | `false` | Dry‑run. Resolve and display the task graph without side‑effects. |
-| `--registry <list>` | — | `npm,jsr` | Comma‑separated list of target registries. Each entry can be `npm`, `jsr`, or a custom registry URL. |
-| `-b, --branch <name>` | — | `main` | Branch name that must match `HEAD` for a release. |
-| `-a, --any-branch` | — | `false` | Disable branch guard. Useful for hot‑fixes. |
-| `-t, --tag <name>` | — | `latest` | Dist‑tag for the npm publish (`next`, `beta`, …). |
-| `-c, --contents <path>` | — | — | Publish a sub‑directory instead of repository root (e.g. `dist`). |
-| `--registry <...registries>` | — | `npm,jsr` | Comma‑separated list (e.g. `npm,jsr,https://registry.mycorp.com`). |
+Running `pubm` with no version argument is the interactive happy path. It lets you choose the next version in the terminal before the release pipeline continues.
 
----
+## Command overview
 
-## Pipeline control
+| Command | Purpose |
+|---------|---------|
+| `pubm [version]` | Run the publish pipeline using a release type or explicit semver. |
+| `pubm init` | Create `pubm.config.ts` and `.pubm/changesets/`. |
+| `pubm init --changesets` | Also set up the PR changeset-check workflow. |
+| `pubm secrets sync` | Push locally stored tokens into GitHub Secrets through `gh`. |
+| `pubm sync --discover` | Scan the repository for version references outside manifest files. |
+| `pubm update` | Self-update the CLI to the latest published version. |
+| `pubm changesets add` | Create a new changeset. |
+| `pubm changesets status` | Show pending changesets and their bump impact. |
+| `pubm changesets version` | Consume changesets and write new versions. |
+| `pubm changesets changelog` | Render changelog text from pending changesets. |
+| `pubm changesets pre enter <tag>` | Enter pre-release mode. |
+| `pubm changesets pre exit` | Exit pre-release mode. |
+| `pubm changesets snapshot [tag]` | Publish a temporary snapshot release. |
+| `pubm changesets migrate` | Migrate from `.changeset/` to `.pubm/`. |
 
-| Flag | Effect |
-|------|--------|
-| `--no-pre-check` | Skip *Prerequisite* guard stage. **Dangerous** – use only in controlled pipelines. |
-| `--no-condition-check` | Skip *Required‑condition* guard stage (registry ping, login checks). |
-| `--no-tests` | Disable test script before publish. |
-| `--no-build` | Disable build script before publish. |
-| `--no-publish` | Run every step **except** the actual publish (useful for validation). |
-| `--no-release-draft` | Do not create a GitHub release draft. |
-| `--publish-only` | Skip everything except the publish step (assumes current commit is already tagged). |
-| `--preflight` | Simulate CI publish locally: collect tokens, run full pipeline with dry‑run publish. |
+## Top-level publish command
 
----
+### Syntax
 
-## Scripts & tokens
+```bash
+pubm [version] [flags]
+```
+
+`[version]` can be:
+
+- a semver bump type: `patch`, `minor`, `major`
+- a pre-release bump type: `prepatch`, `preminor`, `premajor`, `prerelease`
+- an explicit version such as `1.8.0`
+
+If you omit the version:
+
+- interactive terminals can prompt for the next version
+- CI runs require the version to be resolved non-interactively
+
+For most manual releases, omitting the version is the recommended UX because it keeps the command surface minimal while still making the version decision explicit.
+
+### Recommended interactive usage
+
+```bash
+pubm
+```
+
+Typical flow:
+
+1. run `pubm`
+2. choose `patch`, `minor`, or `major`
+3. let `pubm` continue through checks, build, tagging, and publish
+
+### Common examples
+
+```bash
+pubm
+pubm patch
+pubm minor --preview
+pubm 1.8.0
+pubm patch --registry npm,jsr
+pubm patch --tag beta
+```
+
+## Publish flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--test-script <name>` | `test` | Name of the npm script that runs tests (skipped with `--no-tests`). |
-| `--build-script <name>` | `build` | Name of the npm script that builds artifacts (skipped with `--no-build`). |
-| `--no-save-token` | `false` | Do **not** persist jsr tokens on disk; you will be prompted each run. |
+| `-p, --preview` | `false` | Show the task graph without mutating Git state or publishing. |
+| `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
+| `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
+| `-t, --tag <name>` | `latest` | Use a specific dist-tag such as `beta` or `next`. |
+| `-c, --contents <path>` | none | Change into a subdirectory before running the release pipeline. |
+| `--registry <registries>` | `npm,jsr` | Comma-separated target registries. Supports `npm`, `jsr`, `crates`, or custom registry URLs. |
+| `--test-script <script>` | `test` | Script name used for the test step. |
+| `--build-script <script>` | `build` | Script name used for the build step. |
+| `--no-save-token` | `false` | Do not persist supported tokens for later runs. |
 
-### Environment variables
+## Pipeline-control flags
 
-| Variable | Purpose |
-|----------|---------|
-| `NODE_AUTH_TOKEN` | npm auth (automation) token for CI. |
-| `JSR_TOKEN` | jsr auth token. |
-| `CARGO_REGISTRY_TOKEN` | crates.io auth token. |
+| Flag | Description |
+|------|-------------|
+| `--no-pre-check` | Skip prerequisite checks such as branch and working tree validation. |
+| `--no-condition-check` | Skip required-condition checks such as token and registry validation. |
+| `--no-tests` | Skip the test step. |
+| `--no-build` | Skip the build step. |
+| `--no-publish` | Run the pipeline up to publish, but do not actually publish artifacts. |
+| `--no-release-draft` | Skip opening the GitHub release draft step. |
+| `--publish-only` | Publish from the latest tag without running the full preparation pipeline. |
+| `--ci` | Publish from the latest tag and create a GitHub Release with assets. |
+| `--preflight` | Simulate CI publish locally and dry-run the publish targets. |
 
----
+## Execution modes
 
-## Prompt behaviour
+## Interactive local run
 
-pubm is **interactive‑first**. Prompts are automatically disabled when either:
-
-* the process runs on a recognised CI platform (`std-env.isCI`), or
-* `stdin` is not a TTY.
-
-In non‑interactive mode you must supply the necessary tokens/flags via env‑vars or CLI options.
-
----
-
-## Subcommands
-
-### `pubm secrets sync`
-
-Syncs stored tokens to GitHub Secrets via the `gh` CLI. Tokens are stored encrypted during `pubm --preflight` or interactive runs.
+The normal mode for local releases:
 
 ```bash
-pubm secrets sync [--registry <...registries>]
+pubm
+```
+
+Behavior:
+
+- starts with interactive version selection when no version argument is provided
+- prompts can be shown when required information is missing
+- tests and build run unless skipped
+- versioning, publish, push, and release-draft steps run in order
+
+## Preview mode
+
+```bash
+pubm patch --preview
+```
+
+Use preview mode when you need to inspect the task plan without side effects.
+
+## Preflight mode
+
+```bash
+pubm --preflight
+```
+
+Preflight:
+
+- collects missing tokens interactively
+- can sync them to GitHub Secrets
+- switches into non-interactive behavior to mimic CI
+- runs prerequisite and condition checks
+- dry-runs publish for configured registries
+
+## CI mode
+
+```bash
+pubm --ci
+```
+
+CI mode publishes from the latest Git tag and creates a GitHub Release. Use it when the version bump and tagging already happened earlier in the pipeline.
+
+## Environment variables
+
+| Variable | Used for |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm authentication in CI |
+| `JSR_TOKEN` | jsr authentication |
+| `CARGO_REGISTRY_TOKEN` | crates.io authentication |
+
+Prompts are disabled automatically when:
+
+- `stdin` is not a TTY
+- the process is running on a recognized CI platform
+
+## `pubm init`
+
+Initialize the repository for `pubm`.
+
+```bash
+pubm init
+pubm init --changesets
+```
+
+### `--changesets`
+
+Adds:
+
+- `.github/workflows/changeset-check.yml`
+- `.gitignore` updates for `.pubm/changesets/`
+
+Use this on repositories where every product change should include a reviewed changeset file.
+
+## `pubm secrets sync`
+
+Push locally stored tokens into GitHub Secrets using the `gh` CLI.
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm
+pubm secrets sync --registry npm,jsr
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--registry <list>` | `npm,jsr,crates` | Filter to specific registries. |
+| `--registry <registries>` | `npm,jsr,crates` | Limit secret sync to specific registries. |
 
-Requires `gh` CLI installed and authenticated (`gh auth login`).
+Notes:
 
----
+- requires `gh` to be installed and authenticated
+- uses locally stored tokens, so run `pubm --preflight` first if nothing has been saved yet
 
-## Preflight mode
+## `pubm sync --discover`
 
-`pubm --preflight` validates that your CI publish pipeline will succeed, **without** creating any version bumps or tags.
-
-### Pipeline
-
-1. **Collect tokens** – loads stored tokens from encrypted Db, prompts only for missing ones, saves new tokens.
-2. **Sync to GitHub Secrets** *(optional prompt)* – calls `gh secret set` for each token.
-3. **Switch to CI simulation** – sets `promptEnabled=false` to simulate non‑interactive CI.
-4. **Run full pipeline** – prerequisites, conditions, tests, build.
-5. **Dry‑run publish** – `npm publish --dry-run`, `jsr publish --dry-run`, `cargo publish --dry-run` for each configured registry.
-
-If a token auth error is detected during dry‑run, pubm re‑prompts for the token, saves it, and retries once.
-
----
-
-## Examples
+Scan the repository for version references outside of manifest files.
 
 ```bash
-# 1. Dry‑run the patch release for all registries
-pubm patch --preview
+pubm sync --discover
+```
 
-# 2. Publish only to npm with a beta tag, skip tests
-pubm minor --registry npm --tag beta --no-tests
+This command is intended to help set up version-sync plugins. It skips common generated directories and lockfiles, then prints candidate files and JSON paths or matching lines.
 
-# 3. CI pipeline: publish already‑tagged commit
-export NODE_AUTH_TOKEN="$NPM_AUTOMATION_TOKEN"
-export JSR_TOKEN="$JSR_TOKEN"
-pubm --publish-only --registry npm,jsr
+## `pubm update`
 
-# 4. Validate CI setup locally (preflight)
+Update the installed `pubm` CLI to the latest published version.
+
+```bash
+pubm update
+```
+
+## Changesets commands
+
+All changeset lifecycle commands live under `pubm changesets`.
+
+## `pubm changesets add`
+
+Create a new changeset.
+
+```bash
+pubm changesets add
+pubm changesets add --empty
+pubm changesets add --packages @acme/core,@acme/react --bump minor --message "Add public metrics API."
+```
+
+| Flag | Description |
+|------|-------------|
+| `--empty` | Create an empty changeset file. |
+| `--packages <list>` | Comma-separated package names for non-interactive creation. |
+| `--bump <type>` | One of `patch`, `minor`, `major`. |
+| `--message <text>` | Summary used in the changeset body and changelog. |
+
+## `pubm changesets status`
+
+Inspect pending changesets.
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+pubm changesets status --since origin/main
+```
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Print each recorded changeset summary. |
+| `--since <ref>` | Check since a Git ref. |
+
+## `pubm changesets version`
+
+Consume changesets, update manifest versions, write changelogs, and commit the result.
+
+```bash
+pubm changesets version
+pubm changesets version --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Print the version and changelog plan without writing files. |
+
+## `pubm changesets changelog`
+
+Generate changelog text from pending changesets.
+
+```bash
+pubm changesets changelog
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview changelog output without writing `CHANGELOG.md`. |
+| `--version <ver>` | Use a specific section header instead of `Unreleased`. |
+
+## `pubm changesets pre`
+
+Manage pre-release mode.
+
+```bash
+pubm changesets pre enter beta
+pubm changesets pre exit
+```
+
+## `pubm changesets snapshot`
+
+Create and publish a temporary snapshot release.
+
+```bash
+pubm changesets snapshot
+pubm changesets snapshot next --dry-run
+pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--snapshot-id <id>` | none | Custom identifier such as a commit SHA. |
+| `--registry <registries>` | `npm,jsr` | Comma-separated registries to receive the snapshot. |
+| `--no-build` | `false` | Skip the build before publishing the snapshot. |
+| `--dry-run` | `false` | Print the snapshot version without publishing. |
+
+## `pubm changesets migrate`
+
+Move pending files from the legacy `.changeset/` layout into `.pubm/`.
+
+```bash
+pubm changesets migrate
+```
+
+## Exit codes
+
+`pubm` returns a non-zero exit code when:
+
+- a prerequisite or condition check fails
+- version resolution cannot be completed
+- publish fails on any target
+- a subcommand encounters invalid input
+
+In normal publish mode, failures also trigger rollback behavior where possible.
+
+## Recommended command patterns
+
+### First local release on a new repository
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets version
 pubm --preflight
+pubm patch --preview
+pubm patch
+```
 
-# 5. Sync stored tokens to GitHub Secrets
+### Local CI rehearsal
+
+```bash
+pubm --preflight
+```
+
+### Publish only the current tagged release in CI
+
+```bash
+pubm --ci
+```
+
+### Sync stored tokens after preflight
+
+```bash
 pubm secrets sync
-pubm secrets sync --registry npm
 ```

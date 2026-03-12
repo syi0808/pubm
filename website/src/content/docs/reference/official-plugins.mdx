@@ -1,87 +1,156 @@
 ---
 title: Official Plugins
-description: Expand pubm capabilities with our official plugin ecosystem.
+description: Supported plugins maintained by the pubm project.
 ---
 
-Official plugins are maintained by the `pubm` core team and provide reliable, well-tested integrations with popular tools and workflows.
+Official plugins are maintained alongside `pubm` and follow the same release and compatibility expectations as the core project. Use them when you want a well-supported integration without building your own plugin from scratch.
 
 ## `@pubm/plugin-brew`
 
-Automatically updates Homebrew formulas when you release a new version of your CLI tool.
+`@pubm/plugin-brew` helps CLI projects keep Homebrew formulae in sync with each release.
 
-### Features
-- **Automatic formula generation**: Generates a valid Ruby formula if one doesn't exist.
-- **Resource management**: Detects and updates `url` and `sha256` for release assets (e.g. `darwin-arm64`, `linux-x64`).
-- **Git automation**: Commits and pushes the formula to a dedicated tap repository or your local one.
-- **PR fallback**: If a branch is protected, it creates a Pull Request instead of pushing directly.
+### What it is good for
 
-### Configuration
+- shipping a CLI binary through Homebrew
+- updating a dedicated tap repository automatically
+- keeping formula checksums aligned with release assets
+
+### Typical config
 
 ```ts
+import { defineConfig } from "@pubm/core";
 import { brewTap } from "@pubm/plugin-brew";
 
 export default defineConfig({
   plugins: [
     brewTap({
-      // Path to the formula file (relative to repository root)
       formula: "Formula/my-tool.rb",
-      // Optional: Remote repository URL for separate Homebrew tap.
-      // If omitted, it updates the formula in the current repository.
       repo: "https://github.com/my-org/homebrew-tap",
     }),
   ],
 });
 ```
 
-### Commands
-- `pubm brew init`: Scaffolds a new Homebrew formula based on your `package.json` data (name, description, homepage, license).
+### Options
 
----
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | Formula path relative to the repository root. |
+| `repo` | `string` | Optional remote tap repository URL. If omitted, the current repository is used. |
+
+### Behavior
+
+The plugin can:
+
+- create a formula scaffold when one does not exist
+- update `url` and `sha256` values for release assets
+- commit and push formula changes
+- fall back to a pull-request workflow when direct push is not appropriate
+
+### Related command
+
+```bash
+pubm brew init
+```
+
+Use this to scaffold a starting formula from package metadata.
 
 ## `@pubm/plugin-external-version-sync`
 
-Keeps non-standard files in sync with your project's version. Ideal for source-code constants, READMEs, or other manifest types (e.g., `bower.json`, `app.json`).
+This plugin keeps non-manifest files aligned with your package version.
 
-### Features
-- **JSON Path Support**: Precisely update values in any JSON file.
-- **Regex Support**: Find and replace versions in any text file using capturing groups.
-- **Multi-target**: Sync an unlimited number of files in a single release.
+Use it when a release should also update:
 
-### Configuration
+- `README.md` install snippets
+- docs examples
+- app manifests
+- source constants
+- metadata JSON files
+
+### Typical config
 
 ```ts
+import { defineConfig } from "@pubm/core";
 import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
   plugins: [
     externalVersionSync({
       targets: [
-        // Update a constant in a TypeScript file
         {
           file: "src/constants.ts",
           type: "regex",
-          pattern: /export const VERSION = "(.*)";/,
+          pattern: /export const VERSION = "([^"]+)";/,
         },
-        // Update version in a JSON file at a specific path
         {
           file: "manifest.json",
           type: "json",
           jsonPath: "$.metadata.version",
         },
-        // Update a badge in your README
         {
           file: "README.md",
           type: "regex",
-          pattern: /img\.shields\.io\/badge\/version-(.*)-blue/,
-        }
+          pattern: /pubm@([\\w.-]+)/,
+        },
       ],
     }),
   ],
 });
 ```
 
-### Options
-- `file`: Path to the target file.
-- `type`: Either `"regex"` or `"json"`.
-- `pattern` (Regex): A regular expression with exactly **one** capturing group for the version string.
-- `jsonPath` (JSON): A JSON path (standard notation) to the version property.
+### Target types
+
+#### `regex`
+
+Use for arbitrary text files:
+
+```ts
+{
+  file: "README.md",
+  type: "regex",
+  pattern: /pubm@([\\w.-]+)/,
+}
+```
+
+Requirements:
+
+- the pattern must isolate the version in exactly one capturing group
+- the file should have a stable format so release automation can update it safely
+
+#### `json`
+
+Use for machine-readable manifests:
+
+```ts
+{
+  file: "manifest.json",
+  type: "json",
+  jsonPath: "$.metadata.version",
+}
+```
+
+### When to use `pubm sync --discover`
+
+If you are not sure where versions appear in your repository, run:
+
+```bash
+pubm sync --discover
+```
+
+That command scans for likely version references and prints candidate `regex` or `json` targets you can copy into plugin config.
+
+## Choosing between official and custom plugins
+
+Use an official plugin when:
+
+- your need matches an existing integration
+- you want a lower-maintenance setup
+- the release path is common enough to benefit from standardization
+
+Build a custom plugin when:
+
+- your registry or post-release workflow is organization-specific
+- you need custom policy or deployment logic
+- you want additional CLI commands for operators
+
+Read the [Plugins API Reference](/pubm/reference/plugins/) if you need to extend beyond the official set.

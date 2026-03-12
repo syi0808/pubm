@@ -1,51 +1,138 @@
 ---
 title: Claude Code Integration
-description: Use pubm directly inside Claude Code.
+description: Use pubm-oriented skills and workflows inside Claude Code environments.
 ---
 
-`pubm` provides a dedicated plugin for **Claude Code**, enabling an agentic workflow for release management. This allows you to perform complex release tasks using natural language or dedicated slash commands, with the safety of `pubm`'s preview and rollback systems.
+`pubm` is a good fit for agent-assisted release work because the core workflow is explicit: inspect state, preview the plan, then publish. That matches how Claude Code and similar tools are typically used in real repositories.
 
-## Features
+## What this guide covers
 
-The `pubm` plugin for Claude Code exposes several "skills" that the AI agent can use to orchestrate your releases.
+This page describes the intended integration model:
 
-### Interactive Publishing (`/publish`)
+- expose release workflows as explicit commands or skills
+- keep preview and validation steps first-class
+- let the agent gather release context without guessing
 
-Use the `/publish` command to start a release.
+## Good agent-assisted release tasks
 
-- **Safe by default**: Always runs a dry-run preview first.
-- **Interactive**: Claude will show you the plan and ask for confirmation before executing.
-- **Error handling**: If a step fails, Claude analyzes the error log and suggests fixes.
+Agent workflows are most valuable for tasks that are repetitive but still require repository awareness.
 
-### Project Setup Wizard (`/publish-setup`)
+Examples:
 
-Setting up a multi-registry pipeline can be complex. The `/publish-setup` command launches an interactive wizard that:
-1.  **Detects your ecosystem** (JS/TS, Rust, or both).
-2.  **Configures registries** (npm, jsr, crates.io).
-3.  **Generates config files** (`pubm.config.ts`, `jsr.json`, `.github/workflows/publish.yml`).
-4.  **Sets up CI/CD** with appropriate secrets.
+- checking pending changesets before a release
+- generating or reviewing changelog content
+- running `pubm --preflight` and interpreting failures
+- discovering external version references with `pubm sync --discover`
+- scaffolding plugin or release configuration
 
-### External Version Sync (`/version-sync`)
+## Recommended release pattern with an agent
 
-Keeps your version numbers consistent across documentation, READMEs, and other non-standard files.
-- **Auto-discovery**: Scans your project for potential version strings (e.g. `pubm@1.2.3` in a `curl` command).
-- **Configuration**: Automatically adds the `externalVersionSync` plugin to your config.
+The safest pattern is:
 
-### Dry Run (`/publish-preview`)
+1. inspect the repository state
+2. review pending changesets
+3. run preview or dry-run commands
+4. ask for approval before real publish
 
-If you just want to check the state of your project without initiating a release flow, `/publish-preview` runs the full preflight check and build process in dry-run mode.
+Typical command sequence:
 
-## Plugin Development
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
 
-The `pubm` plugin also helps you extend `pubm` itself.
+This gives the agent enough context to explain:
 
-### Plugin Scaffolder (`/create-plugin`)
+- which packages will move
+- what the resulting versions look like
+- whether registry auth is ready
+- which step is likely to fail
 
-Generates a complete, ready-to-test `pubm` plugin package.
-- **Interactive questionnaire**: Select which hooks you need (`beforePublish`, `afterRelease`, etc.).
-- **Boilerplate generation**: Creates TypeScript source, tests, and build config.
-- **Workspace registration**: Automatically links the new plugin to your monorepo.
+## Suggested slash-command ideas
 
-## Installation
+If you are building an internal Claude Code workflow around `pubm`, these commands tend to have the highest leverage.
 
-(Installation instructions for the `pubm-plugin` will be provided once the marketplace is public. For now, it is available for local development.)
+### `/publish-preview`
+
+Runs:
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+```
+
+Use when you want a release summary without making changes.
+
+### `/publish-preflight`
+
+Runs:
+
+```bash
+pubm --preflight
+```
+
+Use when you want CI-style validation before merging or tagging.
+
+### `/version-sync`
+
+Runs:
+
+```bash
+pubm sync --discover
+```
+
+Use when you need to find version strings in docs, READMEs, or sidecar manifests.
+
+### `/changeset-check`
+
+Runs:
+
+```bash
+pubm changesets status --verbose
+```
+
+Use when reviewing a pull request to confirm the release intent is recorded clearly.
+
+## Safety rules worth encoding in a skill
+
+If you build a Claude Code skill around `pubm`, the skill should strongly prefer:
+
+- preview before publish
+- explicit user approval before irreversible steps
+- surfacing registry targets and versions in plain language
+- stopping when Git state or tokens are not ready
+
+Bad agent behavior:
+
+- publishing just because a branch looks ready
+- creating versions without showing the resulting plan
+- swallowing a failed preflight and continuing
+
+Good agent behavior:
+
+- explain what is going to be published
+- show the exact command that would run
+- separate diagnosis from execution
+
+## Current status
+
+The `pubm` docs and codebase already support the building blocks an agent needs:
+
+- explicit changesets workflow
+- dry-run and preview commands
+- preflight validation
+- version-reference discovery
+- plugin-defined commands
+
+That means you can build productive Claude Code integrations today even if your repository-specific slash commands or marketplace packaging are still internal.
+
+## Practical advice
+
+- keep the skill prompt focused on repository inspection and release safety
+- expose `pubm` commands directly rather than translating them into vague natural-language actions
+- treat `pubm patch` as the last step, not the default step
+
+For the underlying command surface, read the [CLI Reference](/pubm/reference/cli/).

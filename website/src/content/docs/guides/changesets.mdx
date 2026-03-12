@@ -1,68 +1,273 @@
 ---
 title: Changesets
-description: Master the changeset-driven release workflow.
+description: Record release intent, generate changelogs, and control version bumps.
 ---
 
-`pubm` utilizes **Changesets** as the single source of truth for version bumps and changelog generation. This approach separates the recording of changes from the actual release process.
+`pubm` uses changesets as the durable record of "what should be released next." Instead of inferring versions from commit messages or branch names, it reads checked-in files from `.pubm/changesets/` and turns them into version bumps and changelog entries.
 
-## The Changeset Lifecycle
+## Why changesets matter
 
-### 1. Recording Changes (`pubm add`)
-When a developer completes a task, they run `pubm add`. This starts an interactive CLI that asks:
-1. **Which packages should be bumped?** (Select one or more in a monorepo).
-2. **What's the bump type?** (Choose `patch`, `minor`, or `major` based on SemVer).
-3. **What's the description?** (Used for the `CHANGELOG.md` entry).
+Changesets give you three things that ad-hoc publish scripts usually do not:
 
-The result is a new Markdown file in the `.changeset/` directory with random name (e.g. `.changeset/silver-lions-dance.md`).
+- a reviewable release plan inside each pull request
+- deterministic version bump calculation across packages
+- changelog content that is written before release day, not after it
 
-```markdown
----
-"@scope/pkg-a": patch
-"@scope/pkg-b": minor
----
+## File location
 
-Fixed a bug in pkg-a and added a feature in pkg-b.
+Pending changesets live in:
+
+```text
+.pubm/changesets/
 ```
 
-### 2. Versioning (`pubm version`)
-When you are ready to prepare a release, `pubm version` is called. It:
-1.  **Reads** all files in the `.changeset/` directory.
-2.  **Analyzes** the maximum bump required for each package. If one changeset says `patch` and another says `minor` for the same package, `minor` wins.
-3.  **Bumps** the version field in all `package.json` files.
-4.  **Generates** or updates `CHANGELOG.md` in each package's root.
-5.  **Deletes** the consumed changeset files.
+Initialize that directory with:
 
-### 3. Publishing (`pubm patch`)
-Finally, you run `pubm patch` to publish the new versions to your configured registries.
-
-## Advanced Usage
-
-### Independent vs. Fixed Mode
-In **Independent** mode, `pubm version` will only bump the packages specified in the changesets. In **Fixed** mode, any changeset will trigger a bump for *all* packages in the workspace to maintain version synchronization.
-
-### Prereleases
-If you want to release a `beta` or `next` version:
-1.  **Enter Prerelease Mode**: `pubm pre enter beta`
-2.  **Add Changesets** as usual.
-3.  **Version**: `pubm version` will now generate versions like `1.2.3-beta.0`.
-4.  **Exit Prerelease Mode**: `pubm pre exit` when you're ready to release a stable version.
-
-### Snapshots
-For one-off, untracked releases (e.g. for testing a PR in a real project):
 ```bash
-pubm snapshot
+pubm init
 ```
-This generates a unique version (e.g. `0.0.0-snapshot-20260312T090000`) and publishes it immediately, without creating any commits or tags.
 
-## Automated Changelogs
-`pubm` changelogs include:
-- The description from the changeset.
-- Links to relevant commits (if `github` changelog format is enabled).
-- Automatic grouping by version.
+If you also want a pull-request check that enforces changesets, run:
 
-## Migration from @changesets/cli
-If you have an existing project using `@changesets/cli`, you can migrate to `pubm` without losing any pending changesets:
 ```bash
-pubm migrate
+pubm init --changesets
 ```
-This will convert your current changeset metadata to a format `pubm` understands.
+
+## Creating a changeset
+
+### Interactive mode
+
+```bash
+pubm changesets add
+```
+
+In a single-package repository, `pubm` skips package selection and asks only for:
+
+- bump type
+- summary
+
+In a monorepo, it also asks:
+
+- which packages are affected
+- the bump type for each selected package
+
+### Non-interactive mode
+
+```bash
+pubm changesets add \
+  --packages @acme/core,@acme/react \
+  --bump minor \
+  --message "Add token-based auth to the public client."
+```
+
+### Empty changesets
+
+If you need a placeholder file during migration or process setup:
+
+```bash
+pubm changesets add --empty
+```
+
+## What a changeset file contains
+
+The generated file is Markdown with frontmatter-like metadata. A typical file looks like this:
+
+```md
+---
+"@acme/core": minor
+"@acme/react": patch
+---
+
+Add token-based auth to the public client.
+```
+
+The metadata controls version calculation. The body becomes the changelog summary.
+
+## Choosing the right bump type
+
+### `patch`
+
+Use `patch` for:
+
+- bug fixes
+- documentation corrections with user-visible behavior changes
+- internal improvements that do not alter the public API
+
+### `minor`
+
+Use `minor` for:
+
+- backward-compatible features
+- additive CLI flags
+- new APIs that do not break existing consumers
+
+### `major`
+
+Use `major` for:
+
+- removed options or commands
+- incompatible runtime requirements
+- behavior changes that force consumers to modify their code or config
+
+When in doubt, optimize for the consumer's migration cost, not the amount of code changed.
+
+## Inspecting pending changes
+
+Before consuming changesets, inspect them:
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+```
+
+`status` answers two questions:
+
+- which packages will be bumped
+- what the highest bump type is for each package
+
+`--verbose` also prints the underlying summaries so you can catch vague or duplicated release notes early.
+
+## Previewing version application
+
+Use `--dry-run` to see what `pubm` would write:
+
+```bash
+pubm changesets version --dry-run
+```
+
+This is the safest way to verify:
+
+- computed versions
+- per-package changelog sections
+- fixed or linked group propagation
+- pre-release numbering
+
+## Consuming changesets
+
+When you are ready to turn pending files into a release state:
+
+```bash
+pubm changesets version
+```
+
+The command performs these steps:
+
+1. Read all pending `.pubm/changesets/*.md` files.
+2. Discover current package versions.
+3. Calculate the highest required bump for each package.
+4. Apply `fixed` and `linked` groups from config.
+5. Update manifest versions.
+6. Generate or prepend `CHANGELOG.md`.
+7. Delete consumed changeset files.
+8. Create a Git commit for the version bump.
+
+## Changelog generation
+
+If you want to generate changelog text without consuming versions yet:
+
+```bash
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+This is useful when:
+
+- you want editorial review on the release notes before the version command
+- you are migrating from another release process
+- you want to compare multiple wording options
+
+## Pre-release mode
+
+Pre-release mode keeps repeated beta, alpha, or rc releases organized around one base semver.
+
+```bash
+pubm changesets pre enter beta
+pubm changesets version
+pubm patch --tag beta
+pubm changesets pre exit
+```
+
+Behavior:
+
+- first pre-release from `1.2.0` becomes `1.2.0-beta.0`
+- the next compatible pre-release becomes `1.2.0-beta.1`
+- exiting pre mode stops writing pre-release suffixes
+
+## Snapshot releases
+
+Snapshots are separate from changeset consumption. They are for temporary publishes, not for permanent semver history.
+
+```bash
+pubm changesets snapshot
+pubm changesets snapshot next --dry-run
+pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
+```
+
+Snapshot behavior:
+
+- calculates a snapshot version
+- temporarily rewrites the package version
+- optionally builds
+- publishes with the snapshot tag
+- restores the original version afterward
+
+## Migration from `.changeset/`
+
+If your repository already uses the Changesets ecosystem, migrate pending files:
+
+```bash
+pubm changesets migrate
+```
+
+This migrates pending files from `.changeset/` into `.pubm/`. If a legacy `.changeset/config.json` exists, `pubm` reports that you still need to create `pubm.config.ts` manually.
+
+## PR workflow recommendation
+
+For teams, the most reliable workflow is:
+
+1. every product change adds or updates a changeset in the same pull request
+2. a CI check blocks merges when changesets are missing
+3. release branches run `pubm changesets version` before publish
+
+`pubm init --changesets` creates the starter GitHub Actions workflow for this model.
+
+## Writing better summaries
+
+A good summary:
+
+- describes the user-visible outcome
+- avoids internal ticket language
+- explains breaking changes directly
+
+Weak:
+
+```text
+refactor auth layer
+```
+
+Strong:
+
+```text
+Require explicit token configuration for browser-based clients.
+```
+
+That text is what your users will read in `CHANGELOG.md`.
+
+## Common pitfalls
+
+### Running `pubm patch` without consuming pending changesets
+
+That can still publish a release, but you lose the main benefit of recording the next version and changelog content in advance. Prefer `pubm changesets version` first for normal releases.
+
+### Using vague summaries
+
+The summary becomes release note text. If it is unclear in the PR, it will also be unclear in the changelog.
+
+### Treating snapshots as official releases
+
+Snapshots are disposable validation artifacts. Use the normal release flow for versions you want users to depend on permanently.
+
+## Next steps
+
+- Read the [Monorepo](/pubm/guides/monorepo/) guide if your changesets span many packages.
+- Read the [CLI Reference](/pubm/reference/cli/) for every changesets subcommand and flag.
