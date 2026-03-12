@@ -24,66 +24,6 @@
         "vitest": "^4.0.18",
       },
     },
-    "packages/cli": {
-      "name": "pubm",
-      "version": "0.3.6",
-      "bin": {
-        "pubm": "./bin/cli.cjs",
-      },
-      "dependencies": {
-        "@pubm/core": "workspace:*",
-        "commander": "^14.0.3",
-        "enquirer": "^2.4.1",
-        "semver": "^7.6.3",
-        "std-env": "^4.0.0",
-        "update-kit": "^0.1.12",
-      },
-      "devDependencies": {
-        "@types/semver": "^7.7.1",
-      },
-      "optionalDependencies": {
-        "@pubm/darwin-arm64": "workspace:*",
-        "@pubm/darwin-x64": "workspace:*",
-        "@pubm/linux-arm64": "workspace:*",
-        "@pubm/linux-x64": "workspace:*",
-        "@pubm/windows-x64": "workspace:*",
-      },
-    },
-    "packages/cli/platforms/darwin-arm64": {
-      "name": "@pubm/darwin-arm64",
-      "version": "0.3.6",
-      "devDependencies": {
-        "@pubm/core": "workspace:*",
-      },
-    },
-    "packages/cli/platforms/darwin-x64": {
-      "name": "@pubm/darwin-x64",
-      "version": "0.3.6",
-      "devDependencies": {
-        "@pubm/core": "workspace:*",
-      },
-    },
-    "packages/cli/platforms/linux-arm64": {
-      "name": "@pubm/linux-arm64",
-      "version": "0.3.6",
-      "devDependencies": {
-        "@pubm/core": "workspace:*",
-      },
-    },
-    "packages/cli/platforms/linux-x64": {
-      "name": "@pubm/linux-x64",
-      "version": "0.3.6",
-      "devDependencies": {
-        "@pubm/core": "workspace:*",
-      },
-    },
-    "packages/cli/platforms/windows-x64": {
-      "name": "@pubm/windows-x64",
-      "version": "0.3.6",
-      "devDependencies": {
-        "@pubm/core": "workspace:*",
-      },
-    },
     "packages/core": {
       "name": "@pubm/core",
       "version": "0.3.6",
@@ -116,6 +56,66 @@
       "version": "0.3.6",
       "peerDependencies": {
         "@pubm/core": ">=0.3.6",
+      },
+    },
+    "packages/pubm": {
+      "name": "pubm",
+      "version": "0.3.6",
+      "bin": {
+        "pubm": "./bin/cli.cjs",
+      },
+      "dependencies": {
+        "@pubm/core": "workspace:*",
+        "commander": "^14.0.3",
+        "enquirer": "^2.4.1",
+        "semver": "^7.6.3",
+        "std-env": "^4.0.0",
+        "update-kit": "^0.1.12",
+      },
+      "devDependencies": {
+        "@types/semver": "^7.7.1",
+      },
+      "optionalDependencies": {
+        "@pubm/darwin-arm64": "workspace:*",
+        "@pubm/darwin-x64": "workspace:*",
+        "@pubm/linux-arm64": "workspace:*",
+        "@pubm/linux-x64": "workspace:*",
+        "@pubm/windows-x64": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/darwin-arm64": {
+      "name": "@pubm/darwin-arm64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/darwin-x64": {
+      "name": "@pubm/darwin-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-arm64": {
+      "name": "@pubm/linux-arm64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-x64": {
+      "name": "@pubm/linux-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/windows-x64": {
+      "name": "@pubm/windows-x64",
+      "version": "0.3.6",
+      "devDependencies": {
+        "@pubm/core": "workspace:*",
       },
     },
   },
@@ -239,19 +239,19 @@
 
     "@pubm/core": ["@pubm/core@workspace:packages/core"],
 
-    "@pubm/darwin-arm64": ["@pubm/darwin-arm64@workspace:packages/cli/platforms/darwin-arm64"],
+    "@pubm/darwin-arm64": ["@pubm/darwin-arm64@workspace:packages/pubm/platforms/darwin-arm64"],
 
-    "@pubm/darwin-x64": ["@pubm/darwin-x64@workspace:packages/cli/platforms/darwin-x64"],
+    "@pubm/darwin-x64": ["@pubm/darwin-x64@workspace:packages/pubm/platforms/darwin-x64"],
 
-    "@pubm/linux-arm64": ["@pubm/linux-arm64@workspace:packages/cli/platforms/linux-arm64"],
+    "@pubm/linux-arm64": ["@pubm/linux-arm64@workspace:packages/pubm/platforms/linux-arm64"],
 
-    "@pubm/linux-x64": ["@pubm/linux-x64@workspace:packages/cli/platforms/linux-x64"],
+    "@pubm/linux-x64": ["@pubm/linux-x64@workspace:packages/pubm/platforms/linux-x64"],
 
     "@pubm/plugin-brew": ["@pubm/plugin-brew@workspace:packages/plugins/plugin-brew"],
 
     "@pubm/plugin-external-version-sync": ["@pubm/plugin-external-version-sync@workspace:packages/plugins/plugin-external-version-sync"],
 
-    "@pubm/windows-x64": ["@pubm/windows-x64@workspace:packages/cli/platforms/windows-x64"],
+    "@pubm/windows-x64": ["@pubm/windows-x64@workspace:packages/pubm/platforms/windows-x64"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.59.0", "", { "os": "android", "cpu": "arm" }, "sha512-upnNBkA6ZH2VKGcBj9Fyl9IGNPULcjXRlg0LLeaioQWueH30p6IXtJEbKAgvyv+mJaMxSm1l6xwDXYjpEMiLMg=="],
 
@@ -433,7 +433,7 @@
 
     "postcss": ["postcss@8.5.8", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg=="],
 
-    "pubm": ["pubm@workspace:packages/cli"],
+    "pubm": ["pubm@workspace:packages/pubm"],
 
     "restore-cursor": ["restore-cursor@5.1.0", "", { "dependencies": { "onetime": "7.0.0", "signal-exit": "4.1.0" } }, "sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA=="],
 

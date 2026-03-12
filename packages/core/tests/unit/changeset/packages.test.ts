@@ -40,21 +40,21 @@ describe("discoverCurrentVersions", () => {
   it("returns multiple packages for monorepo", async () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
-      { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+      { path: "packages/pubm", registries: ["npm"], ecosystem: "js" },
     ]);
     mockedGetPackageJson
       .mockResolvedValueOnce({ name: "@pubm/core", version: "1.2.0" })
-      .mockResolvedValueOnce({ name: "@pubm/cli", version: "0.9.1" });
+      .mockResolvedValueOnce({ name: "pubm", version: "0.9.1" });
 
     const result = await discoverCurrentVersions("/tmp/project");
     expect(result.size).toBe(2);
     expect(result.get("@pubm/core")).toBe("1.2.0");
-    expect(result.get("@pubm/cli")).toBe("0.9.1");
+    expect(result.get("pubm")).toBe("0.9.1");
     expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
       cwd: path.resolve("/tmp/project", "packages/core"),
     });
     expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
-      cwd: path.resolve("/tmp/project", "packages/cli"),
+      cwd: path.resolve("/tmp/project", "packages/pubm"),
     });
   });
 });
@@ -80,11 +80,11 @@ describe("discoverPackageInfos", () => {
   it("returns package infos with paths for monorepo", async () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
-      { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+      { path: "packages/pubm", registries: ["npm"], ecosystem: "js" },
     ]);
     mockedGetPackageJson
       .mockResolvedValueOnce({ name: "@pubm/core", version: "1.2.0" })
-      .mockResolvedValueOnce({ name: "@pubm/cli", version: "0.9.1" });
+      .mockResolvedValueOnce({ name: "pubm", version: "0.9.1" });
 
     const result = await discoverPackageInfos("/tmp/project");
     expect(result).toHaveLength(2);
@@ -94,15 +94,15 @@ describe("discoverPackageInfos", () => {
       path: "packages/core",
     });
     expect(result[1]).toEqual({
-      name: "@pubm/cli",
+      name: "pubm",
       version: "0.9.1",
-      path: "packages/cli",
+      path: "packages/pubm",
     });
     expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
       cwd: path.resolve("/tmp/project", "packages/core"),
     });
     expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
-      cwd: path.resolve("/tmp/project", "packages/cli"),
+      cwd: path.resolve("/tmp/project", "packages/pubm"),
     });
   });
 });

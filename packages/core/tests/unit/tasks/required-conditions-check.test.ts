@@ -1068,7 +1068,7 @@ describe("requiredConditionsCheckTask", () => {
       const ctx = createCtx({
         packages: [
           { path: "packages/core", registries: ["npm", "jsr"] },
-          { path: "packages/cli", registries: ["npm"] },
+          { path: "packages/pubm", registries: ["npm"] },
         ],
       } as any);
 

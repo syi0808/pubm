@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["packages/cli/package.json"],
+  "globalDependencies": ["packages/pubm/package.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

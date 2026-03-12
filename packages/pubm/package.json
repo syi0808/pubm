@@ -3,11 +3,27 @@
   "version": "0.3.6",
   "type": "module",
   "description": "publish manager for multiple registry (jsr, npm and private registries)",
+  "types": "./index.d.ts",
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.cjs"
+    },
+    "./bin": "./bin/cli.cjs",
+    "./bin/cli.cjs": "./bin/cli.cjs",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "pubm": "./bin/cli.cjs"
   },
   "files": [
     "bin/",
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
     "dist/",
     "postinstall.cjs"
   ],
@@ -47,7 +63,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/syi0808/pubm.git",
-    "directory": "packages/cli"
+    "directory": "packages/pubm"
   },
   "keywords": [
     "npm",

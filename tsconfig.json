@@ -17,7 +17,7 @@
   },
   "references": [
     { "path": "packages/core" },
-    { "path": "packages/cli" },
+    { "path": "packages/pubm" },
     { "path": "packages/plugins/plugin-external-version-sync" },
     { "path": "packages/plugins/plugin-brew" }
   ],

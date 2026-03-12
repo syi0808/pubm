@@ -76,7 +76,7 @@ describe("collectRegistries", () => {
       packages: [
         { path: "packages/web", registries: ["npm", "jsr"] },
         { path: "crates/core", registries: ["crates"] },
-        { path: "packages/cli", registries: ["npm"] },
+        { path: "packages/pubm", registries: ["npm"] },
       ],
       registries: [],
     });

@@ -1,4 +1,4 @@
-import cliPackageJson from "../../../cli/package.json" with { type: "json" };
+import cliPackageJson from "../../../pubm/package.json" with { type: "json" };
 import type { Engine } from "../types/package-json.js";
 
 const cliEngines = (cliPackageJson.engines ?? {}) as Partial<
