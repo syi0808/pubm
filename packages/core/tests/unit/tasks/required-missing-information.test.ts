@@ -4,6 +4,9 @@ vi.mock("../../../src/utils/package.js", () => ({
   version: vi.fn(),
   getPackageJson: vi.fn(),
 }));
+vi.mock("node:fs/promises", () => ({
+  readFile: vi.fn(),
+}));
 vi.mock("../../../src/changeset/packages.js", () => ({
   discoverCurrentVersions: vi.fn(),
   discoverPackageInfos: vi.fn(),
@@ -33,8 +36,13 @@ vi.mock("../../../src/utils/listr.js", () => ({
   }),
 }));
 
-import { discoverPackageInfos } from "../../../src/changeset/packages.js";
+import { readFile } from "node:fs/promises";
+import {
+  discoverCurrentVersions,
+  discoverPackageInfos,
+} from "../../../src/changeset/packages.js";
 import { getStatus } from "../../../src/changeset/status.js";
+import { loadConfig } from "../../../src/config/loader.js";
 import { jsrRegistry } from "../../../src/registry/jsr.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
@@ -42,8 +50,11 @@ import { createListr } from "../../../src/utils/listr.js";
 import { version } from "../../../src/utils/package.js";
 
 const mockedVersion = vi.mocked(version);
+const mockedReadFile = vi.mocked(readFile);
+const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
 const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedGetStatus = vi.mocked(getStatus);
+const mockedLoadConfig = vi.mocked(loadConfig);
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 const mockedJsrRegistry = vi.mocked(jsrRegistry);
 const mockedCreateListr = vi.mocked(createListr);
@@ -58,8 +69,17 @@ function createMockPromptAdapter() {
 
 function createMockTask() {
   const promptAdapter = createMockPromptAdapter();
+  const outputs: string[] = [];
+  let output = "";
   return {
-    output: "",
+    get output() {
+      return output;
+    },
+    set output(value: string) {
+      output = value;
+      outputs.push(value);
+    },
+    outputs,
     title: "",
     prompt: vi.fn(() => promptAdapter),
     _promptAdapter: promptAdapter,
@@ -79,6 +99,10 @@ function getSubtasks(): any[] {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedVersion.mockResolvedValue("1.0.0");
+  mockedReadFile.mockResolvedValue(Buffer.from("{}"));
+  mockedDiscoverCurrentVersions.mockResolvedValue(
+    new Map([["my-pkg", "1.0.0"]]),
+  );
   // Single package by default
   mockedDiscoverPackageInfos.mockResolvedValue([
     { name: "my-pkg", version: "1.0.0", path: "." },
@@ -88,6 +112,7 @@ beforeEach(() => {
     packages: new Map(),
     changesets: [],
   } as any);
+  mockedLoadConfig.mockResolvedValue(undefined as any);
   mockedNpmRegistry.mockResolvedValue({
     distTags: vi.fn().mockResolvedValue(["latest", "next", "beta"]),
   } as any);
@@ -199,6 +224,101 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.version).toBe("2.0.0");
+    });
+
+    it("includes a keep current version option in the manual prompt", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("1.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask._promptAdapter.run.mock.calls[0][0].choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining("Keep current version"),
+            name: "1.0.0",
+          }),
+        ]),
+      );
+      expect(ctx.version).toBe("1.0.0");
+    });
+
+    it("keeps the package summary visible while selecting independent versions", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pubm", version: "0.3.6", path: "packages/cli" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (`${filePath}`.endsWith("packages/core/package.json")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/core", dependencies: {} }),
+          );
+        }
+
+        if (`${filePath}`.endsWith("packages/cli/package.json")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "pubm",
+              dependencies: {
+                "@pubm/core": "workspace:*",
+              },
+            }),
+          );
+        }
+
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("0.3.7")
+        .mockResolvedValueOnce("0.3.6");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "0.3.7"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      expect(
+        mockTask.outputs.some(
+          (output) =>
+            output.includes("@pubm/core") &&
+            output.includes("pubm") &&
+            output.includes("> @pubm/core"),
+        ),
+      ).toBe(true);
+      expect(
+        mockTask.outputs.some(
+          (output) =>
+            output.includes("@pubm/core") &&
+            output.includes("0.3.7") &&
+            output.includes("> pubm") &&
+            output.includes("💡 dependency @pubm/core bumped"),
+        ),
+      ).toBe(true);
+      expect(mockTask.output).toContain("@pubm/core");
+      expect(mockTask.output).toContain("pubm");
+      expect(mockTask.output).toContain("0.3.7");
     });
   });
 
