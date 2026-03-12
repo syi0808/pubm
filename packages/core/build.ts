@@ -1,12 +1,10 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
-const coreDir = path.join(import.meta.dir, "packages/core");
+const monorepoRoot = path.join(import.meta.dir, "../../");
+const coreDir = import.meta.dir;
 const distDir = path.join(coreDir, "dist");
-const cliPackageJsonPath = path.join(
-  import.meta.dir,
-  "packages/cli/package.json",
-);
+const cliPackageJsonPath = path.join(monorepoRoot, "packages/cli/package.json");
 const cliPackageJson = JSON.parse(
   readFileSync(cliPackageJsonPath, "utf-8"),
 ) as {
