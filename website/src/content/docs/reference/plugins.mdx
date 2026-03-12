@@ -308,7 +308,6 @@ export default defineConfig({
       targets: [
         {
           file: "README.md",
-          type: "regex",
           pattern: /pubm@([\\w.-]+)/,
         },
       ],
@@ -317,8 +316,24 @@ export default defineConfig({
 });
 ```
 
+## Agent-facing bundles
+
+Many teams ship more than runtime hooks. They also ship agent-facing assets alongside a plugin:
+
+- repo-local skills or prompt files
+- slash-command recipes
+- setup automation for installing registry config, CI, or version-sync targets
+
+That pattern works well with `pubm` because commands, hooks, and preview-first workflows are already explicit. A practical split is:
+
+- plugin code handles deterministic runtime work
+- agent skills explain when to run preview, preflight, or setup flows
+- setup commands scaffold files the agent should not invent from scratch
+
+The repository's `pubm plugin` bundle under `plugins/pubm-plugin/skills/*` is an example of this approach.
+
 ## Related docs
 
 - [Official Plugins](/pubm/reference/official-plugins/)
-- [Plugin Marketplace](/pubm/reference/marketplace/)
+- [Coding Agent Integration](/pubm/guides/coding-agents/)
 - [Configuration](/pubm/guides/configuration/)

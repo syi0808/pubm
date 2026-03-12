@@ -9,10 +9,11 @@ description: Install pubm, initialize a project, and ship your first release.
 
 `pubm` is designed for repositories that already use Git and have a valid package manifest.
 
-- Node.js `24+`
 - Git `2.11+`
 - A package manifest such as `package.json`
 - A clean working tree before you publish
+
+`pubm` itself is distributed as a Bun-built single binary. You do not need a separate Node.js runtime just to run the CLI, although npm-based installation still uses your package manager toolchain.
 
 Install the CLI globally:
 
@@ -85,7 +86,6 @@ import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   registries: ["npm", "jsr"],
-  branch: "main",
 });
 ```
 

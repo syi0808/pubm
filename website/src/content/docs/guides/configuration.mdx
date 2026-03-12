@@ -3,7 +3,7 @@ title: Configuration
 description: Set defaults for your release pipeline, package layout, and registry targets.
 ---
 
-`pubm` is intentionally CLI-first, but real projects quickly outgrow flag-only configuration. `pubm.config.*` lets you keep release defaults in the repository so local runs, CI jobs, and teammates all operate with the same assumptions.
+`pubm` is intentionally CLI-first, but real projects quickly outgrow flag-only configuration. `pubm.config.*` is where you keep repository-level publish targets, package layout, plugins, and changeset-related versioning rules.
 
 ## Config file discovery
 
@@ -24,25 +24,23 @@ TypeScript config files are supported directly. The loader bundles the file befo
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  branch: "main",
   registries: ["npm", "jsr"],
-  tag: "latest",
 });
 ```
 
 ## How config and CLI flags interact
 
-The merge rules are straightforward:
+The current runtime behavior is:
 
-- config provides repository defaults
-- CLI flags override config for the current run
+- config provides repository defaults for `registries`, `packages`, and `plugins`
+- versioning-related config such as `versioning`, `fixed`, and `linked` is used by changeset flows
+- CLI flags still control per-run publish behavior
 - if neither sets registries, `pubm` defaults to `["npm", "jsr"]`
 
-That means you can keep the normal path in config:
+That means a practical base config usually looks like:
 
 ```ts
 export default defineConfig({
-  branch: "main",
   registries: ["npm", "jsr"],
 });
 ```
@@ -57,33 +55,31 @@ pubm patch --registry npm --tag beta
 
 ```ts
 import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
-  branch: "main",
   registries: ["npm", "jsr"],
-  contents: ".",
-  saveToken: true,
-  releaseDraft: true,
-  validate: {
-    cleanInstall: true,
-    entryPoints: true,
-    extraneousFiles: true,
-  },
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
   snapshot: {
     useCalculatedVersion: false,
-    prereleaseTemplate: "{tag}-{timestamp}",
   },
 });
 ```
 
 These values cover the most common needs:
 
-- `branch`: branch guard for normal release runs
 - `registries`: default publish targets
-- `contents`: publish from a subdirectory when your release artifacts are not at the repository root
-- `saveToken`: persist supported registry tokens for reuse
-- `releaseDraft`: open a GitHub release draft after publishing
-- `validate`: control preflight validation checks
+- `packages`: explicit multi-package publish layout
+- `plugins`: release-time automation such as version sync or custom commands
 - `snapshot`: customize snapshot version generation
 
 ## Multi-package configuration
@@ -164,22 +160,7 @@ export default defineConfig({
 
 ## Validation settings
 
-`validate` controls checks used during release preparation and preflight runs:
-
-```ts
-export default defineConfig({
-  validate: {
-    cleanInstall: true,
-    entryPoints: true,
-    extraneousFiles: true,
-  },
-});
-```
-
-Recommended defaults:
-
-- keep everything enabled in CI
-- only disable a check temporarily while migrating an older repository
+Some typed config fields are part of the public schema but are not yet wired into every publish path. Prefer documenting operational behavior around the CLI flags and workflows you actively use in your repository, rather than assuming every typed field changes runtime behavior today.
 
 ## Snapshot settings
 
@@ -199,34 +180,6 @@ Examples:
 - `useCalculatedVersion: false` -> `0.4.1-snapshot-20260312...`
 - `useCalculatedVersion: true` -> next calculated semver base with a snapshot suffix
 
-## Authentication and token storage
-
-`pubm` stores supported tokens securely when possible and prefers environment variables when they are present.
-
-```ts
-export default defineConfig({
-  saveToken: true,
-});
-```
-
-Practical guidance:
-
-- keep `saveToken: true` for local developer machines
-- pass `--no-save-token` for shared or ephemeral environments
-- use environment variables in CI even if local machines use stored tokens
-
-## Configuring publish from a build directory
-
-If your package should be published from `dist/`, set `contents`:
-
-```ts
-export default defineConfig({
-  contents: "dist",
-});
-```
-
-This changes the directory used by the runtime pipeline before publish tasks start. Keep the built directory self-contained and make sure its manifest files already exist before you run `pubm patch`.
-
 ## Plugins
 
 Add plugins through the `plugins` array:
@@ -241,7 +194,6 @@ export default defineConfig({
       targets: [
         {
           file: "README.md",
-          type: "regex",
           pattern: /pubm@([\\w.-]+)/,
         },
       ],
@@ -270,7 +222,6 @@ Still, keep config files simple:
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  branch: "main",
   registries: ["npm", "jsr"],
 });
 ```
@@ -282,7 +233,6 @@ import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   versioning: "fixed",
-  branch: "main",
   packages: [
     { path: "packages/web", registries: ["npm"], ecosystem: "js" },
     { path: "packages/server", registries: ["npm"], ecosystem: "js" },
