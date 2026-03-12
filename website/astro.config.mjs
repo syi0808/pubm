@@ -23,9 +23,8 @@ function pubmPluginStaticSync() {
   return {
     name: "pubm-plugin-static-sync",
     hooks: {
-      "astro:config:setup"({ addWatchFile, logger, updateConfig }) {
+      "astro:config:setup"({ updateConfig }) {
         syncPubmPlugin();
-        addWatchFile(pluginSourceDir);
 
         updateConfig({
           vite: {
@@ -34,19 +33,6 @@ function pubmPluginStaticSync() {
                 name: "pubm-plugin-static-sync",
                 buildStart() {
                   syncPubmPlugin();
-                },
-                configureServer(server) {
-                  const resync = () => {
-                    syncPubmPlugin();
-                    logger.info("Synced plugins/pubm-plugin into public/plugins/pubm-plugin");
-                    server.ws.send({ type: "full-reload" });
-                  };
-
-                  server.watcher.add(pluginSourceDir);
-                  server.watcher.on("add", resync);
-                  server.watcher.on("change", resync);
-                  server.watcher.on("unlink", resync);
-                  server.watcher.on("unlinkDir", resync);
                 },
               },
             ],
