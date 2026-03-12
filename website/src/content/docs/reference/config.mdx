@@ -1,107 +1,383 @@
 ---
 title: Config API Reference
-description: Deep dive into all pubm configuration options.
+description: Every supported field in pubm.config.*, with defaults and usage notes.
 ---
 
-`pubm.config.ts` allows you to customize every aspect of your release pipeline.
+This reference describes the shape of `pubm.config.*` as exposed by `defineConfig()` from `@pubm/core`.
 
 ```ts
-import { defineConfig } from "pubm";
+import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  // options...
+  // options
 });
 ```
 
-## Options Reference
+## Default config
 
-### `versioning`
-- **Type**: `"independent" | "fixed"`
-- **Default**: `"independent"`
-Determines if packages in a monorepo workspace should share a version or have their own. See [Monorepo Guide](/pubm/guides/monorepo).
+These are the defaults resolved by the config layer:
 
-### `branch`
-- **Type**: `string`
-- **Default**: `"main"`
-The branch from which releases are allowed. If you're on a different branch, `pubm` will block the release unless `--any-branch` is used.
+```ts
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  registries: ["npm", "jsr"],
+  rollbackStrategy: "individual",
+  packages: [{ path: ".", registries: ["npm", "jsr"] }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshot: {
+    useCalculatedVersion: false,
+    prereleaseTemplate: "{tag}-{timestamp}",
+  },
+});
+```
+
+## Top-level options
+
+## `versioning`
+
+- Type: `"independent" | "fixed"`
+- Default: `"independent"`
+
+Controls how versions are assigned in multi-package repositories.
+
+## `branch`
+
+- Type: `string`
+- Default: `"main"`
+
+Branch that must match `HEAD` during guarded release runs.
+
+## `registries`
+
+- Type: `RegistryType[]`
+- Default: `["npm", "jsr"]`
+
+Default registry targets for publish runs. Supported built-ins are:
+
+- `"npm"`
+- `"jsr"`
+- `"crates"`
+- custom registry URLs
+
+## `packages`
+
+- Type: `PackageConfig[]`
+- Default: `[{ path: ".", registries: ["npm", "jsr"] }]`
+
+Explicitly declares publishable packages and their registry targets.
+
+```ts
+packages: [
+  { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
+  { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+];
+```
+
+Use this when package discovery alone is not expressive enough.
+
+## `changelog`
+
+- Type: `boolean | string`
+- Default: `true`
+
+Controls changelog generation configuration. `true` enables default behavior; a string can be used as a custom path convention in config consumers.
+
+## `changelogFormat`
+
+- Type: `"default" | "github" | string`
+- Default: `"default"`
+
+Changelog formatting strategy exposed by the config API.
+
+## `commit`
+
+- Type: `boolean`
+- Default: `false`
+
+Commit-related config flag exposed by the API.
+
+## `access`
+
+- Type: `"public" | "restricted"`
+- Default: `"public"`
+
+Relevant for npm-style publishing where package access level matters.
+
+## `fixed`
+
+- Type: `string[][]`
+- Default: `[]`
+
+Groups of packages that must always resolve to the same version.
+
+## `linked`
+
+- Type: `string[][]`
+- Default: `[]`
+
+Groups of packages that should share the highest bump type without necessarily sharing the same exact version at all times.
+
+## `updateInternalDependencies`
+
+- Type: `"patch" | "minor"`
+- Default: `"patch"`
+
+Declares the workspace internal dependency update strategy.
+
+## `ignore`
+
+- Type: `string[]`
+- Default: `[]`
+
+Package names or paths to exclude from workspace discovery.
+
+## `tag`
+
+- Type: `string`
+- Default: `"latest"`
+
+Default distribution tag for publish runs.
+
+## `contents`
+
+- Type: `string`
+- Default: `"."`
+
+Directory to `chdir` into before running the publish pipeline.
+
+## `saveToken`
+
+- Type: `boolean`
+- Default: `true`
+
+Whether supported registry tokens should be stored for reuse on local machines.
+
+## `releaseDraft`
+
+- Type: `boolean`
+- Default: `true`
+
+Whether the normal publish flow should open the GitHub release draft step.
+
+## `releaseNotes`
+
+- Type: `boolean`
+- Default: `true`
+
+Release-notes related config flag exposed by the API.
+
+## `rollbackStrategy`
+
+- Type: `"individual" | "all"`
+- Default: `"individual"`
+
+Rollback policy field exposed by the config API for multi-target release handling.
+
+## `plugins`
+
+- Type: `PubmPlugin[]`
+- Default: `[]`
+
+Registers plugins that can add hooks, commands, registries, or ecosystems.
+
+## `validate`
+
+- Type: `ValidateConfig`
+- Default:
+
+```ts
+{
+  cleanInstall: true,
+  entryPoints: true,
+  extraneousFiles: true,
+}
+```
+
+Validation toggles used during release preparation and preflight.
+
+### `validate.cleanInstall`
+
+- Type: `boolean`
+- Default: `true`
+
+Clean-install validation toggle.
+
+### `validate.entryPoints`
+
+- Type: `boolean`
+- Default: `true`
+
+Checks that declared entry points resolve to real files.
+
+### `validate.extraneousFiles`
+
+- Type: `boolean`
+- Default: `true`
+
+Checks for files that are likely to be published unintentionally.
+
+## `snapshot`
+
+- Type: `SnapshotConfig`
+- Default:
+
+```ts
+{
+  useCalculatedVersion: false,
+  prereleaseTemplate: "{tag}-{timestamp}",
+}
+```
+
+Controls snapshot version generation.
+
+### `snapshot.useCalculatedVersion`
+
+- Type: `boolean`
+- Default: `false`
+
+Whether the snapshot base should use the next calculated semver instead of the current package version.
+
+### `snapshot.prereleaseTemplate`
+
+- Type: `string`
+- Default: `"{tag}-{timestamp}"`
+
+Template used to build the snapshot suffix.
+
+## `PackageConfig`
+
+Package-level entries are shaped like this:
+
+```ts
+interface PackageConfig {
+  path: string;
+  registries: RegistryType[];
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+}
+```
+
+### `path`
+
+- Type: `string`
+- Required: yes
+
+Relative path to the package root.
 
 ### `registries`
-- **Type**: `RegistryType[]`
-- **Default**: `["npm", "jsr"]`
-A list of target registries. Supported: `"npm"`, `"jsr"`, `"crates"`. Any other string is treated as a custom registry URL.
 
-### `changelog`
-- **Type**: `boolean | string`
-- **Default**: `true`
-If `true`, updates `CHANGELOG.md` in the root (or package root). If a string, it uses that as the file path.
+- Type: `RegistryType[]`
+- Required: yes
 
-### `commit`
-- **Type**: `boolean`
-- **Default**: `true`
-Whether to create a git commit for version bumps.
+Publish targets for that package.
 
-### `access`
-- **Type**: `"public" | "restricted"`
-- **Default**: `"public"`
-Equivalent to `npm publish --access`. Usually required for scoped packages on npm.
+### `ecosystem`
 
-### `fixed`
-- **Type**: `string[][]`
-Groups of packages that must always have the same version. When any package in a group is bumped, every other package in the same group is bumped to match.
+- Type: `"js" | "rust"`
+- Required: no
 
-### `linked`
-- **Type**: `string[][]`
-Similar to `fixed`, but less strict. If `pkg-a` and `pkg-b` are linked, and `pkg-a` is bumped by a `minor`, `pkg-b` will also receive a `minor` bump.
+Use this when the package type cannot be inferred reliably from the path and manifest files alone.
 
-### `updateInternalDependencies`
-- **Type**: `"patch" | "minor"`
-How to update internal workspace dependency ranges when a package is bumped.
-- `"patch"`: Update using `^1.2.3` format.
-- `"minor"`: Update using `^1.2.0` format.
+### `buildCommand`
 
-### `ignore`
-- **Type**: `string[]`
-A list of package names to ignore in the monorepo workspace.
+- Type: `string`
+- Required: no
 
-### `validate`
-- **Type**: `object`
-Configures preflight validation rules.
-- `cleanInstall`: (default: `true`) Verify a clean `npm install` (or equivalent) succeeds.
-- `entryPoints`: (default: `true`) Verify all entry points defined in `package.json` exist.
-- `extraneousFiles`: (default: `true`) Check for files that shouldn't be published.
+Per-package build command field exposed by the config type.
 
-### `snapshot`
-- **Type**: `object`
-Configures snapshot releases.
-- `useCalculatedVersion`: (default: `false`) If `true`, the snapshot version will include the next SemVer bump (e.g. `1.2.3-snapshot...`).
-- `prereleaseTemplate`: (default: `"snapshot-{datetime}"`) Template for the snapshot version suffix.
+### `testCommand`
 
-### `tag`
-- **Type**: `string`
-- **Default**: `"latest"`
-The distribution tag used for publishing (e.g. `next`, `beta`, `latest`).
+- Type: `string`
+- Required: no
 
-### `contents`
-- **Type**: `string`
-Custom directory to publish instead of the repository root. This is often `dist` or `build`.
+Per-package test command field exposed by the config type.
 
-### `saveToken`
-- **Type**: `boolean`
-- **Default**: `true`
-If `true`, `pubm` will save your registry tokens securely in the OS keychain using `@napi-rs/keyring`.
+## `ValidateConfig`
 
-### `releaseDraft`
-- **Type**: `boolean`
-- **Default**: `true`
-Whether to create a draft GitHub release with the generated changelog and release assets.
+```ts
+interface ValidateConfig {
+  cleanInstall?: boolean;
+  entryPoints?: boolean;
+  extraneousFiles?: boolean;
+}
+```
 
-### `rollbackStrategy`
-- **Type**: `"all" | "individual"`
-- **Default**: `"all"`
-What happens if one registry or package fails during a multi-registry/multi-package release.
-- `"all"`: Attempt to roll back *everything* in the current run.
-- `"individual"`: Only roll back the failed package and registry.
+## `SnapshotConfig`
 
-### `plugins`
-- **Type**: `PubmPlugin[]`
-An array of plugins to extend `pubm` functionality. See [Plugins API Reference](/pubm/reference/plugins).
+```ts
+interface SnapshotConfig {
+  useCalculatedVersion?: boolean;
+  prereleaseTemplate?: string;
+}
+```
+
+## Examples
+
+## Single package
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  branch: "main",
+  registries: ["npm", "jsr"],
+});
+```
+
+## Fixed-version monorepo
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "fixed",
+  packages: [
+    { path: "packages/web", registries: ["npm"], ecosystem: "js" },
+    { path: "packages/server", registries: ["npm"], ecosystem: "js" },
+  ],
+});
+```
+
+## Mixed ecosystem repository
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "crates/sdk-core", registries: ["crates"], ecosystem: "rust" },
+  ],
+  snapshot: {
+    useCalculatedVersion: true,
+  },
+});
+```
+
+## Practical notes
+
+- Prefer config for stable repository defaults and CLI flags for temporary overrides.
+- Keep package declarations explicit once registries differ across packages.
+- Keep config files lightweight; avoid running expensive logic during module evaluation.
+
+For usage patterns and recommended layouts, read the [Configuration](/pubm/guides/configuration/) guide.

@@ -27,7 +27,9 @@ export default defineConfig({
           items: [
             { label: "Monorepo", slug: "guides/monorepo" },
             { label: "Changesets", slug: "guides/changesets" },
+            { label: "CI/CD", slug: "guides/ci-cd" },
             { label: "Claude Code", slug: "guides/claude-code" },
+            { label: "Troubleshooting", slug: "guides/troubleshooting" },
           ],
         },
         {

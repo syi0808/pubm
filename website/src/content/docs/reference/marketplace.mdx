@@ -1,13 +1,13 @@
 ---
 title: Plugin Marketplace
-description: Learn how the pubm plugin marketplace works.
+description: How pubm plugin discovery metadata is structured and reviewed.
 ---
 
-The `pubm` marketplace is a centralized registry for discovering and sharing plugins, specifically designed for agentic workflows like **Claude Code**.
+The marketplace describes installable plugin metadata in a machine-readable format. Its purpose is discovery: helping humans and agents find the right plugin, understand what it does, and decide whether it is safe to install.
 
-## Marketplace Structure
+## Marketplace file
 
-The marketplace is defined by a `marketplace.json` file. This file lists all available plugins and their metadata.
+The marketplace is represented as JSON:
 
 ```json
 {
@@ -19,7 +19,7 @@ The marketplace is defined by a `marketplace.json` file. This file lists all ava
     {
       "name": "pubm-plugin",
       "source": "./plugins/pubm-plugin",
-      "description": "Publish packages to multiple registries...",
+      "description": "Publish packages to multiple registries.",
       "version": "0.3.0",
       "author": {
         "name": "pubm"
@@ -31,30 +31,87 @@ The marketplace is defined by a `marketplace.json` file. This file lists all ava
 }
 ```
 
-## Plugin Entry Fields
+## Why the marketplace exists
 
-| Field | Description |
-|-------|-------------|
-| `name` | Unique identifier for the plugin. |
-| `source` | Path to the plugin's source code or skill definitions. |
-| `description` | A concise summary of what the plugin does. |
-| `version` | Current version of the plugin. |
-| `author` | Creator of the plugin. |
-| `keywords` | Tags for discoverability. |
-| `category` | Classification (e.g., `devtools`, `productivity`). |
+For small plugin ecosystems, a README and a package search page may be enough. For agent-friendly workflows, that is not enough context.
 
-## Contributing a Plugin
+A marketplace entry gives structured answers to:
 
-To list your plugin in the marketplace:
+- what the plugin is called
+- where it comes from
+- who maintains it
+- what category it belongs to
+- which keywords should make it discoverable
 
-1.  **Develop your plugin**: Follow the [Plugins API Reference](/pubm/reference/plugins) to create a standard `pubm` plugin or define agentic skills.
-2.  **Add to `marketplace.json`**: Create a PR to the `pubm` repository adding your plugin metadata to the `plugins` array.
-3.  **Validation**: The `pubm` team will review your plugin for safety and quality before merging.
+## Plugin entry fields
 
-## Agentic Skills
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Unique plugin identifier. |
+| `source` | yes | Source path, package location, or plugin origin. |
+| `description` | yes | Short explanation of the plugin's purpose. |
+| `version` | yes | Current plugin version. |
+| `author` | yes | Plugin maintainer or organization. |
+| `keywords` | no | Search and discovery hints. |
+| `category` | no | Broad classification such as `devtools` or `productivity`. |
 
-Plugins in the marketplace often include "Skills" — specialized instructions that AI agents (like Claude) use to perform tasks.
+## Metadata quality guidelines
 
-- **Portable**: Skills are written in Markdown and can be used across different agent platforms.
-- **Tool-Integrated**: They define which CLI tools the agent can use to fulfill the skill's objective.
-- **Safety-First**: Skills often enforce a "preview-first" workflow to ensure the user is always in control.
+Good marketplace entries should:
+
+- use a stable plugin name
+- describe the user outcome, not just the implementation
+- include keywords real users will search for
+- avoid vague categories
+- point to a source that can be inspected or installed reliably
+
+Weak description:
+
+```text
+Handles release stuff.
+```
+
+Strong description:
+
+```text
+Updates Homebrew formulae after each CLI release and opens a PR when direct push is blocked.
+```
+
+## Contributing a plugin entry
+
+The usual contribution flow is:
+
+1. build and test the plugin locally
+2. prepare a marketplace entry with complete metadata
+3. open a pull request adding the plugin to `marketplace.json`
+4. wait for safety and quality review before the entry is merged
+
+Review is especially important for plugins that:
+
+- publish artifacts
+- mutate repository state
+- ship agent-facing skills or automation
+
+## Marketplace and agentic workflows
+
+Some plugins do more than expose hooks. They may also bundle agent-facing skills that describe:
+
+- what the agent is allowed to do
+- which tools it may call
+- what safety rails apply to the workflow
+
+That makes structured metadata more important, not less. The marketplace needs to help both humans and agents decide whether a plugin belongs in a repository.
+
+## Current expectations
+
+Marketplace metadata should be treated as discovery and review input, not as a substitute for reading the plugin itself. Before adopting a plugin in production:
+
+- inspect the source
+- review its config surface
+- run it in preview or dry-run mode when available
+- verify who maintains it
+
+## Related docs
+
+- [Plugins API Reference](/pubm/reference/plugins/)
+- [Official Plugins](/pubm/reference/official-plugins/)

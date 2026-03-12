@@ -12,29 +12,32 @@
   </div>
   <div class="terminal-body">
     <div class="terminal-line" style="animation-delay: 0.6s;">
-      <span class="prompt">$</span> pubm patch --registry npm,jsr
+      <span class="prompt">$</span> pubm
     </div>
     <div class="terminal-line" style="animation-delay: 1.2s;">&nbsp;</div>
     <div class="terminal-line" style="animation-delay: 1.5s;">
-      <span class="check">✔</span> <span class="dim">Prerequisites validated</span>
+      <span class="text-cyan">?</span> <span class="dim">Select version</span> <span class="dots">(current: 1.2.3)</span>
     </div>
     <div class="terminal-line" style="animation-delay: 1.8s;">
-      <span class="check">✔</span> <span class="dim">Registry connections verified</span>
+      <span class="prompt">❯</span> <span class="success">patch</span> <span class="dim">1.2.3 → 1.2.4</span>
     </div>
     <div class="terminal-line" style="animation-delay: 2.1s;">
-      <span class="check">✔</span> <span class="dim">Version bumped to 1.3.0</span>
+      &nbsp;&nbsp;<span class="dim">minor 1.2.3 → 1.3.0</span>
     </div>
     <div class="terminal-line" style="animation-delay: 2.4s;">
-      <span class="spinner">◒</span> <span class="text-cyan">Publishing to registries...</span>
+      &nbsp;&nbsp;<span class="dim">major 1.2.3 → 2.0.0</span>
     </div>
     <div class="terminal-line" style="animation-delay: 2.8s;">
-      &nbsp;&nbsp;<span class="check">✔</span> <span class="dim">npm</span> <span class="dots">···········</span> <span class="success">published</span>
+      <span class="check">✔</span> <span class="dim">Prerequisites validated</span>
     </div>
     <div class="terminal-line" style="animation-delay: 3.1s;">
-      &nbsp;&nbsp;<span class="check">✔</span> <span class="dim">jsr</span> <span class="dots">···········</span> <span class="success">published</span>
+      <span class="check">✔</span> <span class="dim">Registry connections verified</span>
     </div>
     <div class="terminal-line style-final" style="animation-delay: 3.5s;">
-      <span class="check">✔</span> <span class="success">Published to 2 registries — done</span>
+      <span class="spinner">◒</span> <span class="text-cyan">Publishing to registries...</span>
+    </div>
+    <div class="terminal-line style-final" style="animation-delay: 3.8s;">
+      <span class="check">✔</span> <span class="success">Published to every configured registry</span>
     </div>
   </div>
 </div>

@@ -1,43 +1,310 @@
 ---
 title: Configuration
-description: Configure pubm for your project.
+description: Set defaults for your release pipeline, package layout, and registry targets.
 ---
 
-## Configuration File
+`pubm` is intentionally CLI-first, but real projects quickly outgrow flag-only configuration. `pubm.config.*` lets you keep release defaults in the repository so local runs, CI jobs, and teammates all operate with the same assumptions.
 
-Configure pubm through `pubm.config.ts`. See the [Config API Reference](/pubm/reference/config) for all available options.
+## Config file discovery
+
+`pubm` looks for the first matching file in the current working directory:
+
+1. `pubm.config.ts`
+2. `pubm.config.mts`
+3. `pubm.config.cts`
+4. `pubm.config.js`
+5. `pubm.config.mjs`
+6. `pubm.config.cjs`
+
+TypeScript config files are supported directly. The loader bundles the file before evaluation, so you do not need a separate runtime transpilation step.
+
+## Minimal config
 
 ```ts
-import { defineConfig } from "pubm";
+import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  plugins: [
+  branch: "main",
+  registries: ["npm", "jsr"],
+  tag: "latest",
+});
+```
+
+## How config and CLI flags interact
+
+The merge rules are straightforward:
+
+- config provides repository defaults
+- CLI flags override config for the current run
+- if neither sets registries, `pubm` defaults to `["npm", "jsr"]`
+
+That means you can keep the normal path in config:
+
+```ts
+export default defineConfig({
+  branch: "main",
+  registries: ["npm", "jsr"],
+});
+```
+
+and still do a one-off publish:
+
+```bash
+pubm patch --registry npm --tag beta
+```
+
+## Common repository-level options
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  branch: "main",
+  registries: ["npm", "jsr"],
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshot: {
+    useCalculatedVersion: false,
+    prereleaseTemplate: "{tag}-{timestamp}",
+  },
+});
+```
+
+These values cover the most common needs:
+
+- `branch`: branch guard for normal release runs
+- `registries`: default publish targets
+- `contents`: publish from a subdirectory when your release artifacts are not at the repository root
+- `saveToken`: persist supported registry tokens for reuse
+- `releaseDraft`: open a GitHub release draft after publishing
+- `validate`: control preflight validation checks
+- `snapshot`: customize snapshot version generation
+
+## Multi-package configuration
+
+For workspaces or mixed-language repositories, declare packages explicitly:
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
     {
-      name: "my-plugin",
-      hooks: {
-        beforePublish: async (ctx) => {
-          console.log(`Publishing v${ctx.version}...`);
-        },
-        afterPublish: async (ctx) => {
-          await notifySlack(`Released v${ctx.version}`);
-        },
-        onError: async (ctx, error) => {
-          await alertTeam(error);
-        },
-      },
+      path: "packages/core",
+      registries: ["npm", "jsr"],
+      ecosystem: "js",
+    },
+    {
+      path: "packages/cli",
+      registries: ["npm"],
+      ecosystem: "js",
+    },
+    {
+      path: "crates/pubm-rs",
+      registries: ["crates"],
+      ecosystem: "rust",
     },
   ],
 });
 ```
 
+Use explicit package entries when:
+
+- not every package publishes to the same registries
+- JavaScript and Rust packages live in the same repository
+- you want `pubm` to publish only a subset of discovered workspace packages
+
+## Versioning strategies
+
+### Independent versioning
+
+Each package gets its own version and tag.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+});
+```
+
+Use this for library suites where packages evolve on different schedules.
+
+### Fixed versioning
+
+Every affected package shares one version.
+
+```ts
+export default defineConfig({
+  versioning: "fixed",
+});
+```
+
+Use this when the repository is consumed as one product and you want one release tag per publish.
+
+### Fixed and linked groups
+
+You can keep most packages independent while forcing selected packages to move together:
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  fixed: [["@acme/core", "@acme/react"]],
+  linked: [["@acme/cli", "@acme/config"]],
+});
+```
+
+- `fixed`: all packages in the group end up on the exact same version
+- `linked`: the highest bump type propagates across the group
+
+## Validation settings
+
+`validate` controls checks used during release preparation and preflight runs:
+
+```ts
+export default defineConfig({
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+});
+```
+
+Recommended defaults:
+
+- keep everything enabled in CI
+- only disable a check temporarily while migrating an older repository
+
+## Snapshot settings
+
+Snapshots are good for preview releases and branch-specific validation.
+
+```ts
+export default defineConfig({
+  snapshot: {
+    useCalculatedVersion: true,
+    prereleaseTemplate: "{tag}-{timestamp}",
+  },
+});
+```
+
+Examples:
+
+- `useCalculatedVersion: false` -> `0.4.1-snapshot-20260312...`
+- `useCalculatedVersion: true` -> next calculated semver base with a snapshot suffix
+
+## Authentication and token storage
+
+`pubm` stores supported tokens securely when possible and prefers environment variables when they are present.
+
+```ts
+export default defineConfig({
+  saveToken: true,
+});
+```
+
+Practical guidance:
+
+- keep `saveToken: true` for local developer machines
+- pass `--no-save-token` for shared or ephemeral environments
+- use environment variables in CI even if local machines use stored tokens
+
+## Configuring publish from a build directory
+
+If your package should be published from `dist/`, set `contents`:
+
+```ts
+export default defineConfig({
+  contents: "dist",
+});
+```
+
+This changes the directory used by the runtime pipeline before publish tasks start. Keep the built directory self-contained and make sure its manifest files already exist before you run `pubm patch`.
+
 ## Plugins
 
-Plugins can hook into any stage of the pipeline (`beforeTest`, `afterBuild`, `beforePublish`, `onRollback`, `onSuccess`, etc.) and can register custom `Registry` and `Ecosystem` implementations for additional language ecosystems.
+Add plugins through the `plugins` array:
 
-## Token Storage
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
-pubm stores tokens in your OS native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) via `@napi-rs/keyring`. Environment variables always take priority over stored tokens.
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          type: "regex",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
 
-If the keychain is unavailable, tokens are encrypted with AES-256-CBC as a fallback.
+Read the [Plugins API Reference](/pubm/reference/plugins/) for hook order, command registration, and custom registry support.
 
-Use `--no-save-token` to be prompted each time instead of saving.
+## Working with optional dependencies in config
+
+The config loader is designed to handle some optional imports without immediately failing. This is useful if your repository conditionally imports tooling that is only installed in specific packages.
+
+Still, keep config files simple:
+
+- avoid expensive runtime work during module evaluation
+- keep imports deterministic
+- move project logic into small helper modules if the config file starts to become a program
+
+## Recommended patterns
+
+### Simple library
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  branch: "main",
+  registries: ["npm", "jsr"],
+});
+```
+
+### App monorepo
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "fixed",
+  branch: "main",
+  packages: [
+    { path: "packages/web", registries: ["npm"], ecosystem: "js" },
+    { path: "packages/server", registries: ["npm"], ecosystem: "js" },
+  ],
+});
+```
+
+### Mixed JS + Rust workspace
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "crates/sdk-core", registries: ["crates"], ecosystem: "rust" },
+  ],
+});
+```
+
+## Next steps
+
+- Use the [Monorepo](/pubm/guides/monorepo/) guide if you need package grouping or mixed registries.
+- Use the [Config API Reference](/pubm/reference/config/) for the full option list and defaults.

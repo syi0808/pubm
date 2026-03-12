@@ -1,0 +1,250 @@
+---
+title: Troubleshooting
+description: Diagnose the most common release, config, and registry issues in pubm.
+---
+
+This guide focuses on the failure modes that matter most in practice: configuration loading, versioning, registry auth, Git state, and CI behavior.
+
+## Start with the safest diagnostic commands
+
+Use these before retrying a failed publish:
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+Together, these commands answer:
+
+- what version `pubm` thinks it should release
+- which packages are affected
+- whether changelog text is sane
+- whether credentials and registry checks are ready
+
+## Publish blocked by Git state
+
+Symptoms:
+
+- release stops before publish
+- errors mention a dirty working tree
+- errors mention the wrong branch
+
+What to check:
+
+- commit or stash local changes
+- confirm you are on the expected branch
+- if this is an intentional exception, decide whether `--any-branch` is acceptable
+
+Do not normalize bypass flags into your standard workflow unless you genuinely want weaker release safety.
+
+## Version command says no changesets were found
+
+Symptoms:
+
+- `pubm changesets version` prints `No changesets found.`
+
+What to check:
+
+- confirm files exist in `.pubm/changesets/`
+- make sure you are in the repository root
+- if you are migrating from `.changeset/`, run `pubm changesets migrate`
+
+## Wrong packages are being bumped
+
+Symptoms:
+
+- packages you did not expect appear in `changesets status`
+- fixed or linked packages move together unexpectedly
+
+What to check:
+
+- run `pubm changesets status --verbose`
+- inspect `fixed` and `linked` groups in `pubm.config.*`
+- verify whether the repository is using `independent` or `fixed` versioning
+
+If the workspace structure is complex, move to explicit `packages` config instead of relying only on discovery.
+
+## Config file fails to load
+
+Symptoms:
+
+- startup fails before the release pipeline begins
+- errors mention config imports or bundling
+
+What to check:
+
+- ensure the config file is one of the supported names
+- import `defineConfig` from `@pubm/core`
+- remove heavy runtime work from the top level of the config module
+- verify optional dependencies are installed where needed
+
+Good config files are mostly declarative. If the file starts to look like application code, split helpers into smaller modules and keep evaluation predictable.
+
+## npm publish fails with auth or permission errors
+
+Symptoms:
+
+- 401 or 403 responses
+- messages about OTP, 2FA, or publish permission
+
+What to check:
+
+- verify `NODE_AUTH_TOKEN`
+- confirm the token has publish access to the package
+- prefer automation-compatible tokens in CI
+- confirm the package access level matches registry expectations
+
+If the repository publishes scoped public packages, also confirm the package should be public on npm.
+
+## jsr publish fails
+
+Symptoms:
+
+- jsr target fails while npm succeeds
+
+What to check:
+
+- verify `JSR_TOKEN`
+- run `pubm --preflight`
+- confirm the package metadata is valid for jsr
+
+Because `pubm` publishes to multiple targets, fix the failing registry instead of retrying blindly and risking partial release confusion.
+
+## crates.io publish fails
+
+Symptoms:
+
+- Rust package publish fails
+- one crate succeeds but another blocks later in the sequence
+
+What to check:
+
+- verify `CARGO_REGISTRY_TOKEN`
+- confirm crate dependency ordering and versions are valid
+- inspect package-specific `registries` config
+
+Rust publishes are done sequentially when order matters. That is normal and usually a sign that `pubm` is protecting dependency correctness.
+
+## Build or test step fails inside pubm
+
+Symptoms:
+
+- release stops during test or build
+- error message suggests rerunning the underlying script
+
+What to do:
+
+1. rerun the script directly
+2. fix the underlying build or test failure
+3. retry `pubm`
+
+Examples:
+
+```bash
+pnpm run test
+pnpm run build
+```
+
+If your scripts use different names, align them with config or CLI flags:
+
+```bash
+pubm patch --test-script test:ci --build-script build:release
+```
+
+## `contents` publishing does not work
+
+Symptoms:
+
+- publish command cannot find expected files
+- release works from root but fails from `dist/`
+
+What to check:
+
+- confirm `contents` points to the final publish directory
+- ensure the build step creates that directory before publish starts
+- verify the target directory contains the manifest files expected by the selected registry
+
+`contents` changes the working directory for the runtime pipeline. Treat it as a publish root, not just an output folder.
+
+## CI works differently from local runs
+
+Symptoms:
+
+- local publish succeeds
+- CI publish fails or hangs
+
+Why this happens:
+
+- CI disables prompts
+- tokens must come from environment variables or prior secret sync
+- shallow checkouts often break tag-aware flows
+
+What to check:
+
+- run `pubm --preflight` locally
+- use full Git history in CI
+- confirm every required token is present in the job environment
+
+## Release draft or GitHub release issues
+
+Symptoms:
+
+- draft creation fails
+- release metadata looks incomplete
+
+What to check:
+
+- confirm repository remote metadata is valid
+- ensure Git tags exist and are pushed
+- distinguish between normal publish flow and `--ci`
+
+Normal publish opens a release draft page. `--ci` creates a GitHub Release object as part of the pipeline.
+
+## Rollback happened and now the repository state looks confusing
+
+Symptoms:
+
+- publish failed mid-run
+- tags or commits were created and then removed
+
+What to do:
+
+- inspect current tags with `git tag`
+- inspect working tree status with `git status`
+- rerun only after you understand which step failed first
+
+The important thing is to diagnose the original cause, not the rollback messages that come after it.
+
+## When to file an issue
+
+Open an issue when you can reproduce a problem with:
+
+- the exact command
+- relevant config
+- target registries
+- expected behavior
+- actual behavior and error output
+
+High-quality bug reports are especially valuable for:
+
+- mixed JS and Rust repositories
+- plugin-provided registries
+- config loader edge cases
+- rollback behavior after partial failures
+
+## Useful recovery workflow
+
+If a release failed and you want to recover conservatively:
+
+```bash
+git status
+git tag --sort=-creatordate | head
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+Only rerun a real publish after the preview and preflight outputs make sense again.
