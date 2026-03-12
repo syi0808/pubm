@@ -1,0 +1,100 @@
+---
+title: Monorepo
+description: Advanced guide to pubm monorepo features.
+---
+
+`pubm` treats monorepos as first-class citizens. Whether you have 2 or 200 packages, `pubm` ensures consistent versioning and reliable distribution.
+
+## Workspace Strategy
+
+`pubm` automatically detects your workspace root by looking for:
+- `pnpm-workspace.yaml` (pnpm)
+- `package.json` with a `workspaces` field (npm/yarn)
+
+Once detected, `pubm` builds an internal **Dependency Graph**.
+
+### Dependency Graph & Topological Sort
+`pubm` analyzes `dependencies`, `devDependencies`, and `peerDependencies` between packages in your workspace. When publishing:
+1. It performs a **Topological Sort** to determine the correct publishing order.
+2. If `Package B` depends on `Package A`, `Package A` is always published first.
+3. If a circular dependency is detected, `pubm` will throw an error to prevent inconsistent states.
+
+## Versioning Modes
+
+Configure your versioning strategy in `pubm.config.ts` using the `versioning` option.
+
+### Fixed Mode (Recommended for Apps)
+All packages share a single version number. When any package changes, every package in the workspace is bumped to the same new version.
+
+```ts
+// pubm.config.ts
+export default defineConfig({
+  versioning: "fixed",
+});
+```
+
+- **Pros**: Simple to reason about, consistent across the ecosystem.
+- **Cons**: Can result in unnecessary version bumps for unchanged packages.
+
+### Independent Mode (Recommended for Libraries)
+Each package has its own version number and lifecycle. Only changed packages (determined via [Changesets](/pubm/guides/changesets)) are bumped.
+
+```ts
+// pubm.config.ts
+export default defineConfig({
+  versioning: "independent",
+});
+```
+
+- **Pros**: Granular control, optimized for large library suites.
+- **Cons**: More complex to manage; internal dependency updates must be carefully configured.
+
+## Internal Dependency Updates
+
+When a package in your monorepo is bumped, `pubm` can automatically update all packages that depend on it.
+
+```ts
+// pubm.config.ts
+export default defineConfig({
+  // When a dependency is bumped, update the dependent's package.json
+  // using "patch" or "minor" range.
+  updateInternalDependencies: "patch",
+});
+```
+
+## Advanced Configuration
+
+### Package Groups (`fixed` & `linked`)
+Sometimes you want a hybrid approach. You can group specific packages together.
+
+```ts
+export default defineConfig({
+  // These packages will always share the same version, 
+  // even in independent mode.
+  fixed: [
+    ["@scope/core", "@scope/cli", "@scope/plugin-loader"]
+  ],
+  
+  // When any package in this group is bumped, 
+  // the others will also be bumped by the same amount.
+  linked: [
+    ["@scope/api", "@scope/client"]
+  ]
+});
+```
+
+### Filtering Operations
+You can restrict `pubm` commands to specific packages using the `--filter` flag:
+
+```bash
+# Only publish packages under the @scope scope
+pubm patch --filter "@scope/*"
+
+# Only publish specific package
+pubm patch --filter "my-package"
+```
+
+## Rollback in Monorepos
+The `rollbackStrategy` is crucial in monorepos. If a publish fails halfway through:
+- `all` (default): Rolls back every package, even those already successfully published to some registries.
+- `individual`: Only rolls back the specific package and registry that failed.

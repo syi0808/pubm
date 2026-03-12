@@ -1,0 +1,51 @@
+---
+title: Claude Code Integration
+description: Use pubm directly inside Claude Code.
+---
+
+`pubm` provides a dedicated plugin for **Claude Code**, enabling an agentic workflow for release management. This allows you to perform complex release tasks using natural language or dedicated slash commands, with the safety of `pubm`'s preview and rollback systems.
+
+## Features
+
+The `pubm` plugin for Claude Code exposes several "skills" that the AI agent can use to orchestrate your releases.
+
+### Interactive Publishing (`/publish`)
+
+Use the `/publish` command to start a release.
+
+- **Safe by default**: Always runs a dry-run preview first.
+- **Interactive**: Claude will show you the plan and ask for confirmation before executing.
+- **Error handling**: If a step fails, Claude analyzes the error log and suggests fixes.
+
+### Project Setup Wizard (`/publish-setup`)
+
+Setting up a multi-registry pipeline can be complex. The `/publish-setup` command launches an interactive wizard that:
+1.  **Detects your ecosystem** (JS/TS, Rust, or both).
+2.  **Configures registries** (npm, jsr, crates.io).
+3.  **Generates config files** (`pubm.config.ts`, `jsr.json`, `.github/workflows/publish.yml`).
+4.  **Sets up CI/CD** with appropriate secrets.
+
+### External Version Sync (`/version-sync`)
+
+Keeps your version numbers consistent across documentation, READMEs, and other non-standard files.
+- **Auto-discovery**: Scans your project for potential version strings (e.g. `pubm@1.2.3` in a `curl` command).
+- **Configuration**: Automatically adds the `externalVersionSync` plugin to your config.
+
+### Dry Run (`/publish-preview`)
+
+If you just want to check the state of your project without initiating a release flow, `/publish-preview` runs the full preflight check and build process in dry-run mode.
+
+## Plugin Development
+
+The `pubm` plugin also helps you extend `pubm` itself.
+
+### Plugin Scaffolder (`/create-plugin`)
+
+Generates a complete, ready-to-test `pubm` plugin package.
+- **Interactive questionnaire**: Select which hooks you need (`beforePublish`, `afterRelease`, etc.).
+- **Boilerplate generation**: Creates TypeScript source, tests, and build config.
+- **Workspace registration**: Automatically links the new plugin to your monorepo.
+
+## Installation
+
+(Installation instructions for the `pubm-plugin` will be provided once the marketplace is public. For now, it is available for local development.)

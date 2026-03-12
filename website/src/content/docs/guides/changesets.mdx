@@ -1,0 +1,68 @@
+---
+title: Changesets
+description: Master the changeset-driven release workflow.
+---
+
+`pubm` utilizes **Changesets** as the single source of truth for version bumps and changelog generation. This approach separates the recording of changes from the actual release process.
+
+## The Changeset Lifecycle
+
+### 1. Recording Changes (`pubm add`)
+When a developer completes a task, they run `pubm add`. This starts an interactive CLI that asks:
+1. **Which packages should be bumped?** (Select one or more in a monorepo).
+2. **What's the bump type?** (Choose `patch`, `minor`, or `major` based on SemVer).
+3. **What's the description?** (Used for the `CHANGELOG.md` entry).
+
+The result is a new Markdown file in the `.changeset/` directory with random name (e.g. `.changeset/silver-lions-dance.md`).
+
+```markdown
+---
+"@scope/pkg-a": patch
+"@scope/pkg-b": minor
+---
+
+Fixed a bug in pkg-a and added a feature in pkg-b.
+```
+
+### 2. Versioning (`pubm version`)
+When you are ready to prepare a release, `pubm version` is called. It:
+1.  **Reads** all files in the `.changeset/` directory.
+2.  **Analyzes** the maximum bump required for each package. If one changeset says `patch` and another says `minor` for the same package, `minor` wins.
+3.  **Bumps** the version field in all `package.json` files.
+4.  **Generates** or updates `CHANGELOG.md` in each package's root.
+5.  **Deletes** the consumed changeset files.
+
+### 3. Publishing (`pubm patch`)
+Finally, you run `pubm patch` to publish the new versions to your configured registries.
+
+## Advanced Usage
+
+### Independent vs. Fixed Mode
+In **Independent** mode, `pubm version` will only bump the packages specified in the changesets. In **Fixed** mode, any changeset will trigger a bump for *all* packages in the workspace to maintain version synchronization.
+
+### Prereleases
+If you want to release a `beta` or `next` version:
+1.  **Enter Prerelease Mode**: `pubm pre enter beta`
+2.  **Add Changesets** as usual.
+3.  **Version**: `pubm version` will now generate versions like `1.2.3-beta.0`.
+4.  **Exit Prerelease Mode**: `pubm pre exit` when you're ready to release a stable version.
+
+### Snapshots
+For one-off, untracked releases (e.g. for testing a PR in a real project):
+```bash
+pubm snapshot
+```
+This generates a unique version (e.g. `0.0.0-snapshot-20260312T090000`) and publishes it immediately, without creating any commits or tags.
+
+## Automated Changelogs
+`pubm` changelogs include:
+- The description from the changeset.
+- Links to relevant commits (if `github` changelog format is enabled).
+- Automatic grouping by version.
+
+## Migration from @changesets/cli
+If you have an existing project using `@changesets/cli`, you can migrate to `pubm` without losing any pending changesets:
+```bash
+pubm migrate
+```
+This will convert your current changeset metadata to a format `pubm` understands.

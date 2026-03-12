@@ -28,7 +28,7 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: bun install --frozen-lockfile
-      - run: turbo run build
+      - run: bun run build
       - name: Publish and release
         run: bunx pubm --ci
         env:

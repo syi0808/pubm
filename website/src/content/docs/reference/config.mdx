@@ -1,0 +1,107 @@
+---
+title: Config API Reference
+description: Deep dive into all pubm configuration options.
+---
+
+`pubm.config.ts` allows you to customize every aspect of your release pipeline.
+
+```ts
+import { defineConfig } from "pubm";
+
+export default defineConfig({
+  // options...
+});
+```
+
+## Options Reference
+
+### `versioning`
+- **Type**: `"independent" | "fixed"`
+- **Default**: `"independent"`
+Determines if packages in a monorepo workspace should share a version or have their own. See [Monorepo Guide](/pubm/guides/monorepo).
+
+### `branch`
+- **Type**: `string`
+- **Default**: `"main"`
+The branch from which releases are allowed. If you're on a different branch, `pubm` will block the release unless `--any-branch` is used.
+
+### `registries`
+- **Type**: `RegistryType[]`
+- **Default**: `["npm", "jsr"]`
+A list of target registries. Supported: `"npm"`, `"jsr"`, `"crates"`. Any other string is treated as a custom registry URL.
+
+### `changelog`
+- **Type**: `boolean | string`
+- **Default**: `true`
+If `true`, updates `CHANGELOG.md` in the root (or package root). If a string, it uses that as the file path.
+
+### `commit`
+- **Type**: `boolean`
+- **Default**: `true`
+Whether to create a git commit for version bumps.
+
+### `access`
+- **Type**: `"public" | "restricted"`
+- **Default**: `"public"`
+Equivalent to `npm publish --access`. Usually required for scoped packages on npm.
+
+### `fixed`
+- **Type**: `string[][]`
+Groups of packages that must always have the same version. When any package in a group is bumped, every other package in the same group is bumped to match.
+
+### `linked`
+- **Type**: `string[][]`
+Similar to `fixed`, but less strict. If `pkg-a` and `pkg-b` are linked, and `pkg-a` is bumped by a `minor`, `pkg-b` will also receive a `minor` bump.
+
+### `updateInternalDependencies`
+- **Type**: `"patch" | "minor"`
+How to update internal workspace dependency ranges when a package is bumped.
+- `"patch"`: Update using `^1.2.3` format.
+- `"minor"`: Update using `^1.2.0` format.
+
+### `ignore`
+- **Type**: `string[]`
+A list of package names to ignore in the monorepo workspace.
+
+### `validate`
+- **Type**: `object`
+Configures preflight validation rules.
+- `cleanInstall`: (default: `true`) Verify a clean `npm install` (or equivalent) succeeds.
+- `entryPoints`: (default: `true`) Verify all entry points defined in `package.json` exist.
+- `extraneousFiles`: (default: `true`) Check for files that shouldn't be published.
+
+### `snapshot`
+- **Type**: `object`
+Configures snapshot releases.
+- `useCalculatedVersion`: (default: `false`) If `true`, the snapshot version will include the next SemVer bump (e.g. `1.2.3-snapshot...`).
+- `prereleaseTemplate`: (default: `"snapshot-{datetime}"`) Template for the snapshot version suffix.
+
+### `tag`
+- **Type**: `string`
+- **Default**: `"latest"`
+The distribution tag used for publishing (e.g. `next`, `beta`, `latest`).
+
+### `contents`
+- **Type**: `string`
+Custom directory to publish instead of the repository root. This is often `dist` or `build`.
+
+### `saveToken`
+- **Type**: `boolean`
+- **Default**: `true`
+If `true`, `pubm` will save your registry tokens securely in the OS keychain using `@napi-rs/keyring`.
+
+### `releaseDraft`
+- **Type**: `boolean`
+- **Default**: `true`
+Whether to create a draft GitHub release with the generated changelog and release assets.
+
+### `rollbackStrategy`
+- **Type**: `"all" | "individual"`
+- **Default**: `"all"`
+What happens if one registry or package fails during a multi-registry/multi-package release.
+- `"all"`: Attempt to roll back *everything* in the current run.
+- `"individual"`: Only roll back the failed package and registry.
+
+### `plugins`
+- **Type**: `PubmPlugin[]`
+An array of plugins to extend `pubm` functionality. See [Plugins API Reference](/pubm/reference/plugins).
