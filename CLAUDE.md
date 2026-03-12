@@ -112,10 +112,10 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 
 ### Build Configuration
 
-Each package has its own `build.ts` using Bun's bundler API. Root `bun run build` runs them all via Turborepo.
+Root `bun run build` runs all builds via Turborepo.
 
-- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types). Build script: `build-core.ts` (root)
-- `packages/cli`: Cross-compiled single binaries for all platforms → `packages/cli/platforms/*/bin/`
+- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types). Build script: `packages/core/build.ts`
+- `packages/cli`: Each platform has its own `build.ts` (`packages/cli/platforms/*/build.ts`) that cross-compiles a single binary → `packages/cli/platforms/*/bin/`
 - `bin/cli.cjs` (in packages/cli) is a static wrapper that delegates to the platform-specific binary (not a build output)
 
 `listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
