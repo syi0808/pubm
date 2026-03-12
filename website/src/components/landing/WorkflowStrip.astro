@@ -1,4 +1,5 @@
 ---
+import TerminalPanel from "./TerminalPanel.astro";
 ---
 
 <section class="workflow-section section-divider" id="workflow">
@@ -52,50 +53,11 @@
 
     <!-- Right: pinned terminal -->
     <div class="workflow-terminal">
-      <div class="wf-terminal glass-panel">
-        <div class="wf-terminal-header">
-          <div class="wf-terminal-dots">
-            <span class="wf-dot" style="background: #ff5f57;"></span>
-            <span class="wf-dot" style="background: #febc2e;"></span>
-            <span class="wf-dot" style="background: #28c840;"></span>
-          </div>
-          <div class="wf-terminal-title">bash — pubm</div>
-        </div>
-        <div class="wf-terminal-body">
-          <!-- Step 0: command + version prompt -->
-          <div class="t-line" data-show="0"><span class="t-prompt">$</span> pubm</div>
-          <div class="t-line" data-show="0">&nbsp;</div>
-          <div class="t-line" data-show="0"><span class="t-cyan">?</span> Select version <span class="t-muted">(current: 1.2.3)</span></div>
-          <div class="t-line" data-show="0"><span class="t-cyan">❯</span> <span class="t-selected">patch</span> <span class="t-muted">1.2.3 → 1.2.4</span></div>
-          <div class="t-line" data-show="0">&nbsp;&nbsp;<span class="t-muted">minor  1.2.3 → 1.3.0</span></div>
-          <div class="t-line" data-show="0">&nbsp;&nbsp;<span class="t-muted">major  1.2.3 → 2.0.0</span></div>
-
-          <!-- Step 1: preflight + auth -->
-          <div class="t-line" data-show="1">&nbsp;</div>
-          <div class="t-line" data-show="1"><span class="t-check">✔</span> <span class="t-muted">Branch is</span> <span class="t-white">main</span></div>
-          <div class="t-line" data-show="1"><span class="t-check">✔</span> <span class="t-muted">Working tree clean</span></div>
-          <div class="t-line" data-show="1"><span class="t-check">✔</span> <span class="t-muted">Remote in sync</span></div>
-          <div class="t-line" data-show="1">&nbsp;</div>
-          <div class="t-line" data-show="1"><span class="t-check">✔</span> <span class="t-muted">npm</span> <span class="t-dots">·······</span> <span class="t-green">authenticated</span></div>
-          <div class="t-line" data-show="1"><span class="t-check">✔</span> <span class="t-muted">jsr</span> <span class="t-dots">········</span> <span class="t-green">authenticated</span></div>
-
-          <!-- Step 2: test, build, tag -->
-          <div class="t-line" data-show="2">&nbsp;</div>
-          <div class="t-line" data-show="2"><span class="t-check">✔</span> <span class="t-muted">Tests passed</span> <span class="t-muted">(42 specs, 0 failures)</span></div>
-          <div class="t-line" data-show="2"><span class="t-check">✔</span> <span class="t-muted">Build succeeded</span></div>
-          <div class="t-line" data-show="2"><span class="t-check">✔</span> <span class="t-muted">Version bumped</span> <span class="t-white">1.2.3 → 1.2.4</span></div>
-          <div class="t-line" data-show="2"><span class="t-check">✔</span> <span class="t-muted">Git commit + tag</span> <span class="t-white">v1.2.4</span></div>
-
-          <!-- Step 3: publish -->
-          <div class="t-line" data-show="3">&nbsp;</div>
-          <div class="t-line" data-show="3"><span class="t-cyan">⠋</span> <span class="t-cyan">Publishing to registries...</span></div>
-          <div class="t-line" data-show="3">&nbsp;&nbsp;<span class="t-check">✔</span> <span class="t-muted">npm</span> <span class="t-dots">···········</span> <span class="t-green">published</span></div>
-          <div class="t-line" data-show="3">&nbsp;&nbsp;<span class="t-check">✔</span> <span class="t-muted">jsr</span> <span class="t-dots">···········</span> <span class="t-green">published</span></div>
-          <div class="t-line" data-show="3"><span class="t-check">✔</span> <span class="t-muted">Tags pushed to origin</span></div>
-          <div class="t-line t-final" data-show="3">&nbsp;</div>
-          <div class="t-line t-final" data-show="3"><span class="t-check">✔</span> <span class="t-green">Published to 2 registries — done</span></div>
-        </div>
-      </div>
+      <TerminalPanel
+        variant="workflow"
+        mode="manual"
+        panelClass="workflow-terminal-panel"
+      />
     </div>
   </div>
 </section>
@@ -118,7 +80,10 @@
       if (!section || !splitEl) return;
 
       const steps = gsap.utils.toArray<HTMLElement>('.workflow-step');
-      const allLines = gsap.utils.toArray<HTMLElement>('.t-line');
+      const terminalPanel = splitEl.querySelector('pubm-terminal-player');
+      const setTerminalFrame = (frameIndex: number) => {
+        window.__pubmTerminalApi?.setFrame(terminalPanel, frameIndex);
+      };
 
       // Header reveal
       const title = section.querySelector('.display-title');
@@ -143,62 +108,60 @@
         // Desktop: pinned split-screen
         '(min-width: 769px)': () => {
           const STEP_COUNT = steps.length;
+          let activeStep = 0;
 
-          // Initial state: hide all terminal lines
-          gsap.set(allLines, { opacity: 0, y: 8 });
-
-          // Show step-0 lines immediately (will animate in with timeline)
-          // All steps except first are hidden
           steps.forEach((step, i) => {
-            if (i > 0) gsap.set(step, { opacity: 0, y: 40 });
+            gsap.set(step, {
+              opacity: i === 0 ? 1 : 0,
+              y: i === 0 ? 0 : 40,
+            });
           });
 
-          // Show step-0 lines
-          const step0Lines = allLines.filter(l => l.dataset.show === '0');
-          gsap.set(step0Lines, { opacity: 1, y: 0 });
+          setTerminalFrame(0);
 
-          // Main pinned timeline
-          const tl = gsap.timeline({
-            scrollTrigger: {
-              trigger: splitEl,
-              start: 'top top+=80',
-              end: `+=${window.innerHeight * 3}`,
-              pin: true,
-              scrub: 1,
-              anticipatePin: 1,
-            }
-          });
+          const syncStep = (nextStep: number) => {
+            if (nextStep === activeStep) return;
 
-          // Build step transitions
-          for (let i = 0; i < STEP_COUNT - 1; i++) {
-            const nextStep = i + 1;
-            const nextLines = allLines.filter(l => l.dataset.show === String(nextStep));
+            const previousStep = activeStep;
+            activeStep = nextStep;
 
-            // Fade out current step text
-            tl.to(steps[i], { opacity: 0, y: -40, duration: 0.3 });
+            gsap.to(steps[previousStep], {
+              opacity: 0,
+              y: -40,
+              duration: 0.3,
+              overwrite: true,
+            });
 
-            // Fade in next step text
-            tl.to(steps[nextStep], { opacity: 1, y: 0, duration: 0.3 }, '-=0.1');
-
-            // Reveal next terminal lines with stagger
-            tl.to(nextLines, {
+            gsap.to(steps[nextStep], {
               opacity: 1,
               y: 0,
-              stagger: 0.04,
-              duration: 0.15,
-            }, '<+=0.05');
+              duration: 0.3,
+              overwrite: true,
+            });
 
-            // Add gap between transitions
-            if (nextStep < STEP_COUNT - 1) {
-              tl.to({}, { duration: 0.15 });
-            }
-          }
+            setTerminalFrame(nextStep);
+          };
+
+          ScrollTrigger.create({
+            trigger: splitEl,
+            start: 'top top+=80',
+            end: `+=${window.innerHeight * 3}`,
+            pin: true,
+            scrub: 1,
+            anticipatePin: 1,
+            onUpdate: (self) => {
+              const nextStep = Math.min(
+                STEP_COUNT - 1,
+                Math.floor(self.progress * STEP_COUNT),
+              );
+              syncStep(nextStep);
+            },
+          });
         },
 
         // Mobile: stacked layout with simple reveals
         '(max-width: 768px)': () => {
-          // Show all lines
-          gsap.set(allLines, { opacity: 1, y: 0 });
+          setTerminalFrame(steps.length - 1);
 
           // Simple fade-in for each step
           steps.forEach(step => {
@@ -349,73 +312,14 @@
     align-items: center;
   }
 
-  .wf-terminal {
+  .workflow-terminal :global(.workflow-terminal-panel) {
     max-width: 520px;
     width: 100%;
-    background: rgba(3, 7, 18, 0.85);
-    box-shadow:
-      0 30px 60px rgba(0, 0, 0, 0.5),
-      0 0 0 1px var(--border);
   }
 
-  .wf-terminal-header {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid var(--border);
-    position: relative;
-  }
-
-  .wf-terminal-dots {
-    display: flex;
-    gap: 8px;
-  }
-
-  .wf-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    opacity: 0.8;
-  }
-
-  .wf-terminal-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    opacity: 0.5;
-  }
-
-  .wf-terminal-body {
-    padding: 1.25rem 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    line-height: 1.6;
+  .workflow-terminal :global(.terminal-body) {
     min-height: 380px;
-  }
-
-  /* Terminal line styles */
-  .t-line {
-    margin-bottom: 0.15rem;
-    white-space: nowrap;
-  }
-
-  .t-prompt { color: var(--accent-cyan); margin-right: 8px; }
-  .t-check { color: var(--accent-green); margin-right: 6px; }
-  .t-cyan { color: var(--accent-cyan); }
-  .t-green { color: var(--accent-green); font-weight: 500; }
-  .t-muted { color: var(--text-muted); }
-  .t-white { color: var(--text-primary); }
-  .t-dots { color: var(--border-bright); }
-  .t-selected { color: var(--accent-cyan); font-weight: 600; }
-
-  .t-final {
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px dashed var(--border);
+    font-size: 0.8rem;
   }
 
   /* Mobile */
@@ -448,14 +352,9 @@
       padding-right: 0;
     }
 
-    .wf-terminal-body {
+    .workflow-terminal :global(.terminal-body) {
       min-height: auto;
-      font-size: 0.8rem;
-    }
-
-    .t-line {
-      white-space: pre-wrap;
-      word-break: break-all;
+      font-size: 0.72rem;
     }
   }
 </style>
