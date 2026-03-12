@@ -17,7 +17,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "bun run ../../build-core.ts",
+    "build": "bun run ./build.ts",
     "check": "biome check",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
