@@ -37,7 +37,7 @@ describe("externalVersionSync integration", () => {
 
     fs.writeFileSync(
       jsonFile,
-      JSON.stringify({ name: "test", version: "1.0.0" }, null, 2) + "\n",
+      `${JSON.stringify({ name: "test", version: "1.0.0" }, null, 2)}\n`,
     );
     fs.writeFileSync(textFile, "Current version: 1.0.0\n");
 
@@ -85,7 +85,7 @@ describe("externalVersionSync integration", () => {
 
     fs.writeFileSync(
       jsonFile,
-      JSON.stringify({ version: "2.0.0" }, null, 2) + "\n",
+      `${JSON.stringify({ version: "2.0.0" }, null, 2)}\n`,
     );
 
     const plugin = externalVersionSync({
@@ -106,7 +106,7 @@ describe("externalVersionSync integration", () => {
 
     fs.writeFileSync(
       goodFile,
-      JSON.stringify({ version: "1.0.0" }, null, 2) + "\n",
+      `${JSON.stringify({ version: "1.0.0" }, null, 2)}\n`,
     );
 
     const plugin = externalVersionSync({
@@ -134,12 +134,12 @@ describe("externalVersionSync integration", () => {
 
     fs.writeFileSync(
       pkg,
-      JSON.stringify({ name: "my-lib", version: "1.5.3" }, null, 2) + "\n",
+      `${JSON.stringify({ name: "my-lib", version: "1.5.3" }, null, 2)}\n`,
     );
     fs.writeFileSync(readme, "# my-lib v1.5.3\n\nInstall `my-lib@1.5.3`\n");
     fs.writeFileSync(
       config,
-      JSON.stringify({ deps: { core: "1.5.3" } }, null, 2) + "\n",
+      `${JSON.stringify({ deps: { core: "1.5.3" } }, null, 2)}\n`,
     );
 
     const plugin = externalVersionSync({

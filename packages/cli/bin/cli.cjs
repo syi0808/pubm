@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const childProcess = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const childProcess = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
 
 function run(target) {
   const result = childProcess.spawnSync(target, process.argv.slice(2), {
@@ -44,7 +44,7 @@ if (!arch) {
   arch = os.arch();
 }
 
-const base = "@pubm/" + platform + "-" + arch;
+const base = `@pubm/${platform}-${arch}`;
 const binary = platform === "windows" ? "pubm.exe" : "pubm";
 
 function findBinary(startDir) {
@@ -68,9 +68,7 @@ function findBinary(startDir) {
 const resolved = findBinary(scriptDir);
 if (!resolved) {
   console.error(
-    'Failed to find the pubm binary for your platform. You can try manually installing the "' +
-      base +
-      '" package, or set the PUBM_BIN_PATH environment variable.',
+    `Failed to find the pubm binary for your platform. You can try manually installing the "${base}" package, or set the PUBM_BIN_PATH environment variable.`,
   );
   process.exit(1);
 }

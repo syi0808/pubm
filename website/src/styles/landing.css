@@ -275,6 +275,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .blob {
-    animation: none !important;
+    animation: none;
   }
 }

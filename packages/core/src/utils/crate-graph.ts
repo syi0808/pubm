@@ -43,7 +43,10 @@ export async function sortCratesByDependencyOrder(
 
   const sorted: string[] = [];
   while (queue.length > 0) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (current === undefined) {
+      break;
+    }
     sorted.push(current);
 
     // Find all crates that depend on `current` and decrement their inDegree
@@ -60,5 +63,11 @@ export async function sortCratesByDependencyOrder(
     throw new Error("Circular dependency detected among configured crates");
   }
 
-  return sorted.map((name) => nameToPath.get(name)!);
+  return sorted.map((name) => {
+    const cratePath = nameToPath.get(name);
+    if (cratePath === undefined) {
+      throw new Error(`Missing crate path for ${name}`);
+    }
+    return cratePath;
+  });
 }
