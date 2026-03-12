@@ -54,7 +54,7 @@ export async function getPackageJson({
   if (cachedPackageJson[cwd]) return cachedPackageJson[cwd];
 
   try {
-    const packageJsonPath = await findOutFile("package.json");
+    const packageJsonPath = await findOutFile("package.json", { cwd });
 
     const raw = packageJsonPath && (await readFile(packageJsonPath)).toString();
 
@@ -66,7 +66,7 @@ export async function getPackageJson({
       }
 
       const packageJson = await jsrJsonToPackageJson(
-        await getJsrJson({ fallbackPackage: false }),
+        await getJsrJson({ cwd, fallbackPackage: false }),
       );
 
       cachedPackageJson[cwd] = packageJson;
@@ -93,7 +93,7 @@ export async function getJsrJson({
   if (cachedJsrJson[cwd]) return cachedJsrJson[cwd];
 
   try {
-    const jsrJsonPath = await findOutFile("jsr.json");
+    const jsrJsonPath = await findOutFile("jsr.json", { cwd });
     const raw = jsrJsonPath && (await readFile(jsrJsonPath)).toString();
 
     if (!raw) {
@@ -104,7 +104,8 @@ export async function getJsrJson({
       }
 
       const jsrJson = await packageJsonToJsrJson(
-        await getPackageJson({ fallbackJsr: false }),
+        await getPackageJson({ cwd, fallbackJsr: false }),
+        { cwd },
       );
 
       cachedJsrJson[cwd] = jsrJson;
@@ -126,9 +127,11 @@ export async function getJsrJson({
 
 export async function packageJsonToJsrJson(
   packageJson: PackageJson,
+  { cwd = process.cwd() } = {},
 ): Promise<JsrJson> {
   const ignore =
-    (await findOutFile(".npmignore")) || (await findOutFile(".gitignore"));
+    (await findOutFile(".npmignore", { cwd })) ||
+    (await findOutFile(".gitignore", { cwd }));
 
   const ignores = ignore?.split("\n").filter((v) => v) ?? [];
 

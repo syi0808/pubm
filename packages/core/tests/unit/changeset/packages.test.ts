@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/monorepo/discover.js", () => ({
@@ -33,6 +34,7 @@ describe("discoverCurrentVersions", () => {
     const result = await discoverCurrentVersions("/tmp/project");
     expect(result.size).toBe(1);
     expect(result.get("my-pkg")).toBe("1.0.0");
+    expect(mockedGetPackageJson).toHaveBeenCalledWith({ cwd: "/tmp/project" });
   });
 
   it("returns multiple packages for monorepo", async () => {
@@ -48,6 +50,12 @@ describe("discoverCurrentVersions", () => {
     expect(result.size).toBe(2);
     expect(result.get("@pubm/core")).toBe("1.2.0");
     expect(result.get("@pubm/cli")).toBe("0.9.1");
+    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
+      cwd: path.resolve("/tmp/project", "packages/core"),
+    });
+    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
+      cwd: path.resolve("/tmp/project", "packages/cli"),
+    });
   });
 });
 
@@ -66,6 +74,7 @@ describe("discoverPackageInfos", () => {
       version: "1.0.0",
       path: ".",
     });
+    expect(mockedGetPackageJson).toHaveBeenCalledWith({ cwd: "/tmp/project" });
   });
 
   it("returns package infos with paths for monorepo", async () => {
@@ -88,6 +97,12 @@ describe("discoverPackageInfos", () => {
       name: "@pubm/cli",
       version: "0.9.1",
       path: "packages/cli",
+    });
+    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
+      cwd: path.resolve("/tmp/project", "packages/core"),
+    });
+    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
+      cwd: path.resolve("/tmp/project", "packages/cli"),
     });
   });
 });
