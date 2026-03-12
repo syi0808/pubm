@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import { googleSiteVerification } from "./src/consts/site-verification.js";
 
 const websiteRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(websiteRoot, "..");
@@ -50,6 +51,15 @@ export default defineConfig({
     pubmPluginStaticSync(),
     starlight({
       title: "pubm",
+      head: [
+        {
+          tag: "meta",
+          attrs: {
+            name: "google-site-verification",
+            content: googleSiteVerification,
+          },
+        },
+      ],
       social: [
         {
           icon: "github",
