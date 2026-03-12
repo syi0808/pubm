@@ -68,6 +68,7 @@ export {
   writeChangelogToFile,
   writeChangeset,
 } from "./changeset/index.js";
+export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type {
   PackageConfig,
   PubmConfig,

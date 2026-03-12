@@ -5,6 +5,7 @@ const {
   mockConsoleError,
   mockGitInstance,
   mockPubm,
+  mockPubmVersion,
   mockRequiredMissingInformationTasks,
   mockNotifyNewVersion,
 } = vi.hoisted(() => {
@@ -13,6 +14,7 @@ const {
     mockConsoleError: vi.fn(),
     mockGitInstance: { latestTag: vi.fn() },
     mockPubm: vi.fn(),
+    mockPubmVersion: "1.0.0",
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
     mockNotifyNewVersion: vi.fn(),
   };
@@ -25,6 +27,7 @@ vi.mock("@pubm/core", () => ({
   AbstractError: class extends Error {},
   Git: vi.fn(() => mockGitInstance),
   pubm: mockPubm,
+  PUBM_VERSION: mockPubmVersion,
   requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
   notifyNewVersion: mockNotifyNewVersion,
   version: vi.fn().mockResolvedValue("1.0.0"),
@@ -72,6 +75,12 @@ beforeEach(() => {
 });
 
 describe("resolveCliOptions (tested through CLI action)", () => {
+  it("sets the CLI version from package metadata", () => {
+    const program = createProgram();
+
+    expect(program.version()).toBe(mockPubmVersion);
+  });
+
   it("should map --no-publish to skipPublish=true", async () => {
     await run("1.0.0", "--no-publish");
 

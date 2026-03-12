@@ -2,12 +2,13 @@ import process from "node:process";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
-import { getJsrJson, version } from "../utils/package.js";
+import { getJsrJson } from "../utils/package.js";
 import {
   getScope,
   getScopeAndName,
   isValidPackageName,
 } from "../utils/package-name.js";
+import { PUBM_VERSION } from "../utils/pubm-metadata.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
@@ -195,14 +196,12 @@ export class JsrClient {
     endpoint: string,
     init?: RequestInit,
   ): Promise<Response> {
-    const pubmVersion = await version({ cwd: import.meta.dirname });
-
     return fetch(new URL(endpoint, this.apiEndpoint), {
       ...init,
       headers: {
         ...init?.headers,
         Authorization: `Bearer ${JsrClient.token}`,
-        "User-Agent": `pubm/${pubmVersion}; https://github.com/syi0808/pubm`,
+        "User-Agent": `pubm/${PUBM_VERSION}; https://github.com/syi0808/pubm`,
       },
     });
   }

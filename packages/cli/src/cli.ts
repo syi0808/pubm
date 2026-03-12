@@ -7,9 +7,9 @@ import {
   getStatus,
   loadConfig,
   notifyNewVersion,
+  PUBM_VERSION,
   pubm,
   requiredMissingInformationTasks,
-  version,
 } from "@pubm/core";
 import { Command } from "commander";
 import semver from "semver";
@@ -62,6 +62,7 @@ export function createProgram(): Command {
   const program = new Command("pubm");
 
   program.description("Publish packages to registries");
+  program.version(PUBM_VERSION);
 
   // Register subcommands
   registerChangesetsCommand(program);
@@ -257,7 +258,5 @@ export function createProgram(): Command {
       }
     }
   }
-
-  program.version(await version({ cwd: import.meta.dirname }));
   await program.parseAsync();
 })();
