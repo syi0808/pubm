@@ -699,7 +699,6 @@ ecosystemCatalog.register({ key: "python", label: "Python ecosystem", ... });
 // 1. packages/core/src/registry/maven.ts
 class MavenRegistry extends Registry {
   get concurrentPublish() { return false; } // signing 때문에 sequential
-  additionalEnvVars() { return { MAVEN_GPG_PASSPHRASE: "..." }; }
 }
 
 // 2. packages/core/src/ecosystem/java.ts
@@ -708,7 +707,13 @@ class JavaEcosystem extends Ecosystem {
 }
 
 // 3. 카탈로그 등록
-registryCatalog.register({ key: "maven", ecosystem: "java", label: "Maven Central", ... });
+registryCatalog.register({
+  key: "maven",
+  ecosystem: "java",
+  label: "Maven Central",
+  additionalEnvVars: (token) => ({ MAVEN_GPG_PASSPHRASE: token }),
+  // ...
+});
 ecosystemCatalog.register({ key: "java", label: "Java ecosystem", ... });
 ```
 
