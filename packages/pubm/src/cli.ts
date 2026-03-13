@@ -50,7 +50,6 @@ export function resolveCliOptions(options: CliOptions): Options {
     skipReleaseDraft: !options.releaseDraft,
     skipTests: !options.tests,
     skipBuild: !options.build,
-    registries: options.registry?.split(","),
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
     preflight: options.preflight,

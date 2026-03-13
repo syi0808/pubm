@@ -47,7 +47,7 @@ export function registerAddCommand(parent: Command): void {
 
         // Interactive mode
         const cwd = process.cwd();
-        const discovered = discoverPackages({ cwd });
+        const discovered = await discoverPackages({ cwd });
 
         interface PackageInfo {
           name: string;

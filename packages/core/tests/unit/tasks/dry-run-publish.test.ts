@@ -33,9 +33,14 @@ vi.mock("../../../src/utils/token.js", () => ({
     },
   },
 }));
-vi.mock("../../../src/registry/npm.js", () => ({
-  npmRegistry: vi.fn(),
-}));
+vi.mock("../../../src/registry/npm.js", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../../src/registry/npm.js")>();
+  return {
+    ...original,
+    npmRegistry: vi.fn(),
+  };
+});
 vi.mock("../../../src/registry/jsr.js", () => ({
   jsrRegistry: vi.fn(),
 }));
