@@ -19,6 +19,17 @@ describe("CLI bootstrap", () => {
     vi.doMock("@pubm/core", () => ({
       calculateVersionBumps: vi.fn(),
       consoleError: vi.fn(),
+      createContext: vi.fn((config: any, options: any, cwd: string) => ({
+        config: config ?? {},
+        options: options ?? {},
+        cwd,
+        runtime: {
+          tag: "latest",
+          promptEnabled: false,
+          cleanWorkingTree: false,
+          pluginRunner: { run: vi.fn() },
+        },
+      })),
       discoverCurrentVersions: vi.fn(),
       Git: vi.fn(),
       getStatus: vi.fn(() => ({ hasChangesets: false, changesets: [] })),
@@ -63,6 +74,18 @@ describe("CLI bootstrap", () => {
       PUBM_VERSION: "1.0.0",
       pubm: vi.fn(),
       requiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
+      resolveConfig: vi.fn(async (raw: any) => ({
+        plugins: [],
+        ...raw,
+      })),
+      resolveOptions: vi.fn((opts: any) => ({
+        testScript: "test",
+        buildScript: "build",
+        branch: "main",
+        tag: "latest",
+        saveToken: true,
+        ...opts,
+      })),
     }));
 
     vi.doMock("../../src/commands/changesets.js", () => ({

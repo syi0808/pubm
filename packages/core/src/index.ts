@@ -56,9 +56,9 @@ export type {
 } from "./config/index.js";
 // Config
 export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+export type { PubmContext } from "./context.js";
 // Context
 export { createContext } from "./context.js";
-export type { PubmContext } from "./context.js";
 // Error
 export { consoleError } from "./error.js";
 // Git
@@ -79,6 +79,8 @@ export {
   resolveGroups,
   topologicalSort,
 } from "./monorepo/index.js";
+// Options
+export { resolveOptions } from "./options.js";
 export type {
   AfterReleaseHookFn,
   ErrorHookFn,
@@ -95,8 +97,6 @@ export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
-// Options
-export { resolveOptions } from "./options.js";
 export type { Options, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
