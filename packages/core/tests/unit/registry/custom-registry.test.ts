@@ -139,6 +139,18 @@ describe("CustomRegistry", () => {
   });
 });
 
+describe("CustomRegistry URL support", () => {
+  it("uses custom registry URL when provided", () => {
+    const registry = new CustomRegistry("test-pkg", "https://npm.internal.com");
+    expect(registry.registry).toBe("https://npm.internal.com");
+  });
+
+  it("falls back to npm registry when no URL provided", () => {
+    const registry = new CustomRegistry("test-pkg");
+    expect(registry.registry).toBe("https://registry.npmjs.org");
+  });
+});
+
 describe("customRegistry()", () => {
   it("creates CustomRegistry from package.json name", async () => {
     mockedGetPackageJson.mockResolvedValue({

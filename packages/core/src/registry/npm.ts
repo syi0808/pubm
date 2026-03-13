@@ -11,7 +11,9 @@ class NpmError extends AbstractError {
 }
 
 export class NpmRegistry extends Registry {
-  registry = "https://registry.npmjs.org";
+  constructor(packageName?: string, registry?: string) {
+    super(packageName ?? "", registry ?? "https://registry.npmjs.org");
+  }
 
   protected async npm(args: string[]): Promise<string> {
     const { stdout } = await exec("npm", args, { throwOnError: true });
