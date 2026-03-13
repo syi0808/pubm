@@ -10,6 +10,7 @@ vi.mock("../../../src/utils/exec.js", () => ({
 }));
 
 import { readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
 import { exec } from "../../../src/utils/exec.js";
 
@@ -250,22 +251,25 @@ my-build = { path = "../my-build" }
   describe("syncLockfile", () => {
     it("runs cargo update from the workspace root that owns Cargo.lock", async () => {
       mockedReadFile.mockResolvedValue(CARGO_TOML as any);
+      const expectedLockfile = path.join("/workspace", "Cargo.lock");
       mockedStat.mockImplementation(async (filePath) => {
-        if (String(filePath).endsWith("/workspace/Cargo.lock")) {
+        if (String(filePath) === expectedLockfile) {
           return { isFile: () => true } as any;
         }
         throw new Error("ENOENT");
       });
 
-      const eco = new RustEcosystem("/workspace/crates/my-crate");
+      const eco = new RustEcosystem(
+        path.join("/workspace", "crates", "my-crate"),
+      );
       const lockfile = await eco.syncLockfile();
 
-      expect(lockfile).toBe("/workspace/Cargo.lock");
+      expect(lockfile).toBe(expectedLockfile);
       expect(mockedExec).toHaveBeenCalledWith(
         "cargo",
         ["update", "--package", "my-crate"],
         {
-          nodeOptions: { cwd: "/workspace" },
+          nodeOptions: { cwd: path.resolve("/workspace") },
         },
       );
     });
@@ -273,7 +277,9 @@ my-build = { path = "../my-build" }
     it("returns undefined when no Cargo.lock can be found", async () => {
       mockedStat.mockRejectedValue(new Error("ENOENT"));
 
-      const eco = new RustEcosystem("/workspace/crates/my-crate");
+      const eco = new RustEcosystem(
+        path.join("/workspace", "crates", "my-crate"),
+      );
       await expect(eco.syncLockfile()).resolves.toBeUndefined();
       expect(mockedExec).not.toHaveBeenCalled();
     });
