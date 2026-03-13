@@ -20,11 +20,6 @@ export interface ValidateConfig {
   extraneousFiles?: boolean;
 }
 
-export interface SnapshotConfig {
-  useCalculatedVersion?: boolean;
-  prereleaseTemplate?: string;
-}
-
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
@@ -40,7 +35,7 @@ export interface PubmConfig {
   updateInternalDependencies?: "patch" | "minor";
   ignore?: string[];
   validate?: ValidateConfig;
-  snapshot?: SnapshotConfig;
+  snapshotTemplate?: string;
   tag?: string;
   contents?: string;
   saveToken?: boolean;
@@ -52,11 +47,10 @@ export interface PubmConfig {
 
 export interface ResolvedPubmConfig
   extends Required<
-    Omit<PubmConfig, "packages" | "validate" | "snapshot" | "registries">
+    Omit<PubmConfig, "packages" | "validate" | "registries">
   > {
   packages: PackageConfig[];
   validate: Required<ValidateConfig>;
-  snapshot: Required<SnapshotConfig>;
 }
 
 export function defineConfig(config: PubmConfig): PubmConfig {

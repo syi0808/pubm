@@ -6,7 +6,6 @@ import type {
   PrivateRegistryConfig,
   PubmConfig,
   ResolvedPubmConfig,
-  SnapshotConfig,
   ValidateConfig,
 } from "./types.js";
 
@@ -14,11 +13,6 @@ const defaultValidate: Required<ValidateConfig> = {
   cleanInstall: true,
   entryPoints: true,
   extraneousFiles: true,
-};
-
-const defaultSnapshot: Required<SnapshotConfig> = {
-  useCalculatedVersion: false,
-  prereleaseTemplate: "{tag}-{timestamp}",
 };
 
 const defaultConfig = {
@@ -32,6 +26,7 @@ const defaultConfig = {
   linked: [] as string[][],
   updateInternalDependencies: "patch" as const,
   ignore: [] as string[],
+  snapshotTemplate: "{tag}-{timestamp}",
   tag: "latest",
   contents: ".",
   saveToken: true,
@@ -66,7 +61,7 @@ export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
     ...configWithoutRegistries,
     packages,
     validate: { ...defaultValidate, ...config.validate },
-    snapshot: { ...defaultSnapshot, ...config.snapshot },
+    snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     plugins: config.plugins ?? [],
   };
 }
