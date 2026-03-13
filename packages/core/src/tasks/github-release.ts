@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import SemVer from "semver";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { exec } from "../utils/exec.js";
@@ -20,11 +21,6 @@ export interface ReleaseContext {
   tag: string;
   releaseUrl: string;
   assets: ReleaseAsset[];
-}
-
-interface Ctx {
-  version: string;
-  versions?: Map<string, string>;
 }
 
 class GitHubReleaseError extends AbstractError {
@@ -138,7 +134,7 @@ function formatReleaseNotes(
  * Create a GitHub Release using the GitHub REST API
  */
 export async function createGitHubRelease(
-  ctx: Ctx,
+  ctx: PubmContext,
   changelogBody?: string,
 ): Promise<ReleaseContext> {
   const token = process.env.GITHUB_TOKEN;
@@ -183,13 +179,13 @@ export async function createGitHubRelease(
       body: JSON.stringify({
         tag_name: latestTag,
         name:
-          ctx.versions && ctx.versions.size > 1
-            ? [...ctx.versions]
+          ctx.runtime.versions && ctx.runtime.versions.size > 1
+            ? [...ctx.runtime.versions]
                 .map(([name, ver]) => `${name}@${ver}`)
                 .join(", ")
-            : `pubm v${ctx.version}`,
+            : `pubm v${ctx.runtime.version}`,
         body,
-        prerelease: !!prerelease(ctx.version),
+        prerelease: !!prerelease(ctx.runtime.version ?? ""),
       }),
     },
   );
@@ -265,7 +261,7 @@ export async function createGitHubRelease(
   }
 
   return {
-    version: ctx.version,
+    version: ctx.runtime.version ?? "",
     tag: latestTag,
     releaseUrl,
     assets,
