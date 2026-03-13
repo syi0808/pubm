@@ -1,15 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/registry/catalog.js", () => {
-  const mockCatalog = {
-    get: vi.fn(),
-    all: vi.fn().mockReturnValue([]),
-    getByEcosystem: vi.fn().mockReturnValue([]),
-    register: vi.fn(),
-  };
-  return { registryCatalog: mockCatalog, RegistryCatalog: vi.fn() };
-});
-
 vi.mock("../../../src/ecosystem/catalog.js", () => {
   const mockCatalog = {
     get: vi.fn(),
@@ -22,10 +12,7 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
 
 import { ecosystemCatalog } from "../../../src/ecosystem/catalog.js";
 import { detectEcosystem } from "../../../src/ecosystem/index.js";
-import { registryCatalog } from "../../../src/registry/catalog.js";
 
-const mockedRegistryCatalogGet = vi.mocked(registryCatalog.get);
-const mockedEcosystemCatalogGet = vi.mocked(ecosystemCatalog.get);
 const mockedEcosystemCatalogDetect = vi.mocked(ecosystemCatalog.detect);
 
 beforeEach(() => {
@@ -33,26 +20,25 @@ beforeEach(() => {
 });
 
 describe("detectEcosystem", () => {
-  it("uses registry hint to select ecosystem", async () => {
+  it("uses manifest-based detection to select ecosystem", async () => {
     class MockEcosystem {
       packagePath: string;
       constructor(path: string) {
         this.packagePath = path;
       }
     }
-    mockedRegistryCatalogGet.mockReturnValue({ ecosystem: "js" } as any);
-    mockedEcosystemCatalogGet.mockReturnValue({
+    mockedEcosystemCatalogDetect.mockResolvedValue({
+      key: "js",
       ecosystemClass: MockEcosystem,
     } as any);
 
-    const eco = await detectEcosystem("/some/path", ["npm"]);
+    const eco = await detectEcosystem("/some/path");
     expect(eco).toBeDefined();
     expect((eco as any).packagePath).toBe("/some/path");
-    expect(mockedRegistryCatalogGet).toHaveBeenCalledWith("npm");
-    expect(mockedEcosystemCatalogGet).toHaveBeenCalledWith("js");
+    expect(mockedEcosystemCatalogDetect).toHaveBeenCalledWith("/some/path");
   });
 
-  it("falls back to detect when no registry hint", async () => {
+  it("detects Rust ecosystem from manifest", async () => {
     class MockRustEcosystem {
       packagePath: string;
       constructor(path: string) {
@@ -74,15 +60,6 @@ describe("detectEcosystem", () => {
     mockedEcosystemCatalogDetect.mockResolvedValue(null);
 
     const eco = await detectEcosystem("/empty/path");
-    expect(eco).toBeNull();
-  });
-
-  it("returns null when registry hint has no ecosystem descriptor", async () => {
-    mockedRegistryCatalogGet.mockReturnValue({ ecosystem: "unknown" } as any);
-    mockedEcosystemCatalogGet.mockReturnValue(undefined);
-    mockedEcosystemCatalogDetect.mockResolvedValue(null);
-
-    const eco = await detectEcosystem("/path", ["unknown-reg"]);
     expect(eco).toBeNull();
   });
 });
