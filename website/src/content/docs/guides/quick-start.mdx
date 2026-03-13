@@ -35,14 +35,12 @@ This creates `pubm.config.ts` and `.pubm/changesets/`.
 
 ## 2. Add a minimal config
 
-Set the registries you plan to publish to:
+`pubm` infers registries from manifest files. A package with `package.json` resolves to npm; add `jsr.json` and jsr is included automatically. The config can be empty for most projects:
 
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 For config details, read [Configuration](/pubm/guides/configuration/).

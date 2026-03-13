@@ -25,12 +25,12 @@ pubm init
 
 ## 2. 添加最小配置
 
+`pubm` 会从清单文件中自动推断 registry。有 `package.json` 就推断 npm，有 `jsr.json` 就自动包含 jsr。大多数项目可以留空配置：
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 ## 3. 创建 changeset

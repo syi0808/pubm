@@ -16,30 +16,39 @@ description: Definir les valeurs par defaut du pipeline de release, la structure
 
 ## Configuration minimale
 
+`pubm` infere les registries depuis les fichiers de manifeste. La plupart des projets n'ont pas besoin d'un champ `registries`:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+## Inference des registries
+
+| Manifeste | Registry inferee |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
 
 ## Config vs flags CLI
 
-- la config fournit les valeurs par defaut
+- la config fournit les valeurs par defaut pour `packages` et `plugins`
 - `versioning`, `fixed`, `linked` sont utilises par les changesets
-- les flags CLI gardent le controle par execution
-- sans rien, `pubm` utilise `["npm", "jsr"]`
+- les registries sont inferees; `packages[].registries` permet de les surcharger
 
 ## Exemple multi-package
+
+Les registries sont inferees depuis les manifestes de chaque package:
 
 ```ts
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // surcharge
+    { path: "crates/pubm-rs", ecosystem: "rust" },
   ],
 });
 ```

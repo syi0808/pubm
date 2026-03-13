@@ -18,20 +18,33 @@ TypeScript 설정 파일도 직접 지원합니다.
 
 ## 최소 설정
 
+`pubm`은 매니페스트 파일에서 레지스트리를 자동 추론합니다. 대부분의 프로젝트에서는 설정을 비워둘 수 있습니다:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+## 레지스트리 추론 방식
+
+매니페스트 파일과 추론 결과:
+
+| 매니페스트 | 추론되는 레지스트리 |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
+
+npm 추가 규칙:
+- `package.json`의 `publishConfig.registry` → npm 대신 해당 URL 사용
+- `.npmrc` 레지스트리 → `publishConfig`가 없을 때 npm 대체
 
 ## config와 CLI 플래그의 관계
 
-- config는 `registries`, `packages`, `plugins` 기본값을 제공합니다.
+- config는 `packages`, `plugins` 기본값을 제공합니다.
 - `versioning`, `fixed`, `linked`는 changeset 흐름에 쓰입니다.
-- 실제 publish 동작은 여전히 CLI 플래그가 강하게 제어합니다.
-- 둘 다 없으면 기본 레지스트리는 `["npm", "jsr"]`입니다.
+- 레지스트리는 매니페스트에서 추론됩니다. `packages[].registries`로 재정의 가능합니다.
 
 예:
 
@@ -46,7 +59,6 @@ import { defineConfig } from "@pubm/core";
 import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
-  registries: ["npm", "jsr"],
   plugins: [
     externalVersionSync({
       targets: [
@@ -65,22 +77,24 @@ export default defineConfig({
 
 ## 멀티 패키지 설정
 
+레지스트리는 각 패키지의 매니페스트 파일에서 자동 추론됩니다:
+
 ```ts
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // 재정의
+    { path: "crates/pubm-rs", ecosystem: "rust" },
   ],
 });
 ```
 
 다음 경우 명시적 `packages` 설정이 좋습니다.
 
-- 모든 패키지가 같은 레지스트리에 배포되지 않을 때
-- JS와 Rust가 함께 있을 때
 - 자동 탐지된 워크스페이스 중 일부만 배포하고 싶을 때
+- JS와 Rust가 함께 있을 때
+- 추론된 레지스트리를 재정의하거나 프라이빗 레지스트리를 추가할 때
 
 ## 버전 전략
 

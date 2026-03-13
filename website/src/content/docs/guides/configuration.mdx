@@ -20,32 +20,39 @@ TypeScript config files are supported directly. The loader bundles the file befo
 
 ## Minimal config
 
+For a package that has `package.json` and `jsr.json`, `pubm` infers the registries automatically. No `registries` field is needed:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+## How registries are inferred
+
+`pubm` inspects manifest files in each package directory and maps them to registries:
+
+| Manifest | Inferred registry |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
+
+Two additional rules apply for npm:
+
+- `publishConfig.registry` in `package.json` replaces `npm` with that custom URL
+- `.npmrc` registry replaces `npm` when `publishConfig` is absent
 
 ## How config and CLI flags interact
 
 The current runtime behavior is:
 
-- config provides repository defaults for `registries`, `packages`, and `plugins`
+- config provides repository defaults for `packages` and `plugins`
 - versioning-related config such as `versioning`, `fixed`, and `linked` is used by changeset flows
 - CLI flags still control per-run publish behavior
-- if neither sets registries, `pubm` defaults to `["npm", "jsr"]`
+- registries are inferred from manifests; `packages[].registries` overrides that inference
 
-That means a practical base config usually looks like:
-
-```ts
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
-```
-
-and still do a one-off publish:
+For a one-off publish to a specific registry:
 
 ```bash
 pubm patch --registry npm --tag beta
@@ -58,7 +65,6 @@ import { defineConfig } from "@pubm/core";
 import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
-  registries: ["npm", "jsr"],
   plugins: [
     externalVersionSync({
       targets: [
@@ -77,14 +83,13 @@ export default defineConfig({
 
 These values cover the most common needs:
 
-- `registries`: default publish targets
-- `packages`: explicit multi-package publish layout
+- `packages`: explicit multi-package publish layout (registries inferred from manifests unless overridden)
 - `plugins`: release-time automation such as version sync or custom commands
 - `snapshot`: customize snapshot version generation
 
 ## Multi-package configuration
 
-For workspaces or mixed-language repositories, declare packages explicitly:
+For workspaces or mixed-language repositories, declare packages explicitly. Registries are inferred from each package's manifest files:
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -94,18 +99,18 @@ export default defineConfig({
   packages: [
     {
       path: "packages/core",
-      registries: ["npm", "jsr"],
       ecosystem: "js",
+      // package.json + jsr.json → npm + jsr inferred automatically
     },
     {
       path: "packages/cli",
-      registries: ["npm"],
       ecosystem: "js",
+      registries: ["npm"], // override: publish only to npm even if jsr.json exists
     },
     {
       path: "crates/pubm-rs",
-      registries: ["crates"],
       ecosystem: "rust",
+      // Cargo.toml → crates inferred automatically
     },
   ],
 });
@@ -113,9 +118,23 @@ export default defineConfig({
 
 Use explicit package entries when:
 
-- not every package publishes to the same registries
-- JavaScript and Rust packages live in the same repository
 - you want `pubm` to publish only a subset of discovered workspace packages
+- JavaScript and Rust packages live in the same repository
+- you need to override inferred registries or add private registries
+
+To add a private registry alongside the inferred ones:
+
+```ts
+packages: [
+  {
+    path: "packages/a",
+    registries: [
+      "npm",
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+    ],
+  },
+],
+```
 
 ## Versioning strategies
 
@@ -218,15 +237,17 @@ Still, keep config files simple:
 
 ### Simple library
 
+If the package has `package.json` and `jsr.json`, registries are inferred automatically:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 ### App monorepo
+
+Packages with only `package.json` resolve to `npm`. No explicit `registries` needed unless you want to override.
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -234,8 +255,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "fixed",
   packages: [
-    { path: "packages/web", registries: ["npm"], ecosystem: "js" },
-    { path: "packages/server", registries: ["npm"], ecosystem: "js" },
+    { path: "packages/web", ecosystem: "js" },
+    { path: "packages/server", ecosystem: "js" },
   ],
 });
 ```
@@ -248,8 +269,26 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "crates/sdk-core", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/sdk", ecosystem: "js" },
+    { path: "crates/sdk-core", ecosystem: "rust" },
+  ],
+});
+```
+
+### Private registry
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [
+    {
+      path: "packages/a",
+      registries: [
+        "npm",
+        { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+      ],
+    },
   ],
 });
 ```

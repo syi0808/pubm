@@ -18,20 +18,31 @@ TypeScript 配置文件可直接使用。
 
 ## 最小配置
 
+`pubm` 从清单文件自动推断 registry。大多数项目可以留空配置：
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+## registry 推断规则
+
+| 清单 | 推断的 registry |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
+
+npm 附加规则：
+- `package.json` 中的 `publishConfig.registry` → 替换 npm 使用该 URL
+- `.npmrc` registry → 在无 `publishConfig` 时替换 npm
 
 ## config 与 CLI flag 的关系
 
-- config 提供 `registries`、`packages`、`plugins` 等默认值
+- config 提供 `packages`、`plugins` 等默认值
 - `versioning`、`fixed`、`linked` 用于 changeset 流程
-- 实际 publish 行为仍以 CLI flag 为准
-- 如果都没设置，默认 registry 是 `["npm", "jsr"]`
+- registry 从清单推断；`packages[].registries` 可覆盖
 
 例如：
 
@@ -46,7 +57,6 @@ import { defineConfig } from "@pubm/core";
 import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
-  registries: ["npm", "jsr"],
   plugins: [
     externalVersionSync({
       targets: [
@@ -65,13 +75,15 @@ export default defineConfig({
 
 ## 多包配置
 
+registry 从每个包的清单文件自动推断：
+
 ```ts
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // 覆盖
+    { path: "crates/pubm-rs", ecosystem: "rust" },
   ],
 });
 ```

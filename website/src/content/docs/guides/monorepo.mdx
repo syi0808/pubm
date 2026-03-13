@@ -19,24 +19,25 @@ After discovery, `pubm` builds a dependency graph and uses it to determine publi
 Automatic discovery works well when:
 
 - every workspace package is publishable
-- every package targets the same registries
 - you do not need to mix ecosystems
 
 Use explicit `packages` config when:
 
 - only some workspace packages should publish
-- registry targets differ by package
 - Rust crates live alongside JS packages
+- you want to override inferred registries or add private registries
 - you want the docs and release pipeline to stay explicit
+
+Registries are inferred from each package's manifest files. You only need `registries` entries in `packages` when the inferred set is wrong or when private registries are needed:
 
 ```ts
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },   // npm + jsr inferred from manifests
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // override: npm only
+    { path: "crates/pubm-rs", ecosystem: "rust" }, // crates inferred from Cargo.toml
   ],
 });
 ```
@@ -161,14 +162,14 @@ That information then drives:
 
 ## Multi-registry monorepos
 
-It is common for packages in one workspace to publish to different targets:
+Each package's registries are inferred from its manifest files. A package with both `package.json` and `jsr.json` resolves to both `npm` and `jsr`. A `Cargo.toml` resolves to `crates`. Use `registries` only to override or extend:
 
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/runtime", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/sdk", ecosystem: "js" },     // npm + jsr inferred
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // override
+    { path: "crates/runtime", ecosystem: "rust" }, // crates inferred
   ],
 });
 ```
@@ -224,6 +225,10 @@ Common starting points:
 ### A package is discovered but should not publish
 
 Move to explicit `packages` config or add the package name/path to `ignore`.
+
+### A package publishes to the wrong registry
+
+Check the manifest files in that package directory. `pubm` infers from `package.json`, `jsr.json`, and `Cargo.toml`. Use `packages[].registries` to override if needed.
 
 ### Tags look different after switching versioning strategy
 

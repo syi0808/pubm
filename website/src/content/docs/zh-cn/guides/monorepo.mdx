@@ -17,21 +17,22 @@ description: 用正确的顺序和版本策略发布 workspace 包。
 自动发现适合：
 
 - 所有 workspace 包都要发布
-- 所有包的目标 registry 相同
 - 不混合生态
 
 显式 `packages` 更适合：
 
 - 只发布部分包
-- 不同包发布到不同 registry
 - JS 和 Rust 混合
+- 需要覆盖推断的 registry 或添加私有 registry
+
+registry 从每个包的清单文件中推断，`registries` 只在需要覆盖时使用：
 
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },   // 从清单自动推断
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // 覆盖
+    { path: "crates/pubm-rs", ecosystem: "rust" }, // 从 Cargo.toml 推断
   ],
 });
 ```
@@ -79,12 +80,14 @@ pubm patch
 
 ## 多 registry monorepo
 
+registry 从每个包的清单文件推断，`registries` 只在需要覆盖或添加私有 registry 时使用：
+
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/runtime", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/sdk", ecosystem: "js" },     // npm + jsr 自动推断
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // 覆盖
+    { path: "crates/runtime", ecosystem: "rust" }, // crates 自动推断
   ],
 });
 ```

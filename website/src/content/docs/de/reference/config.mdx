@@ -5,7 +5,6 @@ description: Unterstutzte Felder in `pubm.config.*`, Standardwerte und Hinweise.
 
 Wichtige Felder:
 
-- `registries`
 - `packages`
 - `plugins`
 - `versioning`
@@ -13,10 +12,11 @@ Wichtige Felder:
 - `linked`
 - `snapshot.useCalculatedVersion`
 
+Registries werden aus den Manifest-Dateien abgeleitet. `packages[].registries` erlaubt Uberschreibung oder private Registries.
+
 Wichtige Defaults:
 
 - `versioning: "independent"`
 - `branch: "main"`
-- `registries: ["npm", "jsr"]`
 - `tag: "latest"`
 - `contents: "."`
