@@ -19,25 +19,16 @@ describe("defaultOptions", () => {
 
 describe("resolveOptions", () => {
   it("should return an object containing default values when no overrides are given", () => {
-    const result = resolveOptions({ version: "1.0.0" });
+    const result = resolveOptions({});
 
-    expect(result.version).toBe("1.0.0");
     expect(result.testScript).toBe("test");
     expect(result.buildScript).toBe("build");
     expect(result.branch).toBe("main");
     expect(result.tag).toBe("latest");
-    expect(result.registries).toBeUndefined();
-  });
-
-  it("should preserve the version from user options", () => {
-    const result = resolveOptions({ version: "2.5.0" });
-
-    expect(result.version).toBe("2.5.0");
   });
 
   it("should allow user options to override defaults", () => {
     const result = resolveOptions({
-      version: "1.0.0",
       testScript: "my-test",
       buildScript: "my-build",
       branch: "develop",
@@ -52,7 +43,6 @@ describe("resolveOptions", () => {
 
   it("should ignore undefined user options and use defaults instead", () => {
     const result = resolveOptions({
-      version: "1.0.0",
       testScript: undefined,
     } as Options);
 
@@ -61,7 +51,6 @@ describe("resolveOptions", () => {
 
   it("should preserve user options that are not in defaultOptions", () => {
     const result = resolveOptions({
-      version: "1.0.0",
       preview: true,
       anyBranch: true,
       skipTests: true,
@@ -77,13 +66,6 @@ describe("resolveOptions", () => {
     expect(result.contents).toBe("dist");
   });
 
-  it("should retain version even though defaults are spread last", () => {
-    // version is not in defaultOptions, so it is always preserved from user options.
-    const result = resolveOptions({ version: "3.0.0-rc.1" });
-
-    expect(result.version).toBe("3.0.0-rc.1");
-  });
-
   it("should pass through packages from config", () => {
     const packages = [
       { path: ".", registries: ["npm", "jsr"] as RegistryType[] },
@@ -94,7 +76,6 @@ describe("resolveOptions", () => {
     ];
 
     const result = resolveOptions({
-      version: "1.0.0",
       packages,
     });
 
@@ -102,9 +83,8 @@ describe("resolveOptions", () => {
   });
 
   it("should return an object with all required ResolvedOptions fields", () => {
-    const result = resolveOptions({ version: "1.0.0" });
+    const result = resolveOptions({});
 
-    expect(result).toHaveProperty("version");
     expect(result).toHaveProperty("testScript");
     expect(result).toHaveProperty("buildScript");
     expect(result).toHaveProperty("branch");

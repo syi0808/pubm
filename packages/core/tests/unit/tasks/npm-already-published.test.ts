@@ -30,7 +30,7 @@ describe("npmPublishTasks — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (npmPublishTasks as any).task(ctx, mockTask);
 
@@ -53,7 +53,7 @@ describe("npmPublishTasks — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (npmPublishTasks as any).task(ctx, mockTask);
 
@@ -69,7 +69,7 @@ describe("npmPublishTasks — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (npmPublishTasks as any).task(ctx, mockTask);
 

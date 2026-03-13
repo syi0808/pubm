@@ -132,7 +132,7 @@ export const npmPublishTasks: ListrTask<PubmContext> = {
     const npm = await npmRegistry();
 
     // Pre-check: skip if version already published
-    if (await npm.isVersionPublished(ctx.runtime.version)) {
+    if (await npm.isVersionPublished(ctx.runtime.version!)) {
       task.title = `[SKIPPED] npm: v${ctx.runtime.version} already published`;
       task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
       return task.skip();

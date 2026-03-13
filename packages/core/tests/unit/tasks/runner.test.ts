@@ -123,6 +123,7 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
 }));
 
+import type { PubmContext } from "../../../src/context.js";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
@@ -133,7 +134,6 @@ import {
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
-import type { ResolvedOptions } from "../../../src/types/options.js";
 import { link } from "../../../src/utils/cli.js";
 import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { exec } from "../../../src/utils/exec.js";
@@ -146,6 +146,7 @@ import {
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
+import { makeTestContext } from "../../helpers/make-context.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
@@ -169,18 +170,24 @@ const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
 
 function createOptions(
-  overrides: Partial<ResolvedOptions> = {},
-): ResolvedOptions {
-  return {
-    version: "1.0.0",
-    testScript: "test",
-    buildScript: "build",
-    branch: "main",
-    tag: "latest",
-    saveToken: true,
-    packages: [{ path: ".", registries: ["npm", "jsr"] }],
-    ...overrides,
-  } as ResolvedOptions;
+  overrides: {
+    config?: Partial<PubmContext["config"]>;
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
+  return makeTestContext({
+    config: {
+      packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      ...overrides.config,
+    },
+    options: overrides.options,
+    runtime: {
+      version: "1.0.0",
+      pluginRunner: new PluginRunner([]),
+      ...overrides.runtime,
+    },
+  });
 }
 
 function setupCreateListrMock() {
@@ -308,7 +315,7 @@ describe("run", () => {
 
   describe("contents option", () => {
     it("calls process.chdir when contents is set", async () => {
-      const options = createOptions({ contents: "/some/path" });
+      const options = createOptions({ options: { contents: "/some/path" } });
       await run(options);
 
       expect(chdirSpy).toHaveBeenCalledWith("/some/path");
@@ -324,7 +331,7 @@ describe("run", () => {
 
   describe("publishOnly mode", () => {
     it("skips prerequisites and conditions checks when publishOnly is true", async () => {
-      const options = createOptions({ publishOnly: true });
+      const options = createOptions({ options: { publishOnly: true } });
       await run(options);
 
       expect(mockedPrerequisitesCheckTask).not.toHaveBeenCalled();
@@ -332,7 +339,7 @@ describe("run", () => {
     });
 
     it("passes a single publishing task object instead of task array", async () => {
-      const options = createOptions({ publishOnly: true });
+      const options = createOptions({ options: { publishOnly: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
@@ -347,7 +354,7 @@ describe("run", () => {
       const ciListrOptions = { renderer: "ci-renderer" } as any;
       mockedCreateCiListrOptions.mockReturnValue(ciListrOptions);
 
-      const options = createOptions({ ci: true });
+      const options = createOptions({ options: { ci: true } });
       await run(options);
 
       expect(mockedCreateCiListrOptions).toHaveBeenCalled();
@@ -375,7 +382,9 @@ describe("run", () => {
     });
 
     it("passes skipPrerequisitesCheck to prerequisitesCheckTask", async () => {
-      const options = createOptions({ skipPrerequisitesCheck: true });
+      const options = createOptions({
+        options: { skipPrerequisitesCheck: true },
+      });
       await run(options);
 
       expect(mockedPrerequisitesCheckTask).toHaveBeenCalledWith({
@@ -384,7 +393,7 @@ describe("run", () => {
     });
 
     it("passes skipConditionsCheck to requiredConditionsCheckTask", async () => {
-      const options = createOptions({ skipConditionsCheck: true });
+      const options = createOptions({ options: { skipConditionsCheck: true } });
       await run(options);
 
       expect(mockedRequiredConditionsCheckTask).toHaveBeenCalledWith({
@@ -414,7 +423,7 @@ describe("run", () => {
 
   describe("task skip flags", () => {
     it("skips tests when skipTests is true", async () => {
-      const options = createOptions({ skipTests: true });
+      const options = createOptions({ options: { skipTests: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
@@ -424,7 +433,7 @@ describe("run", () => {
     });
 
     it("skips build when skipBuild is true", async () => {
-      const options = createOptions({ skipBuild: true });
+      const options = createOptions({ options: { skipBuild: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
@@ -434,14 +443,14 @@ describe("run", () => {
     });
 
     it("skips version bump when preview is set", async () => {
-      const options = createOptions({ preview: true });
+      const options = createOptions({ options: { preview: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[2].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: true })).toBe(true);
+      expect(skipFn({ options: { preview: true } })).toBe(true);
     });
 
     it("does not skip version bump when preview is falsy", async () => {
@@ -452,62 +461,66 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[2].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: undefined })).toBe(false);
+      expect(skipFn({ options: { preview: undefined } })).toBe(false);
     });
 
     it("skips publish when skipPublish is true", async () => {
-      const options = createOptions({ skipPublish: true });
+      const options = createOptions({ options: { skipPublish: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[3].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: false })).toBe(true);
+      expect(skipFn({ options: { preview: false, skipPublish: true } })).toBe(
+        true,
+      );
     });
 
     it("skips publish when preview is set", async () => {
-      const options = createOptions({ preview: true });
+      const options = createOptions({ options: { preview: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[3].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: true })).toBe(true);
+      expect(skipFn({ options: { preview: true } })).toBe(true);
     });
 
     it("skips pushing tags when preview is set", async () => {
-      const options = createOptions({ preview: true });
+      const options = createOptions({ options: { preview: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[6].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: true })).toBe(true);
+      expect(skipFn({ options: { preview: true } })).toBe(true);
     });
 
     it("skips release draft when skipReleaseDraft is true", async () => {
-      const options = createOptions({ skipReleaseDraft: true });
+      const options = createOptions({ options: { skipReleaseDraft: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[7].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: false })).toBe(true);
+      expect(
+        skipFn({ options: { preview: false, skipReleaseDraft: true } }),
+      ).toBe(true);
     });
 
     it("skips release draft when preview is set", async () => {
-      const options = createOptions({ preview: true });
+      const options = createOptions({ options: { preview: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[7].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ preview: true })).toBe(true);
+      expect(skipFn({ options: { preview: true } })).toBe(true);
     });
   });
 
@@ -580,7 +593,7 @@ describe("run", () => {
       const { task: mockTask } = createMockTaskRecorder();
 
       await testTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockTask,
       );
 
@@ -711,9 +724,8 @@ describe("run", () => {
         await testTask.task(
           {
             ...options,
-            ci: true,
-            promptEnabled: false,
-            pluginRunner: new PluginRunner([]),
+            options: { ...options.options, ci: true },
+            runtime: { ...options.runtime, promptEnabled: false },
           },
           mockTask,
         );
@@ -784,7 +796,7 @@ describe("run", () => {
         { path: ".", registries: ["npm", "jsr"] },
         { path: "rust/crates/my-crate", registries: ["crates"] },
       ];
-      const options = createOptions({ packages: packages as any });
+      const options = createOptions({ config: { packages: packages as any } });
       await run(options);
 
       expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", packages);
@@ -909,8 +921,10 @@ describe("run", () => {
 
     it("publishOnly maps default registry to npmPublishTasks", async () => {
       const options = createOptions({
-        publishOnly: true,
-        registries: ["custom-registry"],
+        options: { publishOnly: true },
+        config: {
+          packages: [{ path: ".", registries: ["custom-registry"] as any }],
+        },
       });
       await run(options);
 
@@ -923,7 +937,9 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        registries: ["custom-registry"],
+        config: {
+          packages: [{ path: ".", registries: ["custom-registry"] as any }],
+        },
       });
       await run(options);
 
@@ -944,7 +960,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -960,10 +976,12 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm", "jsr"] },
-          { path: "rust/crates/my-crate", registries: ["crates"] },
-        ],
+        config: {
+          packages: [
+            { path: ".", registries: ["npm", "jsr"] },
+            { path: "rust/crates/my-crate", registries: ["crates"] },
+          ],
+        },
       });
       await run(options);
 
@@ -977,7 +995,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -989,11 +1007,13 @@ describe("run", () => {
 
     it("uses per-package registries in publishOnly mode", async () => {
       const options = createOptions({
-        publishOnly: true,
-        packages: [
-          { path: ".", registries: ["npm", "jsr"] },
-          { path: "rust/crates/my-crate", registries: ["crates"] },
-        ],
+        options: { publishOnly: true },
+        config: {
+          packages: [
+            { path: ".", registries: ["npm", "jsr"] },
+            { path: "rust/crates/my-crate", registries: ["crates"] },
+          ],
+        },
       });
       await run(options);
 
@@ -1005,7 +1025,7 @@ describe("run", () => {
       };
 
       await taskDef.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1019,10 +1039,12 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm", "jsr"] },
-          { path: "packages/other", registries: ["npm"] },
-        ],
+        config: {
+          packages: [
+            { path: ".", registries: ["npm", "jsr"] },
+            { path: "packages/other", registries: ["npm"] },
+          ],
+        },
       });
       await run(options);
 
@@ -1035,7 +1057,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1048,7 +1070,7 @@ describe("run", () => {
       };
 
       await allSubtasks[0].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         ecosystemParentTask,
       );
 
@@ -1063,11 +1085,13 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/lib-a", registries: ["crates"] },
-          { path: "rust/crates/lib-b", registries: ["crates"] },
-        ] as any,
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/lib-a", registries: ["crates"] },
+            { path: "rust/crates/lib-b", registries: ["crates"] },
+          ] as any,
+        },
       });
       await run(options);
 
@@ -1080,7 +1104,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1097,11 +1121,11 @@ describe("run", () => {
       };
 
       await allSubtasks[0].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         jsParentTask,
       );
       await allSubtasks[1].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         rustParentTask,
       );
 
@@ -1117,11 +1141,13 @@ describe("run", () => {
 
     it("creates per-package crate publish tasks in publishOnly mode", async () => {
       const options = createOptions({
-        publishOnly: true,
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/my-crate", registries: ["crates"] },
-        ] as any,
+        options: { publishOnly: true },
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/my-crate", registries: ["crates"] },
+          ] as any,
+        },
       });
       await run(options);
 
@@ -1133,7 +1159,7 @@ describe("run", () => {
       };
 
       await taskDef.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1151,11 +1177,13 @@ describe("run", () => {
       ]);
 
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/update-kit", registries: ["crates"] },
-          { path: "rust/crates/update-kit-cli", registries: ["crates"] },
-        ],
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/update-kit", registries: ["crates"] },
+            { path: "rust/crates/update-kit-cli", registries: ["crates"] },
+          ],
+        },
       });
       await run(options);
 
@@ -1169,7 +1197,7 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
       });
       await run(options);
 
@@ -1184,11 +1212,13 @@ describe("run", () => {
       ]);
 
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/lib-a", registries: ["crates"] },
-          { path: "rust/crates/lib-b", registries: ["crates"] },
-        ],
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/lib-a", registries: ["crates"] },
+            { path: "rust/crates/lib-b", registries: ["crates"] },
+          ],
+        },
       });
       await run(options);
 
@@ -1201,7 +1231,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1218,11 +1248,11 @@ describe("run", () => {
       };
 
       await subtasks[0].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         jsParentTask,
       );
       await subtasks[1].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         rustParentTask,
       );
 
@@ -1253,7 +1283,7 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        packages: [{ path: ".", registries: ["npm"] }],
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
       });
       await run(options);
 
@@ -1266,7 +1296,7 @@ describe("run", () => {
       };
 
       await publishTask.task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
 
@@ -1279,7 +1309,7 @@ describe("run", () => {
       };
 
       await allSubtasks[0].task(
-        { ...options, promptEnabled: true, pluginRunner: new PluginRunner([]) },
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         ecosystemParentTask,
       );
 
@@ -1302,7 +1332,7 @@ describe("run", () => {
 
     it("includes npm and jsr in success message when packages have those registries", async () => {
       const options = createOptions({
-        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
       });
       await run(options);
 
@@ -1313,10 +1343,12 @@ describe("run", () => {
 
     it("includes crates in success message when crates registry is used", async () => {
       const options = createOptions({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/my-crate", registries: ["crates"] },
-        ],
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/my-crate", registries: ["crates"] },
+          ],
+        },
       });
       await run(options);
 
@@ -1327,7 +1359,7 @@ describe("run", () => {
 
     it("does not include jsr in success message when only npm is configured", async () => {
       const options = createOptions({
-        packages: [{ path: ".", registries: ["npm"] }],
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
       });
       await run(options);
 
@@ -1411,7 +1443,7 @@ describe("run", () => {
 
   describe("preflight mode", () => {
     it("runs prerequisites and conditions checks in preflight mode", async () => {
-      const options = createOptions({ preflight: true });
+      const options = createOptions({ options: { preflight: true } });
       await run(options);
 
       expect(mockedPrerequisitesCheckTask).toHaveBeenCalled();
@@ -1419,7 +1451,7 @@ describe("run", () => {
     });
 
     it("creates task list with dry-run publish instead of real publish", async () => {
-      const options = createOptions({ preflight: true });
+      const options = createOptions({ options: { preflight: true } });
       await run(options);
 
       // First createListr call is token collection, second is pipeline
@@ -1442,7 +1474,7 @@ describe("run", () => {
       const cleanupFn = vi.fn();
       mockedInjectTokensToEnv.mockReturnValue(cleanupFn);
 
-      const options = createOptions({ preflight: true });
+      const options = createOptions({ options: { preflight: true } });
       await run(options);
 
       expect(mockedInjectTokensToEnv).toHaveBeenCalledWith({
@@ -1452,7 +1484,7 @@ describe("run", () => {
     });
 
     it("skips real publish and uses dry-run in preflight", async () => {
-      const options = createOptions({ preflight: true });
+      const options = createOptions({ options: { preflight: true } });
       await run(options);
 
       const pipelineCall = mockedCreateListr.mock.calls[1];
@@ -1460,14 +1492,16 @@ describe("run", () => {
 
       // Publishing should be skipped in preflight
       const publishSkipFn = tasks[3].skip as (ctx: any) => boolean;
-      expect(publishSkipFn({ preview: false })).toBe(true);
+      expect(
+        publishSkipFn({ options: { preview: false, preflight: true } }),
+      ).toBe(true);
 
       // Dry-run should not be skipped in preflight
       expect(tasks[5].skip).toBe(false);
     });
 
     it("shows preflight success message", async () => {
-      const options = createOptions({ preflight: true });
+      const options = createOptions({ options: { preflight: true } });
       await run(options);
 
       const logMessage = consoleSpy.mock.calls[0][0] as string;
@@ -1477,8 +1511,10 @@ describe("run", () => {
     it("creates no-op dry-run task for unknown registries in preflight mode", async () => {
       await run(
         createOptions({
-          preflight: true,
-          packages: [{ path: ".", registries: ["custom-registry"] }],
+          options: { preflight: true },
+          config: {
+            packages: [{ path: ".", registries: ["custom-registry"] as any }],
+          },
         }),
       );
 
@@ -1491,8 +1527,8 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
       const ctx: any = {
-        packages: [{ path: ".", registries: ["custom-registry"] }],
-        pluginRunner: new PluginRunner([]),
+        config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
+        runtime: { pluginRunner: new PluginRunner([]) },
       };
 
       await validateTask.task(ctx, parentTask);

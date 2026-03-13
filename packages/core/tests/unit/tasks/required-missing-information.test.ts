@@ -171,7 +171,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      expect(versionTask.skip({ version: "2.0.0" })).toBe(true);
+      expect(versionTask.skip({ runtime: { version: "2.0.0" } })).toBe(true);
     });
 
     it("does not skip when ctx.version is empty", () => {
@@ -179,7 +179,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      expect(versionTask.skip({ version: "" })).toBe(false);
+      expect(versionTask.skip({ runtime: { version: "" } })).toBe(false);
     });
 
     it("does not skip when ctx.version is undefined", () => {
@@ -187,7 +187,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      expect(versionTask.skip({ version: undefined })).toBe(false);
+      expect(versionTask.skip({ runtime: { version: undefined } })).toBe(false);
     });
 
     it("skips when workspace versions are already provided", () => {
@@ -197,7 +197,7 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(
         versionTask.skip({
-          versions: new Map([["@pubm/core", "1.0.0"]]),
+          runtime: { versions: new Map([["@pubm/core", "1.0.0"]]) },
         }),
       ).toBe(true);
     });
@@ -214,7 +214,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("1.1.0");
 
@@ -222,7 +222,7 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(mockedVersion).toHaveBeenCalledOnce();
       expect(mockTask.prompt).toHaveBeenCalled();
-      expect(ctx.version).toBe("1.1.0");
+      expect(ctx.runtime.version).toBe("1.1.0");
     });
 
     it('prompts for custom version when user selects "specify"', async () => {
@@ -230,7 +230,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("specify")
@@ -239,7 +239,7 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(2);
-      expect(ctx.version).toBe("3.0.0-alpha.1");
+      expect(ctx.runtime.version).toBe("3.0.0-alpha.1");
     });
 
     it("sets ctx.version to the selected semver version", async () => {
@@ -247,13 +247,13 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("2.0.0");
+      expect(ctx.runtime.version).toBe("2.0.0");
     });
 
     it("accepts a single-package changeset recommendation and marks it consumed", async () => {
@@ -279,14 +279,14 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("1.1.0");
-      expect(ctx.changesetConsumed).toBe(true);
+      expect(ctx.runtime.version).toBe("1.1.0");
+      expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
     });
 
@@ -314,14 +314,14 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("1.0.1");
-      expect(ctx.changesetConsumed).toBe(true);
+      expect(ctx.runtime.version).toBe("1.0.1");
+      expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask._promptAdapter.run.mock.calls[0][0].message).toContain(
         "0 changesets",
       );
@@ -350,7 +350,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("customize")
@@ -359,8 +359,8 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("1.2.0");
-      expect(ctx.changesetConsumed).toBeUndefined();
+      expect(ctx.runtime.version).toBe("1.2.0");
+      expect(ctx.runtime.changesetConsumed).toBeUndefined();
       expect(mockTask.prompt).toHaveBeenCalledTimes(3);
     });
 
@@ -369,7 +369,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("1.0.0");
 
@@ -383,7 +383,7 @@ describe("requiredMissingInformationTasks", () => {
           }),
         ]),
       );
-      expect(ctx.version).toBe("1.0.0");
+      expect(ctx.runtime.version).toBe("1.0.0");
     });
 
     it("keeps the package summary visible while selecting independent versions", async () => {
@@ -423,7 +423,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("0.3.7")
@@ -431,7 +434,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "0.3.7"],
           ["pubm", "0.3.6"],
@@ -503,19 +506,19 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "0.3.7"],
           ["pubm", "0.4.0"],
         ]),
       );
-      expect(ctx.changesetConsumed).toBe(true);
+      expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask.output).toContain("Changesets suggest:");
     });
 
@@ -560,7 +563,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
@@ -593,7 +596,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("fixed")
@@ -601,8 +604,8 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("1.0.1");
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.version).toBe("1.0.1");
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "1.0.1"],
           ["pubm", "1.0.1"],
@@ -626,7 +629,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("fixed")
@@ -635,8 +638,8 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.version).toBe("2.0.0");
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.version).toBe("2.0.0");
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "2.0.0"],
           ["pubm", "2.0.0"],
@@ -662,14 +665,17 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "fixed" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("2.0.1");
 
       await versionTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
-      expect(ctx.version).toBe("2.0.1");
+      expect(ctx.runtime.version).toBe("2.0.1");
     });
 
     it("offers a cascade patch bump for dependents left unchanged after a dependency bump", async () => {
@@ -709,7 +715,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("0.4.0")
@@ -718,7 +727,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "0.4.0"],
           ["pubm", "0.3.7"],
@@ -777,7 +786,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("0.4.0")
@@ -787,7 +799,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "0.4.0"],
           ["pkg-a", "0.3.6"],
@@ -843,7 +855,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("1.0.1")
@@ -853,7 +868,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "1.0.1"],
           ["@pubm/utils", "2.0.1"],
@@ -890,7 +905,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("specify")
@@ -899,7 +917,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.versions).toEqual(
+      expect(ctx.runtime.versions).toEqual(
         new Map([
           ["@pubm/core", "0.4.0"],
           ["pubm", "0.3.6"],
@@ -950,7 +968,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       // Prompts should come in dependency order: @pubm/core -> @pubm/utils -> app
       mockTask._promptAdapter.run
@@ -992,7 +1013,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("1.0.1") // pkg-b (first in original order)
@@ -1052,7 +1076,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       // "customize" from changeset recommendation, then "fixed" mode, then version
       mockTask._promptAdapter.run
@@ -1115,7 +1139,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       // "customize" from changeset recommendation, then per-package versions
       mockTask._promptAdapter.run
@@ -1169,7 +1196,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "independent" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("customize")
@@ -1255,7 +1285,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = { runtime: { version: undefined }, config: {} };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
@@ -1316,7 +1346,10 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
-      const ctx: any = { version: undefined };
+      const ctx: any = {
+        runtime: { version: undefined },
+        config: { versioning: "fixed" },
+      };
       const mockTask = createMockTask();
       // "customize" from changeset recommendation, then version in fixed mode
       mockTask._promptAdapter.run
@@ -1347,9 +1380,9 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      expect(tagTask.skip({ version: undefined, versions: undefined })).toBe(
-        true,
-      );
+      expect(
+        tagTask.skip({ runtime: { version: undefined, versions: undefined } }),
+      ).toBe(true);
     });
 
     it('skips when version is not a prerelease and tag is default ("latest")', () => {
@@ -1358,7 +1391,9 @@ describe("requiredMissingInformationTasks", () => {
       const tagTask = subtasks[1];
 
       // not prerelease + tag is 'latest' (default) => skip
-      expect(tagTask.skip({ version: "1.0.0", tag: "latest" })).toBe(true);
+      expect(
+        tagTask.skip({ runtime: { version: "1.0.0", tag: "latest" } }),
+      ).toBe(true);
     });
 
     it("does not skip when version is a prerelease", () => {
@@ -1367,9 +1402,9 @@ describe("requiredMissingInformationTasks", () => {
       const tagTask = subtasks[1];
 
       // prerelease version => do not skip
-      expect(tagTask.skip({ version: "1.0.0-beta.1", tag: "latest" })).toBe(
-        false,
-      );
+      expect(
+        tagTask.skip({ runtime: { version: "1.0.0-beta.1", tag: "latest" } }),
+      ).toBe(false);
     });
 
     it("does not skip when tag is not the default", () => {
@@ -1378,7 +1413,9 @@ describe("requiredMissingInformationTasks", () => {
       const tagTask = subtasks[1];
 
       // tag is not 'latest' => do not skip
-      expect(tagTask.skip({ version: "1.0.0", tag: "next" })).toBe(false);
+      expect(tagTask.skip({ runtime: { version: "1.0.0", tag: "next" } })).toBe(
+        false,
+      );
     });
 
     it("has exitOnError set to true", () => {
@@ -1398,7 +1435,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
@@ -1420,7 +1457,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
@@ -1428,7 +1465,7 @@ describe("requiredMissingInformationTasks", () => {
 
       // Verify prompt was called; choices should be deduplicated with 'latest' filtered
       expect(mockTask.prompt).toHaveBeenCalled();
-      expect(ctx.tag).toBe("beta");
+      expect(ctx.runtime.tag).toBe("beta");
     });
 
     it('filters out "latest" from dist-tags choices', async () => {
@@ -1441,14 +1478,14 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
       await tagTask.task(ctx, mockTask);
 
       // The prompt call should have choices without 'latest'
-      expect(ctx.tag).toBe("beta");
+      expect(ctx.runtime.tag).toBe("beta");
     });
 
     it('defaults to ["next"] when no dist-tags remain after filtering', async () => {
@@ -1461,13 +1498,13 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("next");
 
       await tagTask.task(ctx, mockTask);
 
-      expect(ctx.tag).toBe("next");
+      expect(ctx.runtime.tag).toBe("next");
     });
 
     it('prompts for custom tag when user selects "specify"', async () => {
@@ -1480,7 +1517,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("specify")
@@ -1489,7 +1526,7 @@ describe("requiredMissingInformationTasks", () => {
       await tagTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(2);
-      expect(ctx.tag).toBe("canary");
+      expect(ctx.runtime.tag).toBe("canary");
     });
 
     it("sets ctx.tag to the selected tag", async () => {
@@ -1504,13 +1541,13 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { version: "2.0.0-beta.1", tag: "latest" };
+      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
       await tagTask.task(ctx, mockTask);
 
-      expect(ctx.tag).toBe("beta");
+      expect(ctx.runtime.tag).toBe("beta");
     });
   });
 });
