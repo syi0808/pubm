@@ -19,7 +19,6 @@ dist-ssr
 *.sln
 *.sw?
 
-.pubm
 .worktrees
 .astro
 website/public/plugins/pubm-plugin/
