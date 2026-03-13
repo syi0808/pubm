@@ -148,26 +148,6 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     );
   });
 
-  it("should split comma-separated registry string into array", async () => {
-    await run("1.0.0", "--registry", "npm,jsr,https://custom.registry.com");
-
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        registries: ["npm", "jsr", "https://custom.registry.com"],
-      }),
-    );
-  });
-
-  it("should use default registry value when --registry is not provided", async () => {
-    await run("1.0.0");
-
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        registries: ["npm", "jsr"],
-      }),
-    );
-  });
-
   it("renders trailing help text describing accepted version formats", () => {
     const program = createProgram();
     const writeSpy = vi

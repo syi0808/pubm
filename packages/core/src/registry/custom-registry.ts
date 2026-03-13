@@ -10,7 +10,7 @@ export class CustomRegistry extends NpmRegistry {
   async npm(args: string[]): Promise<string> {
     const { stdout } = await exec(
       "npm",
-      args.concat("--registry", this.registry),
+      args.concat("--registry", this.registry!),
       { throwOnError: true },
     );
 
