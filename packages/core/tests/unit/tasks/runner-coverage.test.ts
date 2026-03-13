@@ -527,6 +527,34 @@ describe("runner coverage scenarios", () => {
     expect(gitInstance.createTag).toHaveBeenCalledWith("v3.0.0", "commit-sha");
   });
 
+  it("creates a CI release even when package changelog sections are missing", async () => {
+    const versions = new Map([
+      ["@pubm/core", "1.2.0"],
+      ["missing-pkg", "1.2.0"],
+    ]);
+    mockedDiscoverPackageInfos.mockResolvedValue([
+      { name: "@pubm/core", path: "packages/core" },
+    ] as any);
+    mockedExistsSync.mockReturnValue(false);
+
+    await run(createOptions({ ci: true, versions }));
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const releaseTask = tasks[1];
+    const releaseCtx: any = {
+      version: "1.2.0",
+      versions,
+      pluginRunner: new PluginRunner([]),
+    };
+
+    await releaseTask.task(releaseCtx, createTask());
+
+    expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
+      releaseCtx,
+      undefined,
+    );
+  });
+
   it("consumes single-package changesets when bumping a standalone release", async () => {
     mockedReadChangesets.mockReturnValue([{ id: "cs-3" }] as any);
     mockedGetPackageJson.mockResolvedValue({ name: "pubm" } as any);

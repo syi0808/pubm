@@ -810,6 +810,25 @@ describe("replaceVersion", () => {
     );
   });
 
+  it("includes non-Error package.json write failures in the error message", async () => {
+    const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (String(filePath).endsWith("package.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from('{\n  "version": "1.0.0"\n}'));
+    mockWriteFile.mockRejectedValue("disk full");
+
+    await expect(replaceVersion("2.0.0")).rejects.toThrow(
+      "Failed to write version to package.json: disk full",
+    );
+  });
+
   it("throws AbstractError with context when writeFile fails for jsr.json", async () => {
     const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
     const { replaceVersion } = await freshImport();
@@ -827,6 +846,25 @@ describe("replaceVersion", () => {
 
     await expect(replaceVersion("2.0.0")).rejects.toThrow(
       /Failed to write version to jsr\.json/,
+    );
+  });
+
+  it("includes non-Error jsr.json write failures in the error message", async () => {
+    const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (String(filePath).endsWith("jsr.json")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReadFile.mockResolvedValue(Buffer.from('{\n  "version": "1.0.0"\n}'));
+    mockWriteFile.mockRejectedValue(42);
+
+    await expect(replaceVersion("2.0.0")).rejects.toThrow(
+      "Failed to write version to jsr.json: 42",
     );
   });
 
@@ -935,6 +973,29 @@ describe("replaceVersion", () => {
 
     await expect(replaceVersion("2.0.0", packages)).rejects.toThrow(
       /Failed to write version to Cargo\.toml at rust\/crates\/my-crate/,
+    );
+  });
+
+  it("includes non-Error Cargo.toml write failures in the error message", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: vi.fn().mockRejectedValue("permission denied"),
+        syncLockfile: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
+
+    const packages = [
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    await expect(replaceVersion("2.0.0", packages)).rejects.toThrow(
+      "Failed to write version to Cargo.toml at rust/crates/my-crate: permission denied",
     );
   });
 
@@ -1194,5 +1255,104 @@ describe("replaceVersions", () => {
     expect(String(mockWriteFile.mock.calls[1]?.[1])).toContain(
       '"version":"3.0.0"',
     );
+  });
+
+  it("applies the fixed workspace version to Rust crates and deduplicates the shared lockfile", async () => {
+    const { mockReadFile, mockWriteFile } = await getFsMocks();
+    const { replaceVersions } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockReadFile.mockImplementation(async (filePath) => {
+      const normalized = String(filePath);
+      if (normalized.endsWith("packages/core/package.json")) {
+        return Buffer.from(
+          JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
+        );
+      }
+      throw new Error("ENOENT");
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+
+    const lockfilePath = path.resolve("rust/Cargo.lock");
+    const writtenVersions: string[] = [];
+    const siblingUpdates: Map<string, string>[] = [];
+
+    vi.mocked(RustEcosystem).mockImplementation(function (pkgPath: string) {
+      return {
+        writeVersion: vi.fn().mockImplementation(async (version: string) => {
+          writtenVersions.push(version);
+        }),
+        syncLockfile: vi.fn().mockResolvedValue(lockfilePath),
+        packageName: vi
+          .fn()
+          .mockResolvedValue(
+            String(pkgPath).includes("crate-a") ? "crate-a" : "crate-b",
+          ),
+        updateSiblingDependencyVersions: vi
+          .fn()
+          .mockImplementation(async (versions: Map<string, string>) => {
+            siblingUpdates.push(new Map(versions));
+          }),
+      } as any;
+    });
+
+    const result = await replaceVersions(
+      new Map([["@pubm/core", "2.0.0"]]),
+      [
+        { path: "packages/core", registries: ["npm"] as any[] },
+        { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+        { path: "rust/crates/crate-b", registries: ["crates"] as any[] },
+      ] as any,
+    );
+
+    expect(writtenVersions).toEqual(["2.0.0", "2.0.0"]);
+    expect(siblingUpdates).toEqual([
+      new Map([
+        ["crate-a", "2.0.0"],
+        ["crate-b", "2.0.0"],
+      ]),
+      new Map([
+        ["crate-a", "2.0.0"],
+        ["crate-b", "2.0.0"],
+      ]),
+    ]);
+    expect(result).toContain(path.join("rust/crates/crate-a", "Cargo.toml"));
+    expect(result).toContain(path.join("rust/crates/crate-b", "Cargo.toml"));
+    expect(result.filter((file) => file === lockfilePath)).toHaveLength(1);
+  });
+
+  it("skips JS and Rust version writes when no fixed workspace version is available", async () => {
+    const { mockReadFile, mockWriteFile } = await getFsMocks();
+    const { replaceVersions } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockReadFile.mockImplementation(async (filePath) => {
+      if (String(filePath).endsWith("packages/core/package.json")) {
+        return Buffer.from(
+          JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
+        );
+      }
+      throw new Error("ENOENT");
+    });
+
+    const mockWriteVersion = vi.fn();
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: mockWriteVersion,
+        syncLockfile: vi.fn(),
+      } as any;
+    });
+
+    const result = await replaceVersions(
+      new Map(),
+      [
+        { path: "packages/core", registries: ["npm"] as any[] },
+        { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+      ] as any,
+    );
+
+    expect(result).toEqual([]);
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockWriteVersion).not.toHaveBeenCalled();
   });
 });

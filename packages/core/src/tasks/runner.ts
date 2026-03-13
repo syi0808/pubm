@@ -43,9 +43,8 @@ import {
   rollbackLog,
 } from "../utils/rollback.js";
 import { injectTokensToEnv } from "../utils/token.js";
-import { cratesPublishTasks, createCratesPublishTask } from "./crates.js";
+import { createCratesPublishTask } from "./crates.js";
 import {
-  cratesDryRunPublishTask,
   createCratesDryRunPublishTask,
   jsrDryRunPublishTask,
   npmDryRunPublishTask,
@@ -85,8 +84,6 @@ function registryTask(registry: string) {
       return npmPublishTasks;
     case "jsr":
       return jsrPublishTasks;
-    case "crates":
-      return cratesPublishTasks;
     default:
       return npmPublishTasks;
   }
@@ -146,8 +143,6 @@ function dryRunRegistryTask(registry: string) {
       return npmDryRunPublishTask;
     case "jsr":
       return jsrDryRunPublishTask;
-    case "crates":
-      return cratesDryRunPublishTask;
     default:
       return npmDryRunPublishTask;
   }
@@ -300,7 +295,7 @@ function createLiveCommandOutput(
       `${pending[source]}${chunk.replace(/\r\n/g, "\n").replace(/\r/g, "\n")}`.split(
         "\n",
       );
-    pending[source] = segments.pop() ?? "";
+    pending[source] = segments.pop() as string;
 
     for (const segment of segments) {
       pushLine(segment);

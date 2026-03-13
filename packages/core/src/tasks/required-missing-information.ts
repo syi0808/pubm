@@ -499,6 +499,9 @@ async function handleIndependentMode(
   currentVersions: Map<string, string>,
 ): Promise<void> {
   // Build dependency graph for cascade suggestions
+  const packageVersionByName = new Map(
+    packageInfos.map((pkg) => [pkg.name, pkg.version]),
+  );
   const packageNodes: PackageNode[] = [];
   for (const pkg of packageInfos) {
     const pkgPath = path.resolve(cwd, pkg.path);
@@ -520,7 +523,7 @@ async function handleIndependentMode(
     const currentVersion = currentVersions.get(pkg.name) ?? pkg.version;
 
     // Check if a dependency was bumped — suggest patch bump for dependents
-    const deps = graph.get(pkg.name) ?? [];
+    const deps = graph.get(pkg.name) as string[];
     const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
     const notes: PackageNotes = new Map();
 
@@ -551,7 +554,7 @@ async function handleIndependentMode(
   // After all versions selected, check for unbumped dependents of bumped packages
   const unbumpedDependents: string[] = [];
   for (const bumped of bumpedPackages) {
-    const dependents = reverseDeps.get(bumped) ?? [];
+    const dependents = reverseDeps.get(bumped) as string[];
     for (const dependent of dependents) {
       if (!bumpedPackages.has(dependent)) {
         unbumpedDependents.push(dependent);
@@ -564,8 +567,11 @@ async function handleIndependentMode(
     const notes: PackageNotes = new Map();
 
     for (const name of uniqueDependents) {
-      const currentVersion = currentVersions.get(name) ?? "0.0.0";
-      const deps = (graph.get(name) ?? []).filter((d) => bumpedPackages.has(d));
+      const currentVersion =
+        currentVersions.get(name) ?? (packageVersionByName.get(name) as string);
+      const deps = (graph.get(name) as string[]).filter((d) =>
+        bumpedPackages.has(d),
+      );
       notes.set(name, [buildDependencyBumpNote(currentVersion, deps)]);
     }
 
@@ -590,7 +596,8 @@ async function handleIndependentMode(
 
     if (cascadeChoice === "patch") {
       for (const name of uniqueDependents) {
-        const currentVersion = currentVersions.get(name) ?? "0.0.0";
+        const currentVersion =
+          currentVersions.get(name) ?? (packageVersionByName.get(name) as string);
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
         versions.set(name, patchVersion);
       }

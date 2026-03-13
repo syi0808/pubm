@@ -290,6 +290,43 @@ describe("requiredMissingInformationTasks", () => {
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
     });
 
+    it("accepts changeset guidance even when package.json is missing a name", async () => {
+      mockedGetPackageJson.mockResolvedValue({} as any);
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map(),
+        changesets: [{ id: "nameless-package" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.0.1",
+              bumpType: "patch",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.version).toBe("1.0.1");
+      expect(ctx.changesetConsumed).toBe(true);
+      expect(mockTask._promptAdapter.run.mock.calls[0][0].message).toContain(
+        "0 changesets",
+      );
+    });
+
     it("falls back to manual selection when a changeset recommendation is customized", async () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
@@ -480,6 +517,58 @@ describe("requiredMissingInformationTasks", () => {
       );
       expect(ctx.changesetConsumed).toBe(true);
       expect(mockTask.output).toContain("Changesets suggest:");
+    });
+
+    it("shows zero changesets for workspace packages missing status metadata", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pubm", version: "0.3.6", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["@pubm/core", { changesetCount: 1 }]]),
+        changesets: [{ id: "workspace-release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "0.3.6",
+              newVersion: "0.3.7",
+              bumpType: "patch",
+            },
+          ],
+          [
+            "pubm",
+            {
+              currentVersion: "0.3.6",
+              newVersion: "0.4.0",
+              bumpType: "minor",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.output).toContain(
+        "pubm  0.3.6 → 0.4.0 (minor: 0 changesets)",
+      );
     });
 
     it("falls back to manual multi-package mode when changesets produce no bumps", async () => {
@@ -710,6 +799,77 @@ describe("requiredMissingInformationTasks", () => {
           output.includes("dependencies @pubm/core, @pubm/core bumped"),
         ),
       ).toBe(false);
+    });
+
+    it("uses discovered package versions for cascade bumps when current version metadata is incomplete", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "@pubm/utils", version: "2.0.0", path: "packages/utils" },
+        { name: "app", version: "3.0.0", path: "packages/app" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["@pubm/utils", "2.0.0"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/core", dependencies: {} }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "utils")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/utils", dependencies: {} }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "app")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "app",
+              dependencies: {
+                "@pubm/core": "workspace:*",
+                "@pubm/utils": "workspace:*",
+              },
+            }),
+          );
+        }
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.0.1")
+        .mockResolvedValueOnce("2.0.1")
+        .mockResolvedValueOnce("3.0.0")
+        .mockResolvedValueOnce("patch");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "1.0.1"],
+          ["@pubm/utils", "2.0.1"],
+          ["app", "3.0.1"],
+        ]),
+      );
+      expect(
+        mockTask.outputs.some((output) =>
+          output.includes("💡 dependencies @pubm/core, @pubm/utils bumped"),
+        ),
+      ).toBe(true);
+      expect(
+        mockTask.outputs.some(
+          (output) => output.includes("app") && output.includes("3.0.0"),
+        ),
+      ).toBe(true);
     });
 
     it("continues independent version selection when package dependencies cannot be read", async () => {

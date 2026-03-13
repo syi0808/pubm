@@ -31,7 +31,7 @@ import {
   JsrRegisry,
   jsrRegistry,
 } from "../../../src/registry/jsr.js";
-import { exec } from "../../../src/utils/exec.js";
+import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import { getJsrJson } from "../../../src/utils/package.js";
 import {
   getScope,
@@ -168,6 +168,34 @@ describe("JsrRegisry", () => {
 
       await expect(registry.ping()).rejects.toThrow("Failed to ping jsr.io");
     });
+
+    it('returns true on Windows ping output that reports "Sent = 1"', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", {
+        value: "win32",
+        configurable: true,
+      });
+      mockedExec.mockResolvedValue({
+        stdout: "Packets: Sent = 1, Received = 1, Lost = 0 (0% loss)",
+        stderr: "",
+      } as any);
+
+      try {
+        const result = await registry.ping();
+
+        expect(mockedExec).toHaveBeenCalledWith(
+          "ping",
+          ["-n", "1", "jsr.io"],
+          { throwOnError: true },
+        );
+        expect(result).toBe(true);
+      } finally {
+        Object.defineProperty(process, "platform", {
+          value: originalPlatform,
+          configurable: true,
+        });
+      }
+    });
   });
 
   describe("publish()", () => {
@@ -189,6 +217,36 @@ describe("JsrRegisry", () => {
 
       await expect(registry.publish()).rejects.toThrow(
         "Failed to run `jsr publish --allow-dirty --token ***`",
+      );
+    });
+
+    it("returns false and stores package creation URLs when jsr package is missing", async () => {
+      mockedExec.mockRejectedValue(
+        new NonZeroExitError("jsr", 1, {
+          stdout: "",
+          stderr:
+            "Packages don't exist yet. Create them at https://jsr.io/new?scope=scope&package=pkg",
+        }),
+      );
+
+      const result = await registry.publish();
+
+      expect(result).toBe(false);
+      expect(registry.packageCreationUrls).toEqual([
+        "https://jsr.io/new?scope=scope&package=pkg",
+      ]);
+    });
+
+    it("throws when missing-package stderr does not include a creation URL", async () => {
+      mockedExec.mockRejectedValue(
+        new NonZeroExitError("jsr", 1, {
+          stdout: "",
+          stderr: "Packages don't exist yet.",
+        }),
+      );
+
+      await expect(registry.publish()).rejects.toThrow(
+        "Packages don't exist yet.",
       );
     });
   });
@@ -214,6 +272,19 @@ describe("JsrRegisry", () => {
       mockedExec.mockRejectedValue(new Error("dry-run failed"));
       await expect(registry.dryRunPublish()).rejects.toThrow(
         "Failed to run `jsr publish --dry-run`",
+      );
+    });
+
+    it("includes stderr output when dry-run exits non-zero", async () => {
+      mockedExec.mockRejectedValue(
+        new NonZeroExitError("jsr", 1, {
+          stdout: "",
+          stderr: "permission denied",
+        }),
+      );
+
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "permission denied",
       );
     });
   });
@@ -318,7 +389,7 @@ describe("getRequirements", () => {
   });
 });
 
-describe("JsrClient", () => {
+  describe("JsrClient", () => {
   let client: JsrClient;
 
   beforeEach(() => {
@@ -363,6 +434,14 @@ describe("JsrClient", () => {
         "Failed to fetch `https://api.jsr.io/user`",
       );
     });
+
+    it("throws JsrError on unexpected API status", async () => {
+      mockFetchResponse(500);
+
+      await expect(client.user()).rejects.toThrow(
+        "Failed to fetch `https://api.jsr.io/user`",
+      );
+    });
   });
 
   describe("scopePermission(scope)", () => {
@@ -394,6 +473,14 @@ describe("JsrClient", () => {
 
     it("throws JsrError when fetch fails", async () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
+
+      await expect(client.scopePermission("myscope")).rejects.toThrow(
+        "Failed to fetch `https://api.jsr.io/user/member/myscope`",
+      );
+    });
+
+    it("throws JsrError on unexpected API status", async () => {
+      mockFetchResponse(500);
 
       await expect(client.scopePermission("myscope")).rejects.toThrow(
         "Failed to fetch `https://api.jsr.io/user/member/myscope`",
@@ -432,6 +519,22 @@ describe("JsrClient", () => {
 
     it("throws JsrError when fetch fails", async () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
+
+      await expect(client.scopes()).rejects.toThrow(
+        "Failed to fetch `https://api.jsr.io/user/scopes`",
+      );
+    });
+
+    it("throws JsrError on unexpected API status", async () => {
+      mockFetchResponse(500);
+
+      await expect(client.scopes()).rejects.toThrow(
+        "Failed to fetch `https://api.jsr.io/user/scopes`",
+      );
+    });
+
+    it("throws JsrError when scopes response is not an array", async () => {
+      mockFetchResponse(200, { scope: "not-an-array" });
 
       await expect(client.scopes()).rejects.toThrow(
         "Failed to fetch `https://api.jsr.io/user/scopes`",
@@ -547,6 +650,32 @@ describe("JsrClient", () => {
         "Failed to fetch `https://api.jsr.io/scopes`",
       );
     });
+
+    it("uses the error field when message is absent", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 422,
+        ok: false,
+        statusText: "Unprocessable Entity",
+        json: vi.fn().mockResolvedValue({ error: "Reserved scope" }),
+      });
+
+      await expect(client.createScope("myscope")).rejects.toThrow(
+        "Reserved scope",
+      );
+    });
+
+    it("omits API detail when the error body cannot be parsed", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 500,
+        ok: false,
+        statusText: "Internal Server Error",
+        json: vi.fn().mockRejectedValue(new Error("invalid json")),
+      });
+
+      await expect(client.createScope("myscope")).rejects.toThrow(
+        "Failed to create scope 'myscope': HTTP 500",
+      );
+    });
   });
 
   describe("deleteScope(scope)", () => {
@@ -593,6 +722,32 @@ describe("JsrClient", () => {
 
       await expect(client.deleteScope("myscope")).rejects.toThrow(
         "Failed to fetch `https://api.jsr.io/scopes/myscope`",
+      );
+    });
+
+    it("serializes error detail when message and error fields are absent", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 409,
+        ok: false,
+        statusText: "Conflict",
+        json: vi.fn().mockResolvedValue({ reason: "Scope in use" }),
+      });
+
+      await expect(client.deleteScope("myscope")).rejects.toThrow(
+        '{"reason":"Scope in use"}',
+      );
+    });
+
+    it("omits error detail when delete scope body parsing fails", async () => {
+      mockedFetch.mockResolvedValue({
+        status: 500,
+        ok: false,
+        statusText: "Internal Server Error",
+        json: vi.fn().mockRejectedValue(new Error("invalid json")),
+      });
+
+      await expect(client.deleteScope("myscope")).rejects.toThrow(
+        "Failed to delete scope 'myscope': HTTP 500",
       );
     });
   });
@@ -649,6 +804,34 @@ describe("JsrClient", () => {
         "Failed to fetch `https://api.jsr.io/scopes/myscope/packages`",
       );
     });
+
+    it("uses the error field when package creation detail omits message", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockedFetch.mockResolvedValue({
+        status: 422,
+        ok: false,
+        statusText: "Unprocessable Entity",
+        json: vi.fn().mockResolvedValue({ error: "Package name reserved" }),
+      });
+
+      await expect(client.createPackage("@myscope/mypkg")).rejects.toThrow(
+        "Package name reserved",
+      );
+    });
+
+    it("omits detail when package creation error body cannot be parsed", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockedFetch.mockResolvedValue({
+        status: 500,
+        ok: false,
+        statusText: "Internal Server Error",
+        json: vi.fn().mockRejectedValue(new Error("invalid json")),
+      });
+
+      await expect(client.createPackage("@myscope/mypkg")).rejects.toThrow(
+        "Failed to create package '@myscope/mypkg': HTTP 500",
+      );
+    });
   });
 
   describe("deletePackage(packageName)", () => {
@@ -702,6 +885,34 @@ describe("JsrClient", () => {
         "Failed to fetch `https://api.jsr.io/scopes/myscope/packages/mypkg`",
       );
     });
+
+    it("serializes error detail when delete package body has no known fields", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockedFetch.mockResolvedValue({
+        status: 409,
+        ok: false,
+        statusText: "Conflict",
+        json: vi.fn().mockResolvedValue({ reason: "Package linked to scope" }),
+      });
+
+      await expect(client.deletePackage("@myscope/mypkg")).rejects.toThrow(
+        '{"reason":"Package linked to scope"}',
+      );
+    });
+
+    it("omits detail when delete package error body cannot be parsed", async () => {
+      mockedGetScopeAndName.mockReturnValue(["myscope", "mypkg"]);
+      mockedFetch.mockResolvedValue({
+        status: 500,
+        ok: false,
+        statusText: "Internal Server Error",
+        json: vi.fn().mockRejectedValue(new Error("invalid json")),
+      });
+
+      await expect(client.deletePackage("@myscope/mypkg")).rejects.toThrow(
+        "Failed to delete package '@myscope/mypkg': HTTP 500",
+      );
+    });
   });
 
   describe("searchPackage(query)", () => {
@@ -724,6 +935,14 @@ describe("JsrClient", () => {
 
     it("throws JsrError when fetch fails", async () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
+
+      await expect(client.searchPackage("my-query")).rejects.toThrow(
+        "Failed to fetch `https://api.jsr.io/packages?query=my-query`",
+      );
+    });
+
+    it("throws JsrError when search returns a non-ok response", async () => {
+      mockFetchResponse(500);
 
       await expect(client.searchPackage("my-query")).rejects.toThrow(
         "Failed to fetch `https://api.jsr.io/packages?query=my-query`",
