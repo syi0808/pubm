@@ -11,7 +11,7 @@ import {
 import { getStatus } from "../changeset/status.js";
 import type { VersionBump } from "../changeset/version.js";
 import { calculateVersionBumps } from "../changeset/version.js";
-import { loadConfig } from "../config/loader.js";
+import type { PubmContext } from "../context.js";
 import {
   buildDependencyGraph,
   type PackageNode,
@@ -23,13 +23,6 @@ import { createListr } from "../utils/listr.js";
 import { getPackageJson, version } from "../utils/package.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
-
-interface Ctx {
-  version?: string;
-  versions?: Map<string, string>;
-  changesetConsumed?: boolean;
-  tag: string;
-}
 
 type PackageInfos = Awaited<ReturnType<typeof discoverPackageInfos>>;
 type PackageNotes = Map<string, string[]>;
@@ -114,7 +107,7 @@ function versionChoices(currentVersion: string, recommendedBumpType?: string) {
 }
 
 async function promptVersion(
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   currentVersion: string,
   label: string,
   recommendedBumpType?: string,
@@ -171,17 +164,18 @@ function buildReverseDeps(graph: Map<string, string[]>): Map<string, string[]> {
 }
 
 export const requiredMissingInformationTasks = (
-  options?: Omit<ListrTask<Ctx>, "title" | "task">,
-): Listr<Ctx> =>
-  createListr<Ctx>({
+  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
+): Listr<PubmContext> =>
+  createListr<PubmContext>({
     ...options,
     title: "Checking required information",
-    task: (_, parentTask): Listr<Ctx> =>
+    task: (_, parentTask): Listr<PubmContext> =>
       parentTask.newListr([
         {
           title: "Checking version information",
           skip: (ctx) =>
-            !!ctx.version || (!!ctx.versions && ctx.versions.size > 0),
+            !!ctx.runtime.version ||
+            (!!ctx.runtime.versions && ctx.runtime.versions.size > 0),
           task: async (ctx, task): Promise<void> => {
             const cwd = process.cwd();
             const packageInfos = await discoverPackageInfos(cwd);
@@ -198,10 +192,12 @@ export const requiredMissingInformationTasks = (
         {
           title: "Checking tag information",
           skip: (ctx) => {
-            const ver = ctx.version ?? ctx.versions?.values().next().value;
+            const ver =
+              ctx.runtime.version ??
+              ctx.runtime.versions?.values().next().value;
             return !ver
               ? true
-              : !prerelease(`${ver}`) && ctx.tag === defaultOptions.tag;
+              : !prerelease(`${ver}`) && ctx.runtime.tag === defaultOptions.tag;
           },
           task: async (ctx, task): Promise<void> => {
             const npm = await npmRegistry();
@@ -241,7 +237,7 @@ export const requiredMissingInformationTasks = (
               });
             }
 
-            ctx.tag = tag;
+            ctx.runtime.tag = tag;
           },
           exitOnError: true,
         },
@@ -252,8 +248,8 @@ export const requiredMissingInformationTasks = (
  * Single package flow — backward compatible with original behavior.
  */
 async function handleSinglePackage(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   cwd: string,
 ): Promise<void> {
   const currentVersion = await version();
@@ -290,8 +286,8 @@ async function handleSinglePackage(
       });
 
       if (choice === "accept") {
-        ctx.version = bump.newVersion;
-        ctx.changesetConsumed = true;
+        ctx.runtime.version = bump.newVersion;
+        ctx.runtime.changesetConsumed = true;
         return;
       }
     }
@@ -313,7 +309,7 @@ async function handleSinglePackage(
     });
   }
 
-  ctx.version = nextVersion;
+  ctx.runtime.version = nextVersion;
 }
 
 /**
@@ -369,8 +365,8 @@ function sortPackageInfosByDependency(
 }
 
 async function handleMultiPackage(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   cwd: string,
   packageInfos: PackageInfos,
 ): Promise<void> {
@@ -409,7 +405,6 @@ async function handleMultiPackage(
   await handleManualMultiPackage(
     ctx,
     task,
-    cwd,
     sortedPackageInfos,
     currentVersions,
     graph,
@@ -422,8 +417,8 @@ async function handleMultiPackage(
  * Show changeset recommendations for all affected packages and prompt accept/customize.
  */
 async function promptChangesetRecommendations(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   status: ReturnType<typeof getStatus>,
   bumps: Map<string, VersionBump>,
   sortedPackageInfos: PackageInfos,
@@ -458,8 +453,8 @@ async function promptChangesetRecommendations(
     for (const [name, bump] of bumps) {
       versions.set(name, bump.newVersion);
     }
-    ctx.versions = versions;
-    ctx.changesetConsumed = true;
+    ctx.runtime.versions = versions;
+    ctx.runtime.changesetConsumed = true;
     return true;
   }
 
@@ -489,9 +484,8 @@ function buildChangesetNotes(
 }
 
 async function handleManualMultiPackage(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
-  cwd: string,
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
@@ -510,11 +504,10 @@ async function handleManualMultiPackage(
     { notes: changesetNotes },
   );
 
-  const config = await loadConfig(cwd);
   let mode: "fixed" | "independent";
 
-  if (config?.versioning) {
-    mode = config.versioning;
+  if (ctx.config.versioning) {
+    mode = ctx.config.versioning;
   } else {
     const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
       type: "select",
@@ -552,8 +545,8 @@ async function handleManualMultiPackage(
  * Fixed mode: prompt once, apply to all packages.
  */
 async function handleFixedMode(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
   bumps?: Map<string, VersionBump>,
@@ -600,14 +593,14 @@ async function handleFixedMode(
     });
   }
 
-  ctx.version = nextVersion;
+  ctx.runtime.version = nextVersion;
 
   // Set per-package versions so runner replaces all package.json files
   const versions = new Map<string, string>();
   for (const name of currentVersions.keys()) {
     versions.set(name, nextVersion);
   }
-  ctx.versions = versions;
+  ctx.runtime.versions = versions;
 
   task.output = renderPackageVersionSummary(
     packageInfos,
@@ -620,8 +613,8 @@ async function handleFixedMode(
  * Independent mode: prompt per package with dependency cascade suggestions.
  */
 async function handleIndependentMode(
-  ctx: Ctx,
-  task: Parameters<ListrTask<Ctx>["task"]>[1],
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
@@ -741,5 +734,5 @@ async function handleIndependentMode(
     versions,
   );
 
-  ctx.versions = versions;
+  ctx.runtime.versions = versions;
 }
