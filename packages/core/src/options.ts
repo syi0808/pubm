@@ -5,7 +5,6 @@ export const defaultOptions: Omit<Options, "version"> = {
   buildScript: "build",
   branch: "main",
   tag: "latest",
-  registries: ["npm", "jsr"],
 };
 
 export function resolveOptions(options: Options): ResolvedOptions {

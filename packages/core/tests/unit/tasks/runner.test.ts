@@ -177,8 +177,8 @@ function createOptions(
     buildScript: "build",
     branch: "main",
     tag: "latest",
-    registries: ["npm", "jsr"],
     saveToken: true,
+    packages: [{ path: ".", registries: ["npm", "jsr"] }],
     ...overrides,
   } as ResolvedOptions;
 }
@@ -772,7 +772,9 @@ describe("run", () => {
 
       // addRollback should have been called for version bump
       expect(mockedAddRollback).toHaveBeenCalled();
-      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", undefined);
+      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", [
+        { path: ".", registries: ["npm", "jsr"] },
+      ]);
     });
 
     it("passes packages to replaceVersion when packages config exists", async () => {
@@ -1247,11 +1249,11 @@ describe("run", () => {
       expect(innerOptions.concurrent).toBe(false);
     });
 
-    it("falls back to ctx.registries when no packages config is present", async () => {
+    it("uses per-package registries when packages config is present", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        registries: ["npm"],
+        packages: [{ path: ".", registries: ["npm"] }],
       });
       await run(options);
 
@@ -1298,8 +1300,10 @@ describe("run", () => {
       expect(logMessage).toContain("Successfully published");
     });
 
-    it("includes npm and jsr in success message for default registries", async () => {
-      const options = createOptions({ registries: ["npm", "jsr"] });
+    it("includes npm and jsr in success message when packages have those registries", async () => {
+      const options = createOptions({
+        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      });
       await run(options);
 
       const logMessage = consoleSpy.mock.calls[0][0] as string;
@@ -1322,7 +1326,9 @@ describe("run", () => {
     });
 
     it("does not include jsr in success message when only npm is configured", async () => {
-      const options = createOptions({ registries: ["npm"] });
+      const options = createOptions({
+        packages: [{ path: ".", registries: ["npm"] }],
+      });
       await run(options);
 
       const logMessage = consoleSpy.mock.calls[0][0] as string;

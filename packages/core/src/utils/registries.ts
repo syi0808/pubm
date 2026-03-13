@@ -3,7 +3,6 @@ import type { RegistryType } from "../types/options.js";
 
 interface RegistrySource {
   packages?: PackageConfig[];
-  registries: RegistryType[];
 }
 
 export function collectRegistries(ctx: RegistrySource): RegistryType[] {
@@ -20,5 +19,5 @@ export function collectRegistries(ctx: RegistrySource): RegistryType[] {
     }
     return result;
   }
-  return ctx.registries;
+  return [];
 }

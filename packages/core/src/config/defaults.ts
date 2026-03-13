@@ -32,17 +32,21 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  registries: ["npm", "jsr"] as string[],
   rollbackStrategy: "individual" as const,
 };
 
 export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
-  const packages = config.packages ?? [
-    { path: ".", registries: ["npm", "jsr"] },
-  ];
+  if (config.registries) {
+    console.warn(
+      '[pubm] The global "registries" field is deprecated. Registries are now inferred from manifest files or specified per-package in the "packages" array.',
+    );
+  }
+
+  const { registries: _ignored, ...configWithoutRegistries } = config;
+  const packages = config.packages ?? [{ path: "." }];
   return {
     ...defaultConfig,
-    ...config,
+    ...configWithoutRegistries,
     packages,
     validate: { ...defaultValidate, ...config.validate },
     snapshot: { ...defaultSnapshot, ...config.snapshot },

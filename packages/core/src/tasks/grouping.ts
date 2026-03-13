@@ -6,7 +6,7 @@ import type { RegistryType } from "../types/options.js";
 
 interface RegistrySource {
   packages?: PackageConfig[];
-  registries: RegistryType[];
+  registries?: RegistryType[];
 }
 
 export interface RegistryGroup {
@@ -82,7 +82,7 @@ export function collectEcosystemRegistryGroups(
         ).add(pkg.path);
       }
     }
-  } else {
+  } else if (source.registries?.length) {
     for (const registry of dedupeRegistries(source.registries)) {
       ensureRegistrySet(resolveEcosystem(registry), registry);
     }

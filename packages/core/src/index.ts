@@ -26,9 +26,7 @@ export async function pubm(options: Options): Promise<void> {
     if (resolved.packages) {
       configOptions.packages = resolved.packages;
     }
-    if (!options.registries && resolved.registries) {
-      configOptions.registries = resolved.registries;
-    }
+    // registries are now per-package, not global
   }
 
   // CLI options spread last to take precedence over config.

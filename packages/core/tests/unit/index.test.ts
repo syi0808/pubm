@@ -4,32 +4,38 @@ vi.mock("../../src/config/loader.js", () => ({
   loadConfig: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../src/config/defaults.js", () => ({
-  resolveConfig: vi.fn((config: any) => ({
-    ...config,
-    packages: config.packages ?? [{ path: ".", registries: ["npm", "jsr"] }],
-    registries: config.registries ?? ["npm", "jsr"],
-    versioning: config.versioning ?? "independent",
-    branch: config.branch ?? "main",
-    changelog: true,
-    changelogFormat: "default",
-    commit: false,
-    access: "public",
-    fixed: [],
-    linked: [],
-    updateInternalDependencies: "patch",
-    ignore: [],
-    tag: config.tag ?? "latest",
-    contents: config.contents ?? ".",
-    saveToken: true,
-    releaseDraft: true,
-    releaseNotes: true,
-    rollbackStrategy: "individual",
-    validate: { cleanInstall: true, entryPoints: true, extraneousFiles: true },
-    snapshot: {
-      useCalculatedVersion: false,
-      prereleaseTemplate: "{tag}-{timestamp}",
-    },
-  })),
+  resolveConfig: vi.fn((config: any) => {
+    const { registries: _ignored, ...rest } = config;
+    return {
+      ...rest,
+      packages: config.packages ?? [{ path: "." }],
+      versioning: config.versioning ?? "independent",
+      branch: config.branch ?? "main",
+      changelog: true,
+      changelogFormat: "default",
+      commit: false,
+      access: "public",
+      fixed: [],
+      linked: [],
+      updateInternalDependencies: "patch",
+      ignore: [],
+      tag: config.tag ?? "latest",
+      contents: config.contents ?? ".",
+      saveToken: true,
+      releaseDraft: true,
+      releaseNotes: true,
+      rollbackStrategy: "individual",
+      validate: {
+        cleanInstall: true,
+        entryPoints: true,
+        extraneousFiles: true,
+      },
+      snapshot: {
+        useCalculatedVersion: false,
+        prereleaseTemplate: "{tag}-{timestamp}",
+      },
+    };
+  }),
 }));
 vi.mock("../../src/options.js", () => ({
   resolveOptions: vi.fn((options: any) => ({
@@ -39,7 +45,6 @@ vi.mock("../../src/options.js", () => ({
     branch: options.branch ?? "main",
     tag: options.tag ?? "latest",
     saveToken: options.saveToken ?? true,
-    registries: options.registries ?? ["npm", "jsr"],
   })),
 }));
 vi.mock("../../src/tasks/runner.js", () => ({
@@ -91,7 +96,6 @@ describe("pubm", () => {
       publishOnly: false,
       contents: "./dist",
       saveToken: false,
-      registries: ["npm"],
     };
     await pubm(options);
 
@@ -184,7 +188,7 @@ describe("pubm", () => {
     expect(mockedRun).toHaveBeenCalledOnce();
   });
 
-  it("merges config registries when no CLI registries are specified", async () => {
+  it("does not propagate deprecated global registries from config", async () => {
     mockedLoadConfig.mockResolvedValueOnce({
       registries: ["npm", "jsr", "crates"],
     });
@@ -192,6 +196,6 @@ describe("pubm", () => {
     await pubm({ version: "1.0.0" });
 
     const passedOptions = mockedResolveOptions.mock.calls[0][0];
-    expect(passedOptions.registries).toStrictEqual(["npm", "jsr", "crates"]);
+    expect(passedOptions.registries).toBeUndefined();
   });
 });

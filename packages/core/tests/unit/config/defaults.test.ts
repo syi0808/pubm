@@ -43,10 +43,25 @@ describe("resolveConfig", () => {
     expect(resolved.validate.entryPoints).toBe(true);
   });
 
+  it("should not include default registries in resolved config", () => {
+    const resolved = resolveConfig({});
+    expect(resolved.registries).toBeUndefined();
+  });
+
+  it("should not include default registries in default package", () => {
+    const resolved = resolveConfig({});
+    expect(resolved.packages[0].registries).toBeUndefined();
+  });
+
+  it("should warn when deprecated global registries field is present", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveConfig({ registries: ["npm"] });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("registries"));
+    warnSpy.mockRestore();
+  });
+
   it("detects single package when no workspace config", () => {
     const resolved = resolveConfig({});
-    expect(resolved.packages).toEqual([
-      { path: ".", registries: ["npm", "jsr"] },
-    ]);
+    expect(resolved.packages).toEqual([{ path: "." }]);
   });
 });

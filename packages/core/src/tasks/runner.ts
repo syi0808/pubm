@@ -231,7 +231,7 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
 
 function formatRegistryGroupSummary(
   heading: string,
-  ctx: Pick<Ctx, "packages" | "registries" | "pluginRunner">,
+  ctx: Pick<Ctx, "packages" | "pluginRunner">,
   includePluginTargets = false,
 ): string {
   const lines = collectEcosystemRegistryGroups(ctx).flatMap((group) =>
@@ -256,7 +256,7 @@ function formatRegistryGroupSummary(
 }
 
 function countPublishTargets(
-  ctx: Pick<Ctx, "packages" | "registries" | "pluginRunner">,
+  ctx: Pick<Ctx, "packages" | "pluginRunner">,
 ): number {
   return (
     countRegistryTargets(collectEcosystemRegistryGroups(ctx)) +

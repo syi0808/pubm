@@ -51,7 +51,9 @@ export interface PubmConfig {
 }
 
 export interface ResolvedPubmConfig
-  extends Required<Omit<PubmConfig, "packages" | "validate" | "snapshot">> {
+  extends Required<
+    Omit<PubmConfig, "packages" | "validate" | "snapshot" | "registries">
+  > {
   packages: PackageConfig[];
   validate: Required<ValidateConfig>;
   snapshot: Required<SnapshotConfig>;
