@@ -32,9 +32,17 @@ export interface RegistryDescriptor {
   label: string;
   tokenConfig: TokenEntry;
   needsPackageScripts: boolean;
+  /** 토큰 주입 시 추가로 설정할 환경변수 (인스턴스 생성 없이 접근 가능) */
+  additionalEnvVars?: (token: string) => Record<string, string>;
+  /** 토큰 URL에 동적 치환이 필요한 경우 (예: npm의 ~username 치환) */
+  resolveTokenUrl?: (baseUrl: string) => Promise<string>;
+  /** publish 성공 메시지에 표시할 패키지명 해석 */
+  resolveDisplayName?: (ctx: { packages?: PackageConfig[] }) => Promise<string[]>;
   factory: (packageName?: string) => Promise<Registry>;
 }
 ```
+
+> **설계 원칙**: `additionalEnvVars`, `resolveTokenUrl`, `resolveDisplayName`은 인스턴스 생성 전 또는 sync 컨텍스트에서 필요한 정보이므로 Registry 인스턴스 메서드가 아닌 Descriptor에 배치한다.
 
 통합 대상 (현재 흩어진 매핑):
 - `grouping.ts` — `registryEcosystemMap`, `registryLabel()` switch문
@@ -99,6 +107,19 @@ registryCatalog.register({
     tokenUrlLabel: "npmjs.com",
   },
   needsPackageScripts: true,
+  additionalEnvVars: (token) => ({
+    "npm_config_//registry.npmjs.org/:_authToken": token,
+  }),
+  resolveTokenUrl: async (baseUrl) => {
+    if (!baseUrl.includes("~")) return baseUrl;
+    const result = await exec("npm", ["whoami"]);
+    const username = result.stdout.trim();
+    return username ? baseUrl.replace("~", username) : baseUrl;
+  },
+  resolveDisplayName: async () => {
+    const pkg = await getPackageJson();
+    return pkg.name ? [pkg.name] : [];
+  },
   factory: () => npmRegistry(),
 });
 
@@ -108,6 +129,10 @@ registryCatalog.register({
   label: "jsr",
   tokenConfig: { envVar: "JSR_TOKEN", /* ... */ },
   needsPackageScripts: false,
+  resolveDisplayName: async () => {
+    const jsr = await getJsrJson();
+    return jsr.name ? [jsr.name] : [];
+  },
   factory: () => jsrRegistry(),
 });
 
@@ -117,6 +142,11 @@ registryCatalog.register({
   label: "crates.io",
   tokenConfig: { envVar: "CARGO_REGISTRY_TOKEN", /* ... */ },
   needsPackageScripts: false,
+  resolveDisplayName: async (ctx) => {
+    return ctx.packages
+      ?.filter((pkg) => pkg.registries.includes("crates"))
+      .map((pkg) => pkg.path) ?? ["crate"];
+  },
   factory: (name) => cratesRegistry(name ?? "unknown"),
 });
 ```
@@ -160,13 +190,27 @@ export abstract class Registry {
     return paths;
   }
 
-  /** 토큰 주입 시 추가로 설정해야 할 환경변수 */
-  additionalEnvVars(): Record<string, string> {
-    return {};
-  }
-
   /** dry-run publish */
   async dryRunPublish(_manifestDir?: string): Promise<void> {}
+
+  /**
+   * availability check 수행.
+   * 각 registry가 자신의 check 로직(isInstalled, hasPermission, auto-install 등)을
+   * 내부적으로 처리한다. task는 listr2 task wrapper를 받아 prompt/output 제어.
+   */
+  async checkAvailability(_task: ListrTaskWrapper): Promise<void> {
+    const installed = await this.isInstalled();
+    if (!installed) {
+      throw new Error(`${this.packageName} registry is not installed.`);
+    }
+    const available = await this.isPackageNameAvaliable();
+    if (!available) {
+      const hasAccess = await this.hasPermission();
+      if (!hasAccess) {
+        throw new Error(`No permission to publish ${this.packageName}.`);
+      }
+    }
+  }
 }
 ```
 
@@ -183,16 +227,24 @@ async orderPackages(paths: string[]): Promise<string[]> {
 }
 ```
 
-**NpmRegistry:**
+**JsrRegistry:** (auto-install prompt를 checkAvailability에서 처리)
 ```ts
-additionalEnvVars(): Record<string, string> {
-  const token = process.env.NODE_AUTH_TOKEN;
-  if (!token) return {};
-  return { "npm_config_//registry.npmjs.org/:_authToken": token };
+async checkAvailability(task: ListrTaskWrapper): Promise<void> {
+  if (!(await this.isInstalled())) {
+    const install = await task.prompt(/* toggle: install jsr? */);
+    if (install) {
+      task.output = "Installing jsr...";
+      await npmRegistry().installGlobally("jsr");
+    } else {
+      throw new Error("jsr is not installed.");
+    }
+  }
+  // scope/package 가용성 체크
+  await super.checkAvailability(task);
 }
 ```
 
-**JsrRegistry, PypiRegistry, MavenRegistry 등:** 기본값 사용 (override 불필요)
+**NpmRegistry, PypiRegistry, MavenRegistry 등:** 기본 `checkAvailability()` 사용 (override 불필요)
 
 ---
 
@@ -233,13 +285,10 @@ export abstract class Ecosystem {
   async dependencies(): Promise<string[]> {
     return [];
   }
-
-  /** manifest 파일 감지 */
-  static detect(_packagePath: string): Promise<boolean> {
-    return Promise.resolve(false);
-  }
 }
 ```
+
+> **참고**: `detect()`는 `EcosystemDescriptor.detect`에만 존재한다. Ecosystem base class에는 두지 않는다. 감지 로직의 단일 진입점은 `ecosystemCatalog.detect()`이다.
 
 `RustEcosystem`은 이 메서드들을 이미 구현하고 있으므로 변경 없음. `JsEcosystem`과 미래의 `PythonEcosystem` 등은 기본값을 사용.
 
@@ -369,9 +418,40 @@ function needsPackageScripts(registries: string[]): boolean {
   return registries.some((r) => registryCatalog.get(r).needsPackageScripts);
 }
 
-// availability check는 Registry 인터페이스에 추가하거나,
-// 각 registry의 기존 메서드(isInstalled, hasPermission, isPackageNameAvaliable)를
-// 조합하여 일반화된 task를 생성
+// availability check — Registry.checkAvailability()를 사용하여 일반화
+function createAvailabilityTask(
+  registryKey: RegistryType,
+  packagePaths: string[],
+): ListrTask<Ctx> {
+  const descriptor = registryCatalog.get(registryKey);
+  if (!descriptor) return { title: registryKey, task: async () => {} };
+
+  if (packagePaths.length <= 1) {
+    return {
+      title: `Checking ${descriptor.label} availability`,
+      task: async (_ctx, task) => {
+        const registry = await descriptor.factory(/* packageName */);
+        await registry.checkAvailability(task);
+      },
+    };
+  }
+
+  // multi-package: 각 패키지별 availability check
+  return {
+    title: `Checking ${descriptor.label} availability`,
+    task: (_ctx, parentTask) =>
+      parentTask.newListr(
+        packagePaths.map((packagePath) => ({
+          title: packagePath,
+          task: async (_ctx, task) => {
+            const registry = await descriptor.factory(packagePath);
+            await registry.checkAvailability(task);
+          },
+        })),
+        { concurrent: true },
+      ),
+  };
+}
 ```
 
 ### 4.4 `token.ts`
@@ -389,24 +469,36 @@ if (registry === "npm") {
 **After:**
 ```ts
 // TOKEN_CONFIG 제거 — registryCatalog.get(key).tokenConfig 사용
+// additionalEnvVars는 Descriptor에 있으므로 인스턴스 생성 불필요 (sync 유지)
 
 export function injectTokensToEnv(tokens: Record<string, string>): () => void {
   const originals: Record<string, string | undefined> = {};
 
   for (const [registryKey, token] of Object.entries(tokens)) {
-    const config = registryCatalog.get(registryKey).tokenConfig;
+    const descriptor = registryCatalog.get(registryKey);
+    if (!descriptor) continue;
+
+    const config = descriptor.tokenConfig;
     originals[config.envVar] = process.env[config.envVar];
     process.env[config.envVar] = token;
 
-    // 추가 환경변수 처리 (일반화)
-    const registry = await registryCatalog.get(registryKey).factory();
-    for (const [envVar, value] of Object.entries(registry.additionalEnvVars())) {
+    // 추가 환경변수 처리 — Descriptor에서 직접 참조 (async factory 호출 불필요)
+    const extraVars = descriptor.additionalEnvVars?.(token) ?? {};
+    for (const [envVar, value] of Object.entries(extraVars)) {
       originals[envVar] = process.env[envVar];
       process.env[envVar] = value;
     }
   }
 
-  return () => { /* restore originals */ };
+  return () => {
+    for (const [envVar, original] of Object.entries(originals)) {
+      if (original === undefined) {
+        delete process.env[envVar];
+      } else {
+        process.env[envVar] = original;
+      }
+    }
+  };
 }
 ```
 
@@ -483,7 +575,105 @@ export async function getRegistry(
 
 ---
 
-## 6. 미래 확장 시나리오
+## 6. 추가 변경 대상
+
+### 6.1 `preflight.ts` — 토큰 URL 동적 치환
+
+**Before:**
+```ts
+if (registry === "npm" && tokenUrl.includes("~")) {
+  const result = await exec("npm", ["whoami"]);
+  const username = result.stdout.trim();
+  if (username) tokenUrl = tokenUrl.replace("~", username);
+}
+```
+
+**After:**
+```ts
+const descriptor = registryCatalog.get(registry);
+if (descriptor?.resolveTokenUrl) {
+  tokenUrl = await descriptor.resolveTokenUrl(tokenUrl);
+}
+```
+
+### 6.2 `runner.ts` — 성공 메시지
+
+**Before:** 3개의 `if (registries.includes("npm/jsr/crates"))` 분기
+
+**After:**
+```ts
+const registries = collectRegistries(ctx);
+const parts: string[] = [];
+
+for (const registryKey of registries) {
+  const descriptor = registryCatalog.get(registryKey);
+  if (!descriptor?.resolveDisplayName) continue;
+  const names = await descriptor.resolveDisplayName(ctx);
+  for (const name of names) {
+    parts.push(`${color.bold(name)} on ${descriptor.label}`);
+  }
+}
+```
+
+### 6.3 `dry-run-publish.ts` — 범위 명확화
+
+`dry-run-publish.ts` 내부의 registry별 publish/dry-run 로직(`npmDryRunPublishTask`, `jsrDryRunPublishTask`, `createCratesDryRunPublishTask`)은 **registry 구현 내부 로직**이므로 이번 리팩토링의 대상이 아니다.
+
+이번 리팩토링의 범위는 **소비자/오케스트레이션 코드의 분기 제거**이다:
+- `runner.ts`의 `dryRunRegistryTask()` switch문 → 일반화된 `createRegistryDryRunTask()` 사용
+- 각 registry의 dry-run 구현체는 기존대로 유지 (Registry 인터페이스 뒤에 캡슐화)
+
+### 6.4 `monorepo/discover.ts` — ecosystem 감지
+
+**Before:**
+```ts
+const defaultRegistries: Record<EcosystemType, RegistryType[]> = {
+  js: ["npm", "jsr"],
+  rust: ["crates"],
+};
+// 자체 detectEcosystem 함수
+```
+
+**After:**
+```ts
+// defaultRegistries → ecosystemCatalog.get(key).defaultRegistries
+// detectEcosystem → ecosystemCatalog.detect(packagePath)
+```
+
+### 6.5 CustomRegistry 처리
+
+`CustomRegistry`는 카탈로그에 등록하지 않는다. fallback으로만 동작한다:
+
+- `registryCatalog.get(key)`는 미등록 key에 대해 `undefined`를 반환 (throw하지 않음)
+- `getRegistry()`는 descriptor가 없으면 `customRegistry()`로 fallback
+- Custom registry는 preflight 토큰 흐름을 사용하지 않으므로 `tokenConfig`가 불필요
+- `NpmRegistry`를 상속하므로 기본 `checkAvailability()`, `concurrentPublish` 등을 그대로 사용
+
+### 6.6 기본 registries 설정
+
+`options.ts`와 `config/defaults.ts`의 `registries: ["npm", "jsr"]` 기본값은 **의도적 제품 결정**이다. JS가 primary use case이므로 기본값으로 유지한다. 이는 일반화 대상이 아닌 설정값이다.
+
+### 6.7 `factory` 인터페이스의 `packageName` 파라미터
+
+`factory: (packageName?: string) => Promise<Registry>`에서 `packageName`이 optional인 이유:
+- npm/jsr: 내부적으로 `getPackageJson()`에서 패키지명을 해석
+- crates: 외부에서 패키지명을 전달받아야 함
+
+이 비대칭은 허용한다. 각 registry의 패키지명 해석 전략이 다르기 때문이며, factory 호출자(`getRegistry`)는 이미 `packageName`을 optional로 전달하고 있다. 새 registry 추가 시 필요하면 `packageName`을 사용, 불필요하면 무시한다.
+
+---
+
+## 7. 설계 원칙 요약
+
+1. **소비자 코드에서 분기 제거** — runner, grouping, token 등은 registry/ecosystem 타입을 알지 못한다
+2. **인스턴스 행위는 인터페이스** — `concurrentPublish`, `orderPackages()`, `checkAvailability()`, `dryRunPublish()` 등 런타임 동작은 Registry/Ecosystem 메서드로
+3. **정적 메타데이터는 카탈로그** — `tokenConfig`, `label`, `ecosystem`, `additionalEnvVars`, `resolveTokenUrl` 등 인스턴스 생성 전에 필요한 정보는 Descriptor로
+4. **registry 구현 내부 로직은 유지** — 각 registry의 publish/dry-run task 구현체(`npm.ts`, `jsr.ts`, `crates.ts`)는 Registry 인터페이스 뒤에 캡슐화된 상태로 유지
+5. **CustomRegistry는 fallback** — 카탈로그 미등록 registry는 CustomRegistry로 처리
+
+---
+
+## 8. 미래 확장 시나리오
 
 ### PyPI 추가
 
