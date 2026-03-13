@@ -13,7 +13,6 @@ vi.mock("@pubm/core", () => ({
   buildChangelogEntries: vi.fn(),
   writeChangelogToFile: vi.fn(),
   loadConfig: vi.fn(),
-  readPreState: vi.fn(),
   discoverCurrentVersions: vi.fn(),
   discoverPackageInfos: vi.fn(),
   replaceVersion: vi.fn(),
@@ -26,15 +25,6 @@ vi.mock("@pubm/core", () => ({
   applyLinkedGroup: vi.fn(),
 }));
 
-vi.mock("node:fs", async () => {
-  const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
-  return {
-    ...actual,
-    writeFileSync: vi.fn(),
-  };
-});
-
-import { writeFileSync } from "node:fs";
 import {
   applyFixedGroup,
   buildChangelogEntries,
@@ -45,7 +35,6 @@ import {
   generateChangelog,
   loadConfig,
   readChangesets,
-  readPreState,
   replaceVersion,
   replaceVersionAtPath,
   resolveGroups,
@@ -61,18 +50,15 @@ const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedLoadConfig = vi.mocked(loadConfig);
-const mockedReadPreState = vi.mocked(readPreState);
 const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
 const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedReplaceVersion = vi.mocked(replaceVersion);
 const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
 const mockedResolveGroups = vi.mocked(resolveGroups);
-const mockedWriteFileSync = vi.mocked(writeFileSync);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedLoadConfig.mockResolvedValue(null);
-  mockedReadPreState.mockReturnValue(null);
   mockedDiscoverCurrentVersions.mockResolvedValue(
     new Map([["my-pkg", "1.0.0"]]),
   );
@@ -167,108 +153,6 @@ describe("runVersionCommand", () => {
       "No packages found.",
     );
     expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
-  });
-
-  it("handles pre-release state correctly", async () => {
-    const changesets = [
-      {
-        id: "fix-bug",
-        summary: "Fix a bug",
-        releases: [{ name: "my-pkg", type: "patch" as const }],
-      },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "1.0.0"]]),
-    );
-
-    const bumps = new Map([
-      [
-        "my-pkg",
-        {
-          currentVersion: "1.0.0",
-          newVersion: "1.0.1",
-          bumpType: "patch" as const,
-        },
-      ],
-    ]);
-    mockedCalculateVersionBumps.mockReturnValue(bumps);
-    mockedBuildChangelogEntries.mockReturnValue([
-      { summary: "Fix a bug", type: "patch" as const, id: "fix-bug" },
-    ]);
-    mockedGenerateChangelog.mockReturnValue("## 1.0.1-beta.0\n");
-
-    mockedReadPreState.mockReturnValue({
-      mode: "pre",
-      tag: "beta",
-      packages: {},
-    });
-
-    const logSpy = vi.spyOn(console, "log");
-
-    await runVersionCommand("/tmp/project");
-
-    // Should use pre-release version
-    expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.0.1-beta.0 (patch)");
-    expect(mockedReplaceVersion).toHaveBeenCalledWith(
-      "1.0.1-beta.0",
-      undefined,
-    );
-
-    // Should update pre.json
-    expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      expect.stringContaining("pre.json"),
-      expect.stringContaining('"baseVersion": "1.0.1"'),
-      "utf-8",
-    );
-  });
-
-  it("increments pre-release iteration for same base version", async () => {
-    const changesets = [
-      {
-        id: "another-fix",
-        summary: "Another fix",
-        releases: [{ name: "my-pkg", type: "patch" as const }],
-      },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "1.0.0"]]),
-    );
-
-    const bumps = new Map([
-      [
-        "my-pkg",
-        {
-          currentVersion: "1.0.0",
-          newVersion: "1.0.1",
-          bumpType: "patch" as const,
-        },
-      ],
-    ]);
-    mockedCalculateVersionBumps.mockReturnValue(bumps);
-    mockedBuildChangelogEntries.mockReturnValue([
-      { summary: "Another fix", type: "patch" as const, id: "another-fix" },
-    ]);
-    mockedGenerateChangelog.mockReturnValue("## 1.0.1-beta.2\n");
-
-    mockedReadPreState.mockReturnValue({
-      mode: "pre",
-      tag: "beta",
-      packages: {
-        "my-pkg": { baseVersion: "1.0.1", iteration: 1 },
-      },
-    });
-
-    const logSpy = vi.spyOn(console, "log");
-
-    await runVersionCommand("/tmp/project");
-
-    expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.0.1-beta.2 (patch)");
-    expect(mockedReplaceVersion).toHaveBeenCalledWith(
-      "1.0.1-beta.2",
-      undefined,
-    );
   });
 
   it("does not write files in dry-run mode", async () => {

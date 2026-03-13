@@ -1,7 +1,6 @@
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import type { BumpType, PreState, VersionBump } from "@pubm/core";
+import type { BumpType, VersionBump } from "@pubm/core";
 import {
   applyFixedGroup,
   applyLinkedGroup,
@@ -14,7 +13,6 @@ import {
   generateChangelog,
   loadConfig,
   readChangesets,
-  readPreState,
   replaceVersion,
   replaceVersionAtPath,
   resolveGroups,
@@ -78,22 +76,13 @@ export async function runVersionCommand(
     }
   }
 
-  // 5. Check pre-release state
-  const preState = readPreState(cwd);
-
   // For multi-package: get package paths for per-package version writing
   const packageInfos =
     currentVersions.size > 1 ? await discoverPackageInfos(cwd) : null;
 
-  // 6. Process each bump
+  // 5. Process each bump
   for (const [name, bump] of bumps) {
-    let newVersion: string;
-
-    if (preState) {
-      newVersion = computePreReleaseVersion(name, bump, preState);
-    } else {
-      newVersion = bump.newVersion;
-    }
+    const newVersion = bump.newVersion;
 
     console.log(
       `${name}: ${bump.currentVersion} → ${newVersion} (${bump.bumpType})`,
@@ -130,10 +119,6 @@ export async function runVersionCommand(
       writeChangelogToFile(cwd, changelogContent);
     }
 
-    // Update pre-release state
-    if (preState) {
-      updatePreState(cwd, preState, name, bump);
-    }
   }
 
   if (dryRun) {
@@ -183,45 +168,6 @@ function reapplyBumpTypes(
       bumps.set(name, { currentVersion, newVersion, bumpType });
     }
   }
-}
-
-function computePreReleaseVersion(
-  name: string,
-  bump: VersionBump,
-  preState: PreState,
-): string {
-  const pkgState = preState.packages[name];
-
-  if (pkgState) {
-    // If the base version matches the new version, increment iteration
-    if (pkgState.baseVersion === bump.newVersion) {
-      return `${bump.newVersion}-${preState.tag}.${pkgState.iteration + 1}`;
-    }
-    // Otherwise start a new pre-release
-    return `${bump.newVersion}-${preState.tag}.0`;
-  }
-
-  // First pre-release for this package
-  return `${bump.newVersion}-${preState.tag}.0`;
-}
-
-function updatePreState(
-  cwd: string,
-  preState: PreState,
-  name: string,
-  bump: VersionBump,
-): void {
-  const pkgState = preState.packages[name];
-  const iteration =
-    pkgState?.baseVersion === bump.newVersion ? pkgState.iteration + 1 : 0;
-
-  preState.packages[name] = {
-    baseVersion: bump.newVersion,
-    iteration,
-  };
-
-  const preStatePath = path.join(cwd, ".pubm", "pre.json");
-  writeFileSync(preStatePath, JSON.stringify(preState, null, 2), "utf-8");
 }
 
 export function registerVersionCommand(parent: Command): void {

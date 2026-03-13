@@ -4,7 +4,6 @@ export type {
   PackageConfig,
   PubmConfig,
   ResolvedPubmConfig,
-  SnapshotConfig,
   ValidateConfig,
 } from "./types.js";
 export { defineConfig } from "./types.js";
