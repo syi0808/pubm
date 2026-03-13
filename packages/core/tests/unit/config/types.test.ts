@@ -45,10 +45,7 @@ describe("defineConfig", () => {
         entryPoints: true,
         extraneousFiles: true,
       },
-      snapshot: {
-        useCalculatedVersion: false,
-        prereleaseTemplate: "{tag}-{timestamp}",
-      },
+      snapshotTemplate: "{tag}-{timestamp}",
       tag: "latest",
       contents: ".",
       saveToken: true,
