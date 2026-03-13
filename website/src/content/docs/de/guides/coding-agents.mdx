@@ -5,20 +5,15 @@ description: Das pubm-Plugin in Claude Code, Codex und ahnliche Coding Agents in
 
 Dieses Dokument richtet sich an Teams, die bereits Coding Agents einsetzen und `pubm` in diese bestehende Umgebung integrieren wollen.
 
-Enthalten sind bereits:
+## Mit Setup beginnen
 
-- `plugins/pubm-plugin/.claude-plugin/plugin.json`
-- `plugins/pubm-plugin/skills/`
+Wenn das Repository noch nicht verkabelt ist, ist die wichtigste Aktion nicht Publish, sondern Setup.
 
-Wichtige Skills:
+Nutze zuerst `publish-setup`. Gib dem Agent den Link [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle holen und den eingecheckten Setup-Flow befolgen kann.
 
-- `publish-setup`
-- `publish-preview`
-- `publish`
-- `version-sync`
-- `create-plugin`
+## Claude Code Installation
 
-Praxisregel:
-
-- deterministische Release-Arbeit uber `pubm`-Befehle
-- Setup, Sicherheitsprufungen und Freigaben uber Skills
+```text
+/plugin marketplace add your-org/claude-plugins
+/plugin install plugin-name@marketplace-name
+```

@@ -5,9 +5,25 @@ description: Hooks, Commands, Registries und Ecosystems zu pubm hinzufugen.
 
 Plugins erweitern `pubm`, ohne die Kernpipeline zu forken.
 
-Sie konnen:
+## `PubmPlugin`
 
-- Hooks ausfuhren
-- eigene CLI-Commands registrieren
-- Registries erweitern
-- Ecosystems erganzten
+```ts
+export interface PubmPlugin {
+  name: string;
+  registries?: Registry[];
+  ecosystems?: Ecosystem[];
+  hooks?: PluginHooks;
+  commands?: PluginCommand[];
+}
+```
+
+## `Ctx`
+
+```ts
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
+}
+```

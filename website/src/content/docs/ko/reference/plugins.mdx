@@ -5,25 +5,6 @@ description: pubm에 훅, 명령, 레지스트리, 생태계를 추가합니다.
 
 플러그인 시스템을 사용하면 핵심 publish 파이프라인을 포크하지 않고 `pubm`을 확장할 수 있습니다.
 
-- 주요 단계 전후에 코드 실행
-- 커스텀 CLI 명령 추가
-- 커스텀 레지스트리 등록
-- 커스텀 생태계 등록
-
-## 기본 형태
-
-```ts
-import type { PubmPlugin } from "@pubm/core";
-
-const myPlugin: PubmPlugin = {
-  name: "my-plugin",
-  hooks: {},
-  commands: [],
-  registries: [],
-  ecosystems: [],
-};
-```
-
 ## `PubmPlugin`
 
 ```ts
@@ -35,12 +16,6 @@ export interface PubmPlugin {
   commands?: PluginCommand[];
 }
 ```
-
-## 필수 필드
-
-### `name`
-
-로그, 설정, 지원 이슈에서 사용자가 참조하는 기본 식별자입니다. 안정적으로 유지하세요.
 
 ## Hooks
 
@@ -63,8 +38,6 @@ export interface PluginHooks {
 }
 ```
 
-일반 로컬 publish 흐름에서는 `beforeTest`에서 시작해 `onSuccess`까지 순서대로 실행됩니다. 실패하면 `onError`, rollback, `onRollback`이 이어집니다.
-
 ## Hook 시그니처
 
 ```ts
@@ -78,19 +51,31 @@ type AfterReleaseHookFn = (
 
 ## `Ctx`
 
-유용한 필드:
+훅은 현재 파이프라인 컨텍스트를 받습니다. 런타임 타입은 해석된 CLI 옵션에 내부 상태 몇 가지가 추가된 형태입니다.
+
+```ts
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
+}
+```
+
+실제로 자주 보게 되는 필드:
 
 - `version`
 - `versions`
-- `registries`
 - `packages`
 - `tag`
 - `preview`
 - `preflight`
-- `promptEnabled`
-- `releaseContext`
+- `ci`
+- `changesetConsumed`
 
-## 예시: publish 후 알림
+`Ctx`는 현재 실행의 런타임 상태로 취급하고, 영속 저장소처럼 사용하지 않는 편이 좋습니다.
+
+## 예시
 
 ```ts
 const notifyPlugin = {
@@ -108,65 +93,29 @@ const notifyPlugin = {
 };
 ```
 
-## 예시: 브랜치 정책
-
-```ts
-const branchPolicyPlugin = {
-  name: "branch-policy",
-  hooks: {
-    beforeVersion(ctx) {
-      if (ctx.tag === "latest" && ctx.branch !== "main") {
-        throw new Error("Stable releases are only allowed from main.");
-      }
-    },
-  },
-};
-```
-
 ## 커스텀 명령
 
 ```ts
-const myPlugin = {
-  name: "my-plugin",
-  commands: [
-    {
-      name: "notify",
-      description: "수동 알림 도우미",
-      subcommands: [
-        {
-          name: "slack",
-          description: "Slack 알림 전송",
-          options: [{ name: "--channel <channel>", description: "대상 채널" }],
-          action: async (args) => {
-            console.log(`Notify ${args.channel}`);
-          },
-        },
-      ],
-    },
-  ],
-};
-```
+export interface PluginCommand {
+  name: string;
+  description: string;
+  subcommands?: PluginSubcommand[];
+}
 
-```bash
-pubm notify slack --channel "#releases"
-```
-
-## 커스텀 레지스트리
-
-```ts
-class InternalRegistry extends Registry {
-  async ping() {}
-  async publish() {}
+export interface PluginSubcommand {
+  name: string;
+  description: string;
+  options?: PluginCommandOption[];
+  action: (args: Record<string, unknown>) => Promise<void>;
 }
 ```
 
-```ts
-const plugin = {
-  name: "internal-registry",
-  registries: [new InternalRegistry()],
-};
-```
+## 커스텀 레지스트리와 생태계
 
-## 커스텀 생태계
+커스텀 레지스트리는 추가 publish 대상이 필요할 때 사용합니다. 커스텀 생태계는 새로운 패키지 타입의 버전 읽기/쓰기를 `pubm`에 가르칠 때 사용합니다.
 
-추가 패키지 타입의 버전 읽기/쓰기 규칙을 `pubm`에 가르치고 싶을 때 사용합니다.
+## 관련 문서
+
+- [Configuration](/pubm/ko/guides/configuration/)
+- [코딩 에이전트](/pubm/ko/guides/coding-agents/)
+- [공식 플러그인](/pubm/ko/reference/official-plugins/)

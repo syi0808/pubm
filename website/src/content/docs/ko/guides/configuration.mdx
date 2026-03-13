@@ -1,11 +1,13 @@
 ---
 title: Configuration
-description: 릴리스 파이프라인 기본값, 패키지 구조, 레지스트리 대상을 설정합니다.
+description: 릴리스 파이프라인 기본값, 패키지 구조, 플러그인, 버전 계획을 설정합니다.
 ---
 
 `pubm`은 CLI 우선 도구이지만, 실제 프로젝트는 곧 플래그만으로는 부족해집니다. `pubm.config.*`에는 저장소 수준의 publish 대상, 패키지 구조, 플러그인, changeset 버전 규칙을 넣습니다.
 
-## 설정 파일 탐색 순서
+## 지원하는 설정 파일
+
+`pubm`은 다음 파일 이름을 지원합니다.
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -16,14 +18,34 @@ description: 릴리스 파이프라인 기본값, 패키지 구조, 레지스트
 
 TypeScript 설정 파일도 직접 지원합니다.
 
-## 최소 설정
-
-`pubm`은 매니페스트 파일에서 레지스트리를 자동 추론합니다. 대부분의 프로젝트에서는 설정을 비워둘 수 있습니다:
+## 기본 설정
 
 ```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  rollbackStrategy: "individual",
+  packages: [{ path: "." }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshotTemplate: "{tag}-{timestamp}",
+});
 ```
 
 ## 레지스트리 추론 방식
@@ -37,42 +59,120 @@ export default defineConfig({});
 | `Cargo.toml` | `crates` |
 
 npm 추가 규칙:
-- `package.json`의 `publishConfig.registry` → npm 대신 해당 URL 사용
-- `.npmrc` 레지스트리 → `publishConfig`가 없을 때 npm 대체
+
+- `package.json`의 `publishConfig.registry`가 있으면 `npm` 대신 해당 URL을 사용합니다.
+- `.npmrc` 레지스트리는 `publishConfig`가 없을 때 `npm`을 대체합니다.
+
+## 주요 top-level 옵션
+
+### `versioning`
+
+- 타입: `"independent" | "fixed"`
+- 기본값: `"independent"`
+
+멀티 패키지 저장소에서 버전 전략을 제어합니다.
+
+### `branch`
+
+- 타입: `string`
+- 기본값: `"main"`
+
+가드된 릴리스에서 `HEAD`가 일치해야 하는 브랜치입니다.
+
+### `packages`
+
+- 타입: `PackageConfig[]`
+- 기본값: `[{ path: "." }]`
+
+배포 대상 패키지를 명시합니다. 각 패키지의 레지스트리는 매니페스트에서 자동 추론되며, 필요하면 패키지별로 재정의할 수 있습니다.
+
+### `plugins`
+
+- 타입: `PubmPlugin[]`
+- 기본값: `[]`
+
+훅, 명령, 레지스트리, 생태계를 확장합니다.
+
+### `fixed`
+
+- 타입: `string[][]`
+- 기본값: `[]`
+
+항상 같은 버전으로 움직여야 하는 그룹입니다.
+
+### `linked`
+
+- 타입: `string[][]`
+- 기본값: `[]`
+
+최고 bump 타입을 공유해야 하는 그룹입니다.
+
+### `ignore`
+
+- 타입: `string[]`
+- 기본값: `[]`
+
+워크스페이스 자동 탐지에서 제외할 패키지 이름 또는 경로입니다.
+
+### `tag`
+
+- 타입: `string`
+- 기본값: `"latest"`
+
+기본 dist-tag입니다.
+
+### `contents`
+
+- 타입: `string`
+- 기본값: `"."`
+
+릴리스 파이프라인 전에 `chdir`할 디렉터리입니다.
+
+### `saveToken`
+
+- 타입: `boolean`
+- 기본값: `true`
+
+지원되는 레지스트리 토큰을 로컬에 저장할지 결정합니다.
+
+### `releaseDraft`
+
+- 타입: `boolean`
+- 기본값: `true`
+
+일반 publish 흐름에서 GitHub release draft 단계를 열지 여부입니다.
+
+### `validate`
+
+- 타입: `ValidateConfig`
+
+공개 스키마에는 포함되지만, 현재 모든 publish 경로에서 활성 스위치로 동작하는 것은 아닙니다.
+
+### `snapshotTemplate`
+
+- 타입: `string`
+- 기본값: `"{tag}-{timestamp}"`
+
+`pubm --snapshot` 사용 시 임시 버전 문자열을 만드는 템플릿입니다.
+
+사용 가능한 변수:
+
+- `{base}`: 매니페스트의 현재 버전
+- `{tag}`: snapshot 태그, 기본값 `snapshot`
+- `{timestamp}`: `YYYYMMDDTHHmmss` 형식의 UTC 타임스탬프
+- `{commit}`: 현재 Git 커밋 SHA
 
 ## config와 CLI 플래그의 관계
 
 - config는 `packages`, `plugins` 기본값을 제공합니다.
 - `versioning`, `fixed`, `linked`는 changeset 흐름에 쓰입니다.
-- 레지스트리는 매니페스트에서 추론됩니다. `packages[].registries`로 재정의 가능합니다.
+- CLI 플래그는 실행별 publish 동작을 제어합니다.
+- 레지스트리는 매니페스트에서 추론되며, `packages[].registries`로 재정의할 수 있습니다.
 
 예:
 
 ```bash
 pubm patch --registry npm --tag beta
-```
-
-## 자주 쓰는 저장소 옵션
-
-```ts
-import { defineConfig } from "@pubm/core";
-import { externalVersionSync } from "@pubm/plugin-external-version-sync";
-
-export default defineConfig({
-  plugins: [
-    externalVersionSync({
-      targets: [
-        {
-          file: "README.md",
-          pattern: /pubm@([\\w.-]+)/,
-        },
-      ],
-    }),
-  ],
-  snapshot: {
-    useCalculatedVersion: false,
-  },
-});
 ```
 
 ## 멀티 패키지 설정
@@ -84,7 +184,7 @@ export default defineConfig({
   versioning: "independent",
   packages: [
     { path: "packages/core" },
-    { path: "packages/cli", registries: ["npm"] }, // 재정의
+    { path: "packages/cli", registries: ["npm"] },
     { path: "crates/pubm-rs" },
   ],
 });
@@ -96,15 +196,60 @@ export default defineConfig({
 - JS와 Rust가 함께 있을 때
 - 추론된 레지스트리를 재정의하거나 프라이빗 레지스트리를 추가할 때
 
+### `PackageConfig`
+
+패키지 수준 설정의 형태는 다음과 같습니다.
+
+```ts
+interface PackageConfig {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+}
+
+interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string };
+}
+```
+
+프라이빗 레지스트리를 함께 추가하려면:
+
+```ts
+packages: [
+  {
+    path: "packages/a",
+    registries: [
+      "npm",
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+    ],
+  },
+];
+```
+
 ## 버전 전략
 
 ### `independent`
 
-각 패키지가 독립 버전과 태그를 가집니다.
+각 패키지가 독립적으로 버전과 태그를 가집니다.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+});
+```
 
 ### `fixed`
 
-모든 영향 받은 패키지가 하나의 버전을 공유합니다.
+영향 받은 패키지가 하나의 버전을 공유합니다.
+
+```ts
+export default defineConfig({
+  versioning: "fixed",
+});
+```
 
 ### `fixed` / `linked` 그룹
 
@@ -116,19 +261,20 @@ export default defineConfig({
 });
 ```
 
-- `fixed`: 항상 정확히 같은 버전
-- `linked`: 그룹 내 최고 bump 타입 전파
+- `fixed`: 그룹 내 패키지가 항상 정확히 같은 버전을 가집니다.
+- `linked`: 그룹 내 최고 bump 타입이 전파됩니다.
 
 ## snapshot 설정
 
 ```ts
 export default defineConfig({
-  snapshot: {
-    useCalculatedVersion: true,
-    prereleaseTemplate: "{tag}-{timestamp}",
-  },
+  snapshotTemplate: "{tag}-{timestamp}",
 });
 ```
+
+예시 출력:
+
+- `0.4.1-snapshot-20260312T102233`
 
 ## 플러그인
 
@@ -151,3 +297,43 @@ export default defineConfig({
 ```
 
 훅 순서와 커스텀 레지스트리는 [Plugins API Reference](/pubm/ko/reference/plugins/)를 참고하세요.
+
+## 예시 패턴
+
+### 단일 라이브러리
+
+`package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다.
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({});
+```
+
+### 앱 모노레포
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "fixed",
+  packages: [
+    { path: "packages/web" },
+    { path: "packages/server" },
+  ],
+});
+```
+
+### JS + Rust 혼합 워크스페이스
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
+  ],
+});
+```

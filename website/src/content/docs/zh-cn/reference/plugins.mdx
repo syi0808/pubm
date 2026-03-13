@@ -5,25 +5,6 @@ description: 为 pubm 添加 hooks、commands、registries 和 ecosystems。
 
 插件系统允许你在不 fork 核心 publish 流水线的前提下扩展 `pubm`。
 
-- 在主要阶段前后运行代码
-- 添加自定义 CLI 命令
-- 注册自定义 registry
-- 注册自定义 ecosystem
-
-## 基本形状
-
-```ts
-import type { PubmPlugin } from "@pubm/core";
-
-const myPlugin: PubmPlugin = {
-  name: "my-plugin",
-  hooks: {},
-  commands: [],
-  registries: [],
-  ecosystems: [],
-};
-```
-
 ## `PubmPlugin`
 
 ```ts
@@ -36,126 +17,24 @@ export interface PubmPlugin {
 }
 ```
 
-## 必填字段
-
-### `name`
-
-这是用户在日志、配置和支持问题中最常见的引用标识，尽量保持稳定。
-
-## Hooks
+## `Ctx`
 
 ```ts
-export interface PluginHooks {
-  beforeTest?: HookFn;
-  afterTest?: HookFn;
-  beforeBuild?: HookFn;
-  afterBuild?: HookFn;
-  beforeVersion?: HookFn;
-  afterVersion?: HookFn;
-  beforePublish?: HookFn;
-  afterPublish?: HookFn;
-  beforePush?: HookFn;
-  afterPush?: HookFn;
-  afterRelease?: AfterReleaseHookFn;
-  onError?: ErrorHookFn;
-  onRollback?: HookFn;
-  onSuccess?: HookFn;
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
 }
 ```
-
-正常本地 publish 流程会按顺序执行这些 hooks；若失败，则触发 `onError`，然后尝试 rollback，并在结束后执行 `onRollback`。
-
-## Hook 签名
-
-```ts
-type HookFn = (ctx: Ctx) => Promise<void> | void;
-type ErrorHookFn = (ctx: Ctx, error: Error) => Promise<void> | void;
-type AfterReleaseHookFn = (
-  ctx: Ctx,
-  releaseCtx: ReleaseContext,
-) => Promise<void> | void;
-```
-
-## `Ctx`
 
 常用字段：
 
 - `version`
 - `versions`
-- `registries`
 - `packages`
 - `tag`
 - `preview`
 - `preflight`
-- `promptEnabled`
-- `releaseContext`
-
-## 示例：publish 后通知
-
-```ts
-const notifyPlugin = {
-  name: "notify-plugin",
-  hooks: {
-    async afterPublish(ctx) {
-      const label =
-        ctx.versions && ctx.versions.size > 0
-          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
-          : `v${ctx.version}`;
-
-      console.log(`Published ${label}`);
-    },
-  },
-};
-```
-
-## 示例：分支策略
-
-```ts
-const branchPolicyPlugin = {
-  name: "branch-policy",
-  hooks: {
-    beforeVersion(ctx) {
-      if (ctx.tag === "latest" && ctx.branch !== "main") {
-        throw new Error("Stable releases are only allowed from main.");
-      }
-    },
-  },
-};
-```
-
-## 自定义命令
-
-```ts
-const myPlugin = {
-  name: "my-plugin",
-  commands: [
-    {
-      name: "notify",
-      description: "手动通知助手",
-      subcommands: [
-        {
-          name: "slack",
-          description: "发送 Slack 通知",
-          options: [{ name: "--channel <channel>", description: "目标频道" }],
-          action: async (args) => {
-            console.log(`Notify ${args.channel}`);
-          },
-        },
-      ],
-    },
-  ],
-};
-```
-
-## 自定义 registry
-
-```ts
-class InternalRegistry extends Registry {
-  async ping() {}
-  async publish() {}
-}
-```
-
-## 自定义 ecosystem
-
-当你需要让 `pubm` 读写额外包类型的版本时，就要扩展 ecosystem。
+- `ci`
+- `changesetConsumed`

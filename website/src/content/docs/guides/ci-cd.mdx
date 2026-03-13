@@ -3,56 +3,36 @@ title: CI/CD
 description: Set up preflight checks, token handling, and release automation for pubm.
 ---
 
-`pubm` is designed to behave well in both local terminals and CI runners. This guide focuses on the operational path: how to validate your pipeline locally, what to provide in CI, and how to structure a reliable release workflow.
+`pubm` is designed to behave well in both local terminals and CI runners. The key point is that the normal `pubm` pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
 
-## Release model
+## Recommended release model
 
-A practical `pubm` release setup usually has two phases:
+Use two phases:
 
-1. prepare the release state locally or in a controlled job
-2. publish from CI using tags and non-interactive credentials
-
-That split matters because `pubm` does different things in different modes:
-
-- interactive local runs can prompt for missing information
-- CI runs must have everything supplied up front
-- `--preflight` bridges the gap by rehearsing CI behavior locally
-
-## Baseline workflow
-
-### Local or protected release job
+1. run `pubm --preflight` locally or in a controlled release job
+2. publish from CI with `pubm --ci`
 
 ```bash
-pubm changesets version
 pubm --preflight
-pubm patch --preview
 ```
-
-### CI publish job
 
 ```bash
 pubm --ci
 ```
 
-This model keeps versioning and changelog generation explicit, while letting CI handle the actual publish step from tags.
+## What preflight does
 
-## Use preflight before enabling CI publish
-
-Run this locally first:
-
-```bash
-pubm --preflight
-```
-
-Preflight performs a CI-style validation pass:
+`pubm --preflight` is not just a token check. It runs the release pipeline up to the point right before real publish:
 
 - collects registry tokens
 - optionally syncs them to GitHub Secrets
-- disables prompts after token collection
 - runs prerequisite and required-condition checks
-- dry-runs publish tasks for configured registries
+- runs tests and build unless skipped
+- consumes pending changesets during versioning when present
+- creates the release commit and pushes tags and branch updates
+- dry-runs publish tasks instead of performing the real publish
 
-If preflight fails, fix the issue before wiring production publish to a push or tag event.
+Because of that, you do not need to run `pubm patch --preview` after preflight.
 
 ## Required environment variables
 
@@ -64,39 +44,16 @@ In CI, provide registry tokens with environment variables:
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
 
-Rules of thumb:
-
-- use dedicated automation tokens
-- keep scopes as narrow as your registry allows
-- never rely on interactive prompts in CI
-
 ## Syncing GitHub secrets
 
 If you already stored tokens locally through a preflight run, push them into GitHub Secrets with:
 
 ```bash
 pubm secrets sync
-```
-
-Or only sync specific registries:
-
-```bash
 pubm secrets sync --registry npm,jsr
 ```
 
-This command requires the GitHub CLI to be installed and authenticated.
-
 ## Example GitHub Actions structure
-
-The exact workflow depends on your repository, but the high-level shape is usually:
-
-1. checkout with full history and tags
-2. install dependencies
-3. run tests and build if not already done in another job
-4. expose registry tokens
-5. run `pubm --ci`
-
-Example:
 
 ```yaml
 name: Release
@@ -129,51 +86,6 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 ```
 
-Adjust the install step to match your package manager and build environment.
-
-## Protected branch behavior
-
-During a normal local publish, `pubm` attempts `git push --follow-tags`. If the branch is protected and the push fails, the runtime falls back to pushing tags only.
-
-Why this matters:
-
-- release tags can still be available to downstream automation
-- the branch update may still require manual push or a pull request
-- this behavior is safer than pretending the full push succeeded
-
-## CI mode vs. publish-only mode
-
-## `pubm --ci`
-
-Use when:
-
-- publishing from the latest tag in CI
-- creating a GitHub Release is part of the job
-
-## `pubm --publish-only`
-
-Use when:
-
-- your pipeline already prepared the tag
-- you only want the publish tasks
-- you do not want the full local-style preparation flow
-
-## PR validation for changesets
-
-For teams using changesets, initialize the workflow helper:
-
-```bash
-pubm init --changesets
-```
-
-This adds a starter workflow that checks whether a pull request includes a `.pubm/changesets/*.md` file unless it carries the `no-changeset` label.
-
-That is a strong default for:
-
-- libraries with frequent releases
-- monorepos with many contributors
-- teams that want changelog text reviewed before merge
-
 ## Common CI pitfalls
 
 ### Shallow checkout
@@ -186,18 +98,11 @@ Tag-based and history-aware operations need full Git information. Use `fetch-dep
 
 ### npm 2FA token mismatch
 
-Use automation-compatible tokens for CI publish. Interactive one-time-password flows do not work in headless publish jobs.
+Use automation-compatible tokens for CI publish.
 
 ### Build output is not present in `contents`
 
 If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --ci`.
-
-## Operational recommendations
-
-- run `pubm --preflight` whenever you add a new registry
-- keep release jobs separate from pull-request test jobs
-- prefer tag-driven publishing over branch-driven publishing
-- review the first few release drafts manually before automating post-release steps
 
 ## Next steps
 

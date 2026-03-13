@@ -1,6 +1,6 @@
 ---
 title: Demarrage rapide
-description: Installer pubm, initialiser le projet et publier une premiere release.
+description: Installer pubm, initialiser le projet et lancer une premiere release.
 ---
 
 `pubm` est un orchestrateur de release pour les depots qui publient vers plusieurs registres, plusieurs paquets ou plusieurs ecosystemes.
@@ -8,14 +8,22 @@ description: Installer pubm, initialiser le projet et publier une premiere relea
 ## Avant de commencer
 
 - Git `2.11+`
-- Un manifeste tel que `package.json`
+- Un manifeste comme `package.json`
 - Un working tree propre avant publication
 
-Installation:
+Installation :
 
 ```bash
 npm i -g pubm
 ```
+
+## Pour les agents de code
+
+Si vous branchez `pubm` via Claude Code, Codex ou un autre agent, commencez par l'automatisation de setup plutot que par des prompts de release ecrits a la main.
+
+- Utilisez le skill `publish-setup` du bundle `pubm plugin`.
+- Donnez a l'agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il recupere le bundle et commence par `publish-setup`.
+- Lisez [Integration avec les agents de code](/pubm/fr/guides/coding-agents/).
 
 ## 1. Initialiser le depot
 
@@ -23,32 +31,10 @@ npm i -g pubm
 pubm init
 ```
 
-## 2. Ajouter une configuration minimale
-
-`pubm` infere les registries depuis les fichiers de manifeste. La config peut etre vide pour la plupart des projets:
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
-
-## 3. Ajouter un changeset
-
-```bash
-pubm changesets add
-```
-
-## 4. Ecrire les versions
-
-```bash
-pubm changesets version
-```
-
-## 5. Publier
+## 2. Publier
 
 ```bash
 pubm
 ```
 
-Le reste de la documentation utilise encore l'anglais comme fallback. Vous pouvez continuer avec [Configuration](/pubm/fr/guides/configuration/) et [CI/CD](/pubm/fr/guides/ci-cd/).
+Si des changesets sont en attente, `pubm` les consomme pendant l'etape de version du pipeline de release. Pour la configuration, lisez [Configuration](/pubm/fr/guides/configuration/). Pour la CI, lisez [CI/CD](/pubm/fr/guides/ci-cd/).

@@ -5,9 +5,25 @@ description: Anadir hooks, comandos, registros y ecosistemas a pubm.
 
 Los plugins permiten extender `pubm` sin bifurcar el pipeline central.
 
-Pueden:
+## `PubmPlugin`
 
-- ejecutar hooks
-- registrar comandos CLI
-- anadir registros
-- anadir ecosistemas
+```ts
+export interface PubmPlugin {
+  name: string;
+  registries?: Registry[];
+  ecosystems?: Ecosystem[];
+  hooks?: PluginHooks;
+  commands?: PluginCommand[];
+}
+```
+
+## `Ctx`
+
+```ts
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
+}
+```

@@ -5,28 +5,36 @@ description: Ajouter hooks, commandes, registres et ecosystemes a pubm.
 
 Le systeme de plugins permet d'etendre `pubm` sans forker le pipeline central.
 
-## Forme generale
+## `PubmPlugin`
 
 ```ts
-import type { PubmPlugin } from "@pubm/core";
-
-const myPlugin: PubmPlugin = {
-  name: "my-plugin",
-  hooks: {},
-  commands: [],
-  registries: [],
-  ecosystems: [],
-};
+export interface PubmPlugin {
+  name: string;
+  registries?: Registry[];
+  ecosystems?: Ecosystem[];
+  hooks?: PluginHooks;
+  commands?: PluginCommand[];
+}
 ```
 
-## Hooks
+## `Ctx`
 
-Les hooks couvrent les phases avant/apres test, build, version, publish, push, success, error et rollback.
+```ts
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
+}
+```
 
-## Commandes
+Champs utiles :
 
-Un plugin peut ajouter son propre arbre de commandes CLI.
-
-## Registres et ecosystemes
-
-Les plugins peuvent aussi enregistrer des registres et ecosystemes supplementaires.
+- `version`
+- `versions`
+- `packages`
+- `tag`
+- `preview`
+- `preflight`
+- `ci`
+- `changesetConsumed`

@@ -1,11 +1,11 @@
 ---
 title: Configuration
-description: Definir les valeurs par defaut du pipeline de release, la structure des packages et les cibles de registre.
+description: Definir les valeurs par defaut du pipeline de release, la structure des packages et les plugins.
 ---
 
 `pubm` est CLI-first, mais un vrai projet depasse vite les seuls flags. `pubm.config.*` permet de garder au niveau du depot les registres cibles, le layout des packages, les plugins et les regles de versionnement.
 
-## Decouverte du fichier
+## Fichiers de configuration pris en charge
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -14,49 +14,49 @@ description: Definir les valeurs par defaut du pipeline de release, la structure
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
 
-## Configuration minimale
+## Valeurs par defaut
 
-`pubm` infere les registries depuis les fichiers de manifeste. La plupart des projets n'ont pas besoin d'un champ `registries`:
+Le schema de configuration resolve notamment :
 
-```ts
-import { defineConfig } from "@pubm/core";
+- `versioning: "independent"`
+- `packages: [{ path: "." }]`
+- `fixed: []`
+- `linked: []`
+- `tag: "latest"`
+- `snapshotTemplate: "{tag}-{timestamp}"`
 
-export default defineConfig({});
-```
+## Inference des registres
 
-## Inference des registries
-
-| Manifeste | Registry inferee |
+| Manifeste | Registre infere |
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-## Config vs flags CLI
+Regles npm supplementaires :
 
-- la config fournit les valeurs par defaut pour `packages` et `plugins`
-- `versioning`, `fixed`, `linked` sont utilises par les changesets
-- les registries sont inferees; `packages[].registries` permet de les surcharger
+- `publishConfig.registry` remplace `npm`
+- `.npmrc` remplace `npm` si `publishConfig` est absent
 
-## Exemple multi-package
+## Options importantes
 
-Les registries sont inferees depuis les manifestes de chaque package:
+- `packages` : declaration explicite des packages a publier
+- `plugins` : hooks, commandes et extensions runtime
+- `versioning`, `fixed`, `linked` : planification des versions
+- `ignore` : exclusions de discovery
+- `snapshotTemplate` : format des versions snapshot
+
+## Configuration multi-package
 
 ```ts
 export default defineConfig({
   versioning: "independent",
   packages: [
     { path: "packages/core" },
-    { path: "packages/cli", registries: ["npm"] }, // surcharge
+    { path: "packages/cli", registries: ["npm"] },
     { path: "crates/pubm-rs" },
   ],
 });
 ```
 
-## Strategies
-
-- `independent`: chaque package evolue a son rythme
-- `fixed`: un meme numero de version pour tous les packages concernes
-- `fixed` / `linked`: groupes hybrides
-
-Voir [Plugins API Reference](/pubm/fr/reference/plugins/) pour les plugins.
+Utilisez `registries` seulement quand l'inference n'est pas suffisante ou pour ajouter un registre prive.

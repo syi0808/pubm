@@ -3,107 +3,18 @@ title: Changesets
 description: 记录发布意图、生成 changelog，并控制版本提升。
 ---
 
-`pubm` 使用 `.pubm/changesets/` 中的文件作为“下一次要发布什么”的持久记录，而不是从提交信息或分支名推断版本。
+`pubm` 使用 `.pubm/changesets/` 中的文件作为“下一次要发布什么”的持久记录。
 
-## 为什么重要
-
-- 在每个 PR 中保留可审查的发布计划
-- 以确定性的方式计算多包版本
-- 在发布日之前写好 changelog 文案
-
-## 位置与初始化
-
-```text
-.pubm/changesets/
-```
+## 基本命令
 
 ```bash
 pubm init
 pubm init --changesets
-```
-
-## 创建 changeset
-
-```bash
 pubm changesets add
-```
-
-```bash
-pubm changesets add \
-  --packages @acme/core,@acme/react \
-  --bump minor \
-  --message "为公共客户端添加 token 认证"
-```
-
-占位文件：
-
-```bash
-pubm changesets add --empty
-```
-
-## 文件内容
-
-```md
----
-"@acme/core": minor
-"@acme/react": patch
----
-
-为公共客户端添加 token 认证
-```
-
-frontmatter 用于版本计算，正文用于 changelog 摘要。
-
-## bump 类型
-
-### `patch`
-
-- bug 修复
-- 对用户有影响的小修正
-- 不改变公开 API 的内部改进
-
-### `minor`
-
-- 向后兼容的新功能
-- 新的 CLI flag
-- 不破坏现有调用方的新 API
-
-### `major`
-
-- 移除选项或命令
-- 不兼容的运行时要求
-- 需要用户修改代码或配置的行为变化
-
-## 检查待处理 changeset
-
-```bash
-pubm changesets status
 pubm changesets status --verbose
-```
-
-## 预览版本写入
-
-```bash
 pubm changesets version --dry-run
 ```
 
-## 消费 changeset
+## 在 release 流程中消费 changeset
 
-```bash
-pubm changesets version
-```
-
-它会读取 pending 文件、计算版本、生成 changelog、删除已消费文件，并创建版本提交。
-
-## 仅生成 changelog
-
-```bash
-pubm changesets changelog --dry-run
-pubm changesets changelog --version 1.8.0
-```
-
-## 从 `.changeset/` 迁移
-
-```bash
-pubm changesets migrate
-```
+执行 `pubm` 时，待处理 changeset 会在 version 阶段被自动消费。`pubm changesets version` 仍然适用于受控流程，但在 `pubm` 或 `pubm --ci` 之前并不是必需步骤。
