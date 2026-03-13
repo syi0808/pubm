@@ -115,25 +115,6 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## prerelease 모드
-
-```bash
-pubm changesets pre enter beta
-pubm changesets version
-pubm patch --tag beta
-pubm changesets pre exit
-```
-
-## snapshot 릴리스
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --dry-run
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
-snapshot은 임시 배포용이며 영구 semver 기록과는 별개입니다.
-
 ## `.changeset/`에서 마이그레이션
 
 ```bash

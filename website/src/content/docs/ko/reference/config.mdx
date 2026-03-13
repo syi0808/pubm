@@ -10,7 +10,7 @@ description: "`pubm.config.*`에서 지원하는 필드와 기본값, 사용 메
 - `packages`
 - `plugins`
 - `versioning`, `fixed`, `linked`
-- `snapshot.useCalculatedVersion`
+- `snapshotTemplate`
 
 ## 기본 설정
 
@@ -38,10 +38,7 @@ export default defineConfig({
     entryPoints: true,
     extraneousFiles: true,
   },
-  snapshot: {
-    useCalculatedVersion: false,
-    prereleaseTemplate: "{tag}-{timestamp}",
-  },
+  snapshotTemplate: "{tag}-{timestamp}",
 });
 ```
 
@@ -167,11 +164,16 @@ publish 파이프라인 전에 `chdir`할 디렉터리입니다.
 
 공개 스키마에는 포함되지만 현재 파이프라인에서 모두 활성 토글은 아닙니다.
 
-### `snapshot`
+### `snapshotTemplate`
 
-```ts
-{
-  useCalculatedVersion: false,
-  prereleaseTemplate: "{tag}-{timestamp}",
-}
-```
+- 타입: `string`
+- 기본값: `"{tag}-{timestamp}"`
+
+`--snapshot` 플래그 사용 시 버전 문자열 템플릿입니다.
+
+사용 가능한 변수:
+
+- `{base}` — 매니페스트 파일의 현재 기본 버전
+- `{tag}` — snapshot 태그 (기본값: `snapshot`)
+- `{timestamp}` — 빌드 시점의 Unix 타임스탬프
+- `{commit}` — 짧은 Git 커밋 해시

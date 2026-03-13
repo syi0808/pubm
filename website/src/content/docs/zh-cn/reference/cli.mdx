@@ -29,9 +29,6 @@ pubm
 | `pubm changesets status` | 查看 pending changeset 与 bump 影响 |
 | `pubm changesets version` | 消费 changeset 并写入新版本 |
 | `pubm changesets changelog` | 从 pending changeset 渲染 changelog |
-| `pubm changesets pre enter <tag>` | 进入 prerelease 模式 |
-| `pubm changesets pre exit` | 退出 prerelease 模式 |
-| `pubm changesets snapshot [tag]` | 发布临时 snapshot |
 | `pubm changesets migrate` | 从 `.changeset/` 迁移 |
 
 ## 顶层 publish 命令
@@ -70,6 +67,7 @@ pubm patch --tag beta
 | `--test-script <script>` | 测试步骤脚本名 |
 | `--build-script <script>` | 构建步骤脚本名 |
 | `--no-save-token` | 不保存 token |
+| `--snapshot [tag]` | 发布临时快照版本（默认标签：snapshot） |
 
 ## 流水线控制
 
