@@ -36,6 +36,7 @@ interface CliOptions {
   publishOnly: boolean;
   ci?: boolean;
   preflight?: boolean;
+  snapshot?: string | boolean;
   releaseDraft: boolean;
   tag: string;
   contents?: string;
@@ -101,6 +102,10 @@ export function createProgram(): Command {
       "--preflight",
       "Simulate CI publish locally (dry-run with token-based auth)",
     )
+    .option(
+      "--snapshot [tag]",
+      "Publish a temporary snapshot version (default tag: snapshot)",
+    )
     .option("-t, --tag <name>", "Publish under a specific dist-tag", "latest")
     .option("-c, --contents <path>", "Subdirectory to publish")
     .option(
@@ -119,8 +124,31 @@ export function createProgram(): Command {
       ): Promise<void> => {
         console.clear();
 
+        if (options.snapshot && options.preflight) {
+          throw new Error(
+            "Cannot use --snapshot and --preflight together.",
+          );
+        }
+
         if (!isCI) {
           await notifyNewVersion();
+        }
+
+        if (options.snapshot) {
+          const snapshotTag =
+            typeof options.snapshot === "string"
+              ? options.snapshot
+              : "snapshot";
+
+          await pubm({
+            ...resolveCliOptions({
+              ...options,
+              version: "snapshot",
+              tag: snapshotTag,
+            } as CliOptions),
+            snapshot: snapshotTag,
+          });
+          return;
         }
 
         const context: {
