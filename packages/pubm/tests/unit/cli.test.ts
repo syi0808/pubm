@@ -203,6 +203,39 @@ describe("CLI action handler - non-CI mode", () => {
 
     expect(clearSpy).toHaveBeenCalled();
   });
+
+  it("uses the default snapshot tag when --snapshot has no explicit value", async () => {
+    await run("--snapshot");
+
+    expect(mockNotifyNewVersion).toHaveBeenCalledOnce();
+    expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "snapshot",
+        tag: "snapshot",
+        snapshot: "snapshot",
+      }),
+    );
+  });
+
+  it("passes an explicit snapshot tag through to pubm", async () => {
+    await run("--snapshot", "canary");
+
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "snapshot",
+        tag: "canary",
+        snapshot: "canary",
+      }),
+    );
+  });
+
+  it("rejects --snapshot and --preflight when used together", async () => {
+    await expect(run("--snapshot", "--preflight")).rejects.toThrow(
+      "Cannot use --snapshot and --preflight together.",
+    );
+    expect(mockPubm).not.toHaveBeenCalled();
+  });
 });
 
 describe("CLI action handler - CI mode", () => {

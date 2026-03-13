@@ -197,6 +197,18 @@ describe("consoleError", () => {
     expect(output).not.toContain("non-zero");
   });
 
+  it("should skip generic non-zero child-process causes", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("Process exited with non-zero status 1");
+    const error = new AbstractError("Failed to publish", { cause });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("Failed to publish");
+    expect(output).not.toContain("Caused by:");
+  });
+
   it("should show cause chain when cause has meaningful info", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const cause = new AbstractError("network timeout");
@@ -218,6 +230,34 @@ describe("consoleError", () => {
 
     const output = spy.mock.calls[0][0] as string;
     expect(output).not.toContain("Caused by:");
+  });
+
+  it("should render non-Error causes that still add context", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new AbstractError("Registry request failed", {
+      cause: 503,
+    });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("Caused by:");
+    expect(output).toContain("503");
+  });
+
+  it("should stringify malformed Error.message values", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new Error("ignored");
+
+    Object.defineProperty(error, "message", {
+      value: { detail: "structured failure" },
+      configurable: true,
+    });
+
+    consoleError(error);
+
+    const output = spy.mock.calls[0][0] as string;
+    expect(output).toContain("[object Object]");
   });
 
   it("should format deeply nested cause chains", () => {

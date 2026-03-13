@@ -13,9 +13,11 @@ vi.mock("semver", () => ({
   }),
 }));
 
+import { inc } from "semver";
 import { readChangesets } from "../../../src/changeset/reader.js";
 import { calculateVersionBumps } from "../../../src/changeset/version.js";
 
+const mockedInc = vi.mocked(inc);
 const mockedReadChangesets = vi.mocked(readChangesets);
 
 beforeEach(() => {
@@ -105,6 +107,68 @@ describe("calculateVersionBumps", () => {
 
     const currentVersions = new Map([["pkg-a", "1.0.0"]]);
     const result = calculateVersionBumps(currentVersions, "/tmp/project");
+
+    expect(result.size).toBe(0);
+  });
+
+  it("uses process.cwd() when cwd is omitted", () => {
+    mockedReadChangesets.mockReturnValue([]);
+
+    calculateVersionBumps(new Map([["pkg-a", "1.0.0"]]));
+
+    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd());
+  });
+
+  it("ignores releases for packages that are not in currentVersions", () => {
+    mockedReadChangesets.mockReturnValue([
+      {
+        id: "change-1",
+        summary: "Unknown package.",
+        releases: [{ name: "pkg-b", type: "patch" }],
+      },
+    ]);
+
+    const result = calculateVersionBumps(
+      new Map([["pkg-a", "1.0.0"]]),
+      "/tmp/project",
+    );
+
+    expect(result.size).toBe(0);
+    expect(mockedInc).not.toHaveBeenCalled();
+  });
+
+  it("skips packages whose current version resolves to an empty value", () => {
+    mockedReadChangesets.mockReturnValue([
+      {
+        id: "change-1",
+        summary: "Broken metadata.",
+        releases: [{ name: "pkg-a", type: "patch" }],
+      },
+    ]);
+
+    const currentVersions = new Map([
+      ["pkg-a", undefined as unknown as string],
+    ]);
+    const result = calculateVersionBumps(currentVersions, "/tmp/project");
+
+    expect(result.size).toBe(0);
+    expect(mockedInc).not.toHaveBeenCalled();
+  });
+
+  it("ignores changesets when semver cannot produce a next version", () => {
+    mockedReadChangesets.mockReturnValue([
+      {
+        id: "change-1",
+        summary: "Unsupported bump.",
+        releases: [{ name: "pkg-a", type: "patch" }],
+      },
+    ]);
+    mockedInc.mockReturnValueOnce(null as never);
+
+    const result = calculateVersionBumps(
+      new Map([["pkg-a", "1.0.0"]]),
+      "/tmp/project",
+    );
 
     expect(result.size).toBe(0);
   });

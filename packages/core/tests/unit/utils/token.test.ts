@@ -140,4 +140,33 @@ describe("injectTokensToEnv", () => {
       process.env["npm_config_//registry.npmjs.org/:_authToken"],
     ).toBeUndefined();
   });
+
+  it("restores previously defined env vars for registries without additional env vars", () => {
+    const original = process.env.JSR_TOKEN;
+    process.env.JSR_TOKEN = "old-jsr-token";
+
+    try {
+      const cleanup = injectTokensToEnv({ jsr: "new-jsr-token" });
+
+      expect(process.env.JSR_TOKEN).toBe("new-jsr-token");
+
+      cleanup();
+
+      expect(process.env.JSR_TOKEN).toBe("old-jsr-token");
+    } finally {
+      if (original === undefined) delete process.env.JSR_TOKEN;
+      else process.env.JSR_TOKEN = original;
+    }
+  });
+
+  it("ignores unknown registries when injecting tokens", () => {
+    const previousNodeAuthToken = process.env.NODE_AUTH_TOKEN;
+
+    const cleanup = injectTokensToEnv({ unknown: "ignored-token" });
+
+    expect(process.env.NODE_AUTH_TOKEN).toBe(previousNodeAuthToken);
+
+    cleanup();
+    expect(process.env.NODE_AUTH_TOKEN).toBe(previousNodeAuthToken);
+  });
 });

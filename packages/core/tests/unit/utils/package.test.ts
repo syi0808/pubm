@@ -999,6 +999,29 @@ describe("replaceVersion", () => {
     );
   });
 
+  it("includes non-Error Cargo.lock sync failures in the error message", async () => {
+    const { mockStat } = await getFsMocks();
+    const { replaceVersion } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: vi.fn().mockResolvedValue(undefined),
+        syncLockfile: vi.fn().mockRejectedValue("sync denied"),
+      } as any;
+    });
+
+    const packages = [
+      { path: "rust/crates/my-crate", registries: ["crates"] as any[] },
+    ];
+
+    await expect(replaceVersion("2.0.0", packages)).rejects.toThrow(
+      "Failed to sync Cargo.lock at rust/crates/my-crate: sync denied",
+    );
+  });
+
   it("handles mixed JS and Rust packages together", async () => {
     const { mockReadFile, mockStat, mockWriteFile } = await getFsMocks();
     const { replaceVersion } = await freshImport();
@@ -1344,5 +1367,33 @@ describe("replaceVersions", () => {
     expect(result).toEqual([]);
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockWriteVersion).not.toHaveBeenCalled();
+  });
+
+  it("skips sibling version updates and shared lockfiles for a single crates package", async () => {
+    const { mockReadFile } = await getFsMocks();
+    const { replaceVersions } = await freshImport();
+    const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
+
+    mockReadFile.mockRejectedValue(new Error("ENOENT"));
+
+    const mockUpdateSiblingDependencyVersions = vi.fn();
+    const mockSyncLockfile = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(RustEcosystem).mockImplementation(function () {
+      return {
+        writeVersion: vi.fn().mockResolvedValue(undefined),
+        syncLockfile: mockSyncLockfile,
+        packageName: vi.fn().mockResolvedValue("crate-a"),
+        updateSiblingDependencyVersions: mockUpdateSiblingDependencyVersions,
+      } as any;
+    });
+
+    const result = await replaceVersions(new Map([["@pubm/core", "2.0.0"]]), [
+      { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+    ] as any);
+
+    expect(mockUpdateSiblingDependencyVersions).not.toHaveBeenCalled();
+    expect(mockSyncLockfile).toHaveBeenCalledOnce();
+    expect(result).toEqual([path.join("rust/crates/crate-a", "Cargo.toml")]);
   });
 });
