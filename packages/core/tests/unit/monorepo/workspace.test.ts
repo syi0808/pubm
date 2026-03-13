@@ -13,12 +13,12 @@ vi.mock("smol-toml", () => ({
   parse: vi.fn(),
 }));
 
-vi.mock("jsonc-parser", () => ({
+vi.mock("jsonc-parser/lib/esm/main.js", () => ({
   parse: vi.fn(),
 }));
 
 import { existsSync, readFileSync } from "node:fs";
-import { parse as parseJsonc } from "jsonc-parser";
+import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
 import { parse } from "yaml";
 import { detectWorkspace } from "../../../src/monorepo/workspace.js";
