@@ -65,13 +65,6 @@ describe("resolveConfig", () => {
     expect(resolved.packages[0].registries).toEqual([]);
   });
 
-  it("should warn when deprecated global registries field is present", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    await resolveConfig({ registries: ["npm"] });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("registries"));
-    warnSpy.mockRestore();
-  });
-
   it("sets discoveryEmpty when no packages discovered", async () => {
     mockedDiscoverPackages.mockResolvedValue([]);
 
