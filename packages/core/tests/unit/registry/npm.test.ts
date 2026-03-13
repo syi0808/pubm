@@ -421,6 +421,24 @@ describe("NpmRegistry", () => {
       });
     });
 
+    it("falls back to plain publish when npm reports a provenance bundle error", async () => {
+      const provenanceError = new NonZeroExitError("npm", 1, {
+        stderr: "npm ERR! provenance bundle could not be verified",
+        stdout: "",
+      });
+      mockedExec.mockRejectedValueOnce(provenanceError).mockResolvedValueOnce({
+        stdout: "+ my-package@1.0.0",
+        stderr: "",
+      } as any);
+
+      const result = await registry.publishProvenance();
+
+      expect(result).toBe(true);
+      expect(mockedExec).toHaveBeenNthCalledWith(2, "npm", ["publish"], {
+        throwOnError: true,
+      });
+    });
+
     it("throws NpmError with forbidden message for 403 errors", async () => {
       mockNonZeroExitError("403 Forbidden");
 
@@ -518,6 +536,26 @@ describe("NpmRegistry", () => {
 
       await expect(registry.publish()).rejects.toThrow(/rate/i);
     });
+
+    it("classifies forbidden errors even when npm omits the status code", async () => {
+      mockNonZeroExitError("Forbidden: package access denied");
+
+      await expect(registry.publish()).rejects.toThrow(/permission denied/i);
+    });
+
+    it("classifies rate limiting when npm only reports the reason phrase", async () => {
+      mockNonZeroExitError("Too Many Requests from npm registry");
+
+      await expect(registry.publish()).rejects.toThrow(/rate limited/i);
+    });
+
+    it("wraps non-process errors with a generic publish failure", async () => {
+      mockedExec.mockRejectedValue(new Error("socket hang up"));
+
+      await expect(registry.publish()).rejects.toThrow(
+        "Failed to publish to npm",
+      );
+    });
   });
 
   describe("dryRunPublish()", () => {
@@ -535,6 +573,19 @@ describe("NpmRegistry", () => {
       mockedExec.mockRejectedValue(new Error("dry-run failed"));
       await expect(registry.dryRunPublish()).rejects.toThrow(
         "Failed to run `npm publish --dry-run`",
+      );
+    });
+
+    it("includes stderr output when dry-run exits non-zero", async () => {
+      mockedExec.mockRejectedValue(
+        new NonZeroExitError("npm", 1, {
+          stdout: "",
+          stderr: "npm ERR! code ENEEDAUTH",
+        }),
+      );
+
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "npm ERR! code ENEEDAUTH",
       );
     });
   });
@@ -571,6 +622,14 @@ describe("NpmRegistry", () => {
 
     it("returns null on command failure", async () => {
       mockedExec.mockRejectedValue(new Error("not logged in"));
+
+      const result = await registry.twoFactorAuthMode();
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when npm returns a null profile payload", async () => {
+      mockStdout("null");
 
       const result = await registry.twoFactorAuthMode();
 

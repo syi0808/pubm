@@ -219,7 +219,7 @@ export class NpmRegistry extends Registry {
       });
     } catch (error) {
       const stderr =
-        error instanceof NonZeroExitError ? error.output?.stderr : undefined;
+        error instanceof NonZeroExitError ? error.output.stderr : undefined;
       throw new NpmError(
         `Failed to run \`npm publish --dry-run\`${stderr ? `\n${stderr}` : ""}`,
         { cause: error },
@@ -251,7 +251,7 @@ export class NpmRegistry extends Registry {
 
   private isProvenanceError(error: unknown): boolean {
     if (!(error instanceof NonZeroExitError)) return false;
-    const stderr = error.output?.stderr ?? "";
+    const stderr = error.output.stderr;
     return (
       stderr.includes("verifying sigstore provenance") ||
       stderr.includes("provenance bundle")
@@ -260,7 +260,7 @@ export class NpmRegistry extends Registry {
 
   private classifyPublishError(error: unknown): NpmError {
     if (error instanceof NonZeroExitError) {
-      const stderr = error.output?.stderr ?? "";
+      const stderr = error.output.stderr;
 
       if (stderr.includes("EOTP")) {
         return new NpmError("OTP required for publishing", { cause: error });

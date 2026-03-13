@@ -640,6 +640,54 @@ describe("run", () => {
       }
     });
 
+    it("renders trailing partial test output before the process flushes a newline", async () => {
+      const originalIsTTY = process.stdout.isTTY;
+      try {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: true,
+          configurable: true,
+        });
+
+        const options = createOptions();
+        await run(options);
+
+        mockedExec.mockClear();
+        mockedExec.mockImplementationOnce(
+          async (_command, _args, execOptions) => {
+            execOptions.onStdout?.("partial line");
+
+            return {
+              exitCode: 0,
+              stderr: "",
+              stdout: "partial line",
+            };
+          },
+        );
+
+        const callArgs = mockedCreateListr.mock.calls[0];
+        const tasks = callArgs[0] as any[];
+        const testTask = tasks[0];
+        const { outputHistory, task: mockTask } = createMockTaskRecorder();
+
+        await testTask.task(
+          {
+            ...options,
+            ci: false,
+            promptEnabled: true,
+            pluginRunner: new PluginRunner([]),
+          },
+          mockTask,
+        );
+
+        expect(outputHistory).toContain("Executing `pnpm run test`\npartial line");
+      } finally {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: originalIsTTY,
+          configurable: true,
+        });
+      }
+    });
+
     it("does not attach live output callbacks in CI mode", async () => {
       const originalIsTTY = process.stdout.isTTY;
       try {
@@ -752,6 +800,43 @@ describe("run", () => {
       // Execute the captured rollback
       expect(capturedRollback).toBeDefined();
       await capturedRollback!();
+    });
+
+    it("stashes and restores dirty files while rolling back a release commit", async () => {
+      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+
+      let capturedRollback: Function | undefined;
+      const stash = vi.fn().mockResolvedValue(undefined);
+      const popStash = vi.fn().mockResolvedValue(undefined);
+      mockedAddRollback.mockImplementation((fn: any) => {
+        capturedRollback = fn;
+      });
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+          push: vi.fn().mockResolvedValue(true),
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+          firstCommit: vi.fn().mockResolvedValue("aaa"),
+          commits: vi.fn().mockResolvedValue([{ id: "abc", message: "feat" }]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash,
+          popStash,
+          status: vi.fn().mockResolvedValue(" M package.json"),
+        } as any;
+      });
+
+      await run(createOptions());
+
+      expect(capturedRollback).toBeDefined();
+      await capturedRollback!();
+
+      expect(stash).toHaveBeenCalledOnce();
+      expect(popStash).toHaveBeenCalledOnce();
     });
 
     it("push tags handles GH006 protected branch by pushing only tags", async () => {
@@ -1379,6 +1464,36 @@ describe("run", () => {
 
       const logMessage = consoleSpy.mock.calls[0][0] as string;
       expect(logMessage).toContain("Preflight check passed");
+    });
+
+    it("falls back to npm dry-run subtasks for unknown registries in preflight mode", async () => {
+      await run(createOptions({ preflight: true, registries: ["custom-registry"] }));
+
+      const pipelineCall = mockedCreateListr.mock.calls[1];
+      const tasks = pipelineCall[0] as any[];
+      const validateTask = tasks[5];
+      const parentTask = {
+        output: "",
+        title: "",
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+      const ctx: any = {
+        registries: ["custom-registry"],
+        pluginRunner: new PluginRunner([]),
+      };
+
+      await validateTask.task(ctx, parentTask);
+
+      const ecosystemTasks = parentTask.newListr.mock.calls[0][0];
+      const ecosystemParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+
+      await ecosystemTasks[0].task(ctx, ecosystemParentTask);
+
+      expect(ecosystemParentTask.newListr.mock.calls[0][0][0].title).toBe(
+        "Dry-run npm publish",
+      );
     });
   });
 });

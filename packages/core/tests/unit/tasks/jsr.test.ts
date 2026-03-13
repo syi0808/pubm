@@ -31,6 +31,10 @@ vi.mock("../../../src/utils/package.js", () => ({
   patchCachedJsrJson: vi.fn(),
 }));
 
+vi.mock("../../../src/utils/open-url.js", () => ({
+  openUrl: vi.fn(),
+}));
+
 vi.mock("../../../src/utils/rollback.js", () => ({
   addRollback: vi.fn(),
 }));
@@ -43,6 +47,7 @@ import {
   jsrPublishTasks,
 } from "../../../src/tasks/jsr.js";
 import type { Ctx } from "../../../src/tasks/runner.js";
+import { openUrl } from "../../../src/utils/open-url.js";
 import { patchCachedJsrJson } from "../../../src/utils/package.js";
 import { getScope, isScopedPackage } from "../../../src/utils/package-name.js";
 import { addRollback } from "../../../src/utils/rollback.js";
@@ -54,6 +59,7 @@ const mockedNpmRegistry = vi.mocked(npmRegistry);
 const mockedIsScopedPackage = vi.mocked(isScopedPackage);
 const mockedGetScope = vi.mocked(getScope);
 const mockedAddRollback = vi.mocked(addRollback);
+const mockedOpenUrl = vi.mocked(openUrl);
 const mockedPatchCachedJsrJson = vi.mocked(patchCachedJsrJson);
 const mockedDb = vi.mocked(SecureStore);
 
@@ -94,6 +100,7 @@ function createMockTask() {
   return {
     output: "",
     title: "",
+    skip: vi.fn(),
     prompt: vi.fn(() => ({
       run: mockRun,
     })),
@@ -868,6 +875,101 @@ describe("jsrPublishTasks", () => {
           process.env.JSR_TOKEN = originalEnv;
         }
       }
+    });
+
+    it("opens package creation URLs and retries publish until the package exists", async () => {
+      JsrClient.token = "valid-token";
+      mockJsr.packageCreationUrls = [
+        "https://jsr.io/new?scope=scope&package=my-package",
+      ];
+      mockJsr.publish
+        .mockResolvedValueOnce(false)
+        .mockImplementationOnce(async () => {
+          mockJsr.packageCreationUrls = [
+            "https://jsr.io/new?scope=scope&package=my-package",
+          ];
+          return false;
+        })
+        .mockImplementationOnce(async () => {
+          mockJsr.packageCreationUrls = undefined;
+          return true;
+        });
+
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+      task._mockRun.mockResolvedValue("");
+
+      await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+        ctx,
+        task,
+      );
+
+      expect(mockedOpenUrl).toHaveBeenCalledWith(
+        "https://jsr.io/new?scope=scope&package=my-package",
+      );
+      expect(task.prompt).toHaveBeenCalledTimes(2);
+      expect(mockJsr.publish).toHaveBeenCalledTimes(3);
+      expect(task.title).toBe("Running jsr publish (package created)");
+    });
+
+    it("fails after three retries when the package is still missing on jsr", async () => {
+      JsrClient.token = "valid-token";
+      mockJsr.packageCreationUrls = [
+        "https://jsr.io/new?scope=scope&package=my-package",
+      ];
+      mockJsr.publish.mockResolvedValue(false);
+
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+      task._mockRun.mockResolvedValue("");
+
+      await expect(
+        (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
+      ).rejects.toThrow("Package creation not completed after 3 attempts.");
+
+      expect(task.prompt).toHaveBeenCalledTimes(3);
+      expect(mockedOpenUrl).toHaveBeenCalledOnce();
+    });
+
+    it("fails fast in non-interactive mode when package creation is required", async () => {
+      JsrClient.token = "valid-token";
+      mockJsr.packageCreationUrls = [
+        "https://jsr.io/new?scope=scope&package=my-package",
+      ];
+      mockJsr.publish.mockResolvedValue(false);
+
+      const ctx = createCtx({ promptEnabled: false });
+      const task = createMockTask();
+
+      await expect(
+        (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+          ctx,
+          task,
+        ),
+      ).rejects.toThrow("https://jsr.io/new?scope=scope&package=my-package");
+
+      expect(task.prompt).not.toHaveBeenCalled();
+      expect(mockedOpenUrl).not.toHaveBeenCalled();
+    });
+
+    it("skips the task when jsr reports the version is already published during publish", async () => {
+      JsrClient.token = "valid-token";
+      mockJsr.publish.mockRejectedValue(new Error("already published"));
+
+      const ctx = createCtx({ promptEnabled: true });
+      const task = createMockTask();
+
+      await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
+        ctx,
+        task,
+      );
+
+      expect(task.title).toBe("[SKIPPED] jsr: v1.0.0 already published");
+      expect(task.output).toContain("@scope/my-package@1.0.0");
+      expect(task.skip).toHaveBeenCalledOnce();
     });
   });
 });
