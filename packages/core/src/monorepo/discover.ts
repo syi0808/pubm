@@ -99,7 +99,8 @@ export function discoverPackages(
     if (existing) {
       discovered.set(key, {
         ...existing,
-        registries: configPkg.registries ?? existing.registries,
+        registries: (configPkg.registries ??
+          existing.registries) as RegistryType[],
         ecosystem: configPkg.ecosystem ?? existing.ecosystem,
       });
     } else {
@@ -109,10 +110,9 @@ export function discoverPackages(
       if (ecosystem) {
         discovered.set(key, {
           path: nativePath,
-          registries:
-            configPkg.registries ??
+          registries: (configPkg.registries ??
             ecosystemCatalog.get(ecosystem)?.defaultRegistries ??
-            [],
+            []) as RegistryType[],
           ecosystem,
         });
       }

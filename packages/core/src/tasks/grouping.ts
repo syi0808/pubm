@@ -73,7 +73,9 @@ export function collectEcosystemRegistryGroups(
 
   if (source.packages?.length) {
     for (const pkg of source.packages) {
-      for (const registry of dedupeRegistries(pkg.registries)) {
+      for (const registry of dedupeRegistries(
+        (pkg.registries ?? []) as RegistryType[],
+      )) {
         ensureRegistrySet(
           resolveEcosystem(registry, pkg.ecosystem),
           registry,

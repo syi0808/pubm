@@ -1,9 +1,14 @@
 import type { PubmPlugin } from "../plugin/types.js";
 import type { RegistryType } from "../types/options.js";
 
+export interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string };
+}
+
 export interface PackageConfig {
   path: string;
-  registries: RegistryType[];
+  registries?: (RegistryType | PrivateRegistryConfig)[];
   ecosystem?: "js" | "rust";
   buildCommand?: string;
   testCommand?: string;
@@ -23,6 +28,7 @@ export interface SnapshotConfig {
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
+  /** @deprecated Use manifest-based inference. This field is ignored. */
   registries?: RegistryType[];
   packages?: PackageConfig[];
   changelog?: boolean | string;

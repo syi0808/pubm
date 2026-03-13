@@ -121,7 +121,7 @@ registryCatalog.register({
   resolveDisplayName: async (ctx) => {
     return (
       ctx.packages
-        ?.filter((pkg) => pkg.registries.includes("crates"))
+        ?.filter((pkg) => pkg.registries?.includes("crates"))
         .map((pkg) => pkg.path) ?? ["crate"]
     );
   },
