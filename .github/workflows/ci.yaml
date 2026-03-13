@@ -86,9 +86,7 @@ jobs:
         run: |
           mkdir -p coverage
           if [ ! -f coverage/coverage-summary.json ]; then
-            cat > coverage/coverage-summary.json <<'EOF'
-            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
-            EOF
+            echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage/coverage-summary.json
           fi
           if [ ! -f coverage/coverage-final.json ]; then
             echo '{}' > coverage/coverage-final.json
@@ -106,9 +104,7 @@ jobs:
         run: |
           mkdir -p coverage
           if [ ! -f coverage/coverage-summary.json ]; then
-            cat > coverage/coverage-summary.json <<'EOF'
-            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
-            EOF
+            echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage/coverage-summary.json
           fi
           if [ ! -f coverage/coverage-final.json ]; then
             echo '{}' > coverage/coverage-final.json
@@ -126,9 +122,7 @@ jobs:
         run: |
           mkdir -p coverage
           if [ ! -f coverage/coverage-summary.json ]; then
-            cat > coverage/coverage-summary.json <<'EOF'
-            {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
-            EOF
+            echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage/coverage-summary.json
           fi
           if [ ! -f coverage/coverage-final.json ]; then
             echo '{}' > coverage/coverage-final.json
@@ -139,9 +133,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p coverage
-          cat > coverage/coverage-summary.json <<'EOF'
-          {"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}
-          EOF
+          echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage/coverage-summary.json
           echo '{}' > coverage/coverage-final.json
       - name: 'Report Coverage: @pubm/core'
         if: always()
