@@ -4,7 +4,7 @@ vi.mock("../../src/config/loader.js", () => ({
   loadConfig: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../src/config/defaults.js", () => ({
-  resolveConfig: vi.fn((config: any) => {
+  resolveConfig: vi.fn(async (config: any) => {
     const { registries: _ignored, ...rest } = config;
     return {
       ...rest,
@@ -48,6 +48,7 @@ vi.mock("../../src/tasks/runner.js", () => ({
   run: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { resolveConfig } from "../../src/config/defaults.js";
 import { loadConfig } from "../../src/config/loader.js";
 import { pubm } from "../../src/index.js";
 import { resolveOptions } from "../../src/options.js";
@@ -55,6 +56,7 @@ import { run } from "../../src/tasks/runner.js";
 import type { Options } from "../../src/types/options.js";
 
 const mockedLoadConfig = vi.mocked(loadConfig);
+const mockedResolveConfig = vi.mocked(resolveConfig);
 const mockedResolveOptions = vi.mocked(resolveOptions);
 const mockedRun = vi.mocked(run);
 
@@ -183,6 +185,43 @@ describe("pubm", () => {
 
     expect(mockedLoadConfig).toHaveBeenCalledOnce();
     expect(mockedRun).toHaveBeenCalledOnce();
+  });
+
+  it("throws when resolveConfig returns discoveryEmpty", async () => {
+    mockedLoadConfig.mockResolvedValueOnce({
+      versioning: "independent",
+    });
+    mockedResolveConfig.mockResolvedValueOnce({
+      discoveryEmpty: true,
+      packages: [],
+      versioning: "independent",
+      branch: "main",
+      changelog: true,
+      changelogFormat: "default",
+      commit: false,
+      access: "public",
+      fixed: [],
+      linked: [],
+      updateInternalDependencies: "patch",
+      ignore: [],
+      tag: "latest",
+      contents: ".",
+      saveToken: true,
+      releaseDraft: true,
+      releaseNotes: true,
+      rollbackStrategy: "individual",
+      validate: {
+        cleanInstall: true,
+        entryPoints: true,
+        extraneousFiles: true,
+      },
+      snapshotTemplate: "{tag}-{timestamp}",
+    });
+
+    await expect(pubm({ version: "1.0.0" })).rejects.toThrow(
+      "[pubm] No publishable packages found",
+    );
+    expect(mockedRun).not.toHaveBeenCalled();
   });
 
   it("does not propagate deprecated global registries from config", async () => {
