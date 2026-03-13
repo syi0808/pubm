@@ -1,0 +1,269 @@
+---
+title: Core SDK Reference
+description: Public functions, classes, and exported types available from @pubm/core.
+---
+
+`@pubm/core` is the programmatic API behind the `pubm` CLI. This page covers the public identifiers exported from the package root:
+
+```ts
+import { ... } from "@pubm/core";
+```
+
+The package ships type declarations and both ESM/CJS entry points. The current package metadata declares `node >= 24`.
+
+## Install
+
+```bash
+npm install @pubm/core
+pnpm add @pubm/core
+bun add @pubm/core
+```
+
+## Release pipeline
+
+### `pubm(options)`
+
+Runs the same release pipeline that powers the CLI.
+
+```ts
+import { pubm } from "@pubm/core";
+
+await pubm({
+  version: "patch",
+  preview: true,
+  tag: "next",
+});
+```
+
+`pubm()` accepts an `Options` object. The most important fields are:
+
+| Field | Type | Purpose |
+|------|------|---------|
+| `version` | `string` | Required release target such as `patch`, `minor`, `major`, or an explicit semver. |
+| `preview` | `boolean` | Show the task plan without mutating Git state or publishing. |
+| `branch` | `string` | Require a specific branch before publishing. |
+| `anyBranch` | `boolean` | Disable branch enforcement for one run. |
+| `tag` | `string` | Publish under a dist-tag like `latest`, `next`, or `beta`. |
+| `snapshot` | `string \| boolean` | Build a snapshot version using the configured template. |
+| `packages` | `PackageConfig[]` | Override auto-discovered packages. |
+| `preflight` | `boolean` | Simulate CI locally and dry-run publish checks. |
+| `ci` | `boolean` | Publish from the latest tag and create a GitHub Release. |
+| `publishOnly` | `boolean` | Publish artifacts without rerunning the full preparation pipeline. |
+
+For config-driven releases, `pubm()` automatically loads `pubm.config.*`, resolves package discovery, and wires plugins before running the task graph.
+
+## Config helpers
+
+These helpers are the main entry points for code that wants to read or validate `pubm.config.*`.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `defineConfig` | function | Typed helper for authoring `pubm.config.ts`. |
+| `loadConfig` | function | Load `pubm.config.*` from disk and return `PubmConfig \| null`. |
+| `resolveConfig` | function | Apply defaults, auto-discover packages, and normalize private registries. |
+| `PubmConfig` | type | User-authored config shape. |
+| `ResolvedPubmConfig` | type | Fully-resolved config returned by `resolveConfig()`. |
+| `PackageConfig` | type | Per-package config entry used by discovery and publish planning. |
+
+```ts
+import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [{ path: "packages/core" }],
+});
+
+const config = await loadConfig(process.cwd());
+const resolved = config ? await resolveConfig(config, process.cwd()) : null;
+```
+
+`PackageConfig` is the place to override per-package registries, ecosystem, build command, or test command:
+
+```ts
+type PackageConfig = {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | string | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+};
+```
+
+## Plugin API
+
+Use the plugin exports when you want to extend the publish pipeline with custom registries, ecosystems, lifecycle hooks, or CLI commands.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `PubmPlugin` | type | Top-level plugin contract. |
+| `PluginHooks` | type | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, and `afterRelease`. |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook signatures. |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Custom CLI command model for plugins. |
+| `PluginRunner` | class | Utility that executes hooks and collects registries/ecosystems from loaded plugins. |
+| `ReleaseContext` / `ReleaseAsset` | types | Metadata passed to `afterRelease` hooks. |
+
+```ts
+import { defineConfig, type PubmPlugin } from "@pubm/core";
+
+const plugin: PubmPlugin = {
+  name: "announce",
+  hooks: {
+    afterPublish(ctx) {
+      console.log("published", ctx.version);
+    },
+  },
+};
+
+export default defineConfig({
+  plugins: [plugin],
+});
+```
+
+## Changeset and versioning helpers
+
+The changeset exports let you build custom tooling around `.pubm/changesets`.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `readChangesets` / `parseChangeset` | functions | Read and parse `.pubm/changesets/*.md`. |
+| `getStatus` | function | Aggregate pending changesets by package. |
+| `discoverCurrentVersions` / `discoverPackageInfos` | functions | Read current package names and versions from the workspace. |
+| `calculateVersionBumps` | function | Compute next versions from current versions plus pending changesets. |
+| `generateChangesetId` / `generateChangesetContent` / `writeChangeset` | functions | Create new changeset files. |
+| `buildChangelogEntries` / `generateChangelog` / `writeChangelogToFile` | functions | Build changelog output from changesets. |
+| `migrateFromChangesets` | function | Copy legacy `.changeset/` data into `.pubm/`. |
+| `deleteChangesetFiles` | function | Remove consumed changeset files. |
+| `parseChangelogSection` | function | Parse a changelog section back into structured data. |
+
+Important related types:
+
+| Type | Purpose |
+|------|---------|
+| `Changeset` | Parsed `.md` file with `id`, `summary`, and package releases. |
+| `Release` | One package bump entry inside a changeset. |
+| `BumpType` | `"patch" \| "minor" \| "major"`. |
+| `Status` / `PackageStatus` | Aggregated pending state from `getStatus()`. |
+| `VersionBump` | Version planning result from `calculateVersionBumps()`. |
+| `ChangelogEntry` / `DependencyUpdate` | Changelog rendering inputs. |
+| `PackageVersionInfo` | Package name, version, and path returned by discovery helpers. |
+| `MigrationResult` | Result object returned by `migrateFromChangesets()`. |
+
+```ts
+import {
+  calculateVersionBumps,
+  discoverCurrentVersions,
+  getStatus,
+} from "@pubm/core";
+
+const currentVersions = await discoverCurrentVersions(process.cwd());
+const status = getStatus(process.cwd());
+const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+```
+
+## Monorepo and workspace helpers
+
+These exports are useful when you need the same workspace discovery logic that `pubm` uses internally.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `detectWorkspace` | function | Detect pnpm, npm, Yarn, Bun, Cargo, or Deno workspaces from repository files. |
+| `discoverPackages` | function | Auto-discover publishable packages and infer registries/ecosystems. |
+| `buildDependencyGraph` | function | Build an internal dependency graph from package metadata. |
+| `topologicalSort` | function | Sort graph nodes so dependencies come first. |
+| `resolveGroups` | function | Resolve fixed/linked groups against a discovered package list. |
+| `applyFixedGroup` / `applyLinkedGroup` | functions | Apply group semantics to version planning. |
+| `Git` | class | Thin wrapper around Git commands used by release automation. |
+
+Important related types:
+
+| Type | Purpose |
+|------|---------|
+| `WorkspaceInfo` | Workspace type plus include/exclude patterns. |
+| `DiscoverOptions` | Input for `discoverPackages()`. |
+| `DiscoveredPackage` | Auto-detected package path, registries, and ecosystem. |
+| `PackageNode` | Input node used for dependency graph building. |
+
+```ts
+import {
+  buildDependencyGraph,
+  discoverPackages,
+  topologicalSort,
+} from "@pubm/core";
+
+const discovered = await discoverPackages({ cwd: process.cwd() });
+
+const graph = buildDependencyGraph([
+  {
+    name: "@acme/core",
+    version: "1.0.0",
+    path: "packages/core",
+    dependencies: { "@acme/utils": "^1.0.0" },
+  },
+  {
+    name: "@acme/utils",
+    version: "1.0.0",
+    path: "packages/utils",
+    dependencies: {},
+  },
+]);
+
+const ordered = topologicalSort(graph);
+```
+
+## Validation and utility helpers
+
+The package root also exports the helpers below for tooling integrations.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `validateEntryPoints` | function | Check `main`, `module`, `types`, `exports`, and `bin` paths in a package manifest. |
+| `detectExtraneousFiles` | function | Flag files that should usually stay out of publish artifacts. |
+| `getPackageJson` | function | Read the nearest `package.json`, with optional `jsr.json` fallback. |
+| `replaceVersion` / `replaceVersionAtPath` | functions | Rewrite package versions in manifests. |
+| `version` | function | Read the current package version from `package.json` or `jsr.json`. |
+| `generateSnapshotVersion` | function | Build snapshot versions from `base`, `tag`, `timestamp`, and optional `commit`. |
+| `loadTokensFromDb` | function | Load stored registry tokens, also honoring matching env vars. |
+| `syncGhSecrets` | function | Push registry tokens into GitHub Secrets via `gh secret set`. |
+| `exec` | function | Spawn a subprocess and capture stdout/stderr. |
+| `getPackageManager` | function | Detect the workspace package manager from lockfiles. |
+| `detectRuntime` / `isBun` | functions | Detect the current runtime. |
+| `notifyNewVersion` | function | Check for a newer published `pubm` version and print an update banner. |
+| `consoleError` | function | Format and print pubm errors. |
+| `PUBM_VERSION` / `PUBM_ENGINES` | constants | Package metadata exposed at runtime. |
+
+Important related types:
+
+| Type | Purpose |
+|------|---------|
+| `EntryPointError` | Validation result entry for broken manifest paths. |
+| `ExtraneousFile` | Validation result entry for files that should not be published. |
+| `SnapshotOptions` | Input for `generateSnapshotVersion()`. |
+| `Runtime` | `"node" \| "bun"`. |
+
+```ts
+import {
+  generateSnapshotVersion,
+  loadTokensFromDb,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const nextSnapshot = generateSnapshotVersion({
+  baseVersion: "1.4.0",
+  tag: "snapshot",
+  commit: "abc1234",
+  template: "{base}-{tag}-{timestamp}-{commit}",
+});
+
+const entryPointErrors = validateEntryPoints(
+  {
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+  },
+  process.cwd(),
+);
+
+const tokens = loadTokensFromDb(["npm", "jsr"]);
+```
+
+## Export policy
+
+This page documents the stable surface exported from the package root today. Internal files under `packages/core/src/**` may exist, but if they are not re-exported from `@pubm/core`, they should be treated as private implementation details.

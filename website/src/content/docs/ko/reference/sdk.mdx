@@ -1,0 +1,145 @@
+---
+title: "Core SDK 레퍼런스"
+description: "@pubm/core에서 루트 엔트리로 공개하는 함수, 클래스, 타입 요약."
+---
+
+`@pubm/core`는 `pubm` CLI의 프로그램용 API입니다. 이 문서는 패키지 루트에서 바로 import 가능한 공개 식별자만 다룹니다.
+
+```ts
+import { ... } from "@pubm/core";
+```
+
+패키지는 타입 선언과 ESM/CJS 엔트리를 함께 제공합니다. 현재 패키지 메타데이터의 런타임 요구사항은 `node >= 24`입니다.
+
+## 설치
+
+```bash
+npm install @pubm/core
+pnpm add @pubm/core
+bun add @pubm/core
+```
+
+## 핵심 API
+
+### `pubm(options)`
+
+CLI와 같은 릴리스 파이프라인을 코드에서 실행합니다.
+
+```ts
+import { pubm } from "@pubm/core";
+
+await pubm({
+  version: "patch",
+  preview: true,
+  tag: "next",
+});
+```
+
+가장 많이 쓰는 `Options` 필드는 아래와 같습니다.
+
+| Field | Type | Purpose |
+|------|------|---------|
+| `version` | `string` | `patch`, `minor`, `major` 또는 명시적 semver. |
+| `preview` | `boolean` | Git 변경이나 publish 없이 task plan만 확인. |
+| `branch` | `string` | 특정 브랜치에서만 릴리스 허용. |
+| `anyBranch` | `boolean` | 이번 실행에서만 브랜치 제한 해제. |
+| `tag` | `string` | `latest`, `next`, `beta` 같은 dist-tag 지정. |
+| `snapshot` | `string \| boolean` | snapshot 버전 생성. |
+| `packages` | `PackageConfig[]` | 자동 탐지 대신 패키지 목록 지정. |
+| `preflight` | `boolean` | CI와 비슷한 조건으로 로컬 dry-run 수행. |
+| `ci` | `boolean` | 최신 태그 기준 publish와 GitHub Release 생성. |
+| `publishOnly` | `boolean` | 준비 단계 없이 publish만 수행. |
+
+## 설정 API
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `defineConfig` | function | `pubm.config.ts` 작성을 위한 타입 헬퍼. |
+| `loadConfig` | function | 디스크에서 `pubm.config.*`를 읽어 `PubmConfig \| null` 반환. |
+| `resolveConfig` | function | 기본값 적용, 패키지 자동 탐지, private registry 정규화 수행. |
+| `PubmConfig` | type | 사용자가 작성하는 설정 타입. |
+| `ResolvedPubmConfig` | type | `resolveConfig()` 이후의 확정된 설정 타입. |
+| `PackageConfig` | type | 패키지별 registry/ecosystem/build/test 오버라이드 타입. |
+
+```ts
+import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [{ path: "packages/core" }],
+});
+
+const config = await loadConfig(process.cwd());
+const resolved = config ? await resolveConfig(config, process.cwd()) : null;
+```
+
+## 플러그인 API
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `PubmPlugin` | type | 플러그인 최상위 계약. |
+| `PluginHooks` | type | `beforeBuild`, `afterPublish`, `onError`, `afterRelease` 같은 라이프사이클 훅. |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | 훅 시그니처. |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 플러그인 커맨드 모델. |
+| `PluginRunner` | class | 로드된 플러그인의 훅 실행과 registry/ecosystem 수집 담당. |
+| `ReleaseContext` / `ReleaseAsset` | types | `afterRelease` 훅으로 전달되는 메타데이터. |
+
+```ts
+import { defineConfig, type PubmPlugin } from "@pubm/core";
+
+const plugin: PubmPlugin = {
+  name: "announce",
+  hooks: {
+    afterPublish(ctx) {
+      console.log("published", ctx.version);
+    },
+  },
+};
+
+export default defineConfig({
+  plugins: [plugin],
+});
+```
+
+## Changeset / Monorepo / Utils
+
+루트 엔트리에는 아래 범주의 헬퍼도 함께 export됩니다.
+
+- Changeset: `readChangesets`, `parseChangeset`, `getStatus`, `discoverCurrentVersions`, `discoverPackageInfos`, `calculateVersionBumps`, `generateChangesetId`, `generateChangesetContent`, `writeChangeset`, `buildChangelogEntries`, `generateChangelog`, `writeChangelogToFile`, `migrateFromChangesets`, `deleteChangesetFiles`, `parseChangelogSection`
+- Monorepo: `detectWorkspace`, `discoverPackages`, `buildDependencyGraph`, `topologicalSort`, `resolveGroups`, `applyFixedGroup`, `applyLinkedGroup`, `Git`
+- Validation/Utils: `validateEntryPoints`, `detectExtraneousFiles`, `getPackageJson`, `replaceVersion`, `replaceVersionAtPath`, `version`, `generateSnapshotVersion`, `loadTokensFromDb`, `syncGhSecrets`, `exec`, `getPackageManager`, `detectRuntime`, `isBun`, `notifyNewVersion`, `consoleError`, `PUBM_VERSION`, `PUBM_ENGINES`
+
+주요 타입도 함께 공개됩니다.
+
+- Changeset 계열: `BumpType`, `Changeset`, `Release`, `Status`, `PackageStatus`, `VersionBump`, `ChangelogEntry`, `DependencyUpdate`, `PackageVersionInfo`, `MigrationResult`
+- Monorepo 계열: `WorkspaceInfo`, `DiscoverOptions`, `DiscoveredPackage`, `PackageNode`
+- 기타: `Options`, `SnapshotOptions`, `Runtime`, `EntryPointError`, `ExtraneousFile`
+
+```ts
+import {
+  calculateVersionBumps,
+  discoverCurrentVersions,
+  generateSnapshotVersion,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const currentVersions = await discoverCurrentVersions(process.cwd());
+const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+
+const snapshot = generateSnapshotVersion({
+  baseVersion: "1.4.0",
+  tag: "snapshot",
+  template: "{base}-{tag}-{timestamp}",
+});
+
+const errors = validateEntryPoints(
+  {
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+  },
+  process.cwd(),
+);
+```
+
+## 범위
+
+이 문서는 현재 `@pubm/core` 패키지 루트에서 re-export하는 공개 API를 기준으로 작성되었습니다. `packages/core/src/**` 내부 파일이 존재하더라도 루트에서 export되지 않는 항목은 내부 구현으로 보는 편이 안전합니다.

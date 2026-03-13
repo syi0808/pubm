@@ -1,0 +1,145 @@
+---
+title: "Referencia del Core SDK"
+description: "Resumen de las funciones, clases y tipos publicos exportados por @pubm/core."
+---
+
+`@pubm/core` es la API programatica detras del CLI `pubm`. Esta pagina cubre solo los identificadores publicos que pueden importarse directamente desde la raiz del paquete.
+
+```ts
+import { ... } from "@pubm/core";
+```
+
+El paquete incluye declaraciones de tipos y entradas ESM/CJS. Los metadatos actuales del paquete requieren `node >= 24`.
+
+## Instalacion
+
+```bash
+npm install @pubm/core
+pnpm add @pubm/core
+bun add @pubm/core
+```
+
+## API principal
+
+### `pubm(options)`
+
+Ejecuta desde codigo la misma pipeline de release que usa el CLI.
+
+```ts
+import { pubm } from "@pubm/core";
+
+await pubm({
+  version: "patch",
+  preview: true,
+  tag: "next",
+});
+```
+
+Campos `Options` mas importantes:
+
+| Field | Type | Purpose |
+|------|------|---------|
+| `version` | `string` | `patch`, `minor`, `major` o una version semver explicita. |
+| `preview` | `boolean` | Muestra el plan de tareas sin cambiar Git ni publicar. |
+| `branch` | `string` | Obliga a publicar desde una rama concreta. |
+| `anyBranch` | `boolean` | Desactiva esa restriccion en una ejecucion. |
+| `tag` | `string` | Define un dist-tag como `latest`, `next` o `beta`. |
+| `snapshot` | `string \| boolean` | Genera una version snapshot. |
+| `packages` | `PackageConfig[]` | Sustituye la deteccion automatica de paquetes. |
+| `preflight` | `boolean` | Simula CI en local y ejecuta comprobaciones dry-run. |
+| `ci` | `boolean` | Publica desde el ultimo tag y crea un GitHub Release. |
+| `publishOnly` | `boolean` | Publica sin rehacer toda la preparacion. |
+
+## API de configuracion
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `defineConfig` | function | Helper tipado para escribir `pubm.config.ts`. |
+| `loadConfig` | function | Carga `pubm.config.*` desde disco y devuelve `PubmConfig \| null`. |
+| `resolveConfig` | function | Aplica valores por defecto, detecta paquetes y normaliza registros privados. |
+| `PubmConfig` | type | Forma de configuracion escrita por el usuario. |
+| `ResolvedPubmConfig` | type | Forma completamente resuelta devuelta por `resolveConfig()`. |
+| `PackageConfig` | type | Configuracion por paquete para registry, ecosystem, build y test. |
+
+```ts
+import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [{ path: "packages/core" }],
+});
+
+const config = await loadConfig(process.cwd());
+const resolved = config ? await resolveConfig(config, process.cwd()) : null;
+```
+
+## API de plugins
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `PubmPlugin` | type | Contrato principal de un plugin. |
+| `PluginHooks` | type | Hooks de ciclo de vida como `beforeBuild`, `afterPublish`, `onError` y `afterRelease`. |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Firmas de los hooks. |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Modelo de comandos para plugins. |
+| `PluginRunner` | class | Ejecuta hooks y recopila registries/ecosystems de los plugins cargados. |
+| `ReleaseContext` / `ReleaseAsset` | types | Metadatos entregados al hook `afterRelease`. |
+
+```ts
+import { defineConfig, type PubmPlugin } from "@pubm/core";
+
+const plugin: PubmPlugin = {
+  name: "announce",
+  hooks: {
+    afterPublish(ctx) {
+      console.log("published", ctx.version);
+    },
+  },
+};
+
+export default defineConfig({
+  plugins: [plugin],
+});
+```
+
+## Changeset / Monorepo / Utils
+
+La raiz del paquete tambien exporta estos grupos de helpers:
+
+- Changeset: `readChangesets`, `parseChangeset`, `getStatus`, `discoverCurrentVersions`, `discoverPackageInfos`, `calculateVersionBumps`, `generateChangesetId`, `generateChangesetContent`, `writeChangeset`, `buildChangelogEntries`, `generateChangelog`, `writeChangelogToFile`, `migrateFromChangesets`, `deleteChangesetFiles`, `parseChangelogSection`
+- Monorepo: `detectWorkspace`, `discoverPackages`, `buildDependencyGraph`, `topologicalSort`, `resolveGroups`, `applyFixedGroup`, `applyLinkedGroup`, `Git`
+- Validation/Utils: `validateEntryPoints`, `detectExtraneousFiles`, `getPackageJson`, `replaceVersion`, `replaceVersionAtPath`, `version`, `generateSnapshotVersion`, `loadTokensFromDb`, `syncGhSecrets`, `exec`, `getPackageManager`, `detectRuntime`, `isBun`, `notifyNewVersion`, `consoleError`, `PUBM_VERSION`, `PUBM_ENGINES`
+
+Tipos publicos importantes:
+
+- Changeset: `BumpType`, `Changeset`, `Release`, `Status`, `PackageStatus`, `VersionBump`, `ChangelogEntry`, `DependencyUpdate`, `PackageVersionInfo`, `MigrationResult`
+- Monorepo: `WorkspaceInfo`, `DiscoverOptions`, `DiscoveredPackage`, `PackageNode`
+- Otros: `Options`, `SnapshotOptions`, `Runtime`, `EntryPointError`, `ExtraneousFile`
+
+```ts
+import {
+  calculateVersionBumps,
+  discoverCurrentVersions,
+  generateSnapshotVersion,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const currentVersions = await discoverCurrentVersions(process.cwd());
+const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+
+const snapshot = generateSnapshotVersion({
+  baseVersion: "1.4.0",
+  tag: "snapshot",
+  template: "{base}-{tag}-{timestamp}",
+});
+
+const errors = validateEntryPoints(
+  {
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+  },
+  process.cwd(),
+);
+```
+
+## Alcance
+
+Esta pagina documenta la superficie estable que hoy se re-exporta desde la raiz de `@pubm/core`. Los archivos internos bajo `packages/core/src/**` que no se re-exportan desde la raiz deben tratarse como detalles de implementacion privados.
