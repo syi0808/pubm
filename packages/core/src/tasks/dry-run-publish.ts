@@ -1,12 +1,12 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
+import type { PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { CratesRegistry } from "../registry/crates.js";
 import { jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { SecureStore } from "../utils/secure-store.js";
-import type { Ctx } from "./runner.js";
 
 const AUTH_ERROR_PATTERNS = [
   /401/i,
@@ -50,14 +50,14 @@ async function withTokenRetry(
   }
 }
 
-export const npmDryRunPublishTask: ListrTask<Ctx> = {
+export const npmDryRunPublishTask: ListrTask<PubmContext> = {
   title: "Dry-run npm publish",
   task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
-    if (await npm.isVersionPublished(ctx.version)) {
-      task.title = `[SKIPPED] Dry-run npm publish: v${ctx.version} already published`;
-      task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+    if (await npm.isVersionPublished(ctx.runtime.version)) {
+      task.title = `[SKIPPED] Dry-run npm publish: v${ctx.runtime.version} already published`;
+      task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
       return task.skip();
     }
 
@@ -68,14 +68,14 @@ export const npmDryRunPublishTask: ListrTask<Ctx> = {
   },
 };
 
-export const jsrDryRunPublishTask: ListrTask<Ctx> = {
+export const jsrDryRunPublishTask: ListrTask<PubmContext> = {
   title: "Dry-run jsr publish",
   task: async (ctx, task): Promise<void> => {
     const jsr = await jsrRegistry();
 
-    if (await jsr.isVersionPublished(ctx.version)) {
-      task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.version} already published`;
-      task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+    if (await jsr.isVersionPublished(ctx.runtime.version)) {
+      task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.runtime.version} already published`;
+      task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
       return task.skip();
     }
 
@@ -115,7 +115,7 @@ async function findUnpublishedSiblingDeps(
 export function createCratesDryRunPublishTask(
   packagePath?: string,
   siblingCrateNames?: string[],
-): ListrTask<Ctx> {
+): ListrTask<PubmContext> {
   const label = packagePath ? ` (${packagePath})` : "";
   return {
     title: `Dry-run crates.io publish${label}`,
@@ -124,9 +124,9 @@ export function createCratesDryRunPublishTask(
       const packageName = await getCrateName(packagePath);
       const registry = new CratesRegistry(packageName);
 
-      if (await registry.isVersionPublished(ctx.version)) {
-        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${ctx.version} already published`;
-        task.output = `⚠ ${packageName}@${ctx.version} is already published on crates.io`;
+      if (await registry.isVersionPublished(ctx.runtime.version)) {
+        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${ctx.runtime.version} already published`;
+        task.output = `⚠ ${packageName}@${ctx.runtime.version} is already published on crates.io`;
         return task.skip();
       }
 
@@ -163,5 +163,5 @@ export function createCratesDryRunPublishTask(
   };
 }
 
-export const cratesDryRunPublishTask: ListrTask<Ctx> =
+export const cratesDryRunPublishTask: ListrTask<PubmContext> =
   createCratesDryRunPublishTask();
