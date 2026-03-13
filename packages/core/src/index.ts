@@ -1,44 +1,22 @@
-import { resolveConfig } from "./config/defaults.js";
-import { loadConfig } from "./config/loader.js";
-import { resolveOptions } from "./options.js";
+import type { PubmContext } from "./context.js";
 import { PluginRunner } from "./plugin/runner.js";
 import { run } from "./tasks/runner.js";
-import type { Options } from "./types/options.js";
 
 /**
- * Runs the `pubm` function with the provided options.
- *
- * This function executes the publish process using the specified options.
- * The `version` field in the `options` parameter is required for the function
- * to run correctly.
+ * Runs the pubm publish pipeline with the provided context.
  *
  * @async
  * @function
  */
-export async function pubm(options: Options): Promise<void> {
-  const config = await loadConfig();
-  const plugins = config?.plugins ?? [];
-  const pluginRunner = new PluginRunner(plugins);
-  const configOptions: Partial<Options> = {};
-
-  if (config) {
-    const resolved = await resolveConfig(config);
-    if (resolved.discoveryEmpty) {
-      throw new Error(
-        "[pubm] No publishable packages found. Add a pubm.config.ts with a packages array, or ensure your workspace contains non-private packages.",
-      );
-    }
-    if (resolved.packages) {
-      configOptions.packages = resolved.packages;
-    }
-    // registries are now per-package, not global
+export async function pubm(ctx: PubmContext): Promise<void> {
+  if (ctx.config.discoveryEmpty) {
+    throw new Error(
+      "[pubm] No publishable packages found. Add a pubm.config.ts with a packages array, or ensure your workspace contains non-private packages.",
+    );
   }
 
-  // CLI options spread last to take precedence over config.
-  // resolveOptions filters undefined values, so config.packages survives.
-  const resolvedOptions = resolveOptions({ ...configOptions, ...options });
-
-  await run({ ...resolvedOptions, pluginRunner });
+  ctx.runtime.pluginRunner = new PluginRunner(ctx.config.plugins);
+  await run(ctx);
 }
 
 export type {
@@ -78,6 +56,9 @@ export type {
 } from "./config/index.js";
 // Config
 export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+// Context
+export { createContext } from "./context.js";
+export type { PubmContext } from "./context.js";
 // Error
 export { consoleError } from "./error.js";
 // Git
@@ -114,7 +95,9 @@ export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
-export type { Options } from "./types/options.js";
+// Options
+export { resolveOptions } from "./options.js";
+export type { Options, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
 export { notifyNewVersion } from "./utils/notify-new-version.js";
