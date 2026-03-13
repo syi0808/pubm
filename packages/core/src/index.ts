@@ -105,14 +105,8 @@ export type {
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
-export type { PreState, SnapshotOptions } from "./prerelease/index.js";
-// Pre-release
-export {
-  enterPreMode,
-  exitPreMode,
-  generateSnapshotVersion,
-  readPreState,
-} from "./prerelease/index.js";
+export type { SnapshotOptions } from "./utils/snapshot.js";
+export { generateSnapshotVersion } from "./utils/snapshot.js";
 export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
