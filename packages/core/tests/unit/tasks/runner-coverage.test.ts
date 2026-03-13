@@ -418,7 +418,7 @@ describe("runner coverage scenarios", () => {
     await run(
       createOptions({
         ci: true,
-        registries: ["custom-registry"],
+        packages: [{ path: ".", registries: ["custom-registry"] }],
         pluginRunner,
       }),
     );
@@ -427,7 +427,7 @@ describe("runner coverage scenarios", () => {
     const publishTask = tasks[0];
     const parentTask = createParentTask();
     const ctx: any = {
-      registries: ["custom-registry"],
+      packages: [{ path: ".", registries: ["custom-registry"] }],
       pluginRunner,
     };
 
