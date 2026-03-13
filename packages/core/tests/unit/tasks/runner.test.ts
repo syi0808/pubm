@@ -1476,7 +1476,10 @@ describe("run", () => {
 
     it("creates no-op dry-run task for unknown registries in preflight mode", async () => {
       await run(
-        createOptions({ preflight: true, registries: ["custom-registry"] }),
+        createOptions({
+          preflight: true,
+          packages: [{ path: ".", registries: ["custom-registry"] }],
+        }),
       );
 
       const pipelineCall = mockedCreateListr.mock.calls[1];
@@ -1488,7 +1491,7 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
       const ctx: any = {
-        registries: ["custom-registry"],
+        packages: [{ path: ".", registries: ["custom-registry"] }],
         pluginRunner: new PluginRunner([]),
       };
 
