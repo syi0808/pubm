@@ -7,8 +7,6 @@ description: Record release intent, generate changelogs, and control version bum
 
 ## Why changesets matter
 
-Changesets give you three things that ad-hoc publish scripts usually do not:
-
 - a reviewable release plan inside each pull request
 - deterministic version bump calculation across packages
 - changelog content that is written before release day, not after it
@@ -35,23 +33,13 @@ pubm init --changesets
 
 ## Creating a changeset
 
-### Interactive mode
-
 ```bash
 pubm changesets add
 ```
 
-In a single-package repository, `pubm` skips package selection and asks only for:
+In a monorepo, `pubm` also asks which packages are affected and what bump type each one should receive.
 
-- bump type
-- summary
-
-In a monorepo, it also asks:
-
-- which packages are affected
-- the bump type for each selected package
-
-### Non-interactive mode
+For non-interactive use:
 
 ```bash
 pubm changesets add \
@@ -60,17 +48,7 @@ pubm changesets add \
   --message "Add token-based auth to the public client."
 ```
 
-### Empty changesets
-
-If you need a placeholder file during migration or process setup:
-
-```bash
-pubm changesets add --empty
-```
-
 ## What a changeset file contains
-
-The generated file is Markdown with frontmatter-like metadata. A typical file looks like this:
 
 ```md
 ---
@@ -83,34 +61,6 @@ Add token-based auth to the public client.
 
 The metadata controls version calculation. The body becomes the changelog summary.
 
-## Choosing the right bump type
-
-### `patch`
-
-Use `patch` for:
-
-- bug fixes
-- documentation corrections with user-visible behavior changes
-- internal improvements that do not alter the public API
-
-### `minor`
-
-Use `minor` for:
-
-- backward-compatible features
-- additive CLI flags
-- new APIs that do not break existing consumers
-
-### `major`
-
-Use `major` for:
-
-- removed options or commands
-- incompatible runtime requirements
-- behavior changes that force consumers to modify their code or config
-
-When in doubt, optimize for the consumer's migration cost, not the amount of code changed.
-
 ## Inspecting pending changes
 
 Before consuming changesets, inspect them:
@@ -118,48 +68,29 @@ Before consuming changesets, inspect them:
 ```bash
 pubm changesets status
 pubm changesets status --verbose
-```
-
-`status` answers two questions:
-
-- which packages will be bumped
-- what the highest bump type is for each package
-
-`--verbose` also prints the underlying summaries so you can catch vague or duplicated release notes early.
-
-## Previewing version application
-
-Use `--dry-run` to see what `pubm` would write:
-
-```bash
 pubm changesets version --dry-run
 ```
 
-This is the safest way to verify:
+## How changesets are consumed
 
-- computed versions
-- per-package changelog sections
-- fixed or linked group propagation
-- pre-release numbering
+When you run the normal release pipeline with `pubm`, pending changesets are consumed during the version step.
 
-## Consuming changesets
+That flow:
 
-When you are ready to turn pending files into a release state:
+1. reads pending `.pubm/changesets/*.md` files
+2. calculates the resulting package versions
+3. updates manifest versions
+4. generates changelog entries
+5. deletes consumed changeset files
+6. creates the release commit and tags
+
+If you want to perform only the versioning part ahead of time, you can still run:
 
 ```bash
 pubm changesets version
 ```
 
-The command performs these steps:
-
-1. Read all pending `.pubm/changesets/*.md` files.
-2. Discover current package versions.
-3. Calculate the highest required bump for each package.
-4. Apply `fixed` and `linked` groups from config.
-5. Update manifest versions.
-6. Generate or prepend `CHANGELOG.md`.
-7. Delete consumed changeset files.
-8. Create a Git commit for the version bump.
+That command is useful for editorial or controlled workflows, but it is not required before `pubm` or `pubm --ci`.
 
 ## Changelog generation
 
@@ -170,69 +101,10 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-This is useful when:
-
-- you want editorial review on the release notes before the version command
-- you are migrating from another release process
-- you want to compare multiple wording options
-
 ## Migration from `.changeset/`
-
-If your repository already uses the Changesets ecosystem, migrate pending files:
 
 ```bash
 pubm changesets migrate
 ```
 
-This migrates pending files from `.changeset/` into `.pubm/`. If a legacy `.changeset/config.json` exists, `pubm` reports that you still need to create `pubm.config.ts` manually.
-
-## PR workflow recommendation
-
-For teams, the most reliable workflow is:
-
-1. every product change adds or updates a changeset in the same pull request
-2. a CI check blocks merges when changesets are missing
-3. release branches run `pubm changesets version` before publish
-
-`pubm init --changesets` creates the starter GitHub Actions workflow for this model.
-
-## Writing better summaries
-
-A good summary:
-
-- describes the user-visible outcome
-- avoids internal ticket language
-- explains breaking changes directly
-
-Weak:
-
-```text
-refactor auth layer
-```
-
-Strong:
-
-```text
-Require explicit token configuration for browser-based clients.
-```
-
-That text is what your users will read in `CHANGELOG.md`.
-
-## Common pitfalls
-
-### Running `pubm patch` without consuming pending changesets
-
-That can still publish a release, but you lose the main benefit of recording the next version and changelog content in advance. Prefer `pubm changesets version` first for normal releases.
-
-### Using vague summaries
-
-The summary becomes release note text. If it is unclear in the PR, it will also be unclear in the changelog.
-
-### Treating snapshots as official releases
-
-Snapshots are disposable validation artifacts. Use the normal release flow for versions you want users to depend on permanently.
-
-## Next steps
-
-- Read the [Monorepo](/pubm/guides/monorepo/) guide if your changesets span many packages.
-- Read the [CLI Reference](/pubm/reference/cli/) for every changesets subcommand and flag.
+This migrates pending files from `.changeset/` into `.pubm/`.

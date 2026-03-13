@@ -3,7 +3,7 @@ title: 快速开始
 description: 安装 pubm、初始化项目并完成第一次发布。
 ---
 
-`pubm` 是一个面向多仓库、多包、多生态发布场景的 release orchestration 工具。
+`pubm` 是面向多 registry、多包、多生态发布场景的 release orchestration 工具。
 
 ## 开始前
 
@@ -17,38 +17,24 @@ description: 安装 pubm、初始化项目并完成第一次发布。
 npm i -g pubm
 ```
 
+## 面向编码代理
+
+如果你通过 Claude Code、Codex 或其他编码代理接入 `pubm`，优先从 setup 自动化开始，而不是手写 release prompt。
+
+- 使用 `publish-setup` skill。
+- 把 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 链接提供给代理，让它获取 bundle 并从 `publish-setup` 开始。
+- 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/)。
+
 ## 1. 初始化仓库
 
 ```bash
 pubm init
 ```
 
-## 2. 添加最小配置
-
-`pubm` 会从清单文件中自动推断 registry。有 `package.json` 就推断 npm，有 `jsr.json` 就自动包含 jsr。大多数项目可以留空配置：
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
-
-## 3. 创建 changeset
-
-```bash
-pubm changesets add
-```
-
-## 4. 写入版本
-
-```bash
-pubm changesets version
-```
-
-## 5. 发布
+## 2. 发布
 
 ```bash
 pubm
 ```
 
-其余文档当前会回退到英文内容。你仍然可以继续阅读 [Configuration](/pubm/zh-cn/guides/configuration/) 和 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。
+如果存在待处理 changeset，`pubm` 会在 release pipeline 的 version 阶段自动消费它们。

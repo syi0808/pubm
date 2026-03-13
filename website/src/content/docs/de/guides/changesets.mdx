@@ -3,42 +3,18 @@ title: Changesets
 description: Release-Absicht festhalten, Changelogs erzeugen und Versions-Bumps steuern.
 ---
 
-`pubm` nutzt Dateien in `.pubm/changesets/` als dauerhafte Quelle fur die Frage, was als Nächstes releast werden soll.
+`pubm` nutzt Dateien in `.pubm/changesets/` als dauerhafte Quelle dafur, was als Nachstes releast werden soll.
 
-## Warum sie wichtig sind
-
-- reviewbarer Release-Plan pro PR
-- deterministische Versionsberechnung
-- Changelog-Text vor dem Release-Tag
-
-## Ort
-
-```text
-.pubm/changesets/
-```
+## Grundkommandos
 
 ```bash
 pubm init
 pubm init --changesets
-```
-
-## Erstellen
-
-```bash
 pubm changesets add
-```
-
-```bash
-pubm changesets add \
-  --packages @acme/core,@acme/react \
-  --bump minor \
-  --message "Token-basierte Auth fur den Public Client."
-```
-
-## Anwenden
-
-```bash
+pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm changesets version
 ```
 
+## Verbrauch im Release-Flow
+
+Wenn du `pubm` startest, werden ausstehende Changesets im Version-Schritt konsumiert. `pubm changesets version` ist fur kontrollierte Sonderfalle weiter verfugbar, aber nicht zwingend vor `pubm` oder `pubm --ci`.

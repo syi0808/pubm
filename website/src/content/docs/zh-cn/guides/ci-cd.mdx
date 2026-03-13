@@ -3,102 +3,22 @@ title: CI/CD
 description: 为 pubm 配置 preflight、token 处理和发布自动化。
 ---
 
-`pubm` 设计为同时适用于本地终端和 CI runner。本页重点说明如何在本地验证、CI 需要提供什么，以及如何组织可靠的发布流水线。
+`pubm` 同时适用于本地终端和 CI runner。关键点是常规 pipeline 已经会在 version 阶段消费待处理 changeset。
 
-## 推荐发布模型
-
-1. 在本地或受控 job 中准备版本和 changelog
-2. 在 CI 中使用 tag 和非交互凭证执行真正的 publish
+## 推荐流程
 
 ```bash
-pubm changesets version
 pubm --preflight
-pubm patch --preview
-```
-
-```bash
 pubm --ci
 ```
 
-## 先运行 preflight
-
-```bash
-pubm --preflight
-```
-
-它会：
+## preflight 会做什么
 
 - 收集 registry token
 - 可选同步到 GitHub Secrets
-- 关闭交互行为以模拟 CI
-- 执行 prerequisite / condition 检查
-- 对配置的 registry 做 dry-run publish
+- 执行 checks、tests 和 build
+- 在 version 阶段消费待处理 changeset
+- 创建 release commit，并 push branch 和 tags
+- 对 publish 做 dry-run，而不是真正发布
 
-## 必需环境变量
-
-| 变量 | Registry |
-|------|----------|
-| `NODE_AUTH_TOKEN` | npm |
-| `JSR_TOKEN` | jsr |
-| `CARGO_REGISTRY_TOKEN` | crates.io |
-
-建议：
-
-- 使用自动化专用 token
-- 权限尽量收窄
-- 不要在 CI 中依赖交互提示
-
-## 同步 GitHub Secrets
-
-```bash
-pubm secrets sync
-pubm secrets sync --registry npm,jsr
-```
-
-需要安装并登录 `gh`。
-
-## GitHub Actions 示例
-
-```yaml
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-      - "@*"
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: pnpm install --frozen-lockfile
-      - run: pubm --ci
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-```
-
-## 常见问题
-
-- shallow checkout: release job 需要 `fetch-depth: 0`
-- token 缺失: CI 无法提示输入，缺失时会直接失败
-- npm 2FA: headless 流程应使用 automation token
-- `contents` 输出不存在: build 必须在 publish 前生成目标目录
-
-## 运营建议
-
-- 每次新增 registry 后都运行 `pubm --preflight`
-- 将 release job 与 PR test job 分开
-- 优先使用 tag 驱动 publish
-- 前几次 release 保持人工审查
-
-继续阅读 [Troubleshooting](/pubm/zh-cn/guides/troubleshooting/) 和 [CLI Reference](/pubm/zh-cn/reference/cli/)。
+因此 preflight 之后不需要再执行 `pubm patch --preview`。

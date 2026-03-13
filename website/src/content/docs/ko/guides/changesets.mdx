@@ -24,25 +24,19 @@ pubm init --changesets
 
 ## changeset 만들기
 
-대화형:
-
 ```bash
 pubm changesets add
 ```
 
-비대화형:
+모노레포에서는 어떤 패키지가 영향을 받는지와 각 패키지의 bump 타입도 함께 묻습니다.
+
+비대화형 예시:
 
 ```bash
 pubm changesets add \
   --packages @acme/core,@acme/react \
   --bump minor \
   --message "공개 클라이언트에 토큰 인증 추가"
-```
-
-빈 파일이 필요하면:
-
-```bash
-pubm changesets add --empty
 ```
 
 ## 파일 형식
@@ -58,55 +52,34 @@ pubm changesets add --empty
 
 frontmatter는 버전 계산에 쓰이고, 본문은 changelog 요약이 됩니다.
 
-## bump 타입 선택
-
-### `patch`
-
-- 버그 수정
-- 사용자 영향이 있는 문서/작은 수정
-- 공개 API를 바꾸지 않는 내부 개선
-
-### `minor`
-
-- 하위 호환되는 기능 추가
-- 새로운 CLI 플래그
-- 기존 사용자를 깨지 않는 API 추가
-
-### `major`
-
-- 옵션/명령 제거
-- 비호환 런타임 요구사항
-- 사용자 코드나 설정 변경을 강제하는 동작 변경
-
 ## 대기 중 changeset 확인
 
 ```bash
 pubm changesets status
 pubm changesets status --verbose
-```
-
-`status`는 어떤 패키지가 올라가는지, 각 패키지의 최고 bump 타입이 무엇인지 보여줍니다.
-
-## 버전 적용 미리보기
-
-```bash
 pubm changesets version --dry-run
 ```
 
-다음을 검증할 때 가장 안전합니다.
+## changeset이 소비되는 방식
 
-- 계산된 버전
-- 패키지별 changelog 섹션
-- fixed / linked 그룹 전파
-- prerelease 번호
+일반 릴리스 파이프라인에서 `pubm`을 실행하면 pending changeset은 버전 단계에서 자동으로 소비됩니다.
 
-## changeset 소비
+그 과정에서 `pubm`은:
+
+1. `.pubm/changesets/*.md`를 읽고
+2. 최종 패키지 버전을 계산하고
+3. 매니페스트 버전을 갱신하고
+4. changelog를 생성하고
+5. 소비한 changeset 파일을 지우고
+6. 릴리스 커밋과 태그를 만듭니다
+
+버전 반영만 먼저 따로 하고 싶다면 다음 명령을 사용할 수 있습니다.
 
 ```bash
 pubm changesets version
 ```
 
-이 명령은 changeset을 읽고, 패키지 버전을 계산하고, changelog를 생성하며, 소비한 파일을 지우고, 버전 커밋을 만듭니다.
+하지만 일반적인 `pubm` 또는 `pubm --ci` 흐름 전에 반드시 실행해야 하는 것은 아닙니다.
 
 ## changelog만 생성
 

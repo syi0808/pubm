@@ -5,15 +5,15 @@ description: Integrar el plugin de pubm en Claude Code, Codex y otros agentes de
 
 Este documento esta dirigido a equipos que ya usan agentes de codigo y quieren integrar los workflows de release de `pubm`.
 
-El repo ya incluye:
+## Empezar por setup
 
-- `plugins/pubm-plugin/.claude-plugin/plugin.json`
-- `plugins/pubm-plugin/skills/`
+Si el repositorio todavia no esta conectado, la accion mas importante no es publicar sino configurar.
 
-Skills principales:
+Usa primero `publish-setup`. Dale al agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que obtenga el bundle y siga el flujo de setup versionado.
 
-- `publish-setup`
-- `publish-preview`
-- `publish`
-- `version-sync`
-- `create-plugin`
+## Instalacion de Claude Code
+
+```text
+/plugin marketplace add your-org/claude-plugins
+/plugin install plugin-name@marketplace-name
+```

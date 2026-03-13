@@ -1,13 +1,13 @@
 ---
 title: Configuration
-description: Set defaults for your release pipeline, package layout, and registry targets.
+description: Set defaults for your release pipeline, package layout, plugins, and version planning.
 ---
 
 `pubm` is intentionally CLI-first, but real projects quickly outgrow flag-only configuration. `pubm.config.*` is where you keep repository-level publish targets, package layout, plugins, and changeset-related versioning rules.
 
-## Config file discovery
+## Supported config files
 
-`pubm` looks for the first matching file in the current working directory:
+`pubm` supports these file names:
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -18,14 +18,36 @@ description: Set defaults for your release pipeline, package layout, and registr
 
 TypeScript config files are supported directly. The loader bundles the file before evaluation, so you do not need a separate runtime transpilation step.
 
-## Minimal config
+## Default config
 
-For a package that has `package.json` and `jsr.json`, `pubm` infers the registries automatically. No `registries` field is needed:
+These are the defaults resolved by the config layer:
 
 ```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  rollbackStrategy: "individual",
+  packages: [{ path: "." }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshotTemplate: "{tag}-{timestamp}",
+});
 ```
 
 ## How registries are inferred
@@ -43,6 +65,105 @@ Two additional rules apply for npm:
 - `publishConfig.registry` in `package.json` replaces `npm` with that custom URL
 - `.npmrc` registry replaces `npm` when `publishConfig` is absent
 
+## Top-level options
+
+### `versioning`
+
+- Type: `"independent" | "fixed"`
+- Default: `"independent"`
+
+Controls how versions are assigned in multi-package repositories.
+
+### `branch`
+
+- Type: `string`
+- Default: `"main"`
+
+Branch that must match `HEAD` during guarded release runs.
+
+### `packages`
+
+- Type: `PackageConfig[]`
+- Default: `[{ path: "." }]`
+
+Explicitly declares publishable packages. Registries are inferred from manifest files unless overridden per package.
+
+### `plugins`
+
+- Type: `PubmPlugin[]`
+- Default: `[]`
+
+Registers plugins that can add hooks, commands, registries, or ecosystems.
+
+### `fixed`
+
+- Type: `string[][]`
+- Default: `[]`
+
+Groups of packages that must always resolve to the same version.
+
+### `linked`
+
+- Type: `string[][]`
+- Default: `[]`
+
+Groups of packages that should share the highest bump type.
+
+### `ignore`
+
+- Type: `string[]`
+- Default: `[]`
+
+Package names or paths to exclude from workspace discovery.
+
+### `tag`
+
+- Type: `string`
+- Default: `"latest"`
+
+Default dist-tag for publish runs.
+
+### `contents`
+
+- Type: `string`
+- Default: `"."`
+
+Directory to `chdir` into before running the release pipeline.
+
+### `saveToken`
+
+- Type: `boolean`
+- Default: `true`
+
+Whether supported registry tokens should be stored for reuse on local machines.
+
+### `releaseDraft`
+
+- Type: `boolean`
+- Default: `true`
+
+Whether the normal publish flow should open the GitHub release draft step.
+
+### `validate`
+
+- Type: `ValidateConfig`
+
+These fields are part of the public schema, but they are not yet active toggles across every publish path. Treat them as typed config surface, not as guaranteed runtime switches.
+
+### `snapshotTemplate`
+
+- Type: `string`
+- Default: `"{tag}-{timestamp}"`
+
+Template used when `pubm --snapshot` generates a temporary version string.
+
+Available template variables:
+
+- `{base}`: current package version from the manifest
+- `{tag}`: snapshot tag, defaulting to `snapshot`
+- `{timestamp}`: UTC timestamp in `YYYYMMDDTHHmmss` format
+- `{commit}`: current git commit SHA
+
 ## How config and CLI flags interact
 
 The current runtime behavior is:
@@ -58,35 +179,6 @@ For a one-off publish to a specific registry:
 pubm patch --registry npm --tag beta
 ```
 
-## Common repository-level options
-
-```ts
-import { defineConfig } from "@pubm/core";
-import { externalVersionSync } from "@pubm/plugin-external-version-sync";
-
-export default defineConfig({
-  plugins: [
-    externalVersionSync({
-      targets: [
-        {
-          file: "README.md",
-          pattern: /pubm@([\\w.-]+)/,
-        },
-      ],
-    }),
-  ],
-  snapshot: {
-    useCalculatedVersion: false,
-  },
-});
-```
-
-These values cover the most common needs:
-
-- `packages`: explicit multi-package publish layout (registries inferred from manifests unless overridden)
-- `plugins`: release-time automation such as version sync or custom commands
-- `snapshot`: customize snapshot version generation
-
 ## Multi-package configuration
 
 For workspaces or mixed-language repositories, declare packages explicitly. Registries are inferred from each package's manifest files:
@@ -99,15 +191,13 @@ export default defineConfig({
   packages: [
     {
       path: "packages/core",
-      // package.json + jsr.json → npm + jsr inferred automatically
     },
     {
       path: "packages/cli",
-      registries: ["npm"], // override: publish only to npm even if jsr.json exists
+      registries: ["npm"],
     },
     {
       path: "crates/pubm-rs",
-      // Cargo.toml → crates inferred automatically
     },
   ],
 });
@@ -119,7 +209,26 @@ Use explicit package entries when:
 - JavaScript and Rust packages live in the same repository
 - you need to override inferred registries or add private registries
 
-To add a private registry alongside the inferred ones:
+### `PackageConfig`
+
+Package-level entries are shaped like this:
+
+```ts
+interface PackageConfig {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+}
+
+interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string };
+}
+```
+
+Use `registries` only when inference is insufficient or when you need to add private registries alongside built-in ones:
 
 ```ts
 packages: [
@@ -130,7 +239,7 @@ packages: [
       { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
     ],
   },
-],
+];
 ```
 
 ## Versioning strategies
@@ -145,8 +254,6 @@ export default defineConfig({
 });
 ```
 
-Use this for library suites where packages evolve on different schedules.
-
 ### Fixed versioning
 
 Every affected package shares one version.
@@ -156,8 +263,6 @@ export default defineConfig({
   versioning: "fixed",
 });
 ```
-
-Use this when the repository is consumed as one product and you want one release tag per publish.
 
 ### Fixed and linked groups
 
@@ -174,27 +279,19 @@ export default defineConfig({
 - `fixed`: all packages in the group end up on the exact same version
 - `linked`: the highest bump type propagates across the group
 
-## Validation settings
-
-Some typed config fields are part of the public schema but are not yet wired into every publish path. Prefer documenting operational behavior around the CLI flags and workflows you actively use in your repository, rather than assuming every typed field changes runtime behavior today.
-
 ## Snapshot settings
 
 Snapshots are good for preview releases and branch-specific validation.
 
 ```ts
 export default defineConfig({
-  snapshot: {
-    useCalculatedVersion: true,
-    prereleaseTemplate: "{tag}-{timestamp}",
-  },
+  snapshotTemplate: "{tag}-{timestamp}",
 });
 ```
 
-Examples:
+Example output:
 
-- `useCalculatedVersion: false` -> `0.4.1-snapshot-20260312...`
-- `useCalculatedVersion: true` -> next calculated semver base with a snapshot suffix
+- `0.4.1-snapshot-20260312T102233`
 
 ## Plugins
 
@@ -219,16 +316,6 @@ export default defineConfig({
 ```
 
 Read the [Plugins API Reference](/pubm/reference/plugins/) for hook order, command registration, and custom registry support.
-
-## Working with optional dependencies in config
-
-The config loader is designed to handle some optional imports without immediately failing. This is useful if your repository conditionally imports tooling that is only installed in specific packages.
-
-Still, keep config files simple:
-
-- avoid expensive runtime work during module evaluation
-- keep imports deterministic
-- move project logic into small helper modules if the config file starts to become a program
 
 ## Example patterns
 
@@ -272,25 +359,7 @@ export default defineConfig({
 });
 ```
 
-### Private registry
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({
-  packages: [
-    {
-      path: "packages/a",
-      registries: [
-        "npm",
-        { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
-      ],
-    },
-  ],
-});
-```
-
 ## Next steps
 
 - Use the [Monorepo](/pubm/guides/monorepo/) guide if you need package grouping or mixed registries.
-- Use the [Config API Reference](/pubm/reference/config/) for the full option list and defaults.
+- Use the [Plugins API Reference](/pubm/reference/plugins/) if your config registers custom plugins.

@@ -21,7 +21,13 @@ Install the CLI globally:
 npm i -g pubm
 ```
 
-If you are using Claude Code or another coding agent, read [Coding Agent Integration](/pubm/guides/coding-agents/) before wiring release automation.
+## For coding agents
+
+If you are wiring `pubm` through Claude Code, Codex, or another coding agent, start with the setup automation instead of hand-writing release prompts.
+
+- Use the `publish-setup` skill from the `pubm plugin` bundle to install the release workflow, generate config, wire CI, and enable changesets.
+- Give your agent the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) link so it can fetch the bundle and start with `publish-setup`.
+- Read [Coding Agent Integration](/pubm/guides/coding-agents/) for the integration model and skill roles.
 
 ## 1. Initialize the repository
 
@@ -33,48 +39,7 @@ pubm init
 
 This creates `pubm.config.ts` and `.pubm/changesets/`.
 
-## 2. Add a minimal config
-
-`pubm` infers registries from manifest files. A package with `package.json` resolves to npm; add `jsr.json` and jsr is included automatically. The config can be empty for most projects:
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
-
-For config details, read [Configuration](/pubm/guides/configuration/).
-
-## 3. Add a changeset
-
-Create a changeset:
-
-```bash
-pubm changesets add
-```
-
-## 4. Write versions
-
-Apply pending changesets:
-
-```bash
-pubm changesets version
-```
-
-You can inspect pending changes and the resulting versions with:
-
-```bash
-pubm changesets status --verbose
-pubm changesets version --dry-run
-```
-
-If you want to validate registry auth and dry-run publish steps first, run:
-
-```bash
-pubm --preflight
-```
-
-## 5. Publish
+## 2. Publish
 
 Start the release flow:
 
@@ -88,4 +53,4 @@ Or choose an explicit version bump:
 pubm patch
 ```
 
-For CI, tokens, and preflight behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).
+If pending changesets exist, `pubm` consumes them during the version step of the release pipeline. For config details, read [Configuration](/pubm/guides/configuration/). For CI, tokens, and preflight behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).

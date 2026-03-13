@@ -3,28 +3,22 @@ title: CI/CD
 description: Configurar preflight, manejo de tokens y automatizacion de releases para pubm.
 ---
 
-`pubm` esta pensado para funcionar bien tanto en terminal local como en CI.
+`pubm` funciona bien tanto en terminal local como en CI. El pipeline normal ya puede consumir los changesets pendientes durante la version.
 
 ## Flujo recomendado
 
 ```bash
-pubm changesets version
 pubm --preflight
-pubm patch --preview
 pubm --ci
 ```
 
-## Variables requeridas
+## Que hace preflight
 
-| Variable | Registro |
-|----------|----------|
-| `NODE_AUTH_TOKEN` | npm |
-| `JSR_TOKEN` | jsr |
-| `CARGO_REGISTRY_TOKEN` | crates.io |
+- recopila tokens de registry
+- puede sincronizarlos a GitHub Secrets
+- ejecuta checks, tests y build
+- consume changesets pendientes durante versionado
+- crea el commit de release y hace push de rama y tags
+- hace dry-run del publish real
 
-## Problemas comunes
-
-- checkout superficial
-- tokens faltantes
-- 2FA de npm sin automation token
-- `contents` no generado antes de publicar
+Por eso no hace falta ejecutar `pubm patch --preview` despues de preflight.

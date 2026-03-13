@@ -3,14 +3,17 @@ title: Monorepo
 description: Publish workspace packages in the right order with the right version strategy.
 ---
 
-`pubm` treats monorepos as a core use case, not a plugin scenario. It discovers packages, understands dependency order, and can release JavaScript and Rust packages from the same repository.
+`pubm` treats monorepos as a core use case, not a plugin scenario. It discovers packages, understands dependency order, and can release JavaScript, Rust, and Deno-oriented workspaces from the same repository.
 
 ## What pubm detects automatically
 
 Workspace discovery currently looks for:
 
 - `pnpm-workspace.yaml`
+- `Cargo.toml` with `[workspace]`
+- `deno.json` or `deno.jsonc` with `workspace`
 - `package.json` with a `workspaces` field
+- `bunfig.toml` together with `package.json` workspaces to classify Bun workspaces
 
 After discovery, `pubm` builds a dependency graph and uses it to determine publish order.
 
@@ -19,7 +22,7 @@ After discovery, `pubm` builds a dependency graph and uses it to determine publi
 Automatic discovery works well when:
 
 - every workspace package is publishable
-- you do not need to mix ecosystems
+- you do not need to mix ecosystems with selective publish targets
 
 Use explicit `packages` config when:
 
@@ -28,30 +31,11 @@ Use explicit `packages` config when:
 - you want to override inferred registries or add private registries
 - you want the docs and release pipeline to stay explicit
 
-Registries are inferred from each package's manifest files. You only need `registries` entries in `packages` when the inferred set is wrong or when private registries are needed:
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({
-  packages: [
-    { path: "packages/core" },                            // npm + jsr inferred from manifests
-    { path: "packages/cli", registries: ["npm"] },        // override: npm only
-    { path: "crates/pubm-rs" },                           // crates inferred from Cargo.toml
-  ],
-});
-```
+Registries are inferred from each package's manifest files. You only need `registries` entries in `packages` when the inferred set is wrong or when private registries are needed.
 
 ## Publish order
 
 For dependent packages, `pubm` publishes in topological order.
-
-If:
-
-- `@acme/core` is a dependency of `@acme/react`
-- `crate-a` is a dependency of `crate-b`
-
-then `pubm` publishes the dependency before the dependent package.
 
 This matters because:
 
@@ -59,15 +43,11 @@ This matters because:
 - crates.io publishing must respect crate dependency ordering
 - partially ordered publishes are easier to roll back and diagnose
 
-## Circular dependencies
-
-If a circular dependency prevents a safe publish order, `pubm` fails instead of guessing. Fix the workspace dependency graph first; release tooling should not be responsible for masking architectural cycles.
+If a circular dependency prevents a safe publish order, `pubm` fails instead of guessing.
 
 ## Versioning modes
 
-## `independent`
-
-`independent` is the default mode.
+### `independent`
 
 ```ts
 export default defineConfig({
@@ -75,15 +55,11 @@ export default defineConfig({
 });
 ```
 
-Behavior:
-
 - each package can receive a different version
 - each package is tagged independently
 - changesets affect only the packages they mention unless groups change that result
 
-This mode fits large library suites and plugin ecosystems.
-
-## `fixed`
+### `fixed`
 
 ```ts
 export default defineConfig({
@@ -91,57 +67,28 @@ export default defineConfig({
 });
 ```
 
-Behavior:
-
 - packages released together share one version
 - the repository gets one release tag such as `v1.8.0`
-- changelog generation is simpler for product-style monorepos
 
-This mode fits app platforms and tightly coupled packages.
-
-## Fixed and linked groups
-
-Hybrid monorepos usually need more nuance than a single global mode.
-
-### Fixed groups
+### Fixed and linked groups
 
 ```ts
 export default defineConfig({
   versioning: "independent",
   fixed: [["@acme/core", "@acme/react", "@acme/vue"]],
-});
-```
-
-A fixed group keeps specific packages on exactly the same version even when the rest of the repository remains independent.
-
-### Linked groups
-
-```ts
-export default defineConfig({
-  versioning: "independent",
   linked: [["@acme/cli", "@acme/config"]],
 });
 ```
-
-A linked group propagates the highest bump type through the group. If one package receives a `minor`, the others also receive at least a `minor`.
 
 ## Typical release flow in a monorepo
 
 ```bash
 pubm init --changesets
 pubm changesets add
-pubm changesets status --verbose
-pubm changesets version --dry-run
-pubm changesets version
-pubm patch --preview
-pubm patch
+pubm
 ```
 
-What changes between single-package and monorepo releases is not the command shape, but the output:
-
-- `changesets status` shows per-package bump summaries
-- `changesets version` writes multiple manifest versions when needed
-- `pubm patch` tags either the repository version or each package version depending on the selected strategy
+In a monorepo, the important difference is not the command shape but the release plan that `pubm` calculates from pending changesets, package groups, and dependency order.
 
 ## Changesets in a monorepo
 
@@ -151,34 +98,14 @@ The most important rule is simple: put packages in the changeset file, not in co
 
 - discover available packages
 - let you choose one or more packages
-- prompt for the bump type for each package
+- prompt for the bump type for each selected package
 - record the release summary
 
-That information then drives:
-
-- version bump calculation
-- changelog generation
-- fixed and linked group propagation
+The standard `pubm` release pipeline then consumes those pending changesets during versioning.
 
 ## Multi-registry monorepos
 
-Each package's registries are inferred from its manifest files. A package with both `package.json` and `jsr.json` resolves to both `npm` and `jsr`. A `Cargo.toml` resolves to `crates`. Use `registries` only to override or extend:
-
-```ts
-export default defineConfig({
-  packages: [
-    { path: "packages/sdk" },                             // npm + jsr inferred
-    { path: "packages/cli", registries: ["npm"] },        // override
-    { path: "crates/runtime" },                           // crates inferred
-  ],
-});
-```
-
-During publish, `pubm` groups work by ecosystem and registry:
-
-- JavaScript packages can publish to npm and jsr concurrently
-- Rust crates are published sequentially in dependency order
-- plugin-provided registries are added to the same pipeline
+Each package's registries are inferred from its manifest files. A package with both `package.json` and `jsr.json` resolves to both `npm` and `jsr`. A `Cargo.toml` resolves to `crates`. Use `registries` only to override or extend.
 
 ## Git tags in monorepos
 
@@ -197,48 +124,7 @@ v1.4.0
 @acme/react@1.2.0
 ```
 
-This distinction matters when you wire GitHub releases, changelog parsing, or downstream automation to tags.
-
-## Publishing only selected registries
-
-Even in a monorepo, registry selection can be overridden per run:
-
-```bash
-pubm patch --registry npm
-pubm patch --registry npm,jsr
-```
-
-Use this carefully. A repository-level version bump still happened before publish, so selective publishing is best reserved for controlled workflows such as staged rollouts or emergency recovery.
-
-## Operational guidance
-
-Common starting points:
-
-- use `pubm init --changesets` on day one
-- keep packages explicit in config if registry targets differ
-- prefer `independent` for libraries and `fixed` for products
-- run `pubm --preflight` before enabling CI publish
-- keep changelog ownership close to the package by writing good changeset summaries
-
-## Common failure cases
-
-### A package is discovered but should not publish
-
-Move to explicit `packages` config or add the package name/path to `ignore`.
-
-### A package publishes to the wrong registry
-
-Check the manifest files in that package directory. `pubm` infers from `package.json`, `jsr.json`, and `Cargo.toml`. Use `packages[].registries` to override if needed.
-
-### Tags look different after switching versioning strategy
-
-That is expected. `fixed` and `independent` produce different tagging schemes.
-
-### Rust crates publish in a different order than JS packages
-
-That is also expected. Crates are published sequentially to respect crate dependency order.
-
 ## Next steps
 
 - Read the [Changesets](/pubm/guides/changesets/) guide to understand how version decisions are recorded.
-- Read the [Config API Reference](/pubm/reference/config/) for every package-level option.
+- Read the [Configuration](/pubm/guides/configuration/) guide for package-level config and grouping options.

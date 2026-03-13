@@ -3,15 +3,12 @@ title: Monorepo
 description: Publicar paquetes del workspace en el orden correcto y con la estrategia de version adecuada.
 ---
 
-`pubm` trata los monorepos como un caso principal. Descubre paquetes, entiende el orden de dependencias y puede liberar paquetes JavaScript y Rust en el mismo repositorio.
+`pubm` trata los monorepos como un caso principal y puede detectar workspaces de JavaScript, Rust y Deno.
 
 ## Flujo tipico
 
 ```bash
 pubm init --changesets
 pubm changesets add
-pubm changesets version --dry-run
-pubm changesets version
-pubm patch --preview
-pubm patch
+pubm
 ```

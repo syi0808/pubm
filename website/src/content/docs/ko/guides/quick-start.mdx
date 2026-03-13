@@ -17,6 +17,14 @@ CLI 설치:
 npm i -g pubm
 ```
 
+## 코딩 에이전트용 안내
+
+Claude Code, Codex 같은 코딩 에이전트로 `pubm`을 붙일 때는 릴리스 프롬프트를 직접 짜기보다 setup 자동화부터 시작하는 편이 낫습니다.
+
+- `pubm plugin` 번들의 `publish-setup` 스킬이 설치, 설정 생성, CI 연결, changesets 구성을 한 번에 정리합니다.
+- 에이전트가 번들을 가져오고 `publish-setup`부터 시작할 수 있도록 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 링크를 제공하세요.
+- 통합 방식과 스킬 역할은 [코딩 에이전트](/pubm/ko/guides/coding-agents/) 문서를 참고하세요.
+
 ## 1. 저장소 초기화
 
 ```bash
@@ -25,32 +33,10 @@ pubm init
 
 이 명령은 `pubm.config.ts`와 `.pubm/changesets/`를 만듭니다.
 
-## 2. 최소 설정 추가
-
-`pubm`은 매니페스트 파일에서 레지스트리를 자동으로 추론합니다. `package.json`이 있으면 npm, `jsr.json`이 있으면 jsr이 자동으로 포함됩니다. 대부분의 프로젝트는 설정을 비워둘 수 있습니다:
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
-
-## 3. 변경셋 추가
-
-```bash
-pubm changesets add
-```
-
-## 4. 버전 반영
-
-```bash
-pubm changesets version
-```
-
-## 5. 배포
+## 2. 배포
 
 ```bash
 pubm
 ```
 
-추가 가이드는 아직 영어 문서를 기본 fallback으로 사용합니다. 상세 설정은 [Configuration](/pubm/ko/guides/configuration/), CI는 [CI/CD](/pubm/ko/guides/ci-cd/)에서 이어서 볼 수 있습니다.
+대기 중인 changeset이 있으면 `pubm`이 릴리스 파이프라인의 버전 단계에서 함께 소비합니다. 상세 설정은 [Configuration](/pubm/ko/guides/configuration/), CI는 [CI/CD](/pubm/ko/guides/ci-cd/)에서 이어서 볼 수 있습니다.

@@ -1,11 +1,11 @@
 ---
 title: Configuration
-description: 配置发布流水线默认值、包结构和 registry 目标。
+description: 配置发布流水线默认值、包结构和插件。
 ---
 
 `pubm` 是 CLI-first 工具，但真实项目很快就会超出纯 flag 配置。`pubm.config.*` 用来放仓库级 publish 目标、包布局、插件和 changeset 版本规则。
 
-## 配置文件发现顺序
+## 支持的配置文件
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -13,18 +13,6 @@ description: 配置发布流水线默认值、包结构和 registry 目标。
 4. `pubm.config.js`
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
-
-TypeScript 配置文件可直接使用。
-
-## 最小配置
-
-`pubm` 从清单文件自动推断 registry。大多数项目可以留空配置：
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
 
 ## registry 推断规则
 
@@ -34,91 +22,12 @@ export default defineConfig({});
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-npm 附加规则：
-- `package.json` 中的 `publishConfig.registry` → 替换 npm 使用该 URL
-- `.npmrc` registry → 在无 `publishConfig` 时替换 npm
+## 常用字段
 
-## config 与 CLI flag 的关系
-
-- config 提供 `packages`、`plugins` 等默认值
-- `versioning`、`fixed`、`linked` 用于 changeset 流程
-- registry 从清单推断；`packages[].registries` 可覆盖
-
-例如：
-
-```bash
-pubm patch --registry npm --tag beta
-```
-
-## 常见仓库级选项
-
-```ts
-import { defineConfig } from "@pubm/core";
-import { externalVersionSync } from "@pubm/plugin-external-version-sync";
-
-export default defineConfig({
-  plugins: [
-    externalVersionSync({
-      targets: [
-        {
-          file: "README.md",
-          pattern: /pubm@([\\w.-]+)/,
-        },
-      ],
-    }),
-  ],
-  snapshot: {
-    useCalculatedVersion: false,
-  },
-});
-```
-
-## 多包配置
-
-registry 从每个包的清单文件自动推断：
-
-```ts
-export default defineConfig({
-  versioning: "independent",
-  packages: [
-    { path: "packages/core" },
-    { path: "packages/cli", registries: ["npm"] }, // 覆盖
-    { path: "crates/pubm-rs" },
-  ],
-});
-```
-
-## 版本策略
-
-### `independent`
-
-每个包单独拥有版本和 tag。
-
-### `fixed`
-
-所有受影响包共享同一版本。
-
-### `fixed` / `linked`
-
-```ts
-export default defineConfig({
-  versioning: "independent",
-  fixed: [["@acme/core", "@acme/react"]],
-  linked: [["@acme/cli", "@acme/config"]],
-});
-```
-
-## snapshot
-
-```ts
-export default defineConfig({
-  snapshot: {
-    useCalculatedVersion: true,
-    prereleaseTemplate: "{tag}-{timestamp}",
-  },
-});
-```
-
-## 插件
-
-插件通过 `plugins` 数组注册。关于 hook 顺序和自定义 registry，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
+- `packages`
+- `plugins`
+- `versioning`
+- `fixed`
+- `linked`
+- `ignore`
+- `snapshotTemplate`

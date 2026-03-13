@@ -3,26 +3,7 @@ title: Plugins API Reference
 description: Add hooks, commands, registries, and ecosystems to pubm.
 ---
 
-The plugin system lets you extend `pubm` without forking the core publish pipeline. A plugin can:
-
-- run code before or after major pipeline phases
-- add custom CLI commands
-- register custom registries
-- register custom ecosystems
-
-## Plugin shape
-
-```ts
-import type { PubmPlugin } from "@pubm/core";
-
-const myPlugin: PubmPlugin = {
-  name: "my-plugin",
-  hooks: {},
-  commands: [],
-  registries: [],
-  ecosystems: [],
-};
-```
+The plugin system lets you extend `pubm` without forking the core publish pipeline.
 
 ## `PubmPlugin`
 
@@ -36,15 +17,7 @@ export interface PubmPlugin {
 }
 ```
 
-## Required field
-
-### `name`
-
-Unique plugin identifier. Keep it stable because it is the main thing users will reference in logs, config, and support issues.
-
 ## Hooks
-
-Hooks are the primary extension point.
 
 ```ts
 export interface PluginHooks {
@@ -65,30 +38,6 @@ export interface PluginHooks {
 }
 ```
 
-## Hook order in the normal publish flow
-
-For a standard local publish run, hooks are called in this order:
-
-1. `beforeTest`
-2. `afterTest`
-3. `beforeBuild`
-4. `afterBuild`
-5. `beforeVersion`
-6. `afterVersion`
-7. `beforePublish`
-8. `afterPublish`
-9. `beforePush`
-10. `afterPush`
-11. `onSuccess`
-
-If the run fails:
-
-- `onError` runs with the thrown error
-- rollback is attempted
-- `onRollback` runs after rollback handling
-
-In GitHub release creation flows, `afterRelease` runs after the release object has been created.
-
 ## Hook signatures
 
 ```ts
@@ -100,29 +49,35 @@ type AfterReleaseHookFn = (
 ) => Promise<void> | void;
 ```
 
-## The `Ctx` object
+## `Ctx`
 
-Hooks receive the current pipeline context.
-
-The most useful fields are:
-
-- `version`: target version for single-version releases
-- `versions`: map of per-package versions for independent monorepos
-- `registries`: resolved publish targets
-- `packages`: resolved package configuration
-- `tag`: distribution tag such as `latest` or `beta`
-- `preview`: whether the run is a dry-run
-- `preflight`: whether the run is in CI rehearsal mode
-- `promptEnabled`: whether the runtime can ask interactive questions
-- `releaseContext`: present after a GitHub release is created
-
-Treat the context as runtime state, not a long-term storage layer.
-
-## Example: notify after publish
+Hooks receive the current pipeline context. The runtime type is based on resolved CLI options plus a few internal flags.
 
 ```ts
-import { defineConfig } from "@pubm/core";
+export interface Ctx extends ResolvedOptions {
+  promptEnabled: boolean;
+  cleanWorkingTree: boolean;
+  pluginRunner: PluginRunner;
+  releaseContext?: ReleaseContext;
+}
+```
 
+Useful fields from `ResolvedOptions` include:
+
+- `version`
+- `versions`
+- `packages`
+- `tag`
+- `preview`
+- `preflight`
+- `ci`
+- `changesetConsumed`
+
+Treat `Ctx` as runtime state for the current pipeline execution, not as a persistence layer.
+
+## Example
+
+```ts
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
@@ -136,62 +91,9 @@ const notifyPlugin = {
     },
   },
 };
-
-export default defineConfig({
-  plugins: [notifyPlugin],
-});
-```
-
-## Example: fail fast on unsupported release branches
-
-```ts
-const branchPolicyPlugin = {
-  name: "branch-policy",
-  hooks: {
-    beforeVersion(ctx) {
-      if (ctx.tag === "latest" && ctx.branch !== "main") {
-        throw new Error("Stable releases are only allowed from main.");
-      }
-    },
-  },
-};
 ```
 
 ## Custom commands
-
-Plugins can add their own CLI command trees.
-
-```ts
-const myPlugin = {
-  name: "my-plugin",
-  commands: [
-    {
-      name: "notify",
-      description: "Manual notification helpers",
-      subcommands: [
-        {
-          name: "slack",
-          description: "Send a Slack notification",
-          options: [
-            { name: "--channel <channel>", description: "Target channel" },
-          ],
-          action: async (args) => {
-            console.log(`Notify ${args.channel}`);
-          },
-        },
-      ],
-    },
-  ],
-};
-```
-
-This becomes:
-
-```bash
-pubm notify slack --channel "#releases"
-```
-
-### `PluginCommand`
 
 ```ts
 export interface PluginCommand {
@@ -199,11 +101,7 @@ export interface PluginCommand {
   description: string;
   subcommands?: PluginSubcommand[];
 }
-```
 
-### `PluginSubcommand`
-
-```ts
 export interface PluginSubcommand {
   name: string;
   description: string;
@@ -212,128 +110,12 @@ export interface PluginSubcommand {
 }
 ```
 
-### `PluginCommandOption`
+## Custom registries and ecosystems
 
-```ts
-export interface PluginCommandOption {
-  name: string;
-  description: string;
-  required?: boolean;
-}
-```
-
-## Custom registries
-
-Custom registries let plugins publish to additional package destinations beyond the built-in npm, jsr, and crates flows.
-
-```ts
-import { Registry } from "@pubm/core";
-
-class InternalRegistry extends Registry {
-  async ping() {
-    // check connectivity
-  }
-
-  async publish() {
-    // publish artifact
-  }
-}
-```
-
-Register registry instances from a plugin:
-
-```ts
-const plugin = {
-  name: "internal-registry",
-  registries: [new InternalRegistry()],
-};
-```
-
-During publish, plugin-provided registries are appended to the runtime publish task plan.
-
-## Custom ecosystems
-
-Custom ecosystems let you teach `pubm` how to read and write versions for additional package types.
-
-```ts
-import { Ecosystem } from "@pubm/core";
-
-class GoEcosystem extends Ecosystem {
-  async readVersion() {
-    // return current version
-  }
-
-  async writeVersion(version: string) {
-    // write version to manifests
-  }
-
-  manifestFiles() {
-    return ["go.mod"];
-  }
-}
-```
-
-Use ecosystems when version mutation itself is ecosystem-specific, not just the final publish transport.
-
-## Error-handling guidance
-
-Good plugins should:
-
-- throw clear, actionable errors
-- avoid hiding core pipeline failures
-- keep network or external side effects idempotent when possible
-- assume hooks may run in CI and non-interactive environments
-
-For `onError` and `onRollback`, log enough to help operators, but avoid creating a second failure that obscures the first one.
-
-## Design guidelines
-
-- Keep hooks small and phase-focused.
-- Use `beforeVersion` for release-policy checks and version-sidecar preparation.
-- Use `afterPublish` for notifications that should only happen after all publish tasks complete.
-- Use `afterRelease` only for work that depends on the created GitHub release metadata.
-- Prefer custom commands when the task is operator-triggered rather than part of every release.
-
-## Installing a plugin
-
-Add the dependency to your workspace, then register it in config:
-
-```ts
-import { defineConfig } from "@pubm/core";
-import { externalVersionSync } from "@pubm/plugin-external-version-sync";
-
-export default defineConfig({
-  plugins: [
-    externalVersionSync({
-      targets: [
-        {
-          file: "README.md",
-          pattern: /pubm@([\\w.-]+)/,
-        },
-      ],
-    }),
-  ],
-});
-```
-
-## Agent-facing bundles
-
-Many teams ship more than runtime hooks. They also ship agent-facing assets alongside a plugin:
-
-- repo-local skills or prompt files
-- slash-command recipes
-- setup automation for installing registry config, CI, or version-sync targets
-
-That pattern works well with `pubm` because commands, hooks, and preview-first workflows are already explicit. A practical split is:
-
-- plugin code handles deterministic runtime work
-- agent skills explain when to run preview, preflight, or setup flows
-- setup commands scaffold files the agent should not invent from scratch
-
-The repository's `pubm plugin` bundle under `plugins/pubm-plugin/skills/*` is an example of this approach.
+Use custom registries when you need another publish destination. Use custom ecosystems when you need to teach `pubm` how to read and write versions for another package type.
 
 ## Related docs
 
-- [Official Plugins](/pubm/reference/official-plugins/)
-- [Coding Agent Integration](/pubm/guides/coding-agents/)
 - [Configuration](/pubm/guides/configuration/)
+- [Coding Agent Integration](/pubm/guides/coding-agents/)
+- [Official Plugins](/pubm/reference/official-plugins/)

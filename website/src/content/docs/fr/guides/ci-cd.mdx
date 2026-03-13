@@ -3,85 +3,28 @@ title: CI/CD
 description: Configurer preflight, la gestion des tokens et l'automatisation des releases avec pubm.
 ---
 
-`pubm` se comporte bien autant dans un terminal local qu'en CI. Cette page couvre la validation locale, les prerequis CI et la structure d'un workflow de release fiable.
+`pubm` se comporte bien autant dans un terminal local qu'en CI. Le point cle est que le pipeline normal sait deja consommer les changesets pendant la version, donc vous n'avez pas besoin d'une etape separee `pubm changesets version` juste pour preparer la CI.
 
 ## Modele recommande
 
-1. preparer les versions et le changelog localement ou dans un job controle
-2. publier depuis la CI avec des tags et des credentials non interactifs
+1. lancer `pubm --preflight` localement ou dans un job controle
+2. publier depuis la CI avec `pubm --ci`
 
 ```bash
-pubm changesets version
 pubm --preflight
-pubm patch --preview
-```
-
-```bash
 pubm --ci
 ```
 
-## Lancer preflight avant la CI
+## Ce que fait preflight
 
-```bash
-pubm --preflight
-```
+`pubm --preflight` :
 
-Preflight:
-
-- collecte les tokens
+- collecte les tokens de registre
 - peut les synchroniser vers GitHub Secrets
-- imite le comportement CI sans invites
-- execute les checks prerequis et conditions
-- dry-run les publications
+- execute les checks prerequis et required conditions
+- lance tests et build sauf si ignores
+- consomme les changesets en attente pendant la version si presents
+- cree le commit de release et pousse branche et tags
+- dry-run les taches de publish au lieu du publish reel
 
-## Variables d'environnement
-
-| Variable | Registre |
-|----------|----------|
-| `NODE_AUTH_TOKEN` | npm |
-| `JSR_TOKEN` | jsr |
-| `CARGO_REGISTRY_TOKEN` | crates.io |
-
-## Synchroniser les secrets GitHub
-
-```bash
-pubm secrets sync
-pubm secrets sync --registry npm,jsr
-```
-
-## Exemple GitHub Actions
-
-```yaml
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-      - "@*"
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: pnpm install --frozen-lockfile
-      - run: pubm --ci
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-```
-
-## Pieges courants
-
-- shallow checkout: utilisez `fetch-depth: 0`
-- token manquant: la CI ne peut pas demander d'info
-- npm 2FA: utilisez des tokens compatibles automatisation
-- `contents` absent: le build doit produire le dossier avant publish
+Vous n'avez donc pas besoin de lancer `pubm patch --preview` apres preflight.

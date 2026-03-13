@@ -168,17 +168,6 @@ const docsSidebar = [
         slug: "reference/cli",
       },
       {
-        label: "Config API",
-        translations: {
-          ko: "Config API",
-          "zh-CN": "Config API",
-          fr: "API de configuration",
-          de: "Config-API",
-          es: "API de configuracion",
-        },
-        slug: "reference/config",
-      },
-      {
         label: "Core SDK",
         translations: {
           ko: "Core SDK",

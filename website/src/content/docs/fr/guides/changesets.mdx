@@ -3,13 +3,7 @@ title: Changesets
 description: Enregistrer l'intention de release, generer le changelog et controler les bumps de version.
 ---
 
-`pubm` utilise les fichiers dans `.pubm/changesets/` comme source durable de "ce qui doit sortir ensuite". Au lieu de deduire la version depuis les commits ou les branches, il lit ces fichiers et en derive les bumps et le changelog.
-
-## Pourquoi c'est important
-
-- plan de release relisible dans chaque PR
-- calcul deterministe des versions
-- texte du changelog ecrit avant le jour de release
+`pubm` utilise les fichiers dans `.pubm/changesets/` comme source durable de ce qui doit etre publie ensuite.
 
 ## Emplacement
 
@@ -28,64 +22,27 @@ pubm init --changesets
 pubm changesets add
 ```
 
-```bash
-pubm changesets add \
-  --packages @acme/core,@acme/react \
-  --bump minor \
-  --message "Ajoute l'authentification par token au client public."
-```
-
-Fichier vide:
-
-```bash
-pubm changesets add --empty
-```
-
-## Format
-
-```md
----
-"@acme/core": minor
-"@acme/react": patch
----
-
-Ajoute l'authentification par token au client public.
-```
-
-## Types de bump
-
-- `patch`: correctifs, petits ajustements, ameliorations sans changement d'API
-- `minor`: fonctionnalites retrocompatibles, nouveaux flags, nouvelles API additives
-- `major`: suppressions, exigences incompatibles, changements forçant une migration
-
 ## Inspecter les changements en attente
 
 ```bash
 pubm changesets status
 pubm changesets status --verbose
-```
-
-## Previsualiser l'ecriture des versions
-
-```bash
 pubm changesets version --dry-run
 ```
 
-## Consommer les changesets
+## Consommation des changesets
+
+Quand vous lancez `pubm`, les changesets en attente sont consommes pendant l'etape de version :
+
+1. lecture des fichiers `.pubm/changesets/*.md`
+2. calcul des versions finales
+3. mise a jour des manifestes
+4. generation du changelog
+5. suppression des fichiers consommes
+6. creation du commit et des tags de release
+
+Si vous voulez n'executer que la partie versioning a l'avance, vous pouvez toujours lancer :
 
 ```bash
 pubm changesets version
-```
-
-## Changelog seul
-
-```bash
-pubm changesets changelog --dry-run
-pubm changesets changelog --version 1.8.0
-```
-
-## Migration depuis `.changeset/`
-
-```bash
-pubm changesets migrate
 ```

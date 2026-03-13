@@ -5,19 +5,16 @@ description: Registrar la intencion de release, generar changelogs y controlar l
 
 `pubm` usa `.pubm/changesets/` como el registro durable de lo que debe liberarse despues.
 
-## Por que importa
-
-- plan de release revisable en cada PR
-- calculo determinista de versiones
-- changelog escrito antes del dia de release
-
 ## Comandos basicos
 
 ```bash
 pubm init
 pubm init --changesets
 pubm changesets add
+pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm changesets version
 ```
 
+## Consumo en el flujo de release
+
+Cuando ejecutas `pubm`, los changesets pendientes se consumen durante la etapa de version. `pubm changesets version` sigue disponible para flujos controlados, pero no es obligatorio antes de `pubm` o `pubm --ci`.

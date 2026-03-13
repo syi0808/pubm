@@ -1,21 +1,20 @@
 ---
 title: Configuration
-description: Definir valores por defecto del pipeline de release, estructura de paquetes y destinos de registro.
+description: Definir valores por defecto del pipeline de release, estructura de paquetes y plugins.
 ---
 
 `pubm` es CLI-first, pero los proyectos reales necesitan rapido una configuracion a nivel de repositorio con `pubm.config.*`.
 
-## Config minima
+## Archivos soportados
 
-`pubm` infiere los registros desde los archivos de manifiesto. La config puede quedar vacia en la mayoria de proyectos:
+1. `pubm.config.ts`
+2. `pubm.config.mts`
+3. `pubm.config.cts`
+4. `pubm.config.js`
+5. `pubm.config.mjs`
+6. `pubm.config.cjs`
 
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
-
-Reglas de inferencia:
+## Reglas de inferencia
 
 | Manifiesto | Registro inferido |
 |---|---|
@@ -23,10 +22,12 @@ Reglas de inferencia:
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-Campos comunes:
+## Campos comunes
 
 - `packages`
 - `plugins`
 - `versioning`
 - `fixed`
 - `linked`
+- `ignore`
+- `snapshotTemplate`

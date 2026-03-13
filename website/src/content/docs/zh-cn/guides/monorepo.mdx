@@ -3,98 +3,12 @@ title: Monorepo
 description: 用正确的顺序和版本策略发布 workspace 包。
 ---
 
-`pubm` 将 monorepo 视为核心场景。它能发现包、理解依赖顺序，并在同一仓库中同时处理 JavaScript 与 Rust 包。
-
-## 自动发现
-
-- `pnpm-workspace.yaml`
-- 带 `workspaces` 字段的 `package.json`
-
-然后建立依赖图并确定 publish 顺序。
-
-## 自动发现还是显式配置
-
-自动发现适合：
-
-- 所有 workspace 包都要发布
-- 不混合生态
-
-显式 `packages` 更适合：
-
-- 只发布部分包
-- JS 和 Rust 混合
-- 需要覆盖推断的 registry 或添加私有 registry
-
-registry 从每个包的清单文件中推断，`registries` 只在需要覆盖时使用：
-
-```ts
-export default defineConfig({
-  packages: [
-    { path: "packages/core" },                            // 从清单自动推断
-    { path: "packages/cli", registries: ["npm"] },        // 覆盖
-    { path: "crates/pubm-rs" },                           // 从 Cargo.toml 推断
-  ],
-});
-```
-
-## publish 顺序
-
-`pubm` 按拓扑顺序发布依赖关系中的包。依赖项必须先于依赖它的包发布。
-
-若存在循环依赖，`pubm` 会直接失败，而不是猜测顺序。
-
-## 版本模式
-
-### `independent`
-
-- 每个包可拥有不同版本
-- 每个包独立打 tag
-
-### `fixed`
-
-- 一起发布的包共享一个版本
-- 通常产生一个仓库级 tag
-
-### fixed / linked 组
-
-```ts
-fixed: [["@acme/core", "@acme/react", "@acme/vue"]]
-linked: [["@acme/cli", "@acme/config"]]
-```
+`pubm` 将 monorepo 视为核心场景，也可以识别 JavaScript、Rust 和 Deno workspace。
 
 ## 典型流程
 
 ```bash
 pubm init --changesets
 pubm changesets add
-pubm changesets status --verbose
-pubm changesets version --dry-run
-pubm changesets version
-pubm patch --preview
-pubm patch
+pubm
 ```
-
-## changesets 原则
-
-要把包的信息写进 changeset 文件，而不是写在提交信息或 PR 标题里。
-
-## 多 registry monorepo
-
-registry 从每个包的清单文件推断，`registries` 只在需要覆盖或添加私有 registry 时使用：
-
-```ts
-export default defineConfig({
-  packages: [
-    { path: "packages/sdk" },                             // npm + jsr 自动推断
-    { path: "packages/cli", registries: ["npm"] },        // 覆盖
-    { path: "crates/runtime" },                           // crates 自动推断
-  ],
-});
-```
-
-建议：
-
-- 从第一天起启用 `pubm init --changesets`
-- registry 不同就显式写 `packages`
-- library 选 `independent`，产品型仓库选 `fixed`
-- CI publish 前先跑 `pubm --preflight`
