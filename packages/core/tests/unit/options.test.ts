@@ -9,7 +9,6 @@ describe("defaultOptions", () => {
       buildScript: "build",
       branch: "main",
       tag: "latest",
-      registries: ["npm", "jsr"],
     });
   });
 
@@ -27,7 +26,7 @@ describe("resolveOptions", () => {
     expect(result.buildScript).toBe("build");
     expect(result.branch).toBe("main");
     expect(result.tag).toBe("latest");
-    expect(result.registries).toStrictEqual(["npm", "jsr"]);
+    expect(result.registries).toBeUndefined();
   });
 
   it("should preserve the version from user options", () => {
@@ -43,25 +42,21 @@ describe("resolveOptions", () => {
       buildScript: "my-build",
       branch: "develop",
       tag: "beta",
-      registries: ["npm"],
     });
 
     expect(result.testScript).toBe("my-test");
     expect(result.buildScript).toBe("my-build");
     expect(result.branch).toBe("develop");
     expect(result.tag).toBe("beta");
-    expect(result.registries).toStrictEqual(["npm"]);
   });
 
   it("should ignore undefined user options and use defaults instead", () => {
     const result = resolveOptions({
       version: "1.0.0",
       testScript: undefined,
-      registries: undefined,
     } as Options);
 
     expect(result.testScript).toBe("test");
-    expect(result.registries).toStrictEqual(["npm", "jsr"]);
   });
 
   it("should preserve user options that are not in defaultOptions", () => {
@@ -114,6 +109,5 @@ describe("resolveOptions", () => {
     expect(result).toHaveProperty("buildScript");
     expect(result).toHaveProperty("branch");
     expect(result).toHaveProperty("tag");
-    expect(result).toHaveProperty("registries");
   });
 });

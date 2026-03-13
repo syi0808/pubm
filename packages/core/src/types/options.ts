@@ -96,11 +96,6 @@ export interface Options {
    */
   saveToken?: boolean;
   /**
-   * @description Target registries for publish
-   * @default ['npm', 'jsr']
-   */
-  registries?: RegistryType[];
-  /**
    * @description Per-package publish configuration (from pubm.config.ts)
    */
   packages?: PackageConfig[];
@@ -121,7 +116,6 @@ export interface ResolvedOptions extends Options {
   branch: string;
   tag: string;
   saveToken: boolean;
-  registries: RegistryType[];
   packages?: PackageConfig[];
   pluginRunner?: PluginRunner;
 }

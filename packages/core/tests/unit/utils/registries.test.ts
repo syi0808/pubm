@@ -2,19 +2,16 @@ import { describe, expect, it } from "vitest";
 import { collectRegistries } from "../../../src/utils/registries.js";
 
 describe("collectRegistries", () => {
-  it("falls back to ctx.registries when packages is undefined", () => {
-    const result = collectRegistries({
-      registries: ["npm", "jsr"],
-    });
-    expect(result).toEqual(["npm", "jsr"]);
+  it("returns empty array when packages is undefined", () => {
+    const result = collectRegistries({});
+    expect(result).toEqual([]);
   });
 
-  it("falls back to ctx.registries when packages is an empty array", () => {
+  it("returns empty array when packages is an empty array", () => {
     const result = collectRegistries({
       packages: [],
-      registries: ["npm"],
     });
-    expect(result).toEqual(["npm"]);
+    expect(result).toEqual([]);
   });
 
   it("collects registries from all packages", () => {
@@ -23,7 +20,6 @@ describe("collectRegistries", () => {
         { path: "packages/a", registries: ["npm"] },
         { path: "packages/b", registries: ["jsr"] },
       ],
-      registries: [],
     });
     expect(result).toEqual(["npm", "jsr"]);
   });
@@ -35,7 +31,6 @@ describe("collectRegistries", () => {
         { path: "packages/b", registries: ["npm"] },
         { path: "packages/c", registries: ["jsr"] },
       ],
-      registries: [],
     });
     expect(result).toEqual(["npm", "jsr"]);
   });
@@ -47,7 +42,6 @@ describe("collectRegistries", () => {
         { path: "packages/b", registries: ["npm"] },
         { path: "packages/c", registries: ["jsr", "npm"] },
       ],
-      registries: [],
     });
     expect(result).toEqual(["jsr", "npm"]);
   });
@@ -55,7 +49,6 @@ describe("collectRegistries", () => {
   it("works with a single package having multiple registries", () => {
     const result = collectRegistries({
       packages: [{ path: "packages/only", registries: ["npm", "jsr"] }],
-      registries: [],
     });
     expect(result).toEqual(["npm", "jsr"]);
   });
@@ -66,7 +59,6 @@ describe("collectRegistries", () => {
         { path: "crates/foo", registries: ["crates"] },
         { path: "crates/bar", registries: ["crates"] },
       ],
-      registries: [],
     });
     expect(result).toEqual(["crates"]);
   });
@@ -78,7 +70,6 @@ describe("collectRegistries", () => {
         { path: "crates/core", registries: ["crates"] },
         { path: "packages/pubm", registries: ["npm"] },
       ],
-      registries: [],
     });
     expect(result).toEqual(["npm", "jsr", "crates"]);
   });

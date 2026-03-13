@@ -267,8 +267,8 @@ function createOptions(overrides: Record<string, unknown> = {}) {
     buildScript: "build",
     branch: "main",
     tag: "latest",
-    registries: ["npm", "jsr"],
     saveToken: true,
+    packages: [{ path: ".", registries: ["npm", "jsr"] }],
     ...overrides,
   } as any;
 }
@@ -697,7 +697,9 @@ describe("runner coverage scenarios", () => {
   it("falls back to a generic crate label when registries include crates without package metadata", async () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    await run(createOptions({ registries: ["crates"] }));
+    await run(
+      createOptions({ packages: [{ path: ".", registries: ["crates"] }] }),
+    );
 
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("crate"));
   });
