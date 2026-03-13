@@ -6,6 +6,7 @@ import {
   color,
   type Listr,
   type ListrRenderer,
+  type ListrTask,
   type ListrTaskWrapper,
 } from "listr2";
 import SemVer from "semver";
@@ -18,18 +19,16 @@ import {
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { discoverPackageInfos } from "../changeset/packages.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
-import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { PluginRunner } from "../plugin/runner.js";
+import { registryCatalog } from "../registry/catalog.js";
 import type { ResolvedOptions } from "../types/options.js";
 import { link } from "../utils/cli.js";
-import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
 import {
-  getJsrJson,
   getPackageJson,
   replaceVersion,
   replaceVersionAtPath,
@@ -78,15 +77,22 @@ type NewListrParentTask<Context extends {}> = ListrTaskWrapper<
   typeof ListrRenderer
 >;
 
-function registryTask(registry: string) {
-  switch (registry) {
-    case "npm":
-      return npmPublishTasks;
-    case "jsr":
-      return jsrPublishTasks;
-    default:
-      return npmPublishTasks;
-  }
+// Registry key → publish task mapping (kept in runner for listr2 orchestration)
+const publishTaskMap: Record<string, (packagePath?: string) => ListrTask<Ctx>> =
+  {
+    npm: () => npmPublishTasks,
+    jsr: () => jsrPublishTasks,
+    crates: (packagePath) => createCratesPublishTask(packagePath),
+  };
+
+function createPublishTaskForPath(
+  registryKey: string,
+  packagePath: string,
+): ListrTask<Ctx> {
+  const factory = publishTaskMap[registryKey];
+  if (!factory)
+    return { title: `Publish to ${registryKey}`, task: async () => {} };
+  return factory(packagePath);
 }
 
 async function collectPublishTasks(ctx: Ctx) {
@@ -96,18 +102,25 @@ async function collectPublishTasks(ctx: Ctx) {
     groups.map(async (group) => {
       const registryTasks = await Promise.all(
         group.registries.map(async ({ registry, packagePaths }) => {
-          if (registry !== "crates") {
-            return registryTask(registry);
+          const descriptor = registryCatalog.get(registry);
+          if (!descriptor)
+            return createPublishTaskForPath(registry, packagePaths[0]);
+
+          const reg = await descriptor.factory();
+
+          // For concurrent registries, return the raw task directly
+          // (the task itself handles publishing; no per-package dispatch needed)
+          if (reg.concurrentPublish) {
+            return createPublishTaskForPath(registry, packagePaths[0]);
           }
 
-          const sortedPaths = await sortCratesByDependencyOrder(packagePaths);
+          const paths = await reg.orderPackages(packagePaths);
+
           return {
-            title: "Publishing to crates.io (sequential)",
+            title: `Publishing to ${descriptor.label} (sequential)`,
             task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
               task.newListr(
-                sortedPaths.map((packagePath) =>
-                  createCratesPublishTask(packagePath),
-                ),
+                paths.map((p) => createPublishTaskForPath(registry, p)),
                 { concurrent: false },
               ),
           };
@@ -117,9 +130,7 @@ async function collectPublishTasks(ctx: Ctx) {
       return {
         title: ecosystemLabel(group.ecosystem),
         task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
-          task.newListr(registryTasks, {
-            concurrent: true,
-          }),
+          task.newListr(registryTasks, { concurrent: true }),
       };
     }),
   );
@@ -137,15 +148,26 @@ function pluginPublishTasks(ctx: Ctx) {
   }));
 }
 
-function dryRunRegistryTask(registry: string) {
-  switch (registry) {
-    case "npm":
-      return npmDryRunPublishTask;
-    case "jsr":
-      return jsrDryRunPublishTask;
-    default:
-      return npmDryRunPublishTask;
-  }
+// Registry key → dry-run task mapping
+const dryRunTaskMap: Record<
+  string,
+  (packagePath?: string, siblingNames?: string[]) => ListrTask<Ctx>
+> = {
+  npm: () => npmDryRunPublishTask,
+  jsr: () => jsrDryRunPublishTask,
+  crates: (packagePath, siblingNames) =>
+    createCratesDryRunPublishTask(packagePath, siblingNames),
+};
+
+function createDryRunTaskForPath(
+  registryKey: string,
+  packagePath: string,
+  siblingNames?: string[],
+): ListrTask<Ctx> {
+  const factory = dryRunTaskMap[registryKey];
+  if (!factory)
+    return { title: `Dry-run ${registryKey}`, task: async () => {} };
+  return factory(packagePath, siblingNames);
 }
 
 async function collectDryRunPublishTasks(ctx: Ctx) {
@@ -155,23 +177,42 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
     groups.map(async (group) => {
       const registryTasks = await Promise.all(
         group.registries.map(async ({ registry, packagePaths }) => {
-          if (registry !== "crates") {
-            return dryRunRegistryTask(registry);
+          const descriptor = registryCatalog.get(registry);
+          if (!descriptor)
+            return createDryRunTaskForPath(registry, packagePaths[0]);
+
+          const reg = await descriptor.factory();
+
+          // For concurrent registries, return the raw task directly
+          if (reg.concurrentPublish) {
+            return createDryRunTaskForPath(registry, packagePaths[0]);
           }
 
-          const sortedPaths = await sortCratesByDependencyOrder(packagePaths);
-          const siblingCrateNames = await Promise.all(
-            packagePaths.map((packagePath) =>
-              new RustEcosystem(packagePath).packageName(),
-            ),
-          );
+          const paths = await reg.orderPackages(packagePaths);
+
+          // For non-concurrent registries with multiple packages, gather sibling names
+          let siblingNames: string[] | undefined;
+          if (packagePaths.length > 1) {
+            const eco = await import("../ecosystem/index.js");
+            const ecosystem = await eco.detectEcosystem(packagePaths[0], [
+              registry,
+            ]);
+            if (ecosystem) {
+              siblingNames = await Promise.all(
+                packagePaths.map(async (p) => {
+                  const e = await eco.detectEcosystem(p, [registry]);
+                  return e ? await e.packageName() : p;
+                }),
+              );
+            }
+          }
 
           return {
-            title: "Dry-run crates.io publish (sequential)",
+            title: `Dry-run ${descriptor.label} publish (sequential)`,
             task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
               task.newListr(
-                sortedPaths.map((packagePath) =>
-                  createCratesDryRunPublishTask(packagePath, siblingCrateNames),
+                paths.map((p) =>
+                  createDryRunTaskForPath(registry, p, siblingNames),
                 ),
                 { concurrent: false },
               ),
@@ -182,9 +223,7 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
       return {
         title: ecosystemLabel(group.ecosystem),
         task: (_ctx: Ctx, task: NewListrParentTask<Ctx>) =>
-          task.newListr(registryTasks, {
-            concurrent: true,
-          }),
+          task.newListr(registryTasks, { concurrent: true }),
       };
     }),
   );
@@ -198,9 +237,7 @@ function formatRegistryGroupSummary(
   const lines = collectEcosystemRegistryGroups(ctx).flatMap((group) =>
     group.registries.map(({ registry, packagePaths }) => {
       const packageSummary =
-        registry === "crates" && packagePaths.length > 1
-          ? ` (${packagePaths.length} packages)`
-          : "";
+        packagePaths.length > 1 ? ` (${packagePaths.length} packages)` : "";
       return `- ${ecosystemLabel(group.ecosystem)} > ${registryLabel(registry)}${packageSummary}`;
     }),
   );
@@ -916,22 +953,12 @@ export async function run(options: ResolvedOptions): Promise<void> {
     const registries = collectRegistries(ctx);
     const parts: string[] = [];
 
-    if (registries.includes("npm")) {
-      const npmPackageName = (await getPackageJson()).name;
-      parts.push(`${color.bold(npmPackageName)} on ${color.green("npm")}`);
-    }
-
-    if (registries.includes("jsr")) {
-      const jsrPackageName = (await getJsrJson()).name;
-      parts.push(`${color.bold(jsrPackageName)} on ${color.yellow("jsr")}`);
-    }
-
-    if (registries.includes("crates")) {
-      const crateNames = ctx.packages
-        ?.filter((pkg) => pkg.registries.includes("crates"))
-        .map((pkg) => pkg.path) ?? ["crate"];
-      for (const name of crateNames) {
-        parts.push(`${color.bold(name)} on ${color.red("crates.io")}`);
+    for (const registryKey of registries) {
+      const descriptor = registryCatalog.get(registryKey);
+      if (!descriptor?.resolveDisplayName) continue;
+      const names = await descriptor.resolveDisplayName(ctx);
+      for (const name of names) {
+        parts.push(`${color.bold(name)} on ${descriptor.label}`);
       }
     }
 

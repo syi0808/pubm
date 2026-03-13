@@ -1,0 +1,36 @@
+---
+title: Troubleshooting
+description: Diagnostiquer les problemes de release, de config et de registre les plus frequents dans pubm.
+---
+
+Cette page se concentre sur les pannes les plus utiles a diagnostiquer: chargement de config, versioning, auth registre, etat Git et comportement CI.
+
+## Commandes de diagnostic
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+## Cas frequents
+
+- Git sale ou mauvaise branche
+- `No changesets found.`
+- mauvais packages bumps
+- echec de chargement de config
+- erreurs npm / jsr / crates.io
+- build ou tests qui cassent
+- differences local vs CI
+
+## Si le rollback a eu lieu
+
+Verifiez:
+
+```bash
+git tag
+git status
+```
+
+L'important est de comprendre la premiere vraie erreur, pas seulement les messages de rollback.

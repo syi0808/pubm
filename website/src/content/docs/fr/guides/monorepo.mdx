@@ -1,0 +1,51 @@
+---
+title: Monorepo
+description: Publier les packages du workspace dans le bon ordre avec la bonne strategie de version.
+---
+
+`pubm` traite le monorepo comme un cas principal. Il decouvre les packages, comprend l'ordre de dependances et peut publier des packages JavaScript et Rust dans le meme depot.
+
+## Detection automatique
+
+- `pnpm-workspace.yaml`
+- `package.json` avec `workspaces`
+
+## Quand declarer `packages`
+
+Utilisez une config explicite quand:
+
+- seuls certains packages doivent etre publies
+- les registres different selon le package
+- JS et Rust cohabitent
+
+```ts
+export default defineConfig({
+  packages: [
+    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+  ],
+});
+```
+
+## Ordre de publish
+
+`pubm` publie en ordre topologique. Si une dependance doit sortir avant un package dependants, elle est publiee en premier.
+
+## Modes de version
+
+- `independent`
+- `fixed`
+- groupes `fixed` et `linked`
+
+## Flux typique
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm changesets version
+pubm patch --preview
+pubm patch
+```

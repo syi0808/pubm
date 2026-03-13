@@ -10,12 +10,10 @@ vi.mock("../../../src/registry/index.js", () => ({
   getRegistry: vi.fn(),
 }));
 
-vi.mock("../../../src/registry/npm.js", () => ({
-  npmRegistry: vi.fn(),
-}));
-
-vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrRegistry: vi.fn(),
+vi.mock("../../../src/registry/catalog.js", () => ({
+  registryCatalog: {
+    get: vi.fn(),
+  },
 }));
 
 vi.mock("../../../src/utils/engine-version.js", () => ({
@@ -31,14 +29,6 @@ vi.mock("../../../src/utils/listr.js", () => ({
     return { _taskDef: taskDef, run: vi.fn() };
   }),
   createCiListrOptions: vi.fn(),
-}));
-
-vi.mock("../../../src/tasks/npm.js", () => ({
-  npmAvailableCheckTasks: { title: "npm-check-mock", task: vi.fn() },
-}));
-
-vi.mock("../../../src/tasks/jsr.js", () => ({
-  jsrAvailableCheckTasks: { title: "jsr-check-mock", task: vi.fn() },
 }));
 
 import type { Ctx } from "../../../src/tasks/runner.js";
@@ -64,19 +54,38 @@ function createCtx(overrides: Partial<Ctx> = {}): Ctx {
   } as Ctx;
 }
 
-function createMockTask(promptResponses: any[] = []) {
-  let promptIndex = 0;
+let mockGitInstance: Record<string, ReturnType<typeof vi.fn>>;
+let capturedSubtasks: any[];
+
+function makeNpmDescriptor() {
   return {
-    output: "",
-    title: "",
-    prompt: vi.fn(() => ({
-      run: vi.fn(async () => promptResponses[promptIndex++]),
-    })),
+    key: "npm",
+    ecosystem: "js",
+    label: "npm",
+    needsPackageScripts: true,
+    factory: vi.fn(),
   };
 }
 
-let mockGitInstance: Record<string, ReturnType<typeof vi.fn>>;
-let capturedSubtasks: any[];
+function makeJsrDescriptor() {
+  return {
+    key: "jsr",
+    ecosystem: "js",
+    label: "jsr",
+    needsPackageScripts: false,
+    factory: vi.fn(),
+  };
+}
+
+function makeCratesDescriptor() {
+  return {
+    key: "crates",
+    ecosystem: "rust",
+    label: "crates.io",
+    needsPackageScripts: false,
+    factory: vi.fn(),
+  };
+}
 
 async function getSubtasks() {
   const { requiredConditionsCheckTask } = await import(
@@ -110,12 +119,15 @@ beforeEach(async () => {
     getRegistry: vi.fn(),
   }));
 
-  vi.doMock("../../../src/registry/npm.js", () => ({
-    npmRegistry: vi.fn(),
-  }));
-
-  vi.doMock("../../../src/registry/jsr.js", () => ({
-    jsrRegistry: vi.fn(),
+  vi.doMock("../../../src/registry/catalog.js", () => ({
+    registryCatalog: {
+      get: vi.fn((key: string) => {
+        if (key === "npm") return makeNpmDescriptor();
+        if (key === "jsr") return makeJsrDescriptor();
+        if (key === "crates") return makeCratesDescriptor();
+        return undefined;
+      }),
+    },
   }));
 
   vi.doMock("../../../src/utils/engine-version.js", () => ({
@@ -131,22 +143,6 @@ beforeEach(async () => {
       return { _taskDef: taskDef, run: vi.fn() };
     }),
     createCiListrOptions: vi.fn(),
-  }));
-
-  vi.doMock("../../../src/tasks/npm.js", () => ({
-    npmAvailableCheckTasks: { title: "npm-check-mock", task: vi.fn() },
-  }));
-
-  vi.doMock("../../../src/tasks/jsr.js", () => ({
-    jsrAvailableCheckTasks: { title: "jsr-check-mock", task: vi.fn() },
-  }));
-
-  vi.doMock("../../../src/tasks/crates.js", () => ({
-    cratesAvailableCheckTasks: { title: "crates-check-mock", task: vi.fn() },
-    createCratesAvailableCheckTask: vi.fn((pkgPath?: string) => ({
-      title: `crates-check-mock (${pkgPath})`,
-      task: vi.fn(),
-    })),
   }));
 
   mockGitInstance = {
@@ -186,10 +182,10 @@ describe("requiredConditionsCheckTask", () => {
       );
     });
 
-    it("produces 5 subtasks", async () => {
+    it("produces 4 subtasks", async () => {
       const subtasks = await getSubtasks();
 
-      expect(subtasks).toHaveLength(5);
+      expect(subtasks).toHaveLength(4);
     });
   });
 
@@ -323,182 +319,10 @@ describe("requiredConditionsCheckTask", () => {
     });
   });
 
-  describe("Subtask 2: npm/jsr installation check", () => {
-    it("npm enabled check returns true only when registries include npm", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      const npmSubtask = innerSubtasks[0];
-      const jsrSubtask = innerSubtasks[1];
-
-      // npm enabled when registries include npm
-      const ctxWithNpm = createCtx({ registries: ["npm"] });
-      expect(npmSubtask.enabled(ctxWithNpm)).toBe(true);
-
-      // npm not enabled when only jsr
-      const ctxJsrOnly = createCtx({ registries: ["jsr"] });
-      expect(npmSubtask.enabled(ctxJsrOnly)).toBe(false);
-
-      // npm not enabled when only crates
-      const ctxCratesOnly = createCtx({ registries: ["crates"] });
-      expect(npmSubtask.enabled(ctxCratesOnly)).toBe(false);
-
-      // jsr enabled when registries include jsr
-      expect(jsrSubtask.enabled(ctxWithNpm)).toBe(false);
-      expect(jsrSubtask.enabled(ctxJsrOnly)).toBe(true);
-    });
-
-    it("throws when npm is not installed", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      const mockNpm = { isInstalled: vi.fn().mockResolvedValue(false) };
-      const { npmRegistry: mockNpmReg } = await import(
-        "../../../src/registry/npm.js"
-      );
-      vi.mocked(mockNpmReg).mockResolvedValue(mockNpm as any);
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      await expect(innerSubtasks[0].task()).rejects.toThrow(
-        "npm is not installed",
-      );
-    });
-
-    it("passes when npm is installed", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      const mockNpm = { isInstalled: vi.fn().mockResolvedValue(true) };
-      const { npmRegistry: mockNpmReg } = await import(
-        "../../../src/registry/npm.js"
-      );
-      vi.mocked(mockNpmReg).mockResolvedValue(mockNpm as any);
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      await expect(innerSubtasks[0].task()).resolves.toBeUndefined();
-    });
-
-    it("prompts to install jsr when not installed and installs on confirm", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      const mockJsr = { isInstalled: vi.fn().mockResolvedValue(false) };
-      const mockNpm = { installGlobally: vi.fn().mockResolvedValue(true) };
-
-      const { jsrRegistry: mockJsrReg } = await import(
-        "../../../src/registry/jsr.js"
-      );
-      const { npmRegistry: mockNpmReg } = await import(
-        "../../../src/registry/npm.js"
-      );
-      vi.mocked(mockJsrReg).mockResolvedValue(mockJsr as any);
-      vi.mocked(mockNpmReg).mockResolvedValue(mockNpm as any);
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      const task = createMockTask([true]);
-      await innerSubtasks[1].task({}, task);
-
-      expect(task.prompt).toHaveBeenCalledOnce();
-      expect(task.output).toBe("Installing jsr...");
-      expect(mockNpm.installGlobally).toHaveBeenCalledWith("jsr");
-    });
-
-    it("throws when jsr not installed and user declines", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      const mockJsr = { isInstalled: vi.fn().mockResolvedValue(false) };
-
-      const { jsrRegistry: mockJsrReg } = await import(
-        "../../../src/registry/jsr.js"
-      );
-      vi.mocked(mockJsrReg).mockResolvedValue(mockJsr as any);
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      const task = createMockTask([false]);
-      await expect(innerSubtasks[1].task({}, task)).rejects.toThrow(
-        "jsr is not installed",
-      );
-    });
-
-    it("passes when jsr is already installed", async () => {
-      const subtasks = await getSubtasks();
-      const installTask = subtasks[1];
-
-      const mockJsr = { isInstalled: vi.fn().mockResolvedValue(true) };
-
-      const { jsrRegistry: mockJsrReg } = await import(
-        "../../../src/registry/jsr.js"
-      );
-      vi.mocked(mockJsrReg).mockResolvedValue(mockJsr as any);
-
-      let innerSubtasks: any[] = [];
-      const innerParentTask = {
-        newListr: vi.fn((tasks: any[]) => {
-          innerSubtasks = tasks;
-          return tasks;
-        }),
-      };
-
-      await installTask.task({}, innerParentTask);
-
-      const task = createMockTask();
-      await innerSubtasks[1].task({}, task);
-
-      expect(task.prompt).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Subtask 3: Scripts existence check", () => {
+  describe("Subtask 2: Scripts existence check", () => {
     it("skips when all registries have needsPackageScripts false (e.g., jsr only)", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({ registries: ["jsr"] });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
@@ -506,7 +330,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("does not skip when any registry has needsPackageScripts true", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({ registries: ["npm", "jsr"] });
 
       expect(scriptsTask.skip(ctx)).toBe(false);
@@ -514,7 +338,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("skips when registries contain only crates", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({ registries: ["crates"] });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
@@ -522,7 +346,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("passes when both test and build scripts exist", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({ testScript: "test", buildScript: "build" });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -539,7 +363,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("throws when test script is missing and skipTests is false", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -562,7 +386,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("passes when test script is missing but skipTests is true", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -583,7 +407,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("throws when build script is missing and skipBuild is false", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -606,7 +430,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("passes when build script is missing but skipBuild is true", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -627,7 +451,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("throws with combined message when both scripts are missing", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -651,7 +475,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("handles package.json with no scripts field", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "test",
         buildScript: "build",
@@ -674,7 +498,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("uses custom script names from ctx", async () => {
       const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[2];
+      const scriptsTask = subtasks[1];
       const ctx = createCtx({
         testScript: "custom-test",
         buildScript: "custom-build",
@@ -693,10 +517,10 @@ describe("requiredConditionsCheckTask", () => {
     });
   });
 
-  describe("Subtask 4: Git version check", () => {
+  describe("Subtask 3: Git version check", () => {
     it("validates git version against engines", async () => {
       const subtasks = await getSubtasks();
-      const gitVersionTask = subtasks[3];
+      const gitVersionTask = subtasks[2];
 
       const { Git: MockedGit } = await import("../../../src/git.js");
       vi.mocked(MockedGit).mockImplementation(function () {
@@ -716,7 +540,7 @@ describe("requiredConditionsCheckTask", () => {
 
     it("propagates validation errors", async () => {
       const subtasks = await getSubtasks();
-      const gitVersionTask = subtasks[3];
+      const gitVersionTask = subtasks[2];
 
       const { Git: MockedGit } = await import("../../../src/git.js");
       vi.mocked(MockedGit).mockImplementation(function () {
@@ -737,12 +561,25 @@ describe("requiredConditionsCheckTask", () => {
     });
   });
 
-  describe("Subtask 5: Registry availability check", () => {
-    it("maps npm registry to npmAvailableCheckTasks", async () => {
+  describe("Subtask 4: Registry availability check", () => {
+    it("uses catalog descriptor to create availability task for npm", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["npm"] });
 
+      const mockCheckAvailability = vi.fn().mockResolvedValue(undefined);
+      const mockRegistry = { checkAvailability: mockCheckAvailability };
+      const npmDescriptor = makeNpmDescriptor();
+      npmDescriptor.factory.mockResolvedValue(mockRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "npm") return npmDescriptor as any;
+        return undefined;
+      });
+
       let innerSubtasks: any[] = [];
       const innerParentTask = {
         newListr: vi.fn((tasks: any[]) => {
@@ -752,10 +589,6 @@ describe("requiredConditionsCheckTask", () => {
       };
 
       registryTask.task(ctx, innerParentTask);
-
-      const { npmAvailableCheckTasks: npmCheck } = await import(
-        "../../../src/tasks/npm.js"
-      );
 
       expect(innerSubtasks).toHaveLength(1);
       expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
@@ -771,14 +604,32 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(1);
-      expect(registrySubtasks[0]).toBe(npmCheck);
+      expect(registrySubtasks[0].title).toBe("Checking npm availability");
+
+      const mockTask = {};
+      await registrySubtasks[0].task({}, mockTask);
+      expect(npmDescriptor.factory).toHaveBeenCalledWith(undefined);
+      expect(mockCheckAvailability).toHaveBeenCalledWith(mockTask);
     });
 
-    it("maps jsr registry to jsrAvailableCheckTasks", async () => {
+    it("uses catalog descriptor to create availability task for jsr", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["jsr"] });
 
+      const mockCheckAvailability = vi.fn().mockResolvedValue(undefined);
+      const mockRegistry = { checkAvailability: mockCheckAvailability };
+      const jsrDescriptor = makeJsrDescriptor();
+      jsrDescriptor.factory.mockResolvedValue(mockRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "jsr") return jsrDescriptor as any;
+        return undefined;
+      });
+
       let innerSubtasks: any[] = [];
       const innerParentTask = {
         newListr: vi.fn((tasks: any[]) => {
@@ -788,10 +639,6 @@ describe("requiredConditionsCheckTask", () => {
       };
 
       registryTask.task(ctx, innerParentTask);
-
-      const { jsrAvailableCheckTasks: jsrCheck } = await import(
-        "../../../src/tasks/jsr.js"
-      );
 
       expect(innerSubtasks).toHaveLength(1);
       expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
@@ -807,13 +654,23 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(1);
-      expect(registrySubtasks[0]).toBe(jsrCheck);
+      expect(registrySubtasks[0].title).toBe("Checking jsr availability");
+
+      const mockTask = {};
+      await registrySubtasks[0].task({}, mockTask);
+      expect(jsrDescriptor.factory).toHaveBeenCalledWith(undefined);
+      expect(mockCheckAvailability).toHaveBeenCalledWith(mockTask);
     });
 
-    it("maps unknown registry to npmAvailableCheckTasks (default case)", async () => {
+    it("returns a no-op task for unknown registry", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["custom-registry" as any] });
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockReturnValue(undefined);
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -824,10 +681,6 @@ describe("requiredConditionsCheckTask", () => {
       };
 
       registryTask.task(ctx, innerParentTask);
-
-      const { npmAvailableCheckTasks: npmCheck } = await import(
-        "../../../src/tasks/npm.js"
-      );
 
       expect(innerSubtasks).toHaveLength(1);
       expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
@@ -843,13 +696,36 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(1);
-      expect(registrySubtasks[0]).toBe(npmCheck);
+      expect(registrySubtasks[0].title).toBe("custom-registry");
+
+      // Should be a no-op task
+      await expect(registrySubtasks[0].task()).resolves.toBeUndefined();
     });
 
     it("maps multiple registries correctly", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["npm", "jsr"] });
+
+      const npmDescriptor = makeNpmDescriptor();
+      const jsrDescriptor = makeJsrDescriptor();
+      const mockNpmRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      const mockJsrRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      npmDescriptor.factory.mockResolvedValue(mockNpmRegistry as any);
+      jsrDescriptor.factory.mockResolvedValue(mockJsrRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "npm") return npmDescriptor as any;
+        if (key === "jsr") return jsrDescriptor as any;
+        return undefined;
+      });
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -860,13 +736,6 @@ describe("requiredConditionsCheckTask", () => {
       };
 
       registryTask.task(ctx, innerParentTask);
-
-      const { npmAvailableCheckTasks: npmCheck } = await import(
-        "../../../src/tasks/npm.js"
-      );
-      const { jsrAvailableCheckTasks: jsrCheck } = await import(
-        "../../../src/tasks/jsr.js"
-      );
 
       expect(innerSubtasks).toHaveLength(1);
       expect(innerSubtasks[0].title).toBe("JavaScript ecosystem");
@@ -882,13 +751,13 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(2);
-      expect(registrySubtasks[0]).toBe(npmCheck);
-      expect(registrySubtasks[1]).toBe(jsrCheck);
+      expect(registrySubtasks[0].title).toBe("Checking npm availability");
+      expect(registrySubtasks[1].title).toBe("Checking jsr availability");
     });
 
     it("passes concurrent option to newListr", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["npm"] });
 
       const innerParentTask = {
@@ -904,10 +773,24 @@ describe("requiredConditionsCheckTask", () => {
       });
     });
 
-    it("maps crates registry to cratesAvailableCheckTasks", async () => {
+    it("maps crates registry using catalog descriptor", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({ registries: ["crates"] });
+
+      const cratesDescriptor = makeCratesDescriptor();
+      const mockCratesRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      cratesDescriptor.factory.mockResolvedValue(mockCratesRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "crates") return cratesDescriptor as any;
+        return undefined;
+      });
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -918,10 +801,6 @@ describe("requiredConditionsCheckTask", () => {
       };
 
       registryTask.task(ctx, innerParentTask);
-
-      const { cratesAvailableCheckTasks: cratesCheck } = await import(
-        "../../../src/tasks/crates.js"
-      );
 
       expect(innerSubtasks).toHaveLength(1);
       expect(innerSubtasks[0].title).toBe("Rust ecosystem");
@@ -937,7 +816,7 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(1);
-      expect(registrySubtasks[0]).toBe(cratesCheck);
+      expect(registrySubtasks[0].title).toBe("Checking crates.io availability");
     });
 
     it("includes crates from packages config in ping registries", async () => {
@@ -989,9 +868,9 @@ describe("requiredConditionsCheckTask", () => {
       expect(rustRegistrySubtasks[0].title).toBe("Ping crates.io");
     });
 
-    it("creates per-package crates availability check tasks", async () => {
+    it("creates per-package crates availability check tasks when multiple packages", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({
         registries: ["npm"],
         packages: [
@@ -1000,6 +879,26 @@ describe("requiredConditionsCheckTask", () => {
           { path: "rust/crates/lib-b", registries: ["crates"] },
         ],
       } as any);
+
+      const npmDescriptor = makeNpmDescriptor();
+      const cratesDescriptor = makeCratesDescriptor();
+      const mockNpmRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      const mockCratesRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      npmDescriptor.factory.mockResolvedValue(mockNpmRegistry as any);
+      cratesDescriptor.factory.mockResolvedValue(mockCratesRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "npm") return npmDescriptor as any;
+        if (key === "crates") return cratesDescriptor as any;
+        return undefined;
+      });
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -1026,7 +925,7 @@ describe("requiredConditionsCheckTask", () => {
       innerSubtasks[0].task(ctx, jsParentTask);
 
       expect(jsRegistrySubtasks).toHaveLength(1);
-      expect(jsRegistrySubtasks[0].title).toBe("npm-check-mock");
+      expect(jsRegistrySubtasks[0].title).toBe("Checking npm availability");
 
       let rustRegistrySubtasks: any[] = [];
       const rustParentTask = {
@@ -1054,23 +953,39 @@ describe("requiredConditionsCheckTask", () => {
       rustRegistrySubtasks[0].task(ctx, cratesParentTask);
 
       expect(cratePackageSubtasks).toHaveLength(2);
-      expect(cratePackageSubtasks[0].title).toBe(
-        "crates-check-mock (rust/crates/lib-a)",
-      );
-      expect(cratePackageSubtasks[1].title).toBe(
-        "crates-check-mock (rust/crates/lib-b)",
-      );
+      expect(cratePackageSubtasks[0].title).toBe("rust/crates/lib-a");
+      expect(cratePackageSubtasks[1].title).toBe("rust/crates/lib-b");
     });
 
     it("deduplicates npm availability checks across js packages", async () => {
       const subtasks = await getSubtasks();
-      const registryTask = subtasks[4];
+      const registryTask = subtasks[3];
       const ctx = createCtx({
         packages: [
           { path: "packages/core", registries: ["npm", "jsr"] },
           { path: "packages/pubm", registries: ["npm"] },
         ],
       } as any);
+
+      const npmDescriptor = makeNpmDescriptor();
+      const jsrDescriptor = makeJsrDescriptor();
+      const mockNpmRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      const mockJsrRegistry = {
+        checkAvailability: vi.fn().mockResolvedValue(undefined),
+      };
+      npmDescriptor.factory.mockResolvedValue(mockNpmRegistry as any);
+      jsrDescriptor.factory.mockResolvedValue(mockJsrRegistry as any);
+
+      const { registryCatalog: mockCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      vi.mocked(mockCatalog.get).mockImplementation((key: string) => {
+        if (key === "npm") return npmDescriptor as any;
+        if (key === "jsr") return jsrDescriptor as any;
+        return undefined;
+      });
 
       let ecosystemSubtasks: any[] = [];
       const parentTask = {
@@ -1096,8 +1011,8 @@ describe("requiredConditionsCheckTask", () => {
       ecosystemSubtasks[0].task(ctx, ecosystemParentTask);
 
       expect(registrySubtasks).toHaveLength(2);
-      expect(registrySubtasks[0].title).toBe("npm-check-mock");
-      expect(registrySubtasks[1].title).toBe("jsr-check-mock");
+      expect(registrySubtasks[0].title).toBe("Checking npm availability");
+      expect(registrySubtasks[1].title).toBe("Checking jsr availability");
     });
   });
 });

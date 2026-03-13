@@ -60,37 +60,31 @@ describe("createGitHubRelease", () => {
     process.env.GITHUB_TOKEN = "";
     const { createGitHubRelease } = await freshImport();
 
-    await expect(
-      createGitHubRelease({ version: "1.0.0" }),
-    ).rejects.toThrow(/GITHUB_TOKEN environment variable is required/);
+    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
+      /GITHUB_TOKEN environment variable is required/,
+    );
   });
 
   it("builds release notes from commits when no changelog body is provided", async () => {
     const { createGitHubRelease } = await freshImport();
-    const {
-      mockExistsSync,
-      mockReadFileSync,
-      mockGit,
-    } = await getMocks();
+    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
 
     mockExistsSync.mockReturnValue(false);
     mockReadFileSync.mockReturnValue(Buffer.from(""));
-    mockGit.mockImplementation(
-      function () {
-        return {
-          repository: vi
-            .fn()
-            .mockResolvedValue("https://github.com/pubm/pubm.git"),
-          latestTag: vi.fn().mockResolvedValue("v1.2.0"),
-          previousTag: vi.fn().mockResolvedValue(null),
-          firstCommit: vi.fn().mockResolvedValue("first-commit"),
-          commits: vi.fn().mockResolvedValue([
-            { id: "ignored", message: "ignored" },
-            { id: "abcdef1234567", message: "feat: fix #42" },
-          ]),
-        } as any;
-      } as any,
-    );
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
+        previousTag: vi.fn().mockResolvedValue(null),
+        firstCommit: vi.fn().mockResolvedValue("first-commit"),
+        commits: vi.fn().mockResolvedValue([
+          { id: "ignored", message: "ignored" },
+          { id: "abcdef1234567", message: "feat: fix #42" },
+        ]),
+      } as any;
+    } as any);
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -109,7 +103,9 @@ describe("createGitHubRelease", () => {
     expect(payload.tag_name).toBe("v1.2.0");
     expect(payload.name).toBe("pubm v1.2.0");
     expect(payload.prerelease).toBe(false);
-    expect(payload.body).toContain("[#42](https://github.com/pubm/pubm/issues/42)");
+    expect(payload.body).toContain(
+      "[#42](https://github.com/pubm/pubm/issues/42)",
+    );
     expect(payload.body).toContain(
       "https://github.com/pubm/pubm/compare/first-commit...v1.2.0",
     );
@@ -152,19 +148,15 @@ describe("createGitHubRelease", () => {
       return Buffer.from("binary");
     });
     mockExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
-    mockGit.mockImplementation(
-      function () {
-        return {
-          repository: vi
-            .fn()
-            .mockResolvedValue("git@github.com:pubm/pubm.git"),
-          latestTag: vi.fn().mockResolvedValue("v2.0.0-beta.1"),
-          previousTag: vi.fn().mockResolvedValue("v1.9.0"),
-          firstCommit: vi.fn().mockResolvedValue("first-commit"),
-          commits: vi.fn().mockResolvedValue([]),
-        } as any;
-      } as any,
-    );
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi.fn().mockResolvedValue("git@github.com:pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v2.0.0-beta.1"),
+        previousTag: vi.fn().mockResolvedValue("v1.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first-commit"),
+        commits: vi.fn().mockResolvedValue([]),
+      } as any;
+    } as any);
 
     const fetchMock = vi
       .fn()
@@ -202,9 +194,12 @@ describe("createGitHubRelease", () => {
     );
     expect(createPayload.body).toBe("Release notes from CHANGELOG");
     expect(createPayload.prerelease).toBe(true);
-    expect(mockMkdirSync).toHaveBeenCalledWith(expect.stringContaining("/tmp/"), {
-      recursive: true,
-    });
+    expect(mockMkdirSync).toHaveBeenCalledWith(
+      expect.stringContaining("/tmp/"),
+      {
+        recursive: true,
+      },
+    );
     expect(mockExec).toHaveBeenCalledWith(
       "tar",
       expect.arrayContaining(["-czf"]),
@@ -228,19 +223,17 @@ describe("createGitHubRelease", () => {
     const { mockExistsSync, mockGit } = await getMocks();
 
     mockExistsSync.mockReturnValue(false);
-    mockGit.mockImplementation(
-      function () {
-        return {
-          repository: vi
-            .fn()
-            .mockResolvedValue("https://github.com/pubm/pubm.git"),
-          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
-          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-          firstCommit: vi.fn().mockResolvedValue("first"),
-          commits: vi.fn().mockResolvedValue([{ id: "skip", message: "skip" }]),
-        } as any;
-      } as any,
-    );
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+        commits: vi.fn().mockResolvedValue([{ id: "skip", message: "skip" }]),
+      } as any;
+    } as any);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -248,27 +241,25 @@ describe("createGitHubRelease", () => {
       text: vi.fn().mockResolvedValue("validation failed"),
     }) as any;
 
-    await expect(
-      createGitHubRelease({ version: "1.0.0" }),
-    ).rejects.toThrow(/Failed to create GitHub Release \(422\): validation failed/);
+    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
+      /Failed to create GitHub Release \(422\): validation failed/,
+    );
   });
 
   it("rejects invalid remote URLs before attempting release creation", async () => {
     const { createGitHubRelease } = await freshImport();
     const { mockGit } = await getMocks();
 
-    mockGit.mockImplementation(
-      function () {
-        return {
-          repository: vi.fn().mockResolvedValue("not-a-github-remote"),
-        } as any;
-      } as any,
-    );
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi.fn().mockResolvedValue("not-a-github-remote"),
+      } as any;
+    } as any);
     global.fetch = vi.fn() as any;
 
-    await expect(
-      createGitHubRelease({ version: "1.0.0" }),
-    ).rejects.toThrow(/Cannot parse owner\/repo from remote URL/);
+    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
+      /Cannot parse owner\/repo from remote URL/,
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

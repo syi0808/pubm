@@ -1,0 +1,30 @@
+---
+title: CI/CD
+description: Configurar preflight, manejo de tokens y automatizacion de releases para pubm.
+---
+
+`pubm` esta pensado para funcionar bien tanto en terminal local como en CI.
+
+## Flujo recomendado
+
+```bash
+pubm changesets version
+pubm --preflight
+pubm patch --preview
+pubm --ci
+```
+
+## Variables requeridas
+
+| Variable | Registro |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm |
+| `JSR_TOKEN` | jsr |
+| `CARGO_REGISTRY_TOKEN` | crates.io |
+
+## Problemas comunes
+
+- checkout superficial
+- tokens faltantes
+- 2FA de npm sin automation token
+- `contents` no generado antes de publicar

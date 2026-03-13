@@ -1,0 +1,122 @@
+---
+title: Troubleshooting
+description: 诊断 pubm 中最常见的发布、配置和 registry 问题。
+---
+
+本页聚焦最常见的失败模式：配置加载、版本规划、registry 认证、Git 状态和 CI 行为。
+
+## 先运行最安全的诊断命令
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+它们可以回答：
+
+- `pubm` 认为应该发布哪个版本
+- 哪些包受到影响
+- changelog 文案是否合理
+- 凭证和 registry 检查是否就绪
+
+## 因 Git 状态阻塞 publish
+
+检查：
+
+- 提交或暂存本地修改
+- 确认当前分支正确
+- 只有明确接受风险时才用 `--any-branch`
+
+## `No changesets found.`
+
+检查：
+
+- `.pubm/changesets/` 中是否有文件
+- 是否在仓库根目录
+- 若从 `.changeset/` 迁移，执行 `pubm changesets migrate`
+
+## bump 到了错误的包
+
+检查：
+
+- `pubm changesets status --verbose`
+- `pubm.config.*` 里的 `fixed`、`linked`
+- 当前使用的是 `independent` 还是 `fixed`
+
+## config 加载失败
+
+检查：
+
+- 文件名是否受支持
+- 是否从 `@pubm/core` 导入 `defineConfig`
+- config 顶层是否做了太重的运行时工作
+- 可选依赖是否已经安装
+
+## npm 权限错误
+
+检查：
+
+- `NODE_AUTH_TOKEN`
+- token 是否有发布权限
+- CI 中使用 automation token
+- scoped public package 的 access 是否正确
+
+## jsr publish 失败
+
+检查：
+
+- `JSR_TOKEN`
+- `pubm --preflight`
+- jsr 所需元数据是否有效
+
+## crates.io publish 失败
+
+检查：
+
+- `CARGO_REGISTRY_TOKEN`
+- crate 依赖顺序与版本
+- 包级 `registries` 配置
+
+## build 或 test 失败
+
+1. 直接重跑原始脚本
+2. 修复底层问题
+3. 再次执行 `pubm`
+
+```bash
+pnpm run test
+pnpm run build
+```
+
+必要时：
+
+```bash
+pubm patch --test-script test:ci --build-script build:release
+```
+
+## `contents` publish 不工作
+
+确认：
+
+- `contents` 指向最终发布目录
+- build 在 publish 前生成该目录
+- 目标目录中包含 registry 需要的 manifest
+
+## 本地与 CI 表现不一致
+
+常见原因：
+
+- CI 禁用交互提示
+- token 必须来自环境变量或 secret sync
+- shallow checkout 会破坏基于 tag 的流程
+
+## rollback 后状态看起来混乱
+
+先检查：
+
+- `git tag`
+- `git status`
+
+关键是找出最初失败的步骤，而不是只看 rollback 后续消息。

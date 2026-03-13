@@ -10,4 +10,18 @@ export abstract class Ecosystem {
   abstract defaultTestCommand(): Promise<string> | string;
   abstract defaultBuildCommand(): Promise<string> | string;
   abstract supportedRegistries(): RegistryType[];
+
+  async updateSiblingDependencyVersions(
+    _siblingVersions: Map<string, string>,
+  ): Promise<boolean> {
+    return false;
+  }
+
+  async syncLockfile(): Promise<string | undefined> {
+    return undefined;
+  }
+
+  async dependencies(): Promise<string[]> {
+    return [];
+  }
 }

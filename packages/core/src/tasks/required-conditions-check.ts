@@ -1,41 +1,23 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { registryCatalog } from "../registry/catalog.js";
 import { getRegistry } from "../registry/index.js";
-import { jsrRegistry } from "../registry/jsr.js";
-import { npmRegistry } from "../registry/npm.js";
-import { warningBadge } from "../utils/cli.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { getPackageJson } from "../utils/package.js";
 import { collectRegistries } from "../utils/registries.js";
 import {
-  cratesAvailableCheckTasks,
-  createCratesAvailableCheckTask,
-} from "./crates.js";
-import {
   collectEcosystemRegistryGroups,
   ecosystemLabel,
   registryLabel,
 } from "./grouping.js";
-import { jsrAvailableCheckTasks } from "./jsr.js";
-import { npmAvailableCheckTasks } from "./npm.js";
 import type { Ctx } from "./runner.js";
-
-const registryRequirementsMap: Record<
-  string,
-  { needsPackageScripts: boolean }
-> = {
-  npm: { needsPackageScripts: true },
-  jsr: { needsPackageScripts: false },
-  crates: { needsPackageScripts: false },
-};
 
 function needsPackageScripts(registries: string[]): boolean {
   return registries.some(
-    (r) => registryRequirementsMap[r]?.needsPackageScripts ?? true,
+    (r) => registryCatalog.get(r)?.needsPackageScripts ?? true,
   );
 }
 
@@ -56,29 +38,33 @@ export const requiredConditionsCheckTask = (
     registryKey: string,
     packagePaths: string[],
   ): ListrTask<Ctx> => {
-    switch (registryKey) {
-      case "npm":
-        return npmAvailableCheckTasks;
-      case "jsr":
-        return jsrAvailableCheckTasks;
-      case "crates":
-        if (packagePaths.length === 0) {
-          return cratesAvailableCheckTasks;
-        }
+    const descriptor = registryCatalog.get(registryKey);
+    if (!descriptor) return { title: registryKey, task: async () => {} };
 
-        return {
-          title: "Checking crates.io availability",
-          task: (_ctx, parentTask): Listr<Ctx> =>
-            parentTask.newListr(
-              packagePaths.map((packagePath) =>
-                createCratesAvailableCheckTask(packagePath),
-              ),
-              { concurrent: true },
-            ),
-        };
-      default:
-        return npmAvailableCheckTasks;
+    if (packagePaths.length <= 1) {
+      return {
+        title: `Checking ${descriptor.label} availability`,
+        task: async (_ctx, task): Promise<void> => {
+          const registry = await descriptor.factory(packagePaths[0]);
+          await registry.checkAvailability(task);
+        },
+      };
     }
+
+    return {
+      title: `Checking ${descriptor.label} availability`,
+      task: (_ctx, parentTask): Listr<Ctx> =>
+        parentTask.newListr(
+          packagePaths.map((packagePath) => ({
+            title: packagePath,
+            task: async (_ctx, task): Promise<void> => {
+              const registry = await descriptor.factory(packagePath);
+              await registry.checkAvailability(task);
+            },
+          })),
+          { concurrent: true },
+        ),
+    };
   };
 
   const taskDef: ListrTask<Ctx> = {
@@ -108,63 +94,6 @@ export const requiredConditionsCheckTask = (
                       },
                     ),
                 })),
-                {
-                  concurrent: true,
-                },
-              ),
-          },
-          {
-            title: "Verifying if npm and jsr are installed",
-            task: async (_, parentTask) =>
-              parentTask.newListr(
-                [
-                  {
-                    enabled: (ctx) => collectRegistries(ctx).includes("npm"),
-                    title: "Verifying if npm is installed",
-                    task: async (): Promise<void> => {
-                      const npm = await npmRegistry();
-
-                      if (!(await npm.isInstalled())) {
-                        throw new RequiredConditionCheckError(
-                          "npm is not installed. Please install npm to proceed.",
-                        );
-                      }
-                    },
-                  },
-                  {
-                    enabled: (ctx) =>
-                      collectRegistries(ctx).some(
-                        (registry) => registry === "jsr",
-                      ),
-                    title: "Verifying if jsr are installed",
-                    task: async (_, task): Promise<void> => {
-                      const jsr = await jsrRegistry();
-
-                      if (!(await jsr.isInstalled())) {
-                        const install = await task
-                          .prompt(ListrEnquirerPromptAdapter)
-                          .run<boolean>({
-                            type: "toggle",
-                            message: `${warningBadge} jsr is not installed. Do you want to install jsr?`,
-                            enabled: "Yes",
-                            disabled: "No",
-                          });
-
-                        if (install) {
-                          task.output = "Installing jsr...";
-
-                          const npm = await npmRegistry();
-
-                          await npm.installGlobally("jsr");
-                        } else {
-                          throw new RequiredConditionCheckError(
-                            "jsr is not installed. Please install jsr to proceed.",
-                          );
-                        }
-                      }
-                    },
-                  },
-                ],
                 {
                   concurrent: true,
                 },

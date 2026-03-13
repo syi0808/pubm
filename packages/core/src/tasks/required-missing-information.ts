@@ -597,7 +597,8 @@ async function handleIndependentMode(
     if (cascadeChoice === "patch") {
       for (const name of uniqueDependents) {
         const currentVersion =
-          currentVersions.get(name) ?? (packageVersionByName.get(name) as string);
+          currentVersions.get(name) ??
+          (packageVersionByName.get(name) as string);
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
         versions.set(name, patchVersion);
       }

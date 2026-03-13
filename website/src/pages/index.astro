@@ -1,22 +1,14 @@
 ---
-import FeatureCards from "../components/landing/FeatureCards.astro";
-import Footer from "../components/landing/Footer.astro";
-import Hero from "../components/landing/Hero.astro";
-import InstallSection from "../components/landing/InstallSection.astro";
-import NavBar from "../components/landing/NavBar.astro";
-import RegistryStrip from "../components/landing/RegistryStrip.astro";
-import WorkflowStrip from "../components/landing/WorkflowStrip.astro";
+import LandingPage from "../components/landing/LandingPage.astro";
+import { landingCopy } from "../i18n/landing";
+import { defaultLocale } from "../i18n/site";
 import Landing from "../layouts/Landing.astro";
 ---
 
-<Landing title="pubm — One command, every registry">
-  <NavBar />
-  <main>
-    <Hero />
-    <RegistryStrip />
-    <FeatureCards />
-    <WorkflowStrip />
-    <InstallSection />
-  </main>
-  <Footer />
+<Landing
+  title={landingCopy[defaultLocale].meta.title}
+  description={landingCopy[defaultLocale].meta.description}
+  locale={defaultLocale}
+>
+  <LandingPage locale={defaultLocale} />
 </Landing>

@@ -1,0 +1,79 @@
+---
+title: Coding Agent Integration
+description: 将 pubm 插件接入 Claude Code、Codex 等编码代理。
+---
+
+本指南面向已经在使用编码代理的团队，目标不是引入新代理，而是让现有代理理解这个仓库的发布方式。
+
+## `pubm plugin` 提供什么
+
+仓库已经包含 `plugins/pubm-plugin/`：
+
+- `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- `plugins/pubm-plugin/skills/`
+
+这意味着代理驱动的 release 工作已经有明确的集成面。
+
+## 内置 skills
+
+### `publish-setup`
+
+第一次把 `pubm` 接到仓库时先用它。负责安装、配置生成、CI 接线、changesets 和可选 version-sync。
+
+### `publish-preview`
+
+在修改 git 状态或真正 publish 前，用它解释 release 计划。
+
+### `publish`
+
+受保护的真正发布路径。先 preview，再请求确认。
+
+### `version-sync`
+
+用于发现并接入 package manifest 之外的版本引用。
+
+### `create-plugin`
+
+为新的 `pubm` 插件包、hooks、commands、tests 生成脚手架。
+
+## 推荐分层
+
+- 运行时 release 行为放在 `pubm` 本体或 `pubm` 插件里
+- agent 工作流和审批策略放在 skills 里
+- 这些内容和代码一起版本化
+
+## 从 setup 开始，不要直接 publish
+
+第一次接入时，应先执行 `publish-setup`。它能覆盖团队最容易遗漏的内容：
+
+- registry 选择
+- CI 接线
+- changesets 工作流
+- `.pubm/` 的 `.gitignore` 处理
+- 可选 version-sync 配置
+
+## CLI 与 skill 的职责
+
+- 确定性的 release 操作用 `pubm` 命令
+- setup 顺序、仓库检查、安全门槛、审批逻辑用 skill 编排
+
+## Claude Code 安装
+
+Claude Code 使用 marketplace 安装模型：
+
+```text
+/plugin marketplace add your-org/claude-plugins
+/plugin install plugin-name@marketplace-name
+```
+
+安装范围包括 User、Project、Local。
+
+## 应编码的安全规则
+
+- 新仓库先 setup 再 publish
+- 已有仓库也先 preview 再 publish
+- 不可逆操作前必须显式确认
+- 用自然语言说明版本、registry 和副作用
+- git 状态、认证、CI 假设不满足时停止
+
+更多命令细节见 [CLI Reference](/pubm/zh-cn/reference/cli/)。

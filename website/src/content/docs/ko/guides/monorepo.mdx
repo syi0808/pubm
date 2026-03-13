@@ -1,0 +1,105 @@
+---
+title: Monorepo
+description: 올바른 순서와 버전 전략으로 워크스페이스 패키지를 배포합니다.
+---
+
+`pubm`은 모노레포를 예외가 아니라 핵심 사용 사례로 다룹니다. 패키지를 발견하고, 의존 순서를 이해하며, 같은 저장소 안의 JavaScript와 Rust 패키지를 함께 릴리스할 수 있습니다.
+
+## 자동으로 감지하는 것
+
+- `pnpm-workspace.yaml`
+- `workspaces` 필드가 있는 `package.json`
+
+감지 후에는 의존 그래프를 만들어 publish 순서를 계산합니다.
+
+## 자동 탐지 vs 명시적 설정
+
+자동 탐지는 다음 경우에 잘 맞습니다.
+
+- 모든 워크스페이스 패키지가 publish 대상일 때
+- 모든 패키지가 같은 레지스트리를 쓸 때
+- 생태계를 섞지 않을 때
+
+다음 경우에는 `packages`를 명시하세요.
+
+- 일부 패키지만 배포할 때
+- 패키지별 레지스트리가 다를 때
+- Rust와 JS가 섞여 있을 때
+
+```ts
+export default defineConfig({
+  packages: [
+    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+  ],
+});
+```
+
+## publish 순서
+
+`pubm`은 의존성이 있는 패키지를 topological order로 배포합니다. 의존 패키지가 먼저 나가야 npm, jsr, crates.io 모두에서 새 버전을 즉시 참조할 수 있기 때문입니다.
+
+순환 의존이 있으면 추측하지 않고 실패합니다. 먼저 그래프를 정리해야 합니다.
+
+## 버전 모드
+
+### `independent`
+
+- 각 패키지가 서로 다른 버전을 가질 수 있음
+- 패키지별 태그 생성
+- changeset에 명시된 패키지만 직접 영향
+
+### `fixed`
+
+- 함께 릴리스되는 패키지가 하나의 버전 공유
+- 저장소는 `v1.8.0` 같은 단일 태그 사용
+
+### fixed / linked 그룹
+
+```ts
+fixed: [["@acme/core", "@acme/react", "@acme/vue"]]
+linked: [["@acme/cli", "@acme/config"]]
+```
+
+## 모노레포의 전형적 릴리스 흐름
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm changesets version
+pubm patch --preview
+pubm patch
+```
+
+## changesets 운영 원칙
+
+패키지 정보는 커밋 메시지나 PR 제목이 아니라 changeset 파일에 기록해야 합니다.
+
+`pubm changesets add`는:
+
+- 사용 가능한 패키지 탐지
+- 하나 이상 선택
+- 각 패키지 bump 타입 지정
+- 릴리스 요약 기록
+
+## 다중 레지스트리 모노레포
+
+```ts
+export default defineConfig({
+  packages: [
+    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+    { path: "crates/runtime", registries: ["crates"], ecosystem: "rust" },
+  ],
+});
+```
+
+운영상 권장:
+
+- 첫날부터 `pubm init --changesets`
+- 레지스트리가 다르면 `packages`를 명시
+- 라이브러리는 `independent`, 제품형 저장소는 `fixed`
+- CI publish 전에 `pubm --preflight`

@@ -66,7 +66,10 @@ describe("PubmCiRenderer", () => {
     parent.emit("MESSAGE", { rollback: "Rolling back files" });
     parent.emit("MESSAGE", { skip: "   " });
     child.emit("STATE", ListrTaskState.STARTED);
-    child.emit("OUTPUT", "\u001B]8;;https://example.com\u0007Link\u001B]8;;\u0007");
+    child.emit(
+      "OUTPUT",
+      "\u001B]8;;https://example.com\u0007Link\u001B]8;;\u0007",
+    );
     child.emit("STATE", ListrTaskState.COMPLETED);
 
     expect(logSpy.mock.calls.map((call) => call[0])).toEqual([

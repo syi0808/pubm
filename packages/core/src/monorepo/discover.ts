@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import micromatch from "micromatch";
 import type { PackageConfig } from "../config/types.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import type { RegistryType } from "../types/options.js";
 import { detectWorkspace } from "./workspace.js";
 
@@ -19,14 +20,14 @@ export interface DiscoveredPackage {
   ecosystem: EcosystemType;
 }
 
-const defaultRegistries: Record<EcosystemType, RegistryType[]> = {
-  js: ["npm", "jsr"],
-  rust: ["crates"],
-};
-
 function detectEcosystem(packageDir: string): EcosystemType | null {
-  if (existsSync(path.join(packageDir, "package.json"))) return "js";
-  if (existsSync(path.join(packageDir, "Cargo.toml"))) return "rust";
+  for (const descriptor of ecosystemCatalog.all()) {
+    const eco = new descriptor.ecosystemClass(packageDir);
+    const manifests = eco.manifestFiles();
+    if (manifests.some((m) => existsSync(path.join(packageDir, m)))) {
+      return descriptor.key as EcosystemType;
+    }
+  }
   return null;
 }
 
@@ -83,7 +84,7 @@ export function discoverPackages(
 
       discovered.set(toForwardSlash(relativePath), {
         path: relativePath,
-        registries: defaultRegistries[ecosystem],
+        registries: ecosystemCatalog.get(ecosystem)?.defaultRegistries ?? [],
         ecosystem,
       });
     }
@@ -108,7 +109,10 @@ export function discoverPackages(
       if (ecosystem) {
         discovered.set(key, {
           path: nativePath,
-          registries: configPkg.registries ?? defaultRegistries[ecosystem],
+          registries:
+            configPkg.registries ??
+            ecosystemCatalog.get(ecosystem)?.defaultRegistries ??
+            [],
           ecosystem,
         });
       }

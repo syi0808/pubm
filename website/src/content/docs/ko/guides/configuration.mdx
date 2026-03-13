@@ -1,0 +1,139 @@
+---
+title: Configuration
+description: 릴리스 파이프라인 기본값, 패키지 구조, 레지스트리 대상을 설정합니다.
+---
+
+`pubm`은 CLI 우선 도구이지만, 실제 프로젝트는 곧 플래그만으로는 부족해집니다. `pubm.config.*`에는 저장소 수준의 publish 대상, 패키지 구조, 플러그인, changeset 버전 규칙을 넣습니다.
+
+## 설정 파일 탐색 순서
+
+1. `pubm.config.ts`
+2. `pubm.config.mts`
+3. `pubm.config.cts`
+4. `pubm.config.js`
+5. `pubm.config.mjs`
+6. `pubm.config.cjs`
+
+TypeScript 설정 파일도 직접 지원합니다.
+
+## 최소 설정
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+## config와 CLI 플래그의 관계
+
+- config는 `registries`, `packages`, `plugins` 기본값을 제공합니다.
+- `versioning`, `fixed`, `linked`는 changeset 흐름에 쓰입니다.
+- 실제 publish 동작은 여전히 CLI 플래그가 강하게 제어합니다.
+- 둘 다 없으면 기본 레지스트리는 `["npm", "jsr"]`입니다.
+
+예:
+
+```bash
+pubm patch --registry npm --tag beta
+```
+
+## 자주 쓰는 저장소 옵션
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+  snapshot: {
+    useCalculatedVersion: false,
+  },
+});
+```
+
+## 멀티 패키지 설정
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
+    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
+    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+  ],
+});
+```
+
+다음 경우 명시적 `packages` 설정이 좋습니다.
+
+- 모든 패키지가 같은 레지스트리에 배포되지 않을 때
+- JS와 Rust가 함께 있을 때
+- 자동 탐지된 워크스페이스 중 일부만 배포하고 싶을 때
+
+## 버전 전략
+
+### `independent`
+
+각 패키지가 독립 버전과 태그를 가집니다.
+
+### `fixed`
+
+모든 영향 받은 패키지가 하나의 버전을 공유합니다.
+
+### `fixed` / `linked` 그룹
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  fixed: [["@acme/core", "@acme/react"]],
+  linked: [["@acme/cli", "@acme/config"]],
+});
+```
+
+- `fixed`: 항상 정확히 같은 버전
+- `linked`: 그룹 내 최고 bump 타입 전파
+
+## snapshot 설정
+
+```ts
+export default defineConfig({
+  snapshot: {
+    useCalculatedVersion: true,
+    prereleaseTemplate: "{tag}-{timestamp}",
+  },
+});
+```
+
+## 플러그인
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+훅 순서와 커스텀 레지스트리는 [Plugins API Reference](/pubm/ko/reference/plugins/)를 참고하세요.

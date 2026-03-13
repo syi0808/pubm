@@ -333,7 +333,9 @@ describe("runVersionCommand", () => {
     mockedGenerateChangelog.mockReturnValue("## 1.0.1\n");
     mockedReplaceVersion.mockRejectedValue(new Error("disk full"));
 
-    await expect(runVersionCommand("/tmp/project")).rejects.toThrow("disk full");
+    await expect(runVersionCommand("/tmp/project")).rejects.toThrow(
+      "disk full",
+    );
 
     expect(mockedWriteChangelogToFile).not.toHaveBeenCalled();
     expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();

@@ -1,0 +1,129 @@
+---
+title: CLI Reference
+description: pubm CLI 的命令、flags 与执行模式。
+---
+
+本参考分为三类：
+
+- 顶层 publish 命令：`pubm [version]`
+- `init`、`secrets`、`sync` 等管理命令
+- `pubm changesets ...` 下的 changeset 命令
+
+最常用的命令是：
+
+```bash
+pubm
+```
+
+## 命令总览
+
+| 命令 | 作用 |
+|------|------|
+| `pubm [version]` | 用 release 类型或显式 semver 执行 publish 流水线 |
+| `pubm init` | 创建 `pubm.config.ts` 与 `.pubm/changesets/` |
+| `pubm init --changesets` | 同时设置 PR changeset 检查工作流 |
+| `pubm secrets sync` | 用 `gh` 将本地 token 推送到 GitHub Secrets |
+| `pubm sync --discover` | 扫描 manifest 外的版本引用 |
+| `pubm update` | 更新 CLI |
+| `pubm changesets add` | 创建新 changeset |
+| `pubm changesets status` | 查看 pending changeset 与 bump 影响 |
+| `pubm changesets version` | 消费 changeset 并写入新版本 |
+| `pubm changesets changelog` | 从 pending changeset 渲染 changelog |
+| `pubm changesets pre enter <tag>` | 进入 prerelease 模式 |
+| `pubm changesets pre exit` | 退出 prerelease 模式 |
+| `pubm changesets snapshot [tag]` | 发布临时 snapshot |
+| `pubm changesets migrate` | 从 `.changeset/` 迁移 |
+
+## 顶层 publish 命令
+
+```bash
+pubm [version] [flags]
+```
+
+`[version]` 可以是：
+
+- `patch` / `minor` / `major`
+- `prepatch` / `preminor` / `premajor` / `prerelease`
+- `1.8.0` 这样的显式版本
+
+例子：
+
+```bash
+pubm
+pubm patch
+pubm minor --preview
+pubm 1.8.0
+pubm patch --registry npm,jsr
+pubm patch --tag beta
+```
+
+## 常用 flags
+
+| Flag | 说明 |
+|------|------|
+| `--preview` | 只展示任务图，不修改 Git 或 publish |
+| `--branch <name>` | 发布前要求当前分支匹配 |
+| `--any-branch` | 为当前执行关闭分支保护 |
+| `--tag <name>` | 指定 `beta`、`next` 等 dist-tag |
+| `--contents <path>` | 切换到子目录后执行流水线 |
+| `--registry <registries>` | `npm`、`jsr`、`crates` 或自定义 registry |
+| `--test-script <script>` | 测试步骤脚本名 |
+| `--build-script <script>` | 构建步骤脚本名 |
+| `--no-save-token` | 不保存 token |
+
+## 流水线控制
+
+| Flag | 说明 |
+|------|------|
+| `--no-pre-check` | 跳过 branch / working tree 等检查 |
+| `--no-condition-check` | 跳过 token / registry 条件检查 |
+| `--no-tests` | 跳过测试 |
+| `--no-build` | 跳过构建 |
+| `--no-publish` | 执行到 publish 前但不真正发布 |
+| `--no-release-draft` | 跳过 GitHub release draft |
+| `--publish-only` | 不跑完整准备流程，只从最新 tag 发布 |
+| `--ci` | 从最新 tag 发布并创建 GitHub Release |
+| `--preflight` | 在本地模拟 CI publish |
+
+## 执行模式
+
+```bash
+pubm
+pubm patch --preview
+pubm --preflight
+pubm --ci
+```
+
+## 环境变量
+
+| 变量 | 用途 |
+|------|------|
+| `NODE_AUTH_TOKEN` | npm CI 认证 |
+| `JSR_TOKEN` | jsr 认证 |
+| `CARGO_REGISTRY_TOKEN` | crates.io 认证 |
+
+## `pubm init`
+
+```bash
+pubm init
+pubm init --changesets
+```
+
+## `pubm secrets sync`
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm,jsr
+```
+
+## `pubm sync --discover`
+
+```bash
+pubm sync --discover
+```
+
+## `pubm update`
+
+```bash
+pubm update
+```

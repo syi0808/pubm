@@ -183,11 +183,9 @@ describe("JsrRegisry", () => {
       try {
         const result = await registry.ping();
 
-        expect(mockedExec).toHaveBeenCalledWith(
-          "ping",
-          ["-n", "1", "jsr.io"],
-          { throwOnError: true },
-        );
+        expect(mockedExec).toHaveBeenCalledWith("ping", ["-n", "1", "jsr.io"], {
+          throwOnError: true,
+        });
         expect(result).toBe(true);
       } finally {
         Object.defineProperty(process, "platform", {
@@ -389,7 +387,7 @@ describe("getRequirements", () => {
   });
 });
 
-  describe("JsrClient", () => {
+describe("JsrClient", () => {
   let client: JsrClient;
 
   beforeEach(() => {

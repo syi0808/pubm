@@ -1,0 +1,24 @@
+---
+title: Integration mit Coding Agents
+description: Das pubm-Plugin in Claude Code, Codex und ahnliche Coding Agents integrieren.
+---
+
+Dieses Dokument richtet sich an Teams, die bereits Coding Agents einsetzen und `pubm` in diese bestehende Umgebung integrieren wollen.
+
+Enthalten sind bereits:
+
+- `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- `plugins/pubm-plugin/skills/`
+
+Wichtige Skills:
+
+- `publish-setup`
+- `publish-preview`
+- `publish`
+- `version-sync`
+- `create-plugin`
+
+Praxisregel:
+
+- deterministische Release-Arbeit uber `pubm`-Befehle
+- Setup, Sicherheitsprufungen und Freigaben uber Skills

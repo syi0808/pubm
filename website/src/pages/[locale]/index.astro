@@ -1,0 +1,19 @@
+---
+import LandingPage from "../../components/landing/LandingPage.astro";
+import { landingCopy } from "../../i18n/landing";
+import { locales, type SiteLocale } from "../../i18n/site";
+import Landing from "../../layouts/Landing.astro";
+
+export function getStaticPaths() {
+  return locales
+    .filter((locale) => locale !== "en")
+    .map((locale) => ({ params: { locale } }));
+}
+
+const locale = Astro.params.locale as SiteLocale;
+const copy = landingCopy[locale];
+---
+
+<Landing title={copy.meta.title} description={copy.meta.description} locale={locale}>
+  <LandingPage locale={locale} />
+</Landing>
