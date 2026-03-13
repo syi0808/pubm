@@ -81,9 +81,9 @@ registry 从每个包的清单文件自动推断：
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", ecosystem: "js" },
-    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // 覆盖
-    { path: "crates/pubm-rs", ecosystem: "rust" },
+    { path: "packages/core" },
+    { path: "packages/cli", registries: ["npm"] }, // 覆盖
+    { path: "crates/pubm-rs" },
   ],
 });
 ```
