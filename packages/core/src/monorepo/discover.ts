@@ -3,6 +3,7 @@ import path from "node:path";
 import micromatch from "micromatch";
 import type { PackageConfig } from "../config/types.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { inferRegistries } from "../ecosystem/infer.js";
 import type { RegistryType } from "../types/options.js";
 import { detectWorkspace } from "./workspace.js";
 
@@ -64,9 +65,9 @@ function resolvePatterns(cwd: string, patterns: string[]): string[] {
   return matched.map((d) => path.resolve(cwd, d));
 }
 
-export function discoverPackages(
+export async function discoverPackages(
   options: DiscoverOptions,
-): DiscoveredPackage[] {
+): Promise<DiscoveredPackage[]> {
   const { cwd, ignore = [], configPackages = [] } = options;
 
   const workspace = detectWorkspace(cwd);
@@ -84,7 +85,7 @@ export function discoverPackages(
 
       discovered.set(toForwardSlash(relativePath), {
         path: relativePath,
-        registries: ecosystemCatalog.get(ecosystem)?.defaultRegistries ?? [],
+        registries: await inferRegistries(dir, ecosystem, cwd),
         ecosystem,
       });
     }
@@ -111,8 +112,7 @@ export function discoverPackages(
         discovered.set(key, {
           path: nativePath,
           registries: (configPkg.registries ??
-            ecosystemCatalog.get(ecosystem)?.defaultRegistries ??
-            []) as RegistryType[],
+            (await inferRegistries(absPath, ecosystem, cwd))) as RegistryType[],
           ecosystem,
         });
       }
