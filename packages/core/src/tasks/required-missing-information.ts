@@ -90,7 +90,7 @@ function renderPackageVersionSummary(
   return lines.join("\n");
 }
 
-function versionChoices(currentVersion: string) {
+function versionChoices(currentVersion: string, recommendedBumpType?: string) {
   return [
     {
       message: `Keep current version ${color.dim(currentVersion)}`,
@@ -100,8 +100,12 @@ function versionChoices(currentVersion: string) {
       const increasedVersion = new SemVer(currentVersion)
         .inc(releaseType)
         .toString();
+      const marker =
+        recommendedBumpType === releaseType
+          ? ` ${color.dim("← recommended by changesets")}`
+          : "";
       return {
-        message: `${releaseType} ${color.dim(increasedVersion)}`,
+        message: `${releaseType} ${color.dim(increasedVersion)}${marker}`,
         name: increasedVersion,
       };
     }),
@@ -113,11 +117,12 @@ async function promptVersion(
   task: Parameters<ListrTask<Ctx>["task"]>[1],
   currentVersion: string,
   label: string,
+  recommendedBumpType?: string,
 ): Promise<string> {
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
     message: `Select SemVer increment for ${label} ${color.dim(`(current: ${currentVersion})`)}`,
-    choices: versionChoices(currentVersion),
+    choices: versionChoices(currentVersion, recommendedBumpType),
     name: "version",
   });
 
@@ -314,6 +319,55 @@ async function handleSinglePackage(
 /**
  * Multi-package flow — changeset recommendations, sync/independent, dependency cascade.
  */
+async function buildPackageNodes(
+  cwd: string,
+  packageInfos: PackageInfos,
+): Promise<PackageNode[]> {
+  const nodes: PackageNode[] = [];
+  for (const pkg of packageInfos) {
+    const pkgPath = path.resolve(cwd, pkg.path);
+    const deps = await readPackageDependencies(pkgPath);
+    nodes.push({
+      name: pkg.name,
+      version: pkg.version,
+      path: pkg.path,
+      dependencies: deps,
+    });
+  }
+  return nodes;
+}
+
+function sortPackageInfosByDependency(
+  packageInfos: PackageInfos,
+  graph: Map<string, string[]>,
+): PackageInfos {
+  // Compute depth: 0 = no internal dependencies (base packages), higher = depends on deeper packages
+  const depths = new Map<string, number>();
+
+  function getDepth(name: string, visited: Set<string>): number {
+    if (depths.has(name)) return depths.get(name) as number;
+    if (visited.has(name)) return 0;
+    visited.add(name);
+    const deps = graph.get(name) ?? [];
+    const depth =
+      deps.length === 0
+        ? 0
+        : Math.max(...deps.map((d) => getDepth(d, visited))) + 1;
+    depths.set(name, depth);
+    return depth;
+  }
+
+  for (const name of graph.keys()) {
+    getDepth(name, new Set());
+  }
+
+  // Sort by depth ascending (dependencies first). Array.sort is stable,
+  // so packages at the same depth keep their original order.
+  return [...packageInfos].sort(
+    (a, b) => (depths.get(a.name) ?? 0) - (depths.get(b.name) ?? 0),
+  );
+}
+
 async function handleMultiPackage(
   ctx: Ctx,
   task: Parameters<ListrTask<Ctx>["task"]>[1],
@@ -323,15 +377,21 @@ async function handleMultiPackage(
   const currentVersions = await discoverCurrentVersions(cwd);
   const status = getStatus(cwd);
 
+  // Build dependency graph and sort packages
+  const packageNodes = await buildPackageNodes(cwd, packageInfos);
+  const graph = buildDependencyGraph(packageNodes);
+  const sortedPackageInfos = sortPackageInfosByDependency(packageInfos, graph);
+
   task.output = renderPackageVersionSummary(
-    packageInfos,
+    sortedPackageInfos,
     currentVersions,
     new Map(),
   );
 
   // Try changeset-based recommendations first
+  let bumps: Map<string, VersionBump> | undefined;
   if (status.hasChangesets) {
-    const bumps = calculateVersionBumps(currentVersions, cwd);
+    bumps = calculateVersionBumps(currentVersions, cwd);
 
     if (bumps.size > 0) {
       const accepted = await promptChangesetRecommendations(
@@ -339,13 +399,23 @@ async function handleMultiPackage(
         task,
         status,
         bumps,
+        sortedPackageInfos,
       );
       if (accepted) return;
     }
   }
 
   // Manual flow
-  await handleManualMultiPackage(ctx, task, cwd, packageInfos, currentVersions);
+  await handleManualMultiPackage(
+    ctx,
+    task,
+    cwd,
+    sortedPackageInfos,
+    currentVersions,
+    graph,
+    bumps,
+    status,
+  );
 }
 
 /**
@@ -356,15 +426,18 @@ async function promptChangesetRecommendations(
   task: Parameters<ListrTask<Ctx>["task"]>[1],
   status: ReturnType<typeof getStatus>,
   bumps: Map<string, VersionBump>,
+  sortedPackageInfos: PackageInfos,
 ): Promise<boolean> {
   const lines: string[] = ["Changesets suggest:"];
 
-  for (const [name, bump] of bumps) {
-    const pkgStatus = status.packages.get(name);
+  for (const pkg of sortedPackageInfos) {
+    const bump = bumps.get(pkg.name);
+    if (!bump) continue;
+    const pkgStatus = status.packages.get(pkg.name);
     const changesetCount = pkgStatus?.changesetCount ?? 0;
     const changesetLabel = pluralize(changesetCount, "changeset");
     lines.push(
-      `  ${name}  ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType}: ${changesetLabel})`,
+      `  ${pkg.name}  ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType}: ${changesetLabel})`,
     );
   }
 
@@ -396,17 +469,45 @@ async function promptChangesetRecommendations(
 /**
  * Manual multi-package flow: determine sync strategy, then prompt for versions.
  */
+function buildChangesetNotes(
+  packageInfos: PackageInfos,
+  bumps: Map<string, VersionBump>,
+  status: ReturnType<typeof getStatus>,
+): PackageNotes {
+  const notes: PackageNotes = new Map();
+  for (const pkg of packageInfos) {
+    const bump = bumps.get(pkg.name);
+    if (!bump) continue;
+    const pkgStatus = status.packages.get(pkg.name);
+    const changesetCount = pkgStatus?.changesetCount ?? 0;
+    const changesetLabel = pluralize(changesetCount, "changeset");
+    notes.set(pkg.name, [
+      `📦 ${changesetLabel} suggests ${bump.bumpType} -> ${bump.newVersion}`,
+    ]);
+  }
+  return notes;
+}
+
 async function handleManualMultiPackage(
   ctx: Ctx,
   task: Parameters<ListrTask<Ctx>["task"]>[1],
   cwd: string,
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
+  graph: Map<string, string[]>,
+  bumps?: Map<string, VersionBump>,
+  status?: ReturnType<typeof getStatus>,
 ): Promise<void> {
+  const changesetNotes =
+    bumps && status
+      ? buildChangesetNotes(packageInfos, bumps, status)
+      : undefined;
+
   task.output = renderPackageVersionSummary(
     packageInfos,
     currentVersions,
     new Map(),
+    { notes: changesetNotes },
   );
 
   const config = await loadConfig(cwd);
@@ -434,9 +535,16 @@ async function handleManualMultiPackage(
   }
 
   if (mode === "fixed") {
-    await handleFixedMode(ctx, task, packageInfos, currentVersions);
+    await handleFixedMode(ctx, task, packageInfos, currentVersions, bumps);
   } else {
-    await handleIndependentMode(ctx, task, cwd, packageInfos, currentVersions);
+    await handleIndependentMode(
+      ctx,
+      task,
+      packageInfos,
+      currentVersions,
+      graph,
+      bumps,
+    );
   }
 }
 
@@ -448,6 +556,7 @@ async function handleFixedMode(
   task: Parameters<ListrTask<Ctx>["task"]>[1],
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
+  bumps?: Map<string, VersionBump>,
 ): Promise<void> {
   // Use the highest current version as the base
   let highestVersion = "0.0.0";
@@ -457,10 +566,29 @@ async function handleFixedMode(
     }
   }
 
+  // Find the highest bump type from changesets for marking
+  let highestBumpType: string | undefined;
+  if (bumps && bumps.size > 0) {
+    const bumpPriority: Record<string, number> = {
+      major: 3,
+      minor: 2,
+      patch: 1,
+    };
+    for (const bump of bumps.values()) {
+      const priority = bumpPriority[bump.bumpType] ?? 0;
+      const currentPriority = highestBumpType
+        ? (bumpPriority[highestBumpType] ?? 0)
+        : 0;
+      if (priority > currentPriority) {
+        highestBumpType = bump.bumpType;
+      }
+    }
+  }
+
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
     message: `Select version for all packages ${color.dim(`(highest current: ${highestVersion})`)}`,
-    choices: versionChoices(highestVersion),
+    choices: versionChoices(highestVersion, highestBumpType),
     name: "version",
   });
 
@@ -494,27 +622,14 @@ async function handleFixedMode(
 async function handleIndependentMode(
   ctx: Ctx,
   task: Parameters<ListrTask<Ctx>["task"]>[1],
-  cwd: string,
   packageInfos: PackageInfos,
   currentVersions: Map<string, string>,
+  graph: Map<string, string[]>,
+  bumps?: Map<string, VersionBump>,
 ): Promise<void> {
-  // Build dependency graph for cascade suggestions
   const packageVersionByName = new Map(
     packageInfos.map((pkg) => [pkg.name, pkg.version]),
   );
-  const packageNodes: PackageNode[] = [];
-  for (const pkg of packageInfos) {
-    const pkgPath = path.resolve(cwd, pkg.path);
-    const deps = await readPackageDependencies(pkgPath);
-    packageNodes.push({
-      name: pkg.name,
-      version: pkg.version,
-      path: pkg.path,
-      dependencies: deps,
-    });
-  }
-
-  const graph = buildDependencyGraph(packageNodes);
   const reverseDeps = buildReverseDeps(graph);
   const versions = new Map<string, string>();
   const bumpedPackages = new Set<string>();
@@ -526,11 +641,21 @@ async function handleIndependentMode(
     const deps = graph.get(pkg.name) as string[];
     const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
     const notes: PackageNotes = new Map();
+    const pkgNotes: string[] = [];
 
     if (bumpedDeps.length > 0) {
-      notes.set(pkg.name, [
-        buildDependencyBumpNote(currentVersion, bumpedDeps),
-      ]);
+      pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDeps));
+    }
+
+    const bump = bumps?.get(pkg.name);
+    if (bump) {
+      pkgNotes.push(
+        `📦 changesets suggest ${bump.bumpType} -> ${bump.newVersion}`,
+      );
+    }
+
+    if (pkgNotes.length > 0) {
+      notes.set(pkg.name, pkgNotes);
     }
 
     task.output = renderPackageVersionSummary(
@@ -543,7 +668,12 @@ async function handleIndependentMode(
       },
     );
 
-    const nextVersion = await promptVersion(task, currentVersion, pkg.name);
+    const nextVersion = await promptVersion(
+      task,
+      currentVersion,
+      pkg.name,
+      bump?.bumpType,
+    );
     versions.set(pkg.name, nextVersion);
 
     if (nextVersion !== currentVersion) {

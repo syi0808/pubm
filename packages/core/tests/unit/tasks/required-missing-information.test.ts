@@ -906,6 +906,439 @@ describe("requiredMissingInformationTasks", () => {
         ]),
       );
     });
+
+    it("sorts packages by dependency order (dependencies first)", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "app", version: "1.0.0", path: "packages/app" },
+        { name: "@pubm/utils", version: "1.0.0", path: "packages/utils" },
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["app", "1.0.0"],
+          ["@pubm/utils", "1.0.0"],
+          ["@pubm/core", "1.0.0"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/core", dependencies: {} }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "utils")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "@pubm/utils",
+              dependencies: { "@pubm/core": "workspace:*" },
+            }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "app")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "app",
+              dependencies: { "@pubm/utils": "workspace:*" },
+            }),
+          );
+        }
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      // Prompts should come in dependency order: @pubm/core -> @pubm/utils -> app
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.0.1") // @pubm/core
+        .mockResolvedValueOnce("1.0.1") // @pubm/utils
+        .mockResolvedValueOnce("1.0.1"); // app
+
+      await versionTask.task(ctx, mockTask);
+
+      // First output should show @pubm/core as active (first prompted)
+      expect(
+        mockTask.outputs.some((output) => output.includes("> @pubm/core")),
+      ).toBe(true);
+
+      // The first "> " (active marker) should appear on @pubm/core, not app
+      const firstActiveOutput = mockTask.outputs.find((output) =>
+        output.includes("> "),
+      );
+      expect(firstActiveOutput).toContain("> @pubm/core");
+    });
+
+    it("preserves original order for packages at the same dependency depth", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "pkg-b", version: "1.0.0", path: "packages/pkg-b" },
+        { name: "pkg-a", version: "1.0.0", path: "packages/pkg-a" },
+        { name: "pkg-c", version: "1.0.0", path: "packages/pkg-c" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["pkg-b", "1.0.0"],
+          ["pkg-a", "1.0.0"],
+          ["pkg-c", "1.0.0"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockRejectedValue(new Error("ENOENT"));
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.0.1") // pkg-b (first in original order)
+        .mockResolvedValueOnce("1.0.1") // pkg-a
+        .mockResolvedValueOnce("1.0.1"); // pkg-c
+
+      await versionTask.task(ctx, mockTask);
+
+      // First active package should be pkg-b (original order preserved for same depth)
+      const firstActiveOutput = mockTask.outputs.find((output) =>
+        output.includes("> "),
+      );
+      expect(firstActiveOutput).toContain("> pkg-b");
+    });
+
+    it("shows changeset notes in manual flow package summary", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([
+          ["@pubm/core", { changesetCount: 3 }],
+          ["pubm", { changesetCount: 1 }],
+        ]),
+        changesets: [{ id: "release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.1.0",
+              bumpType: "minor",
+            },
+          ],
+          [
+            "pubm",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.0.1",
+              bumpType: "patch",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      // "customize" from changeset recommendation, then "fixed" mode, then version
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("1.1.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      // After customize, the manual flow should show changeset notes
+      expect(
+        mockTask.outputs.some(
+          (output) =>
+            output.includes("📦 3 changesets suggest") &&
+            output.includes("minor") &&
+            output.includes("1.1.0"),
+        ),
+      ).toBe(true);
+      expect(
+        mockTask.outputs.some(
+          (output) =>
+            output.includes("📦 1 changeset suggests") &&
+            output.includes("patch") &&
+            output.includes("1.0.1"),
+        ),
+      ).toBe(true);
+    });
+
+    it("shows changeset notes in independent mode per-package prompts", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["@pubm/core", { changesetCount: 2 }]]),
+        changesets: [{ id: "release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.1.0",
+              bumpType: "minor",
+            },
+          ],
+        ]) as any,
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      // "customize" from changeset recommendation, then per-package versions
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("1.1.0") // @pubm/core
+        .mockResolvedValueOnce("1.0.0"); // pubm
+
+      await versionTask.task(ctx, mockTask);
+
+      // Independent mode should show changeset note for @pubm/core
+      expect(
+        mockTask.outputs.some(
+          (output) =>
+            output.includes("> @pubm/core") &&
+            output.includes("📦 changesets suggest minor -> 1.1.0"),
+        ),
+      ).toBe(true);
+    });
+
+    it("marks recommended bump type in version choices", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["@pubm/core", { changesetCount: 1 }]]),
+        changesets: [{ id: "release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "2.0.0",
+              bumpType: "major",
+            },
+          ],
+        ]) as any,
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("2.0.0") // @pubm/core
+        .mockResolvedValueOnce("1.0.0"); // pubm
+
+      await versionTask.task(ctx, mockTask);
+
+      // Second prompt (first per-package) should have "recommended by changesets" marker
+      const secondPromptCall = mockTask._promptAdapter.run.mock.calls[1];
+      const choices = secondPromptCall[0].choices;
+      const majorChoice = choices.find((c: any) =>
+        c.message.startsWith("major"),
+      );
+      expect(majorChoice.message).toContain("recommended by changesets");
+
+      // Third prompt (pubm, no changeset) should NOT have the marker
+      const thirdPromptCall = mockTask._promptAdapter.run.mock.calls[2];
+      const pubmChoices = thirdPromptCall[0].choices;
+      const hasMarker = pubmChoices.some((c: any) =>
+        c.message.includes("recommended by changesets"),
+      );
+      expect(hasMarker).toBe(false);
+    });
+
+    it("shows changeset recommendations in dependency order", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["pubm", "1.0.0"],
+          ["@pubm/core", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([
+          ["@pubm/core", { changesetCount: 1 }],
+          ["pubm", { changesetCount: 1 }],
+        ]),
+        changesets: [{ id: "release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "pubm",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.0.1",
+              bumpType: "patch",
+            },
+          ],
+          [
+            "@pubm/core",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.1.0",
+              bumpType: "minor",
+            },
+          ],
+        ]) as any,
+      );
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/core", dependencies: {} }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "pubm")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "pubm",
+              dependencies: { "@pubm/core": "workspace:*" },
+            }),
+          );
+        }
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      // In the changeset recommendation output, @pubm/core should appear before pubm
+      const changesetOutput = mockTask.outputs.find((output) =>
+        output.includes("Changesets suggest:"),
+      );
+      expect(changesetOutput).toBeDefined();
+      const coreIndex = changesetOutput!.indexOf("@pubm/core");
+      const pubmIndex = changesetOutput!.indexOf("pubm  ");
+      expect(coreIndex).toBeLessThan(pubmIndex);
+    });
+
+    it("marks highest changeset bump type in fixed mode version choices", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([
+          ["@pubm/core", { changesetCount: 1 }],
+          ["pubm", { changesetCount: 1 }],
+        ]),
+        changesets: [{ id: "release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.1.0",
+              bumpType: "minor",
+            },
+          ],
+          [
+            "pubm",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.0.1",
+              bumpType: "patch",
+            },
+          ],
+        ]) as any,
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "fixed" } as any);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      // "customize" from changeset recommendation, then version in fixed mode
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("1.1.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      // Fixed mode prompt should mark "minor" as the highest bump type
+      const fixedPromptCall = mockTask._promptAdapter.run.mock.calls[1];
+      const choices = fixedPromptCall[0].choices;
+      const minorChoice = choices.find((c: any) =>
+        c.message.startsWith("minor"),
+      );
+      expect(minorChoice.message).toContain("recommended by changesets");
+
+      // patch should NOT have the marker (minor is higher)
+      const patchChoice = choices.find((c: any) =>
+        c.message.startsWith("patch"),
+      );
+      expect(patchChoice.message).not.toContain("recommended by changesets");
+    });
   });
 
   describe("tag subtask", () => {
