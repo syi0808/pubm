@@ -22,7 +22,12 @@ export async function pubm(options: Options): Promise<void> {
   const configOptions: Partial<Options> = {};
 
   if (config) {
-    const resolved = resolveConfig(config);
+    const resolved = await resolveConfig(config);
+    if (resolved.discoveryEmpty) {
+      throw new Error(
+        "[pubm] No publishable packages found. Add a pubm.config.ts with a packages array, or ensure your workspace contains non-private packages.",
+      );
+    }
     if (resolved.packages) {
       configOptions.packages = resolved.packages;
     }

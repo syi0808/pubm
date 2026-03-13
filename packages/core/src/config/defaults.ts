@@ -1,3 +1,4 @@
+import { discoverPackages } from "../monorepo/discover.js";
 import {
   registerPrivateRegistry,
   registryCatalog,
@@ -35,34 +36,49 @@ const defaultConfig = {
   rollbackStrategy: "individual" as const,
 };
 
-export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
-  if (config.registries) {
-    console.warn(
-      '[pubm] The global "registries" field is deprecated. Registries are now inferred from manifest files or specified per-package in the "packages" array.',
-    );
-  }
+export async function resolveConfig(
+  config: PubmConfig,
+  cwd?: string,
+): Promise<ResolvedPubmConfig> {
+  let packages: PubmConfig["packages"];
+  let discoveryEmpty: boolean | undefined;
 
-  const { registries: _ignored, ...configWithoutRegistries } = config;
-  const packages = (config.packages ?? [{ path: "." }]).map((pkg) => {
-    if (!pkg.registries) return pkg;
-
-    const normalizedRegistries = pkg.registries.map((entry) => {
-      if (typeof entry === "string") return entry;
-
-      const ecosystemKey = resolveEcosystemKey(pkg, entry);
-      return registerPrivateRegistry(entry, ecosystemKey);
+  if (config.packages) {
+    // Explicit packages: normalize registries
+    packages = config.packages.map((pkg) => {
+      if (!pkg.registries) return pkg;
+      const normalizedRegistries = pkg.registries.map((entry) => {
+        if (typeof entry === "string") return entry;
+        const ecosystemKey = resolveEcosystemKey(pkg, entry);
+        return registerPrivateRegistry(entry, ecosystemKey);
+      });
+      return { ...pkg, registries: normalizedRegistries };
     });
+  } else {
+    // Auto-discover packages
+    const resolvedCwd = cwd ?? process.cwd();
+    const discovered = await discoverPackages({ cwd: resolvedCwd });
 
-    return { ...pkg, registries: normalizedRegistries };
-  });
+    if (discovered.length === 0) {
+      discoveryEmpty = true;
+      packages = [];
+    } else {
+      packages = discovered.map((d) => ({
+        path: d.path,
+        registries: d.registries,
+        ecosystem: d.ecosystem,
+      }));
+    }
+  }
 
   return {
     ...defaultConfig,
-    ...configWithoutRegistries,
+    ...config,
     packages,
     validate: { ...defaultValidate, ...config.validate },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     plugins: config.plugins ?? [],
+    ...(discoveryEmpty ? { discoveryEmpty } : {}),
   };
 }
 

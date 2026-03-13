@@ -23,8 +23,6 @@ export interface ValidateConfig {
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
-  /** @deprecated Use manifest-based inference. This field is ignored. */
-  registries?: RegistryType[];
   packages?: PackageConfig[];
   changelog?: boolean | string;
   changelogFormat?: "default" | "github" | string;
@@ -49,6 +47,7 @@ export interface ResolvedPubmConfig
   extends Required<Omit<PubmConfig, "packages" | "validate" | "registries">> {
   packages: PackageConfig[];
   validate: Required<ValidateConfig>;
+  discoveryEmpty?: boolean;
 }
 
 export function defineConfig(config: PubmConfig): PubmConfig {
