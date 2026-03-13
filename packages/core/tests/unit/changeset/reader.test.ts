@@ -8,6 +8,7 @@ vi.mock("node:fs", () => ({
 }));
 
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import path from "node:path";
 import {
   deleteChangesetFiles,
   readChangesets,
@@ -83,10 +84,10 @@ describe("deleteChangesetFiles", () => {
     ] as any);
 
     expect(mockedRmSync).toHaveBeenCalledWith(
-      "/tmp/project/.pubm/changesets/brave-ant.md",
+      path.join("/tmp/project", ".pubm", "changesets", "brave-ant.md"),
     );
     expect(mockedRmSync).toHaveBeenCalledWith(
-      "/tmp/project/.pubm/changesets/calm-bear.md",
+      path.join("/tmp/project", ".pubm", "changesets", "calm-bear.md"),
     );
   });
 
