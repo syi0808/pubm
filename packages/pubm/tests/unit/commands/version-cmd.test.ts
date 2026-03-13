@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGitInstance = {
@@ -344,18 +345,18 @@ describe("runVersionCommand", () => {
     );
     expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
       "1.1.0",
-      "/tmp/project/packages/pkg-a",
+      path.resolve("/tmp/project", "packages/pkg-a"),
     );
     expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
       "1.1.0",
-      "/tmp/project/packages/pkg-b",
+      path.resolve("/tmp/project", "packages/pkg-b"),
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      "/tmp/project/packages/pkg-a",
+      path.resolve("/tmp/project", "packages/pkg-a"),
       "## 1.1.0\n",
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      "/tmp/project/packages/pkg-b",
+      path.resolve("/tmp/project", "packages/pkg-b"),
       "## 1.1.0\n",
     );
     expect(mockGitInstance.commit).toHaveBeenCalledWith(
