@@ -28,7 +28,7 @@ export function externalVersionSync(
               ? target.file
               : path.resolve(cwd, target.file);
 
-            syncVersionInFile(filePath, ctx.runtime.version, target);
+            syncVersionInFile(filePath, ctx.runtime.version!, target);
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);

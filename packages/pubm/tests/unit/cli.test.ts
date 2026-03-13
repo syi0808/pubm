@@ -4,6 +4,7 @@ const {
   mockIsCI,
   mockCalculateVersionBumps,
   mockConsoleError,
+  mockCreateContext,
   mockDiscoverCurrentVersions,
   mockGitInstance,
   mockGetStatus,
@@ -11,12 +12,27 @@ const {
   mockPubm,
   mockPubmVersion,
   mockRequiredMissingInformationTasks,
+  mockResolveConfig,
+  mockResolveOptions,
   mockNotifyNewVersion,
 } = vi.hoisted(() => {
+  const createMockContext = (config: any, options: any, cwd: string): any => ({
+    config: config ?? {},
+    options: options ?? {},
+    cwd,
+    runtime: {
+      tag: options?.tag ?? "latest",
+      promptEnabled: false,
+      cleanWorkingTree: false,
+      pluginRunner: { run: vi.fn() },
+    },
+  });
+
   return {
     mockIsCI: { isCI: false },
     mockCalculateVersionBumps: vi.fn(),
     mockConsoleError: vi.fn(),
+    mockCreateContext: vi.fn(createMockContext),
     mockDiscoverCurrentVersions: vi.fn(),
     mockGitInstance: { latestTag: vi.fn() },
     mockGetStatus: vi.fn(() => ({
@@ -27,6 +43,18 @@ const {
     mockPubm: vi.fn(),
     mockPubmVersion: "1.0.0",
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
+    mockResolveConfig: vi.fn(async (raw: any) => ({
+      plugins: [],
+      ...raw,
+    })),
+    mockResolveOptions: vi.fn((opts: any) => ({
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
+      saveToken: true,
+      ...opts,
+    })),
     mockNotifyNewVersion: vi.fn(),
   };
 });
@@ -40,12 +68,15 @@ vi.mock("@pubm/core", () => ({
     return mockGitInstance;
   }),
   calculateVersionBumps: mockCalculateVersionBumps,
+  createContext: mockCreateContext,
   discoverCurrentVersions: mockDiscoverCurrentVersions,
   getStatus: mockGetStatus,
   loadConfig: mockLoadConfig,
   pubm: mockPubm,
   PUBM_VERSION: mockPubmVersion,
   requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
+  resolveConfig: mockResolveConfig,
+  resolveOptions: mockResolveOptions,
   notifyNewVersion: mockNotifyNewVersion,
   version: vi.fn().mockResolvedValue("1.0.0"),
 }));
@@ -103,7 +134,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-publish to skipPublish=true", async () => {
     await run("1.0.0", "--no-publish");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipPublish: true }),
     );
   });
@@ -111,7 +142,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-tests to skipTests=true", async () => {
     await run("1.0.0", "--no-tests");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipTests: true }),
     );
   });
@@ -119,7 +150,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-build to skipBuild=true", async () => {
     await run("1.0.0", "--no-build");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipBuild: true }),
     );
   });
@@ -127,7 +158,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-release-draft to skipReleaseDraft=true", async () => {
     await run("1.0.0", "--no-release-draft");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipReleaseDraft: true }),
     );
   });
@@ -135,7 +166,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-pre-check to skipPrerequisitesCheck=true", async () => {
     await run("1.0.0", "--no-pre-check");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipPrerequisitesCheck: true }),
     );
   });
@@ -143,7 +174,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   it("should map --no-condition-check to skipConditionsCheck=true", async () => {
     await run("1.0.0", "--no-condition-check");
 
-    expect(mockPubm).toHaveBeenCalledWith(
+    expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipConditionsCheck: true }),
     );
   });
@@ -180,11 +211,13 @@ describe("CLI action handler - non-CI mode", () => {
 
     expect(mockRequiredMissingInformationTasks).toHaveBeenCalled();
     expect(mockRun).toHaveBeenCalledWith(
-      expect.objectContaining({ tag: "latest" }),
+      expect.objectContaining({
+        runtime: expect.objectContaining({ tag: "latest" }),
+      }),
     );
   });
 
-  it("should call pubm with resolved options after interactive tasks", async () => {
+  it("should call pubm with context containing version after interactive tasks", async () => {
     mockIsCI.isCI = false;
     const mockRun = vi.fn();
     mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
@@ -192,7 +225,9 @@ describe("CLI action handler - non-CI mode", () => {
     await run("1.2.3");
 
     expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({ version: "1.2.3" }),
+      expect.objectContaining({
+        runtime: expect.objectContaining({ version: "1.2.3" }),
+      }),
     );
   });
 
@@ -211,9 +246,10 @@ describe("CLI action handler - non-CI mode", () => {
     expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "snapshot",
-        tag: "snapshot",
-        snapshot: "snapshot",
+        runtime: expect.objectContaining({
+          version: "snapshot",
+          tag: "snapshot",
+        }),
       }),
     );
   });
@@ -223,9 +259,10 @@ describe("CLI action handler - non-CI mode", () => {
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "snapshot",
-        tag: "canary",
-        snapshot: "canary",
+        runtime: expect.objectContaining({
+          version: "snapshot",
+          tag: "canary",
+        }),
       }),
     );
   });
@@ -247,7 +284,9 @@ describe("CLI action handler - CI mode", () => {
 
     expect(mockGitInstance.latestTag).toHaveBeenCalled();
     expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({ version: "2.0.0" }),
+      expect.objectContaining({
+        runtime: expect.objectContaining({ version: "2.0.0" }),
+      }),
     );
   });
 
@@ -317,10 +356,14 @@ describe("CLI action handler - CI mode", () => {
     await run("1.2.3", "--preflight");
 
     expect(mockRun).toHaveBeenCalledWith(
-      expect.objectContaining({ version: "1.2.3", tag: "latest" }),
+      expect.objectContaining({
+        runtime: expect.objectContaining({ version: "1.2.3", tag: "latest" }),
+      }),
     );
     expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({ preflight: true, version: "1.2.3" }),
+      expect.objectContaining({
+        runtime: expect.objectContaining({ version: "1.2.3" }),
+      }),
     );
   });
 
@@ -347,11 +390,15 @@ describe("CLI action handler - CI mode", () => {
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "1.1.0",
-        changesetConsumed: true,
-        versions: undefined,
+        runtime: expect.objectContaining({
+          version: "1.1.0",
+          changesetConsumed: true,
+        }),
       }),
     );
+    // versions should not be set for single-package
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versions).toBeUndefined();
     expect(logSpy).toHaveBeenCalledWith("Changesets detected:");
     expect(logSpy).toHaveBeenCalledWith("  pkg-a: 1.0.0 → 1.1.0 (minor)");
   });
@@ -380,19 +427,23 @@ describe("CLI action handler - CI mode", () => {
         ],
       ]),
     );
-    mockLoadConfig.mockResolvedValue({ versioning: "fixed" });
+    mockResolveConfig.mockResolvedValue({
+      plugins: [],
+      versioning: "fixed",
+    });
 
     await run();
 
-    expect(mockLoadConfig).toHaveBeenCalledWith(process.cwd());
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "2.0.0",
-        changesetConsumed: true,
-        versions: new Map([
-          ["pkg-a", "2.0.0"],
-          ["pkg-b", "2.0.0"],
-        ]),
+        runtime: expect.objectContaining({
+          version: "2.0.0",
+          changesetConsumed: true,
+          versions: new Map([
+            ["pkg-a", "2.0.0"],
+            ["pkg-b", "2.0.0"],
+          ]),
+        }),
       }),
     );
   });
@@ -421,18 +472,23 @@ describe("CLI action handler - CI mode", () => {
         ],
       ]),
     );
-    mockLoadConfig.mockResolvedValue({ versioning: "independent" });
+    mockResolveConfig.mockResolvedValue({
+      plugins: [],
+      versioning: "independent",
+    });
 
     await run();
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "1.1.0",
-        changesetConsumed: true,
-        versions: new Map([
-          ["pkg-a", "1.1.0"],
-          ["pkg-b", "2.3.1"],
-        ]),
+        runtime: expect.objectContaining({
+          version: "1.1.0",
+          changesetConsumed: true,
+          versions: new Map([
+            ["pkg-a", "1.1.0"],
+            ["pkg-b", "2.3.1"],
+          ]),
+        }),
       }),
     );
   });
@@ -452,10 +508,13 @@ describe("CLI action handler - CI mode", () => {
 
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
-        version: "3.4.5",
-        changesetConsumed: undefined,
+        runtime: expect.objectContaining({
+          version: "3.4.5",
+        }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.changesetConsumed).toBeUndefined();
   });
 });
 

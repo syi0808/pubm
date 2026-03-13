@@ -1,7 +1,7 @@
+import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { Registry } from "../registry/registry.js";
 import type { ReleaseContext } from "../tasks/github-release.js";
-import type { PubmContext } from "../context.js";
 
 import type { HookName, PubmPlugin } from "./types.js";
 
