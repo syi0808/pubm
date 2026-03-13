@@ -1,4 +1,9 @@
+import {
+  registerPrivateRegistry,
+  registryCatalog,
+} from "../registry/catalog.js";
 import type {
+  PrivateRegistryConfig,
   PubmConfig,
   ResolvedPubmConfig,
   SnapshotConfig,
@@ -43,7 +48,19 @@ export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
   }
 
   const { registries: _ignored, ...configWithoutRegistries } = config;
-  const packages = config.packages ?? [{ path: "." }];
+  const packages = (config.packages ?? [{ path: "." }]).map((pkg) => {
+    if (!pkg.registries) return pkg;
+
+    const normalizedRegistries = pkg.registries.map((entry) => {
+      if (typeof entry === "string") return entry;
+
+      const ecosystemKey = resolveEcosystemKey(pkg, entry);
+      return registerPrivateRegistry(entry, ecosystemKey);
+    });
+
+    return { ...pkg, registries: normalizedRegistries };
+  });
+
   return {
     ...defaultConfig,
     ...configWithoutRegistries,
@@ -52,4 +69,21 @@ export function resolveConfig(config: PubmConfig): ResolvedPubmConfig {
     snapshot: { ...defaultSnapshot, ...config.snapshot },
     plugins: config.plugins ?? [],
   };
+}
+
+function resolveEcosystemKey(
+  pkg: { ecosystem?: string; registries?: (string | PrivateRegistryConfig)[] },
+  _entry: PrivateRegistryConfig,
+): string {
+  if (pkg.ecosystem) return pkg.ecosystem;
+
+  const firstStringRegistry = pkg.registries?.find(
+    (r): r is string => typeof r === "string",
+  );
+  if (firstStringRegistry) {
+    const descriptor = registryCatalog.get(firstStringRegistry);
+    if (descriptor) return descriptor.ecosystem;
+  }
+
+  return "js";
 }
