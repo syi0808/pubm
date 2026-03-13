@@ -179,6 +179,17 @@ const docsSidebar = [
         slug: "reference/config",
       },
       {
+        label: "Core SDK",
+        translations: {
+          ko: "Core SDK",
+          "zh-CN": "Core SDK",
+          fr: "SDK Core",
+          de: "Core-SDK",
+          es: "SDK Core",
+        },
+        slug: "reference/sdk",
+      },
+      {
         label: "Plugins API",
         translations: {
           ko: "Plugins API",

@@ -1,0 +1,145 @@
+---
+title: "Core SDK 参考"
+description: "@pubm/core 根入口导出的公共函数、类与类型概览。"
+---
+
+`@pubm/core` 是 `pubm` CLI 的程序化 API。本文档只覆盖可以直接从包根入口导入的公开标识符。
+
+```ts
+import { ... } from "@pubm/core";
+```
+
+该包同时提供类型声明以及 ESM/CJS 入口。当前包元数据声明的运行时要求是 `node >= 24`。
+
+## 安装
+
+```bash
+npm install @pubm/core
+pnpm add @pubm/core
+bun add @pubm/core
+```
+
+## 核心 API
+
+### `pubm(options)`
+
+在代码中运行与 CLI 相同的发布流水线。
+
+```ts
+import { pubm } from "@pubm/core";
+
+await pubm({
+  version: "patch",
+  preview: true,
+  tag: "next",
+});
+```
+
+最常用的 `Options` 字段如下：
+
+| Field | Type | Purpose |
+|------|------|---------|
+| `version` | `string` | `patch`、`minor`、`major`，或显式 semver。 |
+| `preview` | `boolean` | 仅预览任务计划，不修改 Git 状态也不发布。 |
+| `branch` | `string` | 只允许在指定分支上发布。 |
+| `anyBranch` | `boolean` | 为单次执行关闭分支限制。 |
+| `tag` | `string` | 指定 `latest`、`next`、`beta` 等 dist-tag。 |
+| `snapshot` | `string \| boolean` | 生成 snapshot 版本。 |
+| `packages` | `PackageConfig[]` | 覆盖自动发现的包列表。 |
+| `preflight` | `boolean` | 在本地模拟 CI 并执行 dry-run 检查。 |
+| `ci` | `boolean` | 基于最新 tag 发布并创建 GitHub Release。 |
+| `publishOnly` | `boolean` | 跳过准备阶段，仅执行发布。 |
+
+## 配置 API
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `defineConfig` | function | 编写 `pubm.config.ts` 的类型辅助函数。 |
+| `loadConfig` | function | 从磁盘读取 `pubm.config.*`，返回 `PubmConfig \| null`。 |
+| `resolveConfig` | function | 应用默认值、自动发现包并规范化 private registry。 |
+| `PubmConfig` | type | 用户编写的配置类型。 |
+| `ResolvedPubmConfig` | type | `resolveConfig()` 解析后的完整配置类型。 |
+| `PackageConfig` | type | 每个包的 registry、ecosystem、build、test 覆盖配置。 |
+
+```ts
+import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [{ path: "packages/core" }],
+});
+
+const config = await loadConfig(process.cwd());
+const resolved = config ? await resolveConfig(config, process.cwd()) : null;
+```
+
+## 插件 API
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `PubmPlugin` | type | 插件顶层契约。 |
+| `PluginHooks` | type | `beforeBuild`、`afterPublish`、`onError`、`afterRelease` 等生命周期钩子。 |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | 钩子签名。 |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 插件命令模型。 |
+| `PluginRunner` | class | 负责执行已加载插件的钩子并收集 registry/ecosystem。 |
+| `ReleaseContext` / `ReleaseAsset` | types | 传给 `afterRelease` 钩子的元数据。 |
+
+```ts
+import { defineConfig, type PubmPlugin } from "@pubm/core";
+
+const plugin: PubmPlugin = {
+  name: "announce",
+  hooks: {
+    afterPublish(ctx) {
+      console.log("published", ctx.version);
+    },
+  },
+};
+
+export default defineConfig({
+  plugins: [plugin],
+});
+```
+
+## Changeset / Monorepo / Utils
+
+根入口还会导出以下类别的辅助函数。
+
+- Changeset: `readChangesets`, `parseChangeset`, `getStatus`, `discoverCurrentVersions`, `discoverPackageInfos`, `calculateVersionBumps`, `generateChangesetId`, `generateChangesetContent`, `writeChangeset`, `buildChangelogEntries`, `generateChangelog`, `writeChangelogToFile`, `migrateFromChangesets`, `deleteChangesetFiles`, `parseChangelogSection`
+- Monorepo: `detectWorkspace`, `discoverPackages`, `buildDependencyGraph`, `topologicalSort`, `resolveGroups`, `applyFixedGroup`, `applyLinkedGroup`, `Git`
+- Validation/Utils: `validateEntryPoints`, `detectExtraneousFiles`, `getPackageJson`, `replaceVersion`, `replaceVersionAtPath`, `version`, `generateSnapshotVersion`, `loadTokensFromDb`, `syncGhSecrets`, `exec`, `getPackageManager`, `detectRuntime`, `isBun`, `notifyNewVersion`, `consoleError`, `PUBM_VERSION`, `PUBM_ENGINES`
+
+同时还公开了一批重要类型。
+
+- Changeset 相关: `BumpType`, `Changeset`, `Release`, `Status`, `PackageStatus`, `VersionBump`, `ChangelogEntry`, `DependencyUpdate`, `PackageVersionInfo`, `MigrationResult`
+- Monorepo 相关: `WorkspaceInfo`, `DiscoverOptions`, `DiscoveredPackage`, `PackageNode`
+- 其他: `Options`, `SnapshotOptions`, `Runtime`, `EntryPointError`, `ExtraneousFile`
+
+```ts
+import {
+  calculateVersionBumps,
+  discoverCurrentVersions,
+  generateSnapshotVersion,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const currentVersions = await discoverCurrentVersions(process.cwd());
+const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+
+const snapshot = generateSnapshotVersion({
+  baseVersion: "1.4.0",
+  tag: "snapshot",
+  template: "{base}-{tag}-{timestamp}",
+});
+
+const errors = validateEntryPoints(
+  {
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+  },
+  process.cwd(),
+);
+```
+
+## 范围
+
+本文档以当前 `@pubm/core` 包根入口 re-export 的公共 API 为准。即使 `packages/core/src/**` 下存在内部文件，只要没有从包根导出，就应视为私有实现细节。
