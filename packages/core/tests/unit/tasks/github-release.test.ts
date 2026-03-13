@@ -125,14 +125,14 @@ describe("createGitHubRelease", () => {
     } = await getMocks();
 
     mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       return (
         normalized.endsWith("/npm/@pubm") ||
         normalized.endsWith("/npm/@pubm/linux-x64/bin")
       );
     });
     mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       if (normalized.endsWith("/npm/@pubm")) {
         return [{ name: "linux-x64", isDirectory: () => true }] as any;
       }
@@ -195,7 +195,7 @@ describe("createGitHubRelease", () => {
     expect(createPayload.body).toBe("Release notes from CHANGELOG");
     expect(createPayload.prerelease).toBe(true);
     expect(mockMkdirSync).toHaveBeenCalledWith(
-      expect.stringContaining("/tmp/"),
+      expect.stringContaining("pubm-release-"),
       {
         recursive: true,
       },
@@ -213,7 +213,7 @@ describe("createGitHubRelease", () => {
       }),
     ]);
     expect(mockRmSync).toHaveBeenCalledWith(
-      expect.stringContaining("/tmp/pubm-release-"),
+      expect.stringContaining("pubm-release-"),
       { recursive: true, force: true },
     );
   });
@@ -223,11 +223,11 @@ describe("createGitHubRelease", () => {
     const { mockExistsSync, mockReaddirSync, mockGit } = await getMocks();
 
     mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       return normalized.endsWith("/npm/@pubm");
     });
     mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       if (normalized.endsWith("/npm/@pubm")) {
         return [
           { name: "README.md", isDirectory: () => false },
@@ -303,14 +303,14 @@ describe("createGitHubRelease", () => {
     } = await getMocks();
 
     mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       return (
         normalized.endsWith("/npm/@pubm") ||
         normalized.endsWith("/npm/@pubm/linux-x64/bin")
       );
     });
     mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target);
+      const normalized = String(target).replace(/\\/g, "/");
       if (normalized.endsWith("/npm/@pubm")) {
         return [{ name: "linux-x64", isDirectory: () => true }] as any;
       }
