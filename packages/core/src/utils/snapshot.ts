@@ -1,7 +1,6 @@
 export interface SnapshotOptions {
   tag?: string;
-  baseVersion?: string;
-  useCalculatedVersion?: boolean;
+  baseVersion: string;
   template?: string;
   commit?: string;
 }
@@ -18,10 +17,7 @@ function formatTimestamp(date: Date): string {
 
 export function generateSnapshotVersion(options: SnapshotOptions): string {
   const tag = options.tag ?? "snapshot";
-  const base =
-    options.useCalculatedVersion && options.baseVersion
-      ? options.baseVersion
-      : "0.0.0";
+  const base = options.baseVersion;
   const now = new Date();
   const timestamp = formatTimestamp(now);
 
@@ -30,8 +26,7 @@ export function generateSnapshotVersion(options: SnapshotOptions): string {
       .replace(/\{base\}/g, base)
       .replace(/\{tag\}/g, tag)
       .replace(/\{timestamp\}/g, timestamp)
-      .replace(/\{commit\}/g, options.commit ?? "")
-      .replace(/\{datetime\}/g, timestamp);
+      .replace(/\{commit\}/g, options.commit ?? "");
   }
 
   return `${base}-${tag}-${timestamp}`;
