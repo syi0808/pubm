@@ -81,8 +81,8 @@ Explicitly declares publishable packages. Registries are inferred from manifest 
 
 ```ts
 packages: [
-  { path: "packages/core", ecosystem: "js" },
-  { path: "crates/pubm-rs", ecosystem: "rust" },
+  { path: "packages/core" },
+  { path: "crates/pubm-rs" },
 ];
 ```
 
@@ -376,8 +376,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "fixed",
   packages: [
-    { path: "packages/web", ecosystem: "js" },
-    { path: "packages/server", ecosystem: "js" },
+    { path: "packages/web" },
+    { path: "packages/server" },
   ],
 });
 ```
@@ -390,8 +390,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/sdk", ecosystem: "js" },
-    { path: "crates/sdk-core", ecosystem: "rust" },
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
   ],
   snapshot: {
     useCalculatedVersion: true,

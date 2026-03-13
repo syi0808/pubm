@@ -46,9 +46,9 @@ Les registries sont inferees depuis les manifestes de chaque package:
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", ecosystem: "js" },
-    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // surcharge
-    { path: "crates/pubm-rs", ecosystem: "rust" },
+    { path: "packages/core" },
+    { path: "packages/cli", registries: ["npm"] }, // surcharge
+    { path: "crates/pubm-rs" },
   ],
 });
 ```

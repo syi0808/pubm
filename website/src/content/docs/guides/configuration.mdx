@@ -99,17 +99,14 @@ export default defineConfig({
   packages: [
     {
       path: "packages/core",
-      ecosystem: "js",
       // package.json + jsr.json → npm + jsr inferred automatically
     },
     {
       path: "packages/cli",
-      ecosystem: "js",
       registries: ["npm"], // override: publish only to npm even if jsr.json exists
     },
     {
       path: "crates/pubm-rs",
-      ecosystem: "rust",
       // Cargo.toml → crates inferred automatically
     },
   ],
@@ -255,8 +252,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "fixed",
   packages: [
-    { path: "packages/web", ecosystem: "js" },
-    { path: "packages/server", ecosystem: "js" },
+    { path: "packages/web" },
+    { path: "packages/server" },
   ],
 });
 ```
@@ -269,8 +266,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/sdk", ecosystem: "js" },
-    { path: "crates/sdk-core", ecosystem: "rust" },
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
   ],
 });
 ```

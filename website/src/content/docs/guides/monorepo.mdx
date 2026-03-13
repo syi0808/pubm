@@ -35,9 +35,9 @@ import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   packages: [
-    { path: "packages/core", ecosystem: "js" },   // npm + jsr inferred from manifests
-    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // override: npm only
-    { path: "crates/pubm-rs", ecosystem: "rust" }, // crates inferred from Cargo.toml
+    { path: "packages/core" },                            // npm + jsr inferred from manifests
+    { path: "packages/cli", registries: ["npm"] },        // override: npm only
+    { path: "crates/pubm-rs" },                           // crates inferred from Cargo.toml
   ],
 });
 ```
@@ -167,9 +167,9 @@ Each package's registries are inferred from its manifest files. A package with b
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/sdk", ecosystem: "js" },     // npm + jsr inferred
-    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // override
-    { path: "crates/runtime", ecosystem: "rust" }, // crates inferred
+    { path: "packages/sdk" },                             // npm + jsr inferred
+    { path: "packages/cli", registries: ["npm"] },        // override
+    { path: "crates/runtime" },                           // crates inferred
   ],
 });
 ```

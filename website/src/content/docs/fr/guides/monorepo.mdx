@@ -23,9 +23,9 @@ Les registres sont inferes depuis les manifestes. `registries` ne sert qu'a surc
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/core", ecosystem: "js" },
-    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // surcharge
-    { path: "crates/pubm-rs", ecosystem: "rust" },
+    { path: "packages/core" },
+    { path: "packages/cli", registries: ["npm"] }, // surcharge
+    { path: "crates/pubm-rs" },
   ],
 });
 ```
