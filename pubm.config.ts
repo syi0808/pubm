@@ -5,13 +5,10 @@ import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"] },
-    { path: "packages/pubm", registries: ["npm"] },
-    {
-      path: "packages/plugins/plugin-external-version-sync",
-      registries: ["npm", "jsr"],
-    },
-    { path: "packages/plugins/plugin-brew", registries: ["npm", "jsr"] },
+    { path: "packages/core" },
+    { path: "packages/pubm" },
+    { path: "packages/plugins/plugin-external-version-sync" },
+    { path: "packages/plugins/plugin-brew" },
   ],
   plugins: [
     brewTap({ formula: "Formula/pubm.rb" }),
