@@ -65,4 +65,35 @@ describe("validateEntryPoints", () => {
     const errors = validateEntryPoints(pkg, "/project");
     expect(errors).toHaveLength(1);
   });
+
+  it("validates string bin fields", () => {
+    mockedExistsSync.mockReturnValue(false);
+    const pkg = { bin: "./bin/cli.js" };
+    const errors = validateEntryPoints(pkg, "/project");
+    expect(errors).toEqual([{ field: "bin", path: "./bin/cli.js" }]);
+  });
+
+  it("recursively validates nested export maps and ignores unsupported values", () => {
+    mockedExistsSync.mockImplementation((value) => !String(value).includes("missing"));
+    const pkg = {
+      exports: {
+        ".": {
+          import: {
+            default: "./dist/index.js",
+            browser: "./dist/missing-browser.js",
+          },
+          require: null,
+        },
+      },
+    };
+
+    const errors = validateEntryPoints(pkg, "/project");
+
+    expect(errors).toEqual([
+      {
+        field: 'exports["."]["import"]["browser"]',
+        path: "./dist/missing-browser.js",
+      },
+    ]);
+  });
 });

@@ -129,11 +129,17 @@ export async function packageJsonToJsrJson(
   packageJson: PackageJson,
   { cwd = process.cwd() } = {},
 ): Promise<JsrJson> {
-  const ignore =
+  const ignorePath =
     (await findOutFile(".npmignore", { cwd })) ||
     (await findOutFile(".gitignore", { cwd }));
 
-  const ignores = ignore?.split("\n").filter((v) => v) ?? [];
+  const ignores = ignorePath
+    ? (await readFile(ignorePath, "utf-8"))
+        .toString()
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+    : [];
 
   return <JsrJson>{
     name: packageJson.name,

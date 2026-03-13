@@ -1,5 +1,25 @@
-import { describe, expect, it } from "vitest";
-import { generateChangelog } from "../../../src/changeset/changelog.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("node:fs", () => ({
+  existsSync: vi.fn(),
+  readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
+}));
+
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  buildChangelogEntries,
+  generateChangelog,
+  writeChangelogToFile,
+} from "../../../src/changeset/changelog.js";
+
+const mockedExistsSync = vi.mocked(existsSync);
+const mockedReadFileSync = vi.mocked(readFileSync);
+const mockedWriteFileSync = vi.mocked(writeFileSync);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("generateChangelog", () => {
   it("generates changelog with minor and patch sections", () => {
@@ -57,5 +77,58 @@ describe("generateChangelog", () => {
     const result = generateChangelog("1.0.0", []);
 
     expect(result).toBe("## 1.0.0\n");
+  });
+
+  it("builds changelog entries only for the target package", () => {
+    expect(
+      buildChangelogEntries(
+        [
+          {
+            id: "alpha",
+            summary: "Ship feature",
+            releases: [
+              { name: "pkg-a", type: "minor" },
+              { name: "pkg-b", type: "patch" },
+            ],
+          },
+          {
+            id: "beta",
+            summary: "Fix bug",
+            releases: [{ name: "pkg-b", type: "patch" }],
+          },
+        ] as any,
+        "pkg-b",
+      ),
+    ).toEqual([
+      { id: "alpha", summary: "Ship feature", type: "patch" },
+      { id: "beta", summary: "Fix bug", type: "patch" },
+    ]);
+  });
+
+  it("prepends the changelog header when writing to a new file", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    writeChangelogToFile("/repo", "## 1.0.0\n\n- Added");
+
+    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      "/repo/CHANGELOG.md",
+      "# Changelog\n\n## 1.0.0\n\n- Added\n",
+      "utf-8",
+    );
+  });
+
+  it("preserves older sections when updating an existing changelog", () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 0.9.0\n\n- Previous release\n",
+    );
+
+    writeChangelogToFile("/repo", "## 1.0.0\n\n- Added");
+
+    expect(mockedWriteFileSync).toHaveBeenCalledWith(
+      "/repo/CHANGELOG.md",
+      "# Changelog\n\n## 1.0.0\n\n- Added\n## 0.9.0\n\n- Previous release\n",
+      "utf-8",
+    );
   });
 });

@@ -4,14 +4,19 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   readdirSync: vi.fn(),
   readFileSync: vi.fn(),
+  rmSync: vi.fn(),
 }));
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { readChangesets } from "../../../src/changeset/reader.js";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  deleteChangesetFiles,
+  readChangesets,
+} from "../../../src/changeset/reader.js";
 
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
+const mockedRmSync = vi.mocked(rmSync);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -65,5 +70,31 @@ describe("readChangesets", () => {
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("brave-ant");
     expect(mockedReadFileSync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deleteChangesetFiles", () => {
+  it("removes each changeset file that still exists", () => {
+    mockedExistsSync.mockReturnValue(true);
+
+    deleteChangesetFiles("/tmp/project", [
+      { id: "brave-ant" },
+      { id: "calm-bear" },
+    ] as any);
+
+    expect(mockedRmSync).toHaveBeenCalledWith(
+      "/tmp/project/.pubm/changesets/brave-ant.md",
+    );
+    expect(mockedRmSync).toHaveBeenCalledWith(
+      "/tmp/project/.pubm/changesets/calm-bear.md",
+    );
+  });
+
+  it("skips removal when a changeset file is already gone", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    deleteChangesetFiles("/tmp/project", [{ id: "brave-ant" }] as any);
+
+    expect(mockedRmSync).not.toHaveBeenCalled();
   });
 });
