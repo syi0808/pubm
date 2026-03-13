@@ -84,23 +84,6 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Mode prerelease
-
-```bash
-pubm changesets pre enter beta
-pubm changesets version
-pubm patch --tag beta
-pubm changesets pre exit
-```
-
-## Snapshots
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --dry-run
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
 ## Migration depuis `.changeset/`
 
 ```bash

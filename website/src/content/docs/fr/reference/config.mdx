@@ -10,7 +10,7 @@ Champs les plus importants aujourd'hui:
 - `packages`
 - `plugins`
 - `versioning`, `fixed`, `linked`
-- `snapshot.useCalculatedVersion`
+- `snapshotTemplate`
 
 Les registries sont inferees depuis les fichiers de manifeste. `packages[].registries` permet de les surcharger ou d'ajouter des registries privees.
 
@@ -30,4 +30,18 @@ Les registries sont inferees depuis les fichiers de manifeste. `packages[].regis
 - `linked`
 - `plugins`
 - `validate`
-- `snapshot`
+- `snapshotTemplate`
+
+## `snapshotTemplate`
+
+- Type : `string`
+- Défaut : `"{tag}-{timestamp}"`
+
+Template pour la chaîne de version lors de l'utilisation du flag `--snapshot`.
+
+Variables disponibles :
+
+- `{base}` — version de base actuelle depuis le fichier manifeste
+- `{tag}` — tag du snapshot (par défaut : `snapshot`)
+- `{timestamp}` — timestamp Unix au moment du build
+- `{commit}` — hash court du commit Git

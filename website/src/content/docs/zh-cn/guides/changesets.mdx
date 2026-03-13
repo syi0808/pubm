@@ -102,25 +102,6 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## prerelease 模式
-
-```bash
-pubm changesets pre enter beta
-pubm changesets version
-pubm patch --tag beta
-pubm changesets pre exit
-```
-
-## snapshot 发布
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --dry-run
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
-snapshot 用于临时发布，不属于永久 semver 历史。
-
 ## 从 `.changeset/` 迁移
 
 ```bash

@@ -29,9 +29,6 @@ pubm
 | `pubm changesets status` | 대기 중 changeset과 bump 영향 확인 |
 | `pubm changesets version` | changeset 소비 후 버전 기록 |
 | `pubm changesets changelog` | changeset 기반 changelog 생성 |
-| `pubm changesets pre enter <tag>` | prerelease 모드 진입 |
-| `pubm changesets pre exit` | prerelease 모드 종료 |
-| `pubm changesets snapshot [tag]` | 임시 snapshot 릴리스 |
 | `pubm changesets migrate` | `.changeset/`에서 `.pubm/`로 이전 |
 
 ## 최상위 publish 명령
@@ -72,6 +69,7 @@ pubm patch --tag beta
 | `--test-script <script>` | 테스트 단계 스크립트 이름 |
 | `--build-script <script>` | 빌드 단계 스크립트 이름 |
 | `--no-save-token` | 토큰 저장 비활성화 |
+| `--snapshot [tag]` | 임시 스냅샷 버전을 게시합니다 (기본 태그: snapshot) |
 
 ## 파이프라인 제어 플래그
 

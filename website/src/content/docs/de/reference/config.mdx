@@ -10,7 +10,7 @@ Wichtige Felder:
 - `versioning`
 - `fixed`
 - `linked`
-- `snapshot.useCalculatedVersion`
+- `snapshotTemplate`
 
 Registries werden aus den Manifest-Dateien abgeleitet. `packages[].registries` erlaubt Uberschreibung oder private Registries.
 
@@ -20,3 +20,18 @@ Wichtige Defaults:
 - `branch: "main"`
 - `tag: "latest"`
 - `contents: "."`
+- `snapshotTemplate: "{tag}-{timestamp}"`
+
+## `snapshotTemplate`
+
+- Typ: `string`
+- Standard: `"{tag}-{timestamp}"`
+
+Template für den Versions-String beim `--snapshot`-Flag.
+
+Verfügbare Variablen:
+
+- `{base}` — aktuelle Basisversion aus der Manifest-Datei
+- `{tag}` — Snapshot-Tag (Standard: `snapshot`)
+- `{timestamp}` — Unix-Timestamp zum Zeitpunkt des Builds
+- `{commit}` — kurzer Git-Commit-Hash
