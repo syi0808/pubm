@@ -41,6 +41,8 @@ import {
   rollbackError,
   rollbackLog,
 } from "../utils/rollback.js";
+import { generateSnapshotVersion } from "../utils/snapshot.js";
+import { loadConfig } from "../config/loader.js";
 import { injectTokensToEnv } from "../utils/token.js";
 import { createCratesPublishTask } from "./crates.js";
 import {
@@ -379,6 +381,155 @@ export async function run(options: ResolvedOptions): Promise<void> {
 
   try {
     if (options.contents) process.chdir(options.contents);
+
+    if (options.snapshot) {
+      // Snapshot pipeline: prerequisites → conditions → test → build → temp publish → tag push
+      await prerequisitesCheckTask({
+        skip: options.skipPrerequisitesCheck,
+      }).run(ctx);
+
+      await requiredConditionsCheckTask({
+        skip: options.skipConditionsCheck,
+      }).run(ctx);
+
+      const pipelineListrOptions =
+        options.ci || isCI ? createCiListrOptions<Ctx>() : undefined;
+
+      await createListr<Ctx>(
+        [
+          {
+            skip: options.skipTests,
+            title: "Running tests",
+            task: async (ctx, task): Promise<void> => {
+              const packageManager = await getPackageManager();
+              const command = `${packageManager} run ${ctx.testScript}`;
+              task.title = `Running tests (${command})`;
+              task.output = `Executing \`${command}\``;
+              try {
+                await exec(packageManager, ["run", ctx.testScript], {
+                  throwOnError: true,
+                });
+              } catch (error) {
+                throw new AbstractError(
+                  `Test script '${ctx.testScript}' failed.`,
+                  { cause: error },
+                );
+              }
+            },
+          },
+          {
+            skip: options.skipBuild,
+            title: "Building the project",
+            task: async (ctx, task): Promise<void> => {
+              const packageManager = await getPackageManager();
+              const command = `${packageManager} run ${ctx.buildScript}`;
+              task.title = `Building the project (${command})`;
+              task.output = `Executing \`${command}\``;
+              try {
+                await exec(packageManager, ["run", ctx.buildScript], {
+                  throwOnError: true,
+                });
+              } catch (error) {
+                throw new AbstractError(
+                  `Build script '${ctx.buildScript}' failed.`,
+                  { cause: error },
+                );
+              }
+            },
+          },
+          {
+            title: "Publishing snapshot",
+            task: async (ctx, task): Promise<void> => {
+              const snapshotTag =
+                typeof options.snapshot === "string"
+                  ? options.snapshot
+                  : "snapshot";
+
+              // Check for monorepo
+              const packageInfos = await discoverPackageInfos(process.cwd());
+              if (packageInfos.length > 1) {
+                throw new AbstractError(
+                  "Snapshot publishing is only supported for single-package projects.",
+                );
+              }
+
+              // Read current version from manifest
+              const pkgJson = await getPackageJson();
+              const currentVersion = pkgJson.version ?? "0.0.0";
+
+              // Generate snapshot version
+              const config = await loadConfig(process.cwd());
+              const snapshotVersion = generateSnapshotVersion({
+                baseVersion: currentVersion,
+                tag: snapshotTag,
+                template: config?.snapshotTemplate,
+              });
+
+              ctx.version = snapshotVersion;
+              task.title = `Publishing snapshot (${snapshotVersion})`;
+              task.output = `Snapshot version: ${snapshotVersion}`;
+
+              // Temporarily replace manifest version
+              await replaceVersion(
+                snapshotVersion,
+                ctx.packages,
+              );
+
+              try {
+                // Publish with snapshot tag
+                task.output = `Publishing to registries with tag "${snapshotTag}"...`;
+                ctx.tag = snapshotTag;
+
+                const publishTasks = await collectPublishTasks(ctx);
+                await createListr<Ctx>(publishTasks, {
+                  concurrent: true,
+                }).run(ctx);
+              } finally {
+                // Restore original version
+                task.output = "Restoring original manifest version...";
+                await replaceVersion(currentVersion, ctx.packages);
+              }
+
+              task.output = `Published ${snapshotVersion}`;
+            },
+          },
+          {
+            title: "Creating and pushing snapshot tag",
+            skip: (ctx) => !!ctx.preview,
+            task: async (ctx, task): Promise<void> => {
+              const git = new Git();
+              const tagName = `v${ctx.version}`;
+              task.output = `Creating tag ${tagName}...`;
+
+              const headCommit = await git.latestCommit();
+              await git.createTag(tagName, headCommit);
+
+              task.output = `Pushing tag ${tagName}...`;
+              await git.push("--tags");
+              task.output = `Tag ${tagName} pushed.`;
+            },
+          },
+        ],
+        pipelineListrOptions,
+      ).run(ctx);
+
+      const registries = collectRegistries(ctx);
+      const parts: string[] = [];
+      for (const registryKey of registries) {
+        const descriptor = registryCatalog.get(registryKey);
+        if (!descriptor?.resolveDisplayName) continue;
+        const names = await descriptor.resolveDisplayName(ctx);
+        for (const name of names) {
+          parts.push(`${color.bold(name)} on ${descriptor.label}`);
+        }
+      }
+
+      console.log(
+        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${color.blueBright(ctx.version)} 📸\n`,
+      );
+
+      return;
+    }
 
     if (options.preflight) {
       // Phase 1: Collect tokens (interactive)
