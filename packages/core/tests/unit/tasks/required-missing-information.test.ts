@@ -43,18 +43,21 @@ import {
   discoverPackageInfos,
 } from "../../../src/changeset/packages.js";
 import { getStatus } from "../../../src/changeset/status.js";
+import { calculateVersionBumps } from "../../../src/changeset/version.js";
 import { loadConfig } from "../../../src/config/loader.js";
 import { jsrRegistry } from "../../../src/registry/jsr.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
 import { createListr } from "../../../src/utils/listr.js";
-import { version } from "../../../src/utils/package.js";
+import { getPackageJson, version } from "../../../src/utils/package.js";
 
 const mockedVersion = vi.mocked(version);
+const mockedGetPackageJson = vi.mocked(getPackageJson);
 const mockedReadFile = vi.mocked(readFile);
 const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
 const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedGetStatus = vi.mocked(getStatus);
+const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedLoadConfig = vi.mocked(loadConfig);
 const mockedNpmRegistry = vi.mocked(npmRegistry);
 const mockedJsrRegistry = vi.mocked(jsrRegistry);
@@ -120,11 +123,13 @@ beforeEach(() => {
   mockedDiscoverPackageInfos.mockResolvedValue([
     { name: "my-pkg", version: "1.0.0", path: "." },
   ]);
+  mockedGetPackageJson.mockResolvedValue({ name: "my-pkg" } as any);
   mockedGetStatus.mockReturnValue({
     hasChangesets: false,
     packages: new Map(),
     changesets: [],
   } as any);
+  mockedCalculateVersionBumps.mockReturnValue(new Map() as any);
   mockedLoadConfig.mockResolvedValue(undefined as any);
   mockedNpmRegistry.mockResolvedValue({
     distTags: vi.fn().mockResolvedValue(["latest", "next", "beta"]),
@@ -185,6 +190,18 @@ describe("requiredMissingInformationTasks", () => {
       expect(versionTask.skip({ version: undefined })).toBe(false);
     });
 
+    it("skips when workspace versions are already provided", () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      expect(
+        versionTask.skip({
+          versions: new Map([["@pubm/core", "1.0.0"]]),
+        }),
+      ).toBe(true);
+    });
+
     it("has exitOnError set to true", () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
@@ -237,6 +254,77 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.version).toBe("2.0.0");
+    });
+
+    it("accepts a single-package changeset recommendation and marks it consumed", async () => {
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["my-pkg", { changesetCount: 2 }]]),
+        changesets: [{ id: "major-release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "my-pkg",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.1.0",
+              bumpType: "minor",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.version).toBe("1.1.0");
+      expect(ctx.changesetConsumed).toBe(true);
+      expect(mockTask.prompt).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to manual selection when a changeset recommendation is customized", async () => {
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["my-pkg", { changesetCount: 1 }]]),
+        changesets: [{ id: "manual-override" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "my-pkg",
+            {
+              currentVersion: "1.0.0",
+              newVersion: "1.0.1",
+              bumpType: "patch",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("specify")
+        .mockResolvedValueOnce("1.2.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.version).toBe("1.2.0");
+      expect(ctx.changesetConsumed).toBeUndefined();
+      expect(mockTask.prompt).toHaveBeenCalledTimes(3);
     });
 
     it("includes a keep current version option in the manual prompt", async () => {
@@ -333,9 +421,344 @@ describe("requiredMissingInformationTasks", () => {
       expect(mockTask.output).toContain("pubm");
       expect(mockTask.output).toContain("0.3.7");
     });
+
+    it("accepts multi-package changeset recommendations for all affected packages", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pubm", version: "0.3.6", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([
+          ["@pubm/core", { changesetCount: 1 }],
+          ["pubm", { changesetCount: 2 }],
+        ]),
+        changesets: [{ id: "workspace-release" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "@pubm/core",
+            {
+              currentVersion: "0.3.6",
+              newVersion: "0.3.7",
+              bumpType: "patch",
+            },
+          ],
+          [
+            "pubm",
+            {
+              currentVersion: "0.3.6",
+              newVersion: "0.4.0",
+              bumpType: "minor",
+            },
+          ],
+        ]) as any,
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "0.3.7"],
+          ["pubm", "0.4.0"],
+        ]),
+      );
+      expect(ctx.changesetConsumed).toBe(true);
+      expect(mockTask.output).toContain("Changesets suggest:");
+    });
+
+    it("falls back to manual multi-package mode when changesets produce no bumps", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.0.0"],
+        ]),
+      );
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map(),
+        changesets: [{ id: "noop" }],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(new Map() as any);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("1.0.1");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.version).toBe("1.0.1");
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "1.0.1"],
+          ["pubm", "1.0.1"],
+        ]),
+      );
+    });
+
+    it("supports fixed versioning for a workspace when no versioning mode is configured", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "1.2.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "1.2.0"],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("specify")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.version).toBe("2.0.0");
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "2.0.0"],
+          ["pubm", "2.0.0"],
+        ]),
+      );
+      expect(mockTask.output).toContain("1.2.0");
+    });
+
+    it("uses configured fixed versioning without prompting for mode", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "1.0.0", path: "packages/core" },
+        { name: "pubm", version: "2.0.0", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "1.0.0"],
+          ["pubm", "2.0.0"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "fixed" } as any);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("2.0.1");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.prompt).toHaveBeenCalledTimes(1);
+      expect(ctx.version).toBe("2.0.1");
+    });
+
+    it("offers a cascade patch bump for dependents left unchanged after a dependency bump", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pubm", version: "0.3.6", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
+          return Buffer.from(
+            JSON.stringify({ name: "@pubm/core", dependencies: {} }),
+          );
+        }
+
+        if (isPackageJsonWithin(filePath, "packages", "pubm")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "pubm",
+              dependencies: {
+                "@pubm/core": "workspace:*",
+              },
+            }),
+          );
+        }
+
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("0.4.0")
+        .mockResolvedValueOnce("0.3.6")
+        .mockResolvedValueOnce("patch");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "0.4.0"],
+          ["pubm", "0.3.7"],
+        ]),
+      );
+      expect(
+        mockTask.outputs.some((output) =>
+          output.includes("Bump these dependent packages too?"),
+        ),
+      ).toBe(false);
+      expect(
+        mockTask.outputs.some((output) =>
+          output.includes("💡 dependency @pubm/core bumped"),
+        ),
+      ).toBe(true);
+    });
+
+    it("keeps current versions when cascade bump is declined", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pkg-a", version: "0.3.6", path: "packages/pkg-a" },
+        { name: "pkg-b", version: "0.3.6", path: "packages/pkg-b" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pkg-a", "0.3.6"],
+          ["pkg-b", "0.3.6"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockImplementation(async (filePath) => {
+        if (isPackageJsonWithin(filePath, "packages", "core")) {
+          return Buffer.from(JSON.stringify({ name: "@pubm/core" }));
+        }
+        if (isPackageJsonWithin(filePath, "packages", "pkg-a")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "pkg-a",
+              dependencies: { "@pubm/core": "workspace:*" },
+            }),
+          );
+        }
+        if (isPackageJsonWithin(filePath, "packages", "pkg-b")) {
+          return Buffer.from(
+            JSON.stringify({
+              name: "pkg-b",
+              dependencies: { "@pubm/core": "workspace:*" },
+            }),
+          );
+        }
+        return Buffer.from("{}");
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("0.4.0")
+        .mockResolvedValueOnce("0.3.6")
+        .mockResolvedValueOnce("0.3.6")
+        .mockResolvedValueOnce("skip");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "0.4.0"],
+          ["pkg-a", "0.3.6"],
+          ["pkg-b", "0.3.6"],
+        ]),
+      );
+      expect(
+        mockTask.outputs.some((output) =>
+          output.includes("dependencies @pubm/core, @pubm/core bumped"),
+        ),
+      ).toBe(false);
+    });
+
+    it("continues independent version selection when package dependencies cannot be read", async () => {
+      mockedDiscoverPackageInfos.mockResolvedValue([
+        { name: "@pubm/core", version: "0.3.6", path: "packages/core" },
+        { name: "pubm", version: "0.3.6", path: "packages/pubm" },
+      ]);
+      mockedDiscoverCurrentVersions.mockResolvedValue(
+        new Map([
+          ["@pubm/core", "0.3.6"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+      mockedLoadConfig.mockResolvedValue({ versioning: "independent" } as any);
+      mockedReadFile.mockRejectedValue(new Error("ENOENT"));
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = { version: undefined };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("specify")
+        .mockResolvedValueOnce("0.4.0")
+        .mockResolvedValueOnce("0.3.6");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.versions).toEqual(
+        new Map([
+          ["@pubm/core", "0.4.0"],
+          ["pubm", "0.3.6"],
+        ]),
+      );
+    });
   });
 
   describe("tag subtask", () => {
+    it("skips when there is no version information yet", () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const tagTask = subtasks[1];
+
+      expect(tagTask.skip({ version: undefined, versions: undefined })).toBe(
+        true,
+      );
+    });
+
     it('skips when version is not a prerelease and tag is default ("latest")', () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();

@@ -47,6 +47,23 @@ describe("discoverVersionReferences", () => {
     });
   });
 
+  it("skips malformed JSON files instead of aborting the scan", () => {
+    writeFileSync(path.join(tempDir, "broken.json"), '{"version":"1.2.3"');
+    writeFileSync(
+      path.join(tempDir, "valid.json"),
+      JSON.stringify({ version: "1.2.3" }),
+    );
+
+    return discoverVersionReferences(tempDir, "1.2.3").then((refs) => {
+      expect(refs).toHaveLength(1);
+      expect(refs[0]).toEqual({
+        file: "valid.json",
+        type: "json",
+        jsonPath: "version",
+      });
+    });
+  });
+
   it("excludes package.json from results", () => {
     writeFileSync(
       path.join(tempDir, "package.json"),
@@ -117,6 +134,24 @@ describe("discoverVersionReferences", () => {
 
     return discoverVersionReferences(tempDir, "1.0.0").then((refs) => {
       expect(refs).toHaveLength(0);
+    });
+  });
+
+  it("still scans .claude-plugin because plugin manifests can track release versions", () => {
+    const pluginDir = path.join(tempDir, ".claude-plugin");
+    mkdirSync(pluginDir, { recursive: true });
+    writeFileSync(
+      path.join(pluginDir, "manifest.json"),
+      JSON.stringify({ version: "1.0.0" }),
+    );
+
+    return discoverVersionReferences(tempDir, "1.0.0").then((refs) => {
+      expect(refs).toHaveLength(1);
+      expect(refs[0]).toEqual({
+        file: path.join(".claude-plugin", "manifest.json"),
+        type: "json",
+        jsonPath: "version",
+      });
     });
   });
 

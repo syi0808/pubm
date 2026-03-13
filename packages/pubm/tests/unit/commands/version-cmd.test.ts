@@ -18,6 +18,7 @@ vi.mock("@pubm/core", () => ({
   discoverPackageInfos: vi.fn(),
   replaceVersion: vi.fn(),
   replaceVersionAtPath: vi.fn(),
+  resolveGroups: vi.fn(),
   Git: vi.fn(function () {
     return mockGitInstance;
   }),
@@ -35,6 +36,7 @@ vi.mock("node:fs", async () => {
 
 import { writeFileSync } from "node:fs";
 import {
+  applyFixedGroup,
   buildChangelogEntries,
   calculateVersionBumps,
   deleteChangesetFiles,
@@ -45,10 +47,13 @@ import {
   readChangesets,
   readPreState,
   replaceVersion,
+  replaceVersionAtPath,
+  resolveGroups,
   writeChangelogToFile,
 } from "@pubm/core";
 import { runVersionCommand } from "../../../src/commands/version-cmd.js";
 
+const mockedApplyFixedGroup = vi.mocked(applyFixedGroup);
 const mockedReadChangesets = vi.mocked(readChangesets);
 const mockedDeleteChangesetFiles = vi.mocked(deleteChangesetFiles);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
@@ -60,6 +65,8 @@ const mockedReadPreState = vi.mocked(readPreState);
 const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
 const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedReplaceVersion = vi.mocked(replaceVersion);
+const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
+const mockedResolveGroups = vi.mocked(resolveGroups);
 const mockedWriteFileSync = vi.mocked(writeFileSync);
 
 beforeEach(() => {
@@ -71,7 +78,9 @@ beforeEach(() => {
   );
   mockedDiscoverPackageInfos.mockResolvedValue(null as any);
   mockedReplaceVersion.mockResolvedValue(["package.json"]);
+  mockedReplaceVersionAtPath.mockResolvedValue(["package.json"]);
   mockedBuildChangelogEntries.mockReturnValue([]);
+  mockedResolveGroups.mockReturnValue([]);
 });
 
 describe("runVersionCommand", () => {
@@ -142,6 +151,22 @@ describe("runVersionCommand", () => {
       "/tmp/project",
       changesets,
     );
+  });
+
+  it("throws when changesets exist but no packages are discoverable", async () => {
+    mockedReadChangesets.mockReturnValue([
+      {
+        id: "broken-workspace",
+        summary: "Broken workspace",
+        releases: [{ name: "my-pkg", type: "patch" as const }],
+      },
+    ]);
+    mockedDiscoverCurrentVersions.mockResolvedValue(new Map());
+
+    await expect(runVersionCommand("/tmp/project")).rejects.toThrow(
+      "No packages found.",
+    );
+    expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
   });
 
   it("handles pre-release state correctly", async () => {
@@ -284,6 +309,38 @@ describe("runVersionCommand", () => {
     expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
   });
 
+  it("does not consume changesets when writing the new version fails", async () => {
+    const changesets = [
+      {
+        id: "patch-release",
+        summary: "Patch release",
+        releases: [{ name: "my-pkg", type: "patch" as const }],
+      },
+    ];
+    mockedReadChangesets.mockReturnValue(changesets);
+    mockedCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "my-pkg",
+          {
+            currentVersion: "1.0.0",
+            newVersion: "1.0.1",
+            bumpType: "patch" as const,
+          },
+        ],
+      ]),
+    );
+    mockedGenerateChangelog.mockReturnValue("## 1.0.1\n");
+    mockedReplaceVersion.mockRejectedValue(new Error("disk full"));
+
+    await expect(runVersionCommand("/tmp/project")).rejects.toThrow("disk full");
+
+    expect(mockedWriteChangelogToFile).not.toHaveBeenCalled();
+    expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
+    expect(mockGitInstance.stage).not.toHaveBeenCalled();
+    expect(mockGitInstance.commit).not.toHaveBeenCalled();
+  });
+
   it("returns early when bumps are empty", async () => {
     mockedReadChangesets.mockReturnValue([
       {
@@ -348,6 +405,75 @@ describe("runVersionCommand", () => {
     expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
       "/tmp/project",
       changesets,
+    );
+  });
+
+  it("applies fixed groups and writes package-local versions for monorepos", async () => {
+    const changesets = [
+      {
+        id: "coordinated-release",
+        summary: "Coordinate workspace release",
+        releases: [{ name: "pkg-a", type: "minor" as const }],
+      },
+    ];
+    mockedReadChangesets.mockReturnValue(changesets);
+    mockedDiscoverCurrentVersions.mockResolvedValue(
+      new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "1.0.0"],
+      ]),
+    );
+    mockedCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "pkg-a",
+          {
+            currentVersion: "1.0.0",
+            newVersion: "1.1.0",
+            bumpType: "minor" as const,
+          },
+        ],
+      ]),
+    );
+    mockedLoadConfig.mockResolvedValue({
+      fixed: [["pkg-a", "pkg-b"]],
+    } as Awaited<ReturnType<typeof loadConfig>>);
+    mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
+    mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
+      for (const name of group) {
+        bumpTypes.set(name, "minor");
+      }
+    });
+    mockedDiscoverPackageInfos.mockResolvedValue([
+      { name: "pkg-a", path: "packages/pkg-a" },
+      { name: "pkg-b", path: "packages/pkg-b" },
+    ] as Awaited<ReturnType<typeof discoverPackageInfos>>);
+    mockedGenerateChangelog.mockReturnValue("## 1.1.0\n");
+
+    await runVersionCommand("/tmp/project");
+
+    expect(mockedResolveGroups).toHaveBeenCalledWith(
+      [["pkg-a", "pkg-b"]],
+      ["pkg-a", "pkg-b"],
+    );
+    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
+      "1.1.0",
+      "/tmp/project/packages/pkg-a",
+    );
+    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
+      "1.1.0",
+      "/tmp/project/packages/pkg-b",
+    );
+    expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
+      "/tmp/project/packages/pkg-a",
+      "## 1.1.0\n",
+    );
+    expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
+      "/tmp/project/packages/pkg-b",
+      "## 1.1.0\n",
+    );
+    expect(mockGitInstance.commit).toHaveBeenCalledWith(
+      "chore: version pkg-a, pkg-b",
     );
   });
 });

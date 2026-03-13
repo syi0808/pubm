@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockIsCI,
+  mockCalculateVersionBumps,
   mockConsoleError,
+  mockDiscoverCurrentVersions,
   mockGitInstance,
+  mockGetStatus,
+  mockLoadConfig,
   mockPubm,
   mockPubmVersion,
   mockRequiredMissingInformationTasks,
@@ -11,8 +15,15 @@ const {
 } = vi.hoisted(() => {
   return {
     mockIsCI: { isCI: false },
+    mockCalculateVersionBumps: vi.fn(),
     mockConsoleError: vi.fn(),
+    mockDiscoverCurrentVersions: vi.fn(),
     mockGitInstance: { latestTag: vi.fn() },
+    mockGetStatus: vi.fn(() => ({
+      hasChangesets: false,
+      changesets: [] as string[],
+    })),
+    mockLoadConfig: vi.fn(),
     mockPubm: vi.fn(),
     mockPubmVersion: "1.0.0",
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
@@ -28,15 +39,15 @@ vi.mock("@pubm/core", () => ({
   Git: vi.fn(function () {
     return mockGitInstance;
   }),
+  calculateVersionBumps: mockCalculateVersionBumps,
+  discoverCurrentVersions: mockDiscoverCurrentVersions,
+  getStatus: mockGetStatus,
+  loadConfig: mockLoadConfig,
   pubm: mockPubm,
   PUBM_VERSION: mockPubmVersion,
   requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
   notifyNewVersion: mockNotifyNewVersion,
   version: vi.fn().mockResolvedValue("1.0.0"),
-  calculateVersionBumps: vi.fn(),
-  discoverCurrentVersions: vi.fn(),
-  getStatus: vi.fn(() => ({ hasChangesets: false, changesets: [] })),
-  loadConfig: vi.fn(),
 }));
 
 vi.mock("../../src/commands/changesets.js", () => ({
@@ -72,6 +83,12 @@ async function run(...args: string[]): Promise<Command> {
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsCI.isCI = false;
+  mockGitInstance.latestTag.mockReset();
+  mockGetStatus.mockReturnValue({ hasChangesets: false, changesets: [] });
+  mockDiscoverCurrentVersions.mockReset();
+  mockCalculateVersionBumps.mockReset();
+  mockLoadConfig.mockReset();
+  mockPubm.mockResolvedValue(undefined);
   vi.spyOn(console, "clear").mockImplementation(() => {});
   process.exitCode = undefined;
 });
@@ -148,6 +165,19 @@ describe("resolveCliOptions (tested through CLI action)", () => {
       expect.objectContaining({
         registries: ["npm", "jsr"],
       }),
+    );
+  });
+
+  it("renders trailing help text describing accepted version formats", () => {
+    const program = createProgram();
+    const writeSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockReturnValue(true as never);
+
+    program.outputHelp();
+
+    expect(writeSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Version can be:"),
     );
   });
 });
@@ -264,6 +294,155 @@ describe("CLI action handler - CI mode", () => {
     await run("--publish-only");
 
     expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
+  });
+
+  it("runs preflight prompts even in CI mode", async () => {
+    mockIsCI.isCI = true;
+    const mockRun = vi.fn();
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
+
+    await run("1.2.3", "--preflight");
+
+    expect(mockRun).toHaveBeenCalledWith(
+      expect.objectContaining({ version: "1.2.3", tag: "latest" }),
+    );
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({ preflight: true, version: "1.2.3" }),
+    );
+  });
+
+  it("derives the next version from a single pending changeset in CI", async () => {
+    mockIsCI.isCI = true;
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockGetStatus.mockReturnValue({
+      hasChangesets: true,
+      changesets: ["a.md"],
+    });
+    mockDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["pkg-a", "1.0.0"]]),
+    );
+    mockCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "pkg-a",
+          { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+        ],
+      ]),
+    );
+
+    await run();
+
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "1.1.0",
+        changesetConsumed: true,
+        versions: undefined,
+      }),
+    );
+    expect(logSpy).toHaveBeenCalledWith("Changesets detected:");
+    expect(logSpy).toHaveBeenCalledWith("  pkg-a: 1.0.0 → 1.1.0 (minor)");
+  });
+
+  it("passes synchronized versions to pubm for fixed-version workspaces in CI", async () => {
+    mockIsCI.isCI = true;
+    mockGetStatus.mockReturnValue({
+      hasChangesets: true,
+      changesets: ["a.md"],
+    });
+    mockDiscoverCurrentVersions.mockResolvedValue(
+      new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "1.0.0"],
+      ]),
+    );
+    mockCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "pkg-a",
+          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
+        ],
+        [
+          "pkg-b",
+          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
+        ],
+      ]),
+    );
+    mockLoadConfig.mockResolvedValue({ versioning: "fixed" });
+
+    await run();
+
+    expect(mockLoadConfig).toHaveBeenCalledWith(process.cwd());
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "2.0.0",
+        changesetConsumed: true,
+        versions: new Map([
+          ["pkg-a", "2.0.0"],
+          ["pkg-b", "2.0.0"],
+        ]),
+      }),
+    );
+  });
+
+  it("keeps per-package versions for independent workspaces in CI", async () => {
+    mockIsCI.isCI = true;
+    mockGetStatus.mockReturnValue({
+      hasChangesets: true,
+      changesets: ["a.md"],
+    });
+    mockDiscoverCurrentVersions.mockResolvedValue(
+      new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "2.3.0"],
+      ]),
+    );
+    mockCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "pkg-a",
+          { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+        ],
+        [
+          "pkg-b",
+          { currentVersion: "2.3.0", newVersion: "2.3.1", bumpType: "patch" },
+        ],
+      ]),
+    );
+    mockLoadConfig.mockResolvedValue({ versioning: "independent" });
+
+    await run();
+
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "1.1.0",
+        changesetConsumed: true,
+        versions: new Map([
+          ["pkg-a", "1.1.0"],
+          ["pkg-b", "2.3.1"],
+        ]),
+      }),
+    );
+  });
+
+  it("allows explicit CI versions when pending changesets do not produce a bump", async () => {
+    mockIsCI.isCI = true;
+    mockGetStatus.mockReturnValue({
+      hasChangesets: true,
+      changesets: ["a.md"],
+    });
+    mockDiscoverCurrentVersions.mockResolvedValue(
+      new Map([["pkg-a", "1.0.0"]]),
+    );
+    mockCalculateVersionBumps.mockReturnValue(new Map());
+
+    await run("3.4.5");
+
+    expect(mockPubm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: "3.4.5",
+        changesetConsumed: undefined,
+      }),
+    );
   });
 });
 

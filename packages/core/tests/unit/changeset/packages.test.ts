@@ -57,6 +57,26 @@ describe("discoverCurrentVersions", () => {
       cwd: path.resolve("/tmp/project", "packages/pubm"),
     });
   });
+
+  it("falls back to path and 0.0.0 when a workspace package cannot be read", async () => {
+    mockedDiscoverPackages.mockReturnValue([
+      { path: "packages/core", registries: ["npm"], ecosystem: "js" },
+    ]);
+    mockedGetPackageJson.mockRejectedValue(new Error("invalid package"));
+
+    const result = await discoverCurrentVersions("/tmp/project");
+
+    expect(result.get("packages/core")).toBe("0.0.0");
+  });
+
+  it("uses unknown and 0.0.0 when the root package is missing metadata", async () => {
+    mockedDiscoverPackages.mockReturnValue([]);
+    mockedGetPackageJson.mockResolvedValue({});
+
+    const result = await discoverCurrentVersions("/tmp/project");
+
+    expect(result.get("unknown")).toBe("0.0.0");
+  });
 });
 
 describe("discoverPackageInfos", () => {
@@ -104,5 +124,33 @@ describe("discoverPackageInfos", () => {
     expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
       cwd: path.resolve("/tmp/project", "packages/pubm"),
     });
+  });
+
+  it("falls back to the package path when monorepo metadata cannot be read", async () => {
+    mockedDiscoverPackages.mockReturnValue([
+      { path: "packages/core", registries: ["npm"], ecosystem: "js" },
+    ]);
+    mockedGetPackageJson.mockRejectedValue(new Error("invalid package"));
+
+    await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
+      {
+        name: "packages/core",
+        version: "0.0.0",
+        path: "packages/core",
+      },
+    ]);
+  });
+
+  it("uses root defaults when a standalone package omits name and version", async () => {
+    mockedDiscoverPackages.mockReturnValue([]);
+    mockedGetPackageJson.mockResolvedValue({});
+
+    await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
+      {
+        name: "unknown",
+        version: "0.0.0",
+        path: ".",
+      },
+    ]);
   });
 });

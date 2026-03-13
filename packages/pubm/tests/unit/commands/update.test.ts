@@ -18,6 +18,7 @@ import { registerUpdateCommand } from "../../../src/commands/update.js";
 describe("registerUpdateCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.exitCode = undefined;
     mockAutoUpdate.mockResolvedValue({
       kind: "success",
       fromVersion: "0.3.5",
@@ -44,5 +45,23 @@ describe("registerUpdateCommand", () => {
       sources: [{ type: "npm", packageName: "pubm" }],
       delegateMode: "execute",
     });
+  });
+
+  it("marks the process as failed when the updater reports an error", async () => {
+    mockAutoUpdate.mockResolvedValue({
+      kind: "failed",
+      error: new Error("network unavailable"),
+    });
+
+    const parent = new Command();
+    parent.exitOverride();
+    registerUpdateCommand(parent);
+
+    await parent.parseAsync(["node", "test", "update"]);
+
+    expect(console.error).toHaveBeenCalledWith(
+      "Update failed: network unavailable",
+    );
+    expect(process.exitCode).toBe(1);
   });
 });

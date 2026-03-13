@@ -478,6 +478,47 @@ describe("packageJsonToJsrJson", () => {
     expect(result.publish?.exclude).toEqual([]);
   });
 
+  it("reads ignore patterns from .npmignore before .gitignore", async () => {
+    const { mockReadFile, mockStat } = await getFsMocks();
+    const { packageJsonToJsrJson } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (String(filePath).endsWith(".npmignore")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("coverage\n.tmp\n"));
+
+    const result = await packageJsonToJsrJson({
+      name: "my-pkg",
+      version: "1.0.0",
+      files: ["dist"],
+    } as any);
+
+    expect(result.publish?.exclude).toEqual(["coverage", ".tmp"]);
+  });
+
+  it("falls back to .gitignore when .npmignore is missing", async () => {
+    const { mockReadFile, mockStat } = await getFsMocks();
+    const { packageJsonToJsrJson } = await freshImport();
+
+    mockStat.mockImplementation(async (filePath) => {
+      if (String(filePath).endsWith(".gitignore")) {
+        return { isFile: () => true } as any;
+      }
+      throw new Error("ENOENT");
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("dist\nnode_modules\n"));
+
+    const result = await packageJsonToJsrJson({
+      name: "my-pkg",
+      version: "1.0.0",
+    } as any);
+
+    expect(result.publish?.exclude).toEqual(["dist", "node_modules"]);
+  });
+
   it("converts deeply nested object exports recursively", async () => {
     const { mockStat } = await getFsMocks();
     const { packageJsonToJsrJson } = await freshImport();
@@ -1063,5 +1104,95 @@ describe("patchCachedJsrJson", () => {
     const result = await getJsrJson({ cwd: "/custom/path" });
     expect(result.name).toBe("@new/pkg");
     expect(result.version).toBe("0.1.0");
+  });
+});
+
+describe("replaceVersionAtPath", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("updates both package.json and jsr.json for a package path", async () => {
+    const { mockReadFile, mockWriteFile } = await getFsMocks();
+    const { replaceVersionAtPath } = await freshImport();
+
+    mockReadFile.mockImplementation(async (filePath) => {
+      if (
+        String(filePath).endsWith("package.json") ||
+        String(filePath).endsWith("jsr.json")
+      ) {
+        return Buffer.from('{\n  "version": "1.0.0"\n}');
+      }
+      throw new Error("ENOENT");
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+
+    const result = await replaceVersionAtPath("2.0.0", "/repo/packages/core");
+
+    expect(result).toEqual([
+      path.join("/repo/packages/core", "package.json"),
+      path.join("/repo/packages/core", "jsr.json"),
+    ]);
+    expect(mockWriteFile).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores missing manifest files at a package path", async () => {
+    const { mockReadFile } = await getFsMocks();
+    const { replaceVersionAtPath } = await freshImport();
+
+    mockReadFile.mockRejectedValue(new Error("ENOENT"));
+
+    await expect(
+      replaceVersionAtPath("2.0.0", "/repo/packages/core"),
+    ).resolves.toEqual([]);
+  });
+});
+
+describe("replaceVersions", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("applies per-package versions based on package.json names", async () => {
+    const { mockReadFile, mockWriteFile } = await getFsMocks();
+    const { replaceVersions } = await freshImport();
+
+    mockReadFile.mockImplementation(async (filePath) => {
+      const normalized = String(filePath);
+      if (normalized.endsWith("packages/core/package.json")) {
+        return Buffer.from(
+          JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
+        );
+      }
+      if (normalized.endsWith("packages/pubm/package.json")) {
+        return Buffer.from(JSON.stringify({ name: "pubm", version: "1.0.0" }));
+      }
+      throw new Error("ENOENT");
+    });
+    mockWriteFile.mockResolvedValue(undefined);
+
+    const result = await replaceVersions(
+      new Map([
+        ["@pubm/core", "2.0.0"],
+        ["pubm", "3.0.0"],
+      ]),
+      [
+        { path: "packages/core", registries: ["npm"] as any[] },
+        { path: "packages/pubm", registries: ["jsr"] as any[] },
+      ] as any,
+    );
+
+    expect(result).toContain(
+      path.resolve("packages/core", "package.json"),
+    );
+    expect(result).toContain(
+      path.resolve("packages/pubm", "package.json"),
+    );
+    expect(String(mockWriteFile.mock.calls[0]?.[1])).toContain(
+      '"version":"2.0.0"',
+    );
+    expect(String(mockWriteFile.mock.calls[1]?.[1])).toContain(
+      '"version":"3.0.0"',
+    );
   });
 });

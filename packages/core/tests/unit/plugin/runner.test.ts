@@ -160,4 +160,27 @@ describe("PluginRunner", () => {
     expect(runner.collectRegistries()).toEqual([]);
     expect(runner.collectEcosystems()).toEqual([]);
   });
+
+  it("passes release context to afterRelease hooks", async () => {
+    const afterRelease = vi.fn();
+    const runner = new PluginRunner([
+      {
+        name: "release-plugin",
+        hooks: {
+          afterRelease,
+        },
+      },
+    ]);
+    const ctx = makeCtx();
+    const releaseCtx = {
+      version: "1.0.0",
+      tag: "v1.0.0",
+      releaseUrl: "https://github.com/pubm/pubm/releases/tag/v1.0.0",
+      assets: [],
+    };
+
+    await runner.runAfterReleaseHook(ctx, releaseCtx);
+
+    expect(afterRelease).toHaveBeenCalledWith(ctx, releaseCtx);
+  });
 });
