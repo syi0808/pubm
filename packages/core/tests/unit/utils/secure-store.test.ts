@@ -1,47 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  keyringControl,
+  keyringStore,
+  resetMockKeyring,
+} from "../../mock-keyring.js";
 
-const { dbStore, dbControl, keyringStore, keyringControl } = vi.hoisted(() => ({
+const { dbStore, dbControl } = vi.hoisted(() => ({
   dbStore: {} as Record<string, string>,
   dbControl: { available: true },
-  keyringStore: {} as Record<string, string>,
-  keyringControl: { installed: true, available: true },
-}));
-
-vi.mock("node:module", () => ({
-  createRequire: () => (specifier: string) => {
-    if (specifier !== "@napi-rs/keyring") {
-      throw new Error(`Unexpected module requested: ${specifier}`);
-    }
-
-    if (!keyringControl.installed) {
-      throw new Error("keyring unavailable");
-    }
-
-    return {
-      Entry: class MockEntry {
-        constructor(
-          _service: string,
-          private readonly field: string,
-        ) {}
-
-        getPassword(): string | null {
-          if (!keyringControl.available) {
-            throw new Error("keyring unavailable");
-          }
-
-          return keyringStore[this.field] ?? null;
-        }
-
-        setPassword(value: string): void {
-          if (!keyringControl.available) {
-            throw new Error("keyring unavailable");
-          }
-
-          keyringStore[this.field] = value;
-        }
-      },
-    };
-  },
 }));
 
 vi.mock("../../../src/utils/db.js", () => ({
@@ -61,10 +27,8 @@ let SecureStore: typeof import("../../../src/utils/secure-store.js").SecureStore
 
 beforeEach(async () => {
   for (const key of Object.keys(dbStore)) delete dbStore[key];
-  for (const key of Object.keys(keyringStore)) delete keyringStore[key];
+  resetMockKeyring();
   dbControl.available = true;
-  keyringControl.installed = true;
-  keyringControl.available = true;
   vi.resetModules();
   const mod = await import("../../../src/utils/secure-store.js");
   SecureStore = mod.SecureStore;

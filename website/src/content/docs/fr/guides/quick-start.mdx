@@ -1,0 +1,54 @@
+---
+title: Demarrage rapide
+description: Installer pubm, initialiser le projet et publier une premiere release.
+---
+
+`pubm` est un orchestrateur de release pour les depots qui publient vers plusieurs registres, plusieurs paquets ou plusieurs ecosystemes.
+
+## Avant de commencer
+
+- Git `2.11+`
+- Un manifeste tel que `package.json`
+- Un working tree propre avant publication
+
+Installation:
+
+```bash
+npm i -g pubm
+```
+
+## 1. Initialiser le depot
+
+```bash
+pubm init
+```
+
+## 2. Ajouter une configuration minimale
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+## 3. Ajouter un changeset
+
+```bash
+pubm changesets add
+```
+
+## 4. Ecrire les versions
+
+```bash
+pubm changesets version
+```
+
+## 5. Publier
+
+```bash
+pubm
+```
+
+Le reste de la documentation utilise encore l'anglais comme fallback. Vous pouvez continuer avec [Configuration](/pubm/fr/guides/configuration/) et [CI/CD](/pubm/fr/guides/ci-cd/).

@@ -1243,12 +1243,8 @@ describe("replaceVersions", () => {
       ] as any,
     );
 
-    expect(result).toContain(
-      path.resolve("packages/core", "package.json"),
-    );
-    expect(result).toContain(
-      path.resolve("packages/pubm", "package.json"),
-    );
+    expect(result).toContain(path.resolve("packages/core", "package.json"));
+    expect(result).toContain(path.resolve("packages/pubm", "package.json"));
     expect(String(mockWriteFile.mock.calls[0]?.[1])).toContain(
       '"version":"2.0.0"',
     );
@@ -1296,14 +1292,11 @@ describe("replaceVersions", () => {
       } as any;
     });
 
-    const result = await replaceVersions(
-      new Map([["@pubm/core", "2.0.0"]]),
-      [
-        { path: "packages/core", registries: ["npm"] as any[] },
-        { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
-        { path: "rust/crates/crate-b", registries: ["crates"] as any[] },
-      ] as any,
-    );
+    const result = await replaceVersions(new Map([["@pubm/core", "2.0.0"]]), [
+      { path: "packages/core", registries: ["npm"] as any[] },
+      { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+      { path: "rust/crates/crate-b", registries: ["crates"] as any[] },
+    ] as any);
 
     expect(writtenVersions).toEqual(["2.0.0", "2.0.0"]);
     expect(siblingUpdates).toEqual([
@@ -1343,13 +1336,10 @@ describe("replaceVersions", () => {
       } as any;
     });
 
-    const result = await replaceVersions(
-      new Map(),
-      [
-        { path: "packages/core", registries: ["npm"] as any[] },
-        { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
-      ] as any,
-    );
+    const result = await replaceVersions(new Map(), [
+      { path: "packages/core", registries: ["npm"] as any[] },
+      { path: "rust/crates/crate-a", registries: ["crates"] as any[] },
+    ] as any);
 
     expect(result).toEqual([]);
     expect(mockWriteFile).not.toHaveBeenCalled();

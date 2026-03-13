@@ -1,0 +1,28 @@
+---
+import { landingCopy } from "../../i18n/landing";
+import type { SiteLocale } from "../../i18n/site";
+import FeatureCards from "./FeatureCards.astro";
+import Footer from "./Footer.astro";
+import Hero from "./Hero.astro";
+import InstallSection from "./InstallSection.astro";
+import NavBar from "./NavBar.astro";
+import RegistryStrip from "./RegistryStrip.astro";
+import WorkflowStrip from "./WorkflowStrip.astro";
+
+interface Props {
+  locale: SiteLocale;
+}
+
+const { locale } = Astro.props;
+const copy = landingCopy[locale];
+---
+
+<NavBar locale={locale} copy={copy} />
+<main>
+  <Hero locale={locale} copy={copy} />
+  <RegistryStrip copy={copy} />
+  <FeatureCards copy={copy} />
+  <WorkflowStrip copy={copy} />
+  <InstallSection locale={locale} copy={copy} />
+</main>
+<Footer locale={locale} copy={copy} />

@@ -23,4 +23,29 @@ export abstract class Registry {
   async dryRunPublish(_manifestDir?: string): Promise<void> {
     // Default no-op: registries that support dry-run override this
   }
+
+  get concurrentPublish(): boolean {
+    return true;
+  }
+
+  async orderPackages(paths: string[]): Promise<string[]> {
+    return paths;
+  }
+
+  async checkAvailability(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    _task: any,
+  ): Promise<void> {
+    const installed = await this.isInstalled();
+    if (!installed) {
+      throw new Error(`${this.packageName} registry is not installed.`);
+    }
+    const available = await this.isPackageNameAvaliable();
+    if (!available) {
+      const hasAccess = await this.hasPermission();
+      if (!hasAccess) {
+        throw new Error(`No permission to publish ${this.packageName}.`);
+      }
+    }
+  }
 }

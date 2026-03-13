@@ -1,5 +1,6 @@
 import path from "node:path";
 import { AbstractError } from "../error.js";
+import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
@@ -26,6 +27,14 @@ export class CratesRegistry extends Registry {
 
   private get headers(): Record<string, string> {
     return { "User-Agent": USER_AGENT };
+  }
+
+  get concurrentPublish(): boolean {
+    return false;
+  }
+
+  async orderPackages(paths: string[]): Promise<string[]> {
+    return sortCratesByDependencyOrder(paths);
   }
 
   async ping(): Promise<boolean> {

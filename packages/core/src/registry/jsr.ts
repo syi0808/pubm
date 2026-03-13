@@ -1,6 +1,8 @@
 import process from "node:process";
+import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { AbstractError } from "../error.js";
 import type { JsrApi } from "../types/jsr-api.js";
+import { warningBadge } from "../utils/cli.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { getJsrJson } from "../utils/package.js";
 import {
@@ -184,6 +186,30 @@ export class JsrRegisry extends Registry {
       needsPackageScripts: false,
       requiredManifest: "jsr.json",
     };
+  }
+
+  async checkAvailability(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    task: any,
+  ): Promise<void> {
+    if (!(await this.isInstalled())) {
+      const install = await task.prompt(ListrEnquirerPromptAdapter).run({
+        type: "toggle",
+        message: `${warningBadge} jsr is not installed. Do you want to install jsr?`,
+        enabled: "Yes",
+        disabled: "No",
+      });
+
+      if (install) {
+        task.output = "Installing jsr...";
+        const { npmRegistry } = await import("./npm.js");
+        const npm = await npmRegistry();
+        await npm.installGlobally("jsr");
+      } else {
+        throw new Error("jsr is not installed. Please install jsr to proceed.");
+      }
+    }
+    await super.checkAvailability(task);
   }
 }
 

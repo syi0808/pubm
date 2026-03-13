@@ -1,0 +1,54 @@
+---
+title: 快速开始
+description: 安装 pubm、初始化项目并完成第一次发布。
+---
+
+`pubm` 是一个面向多仓库、多包、多生态发布场景的 release orchestration 工具。
+
+## 开始前
+
+- Git `2.11+`
+- `package.json` 之类的包清单
+- 发布前保持干净的 working tree
+
+安装 CLI：
+
+```bash
+npm i -g pubm
+```
+
+## 1. 初始化仓库
+
+```bash
+pubm init
+```
+
+## 2. 添加最小配置
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+## 3. 创建 changeset
+
+```bash
+pubm changesets add
+```
+
+## 4. 写入版本
+
+```bash
+pubm changesets version
+```
+
+## 5. 发布
+
+```bash
+pubm
+```
+
+其余文档当前会回退到英文内容。你仍然可以继续阅读 [Configuration](/pubm/zh-cn/guides/configuration/) 和 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。

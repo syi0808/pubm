@@ -1,7 +1,8 @@
 import type { PackageConfig } from "../config/types.js";
+import type { EcosystemKey } from "../ecosystem/catalog.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
-
-type EcosystemKey = "js" | "rust";
 
 interface RegistrySource {
   packages?: PackageConfig[];
@@ -18,17 +19,12 @@ export interface EcosystemGroup {
   registries: RegistryGroup[];
 }
 
-const registryEcosystemMap: Record<string, EcosystemKey> = {
-  npm: "js",
-  jsr: "js",
-  crates: "rust",
-};
-
 function resolveEcosystem(
   registry: RegistryType,
   fallback?: PackageConfig["ecosystem"],
 ): EcosystemKey {
-  return registryEcosystemMap[registry] ?? fallback ?? "js";
+  const descriptor = registryCatalog.get(registry);
+  return descriptor?.ecosystem ?? fallback ?? "js";
 }
 
 function dedupeRegistries(registries: RegistryType[]): RegistryType[] {
@@ -44,26 +40,11 @@ function dedupeRegistries(registries: RegistryType[]): RegistryType[] {
 }
 
 export function ecosystemLabel(ecosystem: EcosystemKey): string {
-  switch (ecosystem) {
-    case "rust":
-      return "Rust ecosystem";
-    case "js":
-    default:
-      return "JavaScript ecosystem";
-  }
+  return ecosystemCatalog.get(ecosystem)?.label ?? `${ecosystem} ecosystem`;
 }
 
 export function registryLabel(registry: RegistryType): string {
-  switch (registry) {
-    case "npm":
-      return "npm";
-    case "jsr":
-      return "jsr";
-    case "crates":
-      return "crates.io";
-    default:
-      return registry;
-  }
+  return registryCatalog.get(registry)?.label ?? registry;
 }
 
 export function collectEcosystemRegistryGroups(

@@ -1,0 +1,87 @@
+---
+title: CI/CD
+description: Configurer preflight, la gestion des tokens et l'automatisation des releases avec pubm.
+---
+
+`pubm` se comporte bien autant dans un terminal local qu'en CI. Cette page couvre la validation locale, les prerequis CI et la structure d'un workflow de release fiable.
+
+## Modele recommande
+
+1. preparer les versions et le changelog localement ou dans un job controle
+2. publier depuis la CI avec des tags et des credentials non interactifs
+
+```bash
+pubm changesets version
+pubm --preflight
+pubm patch --preview
+```
+
+```bash
+pubm --ci
+```
+
+## Lancer preflight avant la CI
+
+```bash
+pubm --preflight
+```
+
+Preflight:
+
+- collecte les tokens
+- peut les synchroniser vers GitHub Secrets
+- imite le comportement CI sans invites
+- execute les checks prerequis et conditions
+- dry-run les publications
+
+## Variables d'environnement
+
+| Variable | Registre |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm |
+| `JSR_TOKEN` | jsr |
+| `CARGO_REGISTRY_TOKEN` | crates.io |
+
+## Synchroniser les secrets GitHub
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm,jsr
+```
+
+## Exemple GitHub Actions
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "@*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pubm --ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+```
+
+## Pieges courants
+
+- shallow checkout: utilisez `fetch-depth: 0`
+- token manquant: la CI ne peut pas demander d'info
+- npm 2FA: utilisez des tokens compatibles automatisation
+- `contents` absent: le build doit produire le dossier avant publish

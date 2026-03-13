@@ -1,0 +1,54 @@
+---
+title: Inicio rapido
+description: Instala pubm, inicializa el proyecto y publica tu primer release.
+---
+
+`pubm` es un orquestador de releases para repositorios que publican en varios registros, varios paquetes o varios ecosistemas.
+
+## Antes de empezar
+
+- Git `2.11+`
+- Un manifiesto como `package.json`
+- Un working tree limpio antes de publicar
+
+Instalacion:
+
+```bash
+npm i -g pubm
+```
+
+## 1. Inicializar el repositorio
+
+```bash
+pubm init
+```
+
+## 2. Agregar una configuracion minima
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+## 3. Agregar un changeset
+
+```bash
+pubm changesets add
+```
+
+## 4. Escribir versiones
+
+```bash
+pubm changesets version
+```
+
+## 5. Publicar
+
+```bash
+pubm
+```
+
+El resto de la documentacion sigue usando ingles como fallback por ahora. Puedes continuar con [Configuration](/pubm/es/guides/configuration/) y [CI/CD](/pubm/es/guides/ci-cd/).

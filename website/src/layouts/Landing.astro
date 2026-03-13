@@ -1,22 +1,25 @@
 ---
 import { googleSiteVerification } from "../consts/site-verification.js";
 import "../styles/landing.css";
+import type { SiteLocale } from "../i18n/site";
 
 interface Props {
   title: string;
+  description: string;
+  locale: SiteLocale;
 }
 
-const { title } = Astro.props;
+const { title, description, locale } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang={locale} data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
-    <meta name="description" content="One command to publish across npm, jsr, crates.io, and private registries — with automatic rollback when things go wrong." />
+    <meta name="description" content={description} />
     <meta name="google-site-verification" content={googleSiteVerification} />
     <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}logo.svg`} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

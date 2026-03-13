@@ -1,0 +1,25 @@
+---
+title: Configuration
+description: Definir valores por defecto del pipeline de release, estructura de paquetes y destinos de registro.
+---
+
+`pubm` es CLI-first, pero los proyectos reales necesitan rapido una configuracion a nivel de repositorio con `pubm.config.*`.
+
+## Config minima
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+Campos comunes:
+
+- `registries`
+- `packages`
+- `plugins`
+- `versioning`
+- `fixed`
+- `linked`

@@ -1,0 +1,128 @@
+---
+title: Official Plugins
+description: pubm 프로젝트가 직접 유지보수하는 공식 플러그인입니다.
+---
+
+공식 플러그인은 `pubm`와 함께 유지되며, 핵심 프로젝트와 같은 수준의 릴리스/호환성 기대치를 가집니다.
+
+## `@pubm/plugin-brew`
+
+CLI 프로젝트의 Homebrew formula를 릴리스와 함께 동기화합니다.
+
+### 적합한 경우
+
+- Homebrew로 CLI 바이너리 배포
+- 별도 tap 저장소 자동 업데이트
+- 릴리스 자산 체크섬과 formula 정합성 유지
+
+### 예시 설정
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { brewTap } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewTap({
+      formula: "Formula/my-tool.rb",
+      repo: "https://github.com/my-org/homebrew-tap",
+    }),
+  ],
+});
+```
+
+### 옵션
+
+| 옵션 | 타입 | 설명 |
+|------|------|------|
+| `formula` | `string` | 저장소 루트 기준 formula 경로 |
+| `repo` | `string` | 선택적 tap 저장소 URL. 없으면 현재 저장소 사용 |
+
+### 동작
+
+- formula가 없으면 스캐폴딩
+- 릴리스 자산의 `url` / `sha256` 갱신
+- formula 변경 커밋/푸시
+- 직접 push가 부적절하면 PR 흐름으로 폴백
+
+관련 명령:
+
+```bash
+pubm brew init
+```
+
+## `@pubm/plugin-external-version-sync`
+
+패키지 버전과 비매니페스트 파일을 동기화합니다.
+
+적용 예:
+
+- `README.md` 설치 스니펫
+- docs 예제
+- 앱 manifest
+- 소스 상수
+- 메타데이터 JSON
+
+### 예시 설정
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "src/constants.ts",
+          pattern: /export const VERSION = "([^"]+)";/,
+        },
+        {
+          file: "manifest.json",
+          jsonPath: "metadata.version",
+        },
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+### 대상 타입
+
+#### `regex`
+
+```ts
+{
+  file: "README.md",
+  pattern: /pubm@([\\w.-]+)/,
+}
+```
+
+버전은 정확히 하나의 캡처 그룹으로 분리되어야 합니다.
+
+#### `json`
+
+```ts
+{
+  file: "manifest.json",
+  jsonPath: "metadata.version",
+}
+```
+
+## `pubm sync --discover`를 써야 할 때
+
+```bash
+pubm sync --discover
+```
+
+저장소 어디에 버전 문자열이 있는지 확신이 없을 때 후보 파일과 경로를 찾아줍니다.
+
+## 공식 플러그인 vs 커스텀 플러그인
+
+공식 플러그인은 일반적인 통합에, 커스텀 플러그인은 조직 특화 레지스트리나 후처리 로직에 적합합니다.
+
+더 확장해야 한다면 [Plugins API Reference](/pubm/ko/reference/plugins/)를 참고하세요.

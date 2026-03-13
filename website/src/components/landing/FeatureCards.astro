@@ -1,8 +1,19 @@
+---
+import type { LandingDictionary } from "../../i18n/landing";
+
+interface Props {
+  copy: LandingDictionary;
+}
+
+const { copy } = Astro.props;
+const [first, second, third, fourth] = copy.features.items;
+---
+
 <section class="features section-divider" id="features">
   <div class="features-container">
     <div class="features-header">
-      <h2 class="gradient-text reveal-feature">Publish without fear</h2>
-      <p class="reveal-feature">Every release is validated, orchestrated, and recoverable. No more half-published packages or manual cleanup.</p>
+      <h2 class="gradient-text reveal-feature">{copy.features.title}</h2>
+      <p class="reveal-feature">{copy.features.description}</p>
     </div>
     <div class="features-grid">
       <div class="feature-card reveal-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
@@ -12,8 +23,8 @@
             <path d="M5 3v4M3 5h4M19 17v4M17 19h4"/>
           </svg>
         </div>
-        <h3 class="feature-title">One workflow, every registry</h3>
-        <p class="feature-desc">npm, jsr, crates.io, and private registries — all from a single command. Publishes concurrently with dependency-aware ordering in monorepos.</p>
+        <h3 class="feature-title">{first.title}</h3>
+        <p class="feature-desc">{first.description}</p>
       </div>
 
       <div class="feature-card reveal-card" data-accent="green" style="--card-accent: var(--accent-green);">
@@ -24,8 +35,8 @@
             <path d="m12 7 0 5 3 2"/>
           </svg>
         </div>
-        <h3 class="feature-title">Automatic rollback</h3>
-        <p class="feature-desc">If any registry rejects your package, pubm undoes the version bump, git tag, and commit — leaving your repo exactly as it was.</p>
+        <h3 class="feature-title">{second.title}</h3>
+        <p class="feature-desc">{second.description}</p>
       </div>
 
       <div class="feature-card reveal-card" data-accent="violet" style="--card-accent: var(--accent-violet);">
@@ -35,8 +46,8 @@
             <path d="m9 12 2 2 4-4"/>
           </svg>
         </div>
-        <h3 class="feature-title">Catch problems before publishing</h3>
-        <p class="feature-desc">Branch guards, clean working tree, remote sync, registry auth — all verified before any side effects happen.</p>
+        <h3 class="feature-title">{third.title}</h3>
+        <p class="feature-desc">{third.description}</p>
       </div>
 
       <div class="feature-card reveal-card" data-accent="cyan" style="--card-accent: var(--accent-cyan);">
@@ -46,8 +57,8 @@
             <path d="m20 19-3-3 3-3"/>
           </svg>
         </div>
-        <h3 class="feature-title">Works locally and in CI</h3>
-        <p class="feature-desc">Interactive prompts when you're at the terminal, fully headless when running in CI. Same command, same guarantees.</p>
+        <h3 class="feature-title">{fourth.title}</h3>
+        <p class="feature-desc">{fourth.description}</p>
       </div>
     </div>
   </div>

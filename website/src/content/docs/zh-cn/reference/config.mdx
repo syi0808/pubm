@@ -1,0 +1,138 @@
+---
+title: Config API Reference
+description: 说明 `pubm.config.*` 中支持的字段、默认值与使用说明。
+---
+
+本页描述 `@pubm/core` 的 `defineConfig()` 暴露的 `pubm.config.*` 类型结构。
+
+当前 publish 流程最关键的字段有：
+
+- `registries`
+- `packages`
+- `plugins`
+- `versioning`、`fixed`、`linked`
+- `snapshot.useCalculatedVersion`
+
+## 默认配置
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  registries: ["npm", "jsr"],
+  rollbackStrategy: "individual",
+  packages: [{ path: ".", registries: ["npm", "jsr"] }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshot: {
+    useCalculatedVersion: false,
+    prereleaseTemplate: "{tag}-{timestamp}",
+  },
+});
+```
+
+## 主要字段
+
+### `versioning`
+
+- 类型: `"independent" | "fixed"`
+- 默认: `"independent"`
+
+### `branch`
+
+- 类型: `string`
+- 默认: `"main"`
+
+### `registries`
+
+- 类型: `RegistryType[]`
+- 默认: `["npm", "jsr"]`
+
+内建支持：
+
+- `"npm"`
+- `"jsr"`
+- `"crates"`
+- 自定义 registry URL
+
+### `packages`
+
+- 类型: `PackageConfig[]`
+- 默认: `[{ path: ".", registries: ["npm", "jsr"] }]`
+
+```ts
+packages: [
+  { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
+  { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+];
+```
+
+### `fixed`
+
+- 类型: `string[][]`
+- 默认: `[]`
+
+### `linked`
+
+- 类型: `string[][]`
+- 默认: `[]`
+
+### `tag`
+
+- 类型: `string`
+- 默认: `"latest"`
+
+### `contents`
+
+- 类型: `string`
+- 默认: `"."`
+
+### `saveToken`
+
+- 类型: `boolean`
+- 默认: `true`
+
+### `releaseDraft`
+
+- 类型: `boolean`
+- 默认: `true`
+
+### `plugins`
+
+- 类型: `PubmPlugin[]`
+- 默认: `[]`
+
+### `validate`
+
+```ts
+{
+  cleanInstall: true,
+  entryPoints: true,
+  extraneousFiles: true,
+}
+```
+
+### `snapshot`
+
+```ts
+{
+  useCalculatedVersion: false,
+  prereleaseTemplate: "{tag}-{timestamp}",
+}
+```

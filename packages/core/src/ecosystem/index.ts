@@ -1,29 +1,25 @@
+import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
+import { ecosystemCatalog } from "./catalog.js";
 import type { Ecosystem } from "./ecosystem.js";
-import { JsEcosystem } from "./js.js";
-import { RustEcosystem } from "./rust.js";
-
-const registryToEcosystem: Record<string, new (path: string) => Ecosystem> = {
-  npm: JsEcosystem,
-  jsr: JsEcosystem,
-  crates: RustEcosystem,
-};
 
 export async function detectEcosystem(
   packagePath: string,
   registries?: RegistryType[],
 ): Promise<Ecosystem | null> {
   if (registries?.length) {
-    const EcoClass = registryToEcosystem[registries[0]];
-    if (EcoClass) return new EcoClass(packagePath);
+    const descriptor = registryCatalog.get(registries[0]);
+    if (descriptor) {
+      const ecoDescriptor = ecosystemCatalog.get(descriptor.ecosystem);
+      if (ecoDescriptor) {
+        return new ecoDescriptor.ecosystemClass(packagePath);
+      }
+    }
   }
 
-  if (await RustEcosystem.detect(packagePath)) {
-    return new RustEcosystem(packagePath);
-  }
-
-  if (await JsEcosystem.detect(packagePath)) {
-    return new JsEcosystem(packagePath);
+  const detected = await ecosystemCatalog.detect(packagePath);
+  if (detected) {
+    return new detected.ecosystemClass(packagePath);
   }
 
   return null;

@@ -1,0 +1,53 @@
+---
+title: Reference CLI
+description: Commandes, flags et modes d'execution du CLI pubm.
+---
+
+Commande principale:
+
+```bash
+pubm
+```
+
+## Vue d'ensemble
+
+| Commande | But |
+|---------|-----|
+| `pubm [version]` | Lance le pipeline de publish |
+| `pubm init` | Cree `pubm.config.ts` et `.pubm/changesets/` |
+| `pubm secrets sync` | Envoie les tokens vers GitHub Secrets |
+| `pubm sync --discover` | Cherche les references de version |
+| `pubm update` | Met a jour le CLI |
+| `pubm changesets ...` | Cycle de vie des changesets |
+
+## Exemples
+
+```bash
+pubm
+pubm patch
+pubm minor --preview
+pubm 1.8.0
+pubm patch --registry npm,jsr
+pubm patch --tag beta
+```
+
+## Flags frequents
+
+- `--preview`
+- `--branch <name>`
+- `--any-branch`
+- `--tag <name>`
+- `--contents <path>`
+- `--registry <registries>`
+- `--test-script <script>`
+- `--build-script <script>`
+- `--no-save-token`
+
+## Modes
+
+```bash
+pubm
+pubm patch --preview
+pubm --preflight
+pubm --ci
+```

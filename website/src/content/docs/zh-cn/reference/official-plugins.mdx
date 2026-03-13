@@ -1,0 +1,102 @@
+---
+title: Official Plugins
+description: 由 pubm 项目维护的官方插件。
+---
+
+官方插件与 `pubm` 一起维护，适合需要稳定、标准化集成而不想自己编写插件的场景。
+
+## `@pubm/plugin-brew`
+
+帮助 CLI 项目在每次 release 时同步 Homebrew formula。
+
+### 适用场景
+
+- 通过 Homebrew 分发 CLI
+- 自动更新独立 tap 仓库
+- 同步 release 资源的 checksum
+
+### 配置示例
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { brewTap } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewTap({
+      formula: "Formula/my-tool.rb",
+      repo: "https://github.com/my-org/homebrew-tap",
+    }),
+  ],
+});
+```
+
+## `@pubm/plugin-external-version-sync`
+
+让非 manifest 文件中的版本与包版本保持同步。
+
+适用文件：
+
+- `README.md` 安装片段
+- 文档示例
+- app manifest
+- 源码常量
+- 元数据 JSON
+
+### 配置示例
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "src/constants.ts",
+          pattern: /export const VERSION = "([^"]+)";/,
+        },
+        {
+          file: "manifest.json",
+          jsonPath: "metadata.version",
+        },
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+## target 类型
+
+### `regex`
+
+```ts
+{
+  file: "README.md",
+  pattern: /pubm@([\\w.-]+)/,
+}
+```
+
+### `json`
+
+```ts
+{
+  file: "manifest.json",
+  jsonPath: "metadata.version",
+}
+```
+
+## 何时运行 `pubm sync --discover`
+
+```bash
+pubm sync --discover
+```
+
+当你不确定仓库里哪些地方包含版本字符串时，它会给出候选文件和路径。
+
+更复杂的扩展方式请见 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。

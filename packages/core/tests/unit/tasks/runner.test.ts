@@ -679,7 +679,9 @@ describe("run", () => {
           mockTask,
         );
 
-        expect(outputHistory).toContain("Executing `pnpm run test`\npartial line");
+        expect(outputHistory).toContain(
+          "Executing `pnpm run test`\npartial line",
+        );
       } finally {
         Object.defineProperty(process.stdout, "isTTY", {
           value: originalIsTTY,
@@ -1466,8 +1468,10 @@ describe("run", () => {
       expect(logMessage).toContain("Preflight check passed");
     });
 
-    it("falls back to npm dry-run subtasks for unknown registries in preflight mode", async () => {
-      await run(createOptions({ preflight: true, registries: ["custom-registry"] }));
+    it("creates no-op dry-run task for unknown registries in preflight mode", async () => {
+      await run(
+        createOptions({ preflight: true, registries: ["custom-registry"] }),
+      );
 
       const pipelineCall = mockedCreateListr.mock.calls[1];
       const tasks = pipelineCall[0] as any[];
@@ -1492,7 +1496,7 @@ describe("run", () => {
       await ecosystemTasks[0].task(ctx, ecosystemParentTask);
 
       expect(ecosystemParentTask.newListr.mock.calls[0][0][0].title).toBe(
-        "Dry-run npm publish",
+        "Dry-run custom-registry",
       );
     });
   });

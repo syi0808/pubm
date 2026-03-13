@@ -1,0 +1,32 @@
+---
+title: Changesets
+description: Registrar la intencion de release, generar changelogs y controlar los bumps de version.
+---
+
+`pubm` usa `.pubm/changesets/` como el registro durable de lo que debe liberarse despues.
+
+## Por que importa
+
+- plan de release revisable en cada PR
+- calculo determinista de versiones
+- changelog escrito antes del dia de release
+
+## Comandos basicos
+
+```bash
+pubm init
+pubm init --changesets
+pubm changesets add
+pubm changesets version --dry-run
+pubm changesets version
+```
+
+## Prerelease y snapshots
+
+```bash
+pubm changesets pre enter beta
+pubm changesets version
+pubm patch --tag beta
+pubm changesets pre exit
+pubm changesets snapshot
+```

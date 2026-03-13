@@ -1,11 +1,11 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import { RustEcosystem } from "../ecosystem/rust.js";
+import { registryCatalog } from "../registry/catalog.js";
 import { CratesRegistry } from "../registry/crates.js";
 import { jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { SecureStore } from "../utils/secure-store.js";
-import { TOKEN_CONFIG } from "../utils/token.js";
 import type { Ctx } from "./runner.js";
 
 const AUTH_ERROR_PATTERNS = [
@@ -33,8 +33,9 @@ async function withTokenRetry(
   } catch (error) {
     if (!isAuthError(error)) throw error;
 
-    const config = TOKEN_CONFIG[registryKey];
-    if (!config) throw error;
+    const descriptor = registryCatalog.get(registryKey);
+    if (!descriptor) throw error;
+    const config = descriptor.tokenConfig;
 
     task.output = `Auth failed. Re-enter ${config.promptLabel}`;
     const newToken: string = await task.prompt(ListrEnquirerPromptAdapter).run({

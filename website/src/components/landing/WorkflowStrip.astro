@@ -1,16 +1,20 @@
 ---
+import type { LandingDictionary } from "../../i18n/landing";
 import TerminalPanel from "./TerminalPanel.astro";
+
+interface Props {
+  copy: LandingDictionary;
+}
+
+const { copy } = Astro.props;
 ---
 
 <section class="workflow-section section-divider" id="workflow">
   <div class="container">
     <div class="workflow-header">
-      <div class="header-badge">Release Pipeline</div>
-      <h2 class="display-title">One command does <span class="text-glow">everything.</span></h2>
-      <p class="header-desc">
-        Run <code>pubm</code> and it handles the rest — version prompts, preflight checks,
-        testing, building, and publishing across every registry.
-      </p>
+      <div class="header-badge">{copy.workflow.badge}</div>
+      <h2 class="display-title">{copy.workflow.title} <span class="text-glow">{copy.workflow.titleAccent}</span></h2>
+      <p class="header-desc" set:html={copy.workflow.description.replace(/`pubm`/g, "<code>pubm</code>")} />
     </div>
   </div>
 
@@ -19,35 +23,23 @@ import TerminalPanel from "./TerminalPanel.astro";
     <div class="workflow-steps">
       <div class="workflow-step" data-step="0">
         <span class="step-number">01</span>
-        <h3>Pick your version</h3>
-        <p>
-          Run <code>pubm</code> with no arguments. An interactive prompt lets you choose
-          the next version — patch, minor, or major — before anything else happens.
-        </p>
+        <h3>{copy.workflow.steps[0].title}</h3>
+        <p set:html={copy.workflow.steps[0].description.replace(/`pubm`/g, "<code>pubm</code>")} />
       </div>
       <div class="workflow-step" data-step="1">
         <span class="step-number">02</span>
-        <h3>Preflight & auth</h3>
-        <p>
-          After you choose, pubm verifies the branch, working tree, remote sync,
-          and registry credentials. Problems surface before any side effects.
-        </p>
+        <h3>{copy.workflow.steps[1].title}</h3>
+        <p>{copy.workflow.steps[1].description}</p>
       </div>
       <div class="workflow-step" data-step="2">
         <span class="step-number">03</span>
-        <h3>Test, build, tag</h3>
-        <p>
-          Your test suite runs, the build executes, and the version is bumped.
-          A git commit and tag are created atomically — nothing is left half-done.
-        </p>
+        <h3>{copy.workflow.steps[2].title}</h3>
+        <p>{copy.workflow.steps[2].description}</p>
       </div>
       <div class="workflow-step" data-step="3">
         <span class="step-number">04</span>
-        <h3>Publish everywhere</h3>
-        <p>
-          All registries receive your package concurrently. Tags are pushed to origin.
-          If anything fails, every change rolls back automatically.
-        </p>
+        <h3>{copy.workflow.steps[3].title}</h3>
+        <p>{copy.workflow.steps[3].description}</p>
       </div>
     </div>
 

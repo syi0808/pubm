@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color } from "listr2";
 import { AbstractError } from "../error.js";
+import { registryCatalog } from "../registry/catalog.js";
 import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
 import {
@@ -9,7 +10,7 @@ import {
   writeGhSecretsSyncHash,
 } from "../utils/gh-secrets-sync-state.js";
 import { SecureStore } from "../utils/secure-store.js";
-import { loadTokensFromDb, TOKEN_CONFIG } from "../utils/token.js";
+import { loadTokensFromDb } from "../utils/token.js";
 
 class PreflightError extends AbstractError {
   name = "Preflight Error";
@@ -24,14 +25,13 @@ export async function collectTokens(
   const tokens: Record<string, string> = { ...existing };
 
   for (const registry of registries) {
-    const config = TOKEN_CONFIG[registry];
-    if (!config || tokens[registry]) continue;
+    const descriptor = registryCatalog.get(registry);
+    if (!descriptor || tokens[registry]) continue;
+    const config = descriptor.tokenConfig;
 
     let { tokenUrl } = config;
-    if (registry === "npm" && tokenUrl.includes("~")) {
-      const result = await exec("npm", ["whoami"]);
-      const username = result.stdout.trim();
-      if (username) tokenUrl = tokenUrl.replace("~", username);
+    if (descriptor.resolveTokenUrl) {
+      tokenUrl = await descriptor.resolveTokenUrl(tokenUrl);
     }
 
     task.output = `Enter ${config.promptLabel}`;
@@ -58,8 +58,9 @@ export async function syncGhSecrets(
   tokens: Record<string, string>,
 ): Promise<void> {
   for (const [registry, token] of Object.entries(tokens)) {
-    const config = TOKEN_CONFIG[registry];
-    if (!config) continue;
+    const descriptor = registryCatalog.get(registry);
+    if (!descriptor) continue;
+    const config = descriptor.tokenConfig;
 
     await exec("gh", ["secret", "set", config.ghSecretName, "--body", token], {
       throwOnError: true,

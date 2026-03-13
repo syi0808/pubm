@@ -1,0 +1,164 @@
+---
+title: CLI Reference
+description: pubm CLI의 명령, 플래그, 실행 모드 레퍼런스입니다.
+---
+
+이 문서는 다음 구조로 정리되어 있습니다.
+
+- 최상위 publish 명령: `pubm [version]`
+- `init`, `secrets`, `sync` 같은 관리 명령
+- `pubm changesets ...` 아래의 changeset 명령
+
+가장 중요한 기본 명령은:
+
+```bash
+pubm
+```
+
+## 명령 개요
+
+| 명령 | 목적 |
+|------|------|
+| `pubm [version]` | 릴리스 타입 또는 명시적 semver로 publish 파이프라인 실행 |
+| `pubm init` | `pubm.config.ts`와 `.pubm/changesets/` 생성 |
+| `pubm init --changesets` | PR용 changeset 체크 워크플로도 생성 |
+| `pubm secrets sync` | 로컬 토큰을 `gh`로 GitHub Secrets에 업로드 |
+| `pubm sync --discover` | 매니페스트 밖 버전 참조 검색 |
+| `pubm update` | CLI 자체 업데이트 |
+| `pubm changesets add` | 새 changeset 생성 |
+| `pubm changesets status` | 대기 중 changeset과 bump 영향 확인 |
+| `pubm changesets version` | changeset 소비 후 버전 기록 |
+| `pubm changesets changelog` | changeset 기반 changelog 생성 |
+| `pubm changesets pre enter <tag>` | prerelease 모드 진입 |
+| `pubm changesets pre exit` | prerelease 모드 종료 |
+| `pubm changesets snapshot [tag]` | 임시 snapshot 릴리스 |
+| `pubm changesets migrate` | `.changeset/`에서 `.pubm/`로 이전 |
+
+## 최상위 publish 명령
+
+```bash
+pubm [version] [flags]
+```
+
+`[version]`은 다음 중 하나입니다.
+
+- `patch`, `minor`, `major`
+- `prepatch`, `preminor`, `premajor`, `prerelease`
+- `1.8.0` 같은 명시적 버전
+
+버전을 생략하면 인터랙티브 터미널에서는 다음 버전을 묻고, CI에서는 비대화형으로 해결되어야 합니다.
+
+### 예시
+
+```bash
+pubm
+pubm patch
+pubm minor --preview
+pubm 1.8.0
+pubm patch --registry npm,jsr
+pubm patch --tag beta
+```
+
+## 주요 플래그
+
+| 플래그 | 설명 |
+|--------|------|
+| `--preview` | Git 상태나 publish를 바꾸지 않고 작업 그래프만 표시 |
+| `--branch <name>` | 릴리스 전 현재 브랜치 검증 |
+| `--any-branch` | 현재 실행에서 브랜치 가드 해제 |
+| `--tag <name>` | `beta`, `next` 같은 dist-tag 지정 |
+| `--contents <path>` | 하위 디렉터리로 이동 후 파이프라인 실행 |
+| `--registry <registries>` | `npm`, `jsr`, `crates` 또는 커스텀 레지스트리 |
+| `--test-script <script>` | 테스트 단계 스크립트 이름 |
+| `--build-script <script>` | 빌드 단계 스크립트 이름 |
+| `--no-save-token` | 토큰 저장 비활성화 |
+
+## 파이프라인 제어 플래그
+
+| 플래그 | 설명 |
+|--------|------|
+| `--no-pre-check` | branch, working tree 등 사전 검사 생략 |
+| `--no-condition-check` | 토큰/레지스트리 검증 생략 |
+| `--no-tests` | 테스트 생략 |
+| `--no-build` | 빌드 생략 |
+| `--no-publish` | publish 직전까지만 실행 |
+| `--no-release-draft` | GitHub release draft 단계 생략 |
+| `--publish-only` | 전체 준비 없이 최신 태그에서 publish만 수행 |
+| `--ci` | 최신 태그에서 publish 후 GitHub Release 생성 |
+| `--preflight` | 로컬에서 CI publish를 모의 실행 |
+
+## 실행 모드
+
+### 기본 인터랙티브 모드
+
+```bash
+pubm
+```
+
+### preview 모드
+
+```bash
+pubm patch --preview
+```
+
+### preflight 모드
+
+```bash
+pubm --preflight
+```
+
+### CI 모드
+
+```bash
+pubm --ci
+```
+
+## 환경 변수
+
+| 변수 | 용도 |
+|------|------|
+| `NODE_AUTH_TOKEN` | npm CI 인증 |
+| `JSR_TOKEN` | jsr 인증 |
+| `CARGO_REGISTRY_TOKEN` | crates.io 인증 |
+
+## `pubm init`
+
+```bash
+pubm init
+pubm init --changesets
+```
+
+## `pubm secrets sync`
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm,jsr
+```
+
+## `pubm sync --discover`
+
+```bash
+pubm sync --discover
+```
+
+## `pubm update`
+
+```bash
+pubm update
+```
+
+## `pubm changesets add`
+
+```bash
+pubm changesets add
+pubm changesets add --empty
+pubm changesets add --packages @acme/core,@acme/react --bump minor --message "공개 metrics API 추가"
+```
+
+## `pubm changesets status`
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+pubm changesets status --since origin/main
+```

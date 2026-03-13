@@ -74,7 +74,9 @@ describe("validateEntryPoints", () => {
   });
 
   it("recursively validates nested export maps and ignores unsupported values", () => {
-    mockedExistsSync.mockImplementation((value) => !String(value).includes("missing"));
+    mockedExistsSync.mockImplementation(
+      (value) => !String(value).includes("missing"),
+    );
     const pkg = {
       exports: {
         ".": {

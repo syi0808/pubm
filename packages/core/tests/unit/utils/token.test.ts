@@ -9,11 +9,11 @@ vi.mock("../../../src/utils/secure-store.js", () => ({
   }),
 }));
 
+import { registryCatalog } from "../../../src/registry/catalog.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
 import {
   injectTokensToEnv,
   loadTokensFromDb,
-  TOKEN_CONFIG,
 } from "../../../src/utils/token.js";
 
 const mockedSecureStore = vi.mocked(SecureStore);
@@ -22,9 +22,9 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("TOKEN_CONFIG", () => {
-  it("has entries for npm, jsr, and crates", () => {
-    expect(TOKEN_CONFIG.npm).toEqual({
+describe("registryCatalog token configs", () => {
+  it("has tokenConfig for npm", () => {
+    expect(registryCatalog.get("npm")?.tokenConfig).toEqual({
       envVar: "NODE_AUTH_TOKEN",
       dbKey: "npm-token",
       ghSecretName: "NODE_AUTH_TOKEN",
@@ -33,7 +33,10 @@ describe("TOKEN_CONFIG", () => {
         "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
       tokenUrlLabel: "npmjs.com",
     });
-    expect(TOKEN_CONFIG.jsr).toEqual({
+  });
+
+  it("has tokenConfig for jsr", () => {
+    expect(registryCatalog.get("jsr")?.tokenConfig).toEqual({
       envVar: "JSR_TOKEN",
       dbKey: "jsr-token",
       ghSecretName: "JSR_TOKEN",
@@ -41,7 +44,10 @@ describe("TOKEN_CONFIG", () => {
       tokenUrl: "https://jsr.io/account/tokens/create",
       tokenUrlLabel: "jsr.io",
     });
-    expect(TOKEN_CONFIG.crates).toEqual({
+  });
+
+  it("has tokenConfig for crates", () => {
+    expect(registryCatalog.get("crates")?.tokenConfig).toEqual({
       envVar: "CARGO_REGISTRY_TOKEN",
       dbKey: "cargo-token",
       ghSecretName: "CARGO_REGISTRY_TOKEN",
@@ -56,9 +62,10 @@ describe("loadTokensFromDb", () => {
   const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
-    for (const config of Object.values(TOKEN_CONFIG)) {
-      savedEnv[config.envVar] = process.env[config.envVar];
-      delete process.env[config.envVar];
+    for (const descriptor of registryCatalog.all()) {
+      const envVar = descriptor.tokenConfig.envVar;
+      savedEnv[envVar] = process.env[envVar];
+      delete process.env[envVar];
     }
   });
 
@@ -119,5 +126,18 @@ describe("injectTokensToEnv", () => {
     expect(process.env["npm_config_//registry.npmjs.org/:_authToken"]).toBe(
       originalEnv["npm_config_//registry.npmjs.org/:_authToken"],
     );
+  });
+
+  it("sets npm additional env var via catalog additionalEnvVars", () => {
+    const cleanup = injectTokensToEnv({ npm: "my-npm-token" });
+
+    expect(process.env["npm_config_//registry.npmjs.org/:_authToken"]).toBe(
+      "my-npm-token",
+    );
+
+    cleanup();
+    expect(
+      process.env["npm_config_//registry.npmjs.org/:_authToken"],
+    ).toBeUndefined();
   });
 });

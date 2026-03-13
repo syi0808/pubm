@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("std-env", () => ({ isCI: false }));
-vi.mock("node:fs", () => ({
-  existsSync: vi.fn(),
-  readFileSync: vi.fn(),
-}));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: vi.fn(),
+    readFileSync: vi.fn(),
+  };
+});
 vi.mock("../../../src/error.js", () => ({
   AbstractError: class extends Error {
     name = "AbstractError";
@@ -109,39 +113,125 @@ vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
     title: "Dry-run crates publish",
     task: vi.fn(),
   },
-  createCratesDryRunPublishTask: vi.fn((packagePath?: string, siblings?: string[]) => ({
-    title: `Dry-run crates publish (${packagePath})`,
-    siblings,
-    task: vi.fn(),
-  })),
-}));
-vi.mock("../../../src/utils/crate-graph.js", () => ({
-  sortCratesByDependencyOrder: vi.fn(),
-}));
-vi.mock("../../../src/ecosystem/rust.js", () => ({
-  RustEcosystem: vi.fn(),
+  createCratesDryRunPublishTask: vi.fn(
+    (packagePath?: string, siblings?: string[]) => ({
+      title: `Dry-run crates publish (${packagePath})`,
+      siblings,
+      task: vi.fn(),
+    }),
+  ),
 }));
 vi.mock("../../../src/utils/cli.js", () => ({
   link: vi.fn((_text: string, url: string) => url),
 }));
+vi.mock("../../../src/registry/catalog.js", () => {
+  const mockCratesRegistry = {
+    concurrentPublish: false,
+    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
+    checkAvailability: vi.fn(),
+  };
+  const mockNpmRegistry = {
+    concurrentPublish: true,
+    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
+    checkAvailability: vi.fn(),
+  };
+  const mockJsrRegistry = {
+    concurrentPublish: true,
+    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
+    checkAvailability: vi.fn(),
+  };
+  const descriptors: Record<string, any> = {
+    npm: {
+      key: "npm",
+      ecosystem: "js",
+      label: "npm",
+      needsPackageScripts: true,
+      tokenConfig: {
+        envVar: "NODE_AUTH_TOKEN",
+        dbKey: "npm-token",
+        ghSecretName: "NODE_AUTH_TOKEN",
+        promptLabel: "npm access token",
+        tokenUrl:
+          "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
+        tokenUrlLabel: "npmjs.com",
+      },
+      resolveDisplayName: vi.fn(async () => ["pubm"]),
+      factory: vi.fn(async () => mockNpmRegistry),
+    },
+    jsr: {
+      key: "jsr",
+      ecosystem: "js",
+      label: "jsr",
+      needsPackageScripts: false,
+      tokenConfig: {
+        envVar: "JSR_TOKEN",
+        dbKey: "jsr-token",
+        ghSecretName: "JSR_TOKEN",
+        promptLabel: "jsr API token",
+        tokenUrl: "https://jsr.io/account/tokens/create",
+        tokenUrlLabel: "jsr.io",
+      },
+      resolveDisplayName: vi.fn(async () => ["@pubm/pubm"]),
+      factory: vi.fn(async () => mockJsrRegistry),
+    },
+    crates: {
+      key: "crates",
+      ecosystem: "rust",
+      label: "crates.io",
+      needsPackageScripts: false,
+      tokenConfig: {
+        envVar: "CARGO_REGISTRY_TOKEN",
+        dbKey: "cargo-token",
+        ghSecretName: "CARGO_REGISTRY_TOKEN",
+        promptLabel: "crates.io API token",
+        tokenUrl: "https://crates.io/settings/tokens/new",
+        tokenUrlLabel: "crates.io",
+      },
+      resolveDisplayName: vi.fn(
+        async (ctx: any) =>
+          ctx.packages
+            ?.filter((pkg: any) => pkg.registries.includes("crates"))
+            .map((pkg: any) => pkg.path) ?? ["crate"],
+      ),
+      factory: vi.fn(async () => mockCratesRegistry),
+    },
+  };
+  return {
+    registryCatalog: {
+      get: vi.fn((key: string) => descriptors[key]),
+      all: vi.fn(() => Object.values(descriptors)),
+    },
+    __mockCratesRegistry: mockCratesRegistry,
+  };
+});
+vi.mock("../../../src/ecosystem/index.js", () => ({
+  detectEcosystem: vi.fn(),
+}));
 
 import { existsSync, readFileSync } from "node:fs";
+import {
+  buildChangelogEntries,
+  generateChangelog,
+  writeChangelogToFile,
+} from "../../../src/changeset/changelog.js";
+import { parseChangelogSection } from "../../../src/changeset/changelog-parser.js";
+import { discoverPackageInfos } from "../../../src/changeset/packages.js";
+import {
+  deleteChangesetFiles,
+  readChangesets,
+} from "../../../src/changeset/reader.js";
+import { detectEcosystem } from "../../../src/ecosystem/index.js";
 import { Git } from "../../../src/git.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
-import { buildChangelogEntries, generateChangelog, writeChangelogToFile } from "../../../src/changeset/changelog.js";
-import { parseChangelogSection } from "../../../src/changeset/changelog-parser.js";
-import { deleteChangesetFiles, readChangesets } from "../../../src/changeset/reader.js";
-import { discoverPackageInfos } from "../../../src/changeset/packages.js";
-import { RustEcosystem } from "../../../src/ecosystem/rust.js";
+import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import { run } from "../../../src/tasks/runner.js";
-import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createListr } from "../../../src/utils/listr.js";
 import {
+  getJsrJson,
+  getPackageJson,
   replaceVersion,
   replaceVersionAtPath,
-  getPackageJson,
-  getJsrJson,
 } from "../../../src/utils/package.js";
 import { addRollback } from "../../../src/utils/rollback.js";
 
@@ -159,11 +249,13 @@ const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedReplaceVersion = vi.mocked(replaceVersion);
 const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
-const mockedSortCrates = vi.mocked(
-  (await import("../../../src/utils/crate-graph.js")).sortCratesByDependencyOrder,
+const mockedDetectEcosystem = vi.mocked(detectEcosystem);
+const mockedCratesRegistry = (
+  (await import("../../../src/registry/catalog.js")) as any
+).__mockCratesRegistry;
+const mockedCreateCratesDryRunPublishTask = vi.mocked(
+  createCratesDryRunPublishTask,
 );
-const mockedRustEcosystem = vi.mocked(RustEcosystem);
-const mockedCreateCratesDryRunPublishTask = vi.mocked(createCratesDryRunPublishTask);
 const mockedAddRollback = vi.mocked(addRollback);
 const mockedGetPackageJson = vi.mocked(getPackageJson);
 const mockedGetJsrJson = vi.mocked(getJsrJson);
@@ -202,31 +294,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "log").mockImplementation(() => {});
 
-  mockedCreateListr.mockImplementation((tasks: any) => ({
-    run: vi.fn().mockResolvedValue(undefined),
-    tasks,
-  }) as any);
-
-  mockedGit.mockImplementation(
-    function () {
-      return {
-        reset: vi.fn().mockResolvedValue(undefined),
-        stage: vi.fn().mockResolvedValue(undefined),
-        commit: vi.fn().mockResolvedValue("commit-sha"),
-        createTag: vi.fn().mockResolvedValue(undefined),
-        deleteTag: vi.fn().mockResolvedValue(undefined),
-        latestTag: vi.fn().mockResolvedValue("v1.0.0"),
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([{ id: "head", message: "skip" }]),
-        repository: vi.fn().mockResolvedValue("https://github.com/pubm/pubm"),
-        push: vi.fn().mockResolvedValue(true),
-        status: vi.fn().mockResolvedValue(""),
-        stash: vi.fn().mockResolvedValue(undefined),
-        popStash: vi.fn().mockResolvedValue(undefined),
-      } as any;
-    } as any,
+  mockedCreateListr.mockImplementation(
+    (tasks: any) =>
+      ({
+        run: vi.fn().mockResolvedValue(undefined),
+        tasks,
+      }) as any,
   );
+
+  mockedGit.mockImplementation(function () {
+    return {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+      previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+      firstCommit: vi.fn().mockResolvedValue("first-commit"),
+      commits: vi.fn().mockResolvedValue([{ id: "head", message: "skip" }]),
+      repository: vi.fn().mockResolvedValue("https://github.com/pubm/pubm"),
+      push: vi.fn().mockResolvedValue(true),
+      status: vi.fn().mockResolvedValue(""),
+      stash: vi.fn().mockResolvedValue(undefined),
+      popStash: vi.fn().mockResolvedValue(undefined),
+    } as any;
+  } as any);
 
   mockedGetPackageJson.mockResolvedValue({ name: "pubm" } as any);
   mockedGetJsrJson.mockResolvedValue({ name: "@pubm/pubm" } as any);
@@ -244,13 +337,14 @@ beforeEach(() => {
   mockedGenerateChangelog.mockReturnValue("generated");
   mockedReplaceVersion.mockResolvedValue(["package.json"]);
   mockedReplaceVersionAtPath.mockResolvedValue([]);
-  mockedSortCrates.mockResolvedValue([]);
-  mockedRustEcosystem.mockImplementation(
-    function () {
-      return {
+  mockedCratesRegistry.orderPackages.mockImplementation((paths: string[]) =>
+    Promise.resolve(paths),
+  );
+  mockedDetectEcosystem.mockImplementation(
+    async () =>
+      ({
         packageName: vi.fn().mockResolvedValue("crate"),
-      } as any;
-    } as any,
+      }) as any,
   );
 });
 
@@ -310,12 +404,14 @@ describe("runner coverage scenarios", () => {
     );
   });
 
-  it("includes plugin publish targets and falls back unknown registries to npm tasks", async () => {
+  it("includes plugin publish targets and creates no-op for unknown registries", async () => {
     const pluginPublish = vi.fn().mockResolvedValue(undefined);
     const pluginRunner = new PluginRunner([
       {
         name: "custom-publisher",
-        registries: [{ packageName: "acme-release", publish: pluginPublish } as any],
+        registries: [
+          { packageName: "acme-release", publish: pluginPublish } as any,
+        ],
       },
     ]);
 
@@ -344,7 +440,7 @@ describe("runner coverage scenarios", () => {
     const ecosystemParent = createParentTask();
     await subtasks[0].task(ctx, ecosystemParent);
     expect(ecosystemParent.newListr.mock.calls[0][0][0].title).toBe(
-      "npm publish",
+      "Publish to custom-registry",
     );
 
     await subtasks[1].task();
@@ -352,18 +448,20 @@ describe("runner coverage scenarios", () => {
   });
 
   it("builds dry-run crates tasks sequentially during preflight validation", async () => {
-    mockedSortCrates.mockResolvedValue(["rust/crates/lib-b", "rust/crates/lib-a"]);
+    mockedCratesRegistry.orderPackages.mockResolvedValue([
+      "rust/crates/lib-b",
+      "rust/crates/lib-a",
+    ]);
     let ecosystemCall = 0;
-    mockedRustEcosystem.mockImplementation(
-      function () {
-        return {
+    mockedDetectEcosystem.mockImplementation(
+      async () =>
+        ({
           packageName: vi
             .fn()
             .mockImplementation(() =>
               Promise.resolve(++ecosystemCall === 1 ? "lib-a" : "lib-b"),
             ),
-        } as any;
-      } as any,
+        }) as any,
     );
 
     await run(
@@ -400,7 +498,9 @@ describe("runner coverage scenarios", () => {
     await subtasks[1].task(ctx, rustParent);
     const registryTasks = rustParent.newListr.mock.calls[0][0];
 
-    expect(registryTasks[0].title).toBe("Dry-run crates.io publish (sequential)");
+    expect(registryTasks[0].title).toBe(
+      "Dry-run crates.io publish (sequential)",
+    );
 
     const innerParent = createParentTask();
     registryTasks[0].task(ctx, innerParent);
@@ -409,7 +509,9 @@ describe("runner coverage scenarios", () => {
       "rust/crates/lib-b",
       ["lib-a", "lib-b"],
     );
-    expect(innerParent.newListr.mock.calls[0][1]).toEqual({ concurrent: false });
+    expect(innerParent.newListr.mock.calls[0][1]).toEqual({
+      concurrent: false,
+    });
   });
 
   it("handles independent multi-package version bumps with per-package changelogs and tags", async () => {
@@ -431,8 +533,12 @@ describe("runner coverage scenarios", () => {
       .mockResolvedValueOnce(["/workspace/packages/pubm/package.json"]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-1" }] as any);
     mockedBuildChangelogEntries
-      .mockReturnValueOnce([{ id: "cs-1", type: "minor", summary: "core" }] as any)
-      .mockReturnValueOnce([{ id: "cs-1", type: "patch", summary: "pubm" }] as any);
+      .mockReturnValueOnce([
+        { id: "cs-1", type: "minor", summary: "core" },
+      ] as any)
+      .mockReturnValueOnce([
+        { id: "cs-1", type: "patch", summary: "pubm" },
+      ] as any);
     mockedGenerateChangelog
       .mockReturnValueOnce("core changelog")
       .mockReturnValueOnce("pubm changelog");
@@ -470,7 +576,9 @@ describe("runner coverage scenarios", () => {
     expect(mockedDeleteChangesetFiles).toHaveBeenCalled();
 
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
-    expect(gitInstance.commit).toHaveBeenCalledWith("@pubm/core@2.0.0, pubm@2.1.0");
+    expect(gitInstance.commit).toHaveBeenCalledWith(
+      "@pubm/core@2.0.0, pubm@2.1.0",
+    );
     expect(gitInstance.createTag).toHaveBeenCalledWith(
       "@pubm/core@2.0.0",
       "commit-sha",
@@ -501,8 +609,12 @@ describe("runner coverage scenarios", () => {
       .mockResolvedValueOnce(["/workspace/packages/pubm/package.json"]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-2" }] as any);
     mockedBuildChangelogEntries
-      .mockReturnValueOnce([{ id: "cs-2", type: "minor", summary: "core" }] as any)
-      .mockReturnValueOnce([{ id: "cs-2", type: "patch", summary: "pubm" }] as any);
+      .mockReturnValueOnce([
+        { id: "cs-2", type: "minor", summary: "core" },
+      ] as any)
+      .mockReturnValueOnce([
+        { id: "cs-2", type: "patch", summary: "pubm" },
+      ] as any);
     mockedGenerateChangelog.mockReturnValue("root changelog");
 
     await run(createOptions({ versions, version: "3.0.0" }));
@@ -587,8 +699,6 @@ describe("runner coverage scenarios", () => {
 
     await run(createOptions({ registries: ["crates"] }));
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("crate"),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("crate"));
   });
 });

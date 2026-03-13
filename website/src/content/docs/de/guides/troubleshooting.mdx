@@ -1,0 +1,22 @@
+---
+title: Troubleshooting
+description: Die haufigsten Release-, Config- und Registry-Probleme in pubm diagnostizieren.
+---
+
+Nutzliche Diagnosebefehle:
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+Typische Probleme:
+
+- dirty working tree oder falscher Branch
+- `No changesets found.`
+- falsche Packages werden gebumpt
+- Config lasst sich nicht laden
+- Auth-Fehler bei npm/jsr/crates
+- Unterschiede zwischen lokal und CI

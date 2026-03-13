@@ -1,0 +1,28 @@
+---
+title: Monorepo
+description: Workspace-Pakete in der richtigen Reihenfolge und mit der passenden Versionsstrategie veroffentlichen.
+---
+
+`pubm` behandelt Monorepos als Kernfall. Es erkennt Pakete, versteht Abhangigkeiten und kann JavaScript- und Rust-Pakete aus demselben Repository releasen.
+
+## Auto-Discovery
+
+- `pnpm-workspace.yaml`
+- `package.json` mit `workspaces`
+
+## Wann `packages` explizit setzen
+
+- nur ein Teil der Packages soll publishen
+- Registry-Ziele unterscheiden sich
+- JS und Rust leben im selben Repo
+
+## Typischer Ablauf
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets version --dry-run
+pubm changesets version
+pubm patch --preview
+pubm patch
+```

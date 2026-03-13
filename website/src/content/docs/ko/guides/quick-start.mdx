@@ -1,0 +1,56 @@
+---
+title: 빠른 시작
+description: pubm 설치, 프로젝트 초기화, 첫 릴리스까지의 가장 짧은 경로입니다.
+---
+
+`pubm`은 여러 레지스트리, 여러 패키지, 여러 생태계에 동시에 배포하는 저장소를 위한 릴리스 오케스트레이터입니다.
+
+## 시작 전
+
+- Git `2.11+`
+- `package.json` 같은 패키지 매니페스트
+- 배포 전에 깨끗한 working tree
+
+CLI 설치:
+
+```bash
+npm i -g pubm
+```
+
+## 1. 저장소 초기화
+
+```bash
+pubm init
+```
+
+이 명령은 `pubm.config.ts`와 `.pubm/changesets/`를 만듭니다.
+
+## 2. 최소 설정 추가
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  registries: ["npm", "jsr"],
+});
+```
+
+## 3. 변경셋 추가
+
+```bash
+pubm changesets add
+```
+
+## 4. 버전 반영
+
+```bash
+pubm changesets version
+```
+
+## 5. 배포
+
+```bash
+pubm
+```
+
+추가 가이드는 아직 영어 문서를 기본 fallback으로 사용합니다. 상세 설정은 [Configuration](/pubm/ko/guides/configuration/), CI는 [CI/CD](/pubm/ko/guides/ci-cd/)에서 이어서 볼 수 있습니다.

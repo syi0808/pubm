@@ -1,0 +1,32 @@
+---
+title: Reference API des plugins
+description: Ajouter hooks, commandes, registres et ecosystemes a pubm.
+---
+
+Le systeme de plugins permet d'etendre `pubm` sans forker le pipeline central.
+
+## Forme generale
+
+```ts
+import type { PubmPlugin } from "@pubm/core";
+
+const myPlugin: PubmPlugin = {
+  name: "my-plugin",
+  hooks: {},
+  commands: [],
+  registries: [],
+  ecosystems: [],
+};
+```
+
+## Hooks
+
+Les hooks couvrent les phases avant/apres test, build, version, publish, push, success, error et rollback.
+
+## Commandes
+
+Un plugin peut ajouter son propre arbre de commandes CLI.
+
+## Registres et ecosystemes
+
+Les plugins peuvent aussi enregistrer des registres et ecosystemes supplementaires.

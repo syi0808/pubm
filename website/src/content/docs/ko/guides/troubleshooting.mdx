@@ -1,0 +1,136 @@
+---
+title: Troubleshooting
+description: pubm에서 자주 발생하는 릴리스, 설정, 레지스트리 문제를 진단합니다.
+---
+
+이 문서는 실제 운영에서 중요한 실패 유형인 설정 로딩, 버전 계산, 레지스트리 인증, Git 상태, CI 동작을 중심으로 정리합니다.
+
+## 가장 안전한 진단 명령부터
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+이 조합으로 다음을 확인할 수 있습니다.
+
+- 어떤 버전을 릴리스하려는지
+- 어떤 패키지가 영향 받는지
+- changelog 문구가 괜찮은지
+- 자격 증명과 레지스트리 검사가 준비됐는지
+
+## Git 상태 때문에 publish가 막힘
+
+증상:
+
+- publish 전에 중단됨
+- dirty working tree 또는 잘못된 branch 오류
+
+확인:
+
+- 로컬 변경사항 commit/stash
+- 예상 브랜치인지 확인
+- 예외적으로만 `--any-branch` 사용
+
+## `No changesets found.`
+
+확인:
+
+- `.pubm/changesets/`에 파일이 있는지
+- 저장소 루트에서 실행 중인지
+- `.changeset/`을 쓰던 저장소라면 `pubm changesets migrate`
+
+## 예상과 다른 패키지가 bump됨
+
+확인:
+
+- `pubm changesets status --verbose`
+- `pubm.config.*`의 `fixed`, `linked`
+- `independent` / `fixed` 전략
+
+복잡한 워크스페이스면 자동 탐지보다 명시적 `packages` 설정이 안전합니다.
+
+## config 로드 실패
+
+확인:
+
+- 파일명이 지원되는 형식인지
+- `defineConfig`를 `@pubm/core`에서 가져오는지
+- top-level에서 무거운 런타임 작업을 하지 않는지
+- 선택적 의존성이 실제로 설치되어 있는지
+
+## npm 인증/권한 오류
+
+확인:
+
+- `NODE_AUTH_TOKEN`
+- 패키지에 publish 권한이 있는 토큰인지
+- CI에서는 automation token 사용
+- scoped public 패키지 접근 수준이 맞는지
+
+## jsr publish 실패
+
+확인:
+
+- `JSR_TOKEN`
+- `pubm --preflight`
+- jsr용 패키지 메타데이터
+
+## crates.io publish 실패
+
+확인:
+
+- `CARGO_REGISTRY_TOKEN`
+- crate 의존 순서와 버전
+- 패키지별 `registries` 설정
+
+Rust crate는 순서가 중요할 때 순차적으로 배포됩니다. 정상 동작입니다.
+
+## build/test 단계 실패
+
+1. 원래 스크립트를 직접 재실행
+2. 실제 실패 원인 수정
+3. `pubm` 재시도
+
+```bash
+pnpm run test
+pnpm run build
+```
+
+필요하면:
+
+```bash
+pubm patch --test-script test:ci --build-script build:release
+```
+
+## `contents` publish가 동작하지 않음
+
+확인:
+
+- `contents`가 최종 publish 디렉터리를 가리키는지
+- build가 해당 디렉터리를 먼저 만드는지
+- 선택한 레지스트리가 기대하는 manifest가 있는지
+
+## 로컬과 CI 동작이 다름
+
+원인:
+
+- CI는 프롬프트 비활성화
+- 토큰은 환경 변수 또는 secret sync에서 와야 함
+- shallow checkout은 태그 흐름을 자주 망침
+
+확인:
+
+- 로컬에서 `pubm --preflight`
+- CI에서 전체 Git 히스토리 사용
+- 필요한 토큰이 모두 잡 환경에 있는지
+
+## rollback 후 상태가 헷갈림
+
+- `git tag`
+- `git status`
+- 가장 먼저 실패한 단계가 무엇이었는지부터 파악
+
+핵심은 rollback 메시지가 아니라 원래 실패 원인을 찾는 것입니다.

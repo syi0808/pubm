@@ -1,0 +1,21 @@
+---
+title: Troubleshooting
+description: Diagnosticar los problemas mas comunes de release, configuracion y registros en pubm.
+---
+
+Comandos seguros de diagnostico:
+
+```bash
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm patch --preview
+pubm --preflight
+```
+
+Problemas comunes:
+
+- working tree sucio o rama incorrecta
+- `No changesets found.`
+- paquetes incorrectos afectados
+- fallo al cargar config
+- errores de auth en npm / jsr / crates

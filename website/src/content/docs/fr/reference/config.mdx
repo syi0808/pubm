@@ -1,0 +1,33 @@
+---
+title: Reference API de configuration
+description: Champs supportes de `pubm.config.*`, valeurs par defaut et notes d'usage.
+---
+
+Cette reference decrit la forme typee de `pubm.config.*` exposee par `defineConfig()`.
+
+Champs les plus importants aujourd'hui:
+
+- `registries`
+- `packages`
+- `plugins`
+- `versioning`, `fixed`, `linked`
+- `snapshot.useCalculatedVersion`
+
+## Defauts principaux
+
+- `versioning: "independent"`
+- `branch: "main"`
+- `registries: ["npm", "jsr"]`
+- `tag: "latest"`
+- `contents: "."`
+- `saveToken: true`
+- `releaseDraft: true`
+
+## Champs utiles
+
+- `packages`
+- `fixed`
+- `linked`
+- `plugins`
+- `validate`
+- `snapshot`

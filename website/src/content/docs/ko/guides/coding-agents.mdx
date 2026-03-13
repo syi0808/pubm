@@ -1,0 +1,81 @@
+---
+title: 코딩 에이전트 통합
+description: Claude Code와 Codex 같은 코딩 에이전트에 pubm 플러그인을 연결합니다.
+---
+
+이 문서는 이미 코딩 에이전트를 사용하는 팀이 기존 워크플로에 `pubm` 릴리스 흐름을 붙이는 방법을 설명합니다. 목표는 새 에이전트를 도입하는 것이 아니라, 현재 사용하는 에이전트가 이 저장소의 릴리스 규칙을 이해하게 만드는 것입니다.
+
+## `pubm plugin`이 제공하는 것
+
+저장소에는 이미 `plugins/pubm-plugin/` 아래 에이전트용 번들이 있습니다.
+
+- `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- `plugins/pubm-plugin/skills/`
+
+즉, 에이전트가 릴리스 작업을 수행할 수 있는 구체적인 통합 표면이 이미 존재합니다.
+
+## 포함된 스킬
+
+### `publish-setup`
+
+에이전트로 저장소에 `pubm`을 처음 연결할 때 가장 먼저 사용합니다. 설치, 설정 생성, CI 연결, changesets, 선택적 version-sync까지 다룹니다.
+
+### `publish-preview`
+
+git 상태를 바꾸거나 publish하기 전에 릴리스 계획을 설명해야 할 때 사용합니다.
+
+### `publish`
+
+실제 publish 경로입니다. preview를 먼저 수행하고, 실제 publish 전에 확인을 요구합니다.
+
+### `version-sync`
+
+문서 스니펫이나 메타데이터 파일처럼 패키지 매니페스트 밖의 버전 참조를 찾고 연결할 때 사용합니다.
+
+### `create-plugin`
+
+새로운 `pubm` 플러그인 패키지와 훅, 명령, 테스트를 스캐폴딩합니다.
+
+## 통합 원칙
+
+- 실제 릴리스 동작은 `pubm` 본체나 `pubm` 플러그인에 둡니다.
+- 에이전트 승인 정책과 작업 순서는 체크인된 skill에 둡니다.
+- 릴리스 규칙을 소유한 저장소 안에 번들을 둡니다.
+
+## publish보다 setup부터
+
+새 저장소에 처음 연결할 때는 `publish`보다 `publish-setup`부터 시작해야 합니다. 이 스킬이 레지스트리 선택, CI 연결, changesets 설정, `.pubm/` 처리, version-sync 같은 운영 세부사항을 함께 정리해 줍니다.
+
+## 스킬과 CLI의 역할 분리
+
+실용적인 규칙은 단순합니다.
+
+- 결정적인 릴리스 작업은 `pubm` 명령으로 수행
+- 스킬은 설정 순서, 프로젝트 점검, 안전 장치, 승인 흐름을 오케스트레이션
+
+## Claude Code 설치
+
+Claude Code는 marketplace 기반 설치 모델을 사용합니다.
+
+```text
+/plugin marketplace add your-org/claude-plugins
+/plugin install plugin-name@marketplace-name
+```
+
+설치 범위:
+
+- User: 내 계정 전체
+- Project: 저장소와 공유
+- Local: 현재 저장소에서만 사용
+
+## 에이전트에 반드시 넣어야 할 안전 규칙
+
+- 새 저장소는 publish보다 setup 우선
+- 기존 저장소도 publish 전에 preview 우선
+- 되돌릴 수 없는 작업 전에는 명시적 승인
+- 버전, 레지스트리, 부작용을 평문으로 설명
+- git 상태, 인증, CI 가정이 준비되지 않았으면 중단
+
+좋은 에이전트는 `publish-setup`으로 시작하고, 실제 publish 전에 정확한 preview 명령을 보여주며, 실패 시 예상 원인을 설명합니다.
+
+자세한 명령 표면은 [CLI Reference](/pubm/ko/reference/cli/)를 참고하세요.
