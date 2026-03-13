@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Ctx } from "@pubm/core";
+import type { PubmContext } from "@pubm/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { externalVersionSync } from "../../src/index.js";
 
@@ -36,7 +36,7 @@ describe("externalVersionSync", () => {
       targets: [{ file: filePath, jsonPath: "version" }],
     });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await plugin.hooks?.afterVersion?.(ctx);
 
     const result = JSON.parse(readFileSync(filePath, "utf-8"));
@@ -56,7 +56,7 @@ describe("externalVersionSync", () => {
       ],
     });
 
-    const ctx = { version: "2.0.0" } as Ctx;
+    const ctx = { runtime: { version: "2.0.0" } } as unknown as PubmContext;
     await plugin.hooks?.afterVersion?.(ctx);
 
     const jsonResult = JSON.parse(readFileSync(jsonFile, "utf-8"));
@@ -74,7 +74,7 @@ describe("externalVersionSync", () => {
       targets: [{ file: filePath, jsonPath: "ver" }],
     });
 
-    const ctx = { version: "3.0.0" } as Ctx;
+    const ctx = { runtime: { version: "3.0.0" } } as unknown as PubmContext;
     await plugin.hooks?.afterVersion?.(ctx);
 
     const result = JSON.parse(readFileSync(filePath, "utf-8"));
@@ -91,7 +91,7 @@ describe("externalVersionSync", () => {
       targets: [{ file: filePath, jsonPath: "version" }],
     });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await plugin.hooks?.afterVersion?.(ctx);
 
     expect(consoleSpy).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe("externalVersionSync", () => {
       ],
     });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await expect(plugin.hooks?.afterVersion?.(ctx)).rejects.toThrow(
       "failed for 1 target(s)",
     );
@@ -125,7 +125,7 @@ describe("externalVersionSync", () => {
   it("empty targets array works fine", async () => {
     const plugin = externalVersionSync({ targets: [] });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await expect(plugin.hooks?.afterVersion?.(ctx)).resolves.toBeUndefined();
   });
 
@@ -140,7 +140,7 @@ describe("externalVersionSync", () => {
       ],
     });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await expect(plugin.hooks?.afterVersion?.(ctx)).rejects.toThrow(
       "failed for 2 target(s)",
     );
@@ -156,7 +156,7 @@ describe("externalVersionSync", () => {
       targets: [{ file: filePath, jsonPath: "version" }],
     });
 
-    const ctx = { version: "1.0.0" } as Ctx;
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
     await plugin.hooks?.afterVersion?.(ctx);
 
     expect(consoleSpy).not.toHaveBeenCalled();
