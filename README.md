@@ -37,9 +37,13 @@ pubm treats multi-registry publishing as a first-class orchestration problem. No
 
 npm, jsr, crates.io, and custom npm-compatible registries are all built into the core. Publishing to multiple registries isn't a special case — it's the default path. They run concurrently where possible, sequentially where dependencies require it.
 
-```bash
-pubm patch --registry npm,jsr,https://registry.example.com
-```
+Registries are automatically inferred from your manifest files — no configuration needed:
+
+- `package.json` → publishes to **npm**
+- `jsr.json` (or `"exports"` in package.json) → publishes to **jsr**
+- `Cargo.toml` → publishes to **crates.io**
+
+If you have both `package.json` and `jsr.json`, pubm publishes to both npm and jsr in a single release.
 
 ### Multi-ecosystem
 
@@ -115,12 +119,25 @@ pubm snapshot              # → 0.0.0-snapshot-20260309T123456
 
 ## Configuration and Plugins
 
-Configure pubm through `pubm.config.ts`:
+For most packages, no configuration file is needed — pubm infers everything from your manifest files. For advanced use cases, configure pubm through `pubm.config.ts`:
 
 ```ts
 import { defineConfig } from "pubm";
 
 export default defineConfig({
+  // Registries are inferred from manifest files automatically.
+  // Use packages[].registries to override for specific packages,
+  // or to add a private registry:
+  packages: [
+    {
+      path: "packages/my-package",
+      registries: [
+        "npm",
+        "jsr",
+        { url: "https://registry.example.com", token: { envVar: "MY_REGISTRY_TOKEN" } },
+      ],
+    },
+  ],
   plugins: [
     {
       name: "my-plugin",
