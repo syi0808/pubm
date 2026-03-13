@@ -194,13 +194,11 @@ async function collectDryRunPublishTasks(ctx: Ctx) {
           let siblingNames: string[] | undefined;
           if (packagePaths.length > 1) {
             const eco = await import("../ecosystem/index.js");
-            const ecosystem = await eco.detectEcosystem(packagePaths[0], [
-              registry,
-            ]);
+            const ecosystem = await eco.detectEcosystem(packagePaths[0]);
             if (ecosystem) {
               siblingNames = await Promise.all(
                 packagePaths.map(async (p) => {
-                  const e = await eco.detectEcosystem(p, [registry]);
+                  const e = await eco.detectEcosystem(p);
                   return e ? await e.packageName() : p;
                 }),
               );
