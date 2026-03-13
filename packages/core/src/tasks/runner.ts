@@ -19,6 +19,7 @@ import {
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { discoverPackageInfos } from "../changeset/packages.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
+import { loadConfig } from "../config/loader.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { PluginRunner } from "../plugin/runner.js";
@@ -42,7 +43,6 @@ import {
   rollbackLog,
 } from "../utils/rollback.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
-import { loadConfig } from "../config/loader.js";
 import { injectTokensToEnv } from "../utils/token.js";
 import { createCratesPublishTask } from "./crates.js";
 import {
@@ -470,10 +470,7 @@ export async function run(options: ResolvedOptions): Promise<void> {
               task.output = `Snapshot version: ${snapshotVersion}`;
 
               // Temporarily replace manifest version
-              await replaceVersion(
-                snapshotVersion,
-                ctx.packages,
-              );
+              await replaceVersion(snapshotVersion, ctx.packages);
 
               try {
                 // Publish with snapshot tag

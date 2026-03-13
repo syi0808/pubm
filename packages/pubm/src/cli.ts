@@ -125,9 +125,7 @@ export function createProgram(): Command {
         console.clear();
 
         if (options.snapshot && options.preflight) {
-          throw new Error(
-            "Cannot use --snapshot and --preflight together.",
-          );
+          throw new Error("Cannot use --snapshot and --preflight together.");
         }
 
         if (!isCI) {

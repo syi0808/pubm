@@ -118,7 +118,6 @@ export async function runVersionCommand(
     } else {
       writeChangelogToFile(cwd, changelogContent);
     }
-
   }
 
   if (dryRun) {
