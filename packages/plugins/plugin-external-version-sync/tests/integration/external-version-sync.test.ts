@@ -1,25 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Ctx } from "@pubm/core";
-import { PluginRunner } from "@pubm/core";
+import type { PubmContext } from "@pubm/core";
+import { createContext, PluginRunner } from "@pubm/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { externalVersionSync } from "../../src/index.js";
 
 const tmpDir = path.join(import.meta.dirname, ".tmp-ext-version-sync");
 
-function makeCtx(version: string): Ctx {
-  return {
-    version,
+function makeCtx(version: string): PubmContext {
+  const ctx = createContext({ packages: [], plugins: [] } as any, {
     testScript: "test",
     buildScript: "build",
     branch: "main",
     tag: "latest",
     saveToken: false,
-    registries: [],
-    promptEnabled: false,
-    cleanWorkingTree: true,
-    pluginRunner: new PluginRunner([]),
-  } as Ctx;
+  });
+  ctx.runtime.version = version;
+  return ctx;
 }
 
 describe("externalVersionSync integration", () => {
