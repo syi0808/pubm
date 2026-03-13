@@ -31,7 +31,7 @@ describe("jsrPublishTasks — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (jsrPublishTasks as any).task(ctx, mockTask);
 
@@ -51,7 +51,7 @@ describe("jsrPublishTasks — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (jsrPublishTasks as any).task(ctx, mockTask);
 
@@ -67,7 +67,7 @@ describe("jsrPublishTasks — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { promptEnabled: true, version: "1.0.0" } as any;
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
     await (jsrPublishTasks as any).task(ctx, mockTask);
 

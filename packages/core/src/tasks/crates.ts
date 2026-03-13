@@ -54,7 +54,7 @@ export function createCratesPublishTask(
       const registry = new CratesRegistry(packageName);
 
       // Pre-check: skip if version already published
-      if (await registry.isVersionPublished(ctx.runtime.version)) {
+      if (await registry.isVersionPublished(ctx.runtime.version!)) {
         task.title = `[SKIPPED] crates.io${label}: v${ctx.runtime.version} already published`;
         task.output = `⚠ ${packageName}@${ctx.runtime.version} is already published on crates.io`;
         return task.skip();

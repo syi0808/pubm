@@ -60,9 +60,9 @@ describe("createGitHubRelease", () => {
     process.env.GITHUB_TOKEN = "";
     const { createGitHubRelease } = await freshImport();
 
-    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
-      /GITHUB_TOKEN environment variable is required/,
-    );
+    await expect(
+      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+    ).rejects.toThrow(/GITHUB_TOKEN environment variable is required/);
   });
 
   it("builds release notes from commits when no changelog body is provided", async () => {
@@ -96,7 +96,9 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease({ version: "1.2.0" });
+    const result = await createGitHubRelease({
+      runtime: { version: "1.2.0" },
+    } as any);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -179,12 +181,14 @@ describe("createGitHubRelease", () => {
 
     const result = await createGitHubRelease(
       {
-        version: "2.0.0-beta.1",
-        versions: new Map([
-          ["@pubm/core", "2.0.0-beta.1"],
-          ["pubm", "2.0.0-beta.1"],
-        ]),
-      },
+        runtime: {
+          version: "2.0.0-beta.1",
+          versions: new Map([
+            ["@pubm/core", "2.0.0-beta.1"],
+            ["pubm", "2.0.0-beta.1"],
+          ]),
+        },
+      } as any,
       "Release notes from CHANGELOG",
     );
 
@@ -258,7 +262,9 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease({ version: "1.2.0" });
+    const result = await createGitHubRelease({
+      runtime: { version: "1.2.0" },
+    } as any);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.assets).toEqual([]);
@@ -287,7 +293,9 @@ describe("createGitHubRelease", () => {
       text: vi.fn().mockResolvedValue("validation failed"),
     }) as any;
 
-    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
+    await expect(
+      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+    ).rejects.toThrow(
       /Failed to create GitHub Release \(422\): validation failed/,
     );
   });
@@ -354,7 +362,9 @@ describe("createGitHubRelease", () => {
         text: vi.fn().mockResolvedValue("upload failed"),
       }) as any;
 
-    await expect(createGitHubRelease({ version: "1.2.0" })).rejects.toThrow(
+    await expect(
+      createGitHubRelease({ runtime: { version: "1.2.0" } } as any),
+    ).rejects.toThrow(
       /Failed to upload asset pubm-linux-x64\.tar\.gz \(500\): upload failed/,
     );
   });
@@ -370,9 +380,9 @@ describe("createGitHubRelease", () => {
     } as any);
     global.fetch = vi.fn() as any;
 
-    await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
-      /Cannot parse owner\/repo from remote URL/,
-    );
+    await expect(
+      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+    ).rejects.toThrow(/Cannot parse owner\/repo from remote URL/);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

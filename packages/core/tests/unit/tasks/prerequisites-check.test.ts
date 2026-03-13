@@ -13,30 +13,29 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createCiListrOptions: vi.fn(),
 }));
 
-import type { Ctx } from "../../../src/tasks/runner.js";
+import type { PubmContext } from "../../../src/context.js";
+import { makeTestContext } from "../../helpers/make-context.js";
 
-function createCtx(overrides: Partial<Ctx> = {}): Ctx {
-  return {
-    promptEnabled: true,
-    npmOnly: false,
-    jsrOnly: false,
-    cleanWorkingTree: true,
-    registries: ["npm"],
-    version: "1.0.0",
-    tag: "latest",
-    branch: "main",
-    anyBranch: false,
-    testScript: "test",
-    buildScript: "build",
-    skipTests: false,
-    skipBuild: false,
-    skipPublish: false,
-    skipPrerequisitesCheck: false,
-    skipConditionsCheck: false,
-    skipReleaseDraft: false,
-    publishOnly: false,
-    ...overrides,
-  } as Ctx;
+function createCtx(
+  overrides: {
+    config?: Partial<PubmContext["config"]>;
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
+  return makeTestContext({
+    config: overrides.config,
+    options: {
+      anyBranch: false,
+      ...overrides.options,
+    },
+    runtime: {
+      version: "1.0.0",
+      promptEnabled: true,
+      cleanWorkingTree: true,
+      ...overrides.runtime,
+    },
+  });
 }
 
 function createMockTask(promptResponses: any[] = []) {
@@ -156,7 +155,7 @@ describe("prerequisitesCheckTask", () => {
     it("skips when ctx.anyBranch is true", async () => {
       const subtasks = await getSubtasks();
       const branchTask = subtasks[0];
-      const ctx = createCtx({ anyBranch: true });
+      const ctx = createCtx({ options: { anyBranch: true } });
 
       expect(branchTask.skip(ctx)).toBe(true);
     });
@@ -164,7 +163,7 @@ describe("prerequisitesCheckTask", () => {
     it("does not skip when ctx.anyBranch is false", async () => {
       const subtasks = await getSubtasks();
       const branchTask = subtasks[0];
-      const ctx = createCtx({ anyBranch: false });
+      const ctx = createCtx({ options: { anyBranch: false } });
 
       expect(branchTask.skip(ctx)).toBe(false);
     });
@@ -172,7 +171,7 @@ describe("prerequisitesCheckTask", () => {
     it("passes silently when on the correct branch", async () => {
       const subtasks = await getSubtasks();
       const branchTask = subtasks[0];
-      const ctx = createCtx({ branch: "main" });
+      const ctx = createCtx({ options: { branch: "main" } });
       const task = createMockTask();
 
       mockGitInstance.branch.mockResolvedValue("main");
@@ -186,7 +185,7 @@ describe("prerequisitesCheckTask", () => {
     it("prompts and switches branch when user confirms", async () => {
       const subtasks = await getSubtasks();
       const branchTask = subtasks[0];
-      const ctx = createCtx({ branch: "main" });
+      const ctx = createCtx({ options: { branch: "main" } });
       const task = createMockTask([true]);
 
       mockGitInstance.branch.mockResolvedValue("develop");
@@ -201,7 +200,7 @@ describe("prerequisitesCheckTask", () => {
     it("throws PrerequisitesCheckError when user declines branch switch", async () => {
       const subtasks = await getSubtasks();
       const branchTask = subtasks[0];
-      const ctx = createCtx({ branch: "main" });
+      const ctx = createCtx({ options: { branch: "main" } });
       const task = createMockTask([false]);
 
       mockGitInstance.branch.mockResolvedValue("develop");
@@ -326,7 +325,7 @@ describe("prerequisitesCheckTask", () => {
 
       await workingTreeTask.task(ctx, task);
 
-      expect(ctx.cleanWorkingTree).toBe(true);
+      expect(ctx.runtime.cleanWorkingTree).toBe(true);
       expect(task.prompt).not.toHaveBeenCalled();
     });
 
@@ -340,7 +339,7 @@ describe("prerequisitesCheckTask", () => {
 
       await workingTreeTask.task(ctx, task);
 
-      expect(ctx.cleanWorkingTree).toBe(false);
+      expect(ctx.runtime.cleanWorkingTree).toBe(false);
       expect(task.prompt).toHaveBeenCalledOnce();
     });
 
@@ -438,7 +437,7 @@ describe("prerequisitesCheckTask", () => {
     it("passes silently when tag does not exist", async () => {
       const subtasks = await getSubtasks();
       const tagTask = subtasks[4];
-      const ctx = createCtx({ version: "1.0.0" });
+      const ctx = createCtx({ runtime: { version: "1.0.0" } });
       const task = createMockTask();
 
       mockGitInstance.checkTagExist.mockResolvedValue(false);
@@ -453,7 +452,7 @@ describe("prerequisitesCheckTask", () => {
     it("prompts and deletes tag when user confirms", async () => {
       const subtasks = await getSubtasks();
       const tagTask = subtasks[4];
-      const ctx = createCtx({ version: "2.0.0" });
+      const ctx = createCtx({ runtime: { version: "2.0.0" } });
       const task = createMockTask([true]);
 
       mockGitInstance.checkTagExist.mockResolvedValue(true);
@@ -468,7 +467,7 @@ describe("prerequisitesCheckTask", () => {
     it("throws when tag exists and user declines delete", async () => {
       const subtasks = await getSubtasks();
       const tagTask = subtasks[4];
-      const ctx = createCtx({ version: "2.0.0" });
+      const ctx = createCtx({ runtime: { version: "2.0.0" } });
       const task = createMockTask([false]);
 
       mockGitInstance.checkTagExist.mockResolvedValue(true);
@@ -481,7 +480,7 @@ describe("prerequisitesCheckTask", () => {
     it("constructs the correct tag format from ctx.version", async () => {
       const subtasks = await getSubtasks();
       const tagTask = subtasks[4];
-      const ctx = createCtx({ version: "3.1.4-beta.1" });
+      const ctx = createCtx({ runtime: { version: "3.1.4-beta.1" } });
       const task = createMockTask();
 
       mockGitInstance.checkTagExist.mockResolvedValue(false);

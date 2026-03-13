@@ -69,7 +69,7 @@ describe("dry-run publish — already published", () => {
       };
       vi.mocked(npmRegistry).mockResolvedValue(mockNpm as any);
 
-      const ctx = { version: "1.0.0" } as any;
+      const ctx = { runtime: { version: "1.0.0" } } as any;
       await (npmDryRunPublishTask as any).task(ctx, mockTask);
 
       expect(mockNpm.isVersionPublished).toHaveBeenCalledWith("1.0.0");
@@ -87,7 +87,7 @@ describe("dry-run publish — already published", () => {
       };
       vi.mocked(jsrRegistry).mockResolvedValue(mockJsr as any);
 
-      const ctx = { version: "1.0.0" } as any;
+      const ctx = { runtime: { version: "1.0.0" } } as any;
       await (jsrDryRunPublishTask as any).task(ctx, mockTask);
 
       expect(mockJsr.isVersionPublished).toHaveBeenCalledWith("1.0.0");
@@ -115,7 +115,7 @@ describe("dry-run publish — already published", () => {
       });
 
       const task = createCratesDryRunPublishTask();
-      const ctx = { version: "1.0.0" } as any;
+      const ctx = { runtime: { version: "1.0.0" } } as any;
       await (task as any).task(ctx, mockTask);
 
       expect(mockRegistry.isVersionPublished).toHaveBeenCalledWith("1.0.0");

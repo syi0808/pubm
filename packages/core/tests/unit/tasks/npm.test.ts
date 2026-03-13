@@ -12,12 +12,12 @@ vi.mock("../../../src/utils/spawn-interactive.js", () => ({
   spawnInteractive: vi.fn(),
 }));
 
+import type { PubmContext } from "../../../src/context.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
   npmPublishTasks,
 } from "../../../src/tasks/npm.js";
-import type { Ctx } from "../../../src/tasks/runner.js";
 import { openUrl } from "../../../src/utils/open-url.js";
 import { spawnInteractive } from "../../../src/utils/spawn-interactive.js";
 
@@ -109,27 +109,32 @@ function createMockTask() {
   };
 }
 
-function createCtx(overrides: Partial<Ctx> = {}): Ctx {
+function createCtx(
+  overrides: {
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
   return {
-    promptEnabled: true,
-    npmOnly: false,
-    jsrOnly: false,
-    cleanWorkingTree: true,
-    registries: ["npm"],
-    version: "1.0.0",
-    tag: "latest",
-    branch: "main",
-    testScript: "test",
-    buildScript: "build",
-    skipTests: false,
-    skipBuild: false,
-    skipPublish: false,
-    skipPrerequisitesCheck: false,
-    skipConditionsCheck: false,
-    skipReleaseDraft: false,
-    publishOnly: false,
-    ...overrides,
-  } as Ctx;
+    config: { packages: [{ path: ".", registries: ["npm"] }] },
+    options: {
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
+      saveToken: true,
+      ...overrides.options,
+    },
+    cwd: process.cwd(),
+    runtime: {
+      version: "1.0.0",
+      tag: "latest",
+      promptEnabled: true,
+      cleanWorkingTree: true,
+      pluginRunner: {} as any,
+      ...overrides.runtime,
+    },
+  } as PubmContext;
 }
 
 let mockNpm: ReturnType<typeof createMockNpm>;
@@ -149,10 +154,12 @@ describe("npmAvailableCheckTasks", () => {
   describe("task", () => {
     it("throws with CI-specific message when not logged in and promptEnabled is false", async () => {
       mockNpm.isLoggedIn.mockResolvedValue(false);
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+        (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
+          ctx,
+        ),
       ).rejects.toThrow(
         "Not logged in to npm. Set NODE_AUTH_TOKEN in your CI environment.",
       );
@@ -163,11 +170,14 @@ describe("npmAvailableCheckTasks", () => {
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
       mockSpawnResult(0);
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       await (
-        npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+        npmAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockedSpawnInteractive).toHaveBeenCalledWith(["npm", "login"]);
@@ -181,11 +191,14 @@ describe("npmAvailableCheckTasks", () => {
       const child = createMockChild();
       mockedSpawnInteractive.mockReturnValue(child as any);
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       const promise = (
-        npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>
+        npmAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       // Wait for spawn to be called
@@ -212,14 +225,16 @@ describe("npmAvailableCheckTasks", () => {
     it("throws when npm login command fails in TTY mode", async () => {
       mockNpm.isLoggedIn.mockResolvedValue(false);
       mockSpawnResult(1);
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        ),
+        (
+          npmAvailableCheckTasks.task as (
+            ctx: PubmContext,
+            task: any,
+          ) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow(
         "npm login failed. Please run `npm login` manually and try again.",
       );
@@ -230,14 +245,16 @@ describe("npmAvailableCheckTasks", () => {
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false);
       mockSpawnResult(0);
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        ),
+        (
+          npmAvailableCheckTasks.task as (
+            ctx: PubmContext,
+            task: any,
+          ) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow(
         "Still not logged in after npm login. Please verify your credentials.",
       );
@@ -257,8 +274,8 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.hasPermission.mockResolvedValue(true);
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
-          createCtx({ promptEnabled: true }),
+        (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
+          createCtx({ runtime: { promptEnabled: true } }),
         ),
       ).resolves.toBeUndefined();
     });
@@ -267,9 +284,9 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPublished.mockResolvedValue(false);
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
 
-      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
-        createCtx({ promptEnabled: true }),
-      );
+      await (
+        npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>
+      )(createCtx({ promptEnabled: true }));
 
       expect(mockNpm.isPackageNameAvaliable).toHaveBeenCalledOnce();
     });
@@ -288,8 +305,8 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(
-          createCtx({ promptEnabled: true }),
+        (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
+          createCtx({ runtime: { promptEnabled: true } }),
         ),
       ).resolves.toBeUndefined();
     });
@@ -298,10 +315,12 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPublished.mockResolvedValue(false);
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
       mockNpm.twoFactorAuthMode.mockResolvedValue("auth-and-writes");
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+        (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
+          ctx,
+        ),
       ).rejects.toThrow(
         "npm account has 2FA enabled for writes (auth-and-writes)",
       );
@@ -311,19 +330,23 @@ describe("npmAvailableCheckTasks", () => {
       mockNpm.isPublished.mockResolvedValue(false);
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
       mockNpm.twoFactorAuthMode.mockResolvedValue("auth-only");
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
 
       await expect(
-        (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx),
+        (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
+          ctx,
+        ),
       ).resolves.toBeUndefined();
     });
 
     it("skips 2FA check in TTY mode", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
       mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
 
-      await (npmAvailableCheckTasks.task as (ctx: Ctx) => Promise<void>)(ctx);
+      await (
+        npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>
+      )(ctx);
 
       expect(mockNpm.twoFactorAuthMode).not.toHaveBeenCalled();
     });
@@ -333,8 +356,10 @@ describe("npmAvailableCheckTasks", () => {
 describe("npmPublishTasks", () => {
   describe("skip", () => {
     it("returns true when preview is true", () => {
-      const ctx = createCtx({ preview: true });
-      const result = (npmPublishTasks.skip as (ctx: Ctx) => boolean)(ctx);
+      const ctx = createCtx({ options: { preview: true } });
+      const result = (npmPublishTasks.skip as (ctx: PubmContext) => boolean)(
+        ctx,
+      );
 
       expect(result).toBe(true);
     });
@@ -342,14 +367,13 @@ describe("npmPublishTasks", () => {
 
   describe("task — TTY mode (promptEnabled=true)", () => {
     it("publishes successfully without OTP", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
       mockNpm.publish.mockResolvedValue(true);
 
-      await (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(task.output).toBe("Publishing on npm...");
       expect(mockNpm.publish).toHaveBeenCalledOnce();
@@ -357,7 +381,7 @@ describe("npmPublishTasks", () => {
     });
 
     it("prompts for OTP when publish returns false, retries until success", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       mockNpm.publish
@@ -368,10 +392,9 @@ describe("npmPublishTasks", () => {
       const mockRun = vi.fn().mockResolvedValue("123456");
       task.prompt.mockReturnValue({ run: mockRun });
 
-      await (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(task.title).toBe("Running npm publish (2FA passed)");
       expect(mockNpm.publish).toHaveBeenCalledTimes(3);
@@ -382,7 +405,7 @@ describe("npmPublishTasks", () => {
     });
 
     it("sets task title to OTP needed on first failure", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       mockNpm.publish.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
@@ -390,17 +413,16 @@ describe("npmPublishTasks", () => {
       const mockRun = vi.fn().mockResolvedValue("654321");
       task.prompt.mockReturnValue({ run: mockRun });
 
-      await (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(task.title).toBe("Running npm publish (2FA passed)");
       expect(mockNpm.publish).toHaveBeenCalledTimes(2);
     });
 
     it('sets task output to "2FA failed" on OTP retry failure', async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       mockNpm.publish
@@ -411,10 +433,9 @@ describe("npmPublishTasks", () => {
       const mockRun = vi.fn().mockResolvedValue("000000");
       task.prompt.mockReturnValue({ run: mockRun });
 
-      await (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       // After the second publish (first OTP attempt) fails, output is set to '2FA failed'
       // Then the third publish succeeds
@@ -422,7 +443,7 @@ describe("npmPublishTasks", () => {
     });
 
     it("throws after 3 failed OTP attempts", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       // Initial publish fails, then all 3 OTP attempts fail
@@ -436,10 +457,9 @@ describe("npmPublishTasks", () => {
       task.prompt.mockReturnValue({ run: mockRun });
 
       await expect(
-        (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        ),
+        (
+          npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow("OTP verification failed after 3 attempts.");
 
       // Initial publish + 3 OTP attempts = 4 calls
@@ -450,17 +470,19 @@ describe("npmPublishTasks", () => {
 
   describe("task — CI mode (promptEnabled=false)", () => {
     it("throws when NODE_AUTH_TOKEN is not set", async () => {
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
       const originalEnv = process.env.NODE_AUTH_TOKEN;
       delete process.env.NODE_AUTH_TOKEN;
 
       try {
         await expect(
-          (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-            ctx,
-            task,
-          ),
+          (
+            npmPublishTasks.task as (
+              ctx: PubmContext,
+              task: any,
+            ) => Promise<void>
+          )(ctx, task),
         ).rejects.toThrow(
           "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:",
         );
@@ -472,16 +494,15 @@ describe("npmPublishTasks", () => {
     });
 
     it("calls publishProvenance when NODE_AUTH_TOKEN is set", async () => {
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
       const originalEnv = process.env.NODE_AUTH_TOKEN;
       process.env.NODE_AUTH_TOKEN = "npm_test_token";
 
       try {
-        await (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        );
+        await (
+          npmPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task);
 
         expect(mockNpm.publishProvenance).toHaveBeenCalledOnce();
         expect(mockNpm.publish).not.toHaveBeenCalled();
@@ -495,7 +516,7 @@ describe("npmPublishTasks", () => {
     });
 
     it("throws when publishProvenance returns false (2FA required)", async () => {
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
       const originalEnv = process.env.NODE_AUTH_TOKEN;
       process.env.NODE_AUTH_TOKEN = "npm_test_token";
@@ -504,10 +525,12 @@ describe("npmPublishTasks", () => {
 
       try {
         await expect(
-          (npmPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-            ctx,
-            task,
-          ),
+          (
+            npmPublishTasks.task as (
+              ctx: PubmContext,
+              task: any,
+            ) => Promise<void>
+          )(ctx, task),
         ).rejects.toThrow(
           "In CI environment, publishing with 2FA is not allowed",
         );

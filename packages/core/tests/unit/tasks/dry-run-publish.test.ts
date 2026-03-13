@@ -88,7 +88,7 @@ describe("npmDryRunPublishTask", () => {
       isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
-    await (npmDryRunPublishTask as any).task({}, { output: "" });
+    await (npmDryRunPublishTask as any).task({ runtime: {} }, { output: "" });
     expect(mockDryRun).toHaveBeenCalled();
   });
 });
@@ -105,7 +105,7 @@ describe("jsrDryRunPublishTask", () => {
       isVersionPublished: vi.fn().mockResolvedValue(false),
     } as any);
 
-    await (jsrDryRunPublishTask as any).task({}, { output: "" });
+    await (jsrDryRunPublishTask as any).task({ runtime: {} }, { output: "" });
     expect(mockDryRun).toHaveBeenCalled();
   });
 });
@@ -138,7 +138,7 @@ describe("createCratesDryRunPublishTask", () => {
     });
 
     const task = createCratesDryRunPublishTask("packages/my-crate");
-    await (task as any).task({}, { output: "" });
+    await (task as any).task({ runtime: {} }, { output: "" });
     expect(mockDryRun).toHaveBeenCalledWith("packages/my-crate");
   });
 
@@ -162,7 +162,7 @@ describe("createCratesDryRunPublishTask", () => {
       "my-lib",
       "my-cli",
     ]);
-    await (task as any).task({}, mockTask);
+    await (task as any).task({ runtime: {} }, mockTask);
     expect(mockTask.title).toContain("skipped");
     expect(mockTask.title).toContain("my-lib");
   });
@@ -188,7 +188,7 @@ describe("createCratesDryRunPublishTask", () => {
       "my-lib",
       "my-cli",
     ]);
-    await (task as any).task({}, mockTask);
+    await (task as any).task({ runtime: {} }, mockTask);
     expect(mockDryRun).toHaveBeenCalledWith("packages/my-cli");
   });
 
@@ -219,7 +219,7 @@ describe("createCratesDryRunPublishTask", () => {
       "my-lib",
       "my-cli",
     ]);
-    await (task as any).task({}, mockTask);
+    await (task as any).task({ runtime: {} }, mockTask);
     expect(mockTask.title).toContain("skipped");
     expect(mockTask.title).toContain("my-lib");
   });
@@ -251,7 +251,7 @@ describe("createCratesDryRunPublishTask", () => {
       "my-lib",
       "my-cli",
     ]);
-    await expect((task as any).task({}, mockTask)).rejects.toThrow(
+    await expect((task as any).task({ runtime: {} }, mockTask)).rejects.toThrow(
       "unknown-crate",
     );
   });
@@ -274,7 +274,9 @@ describe("createCratesDryRunPublishTask", () => {
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli");
-    await expect((task as any).task({}, mockTask)).rejects.toThrow("my-lib");
+    await expect((task as any).task({ runtime: {} }, mockTask)).rejects.toThrow(
+      "my-lib",
+    );
   });
 });
 
@@ -297,7 +299,7 @@ describe("withTokenRetry", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await (npmDryRunPublishTask as any).task({}, mockTask);
+    await (npmDryRunPublishTask as any).task({ runtime: {} }, mockTask);
 
     expect(mockDryRun).toHaveBeenCalledTimes(2);
     expect(process.env.NODE_AUTH_TOKEN).toBe("new-token");
@@ -316,7 +318,7 @@ describe("withTokenRetry", () => {
     const mockTask = { output: "", prompt: vi.fn() };
 
     await expect(
-      (npmDryRunPublishTask as any).task({}, mockTask),
+      (npmDryRunPublishTask as any).task({ runtime: {} }, mockTask),
     ).rejects.toThrow("network timeout");
 
     expect(mockDryRun).toHaveBeenCalledTimes(1);
@@ -346,7 +348,7 @@ describe("withTokenRetry", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await (jsrDryRunPublishTask as any).task({}, mockTask);
+    await (jsrDryRunPublishTask as any).task({ runtime: {} }, mockTask);
 
     expect(mockDbSet).toHaveBeenCalledWith("jsr-token", "fresh-jsr-token");
 

@@ -239,7 +239,7 @@ export const jsrPublishTasks: ListrTask<PubmContext> = {
     const jsr = await jsrRegistry();
 
     // Pre-check: skip if version already published
-    if (await jsr.isVersionPublished(ctx.runtime.version)) {
+    if (await jsr.isVersionPublished(ctx.runtime.version!)) {
       task.title = `[SKIPPED] jsr: v${ctx.runtime.version} already published`;
       task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
       return task.skip();

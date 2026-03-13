@@ -31,27 +31,29 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createCiListrOptions: vi.fn(),
 }));
 
-import type { Ctx } from "../../../src/tasks/runner.js";
+import type { PubmContext } from "../../../src/context.js";
+import { makeTestContext } from "../../helpers/make-context.js";
 
-function createCtx(overrides: Partial<Ctx> = {}): Ctx {
-  return {
-    promptEnabled: true,
-    cleanWorkingTree: true,
-    version: "1.0.0",
-    tag: "latest",
-    branch: "main",
-    testScript: "test",
-    buildScript: "build",
-    skipTests: false,
-    skipBuild: false,
-    skipPublish: false,
-    skipPrerequisitesCheck: false,
-    skipConditionsCheck: false,
-    skipReleaseDraft: false,
-    publishOnly: false,
-    packages: [{ path: ".", registries: ["npm"] }],
-    ...overrides,
-  } as Ctx;
+function createCtx(
+  overrides: {
+    config?: Partial<PubmContext["config"]>;
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
+  return makeTestContext({
+    config: {
+      packages: [{ path: ".", registries: ["npm"] }],
+      ...overrides.config,
+    },
+    options: overrides.options,
+    runtime: {
+      version: "1.0.0",
+      promptEnabled: true,
+      cleanWorkingTree: true,
+      ...overrides.runtime,
+    },
+  });
 }
 
 let mockGitInstance: Record<string, ReturnType<typeof vi.fn>>;
@@ -194,7 +196,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const pingTask = subtasks[0];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
       });
 
       const mockRegistry1 = { ping: vi.fn().mockResolvedValue(true) };
@@ -246,7 +248,9 @@ describe("requiredConditionsCheckTask", () => {
     it("pings a single registry", async () => {
       const subtasks = await getSubtasks();
       const pingTask = subtasks[0];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["npm"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
+      });
 
       const mockRegistry = { ping: vi.fn().mockResolvedValue(true) };
       const { getRegistry: mockGetRegistry } = await import(
@@ -287,7 +291,9 @@ describe("requiredConditionsCheckTask", () => {
     it("propagates ping errors", async () => {
       const subtasks = await getSubtasks();
       const pingTask = subtasks[0];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["npm"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
+      });
 
       const mockRegistry = {
         ping: vi.fn().mockRejectedValue(new Error("ping failed")),
@@ -325,7 +331,9 @@ describe("requiredConditionsCheckTask", () => {
     it("skips when all registries have needsPackageScripts false (e.g., jsr only)", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["jsr"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["jsr"] }] },
+      });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
     });
@@ -334,7 +342,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(false);
@@ -344,7 +352,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["crates"] }],
+        config: { packages: [{ path: ".", registries: ["crates"] }] },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
@@ -353,7 +361,9 @@ describe("requiredConditionsCheckTask", () => {
     it("passes when both test and build scripts exist", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
-      const ctx = createCtx({ testScript: "test", buildScript: "build" });
+      const ctx = createCtx({
+        options: { testScript: "test", buildScript: "build" },
+      });
 
       const { getPackageJson: mockGetPkg } = await import(
         "../../../src/utils/package.js"
@@ -371,9 +381,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipTests: false,
+        options: { testScript: "test", buildScript: "build", skipTests: false },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -394,9 +402,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipTests: true,
+        options: { testScript: "test", buildScript: "build", skipTests: true },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -415,9 +421,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipBuild: false,
+        options: { testScript: "test", buildScript: "build", skipBuild: false },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -438,9 +442,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipBuild: true,
+        options: { testScript: "test", buildScript: "build", skipBuild: true },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -459,10 +461,12 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipTests: false,
-        skipBuild: false,
+        options: {
+          testScript: "test",
+          buildScript: "build",
+          skipTests: false,
+          skipBuild: false,
+        },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -483,10 +487,12 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "test",
-        buildScript: "build",
-        skipTests: false,
-        skipBuild: false,
+        options: {
+          testScript: "test",
+          buildScript: "build",
+          skipTests: false,
+          skipBuild: false,
+        },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -506,8 +512,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        testScript: "custom-test",
-        buildScript: "custom-build",
+        options: { testScript: "custom-test", buildScript: "custom-build" },
       });
 
       const { getPackageJson: mockGetPkg } = await import(
@@ -571,7 +576,9 @@ describe("requiredConditionsCheckTask", () => {
     it("uses catalog descriptor to create availability task for npm", async () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["npm"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
+      });
 
       const mockCheckAvailability = vi.fn().mockResolvedValue(undefined);
       const mockRegistry = { checkAvailability: mockCheckAvailability };
@@ -621,7 +628,9 @@ describe("requiredConditionsCheckTask", () => {
     it("uses catalog descriptor to create availability task for jsr", async () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["jsr"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["jsr"] }] },
+      });
 
       const mockCheckAvailability = vi.fn().mockResolvedValue(undefined);
       const mockRegistry = { checkAvailability: mockCheckAvailability };
@@ -672,7 +681,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["custom-registry"] }],
+        config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
       });
 
       const { registryCatalog: mockCatalog } = await import(
@@ -714,7 +723,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["npm", "jsr"] }],
+        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
       });
 
       const npmDescriptor = makeNpmDescriptor();
@@ -768,7 +777,9 @@ describe("requiredConditionsCheckTask", () => {
     it("passes concurrent option to newListr", async () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
-      const ctx = createCtx({ packages: [{ path: ".", registries: ["npm"] }] });
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["npm"] }] },
+      });
 
       const innerParentTask = {
         newListr: vi.fn((tasks: any[], _opts?: any) => {
@@ -787,7 +798,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
       const ctx = createCtx({
-        packages: [{ path: ".", registries: ["crates"] }],
+        config: { packages: [{ path: ".", registries: ["crates"] }] },
       });
 
       const cratesDescriptor = makeCratesDescriptor();
@@ -835,11 +846,13 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const pingTask = subtasks[0];
       const ctx = createCtx({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/my-crate", registries: ["crates"] },
-        ],
-      } as any);
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/my-crate", registries: ["crates"] },
+          ],
+        },
+      });
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -883,12 +896,14 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
       const ctx = createCtx({
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/lib-a", registries: ["crates"] },
-          { path: "rust/crates/lib-b", registries: ["crates"] },
-        ],
-      } as any);
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/lib-a", registries: ["crates"] },
+            { path: "rust/crates/lib-b", registries: ["crates"] },
+          ],
+        },
+      });
 
       const npmDescriptor = makeNpmDescriptor();
       const cratesDescriptor = makeCratesDescriptor();
@@ -971,11 +986,13 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const registryTask = subtasks[3];
       const ctx = createCtx({
-        packages: [
-          { path: "packages/core", registries: ["npm", "jsr"] },
-          { path: "packages/pubm", registries: ["npm"] },
-        ],
-      } as any);
+        config: {
+          packages: [
+            { path: "packages/core", registries: ["npm", "jsr"] },
+            { path: "packages/pubm", registries: ["npm"] },
+          ],
+        },
+      });
 
       const npmDescriptor = makeNpmDescriptor();
       const jsrDescriptor = makeJsrDescriptor();

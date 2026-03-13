@@ -188,8 +188,8 @@ vi.mock("../../../src/registry/catalog.js", () => {
         tokenUrlLabel: "crates.io",
       },
       resolveDisplayName: vi.fn(
-        async (ctx: any) =>
-          ctx.packages
+        async (config: any) =>
+          config.packages
             ?.filter((pkg: any) => pkg.registries.includes("crates"))
             .map((pkg: any) => pkg.path) ?? ["crate"],
       ),
@@ -221,6 +221,7 @@ import {
   deleteChangesetFiles,
   readChangesets,
 } from "../../../src/changeset/reader.js";
+import type { PubmContext } from "../../../src/context.js";
 import { detectEcosystem } from "../../../src/ecosystem/index.js";
 import { Git } from "../../../src/git.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
@@ -235,6 +236,7 @@ import {
   replaceVersionAtPath,
 } from "../../../src/utils/package.js";
 import { addRollback } from "../../../src/utils/rollback.js";
+import { makeTestContext } from "../../helpers/make-context.js";
 
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
@@ -261,17 +263,25 @@ const mockedAddRollback = vi.mocked(addRollback);
 const mockedGetPackageJson = vi.mocked(getPackageJson);
 const mockedGetJsrJson = vi.mocked(getJsrJson);
 
-function createOptions(overrides: Record<string, unknown> = {}) {
-  return {
-    version: "1.0.0",
-    testScript: "test",
-    buildScript: "build",
-    branch: "main",
-    tag: "latest",
-    saveToken: true,
-    packages: [{ path: ".", registries: ["npm", "jsr"] }],
-    ...overrides,
-  } as any;
+function createOptions(
+  overrides: {
+    config?: Partial<PubmContext["config"]>;
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
+  return makeTestContext({
+    config: {
+      packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      ...overrides.config,
+    },
+    options: overrides.options,
+    runtime: {
+      version: "1.0.0",
+      pluginRunner: new PluginRunner([]),
+      ...overrides.runtime,
+    },
+  });
 }
 
 function createParentTask() {
@@ -378,15 +388,22 @@ describe("runner coverage scenarios", () => {
       version === "1.2.0" ? "Added release notes" : undefined,
     );
 
-    await run(createOptions({ ci: true, versions, pluginRunner }));
+    await run(
+      createOptions({
+        options: { ci: true },
+        runtime: { versions, pluginRunner },
+      }),
+    );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseTask = tasks[1];
     const afterReleaseTask = tasks[2];
     const releaseCtx: any = {
-      version: "1.2.0",
-      versions,
-      pluginRunner,
+      runtime: {
+        version: "1.2.0",
+        versions,
+        pluginRunner,
+      },
     };
     const task = createTask();
 
@@ -397,13 +414,15 @@ describe("runner coverage scenarios", () => {
       releaseCtx,
       expect.stringContaining("## @pubm/core v1.2.0"),
     );
-    expect(releaseCtx.releaseContext.releaseUrl).toContain("github.com");
+    expect(releaseCtx.runtime.releaseContext.releaseUrl).toContain(
+      "github.com",
+    );
 
     const afterReleaseTaskRecorder = createTask();
     await afterReleaseTask.task(releaseCtx, afterReleaseTaskRecorder);
     expect(afterRelease).toHaveBeenCalledWith(
       releaseCtx,
-      releaseCtx.releaseContext,
+      releaseCtx.runtime.releaseContext,
     );
   });
 
@@ -420,9 +439,11 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        ci: true,
-        packages: [{ path: ".", registries: ["custom-registry"] }],
-        pluginRunner,
+        options: { ci: true },
+        config: {
+          packages: [{ path: ".", registries: ["custom-registry"] as any }],
+        },
+        runtime: { pluginRunner },
       }),
     );
 
@@ -430,8 +451,8 @@ describe("runner coverage scenarios", () => {
     const publishTask = tasks[0];
     const parentTask = createParentTask();
     const ctx: any = {
-      packages: [{ path: ".", registries: ["custom-registry"] }],
-      pluginRunner,
+      config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
+      runtime: { pluginRunner },
     };
 
     await publishTask.task(ctx, parentTask);
@@ -469,12 +490,14 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        preflight: true,
-        packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/lib-a", registries: ["crates"] },
-          { path: "rust/crates/lib-b", registries: ["crates"] },
-        ],
+        options: { preflight: true },
+        config: {
+          packages: [
+            { path: ".", registries: ["npm"] },
+            { path: "rust/crates/lib-a", registries: ["crates"] },
+            { path: "rust/crates/lib-b", registries: ["crates"] },
+          ],
+        },
       }),
     );
 
@@ -482,13 +505,16 @@ describe("runner coverage scenarios", () => {
     const validateTask = pipelineTasks[5];
     const parentTask = createParentTask();
     const ctx: any = {
-      packages: [
-        { path: ".", registries: ["npm"] },
-        { path: "rust/crates/lib-a", registries: ["crates"] },
-        { path: "rust/crates/lib-b", registries: ["crates"] },
-      ],
-      pluginRunner: new PluginRunner([]),
-      registries: ["npm", "crates"],
+      config: {
+        packages: [
+          { path: ".", registries: ["npm"] },
+          { path: "rust/crates/lib-a", registries: ["crates"] },
+          { path: "rust/crates/lib-b", registries: ["crates"] },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+      },
     };
 
     await validateTask.task(ctx, parentTask);
@@ -548,20 +574,24 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        versions,
-        version: "2.0.0",
-        changesetConsumed: true,
-        pluginRunner,
+        runtime: {
+          versions,
+          version: "2.0.0",
+          changesetConsumed: true,
+          pluginRunner,
+        },
       }),
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
-      version: "2.0.0",
-      versions,
-      changesetConsumed: true,
-      pluginRunner,
+      runtime: {
+        version: "2.0.0",
+        versions,
+        changesetConsumed: true,
+        pluginRunner,
+      },
     };
     const task = createTask();
 
@@ -620,15 +650,17 @@ describe("runner coverage scenarios", () => {
       ] as any);
     mockedGenerateChangelog.mockReturnValue("root changelog");
 
-    await run(createOptions({ versions, version: "3.0.0" }));
+    await run(createOptions({ runtime: { versions, version: "3.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
-      version: "3.0.0",
-      versions,
-      changesetConsumed: true,
-      pluginRunner: new PluginRunner([]),
+      runtime: {
+        version: "3.0.0",
+        versions,
+        changesetConsumed: true,
+        pluginRunner: new PluginRunner([]),
+      },
     };
 
     await versionTask.task(ctx, createTask());
@@ -652,14 +684,16 @@ describe("runner coverage scenarios", () => {
     ] as any);
     mockedExistsSync.mockReturnValue(false);
 
-    await run(createOptions({ ci: true, versions }));
+    await run(createOptions({ options: { ci: true }, runtime: { versions } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseTask = tasks[1];
     const releaseCtx: any = {
-      version: "1.2.0",
-      versions,
-      pluginRunner: new PluginRunner([]),
+      runtime: {
+        version: "1.2.0",
+        versions,
+        pluginRunner: new PluginRunner([]),
+      },
     };
 
     await releaseTask.task(releaseCtx, createTask());
@@ -678,14 +712,17 @@ describe("runner coverage scenarios", () => {
     ] as any);
     mockedGenerateChangelog.mockReturnValue("single changelog");
 
-    await run(createOptions({ version: "4.0.0" }));
+    await run(createOptions({ runtime: { version: "4.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
-      version: "4.0.0",
-      changesetConsumed: true,
-      pluginRunner: new PluginRunner([]),
+      config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
+      runtime: {
+        version: "4.0.0",
+        changesetConsumed: true,
+        pluginRunner: new PluginRunner([]),
+      },
     };
 
     await versionTask.task(ctx, createTask());
@@ -701,7 +738,9 @@ describe("runner coverage scenarios", () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await run(
-      createOptions({ packages: [{ path: ".", registries: ["crates"] }] }),
+      createOptions({
+        config: { packages: [{ path: ".", registries: ["crates"] }] },
+      }),
     );
 
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("crate"));

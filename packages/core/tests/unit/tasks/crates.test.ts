@@ -135,7 +135,7 @@ describe("createCratesAvailableCheckTask with path", () => {
 // 4. createCratesPublishTask without path
 // ---------------------------------------------------------------------------
 describe("createCratesPublishTask without path", () => {
-  const mockCtx = { version: "1.0.0" } as any;
+  const mockCtx = { runtime: { version: "1.0.0" } } as any;
   const mockTask = { output: "", title: "", skip: vi.fn() };
 
   beforeEach(() => {
@@ -164,7 +164,7 @@ describe("createCratesPublishTask without path", () => {
 // ---------------------------------------------------------------------------
 describe("createCratesPublishTask with path", () => {
   const packagePath = "rust/crates/my-crate";
-  const mockCtx = { version: "1.0.0" } as any;
+  const mockCtx = { runtime: { version: "1.0.0" } } as any;
   const mockTask = { output: "", title: "", skip: vi.fn() };
 
   beforeEach(() => {

@@ -39,6 +39,7 @@ vi.mock("../../../src/utils/rollback.js", () => ({
   addRollback: vi.fn(),
 }));
 
+import type { PubmContext } from "../../../src/context.js";
 import { Git } from "../../../src/git.js";
 import { JsrClient, jsrRegistry } from "../../../src/registry/jsr.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
@@ -46,7 +47,6 @@ import {
   jsrAvailableCheckTasks,
   jsrPublishTasks,
 } from "../../../src/tasks/jsr.js";
-import type { Ctx } from "../../../src/tasks/runner.js";
 import { openUrl } from "../../../src/utils/open-url.js";
 import { patchCachedJsrJson } from "../../../src/utils/package.js";
 import { getScope, isScopedPackage } from "../../../src/utils/package-name.js";
@@ -108,32 +108,32 @@ function createMockTask() {
   };
 }
 
-interface JsrCtx extends Ctx {
-  scopeCreated?: boolean;
-  packageCreated?: boolean;
-}
-
-function createCtx(overrides: Partial<JsrCtx> = {}): JsrCtx {
+function createCtx(
+  overrides: {
+    options?: Partial<PubmContext["options"]>;
+    runtime?: Partial<PubmContext["runtime"]>;
+  } = {},
+): PubmContext {
   return {
-    promptEnabled: true,
-    npmOnly: false,
-    jsrOnly: false,
-    cleanWorkingTree: true,
-    registries: ["jsr"],
-    version: "1.0.0",
-    tag: "latest",
-    branch: "main",
-    testScript: "test",
-    buildScript: "build",
-    skipTests: false,
-    skipBuild: false,
-    skipPublish: false,
-    skipPrerequisitesCheck: false,
-    skipConditionsCheck: false,
-    skipReleaseDraft: false,
-    publishOnly: false,
-    ...overrides,
-  } as JsrCtx;
+    config: { packages: [{ path: ".", registries: ["jsr"] }] },
+    options: {
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
+      saveToken: false,
+      ...overrides.options,
+    },
+    cwd: process.cwd(),
+    runtime: {
+      version: "1.0.0",
+      tag: "latest",
+      promptEnabled: true,
+      cleanWorkingTree: true,
+      pluginRunner: {} as any,
+      ...overrides.runtime,
+    },
+  } as PubmContext;
 }
 
 let mockJsr: ReturnType<typeof createMockJsr>;
@@ -178,7 +178,10 @@ describe("jsrAvailableCheckTasks", () => {
       JsrClient.token = "valid-token";
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockedAddRollback).toHaveBeenCalledOnce();
@@ -192,11 +195,16 @@ describe("jsrAvailableCheckTasks", () => {
       JsrClient.token = "valid-token";
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       const rollbackFn = mockedAddRollback.mock.calls[0][0];
-      const rollbackCtx = { packageCreated: true, scopeCreated: true };
+      const rollbackCtx = {
+        runtime: { packageCreated: true, scopeCreated: true },
+      };
 
       await rollbackFn(rollbackCtx);
 
@@ -213,12 +221,15 @@ describe("jsrAvailableCheckTasks", () => {
       JsrClient.token = "valid-token";
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       const rollbackFn = mockedAddRollback.mock.calls[0][0];
 
-      await rollbackFn({});
+      await rollbackFn({ runtime: {} });
 
       expect(mockJsr.client.deletePackage).not.toHaveBeenCalled();
       expect(mockJsr.client.deleteScope).not.toHaveBeenCalled();
@@ -233,14 +244,17 @@ describe("jsrAvailableCheckTasks", () => {
       JsrClient.token = "existing-token";
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(task.prompt).not.toHaveBeenCalled();
     });
 
     it("TTY: prompts for token and retries on invalid token", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       // First token is invalid (user() returns null), second is valid
@@ -253,7 +267,10 @@ describe("jsrAvailableCheckTasks", () => {
         .mockResolvedValueOnce("good-token");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(task.prompt).toHaveBeenCalledTimes(2);
@@ -261,7 +278,7 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("TTY: prompts for token and retries when user() throws non-network error", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       // First call throws a non-network error (catch block), second succeeds
@@ -274,7 +291,10 @@ describe("jsrAvailableCheckTasks", () => {
         .mockResolvedValueOnce("good-token");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(task.prompt).toHaveBeenCalledTimes(2);
@@ -282,7 +302,7 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("TTY: throws after 3 failed token attempts", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       // All three attempts return null (invalid token)
@@ -309,7 +329,7 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("TTY: throws immediately on network error during token validation", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       mockJsr.client.user.mockRejectedValueOnce(
@@ -334,7 +354,7 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("CI: reads JSR_TOKEN from environment", async () => {
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
       const originalEnv = process.env.JSR_TOKEN;
       process.env.JSR_TOKEN = "ci-jsr-token";
@@ -359,7 +379,7 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("CI: throws when JSR_TOKEN is not set", async () => {
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
       const originalEnv = process.env.JSR_TOKEN;
       delete process.env.JSR_TOKEN;
@@ -381,28 +401,37 @@ describe("jsrAvailableCheckTasks", () => {
     });
 
     it("saves token via Db when ctx.saveToken is true", async () => {
-      const ctx = createCtx({ promptEnabled: true, saveToken: true } as any);
+      const ctx = createCtx({
+        options: { saveToken: true },
+        runtime: { promptEnabled: true },
+      });
       const task = createMockTask();
 
       task._mockRun.mockResolvedValueOnce("new-token");
       mockJsr.client.user.mockResolvedValueOnce({ id: "user-1" });
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockDbInstance.set).toHaveBeenCalledWith("jsr-token", "new-token");
     });
 
     it("does not save token when ctx.saveToken is falsy", async () => {
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       task._mockRun.mockResolvedValueOnce("new-token");
       mockJsr.client.user.mockResolvedValueOnce({ id: "user-1" });
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockDbInstance.set).not.toHaveBeenCalled();
@@ -421,7 +450,10 @@ describe("jsrAvailableCheckTasks", () => {
       const task = createMockTask();
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockJsr.client.scopes).not.toHaveBeenCalled();
@@ -440,7 +472,10 @@ describe("jsrAvailableCheckTasks", () => {
       const task = createMockTask();
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockJsr.packageName).toBe("@cached/my-package");
@@ -471,7 +506,10 @@ describe("jsrAvailableCheckTasks", () => {
       task._mockRun.mockResolvedValueOnce("@myscope/my-package");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockJsr.client.scopes).toHaveBeenCalled();
@@ -500,15 +538,18 @@ describe("jsrAvailableCheckTasks", () => {
 
       // The scope 'newscope' is not in scopes[], so createScope is called
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockJsr.client.createScope).toHaveBeenCalledWith("newscope");
-      expect(ctx.scopeCreated).toBe(true);
+      expect(ctx.runtime.scopeCreated).toBe(true);
       expect(mockJsr.client.createPackage).toHaveBeenCalledWith(
         "@newscope/my-package",
       );
-      expect(ctx.packageCreated).toBe(true);
+      expect(ctx.runtime.packageCreated).toBe(true);
     });
 
     it('handles "specify" option by prompting for custom package name', async () => {
@@ -536,7 +577,10 @@ describe("jsrAvailableCheckTasks", () => {
         .mockResolvedValueOnce("@custom/my-package");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(task.prompt).toHaveBeenCalledTimes(3);
@@ -566,7 +610,10 @@ describe("jsrAvailableCheckTasks", () => {
       task._mockRun.mockResolvedValueOnce("@other-scope/my-package");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       // Verify the scope already exists, so no createScope call
@@ -598,7 +645,10 @@ describe("jsrAvailableCheckTasks", () => {
         .mockResolvedValueOnce("@existingscope/my-package");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(task.prompt).toHaveBeenCalledTimes(2);
@@ -622,11 +672,14 @@ describe("jsrAvailableCheckTasks", () => {
       task._mockRun.mockResolvedValueOnce("@existingscope/my-package");
 
       await (
-        jsrAvailableCheckTasks.task as (ctx: JsrCtx, task: any) => Promise<void>
+        jsrAvailableCheckTasks.task as (
+          ctx: PubmContext,
+          task: any,
+        ) => Promise<void>
       )(ctx, task);
 
       expect(mockJsr.client.createScope).not.toHaveBeenCalled();
-      expect(ctx.scopeCreated).toBeUndefined();
+      expect(ctx.runtime.scopeCreated).toBeUndefined();
       // package doesn't exist yet so createPackage is called
       expect(mockJsr.client.createPackage).toHaveBeenCalledWith(
         "@existingscope/my-package",
@@ -772,13 +825,12 @@ describe("jsrPublishTasks", () => {
     it("publishes via jsr.publish()", async () => {
       JsrClient.token = "valid-token";
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
-      await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(task.output).toBe("Publishing on jsr...");
       expect(mockJsr.publish).toHaveBeenCalledOnce();
@@ -789,14 +841,13 @@ describe("jsrPublishTasks", () => {
       const originalEnv = process.env.JSR_TOKEN;
       delete process.env.JSR_TOKEN;
 
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
 
       try {
-        await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        );
+        await (
+          jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task);
 
         expect(mockJsr.publish).toHaveBeenCalledOnce();
         expect(JsrClient.token).toBe("already-set");
@@ -812,14 +863,13 @@ describe("jsrPublishTasks", () => {
       const originalEnv = process.env.JSR_TOKEN;
       process.env.JSR_TOKEN = "ci-token";
 
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
 
       try {
-        await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        );
+        await (
+          jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task);
 
         expect(JsrClient.token).toBe("ci-token");
         expect(mockJsr.publish).toHaveBeenCalledOnce();
@@ -837,15 +887,17 @@ describe("jsrPublishTasks", () => {
       const originalEnv = process.env.JSR_TOKEN;
       delete process.env.JSR_TOKEN;
 
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
 
       try {
         await expect(
-          (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-            ctx,
-            task,
-          ),
+          (
+            jsrPublishTasks.task as (
+              ctx: PubmContext,
+              task: any,
+            ) => Promise<void>
+          )(ctx, task),
         ).rejects.toThrow("JSR_TOKEN not found in the environment variables");
       } finally {
         if (originalEnv !== undefined) {
@@ -859,15 +911,14 @@ describe("jsrPublishTasks", () => {
       const originalEnv = process.env.JSR_TOKEN;
       delete process.env.JSR_TOKEN;
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
       try {
         // Should not throw because the env check is skipped when promptEnabled
-        await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        );
+        await (
+          jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task);
 
         expect(mockJsr.publish).toHaveBeenCalledOnce();
       } finally {
@@ -895,14 +946,13 @@ describe("jsrPublishTasks", () => {
           return true;
         });
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
       task._mockRun.mockResolvedValue("");
 
-      await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(mockedOpenUrl).toHaveBeenCalledWith(
         "https://jsr.io/new?scope=scope&package=my-package",
@@ -919,15 +969,14 @@ describe("jsrPublishTasks", () => {
       ];
       mockJsr.publish.mockResolvedValue(false);
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
       task._mockRun.mockResolvedValue("");
 
       await expect(
-        (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        ),
+        (
+          jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow("Package creation not completed after 3 attempts.");
 
       expect(task.prompt).toHaveBeenCalledTimes(3);
@@ -941,14 +990,13 @@ describe("jsrPublishTasks", () => {
       ];
       mockJsr.publish.mockResolvedValue(false);
 
-      const ctx = createCtx({ promptEnabled: false });
+      const ctx = createCtx({ runtime: { promptEnabled: false } });
       const task = createMockTask();
 
       await expect(
-        (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-          ctx,
-          task,
-        ),
+        (
+          jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+        )(ctx, task),
       ).rejects.toThrow("https://jsr.io/new?scope=scope&package=my-package");
 
       expect(task.prompt).not.toHaveBeenCalled();
@@ -959,13 +1007,12 @@ describe("jsrPublishTasks", () => {
       JsrClient.token = "valid-token";
       mockJsr.publish.mockRejectedValue(new Error("already published"));
 
-      const ctx = createCtx({ promptEnabled: true });
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
       const task = createMockTask();
 
-      await (jsrPublishTasks.task as (ctx: Ctx, task: any) => Promise<void>)(
-        ctx,
-        task,
-      );
+      await (
+        jsrPublishTasks.task as (ctx: PubmContext, task: any) => Promise<void>
+      )(ctx, task);
 
       expect(task.title).toBe("[SKIPPED] jsr: v1.0.0 already published");
       expect(task.output).toContain("@scope/my-package@1.0.0");

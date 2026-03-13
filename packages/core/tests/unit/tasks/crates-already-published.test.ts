@@ -45,7 +45,7 @@ describe("cratesPublishTask — already published", () => {
     mockIsVersionPublished.mockResolvedValue(true);
 
     const task = createCratesPublishTask();
-    const ctx = { version: "1.0.0" } as any;
+    const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);
 
@@ -61,7 +61,7 @@ describe("cratesPublishTask — already published", () => {
     );
 
     const task = createCratesPublishTask();
-    const ctx = { version: "1.0.0" } as any;
+    const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);
 
@@ -73,7 +73,7 @@ describe("cratesPublishTask — already published", () => {
     mockIsVersionPublished.mockResolvedValue(false);
 
     const task = createCratesPublishTask();
-    const ctx = { version: "1.0.0" } as any;
+    const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);
 

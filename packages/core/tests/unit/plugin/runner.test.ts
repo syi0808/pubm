@@ -6,15 +6,22 @@ import type { Registry } from "../../../src/registry/registry.js";
 
 function makeCtx() {
   return {
-    version: "1.0.0",
-    promptEnabled: false,
-    cleanWorkingTree: true,
-    testScript: "test",
-    buildScript: "build",
-    branch: "main",
-    tag: "latest",
-    saveToken: true,
-    registries: ["npm"],
+    config: { packages: [{ path: ".", registries: ["npm"] }] },
+    options: {
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
+      saveToken: true,
+    },
+    cwd: process.cwd(),
+    runtime: {
+      version: "1.0.0",
+      tag: "latest",
+      promptEnabled: false,
+      cleanWorkingTree: true,
+      pluginRunner: {} as any,
+    },
   } as any;
 }
 
