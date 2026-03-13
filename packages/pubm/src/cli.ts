@@ -1,7 +1,8 @@
-import type { Options } from "@pubm/core";
+import type { Options, ResolvedPubmConfig } from "@pubm/core";
 import {
   calculateVersionBumps,
   consoleError,
+  createContext,
   discoverCurrentVersions,
   Git,
   getStatus,
@@ -10,6 +11,8 @@ import {
   PUBM_VERSION,
   pubm,
   requiredMissingInformationTasks,
+  resolveConfig,
+  resolveOptions,
 } from "@pubm/core";
 import { Command } from "commander";
 import semver from "semver";
@@ -19,6 +22,7 @@ import { registerInitCommand } from "./commands/init.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
+import { registerVersionCommand } from "./commands/version-cmd.js";
 
 const { RELEASE_TYPES, valid } = semver;
 
@@ -44,9 +48,15 @@ interface CliOptions {
   saveToken: boolean;
 }
 
-export function resolveCliOptions(options: CliOptions): Options {
+export function resolveCliOptions(
+  options: Omit<CliOptions, "version">,
+): Partial<Options> {
   return {
-    ...options,
+    testScript: (options as any).testScript,
+    buildScript: (options as any).buildScript,
+    preview: options.preview,
+    branch: options.branch,
+    anyBranch: options.anyBranch,
     skipPublish: !options.publish,
     skipReleaseDraft: !options.releaseDraft,
     skipTests: !options.tests,
@@ -55,8 +65,15 @@ export function resolveCliOptions(options: CliOptions): Options {
     skipConditionsCheck: !options.conditionCheck,
     preflight: options.preflight,
     ci: options.ci,
+    snapshot: options.snapshot,
+    tag: options.tag,
+    contents: options.contents,
+    saveToken: options.saveToken,
+    publishOnly: options.publishOnly,
   };
 }
+
+let resolvedConfig: ResolvedPubmConfig;
 
 export function createProgram(): Command {
   const program = new Command("pubm");
@@ -65,11 +82,12 @@ export function createProgram(): Command {
   program.version(PUBM_VERSION);
 
   // Register subcommands
-  registerChangesetsCommand(program);
+  registerChangesetsCommand(program, () => resolvedConfig);
   registerInitCommand(program);
   registerUpdateCommand(program);
   registerSecretsCommand(program);
   registerSyncCommand(program);
+  registerVersionCommand(program, () => resolvedConfig);
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program
@@ -132,36 +150,29 @@ export function createProgram(): Command {
           await notifyNewVersion();
         }
 
+        const cliOptions = resolveOptions(resolveCliOptions(options));
+        const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
+
+        if (nextVersion) {
+          ctx.runtime.version = nextVersion;
+        }
+        ctx.runtime.tag = options.tag;
+
         if (options.snapshot) {
           const snapshotTag =
             typeof options.snapshot === "string"
               ? options.snapshot
               : "snapshot";
 
-          await pubm({
-            ...resolveCliOptions({
-              ...options,
-              version: "snapshot",
-              tag: snapshotTag,
-            } as CliOptions),
-            snapshot: snapshotTag,
-          });
+          ctx.runtime.version = "snapshot";
+          ctx.runtime.tag = snapshotTag;
+          await pubm(ctx);
           return;
         }
 
-        const context: {
-          version?: string;
-          versions?: Map<string, string>;
-          changesetConsumed?: boolean;
-          tag: string;
-        } = {
-          version: nextVersion,
-          tag: options.tag,
-        };
-
         try {
           if (options.preflight) {
-            await requiredMissingInformationTasks().run(context);
+            await requiredMissingInformationTasks().run(ctx);
           } else if (isCI) {
             if (options.publishOnly || options.ci) {
               const git = new Git();
@@ -179,7 +190,7 @@ export function createProgram(): Command {
                 );
               }
 
-              context.version = latestVersion;
+              ctx.runtime.version = latestVersion;
             } else {
               // Check for pending changesets in CI
               const status = getStatus(process.cwd());
@@ -193,27 +204,24 @@ export function createProgram(): Command {
                 );
 
                 if (bumps.size > 0) {
-                  // Apply fixed/linked groups from config if applicable
-                  const config = await loadConfig(process.cwd());
-
                   if (bumps.size === 1) {
                     // Single package
                     const [, bump] = [...bumps][0];
-                    context.version = bump.newVersion;
+                    ctx.runtime.version = bump.newVersion;
                   } else {
                     // Multi-package
-                    context.versions = new Map(
+                    ctx.runtime.versions = new Map(
                       [...bumps].map(([name, bump]) => [name, bump.newVersion]),
                     );
-                    // For fixed mode, also set context.version to the shared version
-                    if (config?.versioning === "fixed") {
-                      context.version = [...bumps.values()][0].newVersion;
+                    // For fixed mode, also set ctx.runtime.version to the shared version
+                    if (resolvedConfig.versioning === "fixed") {
+                      ctx.runtime.version = [...bumps.values()][0].newVersion;
                     } else {
                       // Independent mode: use first version as fallback for required version field
-                      context.version = [...bumps.values()][0].newVersion;
+                      ctx.runtime.version = [...bumps.values()][0].newVersion;
                     }
                   }
-                  context.changesetConsumed = true;
+                  ctx.runtime.changesetConsumed = true;
 
                   console.log("Changesets detected:");
                   for (const [name, bump] of bumps) {
@@ -224,26 +232,17 @@ export function createProgram(): Command {
                 }
               }
 
-              if (!context.version && !context.versions) {
+              if (!ctx.runtime.version && !ctx.runtime.versions) {
                 throw new Error(
                   "Version must be set in the CI environment. Please define the version before proceeding.",
                 );
               }
             }
           } else {
-            await requiredMissingInformationTasks().run(context);
+            await requiredMissingInformationTasks().run(ctx);
           }
 
-          await pubm({
-            ...resolveCliOptions({
-              ...options,
-              version:
-                context.version ?? context.versions?.values().next().value,
-              tag: context.tag,
-            } as CliOptions),
-            changesetConsumed: context.changesetConsumed,
-            versions: context.versions,
-          });
+          await pubm(ctx);
         } catch (e) {
           consoleError(e as Error);
           process.exitCode = 1;
@@ -260,12 +259,14 @@ export function createProgram(): Command {
 
 (async () => {
   const program = createProgram();
+  const cwd = process.cwd();
 
-  // Register plugin commands before parsing
-  const config = await loadConfig();
-  const plugins = config?.plugins ?? [];
+  // Single config load + resolve for entire CLI session
+  const raw = await loadConfig(cwd);
+  const config = await resolveConfig(raw ?? {}, cwd);
 
-  for (const plugin of plugins) {
+  // Register plugin commands
+  for (const plugin of config.plugins) {
     for (const cmd of plugin.commands ?? []) {
       if (cmd.subcommands) {
         for (const sub of cmd.subcommands) {
@@ -283,5 +284,9 @@ export function createProgram(): Command {
       }
     }
   }
+
+  // Make config available to action callbacks
+  resolvedConfig = config;
+
   await program.parseAsync();
 })();

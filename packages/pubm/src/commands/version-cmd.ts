@@ -1,6 +1,6 @@
 import path from "node:path";
 import process from "node:process";
-import type { BumpType, VersionBump } from "@pubm/core";
+import type { BumpType, ResolvedPubmConfig, VersionBump } from "@pubm/core";
 import {
   applyFixedGroup,
   applyLinkedGroup,
@@ -11,7 +11,6 @@ import {
   discoverPackageInfos,
   Git,
   generateChangelog,
-  loadConfig,
   readChangesets,
   replaceVersion,
   replaceVersionAtPath,
@@ -27,6 +26,7 @@ export interface VersionCommandOptions {
 
 export async function runVersionCommand(
   cwd: string,
+  config: ResolvedPubmConfig,
   options: VersionCommandOptions = {},
 ): Promise<void> {
   const { dryRun = false } = options;
@@ -53,8 +53,7 @@ export async function runVersionCommand(
   }
 
   // 4. Apply fixed/linked groups from config
-  const config = await loadConfig(cwd);
-  if (config) {
+  {
     const allPackages = [...currentVersions.keys()];
 
     if (config.fixed && config.fixed.length > 0) {
@@ -106,7 +105,7 @@ export async function runVersionCommand(
         await replaceVersionAtPath(newVersion, pkgPath);
       }
     } else {
-      await replaceVersion(newVersion, config?.packages);
+      await replaceVersion(newVersion, config.packages);
     }
 
     // Prepend changelog to CHANGELOG.md
@@ -169,12 +168,17 @@ function reapplyBumpTypes(
   }
 }
 
-export function registerVersionCommand(parent: Command): void {
+export function registerVersionCommand(
+  parent: Command,
+  getConfig: () => ResolvedPubmConfig,
+): void {
   parent
     .command("version")
     .description("Consume changesets and bump versions")
     .option("--dry-run", "Show changes without writing")
     .action(async (options: { dryRun?: boolean }) => {
-      await runVersionCommand(process.cwd(), { dryRun: options.dryRun });
+      await runVersionCommand(process.cwd(), getConfig(), {
+        dryRun: options.dryRun,
+      });
     });
 }
