@@ -25,9 +25,19 @@ describe("registryLabel", () => {
 });
 
 describe("collectEcosystemRegistryGroups", () => {
+  it("returns empty array when packages is undefined", () => {
+    const groups = collectEcosystemRegistryGroups({});
+    expect(groups).toEqual([]);
+  });
+
+  it("returns empty array when packages is empty", () => {
+    const groups = collectEcosystemRegistryGroups({ packages: [] });
+    expect(groups).toEqual([]);
+  });
+
   it("groups npm and jsr under js ecosystem", () => {
     const groups = collectEcosystemRegistryGroups({
-      registries: ["npm", "jsr"],
+      packages: [{ path: "packages/a", registries: ["npm", "jsr"] }],
     });
     expect(groups).toHaveLength(1);
     expect(groups[0].ecosystem).toBe("js");
@@ -36,8 +46,35 @@ describe("collectEcosystemRegistryGroups", () => {
 
   it("separates js and rust ecosystems", () => {
     const groups = collectEcosystemRegistryGroups({
-      registries: ["npm", "crates"],
+      packages: [
+        { path: "packages/a", registries: ["npm"] },
+        { path: "crates/b", registries: ["crates"] },
+      ],
     });
     expect(groups).toHaveLength(2);
+  });
+
+  it("collects package paths per registry", () => {
+    const groups = collectEcosystemRegistryGroups({
+      packages: [
+        { path: "packages/a", registries: ["npm"] },
+        { path: "packages/b", registries: ["npm", "jsr"] },
+      ],
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].ecosystem).toBe("js");
+    const npmGroup = groups[0].registries.find((r) => r.registry === "npm");
+    expect(npmGroup?.packagePaths).toEqual(
+      expect.arrayContaining(["packages/a", "packages/b"]),
+    );
+    const jsrGroup = groups[0].registries.find((r) => r.registry === "jsr");
+    expect(jsrGroup?.packagePaths).toEqual(["packages/b"]);
+  });
+
+  it("deduplicates registries within a single package", () => {
+    const groups = collectEcosystemRegistryGroups({
+      packages: [{ path: "packages/a", registries: ["npm", "npm"] }],
+    });
+    expect(groups[0].registries).toHaveLength(1);
   });
 });
