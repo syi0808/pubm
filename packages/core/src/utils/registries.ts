@@ -11,7 +11,7 @@ export function collectRegistries(ctx: RegistrySource): RegistryType[] {
     const seen = new Set<string>();
     const result: RegistryType[] = [];
     for (const pkg of ctx.packages) {
-      for (const reg of pkg.registries) {
+      for (const reg of (pkg.registries ?? []) as RegistryType[]) {
         if (!seen.has(reg)) {
           seen.add(reg);
           result.push(reg);

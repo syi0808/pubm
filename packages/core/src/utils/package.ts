@@ -277,7 +277,7 @@ export async function replaceVersion(
 
   // Handle Rust crates separately — sibling deps must be updated sequentially
   const cratePackages = (packages ?? []).filter((pkg) =>
-    pkg.registries.includes("crates"),
+    pkg.registries?.includes("crates"),
   );
 
   const crateFiles: string[] = [];
@@ -395,7 +395,7 @@ export async function replaceVersions(
 
   // Handle Rust crates (use first version as they share version in fixed mode)
   const cratePackages = packages.filter((pkg) =>
-    pkg.registries.includes("crates"),
+    pkg.registries?.includes("crates"),
   );
 
   if (cratePackages.length > 0) {
