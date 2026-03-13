@@ -1,7 +1,8 @@
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { Registry } from "../registry/registry.js";
 import type { ReleaseContext } from "../tasks/github-release.js";
-import type { Ctx } from "../tasks/runner.js";
+import type { PubmContext } from "../context.js";
+
 import type { HookName, PubmPlugin } from "./types.js";
 
 export class PluginRunner {
@@ -9,17 +10,17 @@ export class PluginRunner {
 
   async runHook(
     hookName: Exclude<HookName, "onError" | "afterRelease">,
-    ctx: Ctx,
+    ctx: PubmContext,
   ): Promise<void> {
     for (const plugin of this.plugins) {
       const hook = plugin.hooks?.[hookName];
       if (hook) {
-        await (hook as (ctx: Ctx) => Promise<void> | void)(ctx);
+        await (hook as (ctx: PubmContext) => Promise<void> | void)(ctx);
       }
     }
   }
 
-  async runErrorHook(ctx: Ctx, error: Error): Promise<void> {
+  async runErrorHook(ctx: PubmContext, error: Error): Promise<void> {
     for (const plugin of this.plugins) {
       const hook = plugin.hooks?.onError;
       if (hook) {
@@ -29,7 +30,7 @@ export class PluginRunner {
   }
 
   async runAfterReleaseHook(
-    ctx: Ctx,
+    ctx: PubmContext,
     releaseCtx: ReleaseContext,
   ): Promise<void> {
     for (const plugin of this.plugins) {

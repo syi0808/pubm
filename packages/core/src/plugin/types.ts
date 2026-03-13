@@ -1,12 +1,15 @@
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { Registry } from "../registry/registry.js";
 import type { ReleaseContext } from "../tasks/github-release.js";
-import type { Ctx } from "../tasks/runner.js";
+import type { PubmContext } from "../context.js";
 
-export type HookFn = (ctx: Ctx) => Promise<void> | void;
-export type ErrorHookFn = (ctx: Ctx, error: Error) => Promise<void> | void;
+export type HookFn = (ctx: PubmContext) => Promise<void> | void;
+export type ErrorHookFn = (
+  ctx: PubmContext,
+  error: Error,
+) => Promise<void> | void;
 export type AfterReleaseHookFn = (
-  ctx: Ctx,
+  ctx: PubmContext,
   releaseCtx: ReleaseContext,
 ) => Promise<void> | void;
 
