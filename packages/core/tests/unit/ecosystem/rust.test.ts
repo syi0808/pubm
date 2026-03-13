@@ -269,7 +269,7 @@ my-build = { path = "../my-build" }
         "cargo",
         ["update", "--package", "my-crate"],
         {
-          nodeOptions: { cwd: path.resolve("/workspace") },
+          nodeOptions: { cwd: path.dirname(expectedLockfile) },
         },
       );
     });
