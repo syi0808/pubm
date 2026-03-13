@@ -1,5 +1,4 @@
 import type { PackageConfig } from "../config/types.js";
-import type { PluginRunner } from "../plugin/runner.js";
 
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
@@ -7,10 +6,6 @@ export type RegistryType = "npm" | "jsr" | "crates" | string;
  * Options for configuring the {@linkcode pubm} function.
  */
 export interface Options {
-  /**
-   * @description Version to publish
-   */
-  version: string;
   /**
    * @description The npm script to run tests before publishing
    * @default "test"
@@ -103,15 +98,6 @@ export interface Options {
    * @description Per-package publish configuration (from pubm.config.ts)
    */
   packages?: PackageConfig[];
-  /**
-   * @description Whether changesets should be consumed during version bump
-   * @default false
-   */
-  changesetConsumed?: boolean;
-  /**
-   * @description Per-package versions for independent versioning mode
-   */
-  versions?: Map<string, string>;
 }
 
 export interface ResolvedOptions extends Options {
@@ -121,5 +107,4 @@ export interface ResolvedOptions extends Options {
   tag: string;
   saveToken: boolean;
   packages?: PackageConfig[];
-  pluginRunner?: PluginRunner;
 }

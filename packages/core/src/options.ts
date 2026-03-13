@@ -1,13 +1,13 @@
 import type { Options, ResolvedOptions } from "./types/options.js";
 
-export const defaultOptions: Omit<Options, "version"> = {
+export const defaultOptions: Partial<Options> = {
   testScript: "test",
   buildScript: "build",
   branch: "main",
   tag: "latest",
 };
 
-export function resolveOptions(options: Options): ResolvedOptions {
+export function resolveOptions(options: Partial<Options>): ResolvedOptions {
   const defined = Object.fromEntries(
     Object.entries(options).filter(([, v]) => v !== undefined),
   );
