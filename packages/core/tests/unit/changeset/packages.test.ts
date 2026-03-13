@@ -77,6 +77,17 @@ describe("discoverCurrentVersions", () => {
 
     expect(result.get("unknown")).toBe("0.0.0");
   });
+
+  it("falls back to workspace path defaults when monorepo package metadata is incomplete", async () => {
+    mockedDiscoverPackages.mockReturnValue([
+      { path: "packages/core", registries: ["npm"], ecosystem: "js" },
+    ]);
+    mockedGetPackageJson.mockResolvedValue({});
+
+    const result = await discoverCurrentVersions("/tmp/project");
+
+    expect(result.get("packages/core")).toBe("0.0.0");
+  });
 });
 
 describe("discoverPackageInfos", () => {
@@ -150,6 +161,21 @@ describe("discoverPackageInfos", () => {
         name: "unknown",
         version: "0.0.0",
         path: ".",
+      },
+    ]);
+  });
+
+  it("falls back to workspace path defaults when monorepo package info is incomplete", async () => {
+    mockedDiscoverPackages.mockReturnValue([
+      { path: "packages/core", registries: ["npm"], ecosystem: "js" },
+    ]);
+    mockedGetPackageJson.mockResolvedValue({});
+
+    await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
+      {
+        name: "packages/core",
+        version: "0.0.0",
+        path: "packages/core",
       },
     ]);
   });

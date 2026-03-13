@@ -66,11 +66,30 @@ describe("validateEntryPoints", () => {
     expect(errors).toHaveLength(1);
   });
 
+  it("accepts existing string exports and bin entries", () => {
+    mockedExistsSync.mockReturnValue(true);
+
+    const pkg = {
+      exports: "./dist/index.js",
+      bin: "./bin/cli.js",
+    };
+
+    expect(validateEntryPoints(pkg, "/project")).toEqual([]);
+  });
+
   it("validates string bin fields", () => {
     mockedExistsSync.mockReturnValue(false);
     const pkg = { bin: "./bin/cli.js" };
     const errors = validateEntryPoints(pkg, "/project");
     expect(errors).toEqual([{ field: "bin", path: "./bin/cli.js" }]);
+  });
+
+  it("accepts existing named bin entries", () => {
+    mockedExistsSync.mockReturnValue(true);
+
+    const pkg = { bin: { mycli: "./bin/cli.js" } };
+
+    expect(validateEntryPoints(pkg, "/project")).toEqual([]);
   });
 
   it("recursively validates nested export maps and ignores unsupported values", () => {
@@ -97,5 +116,14 @@ describe("validateEntryPoints", () => {
         path: "./dist/missing-browser.js",
       },
     ]);
+  });
+
+  it("ignores unsupported exports and bin shapes", () => {
+    const pkg = {
+      exports: 123,
+      bin: 456,
+    };
+
+    expect(validateEntryPoints(pkg, "/project")).toEqual([]);
   });
 });

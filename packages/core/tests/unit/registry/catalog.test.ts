@@ -1,10 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/utils/exec.js", () => ({
+  exec: vi.fn(),
+}));
+
+vi.mock("../../../src/utils/package.js", () => ({
+  getJsrJson: vi.fn(),
+  getPackageJson: vi.fn(),
+}));
+
 import {
   RegistryCatalog,
   type RegistryDescriptor,
   registryCatalog,
 } from "../../../src/registry/catalog.js";
 import { Registry } from "../../../src/registry/registry.js";
+import { exec } from "../../../src/utils/exec.js";
+import { getJsrJson, getPackageJson } from "../../../src/utils/package.js";
+
+const mockedExec = vi.mocked(exec);
+const mockedGetJsrJson = vi.mocked(getJsrJson);
+const mockedGetPackageJson = vi.mocked(getPackageJson);
 
 function createDescriptor(
   overrides: Partial<RegistryDescriptor> = {},
@@ -26,6 +42,10 @@ function createDescriptor(
     ...overrides,
   };
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("RegistryCatalog", () => {
   it("registers and retrieves a descriptor by key", () => {
@@ -92,6 +112,52 @@ describe("default registrations", () => {
     expect(vars["npm_config_//registry.npmjs.org/:_authToken"]).toBe(
       "my-token",
     );
+  });
+
+  it("keeps the npm token URL unchanged when no username placeholder is present", async () => {
+    const npm = registryCatalog.get("npm")!;
+
+    await expect(
+      npm.resolveTokenUrl?.("https://registry.npmjs.org/tokens/new"),
+    ).resolves.toBe("https://registry.npmjs.org/tokens/new");
+    expect(mockedExec).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the original npm token URL when whoami returns no username", async () => {
+    const npm = registryCatalog.get("npm")!;
+    mockedExec.mockResolvedValue({
+      stdout: "\n",
+      stderr: "",
+      exitCode: 0,
+    } as any);
+
+    await expect(
+      npm.resolveTokenUrl?.(
+        "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
+      ),
+    ).resolves.toBe(
+      "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
+    );
+  });
+
+  it("returns no npm display names when package metadata is missing a name", async () => {
+    const npm = registryCatalog.get("npm")!;
+    mockedGetPackageJson.mockResolvedValue({} as any);
+
+    await expect(npm.resolveDisplayName?.({})).resolves.toEqual([]);
+  });
+
+  it("returns no jsr display names when jsr metadata is missing a name", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    mockedGetJsrJson.mockResolvedValue({} as any);
+
+    await expect(jsr.resolveDisplayName?.({})).resolves.toEqual([]);
+  });
+
+  it("uses a generic crates display name when no packages were discovered", async () => {
+    const crates = registryCatalog.get("crates")!;
+
+    await expect(crates.resolveDisplayName?.({})).resolves.toEqual(["crate"]);
   });
 });
 

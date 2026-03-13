@@ -218,6 +218,52 @@ describe("createGitHubRelease", () => {
     );
   });
 
+  it("ignores non-directory entries and packages without bin folders when collecting release assets", async () => {
+    const { createGitHubRelease } = await freshImport();
+    const { mockExistsSync, mockReaddirSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockImplementation((target) => {
+      const normalized = String(target);
+      return normalized.endsWith("/npm/@pubm");
+    });
+    mockReaddirSync.mockImplementation((target) => {
+      const normalized = String(target);
+      if (normalized.endsWith("/npm/@pubm")) {
+        return [
+          { name: "README.md", isDirectory: () => false },
+          { name: "darwin-arm64", isDirectory: () => true },
+        ] as any;
+      }
+      return [];
+    });
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
+        previousTag: vi.fn().mockResolvedValue("v1.1.0"),
+        firstCommit: vi.fn().mockResolvedValue("first-commit"),
+        commits: vi.fn().mockResolvedValue([]),
+      } as any;
+    } as any);
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        html_url: "https://github.com/pubm/pubm/releases/tag/v1.2.0",
+        upload_url:
+          "https://uploads.github.com/repos/pubm/pubm/releases/1/assets{?name,label}",
+      }),
+    });
+    global.fetch = fetchMock as any;
+
+    const result = await createGitHubRelease({ version: "1.2.0" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.assets).toEqual([]);
+  });
+
   it("surfaces GitHub API failures when creating the release", async () => {
     const { createGitHubRelease } = await freshImport();
     const { mockExistsSync, mockGit } = await getMocks();
@@ -243,6 +289,73 @@ describe("createGitHubRelease", () => {
 
     await expect(createGitHubRelease({ version: "1.0.0" })).rejects.toThrow(
       /Failed to create GitHub Release \(422\): validation failed/,
+    );
+  });
+
+  it("surfaces GitHub API failures when uploading release assets", async () => {
+    const { createGitHubRelease } = await freshImport();
+    const {
+      mockExistsSync,
+      mockReaddirSync,
+      mockReadFileSync,
+      mockExec,
+      mockGit,
+    } = await getMocks();
+
+    mockExistsSync.mockImplementation((target) => {
+      const normalized = String(target);
+      return (
+        normalized.endsWith("/npm/@pubm") ||
+        normalized.endsWith("/npm/@pubm/linux-x64/bin")
+      );
+    });
+    mockReaddirSync.mockImplementation((target) => {
+      const normalized = String(target);
+      if (normalized.endsWith("/npm/@pubm")) {
+        return [{ name: "linux-x64", isDirectory: () => true }] as any;
+      }
+      if (normalized.endsWith("/npm/@pubm/linux-x64/bin")) {
+        return ["pubm"];
+      }
+      return [];
+    });
+    mockReadFileSync.mockImplementation((target) => {
+      if (String(target).endsWith(".tar.gz")) {
+        return Buffer.from("archive-bytes");
+      }
+      return Buffer.from("binary");
+    });
+    mockExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
+        previousTag: vi.fn().mockResolvedValue("v1.1.0"),
+        firstCommit: vi.fn().mockResolvedValue("first-commit"),
+        commits: vi.fn().mockResolvedValue([]),
+      } as any;
+    } as any);
+
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          html_url: "https://github.com/pubm/pubm/releases/tag/v1.2.0",
+          upload_url:
+            "https://uploads.github.com/repos/pubm/pubm/releases/1/assets{?name,label}",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue("upload failed"),
+      }) as any;
+
+    await expect(createGitHubRelease({ version: "1.2.0" })).rejects.toThrow(
+      /Failed to upload asset pubm-linux-x64\.tar\.gz \(500\): upload failed/,
     );
   });
 

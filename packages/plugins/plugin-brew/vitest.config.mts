@@ -5,7 +5,7 @@ export default defineConfig({
     include: ["tests/**/*.{test,spec}.?(c|m)[jt]s?(x)"],
     setupFiles: ["tests/setup.ts"],
     coverage: {
-      provider: "v8",
+      provider: "istanbul",
       reporter: ["json-summary", "json", "text-summary"],
       reportOnFailure: true,
       include: ["src/**/*.ts"],
