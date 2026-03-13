@@ -25,12 +25,12 @@ pubm init
 
 ## 2. Minimale Konfiguration anlegen
 
+`pubm` leitet Registries aus den Manifest-Dateien ab. Fur die meisten Projekte reicht eine leere Konfiguration:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 ## 3. Changeset hinzufugen

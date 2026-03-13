@@ -25,12 +25,12 @@ pubm init
 
 ## 2. Agregar una configuracion minima
 
+`pubm` infiere los registros desde los archivos de manifiesto. La mayoria de proyectos pueden dejar la config vacia:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 ## 3. Agregar un changeset

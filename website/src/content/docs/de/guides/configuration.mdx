@@ -7,17 +7,24 @@ description: Standardwerte fur Release-Pipeline, Paketstruktur und Registry-Ziel
 
 ## Minimales Beispiel
 
+`pubm` leitet Registries aus den Manifest-Dateien ab. Fur die meisten Projekte reicht eine leere Konfiguration:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+## Registry-Ableitung
+
+| Manifest | Abgeleitete Registry |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
 
 ## Wichtige Felder
 
-- `registries`
 - `packages`
 - `plugins`
 - `versioning`

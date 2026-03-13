@@ -15,15 +15,17 @@ description: Publier les packages du workspace dans le bon ordre avec la bonne s
 Utilisez une config explicite quand:
 
 - seuls certains packages doivent etre publies
-- les registres different selon le package
 - JS et Rust cohabitent
+- vous devez surcharger les registres inferes ou ajouter des registres prives
+
+Les registres sont inferes depuis les manifestes. `registries` ne sert qu'a surcharger:
 
 ```ts
 export default defineConfig({
   packages: [
-    { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "packages/cli", registries: ["npm"], ecosystem: "js" },
-    { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/core", ecosystem: "js" },
+    { path: "packages/cli", ecosystem: "js", registries: ["npm"] }, // surcharge
+    { path: "crates/pubm-rs", ecosystem: "rust" },
   ],
 });
 ```

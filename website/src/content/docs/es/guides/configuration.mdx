@@ -7,17 +7,24 @@ description: Definir valores por defecto del pipeline de release, estructura de 
 
 ## Config minima
 
+`pubm` infiere los registros desde los archivos de manifiesto. La config puede quedar vacia en la mayoria de proyectos:
+
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
+
+Reglas de inferencia:
+
+| Manifiesto | Registro inferido |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `Cargo.toml` | `crates` |
 
 Campos comunes:
 
-- `registries`
 - `packages`
 - `plugins`
 - `versioning`

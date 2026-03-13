@@ -7,17 +7,17 @@ Cette reference decrit la forme typee de `pubm.config.*` exposee par `defineConf
 
 Champs les plus importants aujourd'hui:
 
-- `registries`
 - `packages`
 - `plugins`
 - `versioning`, `fixed`, `linked`
 - `snapshot.useCalculatedVersion`
 
+Les registries sont inferees depuis les fichiers de manifeste. `packages[].registries` permet de les surcharger ou d'ajouter des registries privees.
+
 ## Defauts principaux
 
 - `versioning: "independent"`
 - `branch: "main"`
-- `registries: ["npm", "jsr"]`
 - `tag: "latest"`
 - `contents: "."`
 - `saveToken: true`

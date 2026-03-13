@@ -7,7 +7,6 @@ This reference describes the typed shape of `pubm.config.*` as exposed by `defin
 
 The config schema is broader than the current runtime wiring. Today, the most important fields in active publish flows are:
 
-- `registries`
 - `packages`
 - `plugins`
 - `versioning`, `fixed`, and `linked` for changeset/version planning
@@ -42,9 +41,8 @@ export default defineConfig({
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  registries: ["npm", "jsr"],
   rollbackStrategy: "individual",
-  packages: [{ path: ".", registries: ["npm", "jsr"] }],
+  packages: [{ path: "." }],
   validate: {
     cleanInstall: true,
     entryPoints: true,
@@ -74,29 +72,17 @@ Controls how versions are assigned in multi-package repositories.
 Branch that must match `HEAD` during guarded release runs.
 Typed config field for release-branch policy. If you need branch enforcement today, prefer the CLI `--branch` flag.
 
-## `registries`
-
-- Type: `RegistryType[]`
-- Default: `["npm", "jsr"]`
-
-Default registry targets for publish runs. Supported built-ins are:
-
-- `"npm"`
-- `"jsr"`
-- `"crates"`
-- custom registry URLs
-
 ## `packages`
 
 - Type: `PackageConfig[]`
-- Default: `[{ path: ".", registries: ["npm", "jsr"] }]`
+- Default: `[{ path: "." }]`
 
-Explicitly declares publishable packages and their registry targets.
+Explicitly declares publishable packages. Registries are inferred from manifest files unless overridden per package.
 
 ```ts
 packages: [
-  { path: "packages/core", registries: ["npm", "jsr"], ecosystem: "js" },
-  { path: "crates/pubm-rs", registries: ["crates"], ecosystem: "rust" },
+  { path: "packages/core", ecosystem: "js" },
+  { path: "crates/pubm-rs", ecosystem: "rust" },
 ];
 ```
 
@@ -282,10 +268,15 @@ Package-level entries are shaped like this:
 ```ts
 interface PackageConfig {
   path: string;
-  registries: RegistryType[];
+  registries?: Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>;
   ecosystem?: "js" | "rust";
   buildCommand?: string;
   testCommand?: string;
+}
+
+interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string } | { secureStore: string };
 }
 ```
 
@@ -298,10 +289,30 @@ Relative path to the package root.
 
 ### `registries`
 
-- Type: `RegistryType[]`
-- Required: yes
+- Type: `Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>`
+- Required: no
 
-Publish targets for that package.
+Override the inferred registry targets for that package. When omitted, `pubm` infers registries from manifest files:
+
+- `package.json` → `npm`
+- `jsr.json` → `jsr`
+- `Cargo.toml` → `crates`
+- `publishConfig.registry` in `package.json` → replaces `npm` with that registry URL
+- `.npmrc` registry → replaces `npm` when `publishConfig` is absent
+
+Use this field when inference is insufficient or when you need to add private registries alongside built-in ones:
+
+```ts
+packages: [
+  {
+    path: "packages/a",
+    registries: [
+      "npm",
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+    ],
+  },
+];
+```
 
 ### `ecosystem`
 
@@ -345,17 +356,19 @@ interface SnapshotConfig {
 
 ## Examples
 
-## Single package
+## Single package — inferred registries
+
+A package with both `package.json` and `jsr.json` needs no explicit registry config. `pubm` infers `npm` and `jsr` from the manifests.
 
 ```ts
 import { defineConfig } from "@pubm/core";
 
-export default defineConfig({
-  registries: ["npm", "jsr"],
-});
+export default defineConfig({});
 ```
 
 ## Fixed-version monorepo
+
+Registries are inferred per package from each package's manifest files. Override with `registries` only when inference is wrong.
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -363,8 +376,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "fixed",
   packages: [
-    { path: "packages/web", registries: ["npm"], ecosystem: "js" },
-    { path: "packages/server", registries: ["npm"], ecosystem: "js" },
+    { path: "packages/web", ecosystem: "js" },
+    { path: "packages/server", ecosystem: "js" },
   ],
 });
 ```
@@ -377,8 +390,8 @@ import { defineConfig } from "@pubm/core";
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/sdk", registries: ["npm", "jsr"], ecosystem: "js" },
-    { path: "crates/sdk-core", registries: ["crates"], ecosystem: "rust" },
+    { path: "packages/sdk", ecosystem: "js" },
+    { path: "crates/sdk-core", ecosystem: "rust" },
   ],
   snapshot: {
     useCalculatedVersion: true,
@@ -386,10 +399,28 @@ export default defineConfig({
 });
 ```
 
+## Private registry alongside npm
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  packages: [
+    {
+      path: "packages/a",
+      registries: [
+        "npm",
+        { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+      ],
+    },
+  ],
+});
+```
+
 ## Practical notes
 
 - Prefer config for stable repository defaults and CLI flags for temporary overrides.
-- Keep package declarations explicit once registries differ across packages.
+- Rely on manifest-based inference where possible; use `packages[].registries` only when the inferred targets are wrong or when private registries need to be added.
 - Keep config files lightweight; avoid running expensive logic during module evaluation.
 
 For usage patterns and config layouts, read the [Configuration](/pubm/guides/configuration/) guide.
