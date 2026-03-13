@@ -46,9 +46,7 @@ export interface PubmConfig {
 }
 
 export interface ResolvedPubmConfig
-  extends Required<
-    Omit<PubmConfig, "packages" | "validate" | "registries">
-  > {
+  extends Required<Omit<PubmConfig, "packages" | "validate" | "registries">> {
   packages: PackageConfig[];
   validate: Required<ValidateConfig>;
 }

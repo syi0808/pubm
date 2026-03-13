@@ -105,8 +105,6 @@ export type {
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
-export type { SnapshotOptions } from "./utils/snapshot.js";
-export { generateSnapshotVersion } from "./utils/snapshot.js";
 export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
@@ -125,6 +123,8 @@ export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
+export type { SnapshotOptions } from "./utils/snapshot.js";
+export { generateSnapshotVersion } from "./utils/snapshot.js";
 export { loadTokensFromDb } from "./utils/token.js";
 export type { EntryPointError, ExtraneousFile } from "./validate/index.js";
 // Validation
