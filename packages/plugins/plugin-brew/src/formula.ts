@@ -81,7 +81,6 @@ export function updateFormula(
   let updated = content.replace(/version\s+"[^"]+"/, `version "${version}"`);
 
   for (const asset of assets) {
-    // Match url/sha256 pairs based on the platform context
     const platformPatterns: Record<string, { os: string; cpu: string }> = {
       "darwin-arm64": { os: "on_macos", cpu: "arm" },
       "darwin-x64": { os: "on_macos", cpu: "intel" },
@@ -92,9 +91,9 @@ export function updateFormula(
     const pattern = platformPatterns[asset.platform];
     if (!pattern) continue;
 
-    // Find the section for this platform and update url/sha256
     const osBlockRegex = new RegExp(
-      `(${pattern.os}\\s+do[\\s\\S]*?CPU::${pattern.cpu}\\?\\s*\\n\\s*)url\\s+"[^"]+"(\\s*\\n\\s*)sha256\\s+"[^"]+"`,
+      `(${pattern.os}\\s+do[\\s\\S]*?Hardware::CPU\\.${pattern.cpu}\\?\\s*\\n\\s*)url\\s+"[^"]+"(\\s*\\n\\s*)sha256\\s+"[^"]+"`,
+      "m",
     );
 
     updated = updated.replace(
