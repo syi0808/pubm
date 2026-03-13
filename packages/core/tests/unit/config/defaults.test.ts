@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   readFileSync: vi.fn(),
+  statSync: vi.fn(() => ({ rdev: 0, birthtimeMs: 0, nlink: 0, gid: 0 })),
 }));
 
 import { existsSync } from "node:fs";
 import { resolveConfig } from "../../../src/config/defaults.js";
 import type { PubmConfig } from "../../../src/config/types.js";
+import { registryCatalog } from "../../../src/registry/catalog.js";
 
 const mockedExistsSync = vi.mocked(existsSync);
 
@@ -63,5 +65,46 @@ describe("resolveConfig", () => {
   it("detects single package when no workspace config", () => {
     const resolved = resolveConfig({});
     expect(resolved.packages).toEqual([{ path: "." }]);
+  });
+
+  describe("private registry normalization", () => {
+    it("normalizes PrivateRegistryConfig objects to string keys in packages", () => {
+      const resolved = resolveConfig({
+        packages: [
+          {
+            path: "packages/a",
+            registries: [
+              "npm",
+              {
+                url: "https://npm.internal.com",
+                token: { envVar: "MY_TOKEN" },
+              },
+            ],
+          },
+        ],
+      });
+      // After normalization, the object should become a string key
+      expect(resolved.packages[0].registries).toEqual([
+        "npm",
+        "npm.internal.com",
+      ]);
+    });
+
+    it("registers private registry in catalog during normalization", () => {
+      resolveConfig({
+        packages: [
+          {
+            path: "packages/a",
+            registries: [
+              {
+                url: "https://npm.internal.com",
+                token: { envVar: "MY_TOKEN" },
+              },
+            ],
+          },
+        ],
+      });
+      expect(registryCatalog.get("npm.internal.com")).toBeDefined();
+    });
   });
 });
