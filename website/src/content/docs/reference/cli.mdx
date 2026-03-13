@@ -31,9 +31,6 @@ Running `pubm` with no version argument is the interactive happy path. It lets y
 | `pubm changesets status` | Show pending changesets and their bump impact. |
 | `pubm changesets version` | Consume changesets and write new versions. |
 | `pubm changesets changelog` | Render changelog text from pending changesets. |
-| `pubm changesets pre enter <tag>` | Enter pre-release mode. |
-| `pubm changesets pre exit` | Exit pre-release mode. |
-| `pubm changesets snapshot [tag]` | Publish a temporary snapshot release. |
 | `pubm changesets migrate` | Migrate from `.changeset/` to `.pubm/`. |
 
 ## Top-level publish command
@@ -88,6 +85,7 @@ pubm patch --tag beta
 | `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
 | `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
 | `-t, --tag <name>` | `latest` | Use a specific dist-tag such as `beta` or `next`. |
+| `--snapshot [tag]` | — | Publish a temporary snapshot version (default tag: `snapshot`) |
 | `-c, --contents <path>` | none | Change into a subdirectory before running the release pipeline. |
 | `--registry <registries>` | `npm,jsr` | Comma-separated target registries. Supports `npm`, `jsr`, `crates`, or custom registry URLs. |
 | `--test-script <script>` | `test` | Script name used for the test step. |
@@ -286,32 +284,6 @@ pubm changesets changelog --version 1.8.0
 |------|-------------|
 | `--dry-run` | Preview changelog output without writing `CHANGELOG.md`. |
 | `--version <ver>` | Use a specific section header instead of `Unreleased`. |
-
-## `pubm changesets pre`
-
-Manage pre-release mode.
-
-```bash
-pubm changesets pre enter beta
-pubm changesets pre exit
-```
-
-## `pubm changesets snapshot`
-
-Create and publish a temporary snapshot release.
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --dry-run
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--snapshot-id <id>` | none | Custom identifier such as a commit SHA. |
-| `--registry <registries>` | `npm,jsr` | Comma-separated registries to receive the snapshot. |
-| `--no-build` | `false` | Skip the build before publishing the snapshot. |
-| `--dry-run` | `false` | Print the snapshot version without publishing. |
 
 ## `pubm changesets migrate`
 

@@ -176,41 +176,6 @@ This is useful when:
 - you are migrating from another release process
 - you want to compare multiple wording options
 
-## Pre-release mode
-
-Pre-release mode keeps repeated beta, alpha, or rc releases organized around one base semver.
-
-```bash
-pubm changesets pre enter beta
-pubm changesets version
-pubm patch --tag beta
-pubm changesets pre exit
-```
-
-Behavior:
-
-- first pre-release from `1.2.0` becomes `1.2.0-beta.0`
-- the next compatible pre-release becomes `1.2.0-beta.1`
-- exiting pre mode stops writing pre-release suffixes
-
-## Snapshot releases
-
-Snapshots are separate from changeset consumption. They are for temporary publishes, not for permanent semver history.
-
-```bash
-pubm changesets snapshot
-pubm changesets snapshot next --dry-run
-pubm changesets snapshot next --snapshot-id "$(git rev-parse --short HEAD)"
-```
-
-Snapshot behavior:
-
-- calculates a snapshot version
-- temporarily rewrites the package version
-- optionally builds
-- publishes with the snapshot tag
-- restores the original version afterward
-
 ## Migration from `.changeset/`
 
 If your repository already uses the Changesets ecosystem, migrate pending files:

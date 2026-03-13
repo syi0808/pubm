@@ -10,7 +10,7 @@ The config schema is broader than the current runtime wiring. Today, the most im
 - `packages`
 - `plugins`
 - `versioning`, `fixed`, and `linked` for changeset/version planning
-- `snapshot.useCalculatedVersion` for snapshot releases
+- `snapshotTemplate` for snapshot version formatting
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -48,10 +48,7 @@ export default defineConfig({
     entryPoints: true,
     extraneousFiles: true,
   },
-  snapshot: {
-    useCalculatedVersion: false,
-    prereleaseTemplate: "{tag}-{timestamp}",
-  },
+  snapshotTemplate: "{tag}-{timestamp}",
 });
 ```
 
@@ -233,33 +230,18 @@ Reserved validation toggle.
 
 Reserved validation toggle.
 
-## `snapshot`
+## `snapshotTemplate`
 
-- Type: `SnapshotConfig`
-- Default:
+Template for generating snapshot version strings when using `pubm --snapshot`.
 
-```ts
-{
-  useCalculatedVersion: false,
-  prereleaseTemplate: "{tag}-{timestamp}",
-}
-```
+**Type:** `string`
+**Default:** `"{tag}-{timestamp}"`
 
-Controls snapshot version generation.
-
-### `snapshot.useCalculatedVersion`
-
-- Type: `boolean`
-- Default: `false`
-
-Whether the snapshot base should use the next calculated semver instead of the current package version.
-
-### `snapshot.prereleaseTemplate`
-
-- Type: `string`
-- Default: `"{tag}-{timestamp}"`
-
-Template used to build the snapshot suffix.
+Available template variables:
+- `{base}` — Current package version from manifest
+- `{tag}` — Snapshot tag (from `--snapshot [tag]`, default: `snapshot`)
+- `{timestamp}` — UTC timestamp in `YYYYMMDDTHHmmss` format
+- `{commit}` — Current git commit SHA
 
 ## `PackageConfig`
 
@@ -345,15 +327,6 @@ interface ValidateConfig {
 }
 ```
 
-## `SnapshotConfig`
-
-```ts
-interface SnapshotConfig {
-  useCalculatedVersion?: boolean;
-  prereleaseTemplate?: string;
-}
-```
-
 ## Examples
 
 ## Single package — inferred registries
@@ -393,9 +366,6 @@ export default defineConfig({
     { path: "packages/sdk" },
     { path: "crates/sdk-core" },
   ],
-  snapshot: {
-    useCalculatedVersion: true,
-  },
 });
 ```
 
