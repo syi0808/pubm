@@ -14,7 +14,9 @@
 <h1 align="center">pubm</h1>
 
 <p align="center">
-A publish orchestrator for multi-registry, multi-ecosystem packages.
+<strong>One command. Every registry.</strong><br>
+Publish to npm, jsr, crates.io, and private registries in a single step.<br>
+If anything fails, pubm rolls everything back automatically.
 </p>
 
 <p align="center">
@@ -23,166 +25,91 @@ A publish orchestrator for multi-registry, multi-ecosystem packages.
 
 ## Why pubm exists
 
-It started with a simple problem: publishing a package to both npm and jsr at the same time. There was no tool that did this well. You either wrote shell scripts chaining multiple publish commands, or you cobbled together plugins on top of a release tool that was never designed for it.
+Publishing a package to multiple registries shouldn't require shell scripts or plugins bolted onto tools designed for one registry. pubm treats multi-registry publishing as a single transaction — it either succeeds everywhere or rolls back cleanly.
 
-But the real issue is bigger than npm + jsr. The JavaScript ecosystem now has multiple registries. Rust packages live alongside TypeScript ones in the same monorepo. A single "release" might mean publishing to npm, jsr, crates.io, and a private registry — all at once, all atomically, with proper rollback if any of them fails.
+## Publish without fear
 
-Most release tools are built around a different assumption: one package, one registry, one ecosystem. Multi-registry support, if it exists, is bolted on through plugins or post-publish scripts. That works until it doesn't — and when it breaks mid-publish, you're left in a half-released state cleaning up manually.
+### One workflow, every registry
 
-pubm treats multi-registry publishing as a first-class orchestration problem. Not an afterthought, not a plugin. The core pipeline is designed around the idea that a release is a transaction across multiple targets, and it should either succeed everywhere or roll back cleanly.
+npm, jsr, crates.io, and private registries from a single command. Registries are **auto-inferred** from your manifest files — no configuration needed:
 
-## What pubm does differently
+| Manifest | Registry |
+|----------|----------|
+| `package.json` | npm |
+| `jsr.json` | jsr |
+| `Cargo.toml` | crates.io |
 
-### Multi-registry from the ground up
+Have both `package.json` and `jsr.json`? pubm publishes to both in one release.
 
-npm, jsr, crates.io, and custom npm-compatible registries are all built into the core. Publishing to multiple registries isn't a special case — it's the default path. They run concurrently where possible, sequentially where dependencies require it.
+### Automatic rollback
 
-Registries are automatically inferred from your manifest files — no configuration needed:
+If any registry rejects your package, pubm undoes the version bump, git tag, and commit. Your repo returns to its previous state. No more half-published packages or manual cleanup.
 
-- `package.json` → publishes to **npm**
-- `jsr.json` (or `"exports"` in package.json) → publishes to **jsr**
-- `Cargo.toml` → publishes to **crates.io**
+### Catch problems before publishing
 
-If you have both `package.json` and `jsr.json`, pubm publishes to both npm and jsr in a single release.
-
-### Multi-ecosystem
-
-pubm understands both JavaScript and Rust. It reads `package.json` and `Cargo.toml`, handles ecosystem-specific versioning conventions, and manages inter-crate dependencies in Rust monorepos. More ecosystems can be added through plugins.
-
-### Safety that doesn't get in the way
-
-Before publishing anything, pubm validates: branch rules, clean working tree, remote sync, registry availability, login status, and publish permissions. If something is going to fail, it fails before any side effects happen.
-
-If a publish does fail partway through, pubm automatically rolls back git commits, tags, and stashes. You don't end up with a tagged commit that was never actually published.
-
-The `--preflight` flag takes this further — it simulates your entire CI publish pipeline locally, including token validation, without actually publishing. Fix problems before you push.
+Branch guards, clean working tree, remote sync, registry availability, login status, and publish permissions — all verified **before** any side effects happen. The `--preflight` flag goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.
 
 ```bash
 pubm --preflight
 ```
 
-### Interactive when you're there, headless when you're not
+### Works locally and in CI
 
-pubm detects whether it's running in an interactive terminal or CI. In a terminal, it prompts for version selection and OTP codes. In CI, prompts are disabled automatically and it uses `NODE_AUTH_TOKEN` with provenance publish for npm 2FA.
+Interactive prompts at the terminal, fully headless in CI. Same command, same guarantees. No flags to remember, no separate CI config.
 
-No flags to remember. No separate CI config. Same command, both environments.
+### Monorepo-native
+
+Detects pnpm, yarn, npm, bun, deno, and Cargo workspaces automatically. Publishes in dependency order. Supports independent and fixed versioning, fixed groups, and linked groups.
+
+### Multi-ecosystem
+
+Understands both JavaScript and Rust. Reads `package.json`, `jsr.json`, and `Cargo.toml`. Mixed JS + Rust workspaces work out of the box.
 
 ## Quick Start
 
 ```bash
 npm i -g pubm
 
-# Preview what would happen
-pubm patch --preview
+# Initialize
+pubm init
 
-# Publish for real
-pubm patch
+# Just run pubm — that's it
+pubm
 ```
 
-## Core Workflow
+No version argument needed. pubm launches an **interactive pipeline** that walks you through everything:
 
-### Single package
-
-```bash
-# Create a changeset describing your changes
-pubm add
-
-# Consume changesets, bump version, generate changelog
-pubm version
-
-# Publish to configured registries
-pubm patch
+```
+  $ pubm
+    │
+    ├─ Pick your version     ── patch, minor, or major
+    ├─ Preflight checks      ── branch, working tree, remote sync
+    ├─ Registry validation   ── auth, permissions, availability
+    ├─ Test & Build          ── runs your npm scripts
+    ├─ Version bump          ── updates manifests, creates git commit + tag
+    ├─ Publish               ── all registries concurrently
+    ├─ Post-publish          ── pushes tags, creates GitHub release draft
+    │
+    └─ On failure → automatic rollback of all changes
 ```
 
-### Monorepo
+One command does everything. No separate steps, no scripts to chain.
 
-pubm detects pnpm, yarn, and npm workspaces automatically. Packages are published in dependency order, and version bumps can be coordinated across groups.
+## Documentation
 
-```bash
-# Same commands — pubm handles workspace discovery
-pubm add
-pubm version
-pubm patch
-```
-
-### Pre-releases and snapshots
-
-```bash
-# Enter pre-release mode
-pubm pre enter beta
-pubm version              # → 1.2.0-beta.0, 1.2.0-beta.1, ...
-pubm pre exit
-
-# One-off snapshot releases
-pubm snapshot              # → 0.0.0-snapshot-20260309T123456
-```
-
-## Configuration and Plugins
-
-For most packages, no configuration file is needed — pubm infers everything from your manifest files. For advanced use cases, configure pubm through `pubm.config.ts`:
-
-```ts
-import { defineConfig } from "pubm";
-
-export default defineConfig({
-  // Registries are inferred from manifest files automatically.
-  // Use packages[].registries to override for specific packages,
-  // or to add a private registry:
-  packages: [
-    {
-      path: "packages/my-package",
-      registries: [
-        "npm",
-        "jsr",
-        { url: "https://registry.example.com", token: { envVar: "MY_REGISTRY_TOKEN" } },
-      ],
-    },
-  ],
-  plugins: [
-    {
-      name: "my-plugin",
-      hooks: {
-        beforePublish: async (ctx) => {
-          console.log(`Publishing v${ctx.version}...`);
-        },
-        afterPublish: async (ctx) => {
-          await notifySlack(`Released v${ctx.version}`);
-        },
-        onError: async (ctx, error) => {
-          await alertTeam(error);
-        },
-      },
-    },
-  ],
-});
-```
-
-Plugins can hook into any stage of the pipeline (`beforeTest`, `afterBuild`, `beforePublish`, `onRollback`, `onSuccess`, etc.) and can register custom `Registry` and `Ecosystem` implementations for additional language ecosystems.
-
-See `pubm --help` or the [CLI reference](./docs/cli.md) for the full option list.
-
-## Commands
-
-| Command | Purpose |
-|---------|---------|
-| `pubm init` | Initialize pubm configuration |
-| `pubm add` | Create a changeset describing your changes |
-| `pubm version` | Consume changesets, bump versions, generate changelog |
-| `pubm status` | Show pending changesets and their impact |
-| `pubm pre enter/exit <tag>` | Enter or exit pre-release mode |
-| `pubm snapshot [tag]` | Create a snapshot release |
-| `pubm secrets sync` | Sync registry tokens to GitHub Secrets |
-| `pubm update` | Update pubm to the latest version |
-
----
+- [Quick Start](https://syi0808.github.io/pubm/guides/quick-start/)
+- [Configuration](https://syi0808.github.io/pubm/guides/configuration/)
+- [Changesets](https://syi0808.github.io/pubm/guides/changesets/)
+- [Monorepo](https://syi0808.github.io/pubm/guides/monorepo/)
+- [CI/CD](https://syi0808.github.io/pubm/guides/ci-cd/)
+- [CLI Reference](https://syi0808.github.io/pubm/reference/cli/)
+- [Plugins API](https://syi0808.github.io/pubm/reference/plugins/)
 
 ## FAQ
 
 ### How are registry tokens stored?
 
-pubm stores tokens in your OS native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) via `@napi-rs/keyring`. Environment variables always take priority over stored tokens. If the keychain is unavailable, tokens are encrypted with AES-256-CBC as a fallback.
-
-If you prefer not to save tokens, use `--no-save-token` to be prompted each time.
+pubm stores tokens in your OS native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) via `@napi-rs/keyring`. Environment variables always take priority. Use `--no-save-token` to be prompted each time.
 
 ---
 
