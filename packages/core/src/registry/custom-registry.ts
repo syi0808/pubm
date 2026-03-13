@@ -3,6 +3,10 @@ import { getPackageJson } from "../utils/package.js";
 import { NpmRegistry } from "./npm.js";
 
 export class CustomRegistry extends NpmRegistry {
+  constructor(packageName?: string, registryUrl?: string) {
+    super(packageName, registryUrl);
+  }
+
   async npm(args: string[]): Promise<string> {
     const { stdout } = await exec(
       "npm",

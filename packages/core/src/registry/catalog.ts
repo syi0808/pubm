@@ -1,7 +1,9 @@
-import type { PackageConfig } from "../config/types.js";
+import type { PackageConfig, PrivateRegistryConfig } from "../config/types.js";
 import { exec } from "../utils/exec.js";
+import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
 import { getJsrJson, getPackageJson } from "../utils/package.js";
 import { cratesRegistry } from "./crates.js";
+import { CustomRegistry } from "./custom-registry.js";
 import { jsrRegistry } from "./jsr.js";
 import { npmRegistry } from "./npm.js";
 import type { Registry } from "./registry.js";
@@ -127,3 +129,31 @@ registryCatalog.register({
   },
   factory: (name) => cratesRegistry(name ?? "unknown"),
 });
+
+export function registerPrivateRegistry(
+  config: PrivateRegistryConfig,
+  ecosystemKey: EcosystemKey,
+  catalog: RegistryCatalog = registryCatalog,
+): string {
+  const key = normalizeRegistryUrl(config.url);
+
+  if (catalog.get(key)) return key; // Already registered
+
+  catalog.register({
+    key,
+    ecosystem: ecosystemKey,
+    label: config.url,
+    tokenConfig: {
+      envVar: config.token.envVar,
+      dbKey: `${key}-token`,
+      ghSecretName: config.token.envVar,
+      promptLabel: `Token for ${config.url}`,
+      tokenUrl: config.url,
+      tokenUrlLabel: key,
+    },
+    needsPackageScripts: false,
+    factory: async (packageName) => new CustomRegistry(packageName, config.url),
+  });
+
+  return key;
+}
