@@ -11,7 +11,7 @@ export interface PackageVersionInfo {
 export async function discoverCurrentVersions(
   cwd: string,
 ): Promise<Map<string, string>> {
-  const discovered = discoverPackages({ cwd });
+  const discovered = await discoverPackages({ cwd });
   const versions = new Map<string, string>();
 
   if (discovered.length > 0) {
@@ -35,7 +35,7 @@ export async function discoverCurrentVersions(
 export async function discoverPackageInfos(
   cwd: string,
 ): Promise<PackageVersionInfo[]> {
-  const discovered = discoverPackages({ cwd });
+  const discovered = await discoverPackages({ cwd });
   const infos: PackageVersionInfo[] = [];
 
   if (discovered.length > 0) {
