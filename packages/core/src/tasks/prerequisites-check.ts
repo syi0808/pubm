@@ -1,11 +1,11 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { warningBadge } from "../utils/cli.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
-import type { Ctx } from "./runner.js";
 
 class PrerequisitesCheckError extends AbstractError {
   name = "Failed prerequisite check";
@@ -18,32 +18,32 @@ class PrerequisitesCheckError extends AbstractError {
 }
 
 export const prerequisitesCheckTask = (
-  options?: Omit<ListrTask<Ctx>, "title" | "task">,
-): Listr<Ctx> => {
+  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
+): Listr<PubmContext> => {
   const git = new Git();
-  const taskDef: ListrTask<Ctx> = {
+  const taskDef: ListrTask<PubmContext> = {
     ...options,
     exitOnError: true,
     title: "Prerequisites check (for deployment reliability)",
     task: (_, parentTask) =>
       parentTask.newListr([
         {
-          skip: (ctx) => !!ctx.anyBranch,
+          skip: (ctx) => !!ctx.options.anyBranch,
           title: "Verifying current branch is a release branch",
           task: async (ctx, task): Promise<void> => {
-            if ((await git.branch()) !== ctx.branch) {
+            if ((await git.branch()) !== ctx.options.branch) {
               const swtichBranch = await task
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} The current HEAD branch is not the release target branch. Do you want to switch branch to ${ctx.branch}?`,
+                  message: `${warningBadge} The current HEAD branch is not the release target branch. Do you want to switch branch to ${ctx.options.branch}?`,
                   enabled: "Yes",
                   disabled: "No",
                 });
 
               if (swtichBranch) {
-                task.output = `Switching branch to ${ctx.branch}...`;
-                await git.switch(ctx.branch);
+                task.output = `Switching branch to ${ctx.options.branch}...`;
+                await git.switch(ctx.options.branch);
               } else {
                 throw new PrerequisitesCheckError(
                   "The current HEAD branch is not the release target branch. Please switch to the correct branch before proceeding.",
@@ -118,11 +118,11 @@ export const prerequisitesCheckTask = (
                 );
               }
 
-              ctx.cleanWorkingTree = false;
+              ctx.runtime.cleanWorkingTree = false;
               return;
             }
 
-            ctx.cleanWorkingTree = true;
+            ctx.runtime.cleanWorkingTree = true;
           },
         },
         {
@@ -154,7 +154,7 @@ export const prerequisitesCheckTask = (
         {
           title: "Checking git tag existence",
           task: async (ctx, task): Promise<void> => {
-            const gitTag = `v${ctx.version}`;
+            const gitTag = `v${ctx.runtime.version}`;
 
             if (await git.checkTagExist(gitTag)) {
               const deleteTag = await task
@@ -171,7 +171,7 @@ export const prerequisitesCheckTask = (
                 await git.deleteTag(gitTag);
               } else {
                 throw new PrerequisitesCheckError(
-                  `The Git tag '${gitTag}' already exists. Please check the selected version '${ctx.version}'.`,
+                  `The Git tag '${gitTag}' already exists. Please check the selected version '${ctx.runtime.version}'.`,
                 );
               }
             }
@@ -181,7 +181,7 @@ export const prerequisitesCheckTask = (
   };
 
   if (isCI) {
-    return createListr(taskDef, createCiListrOptions<Ctx>());
+    return createListr(taskDef, createCiListrOptions<PubmContext>());
   }
 
   return createListr(taskDef);

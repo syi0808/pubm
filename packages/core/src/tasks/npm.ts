@@ -1,12 +1,12 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
 import { openUrl } from "../utils/open-url.js";
 import { spawnInteractive } from "../utils/spawn-interactive.js";
-import type { Ctx } from "./runner.js";
 
 class NpmAvailableError extends AbstractError {
   name = "npm is unavailable for publishing.";
@@ -18,13 +18,13 @@ class NpmAvailableError extends AbstractError {
   }
 }
 
-export const npmAvailableCheckTasks: ListrTask<Ctx> = {
+export const npmAvailableCheckTasks: ListrTask<PubmContext> = {
   title: "Checking npm avaliable for publising",
   task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
     if (!(await npm.isLoggedIn())) {
-      if (ctx.promptEnabled) {
+      if (ctx.runtime.promptEnabled) {
         try {
           task.output = "Launching npm login...";
 
@@ -113,7 +113,7 @@ More information: ${link("npm naming rules", "https://github.com/npm/validate-np
       );
     }
 
-    if (!ctx.promptEnabled) {
+    if (!ctx.runtime.promptEnabled) {
       const tfaMode = await npm.twoFactorAuthMode();
 
       if (tfaMode === "auth-and-writes") {
@@ -125,23 +125,23 @@ More information: ${link("npm naming rules", "https://github.com/npm/validate-np
   },
 };
 
-export const npmPublishTasks: ListrTask<Ctx> = {
+export const npmPublishTasks: ListrTask<PubmContext> = {
   title: "Running npm publish",
-  skip: (ctx) => !!ctx.preview,
+  skip: (ctx) => !!ctx.options.preview,
   task: async (ctx, task): Promise<void> => {
     const npm = await npmRegistry();
 
     // Pre-check: skip if version already published
-    if (await npm.isVersionPublished(ctx.version)) {
-      task.title = `[SKIPPED] npm: v${ctx.version} already published`;
-      task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+    if (await npm.isVersionPublished(ctx.runtime.version)) {
+      task.title = `[SKIPPED] npm: v${ctx.runtime.version} already published`;
+      task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
       return task.skip();
     }
 
     task.output = "Publishing on npm...";
 
     try {
-      if (ctx.promptEnabled) {
+      if (ctx.runtime.promptEnabled) {
         let result = await npm.publish();
 
         if (!result) {
@@ -201,8 +201,8 @@ export const npmPublishTasks: ListrTask<Ctx> = {
             "You cannot publish over the previously published",
           ))
       ) {
-        task.title = `[SKIPPED] npm: v${ctx.version} already published`;
-        task.output = `⚠ ${npm.packageName}@${ctx.version} is already published on npm`;
+        task.title = `[SKIPPED] npm: v${ctx.runtime.version} already published`;
+        task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
         return task.skip();
       }
       throw error;

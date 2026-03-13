@@ -1,6 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { JsrClient, jsrRegistry } from "../registry/jsr.js";
@@ -11,7 +12,6 @@ import { patchCachedJsrJson } from "../utils/package.js";
 import { getScope, isScopedPackage } from "../utils/package-name.js";
 import { addRollback } from "../utils/rollback.js";
 import { SecureStore } from "../utils/secure-store.js";
-import type { Ctx } from "./runner.js";
 
 class JsrAvailableError extends AbstractError {
   name = "jsr is unavailable for publishing.";
@@ -23,22 +23,17 @@ class JsrAvailableError extends AbstractError {
   }
 }
 
-interface JsrCtx extends Ctx {
-  scopeCreated?: boolean;
-  packageCreated?: boolean;
-}
-
-export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
+export const jsrAvailableCheckTasks: ListrTask<PubmContext> = {
   title: "Checking jsr avaliable for publising",
   task: async (ctx, task): Promise<void> => {
     const jsr = await jsrRegistry();
 
     addRollback(async (ctx): Promise<void> => {
-      if (ctx.packageCreated) {
+      if (ctx.runtime.packageCreated) {
         await jsr.client.deletePackage(jsr.packageName);
       }
 
-      if (ctx.scopeCreated) {
+      if (ctx.runtime.scopeCreated) {
         await jsr.client.deleteScope(`${getScope(jsr.packageName)}`);
       }
     }, ctx);
@@ -46,7 +41,7 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
     if (!JsrClient.token) {
       task.output = "Retrieving jsr API token";
 
-      if (ctx.promptEnabled) {
+      if (ctx.runtime.promptEnabled) {
         const maxAttempts = 3;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -101,7 +96,8 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
         JsrClient.token = jsrTokenEnv;
       }
 
-      if (ctx.saveToken) new SecureStore().set("jsr-token", JsrClient.token);
+      if (ctx.options.saveToken)
+        new SecureStore().set("jsr-token", JsrClient.token);
     }
 
     if (!isScopedPackage(jsr.packageName)) {
@@ -194,13 +190,13 @@ export const jsrAvailableCheckTasks: ListrTask<JsrCtx> = {
         if (scope && !scopes.includes(scope)) {
           task.output = "Creating scope for jsr...";
           await jsr.client.createScope(scope);
-          ctx.scopeCreated = true;
+          ctx.runtime.scopeCreated = true;
         }
 
-        if (ctx.scopeCreated || !(await jsr.client.package(jsrName))) {
+        if (ctx.runtime.scopeCreated || !(await jsr.client.package(jsrName))) {
           task.output = "Creating package for jsr...";
           await jsr.client.createPackage(jsrName);
-          ctx.packageCreated = true;
+          ctx.runtime.packageCreated = true;
         }
       }
 
@@ -237,22 +233,22 @@ More information: ${link("npm naming rules", "https://github.com/npm/validate-np
   },
 };
 
-export const jsrPublishTasks: ListrTask<Ctx> = {
+export const jsrPublishTasks: ListrTask<PubmContext> = {
   title: "Running jsr publish",
   task: async (ctx, task): Promise<void> => {
     const jsr = await jsrRegistry();
 
     // Pre-check: skip if version already published
-    if (await jsr.isVersionPublished(ctx.version)) {
-      task.title = `[SKIPPED] jsr: v${ctx.version} already published`;
-      task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+    if (await jsr.isVersionPublished(ctx.runtime.version)) {
+      task.title = `[SKIPPED] jsr: v${ctx.runtime.version} already published`;
+      task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
       return task.skip();
     }
 
     task.output = "Publishing on jsr...";
 
     try {
-      if (!JsrClient.token && !ctx.promptEnabled) {
+      if (!JsrClient.token && !ctx.runtime.promptEnabled) {
         const jsrTokenEnv = process.env.JSR_TOKEN;
 
         if (!jsrTokenEnv) {
@@ -267,7 +263,7 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
       let result = await jsr.publish();
 
       if (!result && jsr.packageCreationUrls) {
-        if (ctx.promptEnabled) {
+        if (ctx.runtime.promptEnabled) {
           task.title = "Running jsr publish (package creation needed)";
           const urls = jsr.packageCreationUrls;
           const maxAttempts = 3;
@@ -310,8 +306,8 @@ export const jsrPublishTasks: ListrTask<Ctx> = {
         error instanceof Error &&
         error.message.includes("already published")
       ) {
-        task.title = `[SKIPPED] jsr: v${ctx.version} already published`;
-        task.output = `⚠ ${jsr.packageName}@${ctx.version} is already published on jsr`;
+        task.title = `[SKIPPED] jsr: v${ctx.runtime.version} already published`;
+        task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
         return task.skip();
       }
       throw error;

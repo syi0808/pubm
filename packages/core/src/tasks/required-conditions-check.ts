@@ -1,5 +1,6 @@
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { registryCatalog } from "../registry/catalog.js";
@@ -13,7 +14,6 @@ import {
   ecosystemLabel,
   registryLabel,
 } from "./grouping.js";
-import type { Ctx } from "./runner.js";
 
 function needsPackageScripts(registries: string[]): boolean {
   return registries.some(
@@ -32,12 +32,12 @@ class RequiredConditionCheckError extends AbstractError {
 }
 
 export const requiredConditionsCheckTask = (
-  options?: Omit<ListrTask<Ctx>, "title" | "task">,
-): Listr<Ctx> => {
+  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
+): Listr<PubmContext> => {
   const createAvailabilityTask = (
     registryKey: string,
     packagePaths: string[],
-  ): ListrTask<Ctx> => {
+  ): ListrTask<PubmContext> => {
     const descriptor = registryCatalog.get(registryKey);
     if (!descriptor) return { title: registryKey, task: async () => {} };
 
@@ -53,7 +53,7 @@ export const requiredConditionsCheckTask = (
 
     return {
       title: `Checking ${descriptor.label} availability`,
-      task: (_ctx, parentTask): Listr<Ctx> =>
+      task: (_ctx, parentTask): Listr<PubmContext> =>
         parentTask.newListr(
           packagePaths.map((packagePath) => ({
             title: packagePath,
@@ -67,19 +67,19 @@ export const requiredConditionsCheckTask = (
     };
   };
 
-  const taskDef: ListrTask<Ctx> = {
+  const taskDef: ListrTask<PubmContext> = {
     ...options,
     title: "Required conditions check (for pubm tasks)",
-    task: (_, parentTask): Listr<Ctx> =>
+    task: (_, parentTask): Listr<PubmContext> =>
       parentTask.newListr(
         [
           {
             title: "Ping registries",
-            task: (ctx, parentTask): Listr<Ctx> =>
+            task: (ctx, parentTask): Listr<PubmContext> =>
               parentTask.newListr(
-                collectEcosystemRegistryGroups(ctx).map((group) => ({
+                collectEcosystemRegistryGroups(ctx.config).map((group) => ({
                   title: ecosystemLabel(group.ecosystem),
-                  task: (_ctx, ecosystemTask): Listr<Ctx> =>
+                  task: (_ctx, ecosystemTask): Listr<PubmContext> =>
                     ecosystemTask.newListr(
                       group.registries.map(({ registry }) => ({
                         title: `Ping ${registryLabel(registry)}`,
@@ -101,19 +101,27 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: "Checking if test and build scripts exist",
-            skip: (ctx) => !needsPackageScripts(collectRegistries(ctx)),
+            skip: (ctx) => !needsPackageScripts(collectRegistries(ctx.config)),
             task: async (ctx): Promise<void> => {
               const { scripts } = await getPackageJson();
 
               const errors: string[] = [];
 
-              if (!ctx.skipTests && !scripts?.[ctx.testScript]) {
-                errors.push(`Test script '${ctx.testScript}' does not exist.`);
+              if (
+                !ctx.options.skipTests &&
+                !scripts?.[ctx.options.testScript]
+              ) {
+                errors.push(
+                  `Test script '${ctx.options.testScript}' does not exist.`,
+                );
               }
 
-              if (!ctx.skipBuild && !scripts?.[ctx.buildScript]) {
+              if (
+                !ctx.options.skipBuild &&
+                !scripts?.[ctx.options.buildScript]
+              ) {
                 errors.push(
-                  `Build script '${ctx.buildScript}' does not exist.`,
+                  `Build script '${ctx.options.buildScript}' does not exist.`,
                 );
               }
 
@@ -134,11 +142,11 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: "Checking available registries for publishing",
-            task: (ctx, parentTask): Listr<Ctx> => {
+            task: (ctx, parentTask): Listr<PubmContext> => {
               return parentTask.newListr(
-                collectEcosystemRegistryGroups(ctx).map((group) => ({
+                collectEcosystemRegistryGroups(ctx.config).map((group) => ({
                   title: ecosystemLabel(group.ecosystem),
-                  task: (_ctx, ecosystemTask): Listr<Ctx> =>
+                  task: (_ctx, ecosystemTask): Listr<PubmContext> =>
                     ecosystemTask.newListr(
                       group.registries.map(({ registry, packagePaths }) =>
                         createAvailabilityTask(registry, packagePaths),
@@ -160,7 +168,7 @@ export const requiredConditionsCheckTask = (
   };
 
   if (isCI) {
-    return createListr(taskDef, createCiListrOptions<Ctx>());
+    return createListr(taskDef, createCiListrOptions<PubmContext>());
   }
 
   return createListr(taskDef);
