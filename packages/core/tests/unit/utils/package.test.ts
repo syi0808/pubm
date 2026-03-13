@@ -1242,7 +1242,7 @@ describe("replaceVersions", () => {
     const { replaceVersions } = await freshImport();
 
     mockReadFile.mockImplementation(async (filePath) => {
-      const normalized = String(filePath);
+      const normalized = String(filePath).replace(/\\/g, "/");
       if (normalized.endsWith("packages/core/package.json")) {
         return Buffer.from(
           JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
@@ -1282,7 +1282,7 @@ describe("replaceVersions", () => {
     const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
 
     mockReadFile.mockImplementation(async (filePath) => {
-      const normalized = String(filePath);
+      const normalized = String(filePath).replace(/\\/g, "/");
       if (normalized.endsWith("packages/core/package.json")) {
         return Buffer.from(
           JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
@@ -1343,7 +1343,11 @@ describe("replaceVersions", () => {
     const { RustEcosystem } = await import("../../../src/ecosystem/rust.js");
 
     mockReadFile.mockImplementation(async (filePath) => {
-      if (String(filePath).endsWith("packages/core/package.json")) {
+      if (
+        String(filePath)
+          .replace(/\\/g, "/")
+          .endsWith("packages/core/package.json")
+      ) {
         return Buffer.from(
           JSON.stringify({ name: "@pubm/core", version: "1.0.0" }),
         );

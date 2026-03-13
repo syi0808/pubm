@@ -209,6 +209,7 @@ vi.mock("../../../src/ecosystem/index.js", () => ({
 }));
 
 import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   buildChangelogEntries,
   generateChangelog,
@@ -368,7 +369,9 @@ describe("runner coverage scenarios", () => {
       { name: "pubm", path: "packages/pubm" },
     ] as any);
     mockedExistsSync.mockImplementation((filePath) =>
-      String(filePath).endsWith("packages/core/CHANGELOG.md"),
+      String(filePath)
+        .replace(/\\/g, "/")
+        .endsWith("packages/core/CHANGELOG.md"),
     );
     mockedReadFileSync.mockReturnValue("# Changelog");
     mockedParseChangelogSection.mockImplementation((_content, version) =>
@@ -566,11 +569,11 @@ describe("runner coverage scenarios", () => {
 
     expect(mockedReplaceVersionAtPath).toHaveBeenCalledTimes(2);
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      expect.stringContaining("packages/core"),
+      expect.stringContaining(path.join("packages", "core")),
       "core changelog",
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      expect.stringContaining("packages/pubm"),
+      expect.stringContaining(path.join("packages", "pubm")),
       "pubm changelog",
     );
     expect(mockedDeleteChangesetFiles).toHaveBeenCalled();

@@ -7,6 +7,7 @@ vi.mock("node:fs", () => ({
 }));
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import {
   buildChangelogEntries,
   generateChangelog,
@@ -111,7 +112,7 @@ describe("generateChangelog", () => {
     writeChangelogToFile("/repo", "## 1.0.0\n\n- Added");
 
     expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      "/repo/CHANGELOG.md",
+      path.join("/repo", "CHANGELOG.md"),
       "# Changelog\n\n## 1.0.0\n\n- Added\n",
       "utf-8",
     );
@@ -126,7 +127,7 @@ describe("generateChangelog", () => {
     writeChangelogToFile("/repo", "## 1.0.0\n\n- Added");
 
     expect(mockedWriteFileSync).toHaveBeenCalledWith(
-      "/repo/CHANGELOG.md",
+      path.join("/repo", "CHANGELOG.md"),
       "# Changelog\n\n## 1.0.0\n\n- Added\n## 0.9.0\n\n- Previous release\n",
       "utf-8",
     );
