@@ -6,7 +6,7 @@ import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { getRegistry } from "../registry/index.js";
+import { getConnector } from "../registry/index.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { collectRegistries } from "../utils/registries.js";
@@ -85,9 +85,9 @@ export const requiredConditionsCheckTask = (
                       group.registries.map(({ registry }) => ({
                         title: `Ping ${registryLabel(registry)}`,
                         task: async (): Promise<void> => {
-                          const targetRegistry = await getRegistry(registry);
+                          const connector = getConnector(registry);
 
-                          await targetRegistry.ping();
+                          await connector.ping();
                         },
                       })),
                       {
