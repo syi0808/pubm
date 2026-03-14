@@ -4,7 +4,6 @@ export {
   topologicalSort,
 } from "./dependency-graph.js";
 export {
-  type DiscoveredPackage,
   type DiscoverOptions,
   discoverPackages,
   type ResolvedPackage,
