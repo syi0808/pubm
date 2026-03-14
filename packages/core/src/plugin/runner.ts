@@ -1,6 +1,6 @@
 import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
-import type { Registry } from "../registry/registry.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import type { ReleaseContext } from "../tasks/github-release.js";
 
 import type { HookName, PubmPlugin } from "./types.js";
@@ -41,7 +41,7 @@ export class PluginRunner {
     }
   }
 
-  collectRegistries(): Registry[] {
+  collectRegistries(): PackageRegistry[] {
     return this.plugins.flatMap((p) => p.registries ?? []);
   }
 
