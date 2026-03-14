@@ -13,6 +13,7 @@ import {
   resolveConfig,
   resolveOptions,
 } from "@pubm/core";
+import { showSplashWithUpdateCheck } from "./splash.js";
 import { Command } from "commander";
 import semver from "semver";
 import { isCI } from "std-env";
@@ -145,7 +146,9 @@ export function createProgram(): Command {
           throw new Error("Cannot use --snapshot and --preflight together.");
         }
 
-        if (!isCI) {
+        if (!isCI && process.stderr.isTTY) {
+          await showSplashWithUpdateCheck(PUBM_VERSION);
+        } else if (!isCI) {
           await notifyNewVersion();
         }
 
