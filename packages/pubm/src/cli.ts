@@ -22,7 +22,7 @@ import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
-import { showSplashWithUpdateCheck } from "./splash.js";
+import { showSplash } from "./splash.js";
 
 const { RELEASE_TYPES, valid } = semver;
 
@@ -147,8 +147,10 @@ export function createProgram(): Command {
         }
 
         if (!isCI && process.stderr.isTTY) {
-          await showSplashWithUpdateCheck(PUBM_VERSION);
-        } else if (!isCI) {
+          showSplash(PUBM_VERSION);
+        }
+
+        if (!isCI) {
           await notifyNewVersion();
         }
 
