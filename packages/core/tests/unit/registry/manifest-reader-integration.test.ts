@@ -7,7 +7,7 @@ import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 
 const tmpDir = join(
   process.env.TMPDIR ?? "/tmp",
-  "manifest-reader-integration-test-" + process.pid,
+  `manifest-reader-integration-test-${process.pid}`,
 );
 
 beforeEach(() => {

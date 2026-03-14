@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { ResolvedPubmConfig } from "../../src/config/types.js";
-import type { PubmContext } from "../../src/context.js";
 import { createContext } from "../../src/context.js";
 import type { ResolvedOptions } from "../../src/types/options.js";
 
