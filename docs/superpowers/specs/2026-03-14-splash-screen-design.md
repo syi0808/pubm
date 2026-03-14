@@ -78,8 +78,7 @@ CLI 전용 프레젠테이션 모듈 (core가 아닌 CLI 패키지에 위치):
 
 기존 `notifyNewVersion()` 함수를 분리:
 
-- `checkNewVersion(): Promise<string | undefined>` — 업데이트 체크만 수행, update-kit의 배너 문자열 반환 (스플래시에서는 사용하지 않고 존재 여부만 확인)
-- `getLatestVersion(): Promise<string | undefined>` — 최신 버전 문자열만 반환 (스플래시 완료 라인 포맷에 사용)
+- `checkUpdateStatus(): Promise<UpdateStatus | undefined>` — update-kit의 `kit.checkUpdate("blocking")`을 호출하여 구조화된 `UpdateStatus` 객체 반환. 실패 시 `undefined` 반환.
 - `notifyNewVersion()` — 기존 함수 유지 (하위 호환)
 
 ### Modified: `packages/pubm/src/cli.ts`
@@ -111,20 +110,20 @@ Non-TTY + non-CI 환경에서는 기존 `notifyNewVersion()` 동작 유지.
 - **출력 대상**: `process.stderr` (stdout 파이프라인 오염 방지)
 - **라인 제어**: `\r` (캐리지 리턴) + `\x1b[K` (라인 클리어)로 같은 줄 덮어쓰기
 - **완료 표시**: `showSplashWithUpdateCheck`가 스피너를 관리하고 완료 라인도 직접 출력
-  - 업데이트 있음: `✓ Update available: X.X.X → Y.Y.Y (npm i -g pubm)` — `getLatestVersion()`으로 최신 버전을 가져와서 포맷
+  - 업데이트 있음: `✓ Update available: X.X.X → Y.Y.Y (npm i -g pubm)` — `checkUpdateStatus()`의 `UpdateStatus` 결과에서 `current`와 `latest` 필드 사용
   - 업데이트 없음: `✓ Ready`
   - 호출자는 추가 출력 불필요
 - **에러 처리**: 업데이트 체크 실패 시 조용히 무시, `✓ Ready` 표시
 
 ## Dependencies
 
-추가 패키지 없음. 기존 `listr2`의 `color` 유틸리티와 표준 터미널 이스케이프 시퀀스만 사용.
+추가 패키지 없음. `listr2`의 `color` 유틸리티는 `@pubm/core`에서 re-export하여 CLI 패키지에서 사용. 표준 터미널 이스케이프 시퀀스 사용.
 
 ## Exports
 
-`packages/core/src/index.ts`에서 새 함수를 export:
+`packages/core/src/index.ts`에서 새로 export:
 
-- `checkNewVersion`
-- `getLatestVersion`
+- `checkUpdateStatus` — 구조화된 업데이트 상태 반환
+- `color` — listr2의 color 유틸리티 re-export (CLI 패키지에서 사용)
 
 `showSplash`, `showSplashWithUpdateCheck`는 CLI 패키지 내부 모듈이므로 core에서 export하지 않음.
