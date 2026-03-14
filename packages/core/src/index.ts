@@ -19,6 +19,8 @@ export async function pubm(ctx: PubmContext): Promise<void> {
   await run(ctx);
 }
 
+// External re-exports
+export { color } from "listr2";
 export type {
   BumpType,
   ChangelogEntry,
@@ -108,7 +110,10 @@ export { requiredMissingInformationTasks } from "./tasks/required-missing-inform
 export type { Options, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
-export { notifyNewVersion } from "./utils/notify-new-version.js";
+export {
+  checkUpdateStatus,
+  notifyNewVersion,
+} from "./utils/notify-new-version.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { Runtime } from "./utils/runtime.js";
