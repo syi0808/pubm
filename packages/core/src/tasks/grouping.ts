@@ -1,11 +1,11 @@
-import type { PackageConfig } from "../config/types.js";
+import type { ResolvedPackageConfig } from "../config/types.js";
 import type { EcosystemKey } from "../ecosystem/catalog.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
 
 interface RegistrySource {
-  packages?: PackageConfig[];
+  packages?: ResolvedPackageConfig[];
 }
 
 export interface RegistryGroup {
@@ -20,7 +20,7 @@ export interface EcosystemGroup {
 
 function resolveEcosystem(
   registry: RegistryType,
-  fallback?: PackageConfig["ecosystem"],
+  fallback?: ResolvedPackageConfig["ecosystem"],
 ): EcosystemKey {
   const descriptor = registryCatalog.get(registry);
   return descriptor?.ecosystem ?? fallback ?? "js";
@@ -72,9 +72,7 @@ export function collectEcosystemRegistryGroups(
 
   if (source.packages?.length) {
     for (const pkg of source.packages) {
-      for (const registry of dedupeRegistries(
-        (pkg.registries ?? []) as RegistryType[],
-      )) {
+      for (const registry of dedupeRegistries(pkg.registries)) {
         ensureRegistrySet(
           resolveEcosystem(registry, pkg.ecosystem),
           registry,

@@ -1,30 +1,19 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type Listr, type ListrTask } from "listr2";
 import semver from "semver";
-import {
-  discoverCurrentVersions,
-  discoverPackageInfos,
-} from "../changeset/packages.js";
 import { getStatus } from "../changeset/status.js";
 import type { VersionBump } from "../changeset/version.js";
 import { calculateVersionBumps } from "../changeset/version.js";
+import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
-import {
-  buildDependencyGraph,
-  type PackageNode,
-} from "../monorepo/dependency-graph.js";
 import { defaultOptions } from "../options.js";
 import { jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { createListr } from "../utils/listr.js";
-import { getPackageJson, version } from "../utils/package.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
 
-type PackageInfos = Awaited<ReturnType<typeof discoverPackageInfos>>;
 type PackageNotes = Map<string, string[]>;
 
 function pluralize(count: number, singular: string): string {
@@ -56,7 +45,7 @@ function buildDependencyBumpNote(
 }
 
 function renderPackageVersionSummary(
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   selectedVersions: Map<string, string>,
   options: {
@@ -130,22 +119,6 @@ async function promptVersion(
   return nextVersion;
 }
 
-async function readPackageDependencies(
-  pkgPath: string,
-): Promise<Record<string, string>> {
-  try {
-    const raw = (await readFile(path.join(pkgPath, "package.json"))).toString();
-    const json = JSON.parse(raw);
-    return {
-      ...json.dependencies,
-      ...json.devDependencies,
-      ...json.peerDependencies,
-    };
-  } catch {
-    return {};
-  }
-}
-
 /**
  * Build a reverse dependency map: for each package, which packages depend on it.
  */
@@ -163,6 +136,20 @@ function buildReverseDeps(graph: Map<string, string[]>): Map<string, string[]> {
   return reverse;
 }
 
+/**
+ * Build a dependency graph from ResolvedPackageConfig[] where dependencies
+ * are already resolved as internal dependency names.
+ */
+function buildGraphFromPackages(
+  packages: ResolvedPackageConfig[],
+): Map<string, string[]> {
+  const graph = new Map<string, string[]>();
+  for (const pkg of packages) {
+    graph.set(pkg.name, [...pkg.dependencies]);
+  }
+  return graph;
+}
+
 export const requiredMissingInformationTasks = (
   options?: Omit<ListrTask<PubmContext>, "title" | "task">,
 ): Listr<PubmContext> =>
@@ -177,14 +164,13 @@ export const requiredMissingInformationTasks = (
             !!ctx.runtime.version ||
             (!!ctx.runtime.versions && ctx.runtime.versions.size > 0),
           task: async (ctx, task): Promise<void> => {
-            const cwd = process.cwd();
-            const packageInfos = await discoverPackageInfos(cwd);
-            const isSinglePackage = packageInfos.length <= 1;
+            const packages = ctx.config.packages;
+            const isSinglePackage = packages.length <= 1;
 
             if (isSinglePackage) {
-              await handleSinglePackage(ctx, task, cwd);
+              await handleSinglePackage(ctx, task);
             } else {
-              await handleMultiPackage(ctx, task, cwd, packageInfos);
+              await handleMultiPackage(ctx, task, packages);
             }
           },
           exitOnError: true,
@@ -250,16 +236,16 @@ export const requiredMissingInformationTasks = (
 async function handleSinglePackage(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  cwd: string,
 ): Promise<void> {
-  const currentVersion = await version();
+  const pkg = ctx.config.packages[0];
+  const currentVersion = pkg?.version ?? "0.0.0";
+  const pkgName = pkg?.name ?? "";
+  const cwd = ctx.cwd ?? process.cwd();
 
   // Check for pending changesets
   const status = getStatus(cwd);
 
   if (status.hasChangesets) {
-    const pkg = await getPackageJson({ cwd });
-    const pkgName = pkg.name ?? "";
     const currentVersions = new Map([[pkgName, currentVersion]]);
     const bumps = calculateVersionBumps(currentVersions, cwd);
     const bump = bumps.get(pkgName);
@@ -312,31 +298,10 @@ async function handleSinglePackage(
   ctx.runtime.version = nextVersion;
 }
 
-/**
- * Multi-package flow — changeset recommendations, sync/independent, dependency cascade.
- */
-async function buildPackageNodes(
-  cwd: string,
-  packageInfos: PackageInfos,
-): Promise<PackageNode[]> {
-  const nodes: PackageNode[] = [];
-  for (const pkg of packageInfos) {
-    const pkgPath = path.resolve(cwd, pkg.path);
-    const deps = await readPackageDependencies(pkgPath);
-    nodes.push({
-      name: pkg.name,
-      version: pkg.version,
-      path: pkg.path,
-      dependencies: deps,
-    });
-  }
-  return nodes;
-}
-
 function sortPackageInfosByDependency(
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   graph: Map<string, string[]>,
-): PackageInfos {
+): ResolvedPackageConfig[] {
   // Compute depth: 0 = no internal dependencies (base packages), higher = depends on deeper packages
   const depths = new Map<string, number>();
 
@@ -364,18 +329,20 @@ function sortPackageInfosByDependency(
   );
 }
 
+/**
+ * Multi-package flow — changeset recommendations, sync/independent, dependency cascade.
+ */
 async function handleMultiPackage(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  cwd: string,
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
 ): Promise<void> {
-  const currentVersions = await discoverCurrentVersions(cwd);
+  const cwd = ctx.cwd ?? process.cwd();
+  const currentVersions = new Map(packageInfos.map((p) => [p.name, p.version]));
   const status = getStatus(cwd);
 
   // Build dependency graph and sort packages
-  const packageNodes = await buildPackageNodes(cwd, packageInfos);
-  const graph = buildDependencyGraph(packageNodes);
+  const graph = buildGraphFromPackages(packageInfos);
   const sortedPackageInfos = sortPackageInfosByDependency(packageInfos, graph);
 
   task.output = renderPackageVersionSummary(
@@ -421,7 +388,7 @@ async function promptChangesetRecommendations(
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
   status: ReturnType<typeof getStatus>,
   bumps: Map<string, VersionBump>,
-  sortedPackageInfos: PackageInfos,
+  sortedPackageInfos: ResolvedPackageConfig[],
 ): Promise<boolean> {
   const lines: string[] = ["Changesets suggest:"];
 
@@ -465,7 +432,7 @@ async function promptChangesetRecommendations(
  * Manual multi-package flow: determine sync strategy, then prompt for versions.
  */
 function buildChangesetNotes(
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   bumps: Map<string, VersionBump>,
   status: ReturnType<typeof getStatus>,
 ): PackageNotes {
@@ -486,7 +453,7 @@ function buildChangesetNotes(
 async function handleManualMultiPackage(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
   bumps?: Map<string, VersionBump>,
@@ -547,7 +514,7 @@ async function handleManualMultiPackage(
 async function handleFixedMode(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   bumps?: Map<string, VersionBump>,
 ): Promise<void> {
@@ -615,7 +582,7 @@ async function handleFixedMode(
 async function handleIndependentMode(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  packageInfos: PackageInfos,
+  packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
   bumps?: Map<string, VersionBump>,

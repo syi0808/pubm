@@ -12,6 +12,8 @@ vi.mock("../../../src/utils/package-manager.js", () => ({
 
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { JsEcosystem } from "../../../src/ecosystem/js.js";
+import { JsrRegisry } from "../../../src/registry/jsr.js";
+import { NpmRegistry } from "../../../src/registry/npm.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 
 const mockedReadFile = vi.mocked(readFile);
@@ -21,6 +23,8 @@ const mockedGetPackageManager = vi.mocked(getPackageManager);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  NpmRegistry.reader.clearCache();
+  JsrRegisry.reader.clearCache();
 });
 
 describe("JsEcosystem", () => {
@@ -52,6 +56,7 @@ describe("JsEcosystem", () => {
 
   describe("readVersion", () => {
     it("reads version from package.json", async () => {
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
       mockedReadFile.mockResolvedValue(
         JSON.stringify({ name: "my-lib", version: "2.3.4" }) as any,
       );

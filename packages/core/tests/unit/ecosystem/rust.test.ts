@@ -12,6 +12,7 @@ vi.mock("../../../src/utils/exec.js", () => ({
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
+import { CratesRegistry } from "../../../src/registry/crates.js";
 import { exec } from "../../../src/utils/exec.js";
 
 const mockedReadFile = vi.mocked(readFile);
@@ -21,6 +22,7 @@ const mockedExec = vi.mocked(exec);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  CratesRegistry.reader.clearCache();
 });
 
 const CARGO_TOML = `[package]
@@ -48,6 +50,7 @@ describe("RustEcosystem", () => {
 
   describe("packageName", () => {
     it("reads name from Cargo.toml", async () => {
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
       mockedReadFile.mockResolvedValue(CARGO_TOML as any);
 
       const eco = new RustEcosystem(pkgPath);
@@ -57,6 +60,7 @@ describe("RustEcosystem", () => {
 
   describe("readVersion", () => {
     it("reads version from Cargo.toml", async () => {
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
       mockedReadFile.mockResolvedValue(CARGO_TOML as any);
 
       const eco = new RustEcosystem(pkgPath);
@@ -143,6 +147,7 @@ my-build-tool = { path = "../my-build-tool" }
 [dev-dependencies]
 tokio = "1.0"
 `;
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
       mockedReadFile.mockResolvedValue(cargoWithDeps as any);
 
       const eco = new RustEcosystem(pkgPath);
@@ -160,6 +165,7 @@ tokio = "1.0"
 name = "my-crate"
 version = "0.1.0"
 `;
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
       mockedReadFile.mockResolvedValue(cargoNoDeps as any);
 
       const eco = new RustEcosystem(pkgPath);
@@ -250,26 +256,31 @@ my-build = { path = "../my-build" }
 
   describe("syncLockfile", () => {
     it("runs cargo update from the workspace root that owns Cargo.lock", async () => {
-      mockedReadFile.mockResolvedValue(CARGO_TOML as any);
-      const expectedLockfile = path.join("/workspace", "Cargo.lock");
       mockedStat.mockImplementation(async (filePath) => {
-        if (String(filePath) === expectedLockfile) {
+        const p = String(filePath);
+        if (p.endsWith("Cargo.toml")) {
+          return { isFile: () => true } as any;
+        }
+        if (p === path.join("/workspace", "Cargo.lock")) {
           return { isFile: () => true } as any;
         }
         throw new Error("ENOENT");
       });
+      mockedReadFile.mockResolvedValue(CARGO_TOML as any);
 
       const eco = new RustEcosystem(
         path.join("/workspace", "crates", "my-crate"),
       );
       const lockfile = await eco.syncLockfile();
 
-      expect(lockfile).toBe(expectedLockfile);
+      expect(lockfile).toBe(path.join("/workspace", "Cargo.lock"));
       expect(mockedExec).toHaveBeenCalledWith(
         "cargo",
         ["update", "--package", "my-crate"],
         {
-          nodeOptions: { cwd: path.dirname(expectedLockfile) },
+          nodeOptions: {
+            cwd: path.dirname(path.join("/workspace", "Cargo.lock")),
+          },
         },
       );
     });

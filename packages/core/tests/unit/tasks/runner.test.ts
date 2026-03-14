@@ -16,12 +16,47 @@ vi.mock("../../../src/error.js", () => ({
 vi.mock("../../../src/utils/package-manager.js", () => ({
   getPackageManager: vi.fn(),
 }));
-vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
-  getJsrJson: vi.fn(),
-  replaceVersion: vi.fn(),
-  version: vi.fn(),
+vi.mock("../../../src/manifest/write-versions.js", () => ({
+  writeVersionsForEcosystem: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../../../src/ecosystem/catalog.js", () => {
+  class MockJsEcosystem {
+    packagePath: string;
+    constructor(p: string) {
+      this.packagePath = p;
+    }
+    manifestFiles() {
+      return ["package.json"];
+    }
+  }
+  class MockRustEcosystem {
+    packagePath: string;
+    constructor(p: string) {
+      this.packagePath = p;
+    }
+    manifestFiles() {
+      return ["Cargo.toml"];
+    }
+  }
+  const descriptors: Record<string, any> = {
+    js: {
+      key: "js",
+      label: "JavaScript ecosystem",
+      ecosystemClass: MockJsEcosystem,
+    },
+    rust: {
+      key: "rust",
+      label: "Rust ecosystem",
+      ecosystemClass: MockRustEcosystem,
+    },
+  };
+  return {
+    ecosystemCatalog: {
+      get: vi.fn((key: string) => descriptors[key]),
+      all: vi.fn(() => Object.values(descriptors)),
+    },
+  };
+});
 vi.mock("../../../src/utils/rollback.js", () => ({
   rollback: vi.fn(),
   addRollback: vi.fn(),
@@ -126,6 +161,7 @@ vi.mock("../../../src/utils/listr.js", () => ({
 import type { PubmContext } from "../../../src/context.js";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
+import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
 import {
   collectTokens,
@@ -138,11 +174,6 @@ import { link } from "../../../src/utils/cli.js";
 import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { exec } from "../../../src/utils/exec.js";
 import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
-import {
-  getJsrJson,
-  getPackageJson,
-  replaceVersion,
-} from "../../../src/utils/package.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
@@ -158,9 +189,7 @@ const mockedConsoleError = vi.mocked(consoleError);
 const mockedRollback = vi.mocked(rollback);
 const mockedExec = vi.mocked(exec);
 const mockedGetPackageManager = vi.mocked(getPackageManager);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
-const mockedGetJsrJson = vi.mocked(getJsrJson);
-const mockedReplaceVersion = vi.mocked(replaceVersion);
+const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedAddRollback = vi.mocked(addRollback);
 const mockedLink = vi.mocked(link);
 const mockedGit = vi.mocked(Git);
@@ -168,6 +197,24 @@ const mockedSortCrates = vi.mocked(sortCratesByDependencyOrder);
 const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
+
+function pkg(
+  overrides: Partial<PubmContext["config"]["packages"][0]> & {
+    path: string;
+    registries: any;
+  },
+): PubmContext["config"]["packages"][0] {
+  const ecosystem =
+    overrides.ecosystem ??
+    (overrides.registries?.includes("crates") ? "rust" : "js");
+  return {
+    name: overrides.name ?? overrides.path,
+    version: overrides.version ?? "1.0.0",
+    ecosystem,
+    dependencies: overrides.dependencies ?? [],
+    ...overrides,
+  };
+}
 
 function createOptions(
   overrides: {
@@ -178,7 +225,16 @@ function createOptions(
 ): PubmContext {
   return makeTestContext({
     config: {
-      packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      packages: [
+        {
+          path: ".",
+          name: "my-package",
+          version: "1.0.0",
+          ecosystem: "js",
+          dependencies: [],
+          registries: ["npm", "jsr"],
+        },
+      ],
       ...overrides.config,
     },
     options: overrides.options,
@@ -268,9 +324,7 @@ beforeEach(() => {
     } as any;
   });
   mockedGetPackageManager.mockResolvedValue("pnpm" as any);
-  mockedGetPackageJson.mockResolvedValue({ name: "my-package" } as any);
-  mockedGetJsrJson.mockResolvedValue({ name: "@scope/my-package" } as any);
-  mockedReplaceVersion.mockResolvedValue(["package.json", "jsr.json"]);
+  mockedWriteVersionsForEcosystem.mockResolvedValue([]);
   mockedRollback.mockResolvedValue(undefined);
   mockedAddRollback.mockImplementation(() => {});
   mockedLink.mockImplementation((_text: string, url: string) => url);
@@ -784,22 +838,34 @@ describe("run", () => {
 
       // addRollback should have been called for version bump
       expect(mockedAddRollback).toHaveBeenCalled();
-      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", [
-        { path: ".", registries: ["npm", "jsr"] },
-      ]);
+      expect(mockedWriteVersionsForEcosystem).toHaveBeenCalled();
     });
 
-    it("passes packages to replaceVersion when packages config exists", async () => {
+    it("calls writeVersionsForEcosystem when packages config exists", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const packages = [
-        { path: ".", registries: ["npm", "jsr"] },
-        { path: "rust/crates/my-crate", registries: ["crates"] },
+        {
+          path: ".",
+          name: "my-package",
+          version: "1.0.0",
+          ecosystem: "js" as const,
+          dependencies: [],
+          registries: ["npm", "jsr"] as any,
+        },
+        {
+          path: "rust/crates/my-crate",
+          name: "my-crate",
+          version: "1.0.0",
+          ecosystem: "rust" as const,
+          dependencies: [],
+          registries: ["crates"] as any,
+        },
       ];
-      const options = createOptions({ config: { packages: packages as any } });
+      const options = createOptions({ config: { packages } });
       await run(options);
 
-      expect(mockedReplaceVersion).toHaveBeenCalledWith("1.0.0", packages);
+      expect(mockedWriteVersionsForEcosystem).toHaveBeenCalled();
     });
 
     it("registers rollback that handles tag deletion and commit reset", async () => {
@@ -923,7 +989,9 @@ describe("run", () => {
       const options = createOptions({
         options: { publishOnly: true },
         config: {
-          packages: [{ path: ".", registries: ["custom-registry"] as any }],
+          packages: [
+            pkg({ path: ".", registries: ["custom-registry"] as any }),
+          ],
         },
       });
       await run(options);
@@ -938,7 +1006,9 @@ describe("run", () => {
 
       const options = createOptions({
         config: {
-          packages: [{ path: ".", registries: ["custom-registry"] as any }],
+          packages: [
+            pkg({ path: ".", registries: ["custom-registry"] as any }),
+          ],
         },
       });
       await run(options);
@@ -978,8 +1048,8 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm", "jsr"] },
-            { path: "rust/crates/my-crate", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm", "jsr"] }),
+            pkg({ path: "rust/crates/my-crate", registries: ["crates"] }),
           ],
         },
       });
@@ -1010,8 +1080,8 @@ describe("run", () => {
         options: { publishOnly: true },
         config: {
           packages: [
-            { path: ".", registries: ["npm", "jsr"] },
-            { path: "rust/crates/my-crate", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm", "jsr"] }),
+            pkg({ path: "rust/crates/my-crate", registries: ["crates"] }),
           ],
         },
       });
@@ -1041,8 +1111,8 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm", "jsr"] },
-            { path: "packages/other", registries: ["npm"] },
+            pkg({ path: ".", registries: ["npm", "jsr"] }),
+            pkg({ path: "packages/other", registries: ["npm"] }),
           ],
         },
       });
@@ -1087,9 +1157,9 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/lib-a", registries: ["crates"] },
-            { path: "rust/crates/lib-b", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm"] }),
+            pkg({ path: "rust/crates/lib-a", registries: ["crates"] }),
+            pkg({ path: "rust/crates/lib-b", registries: ["crates"] }),
           ] as any,
         },
       });
@@ -1144,9 +1214,9 @@ describe("run", () => {
         options: { publishOnly: true },
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/my-crate", registries: ["crates"] },
-          ] as any,
+            pkg({ path: ".", registries: ["npm"] }),
+            pkg({ path: "rust/crates/my-crate", registries: ["crates"] }),
+          ],
         },
       });
       await run(options);
@@ -1179,9 +1249,9 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/update-kit", registries: ["crates"] },
-            { path: "rust/crates/update-kit-cli", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm"] }),
+            pkg({ path: "rust/crates/update-kit", registries: ["crates"] }),
+            pkg({ path: "rust/crates/update-kit-cli", registries: ["crates"] }),
           ],
         },
       });
@@ -1197,7 +1267,7 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
+        config: { packages: [pkg({ path: ".", registries: ["npm", "jsr"] })] },
       });
       await run(options);
 
@@ -1214,9 +1284,9 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/lib-a", registries: ["crates"] },
-            { path: "rust/crates/lib-b", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm"] }),
+            pkg({ path: "rust/crates/lib-a", registries: ["crates"] }),
+            pkg({ path: "rust/crates/lib-b", registries: ["crates"] }),
           ],
         },
       });
@@ -1283,7 +1353,7 @@ describe("run", () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       const options = createOptions({
-        config: { packages: [{ path: ".", registries: ["npm"] }] },
+        config: { packages: [pkg({ path: ".", registries: ["npm"] })] },
       });
       await run(options);
 
@@ -1332,7 +1402,9 @@ describe("run", () => {
 
     it("includes npm and jsr in success message when packages have those registries", async () => {
       const options = createOptions({
-        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
+        config: {
+          packages: [pkg({ path: ".", registries: ["npm", "jsr"] })],
+        },
       });
       await run(options);
 
@@ -1345,8 +1417,8 @@ describe("run", () => {
       const options = createOptions({
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/my-crate", registries: ["crates"] },
+            pkg({ path: ".", registries: ["npm"] }),
+            pkg({ path: "rust/crates/my-crate", registries: ["crates"] }),
           ],
         },
       });
@@ -1359,7 +1431,9 @@ describe("run", () => {
 
     it("does not include jsr in success message when only npm is configured", async () => {
       const options = createOptions({
-        config: { packages: [{ path: ".", registries: ["npm"] }] },
+        config: {
+          packages: [pkg({ path: ".", registries: ["npm"] })],
+        },
       });
       await run(options);
 
@@ -1513,7 +1587,9 @@ describe("run", () => {
         createOptions({
           options: { preflight: true },
           config: {
-            packages: [{ path: ".", registries: ["custom-registry"] as any }],
+            packages: [
+              pkg({ path: ".", registries: ["custom-registry"] as any }),
+            ],
           },
         }),
       );
@@ -1527,7 +1603,11 @@ describe("run", () => {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
       const ctx: any = {
-        config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
+        config: {
+          packages: [
+            pkg({ path: ".", registries: ["custom-registry"] as any }),
+          ],
+        },
         runtime: { pluginRunner: new PluginRunner([]) },
       };
 

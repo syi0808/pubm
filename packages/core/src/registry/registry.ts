@@ -1,9 +1,13 @@
+import type { ManifestReader } from "../manifest/manifest-reader.js";
+
 export interface RegistryRequirements {
   needsPackageScripts: boolean;
   requiredManifest: string;
 }
 
 export abstract class Registry {
+  static reader: ManifestReader;
+  static registryType: string;
   constructor(
     public packageName: string,
     public registry?: string,

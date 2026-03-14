@@ -13,9 +13,6 @@ vi.mock("@pubm/core", () => ({
   generateChangelog: vi.fn(),
   buildChangelogEntries: vi.fn(),
   writeChangelogToFile: vi.fn(),
-  discoverCurrentVersions: vi.fn(),
-  discoverPackageInfos: vi.fn(),
-  replaceVersion: vi.fn(),
   replaceVersionAtPath: vi.fn(),
   resolveGroups: vi.fn(),
   Git: vi.fn(function () {
@@ -31,11 +28,8 @@ import {
   buildChangelogEntries,
   calculateVersionBumps,
   deleteChangesetFiles,
-  discoverCurrentVersions,
-  discoverPackageInfos,
   generateChangelog,
   readChangesets,
-  replaceVersion,
   replaceVersionAtPath,
   resolveGroups,
   writeChangelogToFile,
@@ -49,21 +43,23 @@ const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
-const mockedDiscoverCurrentVersions = vi.mocked(discoverCurrentVersions);
-const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
-const mockedReplaceVersion = vi.mocked(replaceVersion);
 const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
 const mockedResolveGroups = vi.mocked(resolveGroups);
 
-const emptyConfig: ResolvedPubmConfig = { plugins: [] } as ResolvedPubmConfig;
+function makeConfig(
+  overrides: Partial<ResolvedPubmConfig> = {},
+): ResolvedPubmConfig {
+  return {
+    plugins: [],
+    packages: [{ name: "my-pkg", version: "1.0.0", path: "." }],
+    ...overrides,
+  } as ResolvedPubmConfig;
+}
+
+const defaultConfig = makeConfig();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedDiscoverCurrentVersions.mockResolvedValue(
-    new Map([["my-pkg", "1.0.0"]]),
-  );
-  mockedDiscoverPackageInfos.mockResolvedValue(null as any);
-  mockedReplaceVersion.mockResolvedValue(["package.json"]);
   mockedReplaceVersionAtPath.mockResolvedValue(["package.json"]);
   mockedBuildChangelogEntries.mockReturnValue([]);
   mockedResolveGroups.mockReturnValue([]);
@@ -74,7 +70,7 @@ describe("runVersionCommand", () => {
     mockedReadChangesets.mockReturnValue([]);
     const logSpy = vi.spyOn(console, "log");
 
-    await runVersionCommand("/tmp/project", emptyConfig);
+    await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(logSpy).toHaveBeenCalledWith("No changesets found.");
     expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
@@ -89,9 +85,6 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "1.0.0"]]),
-    );
 
     const bumps = new Map([
       [
@@ -114,14 +107,17 @@ describe("runVersionCommand", () => {
 
     const logSpy = vi.spyOn(console, "log");
 
-    await runVersionCommand("/tmp/project", emptyConfig);
+    await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(mockedCalculateVersionBumps).toHaveBeenCalledWith(
       new Map([["my-pkg", "1.0.0"]]),
       "/tmp/project",
     );
     expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.1.0 (minor)");
-    expect(mockedReplaceVersion).toHaveBeenCalledWith("1.1.0", undefined);
+    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
+      "1.1.0",
+      path.resolve("/tmp/project", "."),
+    );
     expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(
       changesets,
       "my-pkg",
@@ -129,7 +125,7 @@ describe("runVersionCommand", () => {
     expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", entries);
     // Changelog written via shared utility
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      "/tmp/project",
+      path.resolve("/tmp/project", "."),
       "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
     );
     // Changeset files deleted via shared utility
@@ -147,10 +143,10 @@ describe("runVersionCommand", () => {
         releases: [{ name: "my-pkg", type: "patch" as const }],
       },
     ]);
-    mockedDiscoverCurrentVersions.mockResolvedValue(new Map());
+    const emptyPkgConfig = makeConfig({ packages: [] });
 
     await expect(
-      runVersionCommand("/tmp/project", emptyConfig),
+      runVersionCommand("/tmp/project", emptyPkgConfig),
     ).rejects.toThrow("No packages found.");
     expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
   });
@@ -164,9 +160,10 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "2.0.0"]]),
-    );
+
+    const config200 = makeConfig({
+      packages: [{ name: "my-pkg", version: "2.0.0", path: "." }] as any,
+    });
 
     const bumps = new Map([
       [
@@ -186,10 +183,10 @@ describe("runVersionCommand", () => {
 
     const logSpy = vi.spyOn(console, "log");
 
-    await runVersionCommand("/tmp/project", emptyConfig, { dryRun: true });
+    await runVersionCommand("/tmp/project", config200, { dryRun: true });
 
     expect(logSpy).toHaveBeenCalledWith("[dry-run] Would write version 2.1.0");
-    expect(mockedReplaceVersion).not.toHaveBeenCalled();
+    expect(mockedReplaceVersionAtPath).not.toHaveBeenCalled();
     expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
   });
 
@@ -215,10 +212,10 @@ describe("runVersionCommand", () => {
       ]),
     );
     mockedGenerateChangelog.mockReturnValue("## 1.0.1\n");
-    mockedReplaceVersion.mockRejectedValue(new Error("disk full"));
+    mockedReplaceVersionAtPath.mockRejectedValue(new Error("disk full"));
 
     await expect(
-      runVersionCommand("/tmp/project", emptyConfig),
+      runVersionCommand("/tmp/project", defaultConfig),
     ).rejects.toThrow("disk full");
 
     expect(mockedWriteChangelogToFile).not.toHaveBeenCalled();
@@ -235,17 +232,14 @@ describe("runVersionCommand", () => {
         releases: [{ name: "other-pkg", type: "patch" as const }],
       },
     ]);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "1.0.0"]]),
-    );
     mockedCalculateVersionBumps.mockReturnValue(new Map());
 
     const logSpy = vi.spyOn(console, "log");
 
-    await runVersionCommand("/tmp/project", emptyConfig);
+    await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(logSpy).toHaveBeenCalledWith("No changesets found.");
-    expect(mockedReplaceVersion).not.toHaveBeenCalled();
+    expect(mockedReplaceVersionAtPath).not.toHaveBeenCalled();
   });
 
   it("prepends to existing CHANGELOG.md", async () => {
@@ -257,9 +251,6 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["my-pkg", "1.0.0"]]),
-    );
 
     const bumps = new Map([
       [
@@ -280,11 +271,11 @@ describe("runVersionCommand", () => {
       "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
 
-    await runVersionCommand("/tmp/project", emptyConfig);
+    await runVersionCommand("/tmp/project", defaultConfig);
 
     // Changelog written via shared utility
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
-      "/tmp/project",
+      path.resolve("/tmp/project", "."),
       "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
     // Changeset files deleted via shared utility
@@ -303,12 +294,6 @@ describe("runVersionCommand", () => {
       },
     ];
     mockedReadChangesets.mockReturnValue(changesets);
-    mockedDiscoverCurrentVersions.mockResolvedValue(
-      new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "1.0.0"],
-      ]),
-    );
     mockedCalculateVersionBumps.mockReturnValue(
       new Map([
         [
@@ -321,20 +306,19 @@ describe("runVersionCommand", () => {
         ],
       ]),
     );
-    const fixedConfig = {
-      plugins: [],
+    const fixedConfig = makeConfig({
       fixed: [["pkg-a", "pkg-b"]],
-    } as unknown as ResolvedPubmConfig;
+      packages: [
+        { name: "pkg-a", version: "1.0.0", path: "packages/pkg-a" },
+        { name: "pkg-b", version: "1.0.0", path: "packages/pkg-b" },
+      ] as any,
+    });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
     mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
       for (const name of group) {
         bumpTypes.set(name, "minor");
       }
     });
-    mockedDiscoverPackageInfos.mockResolvedValue([
-      { name: "pkg-a", path: "packages/pkg-a" },
-      { name: "pkg-b", path: "packages/pkg-b" },
-    ] as Awaited<ReturnType<typeof discoverPackageInfos>>);
     mockedGenerateChangelog.mockReturnValue("## 1.1.0\n");
 
     await runVersionCommand("/tmp/project", fixedConfig);

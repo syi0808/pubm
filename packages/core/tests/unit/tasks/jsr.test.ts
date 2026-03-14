@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../src/registry/jsr.js", () => ({
   jsrRegistry: vi.fn(),
   JsrClient: { token: null as string | null },
+  JsrRegisry: { reader: { invalidate: vi.fn() } },
 }));
 
 vi.mock("../../../src/registry/npm.js", () => ({
@@ -27,10 +28,6 @@ vi.mock("../../../src/utils/package-name.js", () => ({
   getScope: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  patchCachedJsrJson: vi.fn(),
-}));
-
 vi.mock("../../../src/utils/open-url.js", () => ({
   openUrl: vi.fn(),
 }));
@@ -41,14 +38,17 @@ vi.mock("../../../src/utils/rollback.js", () => ({
 
 import type { PubmContext } from "../../../src/context.js";
 import { Git } from "../../../src/git.js";
-import { JsrClient, jsrRegistry } from "../../../src/registry/jsr.js";
+import {
+  JsrClient,
+  JsrRegisry,
+  jsrRegistry,
+} from "../../../src/registry/jsr.js";
 import { npmRegistry } from "../../../src/registry/npm.js";
 import {
   jsrAvailableCheckTasks,
   jsrPublishTasks,
 } from "../../../src/tasks/jsr.js";
 import { openUrl } from "../../../src/utils/open-url.js";
-import { patchCachedJsrJson } from "../../../src/utils/package.js";
 import { getScope, isScopedPackage } from "../../../src/utils/package-name.js";
 import { addRollback } from "../../../src/utils/rollback.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
@@ -60,7 +60,9 @@ const mockedIsScopedPackage = vi.mocked(isScopedPackage);
 const mockedGetScope = vi.mocked(getScope);
 const mockedAddRollback = vi.mocked(addRollback);
 const mockedOpenUrl = vi.mocked(openUrl);
-const mockedPatchCachedJsrJson = vi.mocked(patchCachedJsrJson);
+const mockedJsrRegisryReaderInvalidate = vi.mocked(
+  JsrRegisry.reader.invalidate,
+);
 const mockedDb = vi.mocked(SecureStore);
 
 function createMockJsr() {
@@ -457,7 +459,7 @@ describe("jsrAvailableCheckTasks", () => {
       )(ctx, task);
 
       expect(mockJsr.client.scopes).not.toHaveBeenCalled();
-      expect(mockedPatchCachedJsrJson).not.toHaveBeenCalled();
+      expect(mockedJsrRegisryReaderInvalidate).not.toHaveBeenCalled();
     });
 
     it("uses cached jsr name from Db when available", async () => {
@@ -479,9 +481,9 @@ describe("jsrAvailableCheckTasks", () => {
       )(ctx, task);
 
       expect(mockJsr.packageName).toBe("@cached/my-package");
-      expect(mockedPatchCachedJsrJson).toHaveBeenCalledWith({
-        name: "@cached/my-package",
-      });
+      expect(mockedJsrRegisryReaderInvalidate).toHaveBeenCalledWith(
+        process.cwd(),
+      );
       // Should NOT prompt because jsrName was found in Db
       expect(task.prompt).not.toHaveBeenCalled();
     });
@@ -514,9 +516,9 @@ describe("jsrAvailableCheckTasks", () => {
 
       expect(mockJsr.client.scopes).toHaveBeenCalled();
       expect(mockJsr.packageName).toBe("@myscope/my-package");
-      expect(mockedPatchCachedJsrJson).toHaveBeenCalledWith({
-        name: "@myscope/my-package",
-      });
+      expect(mockedJsrRegisryReaderInvalidate).toHaveBeenCalledWith(
+        process.cwd(),
+      );
     });
 
     it("creates scope and package when user selects a new scope", async () => {

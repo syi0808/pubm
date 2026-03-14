@@ -59,7 +59,14 @@ describe("resolveConfig", () => {
 
   it("should not include default registries in default package", async () => {
     mockedDiscoverPackages.mockResolvedValue([
-      { path: ".", registries: [], ecosystem: "js" },
+      {
+        path: ".",
+        name: "my-pkg",
+        version: "1.0.0",
+        dependencies: [],
+        registries: [],
+        ecosystem: "js",
+      },
     ]);
     const resolved = await resolveConfig({});
     expect(resolved.packages[0].registries).toEqual([]);
@@ -76,28 +83,81 @@ describe("resolveConfig", () => {
 
   it("calls discoverPackages when packages not specified", async () => {
     mockedDiscoverPackages.mockResolvedValue([
-      { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+      {
+        path: "packages/a",
+        name: "pkg-a",
+        version: "1.0.0",
+        dependencies: [],
+        registries: ["npm"],
+        ecosystem: "js",
+      },
     ]);
 
     const resolved = await resolveConfig({}, "/project");
 
-    expect(mockedDiscoverPackages).toHaveBeenCalledWith({ cwd: "/project" });
+    expect(mockedDiscoverPackages).toHaveBeenCalledWith({
+      cwd: "/project",
+      configPackages: undefined,
+      ignore: undefined,
+    });
     expect(resolved.packages).toEqual([
-      { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+      {
+        path: "packages/a",
+        name: "pkg-a",
+        version: "1.0.0",
+        dependencies: [],
+        registries: ["npm"],
+        ecosystem: "js",
+      },
     ]);
   });
 
-  it("does not call discoverPackages when packages are specified", async () => {
+  it("passes config packages to discoverPackages for resolution", async () => {
+    mockedDiscoverPackages.mockResolvedValue([
+      {
+        path: "my-pkg",
+        name: "my-pkg",
+        version: "1.0.0",
+        dependencies: [],
+        registries: ["npm"],
+        ecosystem: "js",
+      },
+    ]);
+
     const resolved = await resolveConfig({
       packages: [{ path: "my-pkg" }],
     });
 
-    expect(mockedDiscoverPackages).not.toHaveBeenCalled();
-    expect(resolved.packages).toEqual([{ path: "my-pkg" }]);
+    expect(mockedDiscoverPackages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        configPackages: [{ path: "my-pkg" }],
+      }),
+    );
+    expect(resolved.packages).toEqual([
+      {
+        path: "my-pkg",
+        name: "my-pkg",
+        version: "1.0.0",
+        dependencies: [],
+        registries: ["npm"],
+        ecosystem: "js",
+      },
+    ]);
   });
 
   describe("private registry normalization", () => {
     it("normalizes PrivateRegistryConfig objects to string keys in packages", async () => {
+      mockedDiscoverPackages.mockResolvedValue([
+        {
+          path: "packages/a",
+          name: "pkg-a",
+          version: "1.0.0",
+          dependencies: [],
+          registries: ["npm", "npm.internal.com"],
+          ecosystem: "js",
+        },
+      ]);
+
       const resolved = await resolveConfig({
         packages: [
           {
@@ -120,6 +180,8 @@ describe("resolveConfig", () => {
     });
 
     it("registers private registry in catalog during normalization", async () => {
+      mockedDiscoverPackages.mockResolvedValue([]);
+
       await resolveConfig({
         packages: [
           {

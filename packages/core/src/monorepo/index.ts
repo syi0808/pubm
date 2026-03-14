@@ -7,6 +7,7 @@ export {
   type DiscoveredPackage,
   type DiscoverOptions,
   discoverPackages,
+  type ResolvedPackage,
 } from "./discover.js";
 export { applyFixedGroup, applyLinkedGroup, resolveGroups } from "./groups.js";
 export { detectWorkspace, type WorkspaceInfo } from "./workspace.js";

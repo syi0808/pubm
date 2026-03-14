@@ -3,9 +3,11 @@ import {
   registerPrivateRegistry,
   registryCatalog,
 } from "../registry/catalog.js";
+import type { RegistryType } from "../types/options.js";
 import type {
   PrivateRegistryConfig,
   PubmConfig,
+  ResolvedPackageConfig,
   ResolvedPubmConfig,
   ValidateConfig,
 } from "./types.js";
@@ -40,35 +42,42 @@ export async function resolveConfig(
   config: PubmConfig,
   cwd?: string,
 ): Promise<ResolvedPubmConfig> {
-  let packages: PubmConfig["packages"];
+  const resolvedCwd = cwd ?? process.cwd();
   let discoveryEmpty: boolean | undefined;
 
-  if (config.packages) {
-    // Explicit packages: normalize registries
-    packages = config.packages.map((pkg) => {
-      if (!pkg.registries) return pkg;
-      const normalizedRegistries = pkg.registries.map((entry) => {
-        if (typeof entry === "string") return entry;
-        const ecosystemKey = resolveEcosystemKey(pkg, entry);
-        return registerPrivateRegistry(entry, ecosystemKey);
-      });
-      return { ...pkg, registries: normalizedRegistries };
+  // Normalize private registries in config packages before passing to discover
+  const configPackages = config.packages?.map((pkg) => {
+    if (!pkg.registries) return pkg;
+    const normalizedRegistries = pkg.registries.map((entry) => {
+      if (typeof entry === "string") return entry;
+      const ecosystemKey = resolveEcosystemKey(pkg, entry);
+      return registerPrivateRegistry(entry, ecosystemKey);
     });
-  } else {
-    // Auto-discover packages
-    const resolvedCwd = cwd ?? process.cwd();
-    const discovered = await discoverPackages({ cwd: resolvedCwd });
+    return { ...pkg, registries: normalizedRegistries };
+  });
 
-    if (discovered.length === 0) {
-      discoveryEmpty = true;
-      packages = [];
-    } else {
-      packages = discovered.map((d) => ({
-        path: d.path,
-        registries: d.registries,
-        ecosystem: d.ecosystem,
-      }));
-    }
+  const discovered = await discoverPackages({
+    cwd: resolvedCwd,
+    configPackages,
+    ignore: config.ignore,
+  });
+
+  let packages: ResolvedPackageConfig[];
+  if (discovered.length === 0 && !config.packages) {
+    discoveryEmpty = true;
+    packages = [];
+  } else {
+    packages = discovered.map((pkg) => ({
+      path: pkg.path,
+      name: pkg.name,
+      version: pkg.version,
+      dependencies: pkg.dependencies,
+      ecosystem: pkg.ecosystem as "js" | "rust",
+      registries: pkg.registries as RegistryType[],
+      ...(pkg.registryVersions
+        ? { registryVersions: pkg.registryVersions }
+        : {}),
+    }));
   }
 
   return {

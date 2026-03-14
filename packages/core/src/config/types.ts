@@ -14,6 +14,15 @@ export interface PackageConfig {
   testCommand?: string;
 }
 
+export interface ResolvedPackageConfig
+  extends Omit<PackageConfig, "registries"> {
+  name: string;
+  version: string;
+  dependencies: string[];
+  registries: RegistryType[];
+  registryVersions?: Map<RegistryType, string>;
+}
+
 export interface ValidateConfig {
   cleanInstall?: boolean;
   entryPoints?: boolean;
@@ -45,7 +54,7 @@ export interface PubmConfig {
 
 export interface ResolvedPubmConfig
   extends Required<Omit<PubmConfig, "packages" | "validate" | "registries">> {
-  packages: PackageConfig[];
+  packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   discoveryEmpty?: boolean;
 }
