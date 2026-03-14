@@ -43,7 +43,15 @@ const {
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
     mockResolveConfig: vi.fn(async (raw: any) => ({
       plugins: [],
-      packages: [],
+      packages: [
+        {
+          name: "default-pkg",
+          version: "0.0.0",
+          path: ".",
+          registries: ["npm"],
+          dependencies: [],
+        },
+      ],
       ...raw,
     })),
     mockResolveOptions: vi.fn((opts: any) => ({
@@ -79,7 +87,9 @@ vi.mock("@pubm/core", () => ({
 }));
 
 vi.mock("../../src/commands/changesets.js", () => ({
-  registerChangesetsCommand: vi.fn(),
+  registerChangesetsCommand: vi.fn((_program: any, getConfig: () => any) => {
+    getConfig();
+  }),
 }));
 
 vi.mock("../../src/commands/init.js", () => ({
@@ -96,6 +106,17 @@ vi.mock("../../src/commands/secrets.js", () => ({
 
 vi.mock("../../src/commands/sync.js", () => ({
   registerSyncCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/version-cmd.js", () => ({
+  registerVersionCommand: vi.fn((_program: any, getConfig: () => any) => {
+    getConfig();
+  }),
+}));
+
+const mockShowSplash = vi.hoisted(() => vi.fn());
+vi.mock("../../src/splash.js", () => ({
+  showSplash: mockShowSplash,
 }));
 
 import type { Command } from "commander";
@@ -261,6 +282,24 @@ describe("CLI action handler - non-CI mode", () => {
         }),
       }),
     );
+  });
+
+  it("shows splash when stderr is a TTY and not CI", async () => {
+    mockIsCI.isCI = false;
+    const origTTY = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", {
+      value: true,
+      configurable: true,
+    });
+    try {
+      await run("1.0.0");
+      expect(mockShowSplash).toHaveBeenCalledWith(mockPubmVersion);
+    } finally {
+      Object.defineProperty(process.stderr, "isTTY", {
+        value: origTTY,
+        configurable: true,
+      });
+    }
   });
 
   it("rejects --snapshot and --preflight when used together", async () => {

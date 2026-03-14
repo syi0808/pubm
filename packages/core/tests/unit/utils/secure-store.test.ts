@@ -69,6 +69,17 @@ describe("SecureStore", () => {
       expect(store.get("gh-secrets-sync-hash")).toBe("db-value");
     });
 
+    it("uses cached keyring constructor on subsequent calls", () => {
+      keyringStore["test-token"] = "cached-value";
+
+      const store = new SecureStore();
+      // First call loads the constructor
+      expect(store.get("test-token")).toBe("cached-value");
+      // Second call hits the cache
+      keyringStore["test-token"] = "cached-value-2";
+      expect(store.get("test-token")).toBe("cached-value-2");
+    });
+
     it("returns null when keyring and Db are unavailable", () => {
       keyringControl.installed = false;
       dbControl.available = false;

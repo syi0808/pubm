@@ -44,6 +44,7 @@ export async function sortCratesByDependencyOrder(
   const sorted: string[] = [];
   while (queue.length > 0) {
     const current = queue.shift();
+    /* istanbul ignore next -- defensive: queue.shift() always returns after length check */
     if (current === undefined) {
       break;
     }
@@ -65,6 +66,7 @@ export async function sortCratesByDependencyOrder(
 
   return sorted.map((name) => {
     const cratePath = nameToPath.get(name);
+    /* istanbul ignore next -- defensive: nameToPath built from same crateInfos */
     if (cratePath === undefined) {
       throw new Error(`Missing crate path for ${name}`);
     }

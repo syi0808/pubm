@@ -40,4 +40,16 @@ describe("Ecosystem", () => {
     const eco = new TestEcosystem("/some/path");
     await expect(eco.readManifest()).rejects.toThrow("No manifest file found");
   });
+
+  it("updateSiblingDependencyVersions returns false by default", async () => {
+    const eco = new TestEcosystem("/some/path");
+    const result = await eco.updateSiblingDependencyVersions(new Map());
+    expect(result).toBe(false);
+  });
+
+  it("syncLockfile returns undefined by default", async () => {
+    const eco = new TestEcosystem("/some/path");
+    const result = await eco.syncLockfile();
+    expect(result).toBeUndefined();
+  });
 });

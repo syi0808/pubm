@@ -29,6 +29,15 @@ describe("generateSnapshotVersion", () => {
     expect(result).toBe("1.0.0-dev-abc1234");
   });
 
+  it("replaces {commit} with empty string when commit is not provided", () => {
+    const result = generateSnapshotVersion({
+      tag: "dev",
+      baseVersion: "1.0.0",
+      template: "{base}-{tag}-{commit}",
+    });
+    expect(result).toBe("1.0.0-dev-");
+  });
+
   it("should default tag to snapshot", () => {
     const result = generateSnapshotVersion({ baseVersion: "2.0.0" });
     expect(result).toBe("2.0.0-snapshot-20260304T123000");

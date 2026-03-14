@@ -201,6 +201,23 @@ describe("Db", () => {
         defaultWriteFileSync as any,
       );
     });
+
+    it("includes raw value when writeFileSync throws a non-Error", async () => {
+      const { writeFileSync: mockWriteFileSync } = await import("node:fs");
+      vi.mocked(mockWriteFileSync).mockImplementation(() => {
+        throw "raw write error";
+      });
+
+      const db = new Db();
+
+      expect(() => db.set("token", "value")).toThrow(
+        "Failed to save token for 'token'",
+      );
+
+      vi.mocked(mockWriteFileSync).mockImplementation(
+        defaultWriteFileSync as any,
+      );
+    });
   });
 
   describe("constructor error handling", () => {
@@ -208,6 +225,20 @@ describe("Db", () => {
       const { mkdirSync: mockMkdirSync } = await import("node:fs");
       vi.mocked(mockMkdirSync).mockImplementation(() => {
         throw new Error("EACCES: permission denied");
+      });
+
+      vi.resetModules();
+      const mod = await import("../../../src/utils/db.js");
+
+      expect(() => new mod.Db()).toThrow(
+        "Failed to create token storage directory",
+      );
+    });
+
+    it("includes raw value when mkdirSync throws a non-Error", async () => {
+      const { mkdirSync: mockMkdirSync } = await import("node:fs");
+      vi.mocked(mockMkdirSync).mockImplementation(() => {
+        throw "raw string error";
       });
 
       vi.resetModules();
