@@ -217,3 +217,113 @@ describe("RegistryDescriptor connector", () => {
     expect(registryCatalog.get("crates")!.connector).toBeTypeOf("function");
   });
 });
+
+describe("default registration factory and connector invocations", () => {
+  it("npm connector returns a RegistryConnector instance", () => {
+    const npm = registryCatalog.get("npm")!;
+    const connector = npm.connector();
+    expect(connector).toBeDefined();
+  });
+
+  it("jsr connector returns a RegistryConnector instance", () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const connector = jsr.connector();
+    expect(connector).toBeDefined();
+  });
+
+  it("crates connector returns a RegistryConnector instance", () => {
+    const crates = registryCatalog.get("crates")!;
+    const connector = crates.connector();
+    expect(connector).toBeDefined();
+  });
+
+  it("npm factory creates a PackageRegistry", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
+      name: "test-pkg",
+      version: "1.0.0",
+      private: false,
+      dependencies: [],
+    });
+    const reg = await npm.factory("/fake/path");
+    expect(reg).toBeDefined();
+    expect(reg.packageName).toBe("test-pkg");
+    spy.mockRestore();
+  });
+
+  it("jsr factory creates a PackageRegistry", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const spy = vi.spyOn(JsrPackageRegistry.reader, "read").mockResolvedValue({
+      name: "@scope/test-pkg",
+      version: "1.0.0",
+      private: false,
+      dependencies: [],
+    });
+    const reg = await jsr.factory("/fake/path");
+    expect(reg).toBeDefined();
+    expect(reg.packageName).toBe("@scope/test-pkg");
+    spy.mockRestore();
+  });
+
+  it("npm resolveTokenUrl replaces ~ with username from whoami", async () => {
+    const npm = registryCatalog.get("npm")!;
+    mockedExec.mockResolvedValue({
+      stdout: "testuser\n",
+      stderr: "",
+      exitCode: 0,
+    } as any);
+
+    const result = await npm.resolveTokenUrl!(
+      "https://www.npmjs.com/settings/~/tokens",
+    );
+    expect(result).toBe("https://www.npmjs.com/settings/testuser/tokens");
+  });
+
+  it("npm resolveDisplayName returns package name", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
+      name: "my-real-pkg",
+      version: "1.0.0",
+      private: false,
+      dependencies: [],
+    });
+
+    const names = await npm.resolveDisplayName!({});
+    expect(names).toEqual(["my-real-pkg"]);
+    spy.mockRestore();
+  });
+
+  it("npm resolveDisplayName returns empty when reader throws", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const spy = vi
+      .spyOn(NpmPackageRegistry.reader, "read")
+      .mockRejectedValue(new Error("no manifest"));
+
+    const names = await npm.resolveDisplayName!({});
+    expect(names).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("jsr resolveDisplayName returns empty when reader throws", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const spy = vi
+      .spyOn(JsrPackageRegistry.reader, "read")
+      .mockRejectedValue(new Error("no manifest"));
+
+    const names = await jsr.resolveDisplayName!({});
+    expect(names).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("crates resolveDisplayName filters packages by crates registry", async () => {
+    const crates = registryCatalog.get("crates")!;
+
+    const names = await crates.resolveDisplayName!({
+      packages: [
+        { name: "my-crate", path: "/crate", registries: ["crates"] } as any,
+        { name: "my-npm", path: "/npm", registries: ["npm"] } as any,
+      ],
+    });
+    expect(names).toEqual(["/crate"]);
+  });
+});

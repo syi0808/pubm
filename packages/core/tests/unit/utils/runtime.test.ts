@@ -10,4 +10,14 @@ describe("detectRuntime", () => {
   it("isBun should return false in Node", () => {
     expect(isBun()).toBe(false);
   });
+
+  it("detects bun runtime when Bun global is defined", () => {
+    (globalThis as any).Bun = {};
+    try {
+      expect(detectRuntime()).toBe("bun");
+      expect(isBun()).toBe(true);
+    } finally {
+      delete (globalThis as any).Bun;
+    }
+  });
 });

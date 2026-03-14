@@ -56,6 +56,12 @@ describe("gh-secrets-sync-state", () => {
     expect(readGhSecretsSyncHash()).toBe("abc123");
   });
 
+  it("returns null when the sync hash file contains only whitespace", async () => {
+    files[await syncHashPath()] = "  \n  ";
+
+    expect(readGhSecretsSyncHash()).toBeNull();
+  });
+
   it("writes the sync hash into ~/.pubm", async () => {
     writeGhSecretsSyncHash("def456");
 

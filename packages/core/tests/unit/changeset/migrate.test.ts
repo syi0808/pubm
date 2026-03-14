@@ -55,6 +55,29 @@ describe("migrateFromChangesets", () => {
     expect(mockedCopyFileSync).toHaveBeenCalledTimes(3);
   });
 
+  it("uses process.cwd() as default when no cwd provided", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = migrateFromChangesets();
+
+    expect(result.success).toBe(false);
+  });
+
+  it("skips non-.md files that are not in the skip list", () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReaddirSync.mockReturnValue([
+      "something.txt",
+      "data.json",
+      "brave-ant.md",
+    ] as any);
+
+    const result = migrateFromChangesets("/tmp/project");
+
+    expect(result.success).toBe(true);
+    expect(result.migratedFiles).toEqual(["brave-ant.md"]);
+    expect(mockedCopyFileSync).toHaveBeenCalledTimes(1);
+  });
+
   it("skips config.json and README.md", () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReaddirSync.mockReturnValue([

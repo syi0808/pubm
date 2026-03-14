@@ -117,6 +117,21 @@ describe("rollback", () => {
     expect(failCall).toBeDefined();
   });
 
+  it("handles non-Error rejection reasons in rollback", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const fn = vi.fn().mockRejectedValue("string rejection");
+
+    addRollback(fn, {});
+    await rollback();
+
+    const failCall = errorSpy.mock.calls.find((c) =>
+      (c[0] as string).includes("string rejection"),
+    );
+    expect(failCall).toBeDefined();
+  });
+
   it("logs styled error completion message when some rollbacks fail", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});

@@ -261,6 +261,7 @@ export function createProgram(): Command {
   return program;
 }
 
+/* istanbul ignore next -- IIFE bootstrap: covered by e2e tests */
 (async () => {
   const program = createProgram();
   const cwd = process.cwd();

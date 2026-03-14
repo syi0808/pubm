@@ -63,6 +63,16 @@ describe("collectRegistries", () => {
     expect(result).toEqual(["crates"]);
   });
 
+  it("treats missing registries field as empty array", () => {
+    const result = collectRegistries({
+      packages: [
+        { path: "packages/a" } as any,
+        { path: "packages/b", registries: ["npm"] },
+      ],
+    });
+    expect(result).toEqual(["npm"]);
+  });
+
   it("handles mixed JS and crates packages", () => {
     const result = collectRegistries({
       packages: [

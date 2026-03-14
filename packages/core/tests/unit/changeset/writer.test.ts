@@ -51,6 +51,16 @@ describe("generateChangesetContent", () => {
 
     expect(content).toBe("---\n---\n\nJust a note.\n");
   });
+
+  it("generates content without summary when summary is empty", () => {
+    const content = generateChangesetContent(
+      [{ name: "pkg-a", type: "patch" }],
+      "",
+    );
+
+    expect(content).toContain("pkg-a: patch");
+    expect(content.endsWith("---\n")).toBe(true);
+  });
 });
 
 describe("generateChangesetId", () => {

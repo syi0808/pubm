@@ -166,4 +166,26 @@ describe("customPackageRegistry()", () => {
     expect(result.packageName).toBe("my-lib");
     readSpy.mockRestore();
   });
+
+  it("creates CustomPackageRegistry from provided packagePath", async () => {
+    const readSpy = vi
+      .spyOn(NpmPackageRegistry.reader, "read")
+      .mockResolvedValue({
+        name: "specific-lib",
+        version: "2.0.0",
+        private: false,
+        dependencies: [],
+      });
+
+    const result = await customPackageRegistry(
+      "/specific/path",
+      "https://custom.reg",
+    );
+
+    expect(readSpy).toHaveBeenCalledWith("/specific/path");
+    expect(result).toBeInstanceOf(CustomPackageRegistry);
+    expect(result.packageName).toBe("specific-lib");
+    expect(result.registry).toBe("https://custom.reg");
+    readSpy.mockRestore();
+  });
 });

@@ -75,4 +75,16 @@ describe("default registrations", () => {
     expect(rust!.label).toBe("Rust ecosystem");
     expect(rust!.defaultRegistries).toEqual(["crates"]);
   });
+
+  it("js detect function returns false for nonexistent path", async () => {
+    const js = ecosystemCatalog.get("js")!;
+    const result = await js.detect("/nonexistent/path/that/does/not/exist");
+    expect(result).toBe(false);
+  });
+
+  it("rust detect function returns false for nonexistent path", async () => {
+    const rust = ecosystemCatalog.get("rust")!;
+    const result = await rust.detect("/nonexistent/path/that/does/not/exist");
+    expect(result).toBe(false);
+  });
 });

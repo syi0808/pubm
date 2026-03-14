@@ -83,6 +83,19 @@ describe("JsEcosystem", () => {
       expect(writtenContent).toContain('"2.0.0"');
       expect(writtenContent).not.toContain('"1.0.0"');
     });
+
+    it("rethrows non-ENOENT errors during writeVersion", async () => {
+      const eaccesError = new Error(
+        "Permission denied",
+      ) as NodeJS.ErrnoException;
+      eaccesError.code = "EACCES";
+      mockedReadFile.mockRejectedValue(eaccesError);
+
+      const eco = new JsEcosystem(pkgPath);
+      await expect(eco.writeVersion("2.0.0")).rejects.toThrow(
+        "Permission denied",
+      );
+    });
   });
 
   describe("manifestFiles", () => {

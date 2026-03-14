@@ -111,6 +111,78 @@ describe("inferRegistries", () => {
       expect(result).not.toContain("npm.b.com");
     });
 
+    it("returns empty when neither package.json nor jsr.json exist", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists(); // no files exist
+      const result = await inferRegistries("/project", "js");
+      expect(result).toEqual([]);
+    });
+
+    it("falls back to root .npmrc when package .npmrc is absent", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("package.json");
+      mockedReadFile.mockImplementation(async (p) => {
+        const path = typeof p === "string" ? p : p.toString();
+        if (path.endsWith("package.json"))
+          return JSON.stringify({ name: "test-pkg" });
+        if (path === "/root/.npmrc")
+          return "registry=https://private.internal.com\n";
+        throw new Error("ENOENT");
+      });
+      const result = await inferRegistries("/project", "js", "/root");
+      expect(result).not.toContain("npm");
+      expect(result).toContain("private.internal.com");
+    });
+
+    it("handles malformed package.json gracefully", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("package.json");
+      mockedReadFile.mockResolvedValue("{invalid json" as any);
+      const result = await inferRegistries("/project", "js");
+      // packageJson is null, so packageName is undefined, no publishConfig
+      // npmrcContent is also null (no .npmrc), so npm is default
+      expect(result).toEqual(["npm"]);
+    });
+
+    it("handles .npmrc read failure gracefully", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("package.json", ".npmrc");
+      mockedReadFile.mockImplementation(async (p) => {
+        const path = typeof p === "string" ? p : p.toString();
+        if (path.endsWith("package.json"))
+          return JSON.stringify({ name: "test-pkg" });
+        // .npmrc stat succeeds but readFile fails
+        throw new Error("EACCES");
+      });
+      const result = await inferRegistries("/project", "js");
+      expect(result).toEqual(["npm"]);
+    });
+
+    it("ignores .npmrc without registry lines", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("package.json", ".npmrc");
+      mockedReadFile.mockImplementation(async (p) => {
+        const path = typeof p === "string" ? p : p.toString();
+        if (path.endsWith("package.json"))
+          return JSON.stringify({ name: "test-pkg" });
+        if (path.endsWith(".npmrc"))
+          return "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n";
+        throw new Error("ENOENT");
+      });
+      const result = await inferRegistries("/project", "js");
+      expect(result).toEqual(["npm"]);
+    });
+
     it("handles scoped registry from .npmrc", async () => {
       const { inferRegistries } = await import(
         "../../../src/ecosystem/infer.js"
