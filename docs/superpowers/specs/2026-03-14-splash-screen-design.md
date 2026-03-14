@@ -9,6 +9,7 @@ pubm CLI의 퍼블리시 파이프라인 실행 시(`pubm` 또는 `pubm <version
 - `pubm` 또는 `pubm <version>` 커맨드 실행 시에만 표시
 - 서브커맨드(`pubm init`, `pubm changesets` 등)에서는 표시하지 않음
 - CI 환경(`isCI === true`)에서는 전체 스플래시 생략
+- Non-TTY 환경(`!process.stderr.isTTY`)에서도 스플래시 생략 (파이프 출력 시 이스케이프 시퀀스 오염 방지)
 
 ## Screen Layout
 
@@ -65,17 +66,20 @@ pubm CLI의 퍼블리시 파이프라인 실행 시(`pubm` 또는 `pubm <version
 
 ## Module Structure
 
-### New file: `packages/core/src/utils/splash.ts`
+### New file: `packages/pubm/src/splash.ts`
+
+CLI 전용 프레젠테이션 모듈 (core가 아닌 CLI 패키지에 위치):
 
 - `LOGO` — ASCII 아트 문자열 상수 (figlet Standard 폰트, 하드코딩)
 - `showSplash(version: string): void` — 로고 + 버전을 stderr에 출력
-- `withSplashSpinner<T>(task: () => Promise<T>): Promise<T>` — 스피너 애니메이션과 함께 비동기 작업 실행, 완료 시 결과 텍스트 표시 후 결과 반환
+- `showSplashWithUpdateCheck(version: string): Promise<void>` — 스플래시 출력 + 스피너와 함께 업데이트 체크 수행, 완료 시 결과 라인 표시
 
 ### Modified: `packages/core/src/utils/notify-new-version.ts`
 
 기존 `notifyNewVersion()` 함수를 분리:
 
-- `checkNewVersion(): Promise<string | undefined>` — 업데이트 체크만 수행, 배너 문자열 반환
+- `checkNewVersion(): Promise<string | undefined>` — 업데이트 체크만 수행, update-kit의 배너 문자열 반환 (스플래시에서는 사용하지 않고 존재 여부만 확인)
+- `getLatestVersion(): Promise<string | undefined>` — 최신 버전 문자열만 반환 (스플래시 완료 라인 포맷에 사용)
 - `notifyNewVersion()` — 기존 함수 유지 (하위 호환)
 
 ### Modified: `packages/pubm/src/cli.ts`
@@ -91,12 +95,14 @@ if (!isCI) {
 
 // After
 console.clear();
-if (!isCI) {
-  showSplash(PUBM_VERSION);
-  const banner = await withSplashSpinner(() => checkNewVersion());
-  if (banner) console.error(banner);
+if (!isCI && process.stderr.isTTY) {
+  await showSplashWithUpdateCheck(PUBM_VERSION);
+} else if (!isCI) {
+  await notifyNewVersion();
 }
 ```
+
+Non-TTY + non-CI 환경에서는 기존 `notifyNewVersion()` 동작 유지.
 
 ## Spinner Implementation
 
@@ -104,9 +110,10 @@ if (!isCI) {
 - **간격**: 80ms
 - **출력 대상**: `process.stderr` (stdout 파이프라인 오염 방지)
 - **라인 제어**: `\r` (캐리지 리턴) + `\x1b[K` (라인 클리어)로 같은 줄 덮어쓰기
-- **완료 표시**:
-  - 업데이트 있음: `✓ Update available: X.X.X → Y.Y.Y (npm i -g pubm)`
+- **완료 표시**: `showSplashWithUpdateCheck`가 스피너를 관리하고 완료 라인도 직접 출력
+  - 업데이트 있음: `✓ Update available: X.X.X → Y.Y.Y (npm i -g pubm)` — `getLatestVersion()`으로 최신 버전을 가져와서 포맷
   - 업데이트 없음: `✓ Ready`
+  - 호출자는 추가 출력 불필요
 - **에러 처리**: 업데이트 체크 실패 시 조용히 무시, `✓ Ready` 표시
 
 ## Dependencies
@@ -115,8 +122,9 @@ if (!isCI) {
 
 ## Exports
 
-`packages/core/src/index.ts`에서 새 함수들을 export:
+`packages/core/src/index.ts`에서 새 함수를 export:
 
-- `showSplash`
-- `withSplashSpinner`
 - `checkNewVersion`
+- `getLatestVersion`
+
+`showSplash`, `showSplashWithUpdateCheck`는 CLI 패키지 내부 모듈이므로 core에서 export하지 않음.
