@@ -1,12 +1,14 @@
 import process from "node:process";
 import type { PackageConfig, PrivateRegistryConfig } from "../config/types.js";
+import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
-import { cratesRegistry } from "./crates.js";
-import { CustomRegistry } from "./custom-registry.js";
-import { JsrRegisry, jsrRegistry } from "./jsr.js";
-import { NpmRegistry, npmRegistry } from "./npm.js";
-import type { Registry } from "./registry.js";
+import type { RegistryConnector } from "./connector.js";
+import { CratesConnector, cratesPackageRegistry } from "./crates.js";
+import { CustomPackageRegistry } from "./custom-registry.js";
+import { JsrPackageRegistry, jsrConnector, jsrPackageRegistry } from "./jsr.js";
+import { NpmPackageRegistry, npmConnector, npmPackageRegistry } from "./npm.js";
+import type { PackageRegistry } from "./package-registry.js";
 
 export type EcosystemKey = "js" | "rust" | string;
 
@@ -30,7 +32,10 @@ export interface RegistryDescriptor {
   resolveDisplayName?: (ctx: {
     packages?: PackageConfig[];
   }) => Promise<string[]>;
-  factory: (packageName?: string) => Promise<Registry>;
+  concurrentPublish: boolean;
+  orderPackages?: (paths: string[]) => Promise<string[]>;
+  connector: () => RegistryConnector;
+  factory: (packagePath: string) => Promise<PackageRegistry>;
 }
 
 export class RegistryCatalog {
@@ -82,13 +87,15 @@ registryCatalog.register({
   },
   resolveDisplayName: async () => {
     try {
-      const manifest = await NpmRegistry.reader.read(process.cwd());
+      const manifest = await NpmPackageRegistry.reader.read(process.cwd());
       return manifest.name ? [manifest.name] : [];
     } catch {
       return [];
     }
   },
-  factory: () => npmRegistry(),
+  concurrentPublish: true,
+  connector: () => npmConnector(),
+  factory: (packagePath) => npmPackageRegistry(packagePath),
 });
 
 registryCatalog.register({
@@ -106,13 +113,15 @@ registryCatalog.register({
   needsPackageScripts: false,
   resolveDisplayName: async () => {
     try {
-      const manifest = await JsrRegisry.reader.read(process.cwd());
+      const manifest = await JsrPackageRegistry.reader.read(process.cwd());
       return manifest.name ? [manifest.name] : [];
     } catch {
       return [];
     }
   },
-  factory: () => jsrRegistry(),
+  concurrentPublish: true,
+  connector: () => jsrConnector(),
+  factory: (packagePath) => jsrPackageRegistry(packagePath),
 });
 
 registryCatalog.register({
@@ -135,7 +144,10 @@ registryCatalog.register({
         .map((pkg) => pkg.path) ?? ["crate"]
     );
   },
-  factory: (name) => cratesRegistry(name ?? "unknown"),
+  concurrentPublish: false,
+  orderPackages: (paths) => sortCratesByDependencyOrder(paths),
+  connector: () => new CratesConnector(),
+  factory: (name) => cratesPackageRegistry(name),
 });
 
 export function registerPrivateRegistry(
@@ -160,7 +172,12 @@ export function registerPrivateRegistry(
       tokenUrlLabel: key,
     },
     needsPackageScripts: false,
-    factory: async (packageName) => new CustomRegistry(packageName, config.url),
+    concurrentPublish: true,
+    connector: () => npmConnector(),
+    factory: async (packagePath) => {
+      const manifest = await NpmPackageRegistry.reader.read(packagePath);
+      return new CustomPackageRegistry(manifest.name, config.url);
+    },
   });
 
   return key;
