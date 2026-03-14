@@ -2,13 +2,13 @@ import type {
   ManifestReader,
   PackageManifest,
 } from "../manifest/manifest-reader.js";
-import type { Registry } from "../registry/registry.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
 
 export abstract class Ecosystem {
   constructor(public packagePath: string) {}
 
-  abstract registryClasses(): (typeof Registry)[];
+  abstract registryClasses(): (typeof PackageRegistry)[];
   abstract writeVersion(newVersion: string): Promise<void>;
   abstract manifestFiles(): string[];
   abstract defaultTestCommand(): Promise<string> | string;

@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { JsrRegisry } from "../registry/jsr.js";
-import { NpmRegistry } from "../registry/npm.js";
-import type { Registry } from "../registry/registry.js";
+import { JsrPackageRegistry } from "../registry/jsr.js";
+import { NpmPackageRegistry } from "../registry/npm.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { Ecosystem } from "./ecosystem.js";
@@ -11,11 +11,14 @@ const versionRegex = /("version"\s*:\s*")[^"]*(")/;
 
 export class JsEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
-    return NpmRegistry.reader.exists(packagePath);
+    return NpmPackageRegistry.reader.exists(packagePath);
   }
 
-  registryClasses(): (typeof Registry)[] {
-    return [NpmRegistry, JsrRegisry] as unknown as (typeof Registry)[];
+  registryClasses(): (typeof PackageRegistry)[] {
+    return [
+      NpmPackageRegistry,
+      JsrPackageRegistry,
+    ] as unknown as (typeof PackageRegistry)[];
   }
 
   async writeVersion(newVersion: string): Promise<void> {
