@@ -246,8 +246,3 @@ export async function cratesPackageRegistry(
 ): Promise<CratesPackageRegistry> {
   return new CratesPackageRegistry(packageName);
 }
-
-/** @deprecated Use CratesPackageRegistry */
-export const CratesRegistry = CratesPackageRegistry;
-/** @deprecated Use cratesPackageRegistry */
-export const cratesRegistry = cratesPackageRegistry;

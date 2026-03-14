@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
-import type { Registry } from "../../../src/registry/registry.js";
+import type { PackageRegistry } from "../../../src/registry/package-registry.js";
 import type { RegistryType } from "../../../src/types/options.js";
 
 class TestEcosystem extends Ecosystem {
-  registryClasses(): (typeof Registry)[] {
+  registryClasses(): (typeof PackageRegistry)[] {
     return [];
   }
   async writeVersion(_version: string): Promise<void> {}

@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JsEcosystem } from "../../../src/ecosystem/js.js";
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesRegistry } from "../../../src/registry/crates.js";
-import { JsrRegisry } from "../../../src/registry/jsr.js";
-import { NpmRegistry } from "../../../src/registry/npm.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 
 describe("Ecosystem manifest delegation", () => {
   let tmpDir: string;
@@ -16,9 +16,9 @@ describe("Ecosystem manifest delegation", () => {
   });
 
   afterEach(async () => {
-    NpmRegistry.reader.clearCache();
-    JsrRegisry.reader.clearCache();
-    CratesRegistry.reader.clearCache();
+    NpmPackageRegistry.reader.clearCache();
+    JsrPackageRegistry.reader.clearCache();
+    CratesPackageRegistry.reader.clearCache();
     await rm(tmpDir, { recursive: true, force: true });
   });
 

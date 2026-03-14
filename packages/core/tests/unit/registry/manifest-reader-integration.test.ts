@@ -1,9 +1,9 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { CratesRegistry } from "../../../src/registry/crates.js";
-import { JsrRegisry } from "../../../src/registry/jsr.js";
-import { NpmRegistry } from "../../../src/registry/npm.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 
 const tmpDir = join(
   process.env.TMPDIR ?? "/tmp",
@@ -16,12 +16,12 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
-  NpmRegistry.reader.clearCache();
-  JsrRegisry.reader.clearCache();
-  CratesRegistry.reader.clearCache();
+  NpmPackageRegistry.reader.clearCache();
+  JsrPackageRegistry.reader.clearCache();
+  CratesPackageRegistry.reader.clearCache();
 });
 
-describe("NpmRegistry.reader", () => {
+describe("NpmPackageRegistry.reader", () => {
   it("reads name and version from package.json", async () => {
     const pkgDir = join(tmpDir, "npm-basic");
     mkdirSync(pkgDir, { recursive: true });
@@ -30,7 +30,7 @@ describe("NpmRegistry.reader", () => {
       JSON.stringify({ name: "@scope/my-pkg", version: "1.2.3" }),
     );
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("@scope/my-pkg");
     expect(manifest.version).toBe("1.2.3");
@@ -44,7 +44,7 @@ describe("NpmRegistry.reader", () => {
       JSON.stringify({ name: "private-pkg", version: "0.1.0", private: true }),
     );
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(true);
   });
@@ -57,7 +57,7 @@ describe("NpmRegistry.reader", () => {
       JSON.stringify({ name: "public-pkg", version: "0.1.0" }),
     );
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(false);
   });
@@ -76,7 +76,7 @@ describe("NpmRegistry.reader", () => {
       }),
     );
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.dependencies).toContain("lodash");
     expect(manifest.dependencies).toContain("vitest");
@@ -92,7 +92,7 @@ describe("NpmRegistry.reader", () => {
       JSON.stringify({ name: "no-deps-pkg", version: "1.0.0" }),
     );
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.dependencies).toEqual([]);
   });
@@ -102,18 +102,18 @@ describe("NpmRegistry.reader", () => {
     mkdirSync(pkgDir, { recursive: true });
     writeFileSync(join(pkgDir, "package.json"), JSON.stringify({}));
 
-    const manifest = await NpmRegistry.reader.read(pkgDir);
+    const manifest = await NpmPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("");
     expect(manifest.version).toBe("0.0.0");
   });
 
   it("registryType is npm", () => {
-    expect(NpmRegistry.registryType).toBe("npm");
+    expect(NpmPackageRegistry.registryType).toBe("npm");
   });
 });
 
-describe("JsrRegisry.reader", () => {
+describe("JsrPackageRegistry.reader", () => {
   it("reads name and version from jsr.json", async () => {
     const pkgDir = join(tmpDir, "jsr-basic");
     mkdirSync(pkgDir, { recursive: true });
@@ -122,7 +122,7 @@ describe("JsrRegisry.reader", () => {
       JSON.stringify({ name: "@scope/jsr-pkg", version: "2.0.0" }),
     );
 
-    const manifest = await JsrRegisry.reader.read(pkgDir);
+    const manifest = await JsrPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("@scope/jsr-pkg");
     expect(manifest.version).toBe("2.0.0");
@@ -136,7 +136,7 @@ describe("JsrRegisry.reader", () => {
       JSON.stringify({ name: "@scope/jsr-pkg", version: "1.0.0" }),
     );
 
-    const manifest = await JsrRegisry.reader.read(pkgDir);
+    const manifest = await JsrPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(false);
   });
@@ -153,7 +153,7 @@ describe("JsrRegisry.reader", () => {
       }),
     );
 
-    const manifest = await JsrRegisry.reader.read(pkgDir);
+    const manifest = await JsrPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.dependencies).toEqual([]);
   });
@@ -163,18 +163,18 @@ describe("JsrRegisry.reader", () => {
     mkdirSync(pkgDir, { recursive: true });
     writeFileSync(join(pkgDir, "jsr.json"), JSON.stringify({}));
 
-    const manifest = await JsrRegisry.reader.read(pkgDir);
+    const manifest = await JsrPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("");
     expect(manifest.version).toBe("0.0.0");
   });
 
   it("registryType is jsr", () => {
-    expect(JsrRegisry.registryType).toBe("jsr");
+    expect(JsrPackageRegistry.registryType).toBe("jsr");
   });
 });
 
-describe("CratesRegistry.reader", () => {
+describe("CratesPackageRegistry.reader", () => {
   it("reads name and version from Cargo.toml", async () => {
     const pkgDir = join(tmpDir, "crates-basic");
     mkdirSync(pkgDir, { recursive: true });
@@ -183,7 +183,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "my-crate"\nversion = "0.3.0"\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("my-crate");
     expect(manifest.version).toBe("0.3.0");
@@ -197,7 +197,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "my-crate"\nversion = "0.1.0"\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(false);
   });
@@ -210,7 +210,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "private-crate"\nversion = "0.1.0"\npublish = false\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(true);
   });
@@ -223,7 +223,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "private-crate"\nversion = "0.1.0"\npublish = []\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.private).toBe(true);
   });
@@ -236,7 +236,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "deps-crate"\nversion = "0.1.0"\n\n[dependencies]\nserde = "1.0"\n\n[build-dependencies]\ncc = "1.0"\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.dependencies).toContain("serde");
     expect(manifest.dependencies).toContain("cc");
@@ -251,7 +251,7 @@ describe("CratesRegistry.reader", () => {
       `[package]\nname = "no-deps-crate"\nversion = "0.1.0"\n`,
     );
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.dependencies).toEqual([]);
   });
@@ -261,13 +261,13 @@ describe("CratesRegistry.reader", () => {
     mkdirSync(pkgDir, { recursive: true });
     writeFileSync(join(pkgDir, "Cargo.toml"), "");
 
-    const manifest = await CratesRegistry.reader.read(pkgDir);
+    const manifest = await CratesPackageRegistry.reader.read(pkgDir);
 
     expect(manifest.name).toBe("");
     expect(manifest.version).toBe("0.0.0");
   });
 
   it("registryType is crates", () => {
-    expect(CratesRegistry.registryType).toBe("crates");
+    expect(CratesPackageRegistry.registryType).toBe("crates");
   });
 });

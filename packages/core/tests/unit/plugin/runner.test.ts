@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
 import type { PubmPlugin } from "../../../src/plugin/types.js";
-import type { Registry } from "../../../src/registry/registry.js";
+import type { PackageRegistry } from "../../../src/registry/package-registry.js";
 
 function makeCtx() {
   return {
@@ -69,8 +69,8 @@ describe("PluginRunner", () => {
   });
 
   it("collects registries from plugins", () => {
-    const reg1 = { name: "npm" } as unknown as Registry;
-    const reg2 = { name: "jsr" } as unknown as Registry;
+    const reg1 = { name: "npm" } as unknown as PackageRegistry;
+    const reg2 = { name: "jsr" } as unknown as PackageRegistry;
     const plugin1: PubmPlugin = {
       name: "plugin-1",
       registries: [reg1],

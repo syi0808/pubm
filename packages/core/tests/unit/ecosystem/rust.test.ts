@@ -12,7 +12,7 @@ vi.mock("../../../src/utils/exec.js", () => ({
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesRegistry } from "../../../src/registry/crates.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
 import { exec } from "../../../src/utils/exec.js";
 
 const mockedReadFile = vi.mocked(readFile);
@@ -22,7 +22,7 @@ const mockedExec = vi.mocked(exec);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  CratesRegistry.reader.clearCache();
+  CratesPackageRegistry.reader.clearCache();
 });
 
 const CARGO_TOML = `[package]

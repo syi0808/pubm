@@ -22,6 +22,3 @@ export async function getPackageRegistry(
   if (!descriptor) return await customPackageRegistry(packagePath);
   return await descriptor.factory(packagePath);
 }
-
-/** @deprecated Use getPackageRegistry */
-export const getRegistry = getPackageRegistry;

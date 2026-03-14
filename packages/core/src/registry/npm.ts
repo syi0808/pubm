@@ -348,8 +348,3 @@ export async function npmPackageRegistry(
   const manifest = await NpmPackageRegistry.reader.read(process.cwd());
   return new NpmPackageRegistry(manifest.name);
 }
-
-/** @deprecated Use npmPackageRegistry */
-export const npmRegistry = npmPackageRegistry;
-/** @deprecated Use NpmPackageRegistry */
-export const NpmRegistry = NpmPackageRegistry;
