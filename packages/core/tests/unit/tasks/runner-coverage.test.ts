@@ -25,9 +25,6 @@ vi.mock("../../../src/utils/listr.js", () => ({
 vi.mock("../../../src/tasks/github-release.js", () => ({
   createGitHubRelease: vi.fn(),
 }));
-vi.mock("../../../src/changeset/packages.js", () => ({
-  discoverPackageInfos: vi.fn(),
-}));
 vi.mock("../../../src/changeset/reader.js", () => ({
   readChangesets: vi.fn(),
   deleteChangesetFiles: vi.fn(),
@@ -40,12 +37,47 @@ vi.mock("../../../src/changeset/changelog.js", () => ({
 vi.mock("../../../src/changeset/changelog-parser.js", () => ({
   parseChangelogSection: vi.fn(),
 }));
-vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
-  getJsrJson: vi.fn(),
-  replaceVersion: vi.fn(),
-  replaceVersionAtPath: vi.fn(),
+vi.mock("../../../src/manifest/write-versions.js", () => ({
+  writeVersionsForEcosystem: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../../../src/ecosystem/catalog.js", () => {
+  class MockJsEcosystem {
+    packagePath: string;
+    constructor(p: string) {
+      this.packagePath = p;
+    }
+    manifestFiles() {
+      return ["package.json"];
+    }
+  }
+  class MockRustEcosystem {
+    packagePath: string;
+    constructor(p: string) {
+      this.packagePath = p;
+    }
+    manifestFiles() {
+      return ["Cargo.toml"];
+    }
+  }
+  const descriptors: Record<string, any> = {
+    js: {
+      key: "js",
+      label: "JavaScript ecosystem",
+      ecosystemClass: MockJsEcosystem,
+    },
+    rust: {
+      key: "rust",
+      label: "Rust ecosystem",
+      ecosystemClass: MockRustEcosystem,
+    },
+  };
+  return {
+    ecosystemCatalog: {
+      get: vi.fn((key: string) => descriptors[key]),
+      all: vi.fn(() => Object.values(descriptors)),
+    },
+  };
+});
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
@@ -216,7 +248,6 @@ import {
   writeChangelogToFile,
 } from "../../../src/changeset/changelog.js";
 import { parseChangelogSection } from "../../../src/changeset/changelog-parser.js";
-import { discoverPackageInfos } from "../../../src/changeset/packages.js";
 import {
   deleteChangesetFiles,
   readChangesets,
@@ -224,17 +255,12 @@ import {
 import type { PubmContext } from "../../../src/context.js";
 import { detectEcosystem } from "../../../src/ecosystem/index.js";
 import { Git } from "../../../src/git.js";
+import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
 import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import { run } from "../../../src/tasks/runner.js";
 import { createListr } from "../../../src/utils/listr.js";
-import {
-  getJsrJson,
-  getPackageJson,
-  replaceVersion,
-  replaceVersionAtPath,
-} from "../../../src/utils/package.js";
 import { addRollback } from "../../../src/utils/rollback.js";
 import { makeTestContext } from "../../helpers/make-context.js";
 
@@ -243,15 +269,13 @@ const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedGit = vi.mocked(Git);
 const mockedCreateListr = vi.mocked(createListr);
 const mockedCreateGitHubRelease = vi.mocked(createGitHubRelease);
-const mockedDiscoverPackageInfos = vi.mocked(discoverPackageInfos);
 const mockedParseChangelogSection = vi.mocked(parseChangelogSection);
 const mockedReadChangesets = vi.mocked(readChangesets);
 const mockedDeleteChangesetFiles = vi.mocked(deleteChangesetFiles);
 const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
 const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
-const mockedReplaceVersion = vi.mocked(replaceVersion);
-const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
+const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedDetectEcosystem = vi.mocked(detectEcosystem);
 const mockedCratesRegistry = (
   (await import("../../../src/registry/catalog.js")) as any
@@ -260,8 +284,6 @@ const mockedCreateCratesDryRunPublishTask = vi.mocked(
   createCratesDryRunPublishTask,
 );
 const mockedAddRollback = vi.mocked(addRollback);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
-const mockedGetJsrJson = vi.mocked(getJsrJson);
 
 function createOptions(
   overrides: {
@@ -272,7 +294,16 @@ function createOptions(
 ): PubmContext {
   return makeTestContext({
     config: {
-      packages: [{ path: ".", registries: ["npm", "jsr"] }],
+      packages: [
+        {
+          path: ".",
+          name: "pubm",
+          version: "1.0.0",
+          ecosystem: "js",
+          dependencies: [],
+          registries: ["npm", "jsr"],
+        },
+      ],
       ...overrides.config,
     },
     options: overrides.options,
@@ -332,9 +363,6 @@ beforeEach(() => {
     } as any;
   } as any);
 
-  mockedGetPackageJson.mockResolvedValue({ name: "pubm" } as any);
-  mockedGetJsrJson.mockResolvedValue({ name: "@pubm/pubm" } as any);
-  mockedDiscoverPackageInfos.mockResolvedValue([]);
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
   mockedCreateGitHubRelease.mockResolvedValue({
@@ -346,8 +374,7 @@ beforeEach(() => {
   mockedReadChangesets.mockReturnValue([]);
   mockedBuildChangelogEntries.mockReturnValue([]);
   mockedGenerateChangelog.mockReturnValue("generated");
-  mockedReplaceVersion.mockResolvedValue(["package.json"]);
-  mockedReplaceVersionAtPath.mockResolvedValue([]);
+  mockedWriteVersionsForEcosystem.mockResolvedValue([]);
   mockedCratesRegistry.orderPackages.mockImplementation((paths: string[]) =>
     Promise.resolve(paths),
   );
@@ -374,10 +401,6 @@ describe("runner coverage scenarios", () => {
       ["@pubm/core", "1.2.0"],
       ["pubm", "1.2.0"],
     ]);
-    mockedDiscoverPackageInfos.mockResolvedValue([
-      { name: "@pubm/core", path: "packages/core" },
-      { name: "pubm", path: "packages/pubm" },
-    ] as any);
     mockedExistsSync.mockImplementation((filePath) =>
       String(filePath)
         .replace(/\\/g, "/")
@@ -391,6 +414,26 @@ describe("runner coverage scenarios", () => {
     await run(
       createOptions({
         options: { ci: true },
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.2.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+            {
+              name: "pubm",
+              version: "1.2.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+          ],
+        },
         runtime: { versions, pluginRunner },
       }),
     );
@@ -399,6 +442,26 @@ describe("runner coverage scenarios", () => {
     const releaseTask = tasks[1];
     const afterReleaseTask = tasks[2];
     const releaseCtx: any = {
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.2.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+          {
+            name: "pubm",
+            version: "1.2.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
       runtime: {
         version: "1.2.0",
         versions,
@@ -553,13 +616,7 @@ describe("runner coverage scenarios", () => {
     mockedAddRollback.mockImplementation((fn: any) => {
       rollbackHandler = fn;
     });
-    mockedDiscoverPackageInfos.mockResolvedValue([
-      { name: "@pubm/core", path: "packages/core" },
-      { name: "pubm", path: "packages/pubm" },
-    ] as any);
-    mockedReplaceVersionAtPath
-      .mockResolvedValueOnce(["/workspace/packages/core/package.json"])
-      .mockResolvedValueOnce(["/workspace/packages/pubm/package.json"]);
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-1" }] as any);
     mockedBuildChangelogEntries
       .mockReturnValueOnce([
@@ -574,6 +631,26 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+          ],
+        },
         runtime: {
           versions,
           version: "2.0.0",
@@ -586,6 +663,27 @@ describe("runner coverage scenarios", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
       runtime: {
         version: "2.0.0",
         versions,
@@ -597,7 +695,7 @@ describe("runner coverage scenarios", () => {
 
     await versionTask.task(ctx, task);
 
-    expect(mockedReplaceVersionAtPath).toHaveBeenCalledTimes(2);
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalled();
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
       expect.stringContaining(path.join("packages", "core")),
       "core changelog",
@@ -633,13 +731,7 @@ describe("runner coverage scenarios", () => {
       ["pubm", "3.0.0"],
       ["missing", "3.0.0"],
     ]);
-    mockedDiscoverPackageInfos.mockResolvedValue([
-      { name: "@pubm/core", path: "packages/core" },
-      { name: "pubm", path: "packages/pubm" },
-    ] as any);
-    mockedReplaceVersionAtPath
-      .mockResolvedValueOnce(["/workspace/packages/core/package.json"])
-      .mockResolvedValueOnce(["/workspace/packages/pubm/package.json"]);
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-2" }] as any);
     mockedBuildChangelogEntries
       .mockReturnValueOnce([
@@ -650,11 +742,56 @@ describe("runner coverage scenarios", () => {
       ] as any);
     mockedGenerateChangelog.mockReturnValue("root changelog");
 
-    await run(createOptions({ runtime: { versions, version: "3.0.0" } }));
+    await run(
+      createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+          ],
+        },
+        runtime: { versions, version: "3.0.0" },
+      }),
+    );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
       runtime: {
         version: "3.0.0",
         versions,
@@ -679,16 +816,42 @@ describe("runner coverage scenarios", () => {
       ["@pubm/core", "1.2.0"],
       ["missing-pkg", "1.2.0"],
     ]);
-    mockedDiscoverPackageInfos.mockResolvedValue([
-      { name: "@pubm/core", path: "packages/core" },
-    ] as any);
     mockedExistsSync.mockReturnValue(false);
 
-    await run(createOptions({ options: { ci: true }, runtime: { versions } }));
+    await run(
+      createOptions({
+        options: { ci: true },
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.2.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm", "jsr"],
+            },
+          ],
+        },
+        runtime: { versions },
+      }),
+    );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseTask = tasks[1];
     const releaseCtx: any = {
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.2.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
       runtime: {
         version: "1.2.0",
         versions,
@@ -706,7 +869,6 @@ describe("runner coverage scenarios", () => {
 
   it("consumes single-package changesets when bumping a standalone release", async () => {
     mockedReadChangesets.mockReturnValue([{ id: "cs-3" }] as any);
-    mockedGetPackageJson.mockResolvedValue({ name: "pubm" } as any);
     mockedBuildChangelogEntries.mockReturnValue([
       { id: "cs-3", type: "patch", summary: "bugfix" },
     ] as any);
@@ -717,7 +879,19 @@ describe("runner coverage scenarios", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
     const ctx: any = {
-      config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
       runtime: {
         version: "4.0.0",
         changesetConsumed: true,

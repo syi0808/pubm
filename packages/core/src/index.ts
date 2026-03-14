@@ -56,6 +56,7 @@ export type {
 } from "./config/index.js";
 // Config
 export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
+export type { ResolvedPackageConfig } from "./config/types.js";
 export type { PubmContext } from "./context.js";
 // Context
 export { createContext } from "./context.js";
@@ -63,10 +64,18 @@ export { createContext } from "./context.js";
 export { consoleError } from "./error.js";
 // Git
 export { Git } from "./git.js";
+// Manifest
+export {
+  ManifestReader,
+  type ManifestSchema,
+  type PackageManifest,
+  writeVersionsForEcosystem,
+} from "./manifest/index.js";
 export type {
   DiscoveredPackage,
   DiscoverOptions,
   PackageNode,
+  ResolvedPackage,
   WorkspaceInfo,
 } from "./monorepo/index.js";
 // Monorepo
@@ -101,12 +110,7 @@ export type { Options, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
 export { notifyNewVersion } from "./utils/notify-new-version.js";
-export {
-  getPackageJson,
-  replaceVersion,
-  replaceVersionAtPath,
-  version,
-} from "./utils/package.js";
+export { replaceVersion, replaceVersionAtPath } from "./utils/package.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { Runtime } from "./utils/runtime.js";

@@ -1,6 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AbstractError } from "../error.js";
+import { ManifestReader } from "../manifest/manifest-reader.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
@@ -11,6 +12,23 @@ class NpmError extends AbstractError {
 }
 
 export class NpmRegistry extends Registry {
+  static override reader = new ManifestReader({
+    file: "package.json",
+    parser: JSON.parse,
+    fields: {
+      name: (p) => (p.name as string) ?? "",
+      version: (p) => (p.version as string) ?? "0.0.0",
+      private: (p) => p.private === true,
+      dependencies: (p) =>
+        Object.keys({
+          ...(p.dependencies as Record<string, string>),
+          ...(p.devDependencies as Record<string, string>),
+          ...(p.peerDependencies as Record<string, string>),
+        }),
+    },
+  });
+  static override registryType = "npm" as const;
+
   constructor(packageName?: string, registry?: string) {
     super(packageName ?? "", registry ?? "https://registry.npmjs.org");
   }

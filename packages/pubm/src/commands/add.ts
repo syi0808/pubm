@@ -1,11 +1,13 @@
-import path from "node:path";
 import process from "node:process";
-import type { BumpType, Release } from "@pubm/core";
-import { discoverPackages, getPackageJson, writeChangeset } from "@pubm/core";
+import type { BumpType, Release, ResolvedPubmConfig } from "@pubm/core";
+import { writeChangeset } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
-export function registerAddCommand(parent: Command): void {
+export function registerAddCommand(
+  parent: Command,
+  getConfig: () => ResolvedPubmConfig,
+): void {
   parent
     .command("add")
     .description("Create a new changeset")
@@ -45,41 +47,19 @@ export function registerAddCommand(parent: Command): void {
           return;
         }
 
-        // Interactive mode
+        // Interactive mode — use resolved config packages
         const cwd = process.cwd();
-        const discovered = await discoverPackages({ cwd });
+        const config = getConfig();
 
         interface PackageInfo {
           name: string;
           version: string;
         }
 
-        let availablePackages: PackageInfo[];
-
-        if (discovered.length > 0) {
-          // Monorepo: read each discovered package's name and version
-          const pkgInfos = await Promise.all(
-            discovered.map(async (pkg) => {
-              const pkgCwd = path.resolve(cwd, pkg.path);
-              try {
-                const json = await getPackageJson({ cwd: pkgCwd });
-                return {
-                  name: json.name ?? pkg.path,
-                  version: json.version ?? "0.0.0",
-                };
-              } catch {
-                return { name: pkg.path, version: "0.0.0" };
-              }
-            }),
-          );
-          availablePackages = pkgInfos;
-        } else {
-          // Single package
-          const json = await getPackageJson({ cwd });
-          availablePackages = [
-            { name: json.name ?? "unknown", version: json.version ?? "0.0.0" },
-          ];
-        }
+        const availablePackages: PackageInfo[] = config.packages.map((p) => ({
+          name: p.name,
+          version: p.version,
+        }));
 
         // Step 1: Package selection
         let selectedPackages: PackageInfo[];

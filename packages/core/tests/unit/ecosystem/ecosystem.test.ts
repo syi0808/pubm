@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
+import type { Registry } from "../../../src/registry/registry.js";
 import type { RegistryType } from "../../../src/types/options.js";
 
 class TestEcosystem extends Ecosystem {
-  async packageName(): Promise<string> {
-    return "test-package";
-  }
-  async readVersion(): Promise<string> {
-    return "1.0.0";
+  registryClasses(): (typeof Registry)[] {
+    return [];
   }
   async writeVersion(_version: string): Promise<void> {}
   manifestFiles(): string[] {
@@ -30,13 +28,16 @@ describe("Ecosystem", () => {
     expect(eco.packagePath).toBe("/some/path");
   });
 
-  it("exposes all abstract methods through subclass", async () => {
+  it("exposes methods through subclass", () => {
     const eco = new TestEcosystem("/some/path");
-    expect(await eco.packageName()).toBe("test-package");
-    expect(await eco.readVersion()).toBe("1.0.0");
     expect(eco.manifestFiles()).toEqual(["test.json"]);
     expect(eco.defaultTestCommand()).toBe("test-cmd");
     expect(eco.defaultBuildCommand()).toBe("build-cmd");
     expect(eco.supportedRegistries()).toEqual(["npm"]);
+  });
+
+  it("throws when readManifest finds no manifest", async () => {
+    const eco = new TestEcosystem("/some/path");
+    await expect(eco.readManifest()).rejects.toThrow("No manifest file found");
   });
 });

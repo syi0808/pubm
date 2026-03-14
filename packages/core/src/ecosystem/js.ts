@@ -1,5 +1,8 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { JsrRegisry } from "../registry/jsr.js";
+import { NpmRegistry } from "../registry/npm.js";
+import type { Registry } from "../registry/registry.js";
 import type { RegistryType } from "../types/options.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { Ecosystem } from "./ecosystem.js";
@@ -8,29 +11,11 @@ const versionRegex = /("version"\s*:\s*")[^"]*(")/;
 
 export class JsEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
-    try {
-      return (await stat(path.join(packagePath, "package.json"))).isFile();
-    } catch {
-      return false;
-    }
+    return NpmRegistry.reader.exists(packagePath);
   }
 
-  private async readPackageJson(): Promise<Record<string, unknown>> {
-    const raw = await readFile(
-      path.join(this.packagePath, "package.json"),
-      "utf-8",
-    );
-    return JSON.parse(raw);
-  }
-
-  async packageName(): Promise<string> {
-    const pkg = await this.readPackageJson();
-    return pkg.name as string;
-  }
-
-  async readVersion(): Promise<string> {
-    const pkg = await this.readPackageJson();
-    return pkg.version as string;
+  registryClasses(): (typeof Registry)[] {
+    return [NpmRegistry, JsrRegisry] as unknown as (typeof Registry)[];
   }
 
   async writeVersion(newVersion: string): Promise<void> {

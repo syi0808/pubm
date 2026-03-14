@@ -1,14 +1,11 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import micromatch from "micromatch";
-import { parse as parseToml } from "smol-toml";
 import type { PackageConfig } from "../config/types.js";
-import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { inferRegistries } from "../ecosystem/infer.js";
 import type { RegistryType } from "../types/options.js";
 import { detectWorkspace } from "./workspace.js";
-
-type EcosystemType = "js" | "rust";
 
 export interface DiscoverOptions {
   cwd: string;
@@ -16,21 +13,23 @@ export interface DiscoverOptions {
   configPackages?: PackageConfig[];
 }
 
-export interface DiscoveredPackage {
+export interface ResolvedPackage {
+  name: string;
+  version: string;
   path: string;
+  ecosystem: EcosystemKey;
   registries: RegistryType[];
-  ecosystem: EcosystemType;
+  dependencies: string[];
+  registryVersions?: Map<RegistryType, string>;
 }
 
-function detectEcosystem(packageDir: string): EcosystemType | null {
-  for (const descriptor of ecosystemCatalog.all()) {
-    const eco = new descriptor.ecosystemClass(packageDir);
-    const manifests = eco.manifestFiles();
-    if (manifests.some((m) => existsSync(path.join(packageDir, m)))) {
-      return descriptor.key as EcosystemType;
-    }
-  }
-  return null;
+/** @deprecated Use ResolvedPackage instead. Will be removed in a future version. */
+export type DiscoveredPackage = ResolvedPackage;
+
+interface DiscoverTarget {
+  path: string;
+  ecosystem?: string;
+  registries?: RegistryType[];
 }
 
 function toForwardSlash(p: string): string {
@@ -66,47 +65,13 @@ function resolvePatterns(cwd: string, patterns: string[]): string[] {
   return matched.map((d) => path.resolve(cwd, d));
 }
 
-function isPrivatePackage(
-  packageDir: string,
-  ecosystem: EcosystemType,
-): boolean {
-  try {
-    if (ecosystem === "js") {
-      const pkgJsonPath = path.join(packageDir, "package.json");
-      if (existsSync(pkgJsonPath)) {
-        const content = readFileSync(pkgJsonPath, "utf-8");
-        const pkg = JSON.parse(content);
-        return pkg.private === true;
-      }
-    } else if (ecosystem === "rust") {
-      const cargoPath = path.join(packageDir, "Cargo.toml");
-      if (existsSync(cargoPath)) {
-        const content = readFileSync(cargoPath, "utf-8");
-        const parsed = parseToml(content);
-        const pkgSection = parsed.package as
-          | { publish?: boolean | string[] }
-          | undefined;
-        if (pkgSection?.publish === false) return true;
-        if (
-          Array.isArray(pkgSection?.publish) &&
-          pkgSection.publish.length === 0
-        )
-          return true;
-      }
-    }
-  } catch {
-    // If we can't read/parse the manifest, assume it's publishable
-  }
-  return false;
-}
-
-export async function discoverPackages(
-  options: DiscoverOptions,
-): Promise<DiscoveredPackage[]> {
-  const { cwd, ignore = [], configPackages = [] } = options;
-
+async function discoverFromWorkspace(
+  cwd: string,
+  ignore: string[],
+): Promise<DiscoverTarget[]> {
   const workspaces = detectWorkspace(cwd);
-  const discovered = new Map<string, DiscoveredPackage>();
+  const targets: DiscoverTarget[] = [];
+  const seen = new Set<string>();
 
   for (const workspace of workspaces) {
     if (workspace.patterns.length === 0) continue;
@@ -128,63 +93,112 @@ export async function discoverPackages(
 
       if (excludedDirs.has(normalizedRelative)) continue;
       if (matchesIgnore(relativePath, ignore)) continue;
+      if (seen.has(normalizedRelative)) continue;
 
-      const ecosystem = detectEcosystem(dir);
-      if (!ecosystem) continue;
-
-      if (isPrivatePackage(dir, ecosystem)) continue;
-
-      discovered.set(normalizedRelative, {
-        path: relativePath,
-        registries: await inferRegistries(dir, ecosystem, cwd),
-        ecosystem,
-      });
+      seen.add(normalizedRelative);
+      targets.push({ path: relativePath });
     }
   }
 
-  // Single-package fallback: when no workspaces and no config packages,
-  // treat cwd as a single package
-  if (workspaces.length === 0 && configPackages.length === 0) {
-    const ecosystem = detectEcosystem(cwd);
-    if (ecosystem && !isPrivatePackage(cwd, ecosystem)) {
-      return [
-        {
-          path: ".",
-          registries: await inferRegistries(cwd, ecosystem, cwd),
-          ecosystem,
-        },
-      ];
-    }
-    return [];
+  return targets;
+}
+
+async function resolvePackage(
+  cwd: string,
+  target: DiscoverTarget,
+): Promise<ResolvedPackage | null> {
+  const absPath = path.resolve(cwd, target.path);
+
+  // Detect or use explicit ecosystem
+  let descriptor:
+    | import("../ecosystem/catalog.js").EcosystemDescriptor
+    | null
+    | undefined;
+  if (target.ecosystem) {
+    descriptor = ecosystemCatalog.get(target.ecosystem);
+  } else {
+    descriptor = await ecosystemCatalog.detect(absPath);
   }
 
-  // Merge config packages (config overrides auto-detected)
-  for (const configPkg of configPackages) {
-    const key = toForwardSlash(configPkg.path);
-    const nativePath = path.normalize(configPkg.path);
-    const existing = discovered.get(key);
+  if (!descriptor) return null;
 
-    if (existing) {
-      discovered.set(key, {
-        ...existing,
-        registries: (configPkg.registries ??
-          existing.registries) as RegistryType[],
-        ecosystem: configPkg.ecosystem ?? existing.ecosystem,
-      });
-    } else {
-      const absPath = path.join(cwd, configPkg.path);
-      const ecosystem = configPkg.ecosystem ?? detectEcosystem(absPath);
+  const ecosystemKey = descriptor.key;
+  const ecosystem = new descriptor.ecosystemClass(absPath);
 
-      if (ecosystem) {
-        discovered.set(key, {
-          path: nativePath,
-          registries: (configPkg.registries ??
-            (await inferRegistries(absPath, ecosystem, cwd))) as RegistryType[],
-          ecosystem,
-        });
-      }
+  // Read manifest for name, version, private, dependencies
+  let manifest: {
+    name: string;
+    version: string;
+    private: boolean;
+    dependencies: string[];
+  };
+  try {
+    manifest = await ecosystem.readManifest();
+  } catch {
+    return null;
+  }
+
+  // Filter private packages
+  if (manifest.private) return null;
+
+  // Read registry versions for mismatch detection
+  const registryVersions = await ecosystem.readRegistryVersions();
+  const versionValues = [...registryVersions.values()];
+  const hasVersionMismatch =
+    versionValues.length > 1 &&
+    !versionValues.every((v) => v === versionValues[0]);
+
+  // Determine registries
+  const registries =
+    target.registries ?? (await inferRegistries(absPath, ecosystemKey, cwd));
+
+  return {
+    name: manifest.name,
+    version: manifest.version,
+    path: target.path,
+    ecosystem: ecosystemKey,
+    registries,
+    dependencies: manifest.dependencies,
+    ...(hasVersionMismatch ? { registryVersions } : {}),
+  };
+}
+
+export async function discoverPackages(
+  options: DiscoverOptions,
+): Promise<ResolvedPackage[]> {
+  const { cwd, ignore = [], configPackages = [] } = options;
+
+  // When configPackages is provided and non-empty, skip workspace discovery
+  if (configPackages.length > 0) {
+    const targets: DiscoverTarget[] = configPackages.map((pkg) => ({
+      path: path.normalize(pkg.path),
+      ecosystem: pkg.ecosystem,
+      registries: pkg.registries as RegistryType[] | undefined,
+    }));
+
+    const results = await Promise.all(
+      targets.map((target) => resolvePackage(cwd, target)),
+    );
+
+    return results.filter((r): r is ResolvedPackage => r !== null);
+  }
+
+  // Workspace discovery
+  const targets = await discoverFromWorkspace(cwd, ignore);
+
+  // Single-package fallback: when no workspaces found, treat cwd as a single package
+  if (targets.length === 0) {
+    const workspaces = detectWorkspace(cwd);
+    if (workspaces.length === 0) {
+      const result = await resolvePackage(cwd, { path: "." });
+      return result ? [result] : [];
     }
   }
 
-  return Array.from(discovered.values());
+  // Resolve each target in parallel
+  const results = await Promise.all(
+    targets.map((target) => resolvePackage(cwd, target)),
+  );
+
+  return results.filter((r): r is ResolvedPackage => r !== null);
 }

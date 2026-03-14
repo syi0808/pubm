@@ -13,15 +13,6 @@ import type {
 const cachedPackageJson: Record<string, PackageJson> = {};
 const cachedJsrJson: Record<string, JsrJson> = {};
 
-// If the `name` field in the JSR JSON is not the scoped name from `package.json`,
-// update the cached JSR JSON accordingly.
-export function patchCachedJsrJson(
-  contents: Partial<JsrJson>,
-  { cwd = process.cwd() } = {},
-): void {
-  cachedJsrJson[cwd] = { ...cachedJsrJson[cwd], ...contents };
-}
-
 export async function findOutFile(
   file: string,
   { cwd = process.cwd() } = {},

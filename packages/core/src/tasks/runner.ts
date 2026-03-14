@@ -17,21 +17,17 @@ import {
   writeChangelogToFile,
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
-import { discoverPackageInfos } from "../changeset/packages.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import type { PubmContext } from "../context.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
+import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
-import {
-  getPackageJson,
-  replaceVersion,
-  replaceVersionAtPath,
-} from "../utils/package.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
 import {
@@ -63,6 +59,28 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
 const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
+
+async function writeVersions(
+  ctx: PubmContext,
+  versions: Map<string, string>,
+): Promise<string[]> {
+  const ecosystems = ctx.config.packages.map((pkg) => {
+    const absPath = path.resolve(ctx.cwd ?? process.cwd(), pkg.path);
+    const descriptor = ecosystemCatalog.get(pkg.ecosystem!);
+    if (!descriptor) throw new Error(`Unknown ecosystem: ${pkg.ecosystem}`);
+    const eco = new descriptor.ecosystemClass(absPath);
+    return { eco, pkg };
+  });
+
+  const lockfileChanges = await writeVersionsForEcosystem(ecosystems, versions);
+
+  // Collect manifest file paths for git staging
+  const manifestFiles = ecosystems.flatMap(({ eco }) =>
+    eco.manifestFiles().map((f) => path.resolve(eco.packagePath, f)),
+  );
+
+  return [...manifestFiles, ...lockfileChanges];
+}
 
 type NewListrParentTask<Context extends object> = ListrTaskWrapper<
   Context,
@@ -437,16 +455,14 @@ export async function run(ctx: PubmContext): Promise<void> {
                   : "snapshot";
 
               // Check for monorepo
-              const packageInfos = await discoverPackageInfos(process.cwd());
-              if (packageInfos.length > 1) {
+              if (ctx.config.packages.length > 1) {
                 throw new AbstractError(
                   "Snapshot publishing is only supported for single-package projects.",
                 );
               }
 
-              // Read current version from manifest
-              const pkgJson = await getPackageJson();
-              const currentVersion = pkgJson.version ?? "0.0.0";
+              // Read current version from resolved config
+              const currentVersion = ctx.config.packages[0].version ?? "0.0.0";
 
               // Generate snapshot version
               const snapshotVersion = generateSnapshotVersion({
@@ -460,7 +476,10 @@ export async function run(ctx: PubmContext): Promise<void> {
               task.output = `Snapshot version: ${snapshotVersion}`;
 
               // Temporarily replace manifest version
-              await replaceVersion(snapshotVersion, ctx.config.packages);
+              const snapshotVersions = new Map([
+                [ctx.config.packages[0].name, snapshotVersion],
+              ]);
+              await writeVersions(ctx, snapshotVersions);
 
               try {
                 // Publish with snapshot tag
@@ -474,7 +493,10 @@ export async function run(ctx: PubmContext): Promise<void> {
               } finally {
                 // Restore original version
                 task.output = "Restoring original manifest version...";
-                await replaceVersion(currentVersion, ctx.config.packages);
+                const restoreVersions = new Map([
+                  [ctx.config.packages[0].name, currentVersion],
+                ]);
+                await writeVersions(ctx, restoreVersions);
               }
 
               task.output = `Published ${snapshotVersion}`;
@@ -584,19 +606,16 @@ export async function run(ctx: PubmContext): Promise<void> {
                   task.output =
                     "Collecting release notes from per-package CHANGELOG.md files...";
                   // Multi-package: combine changelogs from per-package CHANGELOG.md files
-                  const { discoverPackageInfos: discoverPkgInfos } =
-                    await import("../changeset/packages.js");
-                  const packageInfos = await discoverPkgInfos(process.cwd());
                   const sections: string[] = [];
 
                   for (const [pkgName, pkgVersion] of ctx.runtime.versions) {
-                    const pkgInfo = packageInfos.find(
+                    const pkgConfig = ctx.config.packages.find(
                       (p) => p.name === pkgName,
                     );
-                    if (!pkgInfo) continue;
+                    if (!pkgConfig) continue;
                     const pkgChangelogPath = join(
                       process.cwd(),
-                      pkgInfo.path,
+                      pkgConfig.path,
                       "CHANGELOG.md",
                     );
                     if (existsSync(pkgChangelogPath)) {
@@ -817,23 +836,9 @@ export async function run(ctx: PubmContext): Promise<void> {
                     task.output =
                       "Updating package versions across the workspace...";
                     // Multi-package version replacement (fixed and independent)
-                    const packageInfos = await discoverPackageInfos(
-                      process.cwd(),
-                    );
-
-                    for (const [pkgName, pkgVersion] of versions) {
-                      const pkgInfo = packageInfos.find(
-                        (p) => p.name === pkgName,
-                      );
-                      if (!pkgInfo) continue;
-                      const pkgPath = path.resolve(process.cwd(), pkgInfo.path);
-                      const replaced = await replaceVersionAtPath(
-                        pkgVersion,
-                        pkgPath,
-                      );
-                      for (const f of replaced) {
-                        await git.stage(f);
-                      }
+                    const replaced = await writeVersions(ctx, versions);
+                    for (const f of replaced) {
+                      await git.stage(f);
                     }
 
                     // Changeset consumption
@@ -850,11 +855,11 @@ export async function run(ctx: PubmContext): Promise<void> {
                               pkgName,
                             );
                             if (entries.length > 0) {
-                              const pkgInfo = packageInfos.find(
+                              const pkgConfig = ctx.config.packages.find(
                                 (p) => p.name === pkgName,
                               );
-                              const changelogDir = pkgInfo
-                                ? path.resolve(process.cwd(), pkgInfo.path)
+                              const changelogDir = pkgConfig
+                                ? path.resolve(process.cwd(), pkgConfig.path)
                                 : process.cwd();
                               const changelogContent = generateChangelog(
                                 pkgVersion,
@@ -920,10 +925,11 @@ export async function run(ctx: PubmContext): Promise<void> {
                   } else {
                     task.output = "Updating package manifest versions...";
                     // Single package: existing behavior
-                    const replaced = await replaceVersion(
-                      ctx.runtime.version ?? "",
-                      ctx.config.packages,
-                    );
+                    const singleVersions = new Map<string, string>();
+                    for (const pkg of ctx.config.packages) {
+                      singleVersions.set(pkg.name, ctx.runtime.version ?? "");
+                    }
+                    const replaced = await writeVersions(ctx, singleVersions);
 
                     for (const replacedFile of replaced) {
                       await git.stage(replacedFile);
@@ -934,8 +940,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                         "Applying changesets and generating changelog entries...";
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
-                        const pkgJson = await getPackageJson();
-                        const pkgName = pkgJson.name ?? "";
+                        const pkgName = ctx.config.packages[0]?.name ?? "";
                         const entries = buildChangelogEntries(
                           changesets,
                           pkgName,

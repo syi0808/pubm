@@ -1,37 +1,19 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
+import { CratesRegistry } from "../registry/crates.js";
+import type { Registry } from "../registry/registry.js";
 import type { RegistryType } from "../types/options.js";
 import { exec } from "../utils/exec.js";
 import { Ecosystem } from "./ecosystem.js";
 
 export class RustEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
-    try {
-      return (await stat(path.join(packagePath, "Cargo.toml"))).isFile();
-    } catch {
-      return false;
-    }
+    return CratesRegistry.reader.exists(packagePath);
   }
 
-  private async readCargoToml(): Promise<Record<string, unknown>> {
-    const raw = await readFile(
-      path.join(this.packagePath, "Cargo.toml"),
-      "utf-8",
-    );
-    return parse(raw);
-  }
-
-  async packageName(): Promise<string> {
-    const cargo = await this.readCargoToml();
-    const pkg = cargo.package as Record<string, unknown>;
-    return pkg.name as string;
-  }
-
-  async readVersion(): Promise<string> {
-    const cargo = await this.readCargoToml();
-    const pkg = cargo.package as Record<string, unknown>;
-    return pkg.version as string;
+  registryClasses(): (typeof Registry)[] {
+    return [CratesRegistry] as unknown as (typeof Registry)[];
   }
 
   async writeVersion(newVersion: string): Promise<void> {
@@ -108,20 +90,6 @@ export class RustEcosystem extends Ecosystem {
     }
 
     return undefined;
-  }
-
-  async dependencies(): Promise<string[]> {
-    const cargo = await this.readCargoToml();
-    const deps: string[] = [];
-
-    for (const section of ["dependencies", "build-dependencies"]) {
-      const sectionData = cargo[section] as Record<string, unknown> | undefined;
-      if (sectionData) {
-        deps.push(...Object.keys(sectionData));
-      }
-    }
-
-    return deps;
   }
 
   manifestFiles(): string[] {

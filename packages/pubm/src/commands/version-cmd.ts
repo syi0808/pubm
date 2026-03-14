@@ -7,12 +7,9 @@ import {
   buildChangelogEntries,
   calculateVersionBumps,
   deleteChangesetFiles,
-  discoverCurrentVersions,
-  discoverPackageInfos,
   Git,
   generateChangelog,
   readChangesets,
-  replaceVersion,
   replaceVersionAtPath,
   resolveGroups,
   writeChangelogToFile,
@@ -38,8 +35,10 @@ export async function runVersionCommand(
     return;
   }
 
-  // 2. Discover all packages and their current versions
-  const currentVersions = await discoverCurrentVersions(cwd);
+  // 2. Get all packages and their current versions from resolved config
+  const currentVersions = new Map(
+    config.packages.map((p) => [p.name, p.version]),
+  );
   if (currentVersions.size === 0) {
     throw new Error("No packages found.");
   }
@@ -75,10 +74,6 @@ export async function runVersionCommand(
     }
   }
 
-  // For multi-package: get package paths for per-package version writing
-  const packageInfos =
-    currentVersions.size > 1 ? await discoverPackageInfos(cwd) : null;
-
   // 5. Process each bump
   for (const [name, bump] of bumps) {
     const newVersion = bump.newVersion;
@@ -97,26 +92,13 @@ export async function runVersionCommand(
       continue;
     }
 
-    // Write version to manifest files
-    if (packageInfos) {
-      const pkgInfo = packageInfos.find((p) => p.name === name);
-      if (pkgInfo) {
-        const pkgPath = path.resolve(cwd, pkgInfo.path);
-        await replaceVersionAtPath(newVersion, pkgPath);
-      }
-    } else {
-      await replaceVersion(newVersion, config.packages);
-    }
+    // Write version to manifest files using package path from config
+    const pkgConfig = config.packages.find((p) => p.name === name);
+    const pkgPath = pkgConfig ? path.resolve(cwd, pkgConfig.path) : cwd;
+    await replaceVersionAtPath(newVersion, pkgPath);
 
     // Prepend changelog to CHANGELOG.md
-    if (packageInfos) {
-      const pkgInfo = packageInfos.find((p) => p.name === name);
-      if (pkgInfo) {
-        writeChangelogToFile(path.resolve(cwd, pkgInfo.path), changelogContent);
-      }
-    } else {
-      writeChangelogToFile(cwd, changelogContent);
-    }
+    writeChangelogToFile(pkgPath, changelogContent);
   }
 
   if (dryRun) {

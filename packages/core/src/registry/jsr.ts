@@ -1,6 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { AbstractError } from "../error.js";
+import { ManifestReader } from "../manifest/manifest-reader.js";
 import type { JsrApi } from "../types/jsr-api.js";
 import { warningBadge } from "../utils/cli.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
@@ -27,6 +28,18 @@ function getApiEndpoint(registry: string): string {
 }
 
 export class JsrRegisry extends Registry {
+  static override reader = new ManifestReader({
+    file: "jsr.json",
+    parser: JSON.parse,
+    fields: {
+      name: (p) => (p.name as string) ?? "",
+      version: (p) => (p.version as string) ?? "0.0.0",
+      private: (_p) => false,
+      dependencies: (_p) => [],
+    },
+  });
+  static override registryType = "jsr" as const;
+
   registry = "https://jsr.io";
   client: JsrClient;
   packageCreationUrls?: string[];

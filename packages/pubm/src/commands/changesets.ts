@@ -14,7 +14,7 @@ export function registerChangesetsCommand(
     .command("changesets")
     .description("Manage changesets");
 
-  registerAddCommand(changesets);
+  registerAddCommand(changesets, getConfig);
   registerChangelogCommand(changesets);
   registerStatusCommand(changesets);
   registerVersionCommand(changesets, getConfig);

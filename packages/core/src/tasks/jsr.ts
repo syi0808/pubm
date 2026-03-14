@@ -4,11 +4,10 @@ import { color, type ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
-import { JsrClient, jsrRegistry } from "../registry/jsr.js";
+import { JsrClient, JsrRegisry, jsrRegistry } from "../registry/jsr.js";
 import { npmRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
 import { openUrl } from "../utils/open-url.js";
-import { patchCachedJsrJson } from "../utils/package.js";
 import { getScope, isScopedPackage } from "../utils/package-name.js";
 import { addRollback } from "../utils/rollback.js";
 import { SecureStore } from "../utils/secure-store.js";
@@ -202,7 +201,7 @@ export const jsrAvailableCheckTasks: ListrTask<PubmContext> = {
 
       jsr.packageName = jsrName;
 
-      patchCachedJsrJson({ name: jsr.packageName });
+      JsrRegisry.reader.invalidate(process.cwd());
     }
 
     const npm = await npmRegistry();

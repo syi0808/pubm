@@ -1,5 +1,7 @@
 import path from "node:path";
+import { parse } from "smol-toml";
 import { AbstractError } from "../error.js";
+import { ManifestReader } from "../manifest/manifest-reader.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
@@ -23,6 +25,34 @@ function cleanCargoStderr(stderr: string): string {
 }
 
 export class CratesRegistry extends Registry {
+  static override reader = new ManifestReader({
+    file: "Cargo.toml",
+    parser: (raw: string) => parse(raw) as Record<string, unknown>,
+    fields: {
+      name: (p) =>
+        ((p.package as Record<string, unknown>)?.name as string) ?? "",
+      version: (p) =>
+        ((p.package as Record<string, unknown>)?.version as string) ?? "0.0.0",
+      private: (p) => {
+        const pkg = p.package as Record<string, unknown> | undefined;
+        if (pkg?.publish === false) return true;
+        if (
+          Array.isArray(pkg?.publish) &&
+          (pkg.publish as unknown[]).length === 0
+        )
+          return true;
+        return false;
+      },
+      dependencies: (p) => [
+        ...Object.keys((p.dependencies as Record<string, unknown>) ?? {}),
+        ...Object.keys(
+          (p["build-dependencies"] as Record<string, unknown>) ?? {},
+        ),
+      ],
+    },
+  });
+  static override registryType = "crates" as const;
+
   registry = "https://crates.io";
 
   private get headers(): Record<string, string> {

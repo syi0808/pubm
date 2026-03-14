@@ -1138,58 +1138,6 @@ describe("replaceVersion", () => {
   });
 });
 
-describe("patchCachedJsrJson", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it("merges contents into the cached jsr json", async () => {
-    const { mockReadFile, mockStat } = await getFsMocks();
-    const { getJsrJson, patchCachedJsrJson } = await freshImport();
-    const cwd = process.cwd();
-
-    const jsrData = {
-      name: "@scope/my-pkg",
-      version: "1.0.0",
-      exports: "./mod.ts",
-    };
-
-    mockStat.mockImplementation(async (filePath) => {
-      if (filePath === path.join(cwd, "jsr.json")) {
-        return { isFile: () => true } as any;
-      }
-      throw new Error("ENOENT");
-    });
-
-    mockReadFile.mockResolvedValue(Buffer.from(JSON.stringify(jsrData)));
-
-    // Populate the cache
-    await getJsrJson();
-
-    // Patch the cached value
-    patchCachedJsrJson({ name: "@other/name" });
-
-    // Should return the patched value from cache
-    const result = await getJsrJson();
-    expect(result.name).toBe("@other/name");
-    expect(result.version).toBe("1.0.0");
-    expect(result.exports).toBe("./mod.ts");
-  });
-
-  it("creates a cache entry even if none existed before", async () => {
-    const { patchCachedJsrJson, getJsrJson } = await freshImport();
-
-    patchCachedJsrJson(
-      { name: "@new/pkg", version: "0.1.0", exports: "./index.ts" },
-      { cwd: "/custom/path" },
-    );
-
-    // getJsrJson with that cwd should return the cached value
-    const result = await getJsrJson({ cwd: "/custom/path" });
-    expect(result.name).toBe("@new/pkg");
-    expect(result.version).toBe("0.1.0");
-  });
-});
 
 describe("replaceVersionAtPath", () => {
   beforeEach(() => {
