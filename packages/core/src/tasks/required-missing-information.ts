@@ -8,8 +8,8 @@ import { calculateVersionBumps } from "../changeset/version.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
 import { defaultOptions } from "../options.js";
-import { jsrRegistry } from "../registry/jsr.js";
-import { npmRegistry } from "../registry/npm.js";
+import { jsrPackageRegistry } from "../registry/jsr.js";
+import { npmPackageRegistry } from "../registry/npm.js";
 import { createListr } from "../utils/listr.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
@@ -186,8 +186,8 @@ export const requiredMissingInformationTasks = (
               : !prerelease(`${ver}`) && ctx.runtime.tag === defaultOptions.tag;
           },
           task: async (ctx, task): Promise<void> => {
-            const npm = await npmRegistry();
-            const jsr = await jsrRegistry();
+            const npm = await npmPackageRegistry();
+            const jsr = await jsrPackageRegistry();
             const distTags = [
               ...new Set(
                 (await Promise.all([npm.distTags(), jsr.distTags()])).flat(),
