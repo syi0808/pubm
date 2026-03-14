@@ -158,18 +158,12 @@ vi.mock("../../../src/utils/cli.js", () => ({
 }));
 vi.mock("../../../src/registry/catalog.js", () => {
   const mockCratesRegistry = {
-    concurrentPublish: false,
-    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
     checkAvailability: vi.fn(),
   };
   const mockNpmRegistry = {
-    concurrentPublish: true,
-    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
     checkAvailability: vi.fn(),
   };
   const mockJsrRegistry = {
-    concurrentPublish: true,
-    orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
     checkAvailability: vi.fn(),
   };
   const descriptors: Record<string, any> = {
@@ -178,6 +172,7 @@ vi.mock("../../../src/registry/catalog.js", () => {
       ecosystem: "js",
       label: "npm",
       needsPackageScripts: true,
+      concurrentPublish: true,
       tokenConfig: {
         envVar: "NODE_AUTH_TOKEN",
         dbKey: "npm-token",
@@ -195,6 +190,7 @@ vi.mock("../../../src/registry/catalog.js", () => {
       ecosystem: "js",
       label: "jsr",
       needsPackageScripts: false,
+      concurrentPublish: true,
       tokenConfig: {
         envVar: "JSR_TOKEN",
         dbKey: "jsr-token",
@@ -211,6 +207,8 @@ vi.mock("../../../src/registry/catalog.js", () => {
       ecosystem: "rust",
       label: "crates.io",
       needsPackageScripts: false,
+      concurrentPublish: false,
+      orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
       tokenConfig: {
         envVar: "CARGO_REGISTRY_TOKEN",
         dbKey: "cargo-token",
@@ -233,7 +231,7 @@ vi.mock("../../../src/registry/catalog.js", () => {
       get: vi.fn((key: string) => descriptors[key]),
       all: vi.fn(() => Object.values(descriptors)),
     },
-    __mockCratesRegistry: mockCratesRegistry,
+    __mockCratesDescriptor: descriptors.crates,
   };
 });
 vi.mock("../../../src/ecosystem/index.js", () => ({
@@ -277,9 +275,9 @@ const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedDetectEcosystem = vi.mocked(detectEcosystem);
-const mockedCratesRegistry = (
+const mockedCratesDescriptor = (
   (await import("../../../src/registry/catalog.js")) as any
-).__mockCratesRegistry;
+).__mockCratesDescriptor;
 const mockedCreateCratesDryRunPublishTask = vi.mocked(
   createCratesDryRunPublishTask,
 );
@@ -375,7 +373,7 @@ beforeEach(() => {
   mockedBuildChangelogEntries.mockReturnValue([]);
   mockedGenerateChangelog.mockReturnValue("generated");
   mockedWriteVersionsForEcosystem.mockResolvedValue([]);
-  mockedCratesRegistry.orderPackages.mockImplementation((paths: string[]) =>
+  mockedCratesDescriptor.orderPackages.mockImplementation((paths: string[]) =>
     Promise.resolve(paths),
   );
   mockedDetectEcosystem.mockImplementation(
@@ -535,7 +533,7 @@ describe("runner coverage scenarios", () => {
   });
 
   it("builds dry-run crates tasks sequentially during preflight validation", async () => {
-    mockedCratesRegistry.orderPackages.mockResolvedValue([
+    mockedCratesDescriptor.orderPackages.mockResolvedValue([
       "rust/crates/lib-b",
       "rust/crates/lib-a",
     ]);
