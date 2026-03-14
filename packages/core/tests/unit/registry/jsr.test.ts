@@ -16,10 +16,6 @@ vi.mock("../../../src/utils/db.js", () => ({
   })),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  getJsrJson: vi.fn(),
-}));
-
 vi.mock("../../../src/utils/package-name.js", () => ({
   getScope: vi.fn(),
   getScopeAndName: vi.fn(),
@@ -32,7 +28,6 @@ import {
   jsrRegistry,
 } from "../../../src/registry/jsr.js";
 import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
-import { getJsrJson } from "../../../src/utils/package.js";
 import {
   getScope,
   getScopeAndName,
@@ -43,7 +38,6 @@ const mockedExec = vi.mocked(exec);
 const mockedGetScope = vi.mocked(getScope);
 const mockedGetScopeAndName = vi.mocked(getScopeAndName);
 const mockedIsValidPackageName = vi.mocked(isValidPackageName);
-const mockedGetJsrJson = vi.mocked(getJsrJson);
 
 let mockedFetch: ReturnType<typeof vi.fn>;
 
@@ -956,16 +950,19 @@ describe("jsrRegistry()", () => {
     vi.stubGlobal("fetch", mockedFetch);
   });
 
-  it("creates JsrRegisry from jsr.json name", async () => {
-    mockedGetJsrJson.mockResolvedValue({
+  it("creates JsrRegisry from ManifestReader", async () => {
+    const readSpy = vi.spyOn(JsrRegisry.reader, "read").mockResolvedValue({
       name: "@scope/my-lib",
       version: "1.0.0",
-    } as any);
+      private: false,
+      dependencies: [],
+    });
 
     const result = await jsrRegistry();
 
-    expect(mockedGetJsrJson).toHaveBeenCalled();
+    expect(readSpy).toHaveBeenCalled();
     expect(result).toBeInstanceOf(JsrRegisry);
     expect(result.packageName).toBe("@scope/my-lib");
+    readSpy.mockRestore();
   });
 });

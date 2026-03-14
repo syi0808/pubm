@@ -20,8 +20,8 @@ vi.mock("../../../src/utils/engine-version.js", () => ({
   validateEngineVersion: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
+vi.mock("node:fs/promises", () => ({
+  readFile: vi.fn(),
 }));
 
 vi.mock("../../../src/utils/listr.js", () => ({
@@ -136,8 +136,8 @@ beforeEach(async () => {
     validateEngineVersion: vi.fn(),
   }));
 
-  vi.doMock("../../../src/utils/package.js", () => ({
-    getPackageJson: vi.fn(),
+  vi.doMock("node:fs/promises", () => ({
+    readFile: vi.fn(),
   }));
 
   vi.doMock("../../../src/utils/listr.js", () => ({
@@ -365,14 +365,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "test", buildScript: "build" },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { test: "vitest", build: "tsup" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { test: "vitest", build: "tsup" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
@@ -384,14 +384,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "test", buildScript: "build", skipTests: false },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { build: "tsup" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { build: "tsup" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
         "Test script 'test' does not exist",
@@ -405,14 +405,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "test", buildScript: "build", skipTests: true },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { build: "tsup" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { build: "tsup" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
@@ -424,14 +424,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "test", buildScript: "build", skipBuild: false },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { test: "vitest" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { test: "vitest" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
         "Build script 'build' does not exist",
@@ -445,14 +445,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "test", buildScript: "build", skipBuild: true },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { test: "vitest" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { test: "vitest" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
@@ -469,14 +469,14 @@ describe("requiredConditionsCheckTask", () => {
         },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: {},
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: {},
-      } as any);
 
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
         "Test script 'test' does not exist. and Build script 'build' does not exist.",
@@ -495,13 +495,13 @@ describe("requiredConditionsCheckTask", () => {
         },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-      } as any);
 
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
         "Please check your configuration",
@@ -515,14 +515,14 @@ describe("requiredConditionsCheckTask", () => {
         options: { testScript: "custom-test", buildScript: "custom-build" },
       });
 
-      const { getPackageJson: mockGetPkg } = await import(
-        "../../../src/utils/package.js"
+      const { readFile: mockReadFile } = await import("node:fs/promises");
+      vi.mocked(mockReadFile).mockResolvedValue(
+        JSON.stringify({
+          name: "my-package",
+          version: "1.0.0",
+          scripts: { "custom-test": "vitest", "custom-build": "tsup" },
+        }) as any,
       );
-      vi.mocked(mockGetPkg).mockResolvedValue({
-        name: "my-package",
-        version: "1.0.0",
-        scripts: { "custom-test": "vitest", "custom-build": "tsup" },
-      } as any);
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });

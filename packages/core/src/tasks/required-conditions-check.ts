@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
@@ -7,7 +9,6 @@ import { registryCatalog } from "../registry/catalog.js";
 import { getRegistry } from "../registry/index.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
-import { getPackageJson } from "../utils/package.js";
 import { collectRegistries } from "../utils/registries.js";
 import {
   collectEcosystemRegistryGroups,
@@ -103,7 +104,11 @@ export const requiredConditionsCheckTask = (
             title: "Checking if test and build scripts exist",
             skip: (ctx) => !needsPackageScripts(collectRegistries(ctx.config)),
             task: async (ctx): Promise<void> => {
-              const { scripts } = await getPackageJson();
+              const raw = await readFile(
+                join(ctx.cwd, "package.json"),
+                "utf-8",
+              );
+              const { scripts } = JSON.parse(raw);
 
               const errors: string[] = [];
 

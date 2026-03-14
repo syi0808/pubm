@@ -4,10 +4,6 @@ vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
-}));
-
 vi.mock("../../../src/utils/package-name.js", () => ({
   isValidPackageName: vi.fn(),
 }));
@@ -18,10 +14,8 @@ import {
 } from "../../../src/registry/custom-registry.js";
 import { NpmRegistry } from "../../../src/registry/npm.js";
 import { exec } from "../../../src/utils/exec.js";
-import { getPackageJson } from "../../../src/utils/package.js";
 
 const mockedExec = vi.mocked(exec);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
 
 let registry: CustomRegistry;
 
@@ -152,16 +146,19 @@ describe("CustomRegistry URL support", () => {
 });
 
 describe("customRegistry()", () => {
-  it("creates CustomRegistry from package.json name", async () => {
-    mockedGetPackageJson.mockResolvedValue({
+  it("creates CustomRegistry from ManifestReader", async () => {
+    const readSpy = vi.spyOn(NpmRegistry.reader, "read").mockResolvedValue({
       name: "my-lib",
       version: "1.0.0",
-    } as any);
+      private: false,
+      dependencies: [],
+    });
 
     const result = await customRegistry();
 
-    expect(mockedGetPackageJson).toHaveBeenCalled();
+    expect(readSpy).toHaveBeenCalled();
     expect(result).toBeInstanceOf(CustomRegistry);
     expect(result.packageName).toBe("my-lib");
+    readSpy.mockRestore();
   });
 });

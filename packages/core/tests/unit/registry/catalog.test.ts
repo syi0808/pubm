@@ -4,23 +4,17 @@ vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  getJsrJson: vi.fn(),
-  getPackageJson: vi.fn(),
-}));
-
 import {
   RegistryCatalog,
   type RegistryDescriptor,
   registryCatalog,
 } from "../../../src/registry/catalog.js";
+import { JsrRegisry } from "../../../src/registry/jsr.js";
+import { NpmRegistry } from "../../../src/registry/npm.js";
 import { Registry } from "../../../src/registry/registry.js";
 import { exec } from "../../../src/utils/exec.js";
-import { getJsrJson, getPackageJson } from "../../../src/utils/package.js";
 
 const mockedExec = vi.mocked(exec);
-const mockedGetJsrJson = vi.mocked(getJsrJson);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
 
 function createDescriptor(
   overrides: Partial<RegistryDescriptor> = {},
@@ -142,16 +136,28 @@ describe("default registrations", () => {
 
   it("returns no npm display names when package metadata is missing a name", async () => {
     const npm = registryCatalog.get("npm")!;
-    mockedGetPackageJson.mockResolvedValue({} as any);
+    const spy = vi.spyOn(NpmRegistry.reader, "read").mockResolvedValue({
+      name: "",
+      version: "0.0.0",
+      private: false,
+      dependencies: [],
+    });
 
     await expect(npm.resolveDisplayName?.({})).resolves.toEqual([]);
+    spy.mockRestore();
   });
 
   it("returns no jsr display names when jsr metadata is missing a name", async () => {
     const jsr = registryCatalog.get("jsr")!;
-    mockedGetJsrJson.mockResolvedValue({} as any);
+    const spy = vi.spyOn(JsrRegisry.reader, "read").mockResolvedValue({
+      name: "",
+      version: "0.0.0",
+      private: false,
+      dependencies: [],
+    });
 
     await expect(jsr.resolveDisplayName?.({})).resolves.toEqual([]);
+    spy.mockRestore();
   });
 
   it("uses a generic crates display name when no packages were discovered", async () => {

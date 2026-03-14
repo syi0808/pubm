@@ -1,12 +1,8 @@
+import process from "node:process";
 import { exec } from "../utils/exec.js";
-import { getPackageJson } from "../utils/package.js";
 import { NpmRegistry } from "./npm.js";
 
 export class CustomRegistry extends NpmRegistry {
-  constructor(packageName?: string, registryUrl?: string) {
-    super(packageName, registryUrl);
-  }
-
   async npm(args: string[]): Promise<string> {
     const { stdout } = await exec(
       "npm",
@@ -19,7 +15,7 @@ export class CustomRegistry extends NpmRegistry {
 }
 
 export async function customRegistry(): Promise<CustomRegistry> {
-  const packageJson = await getPackageJson();
+  const manifest = await NpmRegistry.reader.read(process.cwd());
 
-  return new CustomRegistry(packageJson.name);
+  return new CustomRegistry(manifest.name);
 }

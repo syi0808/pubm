@@ -5,7 +5,6 @@ const {
   mockCalculateVersionBumps,
   mockConsoleError,
   mockCreateContext,
-  mockDiscoverCurrentVersions,
   mockGitInstance,
   mockGetStatus,
   mockLoadConfig,
@@ -33,7 +32,6 @@ const {
     mockCalculateVersionBumps: vi.fn(),
     mockConsoleError: vi.fn(),
     mockCreateContext: vi.fn(createMockContext),
-    mockDiscoverCurrentVersions: vi.fn(),
     mockGitInstance: { latestTag: vi.fn() },
     mockGetStatus: vi.fn(() => ({
       hasChangesets: false,
@@ -45,6 +43,7 @@ const {
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
     mockResolveConfig: vi.fn(async (raw: any) => ({
       plugins: [],
+      packages: [],
       ...raw,
     })),
     mockResolveOptions: vi.fn((opts: any) => ({
@@ -69,7 +68,6 @@ vi.mock("@pubm/core", () => ({
   }),
   calculateVersionBumps: mockCalculateVersionBumps,
   createContext: mockCreateContext,
-  discoverCurrentVersions: mockDiscoverCurrentVersions,
   getStatus: mockGetStatus,
   loadConfig: mockLoadConfig,
   pubm: mockPubm,
@@ -78,7 +76,6 @@ vi.mock("@pubm/core", () => ({
   resolveConfig: mockResolveConfig,
   resolveOptions: mockResolveOptions,
   notifyNewVersion: mockNotifyNewVersion,
-  version: vi.fn().mockResolvedValue("1.0.0"),
 }));
 
 vi.mock("../../src/commands/changesets.js", () => ({
@@ -116,7 +113,6 @@ beforeEach(() => {
   mockIsCI.isCI = false;
   mockGitInstance.latestTag.mockReset();
   mockGetStatus.mockReturnValue({ hasChangesets: false, changesets: [] });
-  mockDiscoverCurrentVersions.mockReset();
   mockCalculateVersionBumps.mockReset();
   mockLoadConfig.mockReset();
   mockPubm.mockResolvedValue(undefined);
@@ -374,9 +370,18 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["pkg-a", "1.0.0"]]),
-    );
+    mockResolveConfig.mockResolvedValue({
+      plugins: [],
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: ".",
+          registries: ["npm"],
+          dependencies: [],
+        },
+      ],
+    });
     mockCalculateVersionBumps.mockReturnValue(
       new Map([
         [
@@ -409,12 +414,6 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockDiscoverCurrentVersions.mockResolvedValue(
-      new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "1.0.0"],
-      ]),
-    );
     mockCalculateVersionBumps.mockReturnValue(
       new Map([
         [
@@ -430,6 +429,22 @@ describe("CLI action handler - CI mode", () => {
     mockResolveConfig.mockResolvedValue({
       plugins: [],
       versioning: "fixed",
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/a",
+          registries: ["npm"],
+          dependencies: [],
+        },
+        {
+          name: "pkg-b",
+          version: "1.0.0",
+          path: "packages/b",
+          registries: ["npm"],
+          dependencies: [],
+        },
+      ],
     });
 
     await run();
@@ -454,12 +469,6 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockDiscoverCurrentVersions.mockResolvedValue(
-      new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "2.3.0"],
-      ]),
-    );
     mockCalculateVersionBumps.mockReturnValue(
       new Map([
         [
@@ -475,6 +484,22 @@ describe("CLI action handler - CI mode", () => {
     mockResolveConfig.mockResolvedValue({
       plugins: [],
       versioning: "independent",
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/a",
+          registries: ["npm"],
+          dependencies: [],
+        },
+        {
+          name: "pkg-b",
+          version: "2.3.0",
+          path: "packages/b",
+          registries: ["npm"],
+          dependencies: [],
+        },
+      ],
     });
 
     await run();
@@ -499,9 +524,18 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockDiscoverCurrentVersions.mockResolvedValue(
-      new Map([["pkg-a", "1.0.0"]]),
-    );
+    mockResolveConfig.mockResolvedValue({
+      plugins: [],
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: ".",
+          registries: ["npm"],
+          dependencies: [],
+        },
+      ],
+    });
     mockCalculateVersionBumps.mockReturnValue(new Map());
 
     await run("3.4.5");
