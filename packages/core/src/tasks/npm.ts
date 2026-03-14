@@ -3,7 +3,7 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
-import { npmRegistry } from "../registry/npm.js";
+import { npmPackageRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
 import { openUrl } from "../utils/open-url.js";
 import { spawnInteractive } from "../utils/spawn-interactive.js";
@@ -21,7 +21,7 @@ class NpmAvailableError extends AbstractError {
 export const npmAvailableCheckTasks: ListrTask<PubmContext> = {
   title: "Checking npm avaliable for publising",
   task: async (ctx, task): Promise<void> => {
-    const npm = await npmRegistry();
+    const npm = await npmPackageRegistry();
 
     if (!(await npm.isLoggedIn())) {
       if (ctx.runtime.promptEnabled) {
@@ -129,7 +129,7 @@ export const npmPublishTasks: ListrTask<PubmContext> = {
   title: "Running npm publish",
   skip: (ctx) => !!ctx.options.preview,
   task: async (ctx, task): Promise<void> => {
-    const npm = await npmRegistry();
+    const npm = await npmPackageRegistry();
 
     // Pre-check: skip if version already published
     if (await npm.isVersionPublished(ctx.runtime.version!)) {

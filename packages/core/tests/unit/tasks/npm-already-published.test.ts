@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/registry/npm.js", () => ({
-  npmRegistry: vi.fn(),
+  npmPackageRegistry: vi.fn(),
 }));
 
-import { npmRegistry } from "../../../src/registry/npm.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import { npmPublishTasks } from "../../../src/tasks/npm.js";
 
-const mockedNpmRegistry = vi.mocked(npmRegistry);
+const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
 
 describe("npmPublishTasks — already published", () => {
   const mockTask = {

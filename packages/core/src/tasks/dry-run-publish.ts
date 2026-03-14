@@ -3,9 +3,9 @@ import type { ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { CratesRegistry } from "../registry/crates.js";
-import { jsrRegistry } from "../registry/jsr.js";
-import { npmRegistry } from "../registry/npm.js";
+import { CratesPackageRegistry } from "../registry/crates.js";
+import { jsrPackageRegistry } from "../registry/jsr.js";
+import { npmPackageRegistry } from "../registry/npm.js";
 import { SecureStore } from "../utils/secure-store.js";
 
 const AUTH_ERROR_PATTERNS = [
@@ -53,7 +53,7 @@ async function withTokenRetry(
 export const npmDryRunPublishTask: ListrTask<PubmContext> = {
   title: "Dry-run npm publish",
   task: async (ctx, task): Promise<void> => {
-    const npm = await npmRegistry();
+    const npm = await npmPackageRegistry();
 
     if (await npm.isVersionPublished(ctx.runtime.version!)) {
       task.title = `[SKIPPED] Dry-run npm publish: v${ctx.runtime.version} already published`;
@@ -71,7 +71,7 @@ export const npmDryRunPublishTask: ListrTask<PubmContext> = {
 export const jsrDryRunPublishTask: ListrTask<PubmContext> = {
   title: "Dry-run jsr publish",
   task: async (ctx, task): Promise<void> => {
-    const jsr = await jsrRegistry();
+    const jsr = await jsrPackageRegistry();
 
     if (await jsr.isVersionPublished(ctx.runtime.version!)) {
       task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.runtime.version} already published`;
@@ -103,7 +103,7 @@ async function findUnpublishedSiblingDeps(
 
   const results = await Promise.all(
     siblingDeps.map(async (name) => {
-      const registry = new CratesRegistry(name);
+      const registry = new CratesPackageRegistry(name);
       const published = await registry.isPublished();
       return published ? null : name;
     }),
@@ -122,7 +122,7 @@ export function createCratesDryRunPublishTask(
     task: async (ctx, task): Promise<void> => {
       // Pre-check: skip if version already published
       const packageName = await getCrateName(packagePath);
-      const registry = new CratesRegistry(packageName);
+      const registry = new CratesPackageRegistry(packageName);
 
       if (await registry.isVersionPublished(ctx.runtime.version!)) {
         task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${ctx.runtime.version} already published`;
@@ -146,7 +146,7 @@ export function createCratesDryRunPublishTask(
       try {
         await withTokenRetry("crates", task, async () => {
           const packageName = await getCrateName(packagePath);
-          const registry = new CratesRegistry(packageName);
+          const registry = new CratesPackageRegistry(packageName);
           await registry.dryRunPublish(packagePath);
         });
       } catch (error) {

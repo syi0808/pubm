@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/registry/npm.js", () => ({
-  npmRegistry: vi.fn(),
+  npmPackageRegistry: vi.fn(),
 }));
 
 vi.mock("../../../src/utils/open-url.js", () => ({
@@ -13,7 +13,7 @@ vi.mock("../../../src/utils/spawn-interactive.js", () => ({
 }));
 
 import type { PubmContext } from "../../../src/context.js";
-import { npmRegistry } from "../../../src/registry/npm.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
   npmAvailableCheckTasks,
   npmPublishTasks,
@@ -24,7 +24,7 @@ import { spawnInteractive } from "../../../src/utils/spawn-interactive.js";
 const mockedOpenUrl = vi.mocked(openUrl);
 const mockedSpawnInteractive = vi.mocked(spawnInteractive);
 
-const mockedNpmRegistry = vi.mocked(npmRegistry);
+const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
 
 interface MockChild {
   stdout: ReadableStream<Uint8Array>;
