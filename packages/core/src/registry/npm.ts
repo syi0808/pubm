@@ -282,19 +282,6 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
   }
 
-  async checkAvailability(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
-    _task: any,
-  ): Promise<void> {
-    const available = await this.isPackageNameAvailable();
-    if (!available) {
-      const hasAccess = await this.hasPermission();
-      if (!hasAccess) {
-        throw new Error(`No permission to publish ${this.packageName}.`);
-      }
-    }
-  }
-
   private isProvenanceError(error: unknown): boolean {
     if (!(error instanceof NonZeroExitError)) return false;
     const stderr = error.output.stderr;

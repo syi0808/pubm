@@ -3,7 +3,6 @@ import process from "node:process";
 import { parse } from "smol-toml";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
-import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { RegistryConnector } from "./connector.js";
 import {
@@ -230,10 +229,6 @@ export class CratesPackageRegistry extends PackageRegistry {
         { cause: error },
       );
     }
-  }
-
-  async orderPackages(paths: string[]): Promise<string[]> {
-    return sortCratesByDependencyOrder(paths);
   }
 }
 
