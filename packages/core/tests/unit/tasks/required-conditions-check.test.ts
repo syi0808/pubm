@@ -7,7 +7,7 @@ vi.mock("../../../src/git.js", () => ({
 }));
 
 vi.mock("../../../src/registry/index.js", () => ({
-  getRegistry: vi.fn(),
+  getConnector: vi.fn(),
 }));
 
 vi.mock("../../../src/registry/catalog.js", () => ({
@@ -118,7 +118,7 @@ beforeEach(async () => {
   }));
 
   vi.doMock("../../../src/registry/index.js", () => ({
-    getRegistry: vi.fn(),
+    getConnector: vi.fn(),
   }));
 
   vi.doMock("../../../src/registry/catalog.js", () => ({
@@ -202,12 +202,12 @@ describe("requiredConditionsCheckTask", () => {
       const mockRegistry1 = { ping: vi.fn().mockResolvedValue(true) };
       const mockRegistry2 = { ping: vi.fn().mockResolvedValue(true) };
 
-      const { getRegistry: mockGetRegistry } = await import(
+      const { getConnector: mockGetConnector } = await import(
         "../../../src/registry/index.js"
       );
-      vi.mocked(mockGetRegistry)
-        .mockResolvedValueOnce(mockRegistry1 as any)
-        .mockResolvedValueOnce(mockRegistry2 as any);
+      vi.mocked(mockGetConnector)
+        .mockReturnValueOnce(mockRegistry1 as any)
+        .mockReturnValueOnce(mockRegistry2 as any);
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -237,11 +237,11 @@ describe("requiredConditionsCheckTask", () => {
       expect(registrySubtasks[1].title).toBe("Ping jsr");
 
       await registrySubtasks[0].task();
-      expect(mockGetRegistry).toHaveBeenCalledWith("npm");
+      expect(mockGetConnector).toHaveBeenCalledWith("npm");
       expect(mockRegistry1.ping).toHaveBeenCalledOnce();
 
       await registrySubtasks[1].task();
-      expect(mockGetRegistry).toHaveBeenCalledWith("jsr");
+      expect(mockGetConnector).toHaveBeenCalledWith("jsr");
       expect(mockRegistry2.ping).toHaveBeenCalledOnce();
     });
 
@@ -253,10 +253,10 @@ describe("requiredConditionsCheckTask", () => {
       });
 
       const mockRegistry = { ping: vi.fn().mockResolvedValue(true) };
-      const { getRegistry: mockGetRegistry } = await import(
+      const { getConnector: mockGetConnector } = await import(
         "../../../src/registry/index.js"
       );
-      vi.mocked(mockGetRegistry).mockResolvedValue(mockRegistry as any);
+      vi.mocked(mockGetConnector).mockReturnValue(mockRegistry as any);
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
@@ -298,10 +298,10 @@ describe("requiredConditionsCheckTask", () => {
       const mockRegistry = {
         ping: vi.fn().mockRejectedValue(new Error("ping failed")),
       };
-      const { getRegistry: mockGetRegistry } = await import(
+      const { getConnector: mockGetConnector } = await import(
         "../../../src/registry/index.js"
       );
-      vi.mocked(mockGetRegistry).mockResolvedValue(mockRegistry as any);
+      vi.mocked(mockGetConnector).mockReturnValue(mockRegistry as any);
 
       let innerSubtasks: any[] = [];
       const innerParentTask = {
