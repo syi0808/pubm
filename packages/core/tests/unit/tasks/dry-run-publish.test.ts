@@ -38,23 +38,23 @@ vi.mock("../../../src/registry/npm.js", async (importOriginal) => {
     await importOriginal<typeof import("../../../src/registry/npm.js")>();
   return {
     ...original,
-    npmRegistry: vi.fn(),
+    npmPackageRegistry: vi.fn(),
   };
 });
 vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrRegistry: vi.fn(),
+  jsrPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesRegistry: vi.fn(),
+  CratesPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/ecosystem/rust.js", () => ({
   RustEcosystem: vi.fn(),
 }));
 
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesRegistry } from "../../../src/registry/crates.js";
-import { jsrRegistry } from "../../../src/registry/jsr.js";
-import { npmRegistry } from "../../../src/registry/npm.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
   cratesDryRunPublishTask,
   createCratesDryRunPublishTask,
@@ -63,9 +63,9 @@ import {
 } from "../../../src/tasks/dry-run-publish.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
 
-const mockedNpmRegistry = vi.mocked(npmRegistry);
-const mockedJsrRegistry = vi.mocked(jsrRegistry);
-const mockedCratesRegistry = vi.mocked(CratesRegistry);
+const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
+const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
+const mockedCratesRegistry = vi.mocked(CratesPackageRegistry);
 const mockedRustEcosystem = vi.mocked(RustEcosystem);
 const mockedSecureStore = vi.mocked(SecureStore);
 

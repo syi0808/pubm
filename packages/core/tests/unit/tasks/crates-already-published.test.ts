@@ -8,7 +8,7 @@ const { mockIsVersionPublished, mockPublish, MockCratesRegistryCtor } =
   }));
 
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesRegistry: class MockCratesRegistry {
+  CratesPackageRegistry: class MockCratesPackageRegistry {
     constructor(name: string) {
       MockCratesRegistryCtor(name);
     }

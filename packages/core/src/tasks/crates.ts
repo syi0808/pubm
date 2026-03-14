@@ -2,7 +2,7 @@ import type { ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
-import { CratesConnector, CratesRegistry } from "../registry/crates.js";
+import { CratesConnector, CratesPackageRegistry } from "../registry/crates.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -26,7 +26,7 @@ export function createCratesAvailableCheckTask(
     title: `Checking crates.io availability${label}`,
     task: async (): Promise<void> => {
       const packageName = await getCrateName(packagePath);
-      const registry = new CratesRegistry(packageName);
+      const registry = new CratesPackageRegistry(packageName);
       const connector = new CratesConnector();
 
       if (!(await connector.isInstalled())) {
@@ -52,7 +52,7 @@ export function createCratesPublishTask(
     title: `Publishing to crates.io${label}`,
     task: async (ctx, task): Promise<void> => {
       const packageName = await getCrateName(packagePath);
-      const registry = new CratesRegistry(packageName);
+      const registry = new CratesPackageRegistry(packageName);
 
       // Pre-check: skip if version already published
       if (await registry.isVersionPublished(ctx.runtime.version!)) {

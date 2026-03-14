@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrRegistry: vi.fn(),
+  jsrPackageRegistry: vi.fn(),
   JsrClient: { token: "fake-token" },
 }));
 
-import { jsrRegistry } from "../../../src/registry/jsr.js";
+import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { jsrPublishTasks } from "../../../src/tasks/jsr.js";
 
-const mockedJsrRegistry = vi.mocked(jsrRegistry);
+const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
 
 describe("jsrPublishTasks — already published", () => {
   const mockTask = {

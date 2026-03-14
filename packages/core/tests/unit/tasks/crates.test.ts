@@ -19,7 +19,7 @@ const {
 }));
 
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesRegistry: class MockCratesRegistry {
+  CratesPackageRegistry: class MockCratesPackageRegistry {
     constructor(name: string) {
       MockCratesRegistryCtor(name);
     }
@@ -27,6 +27,9 @@ vi.mock("../../../src/registry/crates.js", () => ({
     hasPermission = mockHasPermission;
     publish = mockPublish;
     isVersionPublished = mockIsVersionPublished;
+  },
+  CratesConnector: class MockCratesConnector {
+    isInstalled = mockIsInstalled;
   },
 }));
 

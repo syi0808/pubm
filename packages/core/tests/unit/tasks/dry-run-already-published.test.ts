@@ -5,17 +5,17 @@ vi.mock("../../../src/registry/npm.js", async (importOriginal) => {
     await importOriginal<typeof import("../../../src/registry/npm.js")>();
   return {
     ...original,
-    npmRegistry: vi.fn(),
+    npmPackageRegistry: vi.fn(),
   };
 });
 
 vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrRegistry: vi.fn(),
+  jsrPackageRegistry: vi.fn(),
   JsrClient: { token: "fake-token" },
 }));
 
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesRegistry: vi.fn(),
+  CratesPackageRegistry: vi.fn(),
 }));
 
 vi.mock("../../../src/ecosystem/rust.js", () => ({
@@ -37,9 +37,9 @@ vi.mock("../../../src/utils/db.js", () => ({
 }));
 
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesRegistry } from "../../../src/registry/crates.js";
-import { jsrRegistry } from "../../../src/registry/jsr.js";
-import { npmRegistry } from "../../../src/registry/npm.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
   createCratesDryRunPublishTask,
   jsrDryRunPublishTask,
@@ -67,7 +67,7 @@ describe("dry-run publish — already published", () => {
         dryRunPublish: vi.fn(),
         packageName: "test-package",
       };
-      vi.mocked(npmRegistry).mockResolvedValue(mockNpm as any);
+      vi.mocked(npmPackageRegistry).mockResolvedValue(mockNpm as any);
 
       const ctx = { runtime: { version: "1.0.0" } } as any;
       await (npmDryRunPublishTask as any).task(ctx, mockTask);
@@ -85,7 +85,7 @@ describe("dry-run publish — already published", () => {
         dryRunPublish: vi.fn(),
         packageName: "@scope/test",
       };
-      vi.mocked(jsrRegistry).mockResolvedValue(mockJsr as any);
+      vi.mocked(jsrPackageRegistry).mockResolvedValue(mockJsr as any);
 
       const ctx = { runtime: { version: "1.0.0" } } as any;
       await (jsrDryRunPublishTask as any).task(ctx, mockTask);
@@ -110,7 +110,7 @@ describe("dry-run publish — already published", () => {
         dryRunPublish: vi.fn(),
         packageName: "test-crate",
       };
-      vi.mocked(CratesRegistry).mockImplementation(function () {
+      vi.mocked(CratesPackageRegistry).mockImplementation(function () {
         return mockRegistry as any;
       });
 

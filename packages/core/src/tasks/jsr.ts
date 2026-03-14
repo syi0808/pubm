@@ -4,8 +4,12 @@ import { color, type ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
-import { JsrClient, JsrRegisry, jsrRegistry } from "../registry/jsr.js";
-import { npmRegistry } from "../registry/npm.js";
+import {
+  JsrClient,
+  JsrPackageRegistry,
+  jsrPackageRegistry,
+} from "../registry/jsr.js";
+import { npmPackageRegistry } from "../registry/npm.js";
 import { link } from "../utils/cli.js";
 import { openUrl } from "../utils/open-url.js";
 import { getScope, isScopedPackage } from "../utils/package-name.js";
@@ -25,7 +29,7 @@ class JsrAvailableError extends AbstractError {
 export const jsrAvailableCheckTasks: ListrTask<PubmContext> = {
   title: "Checking jsr avaliable for publising",
   task: async (ctx, task): Promise<void> => {
-    const jsr = await jsrRegistry();
+    const jsr = await jsrPackageRegistry();
 
     addRollback(async (ctx): Promise<void> => {
       if (ctx.runtime.packageCreated) {
@@ -201,10 +205,10 @@ export const jsrAvailableCheckTasks: ListrTask<PubmContext> = {
 
       jsr.packageName = jsrName;
 
-      JsrRegisry.reader.invalidate(process.cwd());
+      JsrPackageRegistry.reader.invalidate(process.cwd());
     }
 
-    const npm = await npmRegistry();
+    const npm = await npmPackageRegistry();
     const hasPermission = await jsr.hasPermission();
 
     if (isScopedPackage(npm.packageName) && !hasPermission) {
@@ -235,7 +239,7 @@ More information: ${link("npm naming rules", "https://github.com/npm/validate-np
 export const jsrPublishTasks: ListrTask<PubmContext> = {
   title: "Running jsr publish",
   task: async (ctx, task): Promise<void> => {
-    const jsr = await jsrRegistry();
+    const jsr = await jsrPackageRegistry();
 
     // Pre-check: skip if version already published
     if (await jsr.isVersionPublished(ctx.runtime.version!)) {
