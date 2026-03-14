@@ -632,7 +632,9 @@ describe("discoverPackages", () => {
     const pluginPkg = result.find((r) =>
       r.path.includes(path.join("plugins", "plugin-a")),
     );
-    const corePkg = result.find((r) => r.path === path.join("packages", "core"));
+    const corePkg = result.find(
+      (r) => r.path === path.join("packages", "core"),
+    );
     expect(pluginPkg?.registries).toEqual(["npm", "jsr"]);
     expect(corePkg?.registries).toEqual(["npm"]);
   });
