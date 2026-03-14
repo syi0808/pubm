@@ -9,11 +9,6 @@ export {
 export { parseChangelogSection } from "./changelog-parser.js";
 export { type MigrationResult, migrateFromChangesets } from "./migrate.js";
 export {
-  discoverCurrentVersions,
-  discoverPackageInfos,
-  type PackageVersionInfo,
-} from "./packages.js";
-export {
   type BumpType,
   type Changeset,
   parseChangeset,
