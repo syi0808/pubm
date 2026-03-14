@@ -2,7 +2,7 @@ import type { ListrTask } from "listr2";
 import type { PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
-import { CratesRegistry } from "../registry/crates.js";
+import { CratesConnector, CratesRegistry } from "../registry/crates.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -27,8 +27,9 @@ export function createCratesAvailableCheckTask(
     task: async (): Promise<void> => {
       const packageName = await getCrateName(packagePath);
       const registry = new CratesRegistry(packageName);
+      const connector = new CratesConnector();
 
-      if (!(await registry.isInstalled())) {
+      if (!(await connector.isInstalled())) {
         throw new CratesError(
           "cargo is not installed. Please install Rust toolchain to proceed.",
         );

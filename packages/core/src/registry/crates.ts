@@ -1,10 +1,15 @@
 import path from "node:path";
+import process from "node:process";
 import { parse } from "smol-toml";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
-import { Registry, type RegistryRequirements } from "./registry.js";
+import { RegistryConnector } from "./connector.js";
+import {
+  PackageRegistry,
+  type RegistryRequirements,
+} from "./package-registry.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -24,7 +29,48 @@ function cleanCargoStderr(stderr: string): string {
     .join("\n");
 }
 
-export class CratesRegistry extends Registry {
+export class CratesConnector extends RegistryConnector {
+  constructor(registryUrl = "https://crates.io") {
+    super(registryUrl);
+  }
+
+  private get headers(): Record<string, string> {
+    return { "User-Agent": USER_AGENT };
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.registryUrl}/api/v1`, {
+        headers: this.headers,
+      });
+      return response.ok;
+    } catch (error) {
+      throw new CratesError("Failed to ping crates.io", { cause: error });
+    }
+  }
+
+  async isInstalled(): Promise<boolean> {
+    try {
+      await exec("cargo", ["--version"]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async version(): Promise<string> {
+    try {
+      const { stdout } = await exec("cargo", ["--version"]);
+      return stdout.trim();
+    } catch (error) {
+      throw new CratesError("Failed to run `cargo --version`", {
+        cause: error,
+      });
+    }
+  }
+}
+
+export class CratesPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
     file: "Cargo.toml",
     parser: (raw: string) => parse(raw) as Record<string, unknown>,
@@ -53,38 +99,12 @@ export class CratesRegistry extends Registry {
   });
   static override registryType = "crates" as const;
 
-  registry = "https://crates.io";
+  constructor(packageName: string, registry = "https://crates.io") {
+    super(packageName, registry);
+  }
 
   private get headers(): Record<string, string> {
     return { "User-Agent": USER_AGENT };
-  }
-
-  get concurrentPublish(): boolean {
-    return false;
-  }
-
-  async orderPackages(paths: string[]): Promise<string[]> {
-    return sortCratesByDependencyOrder(paths);
-  }
-
-  async ping(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.registry}/api/v1`, {
-        headers: this.headers,
-      });
-      return response.ok;
-    } catch (error) {
-      throw new CratesError("Failed to ping crates.io", { cause: error });
-    }
-  }
-
-  async isInstalled(): Promise<boolean> {
-    try {
-      await exec("cargo", ["--version"]);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   async distTags(): Promise<string[]> {
@@ -186,7 +206,8 @@ export class CratesRegistry extends Registry {
 
   async hasPermission(): Promise<boolean> {
     if (process.env.CARGO_REGISTRY_TOKEN) return true;
-    return this.isInstalled();
+    const connector = new CratesConnector(this.registry);
+    return connector.isInstalled();
   }
 
   getRequirements(): RegistryRequirements {
@@ -210,10 +231,27 @@ export class CratesRegistry extends Registry {
       );
     }
   }
+
+  async isPackageNameAvailable(): Promise<boolean> {
+    return this.isPackageNameAvaliable();
+  }
+
+  async orderPackages(paths: string[]): Promise<string[]> {
+    return sortCratesByDependencyOrder(paths);
+  }
 }
 
-export async function cratesRegistry(
-  packageName: string,
-): Promise<CratesRegistry> {
-  return new CratesRegistry(packageName);
+export function cratesConnector(): CratesConnector {
+  return new CratesConnector();
 }
+
+export async function cratesPackageRegistry(
+  packageName: string,
+): Promise<CratesPackageRegistry> {
+  return new CratesPackageRegistry(packageName);
+}
+
+/** @deprecated Use CratesPackageRegistry */
+export const CratesRegistry = CratesPackageRegistry;
+/** @deprecated Use cratesPackageRegistry */
+export const cratesRegistry = cratesPackageRegistry;
