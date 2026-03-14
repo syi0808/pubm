@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs/promises");
@@ -129,7 +130,7 @@ describe("inferRegistries", () => {
         const path = typeof p === "string" ? p : p.toString();
         if (path.endsWith("package.json"))
           return JSON.stringify({ name: "test-pkg" });
-        if (path === "/root/.npmrc")
+        if (path === join("/root", ".npmrc"))
           return "registry=https://private.internal.com\n";
         throw new Error("ENOENT");
       });
