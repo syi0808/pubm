@@ -10,10 +10,10 @@ vi.mock("../../../src/config/loader.js", () => ({
   loadConfig: vi.fn(),
 }));
 vi.mock("../../../src/registry/npm.js", () => ({
-  npmRegistry: vi.fn(),
+  npmPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrRegistry: vi.fn(),
+  jsrPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn((...args: any[]) => {
@@ -29,16 +29,16 @@ import { getStatus } from "../../../src/changeset/status.js";
 import { calculateVersionBumps } from "../../../src/changeset/version.js";
 import { loadConfig } from "../../../src/config/loader.js";
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
-import { jsrRegistry } from "../../../src/registry/jsr.js";
-import { npmRegistry } from "../../../src/registry/npm.js";
+import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
 import { createListr } from "../../../src/utils/listr.js";
 
 const mockedGetStatus = vi.mocked(getStatus);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedLoadConfig = vi.mocked(loadConfig);
-const mockedNpmRegistry = vi.mocked(npmRegistry);
-const mockedJsrRegistry = vi.mocked(jsrRegistry);
+const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
+const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
 const mockedCreateListr = vi.mocked(createListr);
 
 function createMockPromptAdapter() {
