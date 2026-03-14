@@ -23,13 +23,17 @@ function clearLine(): void {
   process.stderr.write("\r\x1b[K");
 }
 
-export async function showSplashWithUpdateCheck(version: string): Promise<void> {
+export async function showSplashWithUpdateCheck(
+  version: string,
+): Promise<void> {
   showSplash(version);
 
   let frameIndex = 0;
   const spinner = setInterval(() => {
     clearLine();
-    process.stderr.write(` ${SPINNER_FRAMES[frameIndex]} Checking for updates...`);
+    process.stderr.write(
+      ` ${SPINNER_FRAMES[frameIndex]} Checking for updates...`,
+    );
     frameIndex = (frameIndex + 1) % SPINNER_FRAMES.length;
   }, SPINNER_INTERVAL);
 
