@@ -21,7 +21,7 @@ export abstract class Registry {
   abstract isPublished(): Promise<boolean>;
   abstract isVersionPublished(version: string): Promise<boolean>;
   abstract hasPermission(): Promise<boolean>;
-  abstract isPackageNameAvaliable(): Promise<boolean>;
+  abstract isPackageNameAvailable(): Promise<boolean>;
   abstract getRequirements(): RegistryRequirements;
 
   async dryRunPublish(_manifestDir?: string): Promise<void> {
@@ -44,7 +44,7 @@ export abstract class Registry {
     if (!installed) {
       throw new Error(`${this.packageName} registry is not installed.`);
     }
-    const available = await this.isPackageNameAvaliable();
+    const available = await this.isPackageNameAvailable();
     if (!available) {
       const hasAccess = await this.hasPermission();
       if (!hasAccess) {

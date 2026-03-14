@@ -664,11 +664,11 @@ describe("NpmPackageRegistry", () => {
     });
   });
 
-  describe("isPackageNameAvaliable()", () => {
+  describe("isPackageNameAvailable()", () => {
     it("returns true when package name is valid", async () => {
       mockedIsValidPackageName.mockReturnValue(true);
 
-      const result = await registry.isPackageNameAvaliable();
+      const result = await registry.isPackageNameAvailable();
 
       expect(mockedIsValidPackageName).toHaveBeenCalledWith("my-package");
       expect(result).toBe(true);
@@ -677,7 +677,7 @@ describe("NpmPackageRegistry", () => {
     it("returns false when package name is invalid", async () => {
       mockedIsValidPackageName.mockReturnValue(false);
 
-      const result = await registry.isPackageNameAvaliable();
+      const result = await registry.isPackageNameAvailable();
 
       expect(result).toBe(false);
     });

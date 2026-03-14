@@ -217,7 +217,7 @@ export class CratesPackageRegistry extends PackageRegistry {
     };
   }
 
-  async isPackageNameAvaliable(): Promise<boolean> {
+  async isPackageNameAvailable(): Promise<boolean> {
     try {
       const response = await fetch(
         `${this.registry}/api/v1/crates/${this.packageName}`,
@@ -230,10 +230,6 @@ export class CratesPackageRegistry extends PackageRegistry {
         { cause: error },
       );
     }
-  }
-
-  async isPackageNameAvailable(): Promise<boolean> {
-    return this.isPackageNameAvaliable();
   }
 
   async orderPackages(paths: string[]): Promise<string[]> {

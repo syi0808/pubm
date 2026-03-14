@@ -259,13 +259,8 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
   }
 
-  async isPackageNameAvaliable(): Promise<boolean> {
-    return isValidPackageName(this.packageName);
-  }
-
-  // Alias for the abstract method from PackageRegistry (which uses the correct spelling)
   async isPackageNameAvailable(): Promise<boolean> {
-    return this.isPackageNameAvaliable();
+    return isValidPackageName(this.packageName);
   }
 
   getRequirements(): RegistryRequirements {
@@ -291,7 +286,7 @@ export class NpmPackageRegistry extends PackageRegistry {
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     _task: any,
   ): Promise<void> {
-    const available = await this.isPackageNameAvaliable();
+    const available = await this.isPackageNameAvailable();
     if (!available) {
       const hasAccess = await this.hasPermission();
       if (!hasAccess) {

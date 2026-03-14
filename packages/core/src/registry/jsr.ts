@@ -205,12 +205,8 @@ export class JsrPackageRegistry extends PackageRegistry {
     );
   }
 
-  async isPackageNameAvaliable(): Promise<boolean> {
-    return isValidPackageName(this.packageName);
-  }
-
   async isPackageNameAvailable(): Promise<boolean> {
-    return this.isPackageNameAvaliable();
+    return isValidPackageName(this.packageName);
   }
 
   getRequirements(): RegistryRequirements {

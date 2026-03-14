@@ -82,7 +82,7 @@ function createMockJsr() {
     isPublished: vi.fn().mockResolvedValue(false),
     isVersionPublished: vi.fn().mockResolvedValue(false),
     hasPermission: vi.fn().mockResolvedValue(true),
-    isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
+    isPackageNameAvailable: vi.fn().mockResolvedValue(true),
     publish: vi.fn().mockResolvedValue(true),
   };
 }
@@ -93,7 +93,7 @@ function createMockNpm() {
     isLoggedIn: vi.fn().mockResolvedValue(true),
     isPublished: vi.fn().mockResolvedValue(false),
     hasPermission: vi.fn().mockResolvedValue(true),
-    isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
+    isPackageNameAvailable: vi.fn().mockResolvedValue(true),
   };
 }
 
@@ -717,7 +717,7 @@ describe("jsrAvailableCheckTasks", () => {
       mockNpm.packageName = "@scope/my-package";
       mockJsr.hasPermission.mockResolvedValue(true);
       mockJsr.isPublished.mockResolvedValue(false);
-      mockJsr.isPackageNameAvaliable.mockResolvedValue(true);
+      mockJsr.isPackageNameAvailable.mockResolvedValue(true);
 
       const ctx = createCtx();
       const task = createMockTask();
@@ -782,7 +782,7 @@ describe("jsrAvailableCheckTasks", () => {
       });
       mockJsr.hasPermission.mockResolvedValue(true);
       mockJsr.isPublished.mockResolvedValue(false);
-      mockJsr.isPackageNameAvaliable.mockResolvedValue(false);
+      mockJsr.isPackageNameAvailable.mockResolvedValue(false);
 
       const ctx = createCtx();
       const task = createMockTask();
@@ -805,7 +805,7 @@ describe("jsrAvailableCheckTasks", () => {
       });
       mockJsr.hasPermission.mockResolvedValue(true);
       mockJsr.isPublished.mockResolvedValue(false);
-      mockJsr.isPackageNameAvaliable.mockResolvedValue(true);
+      mockJsr.isPackageNameAvailable.mockResolvedValue(true);
 
       const ctx = createCtx();
       const task = createMockTask();
