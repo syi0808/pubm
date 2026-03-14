@@ -119,15 +119,15 @@ async function collectPublishTasks(ctx: PubmContext) {
           if (!descriptor)
             return createPublishTaskForPath(registry, packagePaths[0]);
 
-          const reg = await descriptor.factory();
-
           // For concurrent registries, return the raw task directly
           // (the task itself handles publishing; no per-package dispatch needed)
-          if (reg.concurrentPublish) {
+          if (descriptor.concurrentPublish) {
             return createPublishTaskForPath(registry, packagePaths[0]);
           }
 
-          const paths = await reg.orderPackages(packagePaths);
+          const paths = descriptor.orderPackages
+            ? await descriptor.orderPackages(packagePaths)
+            : packagePaths;
 
           return {
             title: `Publishing to ${descriptor.label} (sequential)`,
@@ -194,14 +194,14 @@ async function collectDryRunPublishTasks(ctx: PubmContext) {
           if (!descriptor)
             return createDryRunTaskForPath(registry, packagePaths[0]);
 
-          const reg = await descriptor.factory();
-
           // For concurrent registries, return the raw task directly
-          if (reg.concurrentPublish) {
+          if (descriptor.concurrentPublish) {
             return createDryRunTaskForPath(registry, packagePaths[0]);
           }
 
-          const paths = await reg.orderPackages(packagePaths);
+          const paths = descriptor.orderPackages
+            ? await descriptor.orderPackages(packagePaths)
+            : packagePaths;
 
           // For non-concurrent registries with multiple packages, gather sibling names
           let siblingNames: string[] | undefined;
