@@ -30,7 +30,6 @@ describe("CLI bootstrap", () => {
           pluginRunner: { run: vi.fn() },
         },
       })),
-      discoverCurrentVersions: vi.fn(),
       Git: vi.fn(),
       getStatus: vi.fn(() => ({ hasChangesets: false, changesets: [] })),
       loadConfig: vi.fn().mockResolvedValue({
