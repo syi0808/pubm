@@ -8,7 +8,7 @@ import {
 
 const tmpDir = join(
   process.env.TMPDIR ?? "/tmp",
-  "manifest-reader-test-" + process.pid,
+  `manifest-reader-test-${process.pid}`,
 );
 
 function makeJsonSchema(overrides?: Partial<ManifestSchema>): ManifestSchema {

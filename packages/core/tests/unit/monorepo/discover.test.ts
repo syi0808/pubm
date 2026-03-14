@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { originalStatSync, originalMkdirSync, originalWriteFileSync } =
   vi.hoisted(() => {
-    // biome-ignore lint/style/noNamespaceImport: needed for hoisted mock
     const fs = require("node:fs");
     return {
       originalStatSync: fs.statSync,
@@ -380,7 +379,7 @@ describe("discoverPackages", () => {
     ]);
 
     expect(mockedInferRegistries).toHaveBeenCalledWith(
-      path.join("/project", "standalone"),
+      path.resolve("/project", "standalone"),
       "js",
       "/project",
     );
