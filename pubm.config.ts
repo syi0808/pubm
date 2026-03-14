@@ -7,6 +7,7 @@ export default defineConfig({
   packages: [
     { path: "packages/core" },
     { path: "packages/pubm" },
+    { path: "packages/pubm/platforms/*" },
     { path: "packages/plugins/plugin-external-version-sync" },
     { path: "packages/plugins/plugin-brew" },
   ],
