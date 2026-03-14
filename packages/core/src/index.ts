@@ -26,7 +26,6 @@ export type {
   DependencyUpdate,
   MigrationResult,
   PackageStatus,
-  PackageVersionInfo,
   Release,
   Status,
   VersionBump,
@@ -36,8 +35,6 @@ export {
   buildChangelogEntries,
   calculateVersionBumps,
   deleteChangesetFiles,
-  discoverCurrentVersions,
-  discoverPackageInfos,
   generateChangelog,
   generateChangesetContent,
   generateChangesetId,
@@ -60,6 +57,9 @@ export type { ResolvedPackageConfig } from "./config/types.js";
 export type { PubmContext } from "./context.js";
 // Context
 export { createContext } from "./context.js";
+export { ecosystemCatalog } from "./ecosystem/catalog.js";
+// Ecosystem
+export type { Ecosystem } from "./ecosystem/ecosystem.js";
 // Error
 export { consoleError } from "./error.js";
 // Git
@@ -72,7 +72,6 @@ export {
   writeVersionsForEcosystem,
 } from "./manifest/index.js";
 export type {
-  DiscoveredPackage,
   DiscoverOptions,
   PackageNode,
   ResolvedPackage,
@@ -110,7 +109,6 @@ export type { Options, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
 export { notifyNewVersion } from "./utils/notify-new-version.js";
-export { replaceVersion, replaceVersionAtPath } from "./utils/package.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { Runtime } from "./utils/runtime.js";

@@ -13,7 +13,14 @@ vi.mock("@pubm/core", () => ({
   generateChangelog: vi.fn(),
   buildChangelogEntries: vi.fn(),
   writeChangelogToFile: vi.fn(),
-  replaceVersionAtPath: vi.fn(),
+  writeVersionsForEcosystem: vi.fn(),
+  ecosystemCatalog: {
+    get: vi.fn(() => ({
+      ecosystemClass: vi.fn().mockImplementation(function () {
+        return { packageName: vi.fn(), writeVersion: vi.fn() };
+      }),
+    })),
+  },
   resolveGroups: vi.fn(),
   Git: vi.fn(function () {
     return mockGitInstance;
@@ -30,9 +37,9 @@ import {
   deleteChangesetFiles,
   generateChangelog,
   readChangesets,
-  replaceVersionAtPath,
   resolveGroups,
   writeChangelogToFile,
+  writeVersionsForEcosystem,
 } from "@pubm/core";
 import { runVersionCommand } from "../../../src/commands/version-cmd.js";
 
@@ -43,7 +50,7 @@ const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedGenerateChangelog = vi.mocked(generateChangelog);
 const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
-const mockedReplaceVersionAtPath = vi.mocked(replaceVersionAtPath);
+const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedResolveGroups = vi.mocked(resolveGroups);
 
 function makeConfig(
@@ -51,7 +58,9 @@ function makeConfig(
 ): ResolvedPubmConfig {
   return {
     plugins: [],
-    packages: [{ name: "my-pkg", version: "1.0.0", path: "." }],
+    packages: [
+      { name: "my-pkg", version: "1.0.0", path: ".", ecosystem: "js" },
+    ],
     ...overrides,
   } as ResolvedPubmConfig;
 }
@@ -60,7 +69,7 @@ const defaultConfig = makeConfig();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedReplaceVersionAtPath.mockResolvedValue(["package.json"]);
+  mockedWriteVersionsForEcosystem.mockResolvedValue([]);
   mockedBuildChangelogEntries.mockReturnValue([]);
   mockedResolveGroups.mockReturnValue([]);
 });
@@ -114,9 +123,9 @@ describe("runVersionCommand", () => {
       "/tmp/project",
     );
     expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.1.0 (minor)");
-    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
-      "1.1.0",
-      path.resolve("/tmp/project", "."),
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
+      expect.any(Array),
+      new Map([["my-pkg", "1.1.0"]]),
     );
     expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(
       changesets,
@@ -162,7 +171,9 @@ describe("runVersionCommand", () => {
     mockedReadChangesets.mockReturnValue(changesets);
 
     const config200 = makeConfig({
-      packages: [{ name: "my-pkg", version: "2.0.0", path: "." }] as any,
+      packages: [
+        { name: "my-pkg", version: "2.0.0", path: ".", ecosystem: "js" },
+      ] as any,
     });
 
     const bumps = new Map([
@@ -186,7 +197,7 @@ describe("runVersionCommand", () => {
     await runVersionCommand("/tmp/project", config200, { dryRun: true });
 
     expect(logSpy).toHaveBeenCalledWith("[dry-run] Would write version 2.1.0");
-    expect(mockedReplaceVersionAtPath).not.toHaveBeenCalled();
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
     expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
   });
 
@@ -212,7 +223,7 @@ describe("runVersionCommand", () => {
       ]),
     );
     mockedGenerateChangelog.mockReturnValue("## 1.0.1\n");
-    mockedReplaceVersionAtPath.mockRejectedValue(new Error("disk full"));
+    mockedWriteVersionsForEcosystem.mockRejectedValue(new Error("disk full"));
 
     await expect(
       runVersionCommand("/tmp/project", defaultConfig),
@@ -239,7 +250,7 @@ describe("runVersionCommand", () => {
     await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(logSpy).toHaveBeenCalledWith("No changesets found.");
-    expect(mockedReplaceVersionAtPath).not.toHaveBeenCalled();
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
   });
 
   it("prepends to existing CHANGELOG.md", async () => {
@@ -309,8 +320,18 @@ describe("runVersionCommand", () => {
     const fixedConfig = makeConfig({
       fixed: [["pkg-a", "pkg-b"]],
       packages: [
-        { name: "pkg-a", version: "1.0.0", path: "packages/pkg-a" },
-        { name: "pkg-b", version: "1.0.0", path: "packages/pkg-b" },
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/pkg-a",
+          ecosystem: "js",
+        },
+        {
+          name: "pkg-b",
+          version: "1.0.0",
+          path: "packages/pkg-b",
+          ecosystem: "js",
+        },
       ] as any,
     });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
@@ -327,13 +348,12 @@ describe("runVersionCommand", () => {
       [["pkg-a", "pkg-b"]],
       ["pkg-a", "pkg-b"],
     );
-    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
-      "1.1.0",
-      path.resolve("/tmp/project", "packages/pkg-a"),
-    );
-    expect(mockedReplaceVersionAtPath).toHaveBeenCalledWith(
-      "1.1.0",
-      path.resolve("/tmp/project", "packages/pkg-b"),
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
+      expect.any(Array),
+      new Map([
+        ["pkg-a", "1.1.0"],
+        ["pkg-b", "1.1.0"],
+      ]),
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
       path.resolve("/tmp/project", "packages/pkg-a"),

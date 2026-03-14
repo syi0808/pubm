@@ -1,18 +1,25 @@
 import path from "node:path";
 import process from "node:process";
-import type { BumpType, ResolvedPubmConfig, VersionBump } from "@pubm/core";
+import type {
+  BumpType,
+  Ecosystem,
+  ResolvedPackageConfig,
+  ResolvedPubmConfig,
+  VersionBump,
+} from "@pubm/core";
 import {
   applyFixedGroup,
   applyLinkedGroup,
   buildChangelogEntries,
   calculateVersionBumps,
   deleteChangesetFiles,
+  ecosystemCatalog,
   Git,
   generateChangelog,
   readChangesets,
-  replaceVersionAtPath,
   resolveGroups,
   writeChangelogToFile,
+  writeVersionsForEcosystem,
 } from "@pubm/core";
 import type { Command } from "commander";
 import { inc } from "semver";
@@ -74,7 +81,8 @@ export async function runVersionCommand(
     }
   }
 
-  // 5. Process each bump
+  // 5. Log bumps and generate changelogs
+  const changelogs = new Map<string, { pkgPath: string; content: string }>();
   for (const [name, bump] of bumps) {
     const newVersion = bump.newVersion;
 
@@ -92,17 +100,26 @@ export async function runVersionCommand(
       continue;
     }
 
-    // Write version to manifest files using package path from config
     const pkgConfig = config.packages.find((p) => p.name === name);
     const pkgPath = pkgConfig ? path.resolve(cwd, pkgConfig.path) : cwd;
-    await replaceVersionAtPath(newVersion, pkgPath);
-
-    // Prepend changelog to CHANGELOG.md
-    writeChangelogToFile(pkgPath, changelogContent);
+    changelogs.set(name, { pkgPath, content: changelogContent });
   }
 
   if (dryRun) {
     return;
+  }
+
+  // 6. Write versions to manifest files via ecosystem
+  const ecosystems = buildEcosystems(config.packages, bumps, cwd);
+  const versions = new Map<string, string>();
+  for (const [name, bump] of bumps) {
+    versions.set(name, bump.newVersion);
+  }
+  await writeVersionsForEcosystem(ecosystems, versions);
+
+  // Write changelogs
+  for (const { pkgPath, content } of changelogs.values()) {
+    writeChangelogToFile(pkgPath, content);
   }
 
   // 7. Delete consumed changeset files
@@ -116,6 +133,25 @@ export async function runVersionCommand(
   console.log(
     `\nConsumed ${changesets.length} changeset(s) and committed version bump.`,
   );
+}
+
+function buildEcosystems(
+  packages: ResolvedPackageConfig[],
+  bumps: Map<string, VersionBump>,
+  cwd: string,
+): { eco: Ecosystem; pkg: ResolvedPackageConfig }[] {
+  const result: { eco: Ecosystem; pkg: ResolvedPackageConfig }[] = [];
+  for (const [name] of bumps) {
+    const pkg = packages.find((p) => p.name === name);
+    if (!pkg) continue;
+    const ecoKey = pkg.ecosystem ?? "js";
+    const descriptor = ecosystemCatalog.get(ecoKey);
+    if (!descriptor) continue;
+    const absPath = path.resolve(cwd, pkg.path);
+    const eco = new descriptor.ecosystemClass(absPath);
+    result.push({ eco, pkg });
+  }
+  return result;
 }
 
 function extractBumpTypes(
