@@ -376,11 +376,11 @@ describe("JsrPackageRegistry", () => {
     });
   });
 
-  describe("isPackageNameAvaliable()", () => {
+  describe("isPackageNameAvailable()", () => {
     it("returns true when package name is valid", async () => {
       mockedIsValidPackageName.mockReturnValue(true);
 
-      const result = await registry.isPackageNameAvaliable();
+      const result = await registry.isPackageNameAvailable();
 
       expect(mockedIsValidPackageName).toHaveBeenCalledWith("@scope/pkg");
       expect(result).toBe(true);
@@ -389,7 +389,7 @@ describe("JsrPackageRegistry", () => {
     it("returns false when package name is invalid", async () => {
       mockedIsValidPackageName.mockReturnValue(false);
 
-      const result = await registry.isPackageNameAvaliable();
+      const result = await registry.isPackageNameAvailable();
 
       expect(result).toBe(false);
     });

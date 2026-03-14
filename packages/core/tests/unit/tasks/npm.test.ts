@@ -91,7 +91,7 @@ function createMockNpm() {
     isLoggedIn: vi.fn().mockResolvedValue(true),
     isPublished: vi.fn().mockResolvedValue(false),
     hasPermission: vi.fn().mockResolvedValue(true),
-    isPackageNameAvaliable: vi.fn().mockResolvedValue(true),
+    isPackageNameAvailable: vi.fn().mockResolvedValue(true),
     twoFactorAuthMode: vi.fn().mockResolvedValue(null),
     isVersionPublished: vi.fn().mockResolvedValue(false),
     publish: vi.fn().mockResolvedValue(true),
@@ -282,18 +282,18 @@ describe("npmAvailableCheckTasks", () => {
 
     it("checks package name availability when not published", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(true);
 
       await (
         npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>
       )(createCtx({ promptEnabled: true }));
 
-      expect(mockNpm.isPackageNameAvaliable).toHaveBeenCalledOnce();
+      expect(mockNpm.isPackageNameAvailable).toHaveBeenCalledOnce();
     });
 
     it("throws when package name is not available", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(false);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(false);
 
       await expect(
         (npmAvailableCheckTasks.task as () => Promise<void>)(),
@@ -302,7 +302,7 @@ describe("npmAvailableCheckTasks", () => {
 
     it("passes when not published but name is available", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(true);
 
       await expect(
         (npmAvailableCheckTasks.task as (ctx: PubmContext) => Promise<void>)(
@@ -313,7 +313,7 @@ describe("npmAvailableCheckTasks", () => {
 
     it("throws when 2FA auth-and-writes is enabled in CI mode", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(true);
       mockNpm.twoFactorAuthMode.mockResolvedValue("auth-and-writes");
       const ctx = createCtx({ runtime: { promptEnabled: false } });
 
@@ -328,7 +328,7 @@ describe("npmAvailableCheckTasks", () => {
 
     it("passes when 2FA is auth-only in CI mode", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(true);
       mockNpm.twoFactorAuthMode.mockResolvedValue("auth-only");
       const ctx = createCtx({ runtime: { promptEnabled: false } });
 
@@ -341,7 +341,7 @@ describe("npmAvailableCheckTasks", () => {
 
     it("skips 2FA check in TTY mode", async () => {
       mockNpm.isPublished.mockResolvedValue(false);
-      mockNpm.isPackageNameAvaliable.mockResolvedValue(true);
+      mockNpm.isPackageNameAvailable.mockResolvedValue(true);
       const ctx = createCtx({ runtime: { promptEnabled: true } });
 
       await (

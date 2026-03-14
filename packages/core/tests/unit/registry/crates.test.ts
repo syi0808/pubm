@@ -283,20 +283,20 @@ describe("CratesPackageRegistry", () => {
     });
   });
 
-  describe("isPackageNameAvaliable()", () => {
+  describe("isPackageNameAvailable()", () => {
     it("returns true when crate name is not taken", async () => {
       mockedFetch.mockResolvedValue({ ok: false, status: 404 });
-      expect(await registry.isPackageNameAvaliable()).toBe(true);
+      expect(await registry.isPackageNameAvailable()).toBe(true);
     });
 
     it("returns false when crate name is taken", async () => {
       mockedFetch.mockResolvedValue({ ok: true });
-      expect(await registry.isPackageNameAvaliable()).toBe(false);
+      expect(await registry.isPackageNameAvailable()).toBe(false);
     });
 
     it("throws CratesError on network error instead of returning true", async () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
-      await expect(registry.isPackageNameAvaliable()).rejects.toThrow(
+      await expect(registry.isPackageNameAvailable()).rejects.toThrow(
         "Failed to check package name availability on crates.io",
       );
     });

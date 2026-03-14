@@ -106,7 +106,7 @@ export const npmAvailableCheckTasks: ListrTask<PubmContext> = {
       return void 0;
     }
 
-    if (!(await npm.isPackageNameAvaliable())) {
+    if (!(await npm.isPackageNameAvailable())) {
       throw new NpmAvailableError(
         `Package is not published on ${color.green("npm")}, and the package name is not available. Please change the package name.
 More information: ${link("npm naming rules", "https://github.com/npm/validate-npm-package-name?tab=readme-ov-file#naming-rules")}`,

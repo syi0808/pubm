@@ -227,7 +227,7 @@ export const jsrAvailableCheckTasks: ListrTask<PubmContext> = {
       return void 0;
     }
 
-    if (!(await jsr.isPackageNameAvaliable())) {
+    if (!(await jsr.isPackageNameAvailable())) {
       throw new JsrAvailableError(
         `Package is not published on ${color.yellow("jsr")}, and the package name is not available. Please change the package name.
 More information: ${link("npm naming rules", "https://github.com/npm/validate-npm-package-name?tab=readme-ov-file#naming-rules")}`,
