@@ -23,9 +23,6 @@ export interface ResolvedPackage {
   registryVersions?: Map<RegistryType, string>;
 }
 
-/** @deprecated Use ResolvedPackage instead. Will be removed in a future version. */
-export type DiscoveredPackage = ResolvedPackage;
-
 interface DiscoverTarget {
   path: string;
   ecosystem?: string;
