@@ -9,9 +9,9 @@ import {
   type RegistryDescriptor,
   registryCatalog,
 } from "../../../src/registry/catalog.js";
-import { JsrRegisry } from "../../../src/registry/jsr.js";
-import { NpmRegistry } from "../../../src/registry/npm.js";
-import { Registry } from "../../../src/registry/registry.js";
+import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { NpmPackageRegistry } from "../../../src/registry/npm.js";
+import { PackageRegistry } from "../../../src/registry/package-registry.js";
 import { exec } from "../../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
@@ -32,6 +32,8 @@ function createDescriptor(
       tokenUrlLabel: "example.com",
     },
     needsPackageScripts: false,
+    concurrentPublish: true,
+    connector: () => ({}) as any,
     factory: async () => ({}) as any,
     ...overrides,
   };
@@ -136,7 +138,7 @@ describe("default registrations", () => {
 
   it("returns no npm display names when package metadata is missing a name", async () => {
     const npm = registryCatalog.get("npm")!;
-    const spy = vi.spyOn(NpmRegistry.reader, "read").mockResolvedValue({
+    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
       name: "",
       version: "0.0.0",
       private: false,
@@ -149,7 +151,7 @@ describe("default registrations", () => {
 
   it("returns no jsr display names when jsr metadata is missing a name", async () => {
     const jsr = registryCatalog.get("jsr")!;
-    const spy = vi.spyOn(JsrRegisry.reader, "read").mockResolvedValue({
+    const spy = vi.spyOn(JsrPackageRegistry.reader, "read").mockResolvedValue({
       name: "",
       version: "0.0.0",
       private: false,
@@ -167,41 +169,51 @@ describe("default registrations", () => {
   });
 });
 
-describe("Registry base class defaults", () => {
-  class TestRegistry extends Registry {
-    ping = vi.fn();
-    isInstalled = vi.fn().mockResolvedValue(true);
+describe("PackageRegistry base class defaults", () => {
+  class TestRegistry extends PackageRegistry {
+    static reader = {} as any;
+    static registryType = "test";
     distTags = vi.fn();
-    version = vi.fn();
     publish = vi.fn();
     isPublished = vi.fn();
     isVersionPublished = vi.fn();
     hasPermission = vi.fn().mockResolvedValue(true);
-    isPackageNameAvaliable = vi.fn().mockResolvedValue(true);
+    isPackageNameAvailable = vi.fn().mockResolvedValue(true);
     getRequirements = vi.fn();
   }
 
-  it("concurrentPublish defaults to true", () => {
-    const reg = new TestRegistry("test-pkg");
-    expect(reg.concurrentPublish).toBe(true);
-  });
-
-  it("orderPackages returns paths unchanged", async () => {
-    const reg = new TestRegistry("test-pkg");
-    const paths = ["/a", "/b", "/c"];
-    expect(await reg.orderPackages(paths)).toEqual(paths);
-  });
-
-  it("checkAvailability succeeds when installed and available", async () => {
+  it("checkAvailability succeeds when available", async () => {
     const reg = new TestRegistry("test-pkg");
     await expect(reg.checkAvailability({} as any)).resolves.toBeUndefined();
   });
+});
 
-  it("checkAvailability throws when not installed", async () => {
-    const reg = new TestRegistry("test-pkg");
-    reg.isInstalled.mockResolvedValue(false);
-    await expect(reg.checkAvailability({} as any)).rejects.toThrow(
-      "not installed",
-    );
+describe("RegistryDescriptor connector", () => {
+  it("npm descriptor has concurrentPublish true", () => {
+    expect(registryCatalog.get("npm")!.concurrentPublish).toBe(true);
+  });
+
+  it("jsr descriptor has concurrentPublish true", () => {
+    expect(registryCatalog.get("jsr")!.concurrentPublish).toBe(true);
+  });
+
+  it("crates descriptor has concurrentPublish false", () => {
+    expect(registryCatalog.get("crates")!.concurrentPublish).toBe(false);
+  });
+
+  it("crates descriptor has orderPackages function", () => {
+    expect(registryCatalog.get("crates")!.orderPackages).toBeTypeOf("function");
+  });
+
+  it("npm descriptor has connector function", () => {
+    expect(registryCatalog.get("npm")!.connector).toBeTypeOf("function");
+  });
+
+  it("jsr descriptor has connector function", () => {
+    expect(registryCatalog.get("jsr")!.connector).toBeTypeOf("function");
+  });
+
+  it("crates descriptor has connector function", () => {
+    expect(registryCatalog.get("crates")!.connector).toBeTypeOf("function");
   });
 });

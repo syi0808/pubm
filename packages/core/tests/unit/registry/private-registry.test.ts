@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrivateRegistryConfig } from "../../../src/config/types.js";
 import {
   RegistryCatalog,
   registerPrivateRegistry,
 } from "../../../src/registry/catalog.js";
+import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 
 describe("registerPrivateRegistry", () => {
   let catalog: RegistryCatalog;
@@ -34,15 +35,25 @@ describe("registerPrivateRegistry", () => {
     expect(descriptor.tokenConfig.dbKey).toBe("npm.internal.com-token");
   });
 
-  it("creates a factory that produces CustomRegistry with correct URL", async () => {
+  it("creates a factory that produces CustomPackageRegistry with correct URL", async () => {
+    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
+      name: "my-pkg",
+      version: "1.0.0",
+      private: false,
+      dependencies: [],
+    });
+
     const config: PrivateRegistryConfig = {
       url: "https://npm.internal.com",
       token: { envVar: "MY_TOKEN" },
     };
     const key = registerPrivateRegistry(config, "js", catalog);
     const descriptor = catalog.get(key)!;
-    const registry = await descriptor.factory("my-pkg");
+    const registry = await descriptor.factory("/path/to/my-pkg");
     expect(registry.registry).toBe("https://npm.internal.com");
+    expect(registry.packageName).toBe("my-pkg");
+
+    spy.mockRestore();
   });
 
   it("handles duplicate registration (same URL) without error", () => {
