@@ -50,7 +50,10 @@ describe("showSplashWithUpdateCheck", () => {
   });
 
   it("shows Ready when no update available", async () => {
-    mockCheckUpdateStatus.mockResolvedValue({ kind: "up-to-date", current: "1.0.0" });
+    mockCheckUpdateStatus.mockResolvedValue({
+      kind: "up-to-date",
+      current: "1.0.0",
+    });
 
     const { showSplashWithUpdateCheck } = await import("../../src/splash.js");
     const promise = showSplashWithUpdateCheck("1.0.0");

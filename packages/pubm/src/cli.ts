@@ -13,7 +13,6 @@ import {
   resolveConfig,
   resolveOptions,
 } from "@pubm/core";
-import { showSplashWithUpdateCheck } from "./splash.js";
 import { Command } from "commander";
 import semver from "semver";
 import { isCI } from "std-env";
@@ -23,6 +22,7 @@ import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
+import { showSplashWithUpdateCheck } from "./splash.js";
 
 const { RELEASE_TYPES, valid } = semver;
 
