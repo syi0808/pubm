@@ -33,6 +33,10 @@ function toForwardSlash(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+function isGlobPattern(pattern: string): boolean {
+  return micromatch.scan(pattern).isGlob;
+}
+
 function matchesIgnore(pkgPath: string, ignorePatterns: string[]): boolean {
   const normalized = toForwardSlash(pkgPath);
   return ignorePatterns.some((pattern) => {
@@ -167,11 +171,21 @@ export async function discoverPackages(
 
   // When configPackages is provided and non-empty, skip workspace discovery
   if (configPackages.length > 0) {
-    const targets: DiscoverTarget[] = configPackages.map((pkg) => ({
-      path: path.normalize(pkg.path),
-      ecosystem: pkg.ecosystem,
-      registries: pkg.registries as RegistryType[] | undefined,
-    }));
+    const targets: DiscoverTarget[] = configPackages.flatMap((pkg) => {
+      if (isGlobPattern(pkg.path)) {
+        const resolved = resolvePatterns(cwd, [pkg.path]);
+        return resolved.map((absPath) => ({
+          path: path.relative(cwd, absPath),
+          ecosystem: pkg.ecosystem,
+          registries: pkg.registries as RegistryType[] | undefined,
+        }));
+      }
+      return {
+        path: path.normalize(pkg.path),
+        ecosystem: pkg.ecosystem,
+        registries: pkg.registries as RegistryType[] | undefined,
+      };
+    });
 
     const results = await Promise.all(
       targets.map((target) => resolvePackage(cwd, target)),
