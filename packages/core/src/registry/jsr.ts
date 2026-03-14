@@ -12,7 +12,11 @@ import {
 } from "../utils/package-name.js";
 import { PUBM_VERSION } from "../utils/pubm-metadata.js";
 import { SecureStore } from "../utils/secure-store.js";
-import { Registry, type RegistryRequirements } from "./registry.js";
+import { RegistryConnector } from "./connector.js";
+import {
+  PackageRegistry,
+  type RegistryRequirements,
+} from "./package-registry.js";
 
 class JsrError extends AbstractError {
   name = "jsr Error";
@@ -26,7 +30,54 @@ function getApiEndpoint(registry: string): string {
   return url.href.replace(/\/$/, "");
 }
 
-export class JsrRegisry extends Registry {
+async function runJsr(args: string[]): Promise<string> {
+  const { stdout } = await exec("jsr", args, { throwOnError: true });
+  return stdout;
+}
+
+export class JsrConnector extends RegistryConnector {
+  constructor(registryUrl = "https://jsr.io") {
+    super(registryUrl);
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      const flag = process.platform === "win32" ? "-n" : "-c";
+      const { stdout } = await exec(
+        "ping",
+        [flag, "1", new URL(this.registryUrl).hostname],
+        { throwOnError: true },
+      );
+
+      return (
+        stdout.includes("1 packets transmitted") || stdout.includes("Sent = 1")
+      );
+    } catch (error) {
+      throw new JsrError(
+        `Failed to ping ${new URL(this.registryUrl).hostname}`,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async isInstalled(): Promise<boolean> {
+    try {
+      await runJsr(["--version"]);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async version(): Promise<string> {
+    return await runJsr(["--version"]);
+  }
+}
+
+export class JsrPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
     file: "jsr.json",
     parser: JSON.parse,
@@ -50,42 +101,11 @@ export class JsrRegisry extends Registry {
   }
 
   protected async jsr(args: string[]): Promise<string> {
-    const { stdout } = await exec("jsr", args, { throwOnError: true });
-
-    return stdout;
-  }
-
-  async isInstalled(): Promise<boolean> {
-    try {
-      await this.jsr(["--version"]);
-
-      return true;
-    } catch {
-      return false;
-    }
+    return runJsr(args);
   }
 
   async distTags(): Promise<string[]> {
     return [];
-  }
-
-  async ping(): Promise<boolean> {
-    try {
-      const flag = process.platform === "win32" ? "-n" : "-c";
-      const { stdout } = await exec(
-        "ping",
-        [flag, "1", new URL(this.registry).hostname],
-        { throwOnError: true },
-      );
-
-      return (
-        stdout.includes("1 packets transmitted") || stdout.includes("Sent = 1")
-      );
-    } catch (error) {
-      throw new JsrError(`Failed to ping ${new URL(this.registry).hostname}`, {
-        cause: error,
-      });
-    }
   }
 
   async publish(): Promise<boolean> {
@@ -150,10 +170,6 @@ export class JsrRegisry extends Registry {
     }
   }
 
-  async version(): Promise<string> {
-    return await this.jsr(["--version"]);
-  }
-
   async isPublished(): Promise<boolean> {
     try {
       const response = await fetch(`${this.registry}/${this.packageName}`);
@@ -193,6 +209,10 @@ export class JsrRegisry extends Registry {
     return isValidPackageName(this.packageName);
   }
 
+  async isPackageNameAvailable(): Promise<boolean> {
+    return this.isPackageNameAvaliable();
+  }
+
   getRequirements(): RegistryRequirements {
     return {
       needsPackageScripts: false,
@@ -204,7 +224,8 @@ export class JsrRegisry extends Registry {
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     task: any,
   ): Promise<void> {
-    if (!(await this.isInstalled())) {
+    const connector = new JsrConnector();
+    if (!(await connector.isInstalled())) {
       const install = await task.prompt(ListrEnquirerPromptAdapter).run({
         type: "toggle",
         message: `${warningBadge} jsr is not installed. Do you want to install jsr?`,
@@ -214,8 +235,8 @@ export class JsrRegisry extends Registry {
 
       if (install) {
         task.output = "Installing jsr...";
-        const { npmRegistry } = await import("./npm.js");
-        const npm = await npmRegistry();
+        const { npmPackageRegistry } = await import("./npm.js");
+        const npm = await npmPackageRegistry();
         await npm.installGlobally("jsr");
       } else {
         throw new Error("jsr is not installed. Please install jsr to proceed.");
@@ -475,8 +496,22 @@ export class JsrClient {
   }
 }
 
-export async function jsrRegistry(): Promise<JsrRegisry> {
-  const manifest = await JsrRegisry.reader.read(process.cwd());
-
-  return new JsrRegisry(manifest.name);
+export function jsrConnector(): JsrConnector {
+  return new JsrConnector();
 }
+
+export async function jsrPackageRegistry(
+  packagePath?: string,
+): Promise<JsrPackageRegistry> {
+  if (packagePath) {
+    const manifest = await JsrPackageRegistry.reader.read(packagePath);
+    return new JsrPackageRegistry(manifest.name);
+  }
+  const manifest = await JsrPackageRegistry.reader.read(process.cwd());
+  return new JsrPackageRegistry(manifest.name);
+}
+
+/** @deprecated Use JsrPackageRegistry */
+export const JsrRegisry = JsrPackageRegistry;
+/** @deprecated Use jsrPackageRegistry */
+export const jsrRegistry = jsrPackageRegistry;

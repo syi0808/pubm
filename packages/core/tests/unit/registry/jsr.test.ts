@@ -24,7 +24,10 @@ vi.mock("../../../src/utils/package-name.js", () => ({
 
 import {
   JsrClient,
+  JsrConnector,
+  JsrPackageRegistry,
   JsrRegisry,
+  jsrPackageRegistry,
   jsrRegistry,
 } from "../../../src/registry/jsr.js";
 import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
@@ -55,60 +58,25 @@ function mockFetchResponse(status: number, body?: unknown) {
   });
 }
 
-describe("JsrRegisry", () => {
-  let registry: JsrRegisry;
+describe("JsrConnector", () => {
+  let connector: JsrConnector;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockedFetch = vi.fn();
     vi.stubGlobal("fetch", mockedFetch);
-    JsrClient.token = "test-token";
-    registry = new JsrRegisry("@scope/pkg");
+    connector = new JsrConnector();
   });
 
   it("has default registry url", () => {
-    expect(registry.registry).toBe("https://jsr.io");
-  });
-
-  it("creates a JsrClient with the api endpoint", () => {
-    expect(registry.client).toBeInstanceOf(JsrClient);
-    expect(registry.client.apiEndpoint).toBe("https://api.jsr.io");
-  });
-
-  describe("jsr(args)", () => {
-    it("calls exec with jsr command", async () => {
-      mockStdout("help");
-
-      await registry.isInstalled();
-
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
-        throwOnError: true,
-      });
-    });
-
-    it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({
-        stdout: "ok",
-        stderr: "some warning",
-      } as any);
-
-      const result = await registry.isInstalled();
-
-      expect(result).toBe(true);
-    });
-
-    it("throws when exec rejects", async () => {
-      mockedExec.mockRejectedValue(new Error("error"));
-
-      await expect(registry.version()).rejects.toThrow("error");
-    });
+    expect(connector.registryUrl).toBe("https://jsr.io");
   });
 
   describe("isInstalled()", () => {
     it("returns true when jsr --version succeeds", async () => {
       mockStdout("help output");
 
-      const result = await registry.isInstalled();
+      const result = await connector.isInstalled();
 
       expect(result).toBe(true);
     });
@@ -116,17 +84,28 @@ describe("JsrRegisry", () => {
     it("returns false when jsr --version fails", async () => {
       mockedExec.mockRejectedValue(new Error("not found"));
 
-      const result = await registry.isInstalled();
+      const result = await connector.isInstalled();
 
       expect(result).toBe(false);
     });
   });
 
-  describe("distTags()", () => {
-    it("returns empty array", async () => {
-      const result = await registry.distTags();
+  describe("version()", () => {
+    it("returns jsr version string", async () => {
+      mockStdout("0.1.0");
 
-      expect(result).toEqual([]);
+      const result = await connector.version();
+
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
+        throwOnError: true,
+      });
+      expect(result).toBe("0.1.0");
+    });
+
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("error"));
+
+      await expect(connector.version()).rejects.toThrow("error");
     });
   });
 
@@ -137,7 +116,7 @@ describe("JsrRegisry", () => {
         stderr: "",
       } as any);
 
-      const result = await registry.ping();
+      const result = await connector.ping();
 
       const flag = process.platform === "win32" ? "-n" : "-c";
       expect(mockedExec).toHaveBeenCalledWith("ping", [flag, "1", "jsr.io"], {
@@ -152,7 +131,7 @@ describe("JsrRegisry", () => {
         stderr: "",
       } as any);
 
-      const result = await registry.ping();
+      const result = await connector.ping();
 
       expect(result).toBe(false);
     });
@@ -160,7 +139,7 @@ describe("JsrRegisry", () => {
     it("throws JsrError when exec rejects", async () => {
       mockedExec.mockRejectedValue(new Error("network error"));
 
-      await expect(registry.ping()).rejects.toThrow("Failed to ping jsr.io");
+      await expect(connector.ping()).rejects.toThrow("Failed to ping jsr.io");
     });
 
     it('returns true on Windows ping output that reports "Sent = 1"', async () => {
@@ -175,7 +154,7 @@ describe("JsrRegisry", () => {
       } as any);
 
       try {
-        const result = await registry.ping();
+        const result = await connector.ping();
 
         expect(mockedExec).toHaveBeenCalledWith("ping", ["-n", "1", "jsr.io"], {
           throwOnError: true,
@@ -187,6 +166,66 @@ describe("JsrRegisry", () => {
           configurable: true,
         });
       }
+    });
+  });
+});
+
+describe("JsrPackageRegistry", () => {
+  let registry: JsrPackageRegistry;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedFetch = vi.fn();
+    vi.stubGlobal("fetch", mockedFetch);
+    JsrClient.token = "test-token";
+    registry = new JsrPackageRegistry("@scope/pkg");
+  });
+
+  it("has default registry url", () => {
+    expect(registry.registry).toBe("https://jsr.io");
+  });
+
+  it("creates a JsrClient with the api endpoint", () => {
+    expect(registry.client).toBeInstanceOf(JsrClient);
+    expect(registry.client.apiEndpoint).toBe("https://api.jsr.io");
+  });
+
+  describe("jsr(args)", () => {
+    it("calls exec with jsr command", async () => {
+      mockStdout("0.1.0");
+
+      await (registry as any).jsr(["--version"]);
+
+      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
+        throwOnError: true,
+      });
+    });
+
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({
+        stdout: "ok",
+        stderr: "some warning",
+      } as any);
+
+      const result = await (registry as any).jsr(["--version"]);
+
+      expect(result).toBe("ok");
+    });
+
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("error"));
+
+      await expect((registry as any).jsr(["--version"])).rejects.toThrow(
+        "error",
+      );
+    });
+  });
+
+  describe("distTags()", () => {
+    it("returns empty array", async () => {
+      const result = await registry.distTags();
+
+      expect(result).toEqual([]);
     });
   });
 
@@ -281,19 +320,6 @@ describe("JsrRegisry", () => {
     });
   });
 
-  describe("version()", () => {
-    it("returns jsr version string", async () => {
-      mockStdout("0.1.0");
-
-      const result = await registry.version();
-
-      expect(mockedExec).toHaveBeenCalledWith("jsr", ["--version"], {
-        throwOnError: true,
-      });
-      expect(result).toBe("0.1.0");
-    });
-  });
-
   describe("isPublished()", () => {
     it("returns true when registry responds with 200", async () => {
       mockedFetch.mockResolvedValue({ status: 200 });
@@ -372,12 +398,22 @@ describe("JsrRegisry", () => {
 
 describe("getRequirements", () => {
   it("returns needsPackageScripts false and requiredManifest jsr.json", () => {
-    const registry = new JsrRegisry("@scope/my-package");
+    const registry = new JsrPackageRegistry("@scope/my-package");
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
       needsPackageScripts: false,
       requiredManifest: "jsr.json",
     });
+  });
+});
+
+describe("deprecated re-exports", () => {
+  it("JsrRegisry is an alias for JsrPackageRegistry", () => {
+    expect(JsrRegisry).toBe(JsrPackageRegistry);
+  });
+
+  it("jsrRegistry is an alias for jsrPackageRegistry", () => {
+    expect(jsrRegistry).toBe(jsrPackageRegistry);
   });
 });
 
@@ -943,25 +979,27 @@ describe("JsrClient", () => {
   });
 });
 
-describe("jsrRegistry()", () => {
+describe("jsrPackageRegistry()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedFetch = vi.fn();
     vi.stubGlobal("fetch", mockedFetch);
   });
 
-  it("creates JsrRegisry from ManifestReader", async () => {
-    const readSpy = vi.spyOn(JsrRegisry.reader, "read").mockResolvedValue({
-      name: "@scope/my-lib",
-      version: "1.0.0",
-      private: false,
-      dependencies: [],
-    });
+  it("creates JsrPackageRegistry from ManifestReader", async () => {
+    const readSpy = vi
+      .spyOn(JsrPackageRegistry.reader, "read")
+      .mockResolvedValue({
+        name: "@scope/my-lib",
+        version: "1.0.0",
+        private: false,
+        dependencies: [],
+      });
 
-    const result = await jsrRegistry();
+    const result = await jsrPackageRegistry();
 
     expect(readSpy).toHaveBeenCalled();
-    expect(result).toBeInstanceOf(JsrRegisry);
+    expect(result).toBeInstanceOf(JsrPackageRegistry);
     expect(result.packageName).toBe("@scope/my-lib");
     readSpy.mockRestore();
   });
