@@ -1,6 +1,6 @@
 import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
-import type { Registry } from "../registry/registry.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import type { ReleaseContext } from "../tasks/github-release.js";
 
 export type HookFn = (ctx: PubmContext) => Promise<void> | void;
@@ -53,7 +53,7 @@ export interface PluginCommand {
 
 export interface PubmPlugin {
   name: string;
-  registries?: Registry[];
+  registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
