@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { CratesRegistry } from "../../../src/registry/crates.js";
-import { JsrRegisry } from "../../../src/registry/jsr.js";
-import { NpmRegistry } from "../../../src/registry/npm.js";
+import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 
 describe("isVersionPublished", () => {
-  describe("NpmRegistry", () => {
+  describe("NpmPackageRegistry", () => {
     it("returns true when version exists (HTTP 200)", async () => {
-      const npm = new NpmRegistry("test-package");
+      const npm = new NpmPackageRegistry("test-package");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 200 }),
       );
@@ -18,7 +18,7 @@ describe("isVersionPublished", () => {
     });
 
     it("returns false when version does not exist (HTTP 404)", async () => {
-      const npm = new NpmRegistry("test-package");
+      const npm = new NpmPackageRegistry("test-package");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 404 }),
       );
@@ -27,7 +27,7 @@ describe("isVersionPublished", () => {
     });
 
     it("throws on network error", async () => {
-      const npm = new NpmRegistry("test-package");
+      const npm = new NpmPackageRegistry("test-package");
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
         new Error("network error"),
       );
@@ -36,9 +36,9 @@ describe("isVersionPublished", () => {
     });
   });
 
-  describe("CratesRegistry", () => {
+  describe("CratesPackageRegistry", () => {
     it("returns true when version exists (HTTP 200)", async () => {
-      const crates = new CratesRegistry("test-crate");
+      const crates = new CratesPackageRegistry("test-crate");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 200 }),
       );
@@ -51,7 +51,7 @@ describe("isVersionPublished", () => {
     });
 
     it("returns false when version does not exist (HTTP 404)", async () => {
-      const crates = new CratesRegistry("test-crate");
+      const crates = new CratesPackageRegistry("test-crate");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 404 }),
       );
@@ -60,9 +60,9 @@ describe("isVersionPublished", () => {
     });
   });
 
-  describe("JsrRegisry", () => {
+  describe("JsrPackageRegistry", () => {
     it("returns true when version exists (HTTP 200)", async () => {
-      const jsr = new JsrRegisry("@scope/name");
+      const jsr = new JsrPackageRegistry("@scope/name");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 200 }),
       );
@@ -72,7 +72,7 @@ describe("isVersionPublished", () => {
     });
 
     it("returns false when version does not exist (HTTP 404)", async () => {
-      const jsr = new JsrRegisry("@scope/name");
+      const jsr = new JsrPackageRegistry("@scope/name");
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(null, { status: 404 }),
       );

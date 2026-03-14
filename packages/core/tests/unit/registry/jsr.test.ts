@@ -26,9 +26,7 @@ import {
   JsrClient,
   JsrConnector,
   JsrPackageRegistry,
-  JsrRegisry,
   jsrPackageRegistry,
-  jsrRegistry,
 } from "../../../src/registry/jsr.js";
 import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import {
@@ -404,16 +402,6 @@ describe("getRequirements", () => {
       needsPackageScripts: false,
       requiredManifest: "jsr.json",
     });
-  });
-});
-
-describe("deprecated re-exports", () => {
-  it("JsrRegisry is an alias for JsrPackageRegistry", () => {
-    expect(JsrRegisry).toBe(JsrPackageRegistry);
-  });
-
-  it("jsrRegistry is an alias for jsrPackageRegistry", () => {
-    expect(jsrRegistry).toBe(jsrPackageRegistry);
   });
 });
 

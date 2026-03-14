@@ -16,10 +16,8 @@ vi.mock("../../../src/utils/package-name.js", () => ({
 import {
   NpmConnector,
   NpmPackageRegistry,
-  NpmRegistry,
   npmConnector,
   npmPackageRegistry,
-  npmRegistry,
 } from "../../../src/registry/npm.js";
 import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import { isValidPackageName } from "../../../src/utils/package-name.js";
@@ -712,15 +710,5 @@ describe("npmPackageRegistry()", () => {
     expect(result).toBeInstanceOf(NpmPackageRegistry);
     expect(result.packageName).toBe("my-lib");
     readSpy.mockRestore();
-  });
-});
-
-describe("backward compatibility", () => {
-  it("NpmRegistry is an alias for NpmPackageRegistry", () => {
-    expect(NpmRegistry).toBe(NpmPackageRegistry);
-  });
-
-  it("npmRegistry is an alias for npmPackageRegistry", () => {
-    expect(npmRegistry).toBe(npmPackageRegistry);
   });
 });

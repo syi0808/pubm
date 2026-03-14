@@ -506,8 +506,3 @@ export async function jsrPackageRegistry(
   const manifest = await JsrPackageRegistry.reader.read(process.cwd());
   return new JsrPackageRegistry(manifest.name);
 }
-
-/** @deprecated Use JsrPackageRegistry */
-export const JsrRegisry = JsrPackageRegistry;
-/** @deprecated Use jsrPackageRegistry */
-export const jsrRegistry = jsrPackageRegistry;

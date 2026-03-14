@@ -24,8 +24,3 @@ export async function customPackageRegistry(
   const manifest = await NpmPackageRegistry.reader.read(process.cwd());
   return new CustomPackageRegistry(manifest.name, registryUrl);
 }
-
-/** @deprecated Use CustomPackageRegistry */
-export const CustomRegistry = CustomPackageRegistry;
-/** @deprecated Use customPackageRegistry */
-export const customRegistry = customPackageRegistry;

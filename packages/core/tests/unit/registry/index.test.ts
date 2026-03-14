@@ -22,7 +22,6 @@ import { customPackageRegistry } from "../../../src/registry/custom-registry.js"
 import {
   getConnector,
   getPackageRegistry,
-  getRegistry,
 } from "../../../src/registry/index.js";
 
 const mockedCustomPackageRegistry = vi.mocked(customPackageRegistry);
@@ -104,11 +103,5 @@ describe("getConnector()", () => {
     expect(() => getConnector("unknown-reg" as any)).toThrow(
       "Unknown registry: unknown-reg. Cannot create connector.",
     );
-  });
-});
-
-describe("getRegistry() backward compatibility", () => {
-  it("is an alias for getPackageRegistry", () => {
-    expect(getRegistry).toBe(getPackageRegistry);
   });
 });
