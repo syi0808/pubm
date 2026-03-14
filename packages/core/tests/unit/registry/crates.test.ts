@@ -10,45 +10,41 @@ vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
   };
 });
 
-import { CratesRegistry } from "../../../src/registry/crates.js";
+import {
+  CratesConnector,
+  CratesPackageRegistry,
+} from "../../../src/registry/crates.js";
 import { exec } from "../../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
 
 let mockedFetch: ReturnType<typeof vi.fn>;
-let registry: CratesRegistry;
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedFetch = vi.fn();
   vi.stubGlobal("fetch", mockedFetch);
-  registry = new CratesRegistry("my-crate");
 });
 
 function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
 
-describe("getRequirements", () => {
-  it("returns needsPackageScripts false and requiredManifest Cargo.toml", () => {
-    const registry = new CratesRegistry("my-crate");
-    const requirements = registry.getRequirements();
-    expect(requirements).toEqual({
-      needsPackageScripts: false,
-      requiredManifest: "Cargo.toml",
-    });
-  });
-});
+describe("CratesConnector", () => {
+  let connector: CratesConnector;
 
-describe("CratesRegistry", () => {
+  beforeEach(() => {
+    connector = new CratesConnector();
+  });
+
   it("has crates.io registry url", () => {
-    expect(registry.registry).toBe("https://crates.io");
+    expect(connector.registryUrl).toBe("https://crates.io");
   });
 
   describe("ping()", () => {
     it("returns true when crates.io API responds", async () => {
       mockedFetch.mockResolvedValue({ ok: true });
-      const result = await registry.ping();
+      const result = await connector.ping();
       expect(result).toBe(true);
       expect(mockedFetch).toHaveBeenCalledWith(
         "https://crates.io/api/v1",
@@ -62,21 +58,60 @@ describe("CratesRegistry", () => {
 
     it("throws when crates.io is unreachable", async () => {
       mockedFetch.mockRejectedValue(new Error("network error"));
-      await expect(registry.ping()).rejects.toThrow("Failed to ping crates.io");
+      await expect(connector.ping()).rejects.toThrow(
+        "Failed to ping crates.io",
+      );
     });
   });
 
   describe("isInstalled()", () => {
     it("returns true when cargo is available", async () => {
       mockStdout("cargo 1.75.0");
-      expect(await registry.isInstalled()).toBe(true);
+      expect(await connector.isInstalled()).toBe(true);
       expect(mockedExec).toHaveBeenCalledWith("cargo", ["--version"]);
     });
 
     it("returns false when cargo is not found", async () => {
       mockedExec.mockRejectedValue(new Error("not found"));
-      expect(await registry.isInstalled()).toBe(false);
+      expect(await connector.isInstalled()).toBe(false);
     });
+  });
+
+  describe("version()", () => {
+    it("returns cargo version string", async () => {
+      mockStdout("cargo 1.75.0 (abc123 2024-01-01)");
+      const result = await connector.version();
+      expect(result).toBe("cargo 1.75.0 (abc123 2024-01-01)");
+    });
+
+    it("throws when cargo is not found", async () => {
+      mockedExec.mockRejectedValue(new Error("not found"));
+      await expect(connector.version()).rejects.toThrow(
+        "Failed to run `cargo --version`",
+      );
+    });
+  });
+});
+
+describe("CratesPackageRegistry", () => {
+  let registry: CratesPackageRegistry;
+
+  beforeEach(() => {
+    registry = new CratesPackageRegistry("my-crate");
+  });
+
+  describe("getRequirements", () => {
+    it("returns needsPackageScripts false and requiredManifest Cargo.toml", () => {
+      const requirements = registry.getRequirements();
+      expect(requirements).toEqual({
+        needsPackageScripts: false,
+        requiredManifest: "Cargo.toml",
+      });
+    });
+  });
+
+  it("has crates.io registry url", () => {
+    expect(registry.registry).toBe("https://crates.io");
   });
 
   describe("distTags()", () => {
