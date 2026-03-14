@@ -1,9 +1,9 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import process from "node:process";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
-import { getPackageJson } from "../utils/package.js";
 import { isValidPackageName } from "../utils/package-name.js";
 import { Registry, type RegistryRequirements } from "./registry.js";
 
@@ -309,7 +309,7 @@ export class NpmRegistry extends Registry {
 }
 
 export async function npmRegistry(): Promise<NpmRegistry> {
-  const packageJson = await getPackageJson();
+  const manifest = await NpmRegistry.reader.read(process.cwd());
 
-  return new NpmRegistry(packageJson.name);
+  return new NpmRegistry(manifest.name);
 }

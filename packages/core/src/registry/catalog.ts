@@ -1,11 +1,11 @@
+import process from "node:process";
 import type { PackageConfig, PrivateRegistryConfig } from "../config/types.js";
 import { exec } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
-import { getJsrJson, getPackageJson } from "../utils/package.js";
 import { cratesRegistry } from "./crates.js";
 import { CustomRegistry } from "./custom-registry.js";
-import { jsrRegistry } from "./jsr.js";
-import { npmRegistry } from "./npm.js";
+import { JsrRegisry, jsrRegistry } from "./jsr.js";
+import { NpmRegistry, npmRegistry } from "./npm.js";
 import type { Registry } from "./registry.js";
 
 export type EcosystemKey = "js" | "rust" | string;
@@ -81,8 +81,12 @@ registryCatalog.register({
     return username ? baseUrl.replace("~", username) : baseUrl;
   },
   resolveDisplayName: async () => {
-    const pkg = await getPackageJson();
-    return pkg.name ? [pkg.name] : [];
+    try {
+      const manifest = await NpmRegistry.reader.read(process.cwd());
+      return manifest.name ? [manifest.name] : [];
+    } catch {
+      return [];
+    }
   },
   factory: () => npmRegistry(),
 });
@@ -101,8 +105,12 @@ registryCatalog.register({
   },
   needsPackageScripts: false,
   resolveDisplayName: async () => {
-    const jsr = await getJsrJson();
-    return jsr.name ? [jsr.name] : [];
+    try {
+      const manifest = await JsrRegisry.reader.read(process.cwd());
+      return manifest.name ? [manifest.name] : [];
+    } catch {
+      return [];
+    }
   },
   factory: () => jsrRegistry(),
 });

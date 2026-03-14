@@ -5,7 +5,6 @@ import { ManifestReader } from "../manifest/manifest-reader.js";
 import type { JsrApi } from "../types/jsr-api.js";
 import { warningBadge } from "../utils/cli.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
-import { getJsrJson } from "../utils/package.js";
 import {
   getScope,
   getScopeAndName,
@@ -477,7 +476,7 @@ export class JsrClient {
 }
 
 export async function jsrRegistry(): Promise<JsrRegisry> {
-  const jsrJson = await getJsrJson();
+  const manifest = await JsrRegisry.reader.read(process.cwd());
 
-  return new JsrRegisry(jsrJson.name);
+  return new JsrRegisry(manifest.name);
 }

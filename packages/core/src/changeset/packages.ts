@@ -1,6 +1,6 @@
 import path from "node:path";
 import { discoverPackages } from "../monorepo/discover.js";
-import { getPackageJson } from "../utils/package.js";
+import { NpmRegistry } from "../registry/npm.js";
 
 export interface PackageVersionInfo {
   name: string;
@@ -18,15 +18,19 @@ export async function discoverCurrentVersions(
     for (const pkg of discovered) {
       const pkgCwd = path.resolve(cwd, pkg.path);
       try {
-        const json = await getPackageJson({ cwd: pkgCwd });
-        versions.set(json.name ?? pkg.path, json.version ?? "0.0.0");
+        const manifest = await NpmRegistry.reader.read(pkgCwd);
+        versions.set(manifest.name || pkg.path, manifest.version || "0.0.0");
       } catch {
         versions.set(pkg.path, "0.0.0");
       }
     }
   } else {
-    const json = await getPackageJson({ cwd });
-    versions.set(json.name ?? "unknown", json.version ?? "0.0.0");
+    try {
+      const manifest = await NpmRegistry.reader.read(cwd);
+      versions.set(manifest.name || "unknown", manifest.version || "0.0.0");
+    } catch {
+      versions.set("unknown", "0.0.0");
+    }
   }
 
   return versions;
@@ -42,10 +46,10 @@ export async function discoverPackageInfos(
     for (const pkg of discovered) {
       const pkgCwd = path.resolve(cwd, pkg.path);
       try {
-        const json = await getPackageJson({ cwd: pkgCwd });
+        const manifest = await NpmRegistry.reader.read(pkgCwd);
         infos.push({
-          name: json.name ?? pkg.path,
-          version: json.version ?? "0.0.0",
+          name: manifest.name || pkg.path,
+          version: manifest.version || "0.0.0",
           path: pkg.path,
         });
       } catch {
@@ -53,12 +57,16 @@ export async function discoverPackageInfos(
       }
     }
   } else {
-    const json = await getPackageJson({ cwd });
-    infos.push({
-      name: json.name ?? "unknown",
-      version: json.version ?? "0.0.0",
-      path: ".",
-    });
+    try {
+      const manifest = await NpmRegistry.reader.read(cwd);
+      infos.push({
+        name: manifest.name || "unknown",
+        version: manifest.version || "0.0.0",
+        path: ".",
+      });
+    } catch {
+      infos.push({ name: "unknown", version: "0.0.0", path: "." });
+    }
   }
 
   return infos;

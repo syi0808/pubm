@@ -2,7 +2,6 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { version } from "@pubm/core";
 import type { Command } from "commander";
 
 export interface DiscoveredReference {
@@ -169,7 +168,13 @@ export function registerSyncCommand(parent: Command): void {
       }
 
       const cwd = process.cwd();
-      const currentVersion = await version({ cwd });
+      const raw = await readFile(path.join(cwd, "package.json"), "utf-8");
+      const currentVersion = (JSON.parse(raw) as { version?: string }).version;
+
+      if (!currentVersion) {
+        console.log("No version found in package.json.");
+        return;
+      }
 
       console.log(`Scanning for version references (v${currentVersion})...\n`);
 

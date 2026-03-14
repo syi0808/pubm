@@ -3,7 +3,6 @@ import {
   calculateVersionBumps,
   consoleError,
   createContext,
-  discoverCurrentVersions,
   Git,
   getStatus,
   loadConfig,
@@ -195,8 +194,8 @@ export function createProgram(): Command {
               // Check for pending changesets in CI
               const status = getStatus(process.cwd());
               if (status.hasChangesets) {
-                const currentVersions = await discoverCurrentVersions(
-                  process.cwd(),
+                const currentVersions = new Map(
+                  resolvedConfig.packages.map((p) => [p.name, p.version]),
                 );
                 const bumps = calculateVersionBumps(
                   currentVersions,

@@ -5,36 +5,37 @@ vi.mock("../../../src/monorepo/discover.js", () => ({
   discoverPackages: vi.fn(),
 }));
 
-vi.mock("../../../src/utils/package.js", () => ({
-  getPackageJson: vi.fn(),
-}));
-
 import {
   discoverCurrentVersions,
   discoverPackageInfos,
 } from "../../../src/changeset/packages.js";
 import { discoverPackages } from "../../../src/monorepo/discover.js";
-import { getPackageJson } from "../../../src/utils/package.js";
+import { NpmRegistry } from "../../../src/registry/npm.js";
 
 const mockedDiscoverPackages = vi.mocked(discoverPackages);
-const mockedGetPackageJson = vi.mocked(getPackageJson);
+
+let readSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  if (readSpy) readSpy.mockRestore();
+  readSpy = vi.spyOn(NpmRegistry.reader, "read");
 });
 
 describe("discoverCurrentVersions", () => {
   it("returns single package when no workspace detected", async () => {
     mockedDiscoverPackages.mockReturnValue([]);
-    mockedGetPackageJson.mockResolvedValue({
+    readSpy.mockResolvedValue({
       name: "my-pkg",
       version: "1.0.0",
+      private: false,
+      dependencies: [],
     });
 
     const result = await discoverCurrentVersions("/tmp/project");
     expect(result.size).toBe(1);
     expect(result.get("my-pkg")).toBe("1.0.0");
-    expect(mockedGetPackageJson).toHaveBeenCalledWith({ cwd: "/tmp/project" });
+    expect(readSpy).toHaveBeenCalledWith("/tmp/project");
   });
 
   it("returns multiple packages for monorepo", async () => {
@@ -42,27 +43,39 @@ describe("discoverCurrentVersions", () => {
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
       { path: "packages/pubm", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson
-      .mockResolvedValueOnce({ name: "@pubm/core", version: "1.2.0" })
-      .mockResolvedValueOnce({ name: "pubm", version: "0.9.1" });
+    readSpy
+      .mockResolvedValueOnce({
+        name: "@pubm/core",
+        version: "1.2.0",
+        private: false,
+        dependencies: [],
+      })
+      .mockResolvedValueOnce({
+        name: "pubm",
+        version: "0.9.1",
+        private: false,
+        dependencies: [],
+      });
 
     const result = await discoverCurrentVersions("/tmp/project");
     expect(result.size).toBe(2);
     expect(result.get("@pubm/core")).toBe("1.2.0");
     expect(result.get("pubm")).toBe("0.9.1");
-    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
-      cwd: path.resolve("/tmp/project", "packages/core"),
-    });
-    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
-      cwd: path.resolve("/tmp/project", "packages/pubm"),
-    });
+    expect(readSpy).toHaveBeenNthCalledWith(
+      1,
+      path.resolve("/tmp/project", "packages/core"),
+    );
+    expect(readSpy).toHaveBeenNthCalledWith(
+      2,
+      path.resolve("/tmp/project", "packages/pubm"),
+    );
   });
 
   it("falls back to path and 0.0.0 when a workspace package cannot be read", async () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson.mockRejectedValue(new Error("invalid package"));
+    readSpy.mockRejectedValue(new Error("invalid package"));
 
     const result = await discoverCurrentVersions("/tmp/project");
 
@@ -71,7 +84,12 @@ describe("discoverCurrentVersions", () => {
 
   it("uses unknown and 0.0.0 when the root package is missing metadata", async () => {
     mockedDiscoverPackages.mockReturnValue([]);
-    mockedGetPackageJson.mockResolvedValue({});
+    readSpy.mockResolvedValue({
+      name: "",
+      version: "",
+      private: false,
+      dependencies: [],
+    });
 
     const result = await discoverCurrentVersions("/tmp/project");
 
@@ -82,7 +100,12 @@ describe("discoverCurrentVersions", () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson.mockResolvedValue({});
+    readSpy.mockResolvedValue({
+      name: "",
+      version: "",
+      private: false,
+      dependencies: [],
+    });
 
     const result = await discoverCurrentVersions("/tmp/project");
 
@@ -93,9 +116,11 @@ describe("discoverCurrentVersions", () => {
 describe("discoverPackageInfos", () => {
   it("returns package infos with path for single package", async () => {
     mockedDiscoverPackages.mockReturnValue([]);
-    mockedGetPackageJson.mockResolvedValue({
+    readSpy.mockResolvedValue({
       name: "my-pkg",
       version: "1.0.0",
+      private: false,
+      dependencies: [],
     });
 
     const result = await discoverPackageInfos("/tmp/project");
@@ -105,7 +130,7 @@ describe("discoverPackageInfos", () => {
       version: "1.0.0",
       path: ".",
     });
-    expect(mockedGetPackageJson).toHaveBeenCalledWith({ cwd: "/tmp/project" });
+    expect(readSpy).toHaveBeenCalledWith("/tmp/project");
   });
 
   it("returns package infos with paths for monorepo", async () => {
@@ -113,9 +138,19 @@ describe("discoverPackageInfos", () => {
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
       { path: "packages/pubm", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson
-      .mockResolvedValueOnce({ name: "@pubm/core", version: "1.2.0" })
-      .mockResolvedValueOnce({ name: "pubm", version: "0.9.1" });
+    readSpy
+      .mockResolvedValueOnce({
+        name: "@pubm/core",
+        version: "1.2.0",
+        private: false,
+        dependencies: [],
+      })
+      .mockResolvedValueOnce({
+        name: "pubm",
+        version: "0.9.1",
+        private: false,
+        dependencies: [],
+      });
 
     const result = await discoverPackageInfos("/tmp/project");
     expect(result).toHaveLength(2);
@@ -129,19 +164,21 @@ describe("discoverPackageInfos", () => {
       version: "0.9.1",
       path: "packages/pubm",
     });
-    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(1, {
-      cwd: path.resolve("/tmp/project", "packages/core"),
-    });
-    expect(mockedGetPackageJson).toHaveBeenNthCalledWith(2, {
-      cwd: path.resolve("/tmp/project", "packages/pubm"),
-    });
+    expect(readSpy).toHaveBeenNthCalledWith(
+      1,
+      path.resolve("/tmp/project", "packages/core"),
+    );
+    expect(readSpy).toHaveBeenNthCalledWith(
+      2,
+      path.resolve("/tmp/project", "packages/pubm"),
+    );
   });
 
   it("falls back to the package path when monorepo metadata cannot be read", async () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson.mockRejectedValue(new Error("invalid package"));
+    readSpy.mockRejectedValue(new Error("invalid package"));
 
     await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
       {
@@ -154,7 +191,12 @@ describe("discoverPackageInfos", () => {
 
   it("uses root defaults when a standalone package omits name and version", async () => {
     mockedDiscoverPackages.mockReturnValue([]);
-    mockedGetPackageJson.mockResolvedValue({});
+    readSpy.mockResolvedValue({
+      name: "",
+      version: "",
+      private: false,
+      dependencies: [],
+    });
 
     await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
       {
@@ -169,7 +211,12 @@ describe("discoverPackageInfos", () => {
     mockedDiscoverPackages.mockReturnValue([
       { path: "packages/core", registries: ["npm"], ecosystem: "js" },
     ]);
-    mockedGetPackageJson.mockResolvedValue({});
+    readSpy.mockResolvedValue({
+      name: "",
+      version: "",
+      private: false,
+      dependencies: [],
+    });
 
     await expect(discoverPackageInfos("/tmp/project")).resolves.toEqual([
       {
