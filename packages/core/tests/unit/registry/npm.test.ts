@@ -13,7 +13,14 @@ vi.mock("../../../src/utils/package-name.js", () => ({
   isValidPackageName: vi.fn(),
 }));
 
-import { NpmRegistry, npmRegistry } from "../../../src/registry/npm.js";
+import {
+  NpmConnector,
+  NpmPackageRegistry,
+  NpmRegistry,
+  npmConnector,
+  npmPackageRegistry,
+  npmRegistry,
+} from "../../../src/registry/npm.js";
 import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import { isValidPackageName } from "../../../src/utils/package-name.js";
 
@@ -21,13 +28,11 @@ const mockedExec = vi.mocked(exec);
 const mockedIsValidPackageName = vi.mocked(isValidPackageName);
 
 let mockedFetch: ReturnType<typeof vi.fn>;
-let registry: NpmRegistry;
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedFetch = vi.fn();
   vi.stubGlobal("fetch", mockedFetch);
-  registry = new NpmRegistry("my-package");
 });
 
 function mockStdout(stdout: string) {
@@ -42,48 +47,22 @@ function mockNonZeroExitError(stderr: string) {
   mockedExec.mockRejectedValue(error);
 }
 
-describe("NpmRegistry", () => {
-  it("has default registry url", () => {
-    expect(registry.registry).toBe("https://registry.npmjs.org");
+describe("NpmConnector", () => {
+  let connector: NpmConnector;
+
+  beforeEach(() => {
+    connector = new NpmConnector();
   });
 
-  describe("npm(args)", () => {
-    it("does not throw when command succeeds with stderr output", async () => {
-      mockedExec.mockResolvedValue({
-        stdout: "ok",
-        stderr: "npm warn deprecated",
-      } as any);
-
-      const result = await registry.isInstalled();
-
-      expect(result).toBe(true);
-    });
-
-    it("calls exec with npm and returns stdout", async () => {
-      mockStdout("help output");
-
-      // npm() is protected, test indirectly via isInstalled
-      const result = await registry.isInstalled();
-
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
-        throwOnError: true,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("throws when exec rejects", async () => {
-      mockedExec.mockRejectedValue(new Error("fatal error"));
-
-      // npm() throws via throwOnError, which bubbles up through version() catch as NpmError
-      await expect(registry.version()).rejects.toThrow();
-    });
+  it("has default registry url", () => {
+    expect(connector.registryUrl).toBe("https://registry.npmjs.org");
   });
 
   describe("isInstalled()", () => {
     it("returns true when npm --version succeeds", async () => {
       mockStdout("11.5.1");
 
-      const result = await registry.isInstalled();
+      const result = await connector.isInstalled();
 
       expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
         throwOnError: true,
@@ -94,9 +73,101 @@ describe("NpmRegistry", () => {
     it("returns false when npm --version fails", async () => {
       mockedExec.mockRejectedValue(new Error("not found"));
 
-      const result = await registry.isInstalled();
+      const result = await connector.isInstalled();
 
       expect(result).toBe(false);
+    });
+
+    it("does not throw when command succeeds with stderr output", async () => {
+      mockedExec.mockResolvedValue({
+        stdout: "ok",
+        stderr: "npm warn deprecated",
+      } as any);
+
+      const result = await connector.isInstalled();
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("version()", () => {
+    it("returns npm version string", async () => {
+      mockStdout("10.2.0");
+
+      const result = await connector.version();
+
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
+        throwOnError: true,
+      });
+      expect(result).toBe("10.2.0");
+    });
+
+    it("throws on failure (no await, so raw error escapes catch)", async () => {
+      mockedExec.mockRejectedValue(new Error("some error"));
+
+      await expect(connector.version()).rejects.toThrow("some error");
+    });
+  });
+
+  describe("ping()", () => {
+    it("returns true when ping succeeds", async () => {
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      const result = await connector.ping();
+
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["ping"], {
+        throwOnError: true,
+      });
+      expect(result).toBe(true);
+    });
+
+    it("throws NpmError when ping fails", async () => {
+      mockedExec.mockRejectedValue(new Error("timeout"));
+
+      await expect(connector.ping()).rejects.toThrow(
+        "Failed to run `npm ping`",
+      );
+    });
+  });
+});
+
+describe("npmConnector()", () => {
+  it("creates NpmConnector instance", () => {
+    const connector = npmConnector();
+    expect(connector).toBeInstanceOf(NpmConnector);
+  });
+});
+
+describe("NpmPackageRegistry", () => {
+  let registry: NpmPackageRegistry;
+
+  beforeEach(() => {
+    registry = new NpmPackageRegistry("my-package");
+  });
+
+  it("has default registry url", () => {
+    expect(registry.registry).toBe("https://registry.npmjs.org");
+  });
+
+  describe("npm(args)", () => {
+    it("calls exec with npm and returns stdout", async () => {
+      mockStdout("help output");
+
+      // npm() is protected, test indirectly via installGlobally
+      const result = await registry.installGlobally("some-pkg");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["install", "-g", "some-pkg"],
+        { throwOnError: true },
+      );
+      expect(result).toBe(true);
+    });
+
+    it("throws when exec rejects", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal error"));
+
+      await expect(registry.userName()).rejects.toThrow();
     });
   });
 
@@ -310,44 +381,6 @@ describe("NpmRegistry", () => {
       mockStdout("not valid json");
 
       await expect(registry.distTags()).rejects.toThrow(/unexpected response/i);
-    });
-  });
-
-  describe("version()", () => {
-    it("returns npm version string", async () => {
-      mockStdout("10.2.0");
-
-      const result = await registry.version();
-
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
-        throwOnError: true,
-      });
-      expect(result).toBe("10.2.0");
-    });
-
-    it("throws on failure (no await, so raw error escapes catch)", async () => {
-      mockedExec.mockRejectedValue(new Error("some error"));
-
-      await expect(registry.version()).rejects.toThrow("some error");
-    });
-  });
-
-  describe("ping()", () => {
-    it("returns true when ping succeeds", async () => {
-      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
-
-      const result = await registry.ping();
-
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["ping"], {
-        throwOnError: true,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("throws NpmError when ping fails", async () => {
-      mockedExec.mockRejectedValue(new Error("timeout"));
-
-      await expect(registry.ping()).rejects.toThrow("Failed to run `npm ping`");
     });
   });
 
@@ -653,7 +686,7 @@ describe("NpmRegistry", () => {
 
 describe("getRequirements", () => {
   it("returns needsPackageScripts true and requiredManifest package.json", () => {
-    const registry = new NpmRegistry("my-package");
+    const registry = new NpmPackageRegistry("my-package");
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
       needsPackageScripts: true,
@@ -662,20 +695,32 @@ describe("getRequirements", () => {
   });
 });
 
-describe("npmRegistry()", () => {
-  it("creates NpmRegistry from ManifestReader", async () => {
-    const readSpy = vi.spyOn(NpmRegistry.reader, "read").mockResolvedValue({
-      name: "my-lib",
-      version: "1.0.0",
-      private: false,
-      dependencies: [],
-    });
+describe("npmPackageRegistry()", () => {
+  it("creates NpmPackageRegistry from ManifestReader", async () => {
+    const readSpy = vi
+      .spyOn(NpmPackageRegistry.reader, "read")
+      .mockResolvedValue({
+        name: "my-lib",
+        version: "1.0.0",
+        private: false,
+        dependencies: [],
+      });
 
-    const result = await npmRegistry();
+    const result = await npmPackageRegistry();
 
     expect(readSpy).toHaveBeenCalled();
-    expect(result).toBeInstanceOf(NpmRegistry);
+    expect(result).toBeInstanceOf(NpmPackageRegistry);
     expect(result.packageName).toBe("my-lib");
     readSpy.mockRestore();
+  });
+});
+
+describe("backward compatibility", () => {
+  it("NpmRegistry is an alias for NpmPackageRegistry", () => {
+    expect(NpmRegistry).toBe(NpmPackageRegistry);
+  });
+
+  it("npmRegistry is an alias for npmPackageRegistry", () => {
+    expect(npmRegistry).toBe(npmPackageRegistry);
   });
 });
