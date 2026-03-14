@@ -1,19 +1,19 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
-import { CratesRegistry } from "../registry/crates.js";
-import type { Registry } from "../registry/registry.js";
+import { CratesPackageRegistry } from "../registry/crates.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
 import { exec } from "../utils/exec.js";
 import { Ecosystem } from "./ecosystem.js";
 
 export class RustEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
-    return CratesRegistry.reader.exists(packagePath);
+    return CratesPackageRegistry.reader.exists(packagePath);
   }
 
-  registryClasses(): (typeof Registry)[] {
-    return [CratesRegistry] as unknown as (typeof Registry)[];
+  registryClasses(): (typeof PackageRegistry)[] {
+    return [CratesPackageRegistry] as unknown as (typeof PackageRegistry)[];
   }
 
   async writeVersion(newVersion: string): Promise<void> {
