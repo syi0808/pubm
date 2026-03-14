@@ -60,6 +60,17 @@
       ✔ @pubm/core
 ```
 
+## Concurrent OTP 핸들링
+
+npm publish가 패키지별 서브태스크로 `concurrent: true` 실행될 때, 여러 태스크가 동시에 EOTP를 만나면 프롬프트가 중복 발생할 수 있다. 이를 방지하기 위해 shared promise 패턴을 사용한다.
+
+- `ctx.runtime.npmOtp`: 획득한 OTP 캐시
+- `ctx.runtime.npmOtpPromise`: OTP 프롬프트 promise (첫 번째 태스크가 생성)
+
+첫 번째 EOTP를 만난 태스크가 `npmOtpPromise`를 생성하고 프롬프트한다. 나머지 태스크는 같은 promise를 `await`하여 OTP를 공유받는다. TOTP 기반(30초 유효)이므로 동시 실행 시 같은 코드로 모두 성공한다.
+
+`dry-run-publish.ts`의 `withTokenRetry`도 동일한 패턴을 적용하여 concurrent dry-run 시 토큰 재입력 프롬프트 중복을 방지한다.
+
 ## 변경 사항
 
 ### 1. collectPublishTasks / collectDryRunPublishTasks 구조 통합
@@ -290,6 +301,7 @@ resolveDisplayName: async (ctx) => {
 
 | 파일 | 변경 내용 |
 |------|----------|
+| `context.ts` | `runtime`에 `npmOtp`, `npmOtpPromise` 필드 추가 |
 | `tasks/dry-run-publish.ts` | `npmDryRunPublishTask` → `createNpmDryRunPublishTask(packagePath)`, jsr도 동일 |
 | `tasks/npm.ts` | `npmPublishTasks` → `createNpmPublishTask(packagePath)`, `npmAvailableCheckTasks` 삭제 |
 | `tasks/jsr.ts` | `jsrPublishTasks` → `createJsrPublishTask(packagePath)`, `jsrAvailableCheckTasks` 삭제 |
