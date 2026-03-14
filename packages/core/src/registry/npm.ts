@@ -5,13 +5,57 @@ import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { isValidPackageName } from "../utils/package-name.js";
-import { Registry, type RegistryRequirements } from "./registry.js";
+import { RegistryConnector } from "./connector.js";
+import {
+  PackageRegistry,
+  type RegistryRequirements,
+} from "./package-registry.js";
 
 class NpmError extends AbstractError {
   name = "npm Error";
 }
 
-export class NpmRegistry extends Registry {
+async function runNpm(args: string[]): Promise<string> {
+  const { stdout } = await exec("npm", args, { throwOnError: true });
+  return stdout;
+}
+
+export class NpmConnector extends RegistryConnector {
+  constructor(registryUrl = "https://registry.npmjs.org") {
+    super(registryUrl);
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      await exec("npm", ["ping"], { throwOnError: true });
+
+      return true;
+    } catch (error) {
+      throw new NpmError("Failed to run `npm ping`", { cause: error });
+    }
+  }
+
+  async isInstalled(): Promise<boolean> {
+    try {
+      await runNpm(["--version"]);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async version(): Promise<string> {
+    try {
+      return runNpm(["--version"]);
+      /* v8 ignore next 3 */
+    } catch (error) {
+      throw new NpmError("Failed to run `npm --version`", { cause: error });
+    }
+  }
+}
+
+export class NpmPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
     file: "package.json",
     parser: JSON.parse,
@@ -34,31 +78,7 @@ export class NpmRegistry extends Registry {
   }
 
   protected async npm(args: string[]): Promise<string> {
-    const { stdout } = await exec("npm", args, { throwOnError: true });
-
-    return stdout;
-  }
-
-  async isInstalled(): Promise<boolean> {
-    try {
-      await this.npm(["--version"]);
-
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async installGlobally(packageName: string): Promise<boolean> {
-    try {
-      await this.npm(["install", "-g", packageName]);
-
-      return true;
-    } catch (error) {
-      throw new NpmError(`Failed to run \`npm install -g ${packageName}\``, {
-        cause: error,
-      });
-    }
+    return runNpm(args);
   }
 
   async isPublished(): Promise<boolean> {
@@ -167,22 +187,22 @@ export class NpmRegistry extends Registry {
     }
   }
 
-  async version(): Promise<string> {
-    try {
-      return this.npm(["--version"]);
-      /* v8 ignore next 3 */
-    } catch (error) {
-      throw new NpmError("Failed to run `npm --version`", { cause: error });
-    }
-  }
+  async publish(otp?: string): Promise<boolean> {
+    const args = otp ? ["publish", "--otp", otp] : ["publish"];
 
-  async ping(): Promise<boolean> {
     try {
-      await exec("npm", ["ping"], { throwOnError: true });
+      await this.npm(args);
 
       return true;
     } catch (error) {
-      throw new NpmError("Failed to run `npm ping`", { cause: error });
+      if (
+        error instanceof NonZeroExitError &&
+        error.output?.stderr.includes("EOTP")
+      ) {
+        return false;
+      }
+
+      throw this.classifyPublishError(error);
     }
   }
 
@@ -201,25 +221,6 @@ export class NpmRegistry extends Registry {
 
       if (this.isProvenanceError(error)) {
         return this.publish();
-      }
-
-      throw this.classifyPublishError(error);
-    }
-  }
-
-  async publish(otp?: string): Promise<boolean> {
-    const args = otp ? ["publish", "--otp", otp] : ["publish"];
-
-    try {
-      await this.npm(args);
-
-      return true;
-    } catch (error) {
-      if (
-        error instanceof NonZeroExitError &&
-        error.output?.stderr.includes("EOTP")
-      ) {
-        return false;
       }
 
       throw this.classifyPublishError(error);
@@ -262,11 +263,41 @@ export class NpmRegistry extends Registry {
     return isValidPackageName(this.packageName);
   }
 
+  // Alias for the abstract method from PackageRegistry (which uses the correct spelling)
+  async isPackageNameAvailable(): Promise<boolean> {
+    return this.isPackageNameAvaliable();
+  }
+
   getRequirements(): RegistryRequirements {
     return {
       needsPackageScripts: true,
       requiredManifest: "package.json",
     };
+  }
+
+  async installGlobally(packageName: string): Promise<boolean> {
+    try {
+      await this.npm(["install", "-g", packageName]);
+
+      return true;
+    } catch (error) {
+      throw new NpmError(`Failed to run \`npm install -g ${packageName}\``, {
+        cause: error,
+      });
+    }
+  }
+
+  async checkAvailability(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    _task: any,
+  ): Promise<void> {
+    const available = await this.isPackageNameAvaliable();
+    if (!available) {
+      const hasAccess = await this.hasPermission();
+      if (!hasAccess) {
+        throw new Error(`No permission to publish ${this.packageName}.`);
+      }
+    }
   }
 
   private isProvenanceError(error: unknown): boolean {
@@ -308,8 +339,22 @@ export class NpmRegistry extends Registry {
   }
 }
 
-export async function npmRegistry(): Promise<NpmRegistry> {
-  const manifest = await NpmRegistry.reader.read(process.cwd());
-
-  return new NpmRegistry(manifest.name);
+export function npmConnector(): NpmConnector {
+  return new NpmConnector();
 }
+
+export async function npmPackageRegistry(
+  packagePath?: string,
+): Promise<NpmPackageRegistry> {
+  if (packagePath) {
+    const manifest = await NpmPackageRegistry.reader.read(packagePath);
+    return new NpmPackageRegistry(manifest.name);
+  }
+  const manifest = await NpmPackageRegistry.reader.read(process.cwd());
+  return new NpmPackageRegistry(manifest.name);
+}
+
+/** @deprecated Use npmPackageRegistry */
+export const npmRegistry = npmPackageRegistry;
+/** @deprecated Use NpmPackageRegistry */
+export const NpmRegistry = NpmPackageRegistry;
