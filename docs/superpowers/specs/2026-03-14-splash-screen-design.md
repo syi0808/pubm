@@ -60,7 +60,7 @@ pubm CLI의 퍼블리시 파이프라인 실행 시(`pubm` 또는 `pubm <version
 ## Styling
 
 - ASCII 아트 로고: `color.dim()` (listr2)
-- 버전 텍스트: `color.bold()`
+- 버전 텍스트: `color.bold()` (로고 아래에 `pubm v1.2.3` 형식으로 우측 정렬)
 - 스피너 완료 체크마크(`✓`): `color.green()` 또는 기본 색상
 - 업데이트 알림: 새 버전 부분 강조
 
