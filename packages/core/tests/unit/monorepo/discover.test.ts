@@ -529,4 +529,122 @@ describe("discoverPackages", () => {
     expect(result).toHaveLength(1);
     expect(result[0].dependencies).toEqual(["dep-a", "dep-b"]);
   });
+
+  it("expands glob pattern in configPackages path", async () => {
+    const jsDescriptor = createMockEcosystemDescriptor("js", {
+      name: "plugin",
+      version: "1.0.0",
+    });
+    setupDirectoryEntries([
+      "packages/plugins/plugin-a",
+      "packages/plugins/plugin-b",
+    ]);
+    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedInferRegistries.mockResolvedValue(["npm"]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: "packages/plugins/*", registries: ["npm"] }],
+    });
+
+    expect(result).toHaveLength(2);
+    const paths = result.map((r) => r.path);
+    expect(paths).toContain(path.join("packages", "plugins", "plugin-a"));
+    expect(paths).toContain(path.join("packages", "plugins", "plugin-b"));
+  });
+
+  it("propagates registries and ecosystem from glob config to all matched packages", async () => {
+    const rustDescriptor = createMockEcosystemDescriptor("rust", {
+      name: "crate",
+      version: "0.1.0",
+    });
+    setupDirectoryEntries(["crates/crate-a", "crates/crate-b"]);
+    mockedEcosystemCatalog.get.mockReturnValue(rustDescriptor as any);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [
+        { path: "crates/*", registries: ["crates"], ecosystem: "rust" },
+      ],
+    });
+
+    expect(result).toHaveLength(2);
+    for (const pkg of result) {
+      expect(pkg.registries).toEqual(["crates"]);
+      expect(pkg.ecosystem).toBe("rust");
+    }
+    // ecosystemCatalog.get should be used (not detect) since ecosystem is explicit
+    expect(mockedEcosystemCatalog.detect).not.toHaveBeenCalled();
+  });
+
+  it("filters private packages matched by glob pattern", async () => {
+    const publicDescriptor = createMockEcosystemDescriptor("js", {
+      name: "public-plugin",
+      version: "1.0.0",
+      private: false,
+    });
+    const privateDescriptor = createMockEcosystemDescriptor("js", {
+      name: "private-plugin",
+      version: "1.0.0",
+      private: true,
+    });
+    setupDirectoryEntries([
+      "packages/plugins/public-plugin",
+      "packages/plugins/private-plugin",
+    ]);
+    mockedEcosystemCatalog.detect.mockImplementation(
+      async (pkgPath: string) => {
+        if (String(pkgPath).includes("private-plugin")) {
+          return privateDescriptor as any;
+        }
+        return publicDescriptor as any;
+      },
+    );
+    mockedInferRegistries.mockResolvedValue(["npm"]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: "packages/plugins/*" }],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("public-plugin");
+  });
+
+  it("handles mixed glob and explicit paths in configPackages", async () => {
+    const jsDescriptor = createMockEcosystemDescriptor("js", {
+      name: "pkg",
+      version: "1.0.0",
+    });
+    setupDirectoryEntries(["packages/plugins/plugin-a"]);
+    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedInferRegistries.mockResolvedValue(["npm"]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [
+        { path: "packages/plugins/*", registries: ["npm", "jsr"] },
+        { path: "packages/core", registries: ["npm"] },
+      ],
+    });
+
+    expect(result).toHaveLength(2);
+    const pluginPkg = result.find((r) =>
+      r.path.includes(path.join("plugins", "plugin-a")),
+    );
+    const corePkg = result.find((r) => r.path === path.join("packages", "core"));
+    expect(pluginPkg?.registries).toEqual(["npm", "jsr"]);
+    expect(corePkg?.registries).toEqual(["npm"]);
+  });
+
+  it("returns empty array when glob pattern matches nothing", async () => {
+    setupDirectoryEntries([]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: "nonexistent/*" }],
+    });
+
+    expect(result).toEqual([]);
+  });
 });
