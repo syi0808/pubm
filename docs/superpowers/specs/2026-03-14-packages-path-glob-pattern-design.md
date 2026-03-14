@@ -29,12 +29,16 @@ export default defineConfig({
 
 `discoverPackages()` 함수에서 `configPackages`를 `DiscoverTarget[]`으로 변환할 때:
 
-1. `isGlobPattern(path)`로 glob 문자 포함 여부 판별 (micromatch `scan()` 활용)
+1. 새 헬퍼 `isGlobPattern(path)` 추가 — `micromatch.scan(pattern).isGlob`으로 glob 문자 포함 여부 판별
 2. glob이면 기존 `resolvePatterns(cwd, [path])`로 디렉토리 확장
-3. 확장된 각 디렉토리에 원본 config의 옵션(`registries`, `ecosystem`, `buildCommand`, `testCommand`)을 복제
+3. 확장된 각 디렉토리에 원본 config의 옵션(`registries`, `ecosystem`)을 복제 (`buildCommand`, `testCommand`는 `DiscoverTarget`에 포함되지 않으며, discovery 이후 단계에서 처리됨)
 4. `.map()` → `.flatMap()`으로 변경
 
 ```typescript
+function isGlobPattern(pattern: string): boolean {
+  return micromatch.scan(pattern).isGlob;
+}
+
 const targets: DiscoverTarget[] = configPackages.flatMap((pkg) => {
   if (isGlobPattern(pkg.path)) {
     const resolved = resolvePatterns(cwd, [pkg.path]);
@@ -52,7 +56,11 @@ const targets: DiscoverTarget[] = configPackages.flatMap((pkg) => {
 });
 ```
 
-Private 패키지 필터링은 `resolvePackage()` 내부에서 `manifest.private` 체크(139줄)로 이미 처리되므로 추가 작업 불필요.
+Private 패키지 필터링은 `resolvePackage()` 내부에서 `manifest.private` 체크로 이미 처리되므로 추가 작업 불필요.
+
+### Edge Cases
+
+- **매칭 없음**: glob 패턴에 매칭되는 디렉토리가 없으면 해당 항목은 빈 배열로 확장된다 (silent). 사용자 오타/설정 오류는 결과적으로 패키지가 0개가 되어 기존 `discoveryEmpty` 플래그로 처리된다.
 
 ### What Does NOT Change
 
