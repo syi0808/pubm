@@ -99,11 +99,17 @@ async function promptVersion(
   currentVersion: string,
   label: string,
   recommendedBumpType?: string,
-): Promise<string> {
+  initialBumpType?: string,
+): Promise<{ version: string; bumpType: string | undefined }> {
+  const initial = initialBumpType
+    ? RELEASE_TYPES.indexOf(initialBumpType as semver.ReleaseType) + 1
+    : 0;
+
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
     message: `Select SemVer increment for ${label} ${color.dim(`(current: ${currentVersion})`)}`,
     choices: versionChoices(currentVersion, recommendedBumpType),
+    initial,
     name: "version",
   });
 
@@ -113,9 +119,15 @@ async function promptVersion(
       message: `Version for ${label}`,
       name: "version",
     });
+    return { version: nextVersion, bumpType: undefined };
   }
 
-  return nextVersion;
+  // Determine which bump type was selected
+  const bumpType = RELEASE_TYPES.find(
+    (rt) => new SemVer(currentVersion).inc(rt).toString() === nextVersion,
+  );
+
+  return { version: nextVersion, bumpType };
 }
 
 /**
@@ -605,6 +617,7 @@ async function handleIndependentMode(
   const reverseDeps = buildReverseDeps(graph);
   const versions = new Map<string, string>();
   const bumpedPackages = new Set<string>();
+  let lastBumpType: string | undefined;
 
   for (const pkg of packageInfos) {
     const currentVersion = currentVersions.get(pkg.name) ?? pkg.version;
@@ -640,15 +653,17 @@ async function handleIndependentMode(
       },
     );
 
-    const nextVersion = await promptVersion(
+    const result = await promptVersion(
       task,
       currentVersion,
       pkg.name,
       bump?.bumpType,
+      lastBumpType,
     );
-    versions.set(pkg.name, nextVersion);
+    versions.set(pkg.name, result.version);
+    lastBumpType = result.bumpType;
 
-    if (nextVersion !== currentVersion) {
+    if (result.version !== currentVersion) {
       bumpedPackages.add(pkg.name);
     }
   }
