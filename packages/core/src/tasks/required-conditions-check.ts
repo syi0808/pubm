@@ -45,9 +45,9 @@ export const requiredConditionsCheckTask = (
     if (packagePaths.length <= 1) {
       return {
         title: `Checking ${descriptor.label} availability`,
-        task: async (_ctx, task): Promise<void> => {
+        task: async (ctx, task): Promise<void> => {
           const registry = await descriptor.factory(packagePaths[0]);
-          await registry.checkAvailability(task);
+          await registry.checkAvailability(task, ctx);
         },
       };
     }
@@ -58,9 +58,9 @@ export const requiredConditionsCheckTask = (
         parentTask.newListr(
           packagePaths.map((packagePath) => ({
             title: packagePath,
-            task: async (_ctx, task): Promise<void> => {
+            task: async (ctx, task): Promise<void> => {
               const registry = await descriptor.factory(packagePath);
-              await registry.checkAvailability(task);
+              await registry.checkAvailability(task, ctx);
             },
           })),
           { concurrent: true },

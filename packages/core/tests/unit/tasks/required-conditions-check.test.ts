@@ -622,7 +622,10 @@ describe("requiredConditionsCheckTask", () => {
       const mockTask = {};
       await registrySubtasks[0].task({}, mockTask);
       expect(npmDescriptor.factory).toHaveBeenCalledWith(".");
-      expect(mockCheckAvailability).toHaveBeenCalledWith(mockTask);
+      expect(mockCheckAvailability).toHaveBeenCalledWith(
+        mockTask,
+        expect.any(Object),
+      );
     });
 
     it("uses catalog descriptor to create availability task for jsr", async () => {
@@ -674,7 +677,10 @@ describe("requiredConditionsCheckTask", () => {
       const mockTask = {};
       await registrySubtasks[0].task({}, mockTask);
       expect(jsrDescriptor.factory).toHaveBeenCalledWith(".");
-      expect(mockCheckAvailability).toHaveBeenCalledWith(mockTask);
+      expect(mockCheckAvailability).toHaveBeenCalledWith(
+        mockTask,
+        expect.any(Object),
+      );
     });
 
     it("returns a no-op task for unknown registry", async () => {
