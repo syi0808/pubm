@@ -1,7 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
-import type { PubmContext } from "../context.js";
+import { type PubmContext, getPackageVersion } from "../context.js";
 import { AbstractError } from "../error.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 
@@ -25,10 +25,12 @@ export function createNpmPublishTask(
       const npm = await npmPackageRegistry(packagePath);
       task.title = npm.packageName;
 
+      const version = getPackageVersion(ctx, npm.packageName);
+
       // Pre-check: skip if version already published
-      if (await npm.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] npm: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
+      if (await npm.isVersionPublished(version)) {
+        task.title = `[SKIPPED] npm: v${version} already published`;
+        task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
         return task.skip();
       }
 
@@ -109,8 +111,8 @@ export function createNpmPublishTask(
               "You cannot publish over the previously published",
             ))
         ) {
-          task.title = `[SKIPPED] npm: v${ctx.runtime.version} already published`;
-          task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
+          task.title = `[SKIPPED] npm: v${version} already published`;
+          task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
           return task.skip();
         }
         throw error;

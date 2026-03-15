@@ -1,7 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type ListrTask } from "listr2";
-import type { PubmContext } from "../context.js";
+import { type PubmContext, getPackageVersion } from "../context.js";
 import { AbstractError } from "../error.js";
 import { JsrClient, jsrPackageRegistry } from "../registry/jsr.js";
 import { openUrl } from "../utils/open-url.js";
@@ -25,10 +25,12 @@ export function createJsrPublishTask(
       const jsr = await jsrPackageRegistry(packagePath);
       task.title = jsr.packageName;
 
+      const version = getPackageVersion(ctx, jsr.packageName);
+
       // Pre-check: skip if version already published
-      if (await jsr.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] jsr: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
+      if (await jsr.isVersionPublished(version)) {
+        task.title = `[SKIPPED] jsr: v${version} already published`;
+        task.output = `⚠ ${jsr.packageName}@${version} is already published on jsr`;
         return task.skip();
       }
 
@@ -93,8 +95,8 @@ export function createJsrPublishTask(
           error instanceof Error &&
           error.message.includes("already published")
         ) {
-          task.title = `[SKIPPED] jsr: v${ctx.runtime.version} already published`;
-          task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
+          task.title = `[SKIPPED] jsr: v${version} already published`;
+          task.output = `⚠ ${jsr.packageName}@${version} is already published on jsr`;
           return task.skip();
         }
         throw error;

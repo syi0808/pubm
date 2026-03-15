@@ -41,6 +41,20 @@ export function resolveVersion(
   return picker(plan.packages);
 }
 
+export function getPackageVersion(
+  ctx: PubmContext,
+  packageName: string,
+): string {
+  const plan = ctx.runtime.versionPlan;
+  if (plan) {
+    if (plan.mode === "single") return plan.version;
+    if (plan.mode === "fixed") return plan.version;
+    return plan.packages.get(packageName) ?? "";
+  }
+  // Fallback during migration
+  return ctx.runtime.version ?? "";
+}
+
 export interface PubmContext {
   readonly config: ResolvedPubmConfig;
   readonly options: ResolvedOptions;
