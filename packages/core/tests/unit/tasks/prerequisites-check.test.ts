@@ -144,10 +144,10 @@ describe("prerequisitesCheckTask", () => {
       );
     });
 
-    it("produces 5 subtasks", async () => {
+    it("produces 4 subtasks", async () => {
       const subtasks = await getSubtasks();
 
-      expect(subtasks).toHaveLength(5);
+      expect(subtasks).toHaveLength(4);
     });
   });
 
@@ -433,63 +433,4 @@ describe("prerequisitesCheckTask", () => {
     });
   });
 
-  describe("Subtask 5: Tag existence check", () => {
-    it("passes silently when tag does not exist", async () => {
-      const subtasks = await getSubtasks();
-      const tagTask = subtasks[4];
-      const ctx = createCtx({ runtime: { version: "1.0.0" } });
-      const task = createMockTask();
-
-      mockGitInstance.checkTagExist.mockResolvedValue(false);
-
-      await tagTask.task(ctx, task);
-
-      expect(mockGitInstance.checkTagExist).toHaveBeenCalledWith("v1.0.0");
-      expect(task.prompt).not.toHaveBeenCalled();
-      expect(mockGitInstance.deleteTag).not.toHaveBeenCalled();
-    });
-
-    it("prompts and deletes tag when user confirms", async () => {
-      const subtasks = await getSubtasks();
-      const tagTask = subtasks[4];
-      const ctx = createCtx({ runtime: { version: "2.0.0" } });
-      const task = createMockTask([true]);
-
-      mockGitInstance.checkTagExist.mockResolvedValue(true);
-
-      await tagTask.task(ctx, task);
-
-      expect(task.prompt).toHaveBeenCalledOnce();
-      expect(task.output).toBe("Deleting git tag v2.0.0...");
-      expect(mockGitInstance.deleteTag).toHaveBeenCalledWith("v2.0.0");
-    });
-
-    it("throws when tag exists and user declines delete", async () => {
-      const subtasks = await getSubtasks();
-      const tagTask = subtasks[4];
-      const ctx = createCtx({ runtime: { version: "2.0.0" } });
-      const task = createMockTask([false]);
-
-      mockGitInstance.checkTagExist.mockResolvedValue(true);
-
-      await expect(tagTask.task(ctx, task)).rejects.toThrow(
-        "The Git tag 'v2.0.0' already exists",
-      );
-    });
-
-    it("constructs the correct tag format from ctx.version", async () => {
-      const subtasks = await getSubtasks();
-      const tagTask = subtasks[4];
-      const ctx = createCtx({ runtime: { version: "3.1.4-beta.1" } });
-      const task = createMockTask();
-
-      mockGitInstance.checkTagExist.mockResolvedValue(false);
-
-      await tagTask.task(ctx, task);
-
-      expect(mockGitInstance.checkTagExist).toHaveBeenCalledWith(
-        "v3.1.4-beta.1",
-      );
-    });
-  });
 });

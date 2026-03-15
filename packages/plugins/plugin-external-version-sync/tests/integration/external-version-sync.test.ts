@@ -16,7 +16,11 @@ function makeCtx(version: string): PubmContext {
     saveToken: false,
   });
   ctx.runtime.version = version;
-  ctx.runtime.versionPlan = { mode: 'single', version, packageName: 'test-pkg' };
+  ctx.runtime.versionPlan = {
+    mode: "single",
+    version,
+    packageName: "test-pkg",
+  };
   return ctx;
 }
 
@@ -134,29 +138,29 @@ describe("externalVersionSync integration", () => {
     );
 
     const packages = new Map([
-      ['@pubm/core', '2.5.0'],
-      ['@pubm/cli', '2.5.0'],
+      ["@pubm/core", "2.5.0"],
+      ["@pubm/cli", "2.5.0"],
     ]);
 
     const ctx = createContext({ packages: [], plugins: [] } as any, {
-      testScript: 'test',
-      buildScript: 'build',
-      branch: 'main',
-      tag: 'latest',
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
       saveToken: false,
     });
-    ctx.runtime.versionPlan = { mode: 'independent', packages };
+    ctx.runtime.versionPlan = { mode: "independent", packages };
 
     const plugin = externalVersionSync({
-      targets: [{ file: jsonFile, jsonPath: 'version' }],
-      version: (pkgs) => pkgs.get('@pubm/core') ?? '',
+      targets: [{ file: jsonFile, jsonPath: "version" }],
+      version: (pkgs) => pkgs.get("@pubm/core") ?? "",
     });
 
     const runner = new PluginRunner([plugin]);
-    await runner.runHook('afterVersion', ctx);
+    await runner.runHook("afterVersion", ctx);
 
-    const updated = JSON.parse(fs.readFileSync(jsonFile, 'utf-8'));
-    expect(updated.version).toBe('2.5.0');
+    const updated = JSON.parse(fs.readFileSync(jsonFile, "utf-8"));
+    expect(updated.version).toBe("2.5.0");
   });
 
   it("throws when independent mode has no version callback", async () => {
@@ -167,23 +171,23 @@ describe("externalVersionSync integration", () => {
       `${JSON.stringify({ version: "1.0.0" }, null, 2)}\n`,
     );
 
-    const packages = new Map([['@pubm/core', '2.5.0']]);
+    const packages = new Map([["@pubm/core", "2.5.0"]]);
 
     const ctx = createContext({ packages: [], plugins: [] } as any, {
-      testScript: 'test',
-      buildScript: 'build',
-      branch: 'main',
-      tag: 'latest',
+      testScript: "test",
+      buildScript: "build",
+      branch: "main",
+      tag: "latest",
       saveToken: false,
     });
-    ctx.runtime.versionPlan = { mode: 'independent', packages };
+    ctx.runtime.versionPlan = { mode: "independent", packages };
 
     const plugin = externalVersionSync({
-      targets: [{ file: jsonFile, jsonPath: 'version' }],
+      targets: [{ file: jsonFile, jsonPath: "version" }],
     });
 
     const runner = new PluginRunner([plugin]);
-    await expect(runner.runHook('afterVersion', ctx)).rejects.toThrow(
+    await expect(runner.runHook("afterVersion", ctx)).rejects.toThrow(
       "external-version-sync: 'version' callback is required in independent mode",
     );
   });

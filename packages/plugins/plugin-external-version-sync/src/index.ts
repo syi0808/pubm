@@ -23,7 +23,7 @@ export function externalVersionSync(
         let version: string;
 
         if (plan) {
-          if (plan.mode === 'independent') {
+          if (plan.mode === "independent") {
             if (options.version) {
               version = options.version(plan.packages);
             } else {

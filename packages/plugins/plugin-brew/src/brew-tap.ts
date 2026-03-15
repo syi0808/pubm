@@ -50,7 +50,10 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
     ],
     hooks: {
       afterRelease: async (_ctx, releaseCtx) => {
-        if (options.packageName && releaseCtx.packageName !== options.packageName) {
+        if (
+          options.packageName &&
+          releaseCtx.packageName !== options.packageName
+        ) {
           return;
         }
         const formulaAssets = mapReleaseAssets(releaseCtx.assets);
