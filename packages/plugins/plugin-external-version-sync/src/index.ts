@@ -19,6 +19,26 @@ export function externalVersionSync(
     hooks: {
       afterVersion: async (ctx) => {
         const cwd = process.cwd();
+        const plan = ctx.runtime.versionPlan;
+        let version: string;
+
+        if (plan) {
+          if (plan.mode === 'independent') {
+            if (options.version) {
+              version = options.version(plan.packages);
+            } else {
+              throw new Error(
+                "external-version-sync: 'version' callback is required in independent mode. " +
+                  "Provide a version picker, e.g. version: (pkgs) => pkgs.get('@pubm/core') ?? ''",
+              );
+            }
+          } else {
+            version = plan.version;
+          }
+        } else {
+          // Fallback during migration
+          version = ctx.runtime.version!;
+        }
 
         const errors: string[] = [];
 
@@ -28,7 +48,7 @@ export function externalVersionSync(
               ? target.file
               : path.resolve(cwd, target.file);
 
-            syncVersionInFile(filePath, ctx.runtime.version!, target);
+            syncVersionInFile(filePath, version, target);
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);

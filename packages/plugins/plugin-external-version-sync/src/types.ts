@@ -12,6 +12,7 @@ export type SyncTarget = JsonTarget | RegexTarget;
 
 export interface ExternalVersionSyncOptions {
   targets: SyncTarget[];
+  version?: (packages: Map<string, string>) => string;
 }
 
 export function isJsonTarget(target: SyncTarget): target is JsonTarget {
