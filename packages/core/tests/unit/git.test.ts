@@ -149,38 +149,40 @@ describe("Git", () => {
       expect(result).toBe("1.0.0");
     });
 
-    it("matches unprefixed input against prefixed tags", async () => {
+    it("returns null when unprefixed input does not match prefixed tags", async () => {
       mockStdout("v1.0.0\nv2.0.0\nv3.0.0\n");
 
       const result = await git.previousTag("2.0.0");
 
-      expect(result).toBe("v1.0.0");
+      // different prefix ("" vs "v"), so no match
+      expect(result).toBeNull();
     });
 
-    it("matches prefixed input against unprefixed tags", async () => {
+    it("returns null when prefixed input does not match unprefixed tags", async () => {
       mockStdout("1.0.0\n2.0.0\n3.0.0\n");
 
       const result = await git.previousTag("v2.0.0");
 
-      expect(result).toBe("1.0.0");
+      // different prefix ("v" vs ""), so no match
+      expect(result).toBeNull();
     });
 
-    it("returns the last tag when given tag is the first (wraps around with at(-1))", async () => {
+    it("returns null when given tag is the first in its prefix group", async () => {
       mockStdout("v1.0.0\nv2.0.0\nv3.0.0\n");
 
       const result = await git.previousTag("v1.0.0");
 
-      // at(findIndex(0) - 1) = at(-1) = last element
-      expect(result).toBe("v3.0.0");
+      // first tag has no previous
+      expect(result).toBeNull();
     });
 
-    it("returns a tag via wrap-around when tag is not found", async () => {
+    it("returns null when tag is not found in the list", async () => {
       mockStdout("v1.0.0\nv2.0.0\n");
 
       const result = await git.previousTag("v9.9.9");
 
-      // findIndex returns -1, at(-1 - 1) = at(-2), which wraps to index 0
-      expect(result).toBe("v1.0.0");
+      // tag not in list, indexOf returns -1
+      expect(result).toBeNull();
     });
 
     it("returns null when tag list has only one element and tag is not found", async () => {
@@ -188,7 +190,6 @@ describe("Git", () => {
 
       const result = await git.previousTag("v9.9.9");
 
-      // findIndex returns -1, at(-2) on a 1-element array returns undefined -> null
       expect(result).toBeNull();
     });
 
