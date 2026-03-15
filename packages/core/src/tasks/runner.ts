@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path, { join } from "node:path";
 import process from "node:process";
 import { stripVTControlCharacters } from "node:util";
+import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import {
   color,
   type Listr,
@@ -18,7 +19,7 @@ import {
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
-import type { PubmContext } from "../context.js";
+import { type PubmContext, resolveVersion } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -793,12 +794,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   let tagCreated = false;
                   let commited = false;
 
-                  const versions = ctx.runtime.versions;
-                  const hasMultiPackageVersions =
-                    versions !== undefined && versions.size > 0;
-                  const isIndependent =
-                    hasMultiPackageVersions &&
-                    new Set(versions.values()).size > 1;
+                  const plan = ctx.runtime.versionPlan!;
 
                   task.output = formatVersionPlan(ctx);
 
@@ -806,8 +802,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                     if (tagCreated) {
                       try {
                         rollbackLog("Deleting tag(s)");
-                        if (isIndependent && versions) {
-                          for (const [pkgName, pkgVersion] of versions) {
+                        if (plan.mode === "independent") {
+                          for (const [pkgName, pkgVersion] of plan.packages) {
                             try {
                               await git.deleteTag(`${pkgName}@${pkgVersion}`);
                             } catch (tagError) {
@@ -817,7 +813,14 @@ export async function run(ctx: PubmContext): Promise<void> {
                             }
                           }
                         } else {
-                          await git.deleteTag(`${await git.latestTag()}`);
+                          const tagName = `v${plan.version}`;
+                          try {
+                            await git.deleteTag(tagName);
+                          } catch (e) {
+                            rollbackError(
+                              `Failed to delete tag: ${e instanceof Error ? e.message : e}`,
+                            );
+                          }
                         }
                       } catch (error) {
                         rollbackError(
@@ -850,105 +853,16 @@ export async function run(ctx: PubmContext): Promise<void> {
                     "Refreshing git index before version updates...";
                   await git.reset();
 
-                  if (hasMultiPackageVersions) {
-                    task.output =
-                      "Updating package versions across the workspace...";
-                    // Multi-package version replacement (fixed and independent)
-                    const replaced = await writeVersions(ctx, versions);
-                    for (const f of replaced) {
-                      await git.stage(f);
-                    }
-
-                    // Changeset consumption
-                    if (ctx.runtime.changesetConsumed) {
-                      task.output =
-                        "Applying changesets and generating changelog entries...";
-                      const changesets = readChangesets(process.cwd());
-                      if (changesets.length > 0) {
-                        if (isIndependent) {
-                          // Independent: per-package changelogs
-                          for (const [pkgName, pkgVersion] of versions) {
-                            const entries = buildChangelogEntries(
-                              changesets,
-                              pkgName,
-                            );
-                            if (entries.length > 0) {
-                              const pkgConfig = ctx.config.packages.find(
-                                (p) => p.name === pkgName,
-                              );
-                              const changelogDir = pkgConfig
-                                ? path.resolve(process.cwd(), pkgConfig.path)
-                                : process.cwd();
-                              const changelogContent = generateChangelog(
-                                pkgVersion,
-                                entries,
-                              );
-                              writeChangelogToFile(
-                                changelogDir,
-                                changelogContent,
-                              );
-                            }
-                          }
-                        } else {
-                          // Fixed monorepo: single changelog at root
-                          const allEntries = [...versions.keys()].flatMap(
-                            (pkgName) =>
-                              buildChangelogEntries(changesets, pkgName),
-                          );
-                          if (allEntries.length > 0) {
-                            const changelogContent = generateChangelog(
-                              ctx.runtime.version ?? "",
-                              allEntries,
-                            );
-                            writeChangelogToFile(
-                              process.cwd(),
-                              changelogContent,
-                            );
-                          }
-                        }
-                        deleteChangesetFiles(process.cwd(), changesets);
-                      }
-                    }
-
-                    task.output = "Running plugin afterVersion hooks...";
-                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
-                    task.output = "Staging version updates...";
-                    await git.stage(".");
-
-                    if (isIndependent) {
-                      // Independent: per-package commit message and tags
-                      const commitMsg = [...versions]
-                        .map(([name, ver]) => `${name}@${ver}`)
-                        .join(", ");
-                      task.output = `Creating release commit ${commitMsg}...`;
-                      const commit = await git.commit(commitMsg);
-                      commited = true;
-
-                      task.output = "Creating tags...";
-                      for (const [pkgName, pkgVersion] of versions) {
-                        await git.createTag(`${pkgName}@${pkgVersion}`, commit);
-                      }
-                      tagCreated = true;
-                    } else {
-                      // Fixed monorepo: single version commit and tag
-                      const nextVersion = `v${ctx.runtime.version}`;
-                      task.output = `Creating release commit ${nextVersion}...`;
-                      const commit = await git.commit(nextVersion);
-                      commited = true;
-
-                      task.output = "Creating tag...";
-                      await git.createTag(nextVersion, commit);
-                      tagCreated = true;
-                    }
-                  } else {
+                  if (plan.mode === "single") {
+                    // Single package: write version for all config packages
                     task.output = "Updating package manifest versions...";
-                    // Single package: existing behavior
-                    const singleVersions = new Map<string, string>();
-                    for (const pkg of ctx.config.packages) {
-                      singleVersions.set(pkg.name, ctx.runtime.version ?? "");
-                    }
+                    const singleVersions = new Map(
+                      ctx.config.packages.map((pkg) => [
+                        pkg.name,
+                        plan.version,
+                      ]),
+                    );
                     const replaced = await writeVersions(ctx, singleVersions);
-
                     for (const replacedFile of replaced) {
                       await git.stage(replacedFile);
                     }
@@ -964,7 +878,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                           pkgName,
                         );
                         const changelogContent = generateChangelog(
-                          ctx.runtime.version ?? "",
+                          plan.version,
                           entries,
                         );
                         writeChangelogToFile(process.cwd(), changelogContent);
@@ -977,13 +891,191 @@ export async function run(ctx: PubmContext): Promise<void> {
                     task.output = "Staging version updates...";
                     await git.stage(".");
 
-                    const nextVersion = `v${ctx.runtime.version}`;
-                    task.output = `Creating release commit ${nextVersion}...`;
-                    const commit = await git.commit(nextVersion);
+                    // Tag existence check
+                    const tagName = `v${plan.version}`;
+                    if (await git.checkTagExist(tagName)) {
+                      if (ctx.runtime.promptEnabled) {
+                        const deleteTag = await task
+                          .prompt(ListrEnquirerPromptAdapter)
+                          .run<boolean>({
+                            type: "toggle",
+                            message: `The Git tag '${tagName}' already exists. Delete it?`,
+                            enabled: "Yes",
+                            disabled: "No",
+                          });
+                        if (deleteTag) {
+                          await git.deleteTag(tagName);
+                        } else {
+                          throw new AbstractError(
+                            `Git tag '${tagName}' already exists.`,
+                          );
+                        }
+                      } else {
+                        throw new AbstractError(
+                          `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                        );
+                      }
+                    }
+
+                    task.output = `Creating release commit ${tagName}...`;
+                    const commit = await git.commit(tagName);
+                    commited = true;
+                    task.output = "Creating tag...";
+                    await git.createTag(tagName, commit);
+                    tagCreated = true;
+                  } else if (plan.mode === "fixed") {
+                    // Fixed monorepo: same version for all packages
+                    task.output =
+                      "Updating package versions across the workspace...";
+                    const replaced = await writeVersions(ctx, plan.packages);
+                    for (const f of replaced) {
+                      await git.stage(f);
+                    }
+
+                    if (ctx.runtime.changesetConsumed) {
+                      task.output =
+                        "Applying changesets and generating changelog entries...";
+                      const changesets = readChangesets(process.cwd());
+                      if (changesets.length > 0) {
+                        const allEntries = [...plan.packages.keys()].flatMap(
+                          (pkgName) =>
+                            buildChangelogEntries(changesets, pkgName),
+                        );
+                        if (allEntries.length > 0) {
+                          const changelogContent = generateChangelog(
+                            plan.version,
+                            allEntries,
+                          );
+                          writeChangelogToFile(
+                            process.cwd(),
+                            changelogContent,
+                          );
+                        }
+                        deleteChangesetFiles(process.cwd(), changesets);
+                      }
+                    }
+
+                    task.output = "Running plugin afterVersion hooks...";
+                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
+                    task.output = "Staging version updates...";
+                    await git.stage(".");
+
+                    const tagName = `v${plan.version}`;
+                    if (await git.checkTagExist(tagName)) {
+                      if (ctx.runtime.promptEnabled) {
+                        const deleteTag = await task
+                          .prompt(ListrEnquirerPromptAdapter)
+                          .run<boolean>({
+                            type: "toggle",
+                            message: `The Git tag '${tagName}' already exists. Delete it?`,
+                            enabled: "Yes",
+                            disabled: "No",
+                          });
+                        if (deleteTag) {
+                          await git.deleteTag(tagName);
+                        } else {
+                          throw new AbstractError(
+                            `Git tag '${tagName}' already exists.`,
+                          );
+                        }
+                      } else {
+                        throw new AbstractError(
+                          `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                        );
+                      }
+                    }
+
+                    task.output = `Creating release commit ${tagName}...`;
+                    const commit = await git.commit(tagName);
+                    commited = true;
+                    task.output = "Creating tag...";
+                    await git.createTag(tagName, commit);
+                    tagCreated = true;
+                  } else {
+                    // Independent monorepo
+                    task.output =
+                      "Updating package versions across the workspace...";
+                    const replaced = await writeVersions(ctx, plan.packages);
+                    for (const f of replaced) {
+                      await git.stage(f);
+                    }
+
+                    if (ctx.runtime.changesetConsumed) {
+                      task.output =
+                        "Applying changesets and generating changelog entries...";
+                      const changesets = readChangesets(process.cwd());
+                      if (changesets.length > 0) {
+                        for (const [pkgName, pkgVersion] of plan.packages) {
+                          const entries = buildChangelogEntries(
+                            changesets,
+                            pkgName,
+                          );
+                          if (entries.length > 0) {
+                            const pkgConfig = ctx.config.packages.find(
+                              (p) => p.name === pkgName,
+                            );
+                            const changelogDir = pkgConfig
+                              ? path.resolve(process.cwd(), pkgConfig.path)
+                              : process.cwd();
+                            writeChangelogToFile(
+                              changelogDir,
+                              generateChangelog(pkgVersion, entries),
+                            );
+                          }
+                        }
+                        deleteChangesetFiles(process.cwd(), changesets);
+                      }
+                    }
+
+                    task.output = "Running plugin afterVersion hooks...";
+                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
+                    task.output = "Staging version updates...";
+                    await git.stage(".");
+
+                    // Tag existence checks for all packages
+                    for (const [pkgName, pkgVersion] of plan.packages) {
+                      const tagName = `${pkgName}@${pkgVersion}`;
+                      if (await git.checkTagExist(tagName)) {
+                        if (ctx.runtime.promptEnabled) {
+                          const deleteTag = await task
+                            .prompt(ListrEnquirerPromptAdapter)
+                            .run<boolean>({
+                              type: "toggle",
+                              message: `The Git tag '${tagName}' already exists. Delete it?`,
+                              enabled: "Yes",
+                              disabled: "No",
+                            });
+                          if (deleteTag) {
+                            await git.deleteTag(tagName);
+                          } else {
+                            throw new AbstractError(
+                              `Git tag '${tagName}' already exists.`,
+                            );
+                          }
+                        } else {
+                          throw new AbstractError(
+                            `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                          );
+                        }
+                      }
+                    }
+
+                    // Commit with "Version Packages" message
+                    const commitMsg = `Version Packages\n\n${[...plan.packages]
+                      .map(([name, ver]) => `- ${name}: ${ver}`)
+                      .join("\n")}`;
+                    task.output = "Creating release commit...";
+                    const commit = await git.commit(commitMsg);
                     commited = true;
 
-                    task.output = "Creating tag...";
-                    await git.createTag(nextVersion, commit);
+                    // Create per-package tags
+                    task.output = "Creating tags...";
+                    for (const [pkgName, pkgVersion] of plan.packages) {
+                      await git.createTag(
+                        `${pkgName}@${pkgVersion}`,
+                        commit,
+                      );
+                    }
                     tagCreated = true;
                   }
                 },
@@ -1106,7 +1198,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   releaseDraftUrl.searchParams.set("body", body);
                   releaseDraftUrl.searchParams.set(
                     "prerelease",
-                    `${!!prerelease(ctx.runtime.version ?? "")}`,
+                    `${!!prerelease(ctx.runtime.versionPlan ? resolveVersion(ctx.runtime.versionPlan) : ctx.runtime.version ?? "")}`,
                   );
 
                   const linkUrl = link("Link", releaseDraftUrl.toString());
