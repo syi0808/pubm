@@ -17,6 +17,7 @@ export interface ReleaseAsset {
 }
 
 export interface ReleaseContext {
+  packageName: string;
   version: string;
   tag: string;
   releaseUrl: string;
@@ -134,8 +135,13 @@ function formatReleaseNotes(
  * Create a GitHub Release using the GitHub REST API
  */
 export async function createGitHubRelease(
-  ctx: PubmContext,
-  changelogBody?: string,
+  _ctx: PubmContext,
+  options: {
+    packageName: string;
+    version: string;
+    tag: string;
+    changelogBody?: string;
+  },
 ): Promise<ReleaseContext> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
@@ -153,17 +159,16 @@ export async function createGitHubRelease(
   const { owner, repo } = parseOwnerRepo(remoteUrl);
 
   // Get tags
-  const latestTag = `${await git.latestTag()}`;
   const previousTag =
-    (await git.previousTag(latestTag)) || (await git.firstCommit());
+    (await git.previousTag(options.tag)) || (await git.firstCommit());
 
   // Use changelog content if provided, otherwise build from commits
   let body: string;
-  if (changelogBody) {
-    body = changelogBody;
+  if (options.changelogBody) {
+    body = options.changelogBody;
   } else {
-    const commits = (await git.commits(previousTag, latestTag)).slice(1);
-    body = formatReleaseNotes(commits, repositoryUrl, previousTag, latestTag);
+    const commits = (await git.commits(previousTag, options.tag)).slice(1);
+    body = formatReleaseNotes(commits, repositoryUrl, previousTag, options.tag);
   }
 
   // Create the release via GitHub API
@@ -177,15 +182,10 @@ export async function createGitHubRelease(
         "X-GitHub-Api-Version": "2022-11-28",
       },
       body: JSON.stringify({
-        tag_name: latestTag,
-        name:
-          ctx.runtime.versions && ctx.runtime.versions.size > 1
-            ? [...ctx.runtime.versions]
-                .map(([name, ver]) => `${name}@${ver}`)
-                .join(", ")
-            : `pubm v${ctx.runtime.version}`,
+        tag_name: options.tag,
+        name: options.tag,
         body,
-        prerelease: !!prerelease(ctx.runtime.version ?? ""),
+        prerelease: !!prerelease(options.version),
       }),
     },
   );
@@ -261,8 +261,9 @@ export async function createGitHubRelease(
   }
 
   return {
-    version: ctx.runtime.version ?? "",
-    tag: latestTag,
+    packageName: options.packageName,
+    version: options.version,
+    tag: options.tag,
     releaseUrl,
     assets,
   };

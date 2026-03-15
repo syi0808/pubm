@@ -61,7 +61,11 @@ describe("createGitHubRelease", () => {
     const { createGitHubRelease } = await freshImport();
 
     await expect(
-      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+      createGitHubRelease({} as any, {
+        packageName: "pubm",
+        version: "1.0.0",
+        tag: "v1.0.0",
+      }),
     ).rejects.toThrow(/GITHUB_TOKEN environment variable is required/);
   });
 
@@ -96,14 +100,16 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease({
-      runtime: { version: "1.2.0" },
-    } as any);
+    const result = await createGitHubRelease({} as any, {
+      packageName: "pubm",
+      version: "1.2.0",
+      tag: "v1.2.0",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(payload.tag_name).toBe("v1.2.0");
-    expect(payload.name).toBe("pubm v1.2.0");
+    expect(payload.name).toBe("v1.2.0");
     expect(payload.prerelease).toBe(false);
     expect(payload.body).toContain(
       "[#42](https://github.com/pubm/pubm/issues/42)",
@@ -112,6 +118,7 @@ describe("createGitHubRelease", () => {
       "https://github.com/pubm/pubm/compare/first-commit...v1.2.0",
     );
     expect(result.assets).toEqual([]);
+    expect(result.packageName).toBe("pubm");
   });
 
   it("uses the provided changelog body, uploads platform binaries, and returns hashed assets", async () => {
@@ -179,23 +186,15 @@ describe("createGitHubRelease", () => {
       });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease(
-      {
-        runtime: {
-          version: "2.0.0-beta.1",
-          versions: new Map([
-            ["@pubm/core", "2.0.0-beta.1"],
-            ["pubm", "2.0.0-beta.1"],
-          ]),
-        },
-      } as any,
-      "Release notes from CHANGELOG",
-    );
+    const result = await createGitHubRelease({} as any, {
+      packageName: "pubm",
+      version: "2.0.0-beta.1",
+      tag: "v2.0.0-beta.1",
+      changelogBody: "Release notes from CHANGELOG",
+    });
 
     const createPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(createPayload.name).toBe(
-      "@pubm/core@2.0.0-beta.1, pubm@2.0.0-beta.1",
-    );
+    expect(createPayload.name).toBe("v2.0.0-beta.1");
     expect(createPayload.body).toBe("Release notes from CHANGELOG");
     expect(createPayload.prerelease).toBe(true);
     expect(mockMkdirSync).toHaveBeenCalledWith(
@@ -262,9 +261,11 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease({
-      runtime: { version: "1.2.0" },
-    } as any);
+    const result = await createGitHubRelease({} as any, {
+      packageName: "pubm",
+      version: "1.2.0",
+      tag: "v1.2.0",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.assets).toEqual([]);
@@ -294,7 +295,11 @@ describe("createGitHubRelease", () => {
     }) as any;
 
     await expect(
-      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+      createGitHubRelease({} as any, {
+        packageName: "pubm",
+        version: "1.0.0",
+        tag: "v1.0.0",
+      }),
     ).rejects.toThrow(
       /Failed to create GitHub Release \(422\): validation failed/,
     );
@@ -363,7 +368,11 @@ describe("createGitHubRelease", () => {
       }) as any;
 
     await expect(
-      createGitHubRelease({ runtime: { version: "1.2.0" } } as any),
+      createGitHubRelease({} as any, {
+        packageName: "pubm",
+        version: "1.2.0",
+        tag: "v1.2.0",
+      }),
     ).rejects.toThrow(
       /Failed to upload asset pubm-linux-x64\.tar\.gz \(500\): upload failed/,
     );
@@ -381,7 +390,11 @@ describe("createGitHubRelease", () => {
     global.fetch = vi.fn() as any;
 
     await expect(
-      createGitHubRelease({ runtime: { version: "1.0.0" } } as any),
+      createGitHubRelease({} as any, {
+        packageName: "pubm",
+        version: "1.0.0",
+        tag: "v1.0.0",
+      }),
     ).rejects.toThrow(/Cannot parse owner\/repo from remote URL/);
     expect(global.fetch).not.toHaveBeenCalled();
   });

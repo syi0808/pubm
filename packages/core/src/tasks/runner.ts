@@ -19,7 +19,7 @@ import {
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
-import { type PubmContext, resolveVersion } from "../context.js";
+import type { PubmContext } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -618,74 +618,106 @@ export async function run(ctx: PubmContext): Promise<void> {
             {
               title: "Creating GitHub Release",
               task: async (ctx, task): Promise<void> => {
+                const plan = ctx.runtime.versionPlan!;
                 task.title = `Creating GitHub Release (${formatVersionSummary(ctx)})`;
-                let changelogBody: string | undefined;
 
-                if (ctx.runtime.versions && ctx.runtime.versions.size > 1) {
-                  task.output =
-                    "Collecting release notes from per-package CHANGELOG.md files...";
-                  // Multi-package: combine changelogs from per-package CHANGELOG.md files
-                  const sections: string[] = [];
+                if (plan.mode === "independent") {
+                  // Per-package releases
+                  for (const [pkgName, pkgVersion] of plan.packages) {
+                    const tag = `${pkgName}@${pkgVersion}`;
+                    task.output = `Creating release for ${tag}...`;
 
-                  for (const [pkgName, pkgVersion] of ctx.runtime.versions) {
+                    let changelogBody: string | undefined;
                     const pkgConfig = ctx.config.packages.find(
                       (p) => p.name === pkgName,
                     );
-                    if (!pkgConfig) continue;
-                    const pkgChangelogPath = join(
-                      process.cwd(),
-                      pkgConfig.path,
-                      "CHANGELOG.md",
-                    );
-                    if (existsSync(pkgChangelogPath)) {
-                      const content = readFileSync(pkgChangelogPath, "utf-8");
-                      const section = parseChangelogSection(
-                        content,
-                        pkgVersion,
+                    if (pkgConfig) {
+                      const changelogPath = join(
+                        process.cwd(),
+                        pkgConfig.path,
+                        "CHANGELOG.md",
                       );
-                      if (section) {
-                        sections.push(
-                          `## ${pkgName} v${pkgVersion}\n\n${section}`,
+                      if (existsSync(changelogPath)) {
+                        const section = parseChangelogSection(
+                          readFileSync(changelogPath, "utf-8"),
+                          pkgVersion,
                         );
+                        if (section) changelogBody = section;
                       }
                     }
-                  }
-                  if (sections.length > 0) {
-                    changelogBody = sections.join("\n\n---\n\n");
+
+                    const result = await createGitHubRelease(ctx, {
+                      packageName: pkgName,
+                      version: pkgVersion,
+                      tag,
+                      changelogBody,
+                    });
+                    task.output = `Release created: ${result.releaseUrl}`;
+                    await ctx.runtime.pluginRunner.runAfterReleaseHook(
+                      ctx,
+                      result,
+                    );
                   }
                 } else {
-                  task.output = "Reading CHANGELOG.md for release notes...";
-                  // Single package: existing behavior
-                  const changelogPath = join(process.cwd(), "CHANGELOG.md");
-                  if (existsSync(changelogPath)) {
-                    const changelogContent = readFileSync(
-                      changelogPath,
-                      "utf-8",
-                    );
-                    const section = parseChangelogSection(
-                      changelogContent,
-                      ctx.runtime.version ?? "",
-                    );
-                    if (section) {
-                      changelogBody = section;
+                  // Single or fixed: one release
+                  const version =
+                    plan.mode === "single" ? plan.version : plan.version;
+                  const tag = `v${version}`;
+                  task.output = `Creating release for ${tag}...`;
+
+                  let changelogBody: string | undefined;
+                  if (plan.mode === "fixed") {
+                    const sections: string[] = [];
+                    for (const [pkgName, pkgVersion] of plan.packages) {
+                      const pkgConfig = ctx.config.packages.find(
+                        (p) => p.name === pkgName,
+                      );
+                      if (!pkgConfig) continue;
+                      const changelogPath = join(
+                        process.cwd(),
+                        pkgConfig.path,
+                        "CHANGELOG.md",
+                      );
+                      if (existsSync(changelogPath)) {
+                        const section = parseChangelogSection(
+                          readFileSync(changelogPath, "utf-8"),
+                          pkgVersion,
+                        );
+                        if (section) {
+                          sections.push(
+                            `## ${pkgName} v${pkgVersion}\n\n${section}`,
+                          );
+                        }
+                      }
+                    }
+                    if (sections.length > 0) {
+                      changelogBody = sections.join("\n\n---\n\n");
+                    }
+                  } else {
+                    const changelogPath = join(process.cwd(), "CHANGELOG.md");
+                    if (existsSync(changelogPath)) {
+                      const section = parseChangelogSection(
+                        readFileSync(changelogPath, "utf-8"),
+                        version,
+                      );
+                      if (section) changelogBody = section;
                     }
                   }
-                }
 
-                const result = await createGitHubRelease(ctx, changelogBody);
-                task.output = `GitHub Release created: ${result.releaseUrl}`;
-                ctx.runtime.releaseContext = result;
-              },
-            },
-            {
-              title: "Running after-release hooks",
-              skip: (ctx) => !ctx.runtime.releaseContext,
-              task: async (ctx, task): Promise<void> => {
-                if (ctx.runtime.releaseContext) {
-                  task.output = `Running after-release hooks for ${ctx.runtime.releaseContext.tag}...`;
+                  const packageName =
+                    plan.mode === "single"
+                      ? plan.packageName
+                      : (ctx.config.packages[0]?.name ?? "");
+                  const result = await createGitHubRelease(ctx, {
+                    packageName,
+                    version,
+                    tag,
+                    changelogBody,
+                  });
+                  task.output = `Release created: ${result.releaseUrl}`;
                   await ctx.runtime.pluginRunner.runAfterReleaseHook(
                     ctx,
-                    ctx.runtime.releaseContext,
+                    result,
                   );
                 }
               },
@@ -946,10 +978,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                             plan.version,
                             allEntries,
                           );
-                          writeChangelogToFile(
-                            process.cwd(),
-                            changelogContent,
-                          );
+                          writeChangelogToFile(process.cwd(), changelogContent);
                         }
                         deleteChangesetFiles(process.cwd(), changesets);
                       }
@@ -1071,10 +1100,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                     // Create per-package tags
                     task.output = "Creating tags...";
                     for (const [pkgName, pkgVersion] of plan.packages) {
-                      await git.createTag(
-                        `${pkgName}@${pkgVersion}`,
-                        commit,
-                      );
+                      await git.createTag(`${pkgName}@${pkgVersion}`, commit);
                     }
                     tagCreated = true;
                   }
@@ -1164,49 +1190,82 @@ export async function run(ctx: PubmContext): Promise<void> {
                 title: "Creating release draft on GitHub",
                 task: async (ctx, task): Promise<void> => {
                   const git = new Git();
+                  const plan = ctx.runtime.versionPlan!;
                   task.title = `Creating release draft on GitHub (${formatVersionSummary(ctx)})`;
                   task.output =
                     "Resolving repository metadata for the release draft...";
 
                   const repositoryUrl = await git.repository();
 
-                  const latestTag = `${await git.latestTag()}`;
+                  if (plan.mode === "independent") {
+                    let first = true;
+                    for (const [pkgName, pkgVersion] of plan.packages) {
+                      const tag = `${pkgName}@${pkgVersion}`;
+                      const lastRev =
+                        (await git.previousTag(tag)) ||
+                        (await git.firstCommit());
+                      const commits = (await git.commits(lastRev, tag)).slice(
+                        1,
+                      );
 
-                  const lastRev =
-                    (await git.previousTag(latestTag)) ||
-                    (await git.firstCommit());
+                      let body = commits
+                        .map(
+                          ({ id, message }) =>
+                            `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                        )
+                        .join("\n");
+                      body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
 
-                  const commits = (
-                    await git.commits(lastRev, `${latestTag}`)
-                  ).slice(1);
-                  task.output = `Collected ${commits.length} commits for ${latestTag}.`;
+                      const releaseDraftUrl = new URL(
+                        `${repositoryUrl}/releases/new`,
+                      );
+                      releaseDraftUrl.searchParams.set("tag", tag);
+                      releaseDraftUrl.searchParams.set("body", body);
+                      releaseDraftUrl.searchParams.set(
+                        "prerelease",
+                        `${!!prerelease(pkgVersion)}`,
+                      );
 
-                  let body = commits
-                    .map(
-                      ({ id, message }) =>
-                        `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-                    )
-                    .join("\n");
+                      const linkUrl = link(tag, releaseDraftUrl.toString());
+                      task.title += ` ${linkUrl}`;
 
-                  body += `\n\n${repositoryUrl}/compare/${lastRev}...${latestTag}`;
+                      if (first) {
+                        task.output = `Opening release draft for ${tag}...`;
+                        await openUrl(releaseDraftUrl.toString());
+                        first = false;
+                      }
+                    }
+                  } else {
+                    const version = plan.version;
+                    const tag = `v${version}`;
+                    const lastRev =
+                      (await git.previousTag(tag)) || (await git.firstCommit());
+                    const commits = (await git.commits(lastRev, tag)).slice(1);
+                    task.output = `Collected ${commits.length} commits for ${tag}.`;
 
-                  const releaseDraftUrl = new URL(
-                    `${repositoryUrl}/releases/new`,
-                  );
+                    let body = commits
+                      .map(
+                        ({ id, message }) =>
+                          `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                      )
+                      .join("\n");
+                    body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
 
-                  releaseDraftUrl.searchParams.set("tag", `${latestTag}`);
-                  releaseDraftUrl.searchParams.set("body", body);
-                  releaseDraftUrl.searchParams.set(
-                    "prerelease",
-                    `${!!prerelease(ctx.runtime.versionPlan ? resolveVersion(ctx.runtime.versionPlan) : ctx.runtime.version ?? "")}`,
-                  );
+                    const releaseDraftUrl = new URL(
+                      `${repositoryUrl}/releases/new`,
+                    );
+                    releaseDraftUrl.searchParams.set("tag", tag);
+                    releaseDraftUrl.searchParams.set("body", body);
+                    releaseDraftUrl.searchParams.set(
+                      "prerelease",
+                      `${!!prerelease(version)}`,
+                    );
 
-                  const linkUrl = link("Link", releaseDraftUrl.toString());
-
-                  task.title += ` ${linkUrl}`;
-                  task.output = `Opening release draft for ${latestTag}...`;
-
-                  await openUrl(releaseDraftUrl.toString());
+                    const linkUrl = link("Link", releaseDraftUrl.toString());
+                    task.title += ` ${linkUrl}`;
+                    task.output = `Opening release draft for ${tag}...`;
+                    await openUrl(releaseDraftUrl.toString());
+                  }
                 },
               },
             ],
