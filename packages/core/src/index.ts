@@ -56,9 +56,15 @@ export type {
 // Config
 export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
 export type { ResolvedPackageConfig } from "./config/types.js";
-export type { PubmContext } from "./context.js";
+export type {
+  FixedVersionPlan,
+  IndependentVersionPlan,
+  PubmContext,
+  SingleVersionPlan,
+  VersionPlan,
+} from "./context.js";
 // Context
-export { createContext } from "./context.js";
+export { createContext, resolveVersion } from "./context.js";
 export { ecosystemCatalog } from "./ecosystem/catalog.js";
 // Ecosystem
 export type { Ecosystem } from "./ecosystem/ecosystem.js";

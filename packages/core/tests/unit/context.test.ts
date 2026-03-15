@@ -71,6 +71,7 @@ describe("createContext", () => {
     expect(ctx.runtime.cleanWorkingTree).toBe(false);
     expect(ctx.runtime.version).toBeUndefined();
     expect(ctx.runtime.versions).toBeUndefined();
+    expect(ctx.runtime.versionPlan).toBeUndefined();
     expect(ctx.runtime.changesetConsumed).toBeUndefined();
   });
 
@@ -87,8 +88,14 @@ describe("createContext", () => {
     const ctx = createContext(makeConfig(), makeOptions());
     ctx.runtime.version = "1.0.0";
     ctx.runtime.tag = "next";
+    ctx.runtime.versionPlan = {
+      mode: "single",
+      version: "1.0.0",
+      packageName: "test",
+    };
     expect(ctx.runtime.version).toBe("1.0.0");
     expect(ctx.runtime.tag).toBe("next");
+    expect(ctx.runtime.versionPlan?.version).toBe("1.0.0");
   });
 
   it("config is immutable (top-level reassignment throws)", () => {

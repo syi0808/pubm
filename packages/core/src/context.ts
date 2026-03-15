@@ -4,6 +4,43 @@ import { PluginRunner } from "./plugin/runner.js";
 import type { ReleaseContext } from "./tasks/github-release.js";
 import type { ResolvedOptions } from "./types/options.js";
 
+export interface SingleVersionPlan {
+  mode: "single";
+  version: string;
+  packageName: string;
+}
+
+export interface FixedVersionPlan {
+  mode: "fixed";
+  version: string;
+  packages: Map<string, string>;
+}
+
+export interface IndependentVersionPlan {
+  mode: "independent";
+  packages: Map<string, string>;
+}
+
+export type VersionPlan =
+  | SingleVersionPlan
+  | FixedVersionPlan
+  | IndependentVersionPlan;
+
+export function resolveVersion(
+  plan: VersionPlan,
+  picker?: (packages: Map<string, string>) => string,
+): string {
+  if (plan.mode === "single") return plan.version;
+  if (plan.mode === "fixed") return plan.version;
+  if (!picker) {
+    throw new Error(
+      "independent mode requires an explicit version picker. " +
+        "Provide a picker function or set the 'version' option.",
+    );
+  }
+  return picker(plan.packages);
+}
+
 export interface PubmContext {
   readonly config: ResolvedPubmConfig;
   readonly options: ResolvedOptions;
@@ -17,6 +54,7 @@ export interface PubmContext {
     promptEnabled: boolean;
     cleanWorkingTree: boolean;
     pluginRunner: PluginRunner;
+    versionPlan?: VersionPlan;
     releaseContext?: ReleaseContext;
     scopeCreated?: boolean;
     packageCreated?: boolean;
