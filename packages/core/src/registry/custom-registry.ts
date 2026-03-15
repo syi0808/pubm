@@ -1,4 +1,3 @@
-import process from "node:process";
 import { exec } from "../utils/exec.js";
 import { NpmPackageRegistry } from "./npm.js";
 
@@ -14,13 +13,9 @@ export class CustomPackageRegistry extends NpmPackageRegistry {
 }
 
 export async function customPackageRegistry(
-  packagePath?: string,
+  packagePath: string,
   registryUrl?: string,
 ): Promise<CustomPackageRegistry> {
-  if (packagePath) {
-    const manifest = await NpmPackageRegistry.reader.read(packagePath);
-    return new CustomPackageRegistry(manifest.name, registryUrl);
-  }
-  const manifest = await NpmPackageRegistry.reader.read(process.cwd());
+  const manifest = await NpmPackageRegistry.reader.read(packagePath);
   return new CustomPackageRegistry(manifest.name, registryUrl);
 }

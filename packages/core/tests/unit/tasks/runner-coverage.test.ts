@@ -117,10 +117,10 @@ vi.mock("../../../src/tasks/npm.js", () => ({
   },
 }));
 vi.mock("../../../src/tasks/jsr.js", () => ({
-  jsrPublishTasks: {
+  createJsrPublishTask: vi.fn(() => ({
     title: "jsr publish",
     task: vi.fn(),
-  },
+  })),
 }));
 vi.mock("../../../src/tasks/crates.js", () => ({
   cratesPublishTasks: {
@@ -524,7 +524,12 @@ describe("runner coverage scenarios", () => {
 
     const ecosystemParent = createParentTask();
     await subtasks[0].task(ctx, ecosystemParent);
-    expect(ecosystemParent.newListr.mock.calls[0][0][0].title).toBe(
+    const registryWrapperTask = ecosystemParent.newListr.mock.calls[0][0][0];
+    expect(registryWrapperTask.title).toBe("Running custom-registry publish");
+
+    const innerParent = createParentTask();
+    registryWrapperTask.task(ctx, innerParent);
+    expect(innerParent.newListr.mock.calls[0][0][0].title).toBe(
       "Publish to custom-registry",
     );
 

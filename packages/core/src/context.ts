@@ -20,6 +20,8 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     scopeCreated?: boolean;
     packageCreated?: boolean;
+    npmOtp?: string;
+    npmOtpPromise?: Promise<string>;
   };
 }
 

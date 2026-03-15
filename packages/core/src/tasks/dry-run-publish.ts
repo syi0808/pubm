@@ -24,6 +24,7 @@ function isAuthError(error: unknown): boolean {
 
 async function withTokenRetry(
   registryKey: string,
+  ctx: PubmContext,
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
   action: () => Promise<void>,
@@ -37,54 +38,73 @@ async function withTokenRetry(
     if (!descriptor) throw error;
     const config = descriptor.tokenConfig;
 
-    task.output = `Auth failed. Re-enter ${config.promptLabel}`;
-    const newToken: string = await task.prompt(ListrEnquirerPromptAdapter).run({
-      type: "password",
-      message: `Re-enter ${config.promptLabel}`,
-    });
+    // Shared promise: first task prompts, others await
+    const retryKey = `_tokenRetry_${registryKey}`;
+    if (!(ctx.runtime as any)[retryKey]) {
+      (ctx.runtime as any)[retryKey] = (async () => {
+        task.output = `Auth failed. Re-enter ${config.promptLabel}`;
+        const newToken: string = await task
+          .prompt(ListrEnquirerPromptAdapter)
+          .run({
+            type: "password",
+            message: `Re-enter ${config.promptLabel}`,
+          });
+        new SecureStore().set(config.dbKey, newToken);
+        process.env[config.envVar] = newToken;
+        return newToken;
+      })();
+    }
 
-    new SecureStore().set(config.dbKey, newToken);
-    process.env[config.envVar] = newToken;
-
+    await (ctx.runtime as any)[retryKey];
     await action();
   }
 }
 
-export const npmDryRunPublishTask: ListrTask<PubmContext> = {
-  title: "Dry-run npm publish",
-  task: async (ctx, task): Promise<void> => {
-    const npm = await npmPackageRegistry();
+export function createNpmDryRunPublishTask(
+  packagePath: string,
+): ListrTask<PubmContext> {
+  return {
+    title: packagePath,
+    task: async (ctx, task): Promise<void> => {
+      const npm = await npmPackageRegistry(packagePath);
+      task.title = npm.packageName;
 
-    if (await npm.isVersionPublished(ctx.runtime.version!)) {
-      task.title = `[SKIPPED] Dry-run npm publish: v${ctx.runtime.version} already published`;
-      task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
-      return task.skip();
-    }
+      if (await npm.isVersionPublished(ctx.runtime.version!)) {
+        task.title = `[SKIPPED] Dry-run npm publish: v${ctx.runtime.version} already published`;
+        task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
+        return task.skip();
+      }
 
-    task.output = "Running npm publish --dry-run...";
-    await withTokenRetry("npm", task, async () => {
-      await npm.dryRunPublish();
-    });
-  },
-};
+      task.output = "Running npm publish --dry-run...";
+      await withTokenRetry("npm", ctx, task, async () => {
+        await npm.dryRunPublish();
+      });
+    },
+  };
+}
 
-export const jsrDryRunPublishTask: ListrTask<PubmContext> = {
-  title: "Dry-run jsr publish",
-  task: async (ctx, task): Promise<void> => {
-    const jsr = await jsrPackageRegistry();
+export function createJsrDryRunPublishTask(
+  packagePath: string,
+): ListrTask<PubmContext> {
+  return {
+    title: packagePath,
+    task: async (ctx, task): Promise<void> => {
+      const jsr = await jsrPackageRegistry(packagePath);
+      task.title = jsr.packageName;
 
-    if (await jsr.isVersionPublished(ctx.runtime.version!)) {
-      task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.runtime.version} already published`;
-      task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
-      return task.skip();
-    }
+      if (await jsr.isVersionPublished(ctx.runtime.version!)) {
+        task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.runtime.version} already published`;
+        task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
+        return task.skip();
+      }
 
-    task.output = "Running jsr publish --dry-run...";
-    await withTokenRetry("jsr", task, async () => {
-      await jsr.dryRunPublish();
-    });
-  },
-};
+      task.output = "Running jsr publish --dry-run...";
+      await withTokenRetry("jsr", ctx, task, async () => {
+        await jsr.dryRunPublish();
+      });
+    },
+  };
+}
 
 async function getCrateName(packagePath?: string): Promise<string> {
   const eco = new RustEcosystem(packagePath ?? process.cwd());
@@ -144,7 +164,7 @@ export function createCratesDryRunPublishTask(
 
       task.output = "Running cargo publish --dry-run...";
       try {
-        await withTokenRetry("crates", task, async () => {
+        await withTokenRetry("crates", ctx, task, async () => {
           const packageName = await getCrateName(packagePath);
           const registry = new CratesPackageRegistry(packageName);
           await registry.dryRunPublish(packagePath);

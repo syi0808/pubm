@@ -58,8 +58,8 @@ import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
   cratesDryRunPublishTask,
   createCratesDryRunPublishTask,
-  jsrDryRunPublishTask,
-  npmDryRunPublishTask,
+  createJsrDryRunPublishTask,
+  createNpmDryRunPublishTask,
 } from "../../../src/tasks/dry-run-publish.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
 
@@ -76,36 +76,44 @@ beforeEach(() => {
   });
 });
 
-describe("npmDryRunPublishTask", () => {
-  it("has correct title", () => {
-    expect(npmDryRunPublishTask.title).toBe("Dry-run npm publish");
+describe("createNpmDryRunPublishTask", () => {
+  it("has packagePath as initial title", () => {
+    const task = createNpmDryRunPublishTask("packages/core");
+    expect(task.title).toBe("packages/core");
   });
 
-  it("calls dryRunPublish on npm registry", async () => {
+  it("calls dryRunPublish on npm registry with packagePath", async () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
       isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
     } as any);
 
-    await (npmDryRunPublishTask as any).task({ runtime: {} }, { output: "" });
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, { output: "" });
+    expect(mockedNpmRegistry).toHaveBeenCalledWith("packages/core");
     expect(mockDryRun).toHaveBeenCalled();
   });
 });
 
-describe("jsrDryRunPublishTask", () => {
-  it("has correct title", () => {
-    expect(jsrDryRunPublishTask.title).toBe("Dry-run jsr publish");
+describe("createJsrDryRunPublishTask", () => {
+  it("has packagePath as initial title", () => {
+    const task = createJsrDryRunPublishTask("packages/core");
+    expect(task.title).toBe("packages/core");
   });
 
-  it("calls dryRunPublish on jsr registry", async () => {
+  it("calls dryRunPublish on jsr registry with packagePath", async () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
     mockedJsrRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
       isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "@scope/test",
     } as any);
 
-    await (jsrDryRunPublishTask as any).task({ runtime: {} }, { output: "" });
+    const task = createJsrDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, { output: "" });
+    expect(mockedJsrRegistry).toHaveBeenCalledWith("packages/core");
     expect(mockDryRun).toHaveBeenCalled();
   });
 });
@@ -289,6 +297,7 @@ describe("withTokenRetry", () => {
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
       isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
     } as any);
 
     const mockPromptAdapter = {
@@ -299,7 +308,8 @@ describe("withTokenRetry", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await (npmDryRunPublishTask as any).task({ runtime: {} }, mockTask);
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, mockTask);
 
     expect(mockDryRun).toHaveBeenCalledTimes(2);
     expect(process.env.NODE_AUTH_TOKEN).toBe("new-token");
@@ -313,13 +323,15 @@ describe("withTokenRetry", () => {
     mockedNpmRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
       isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
     } as any);
 
     const mockTask = { output: "", prompt: vi.fn() };
 
-    await expect(
-      (npmDryRunPublishTask as any).task({ runtime: {} }, mockTask),
-    ).rejects.toThrow("network timeout");
+    const task = createNpmDryRunPublishTask("packages/core");
+    await expect((task as any).task({ runtime: {} }, mockTask)).rejects.toThrow(
+      "network timeout",
+    );
 
     expect(mockDryRun).toHaveBeenCalledTimes(1);
     expect(mockTask.prompt).not.toHaveBeenCalled();
@@ -333,6 +345,7 @@ describe("withTokenRetry", () => {
     mockedJsrRegistry.mockResolvedValue({
       dryRunPublish: mockDryRun,
       isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "@scope/test",
     } as any);
 
     const mockDbSet = vi.fn();
@@ -348,7 +361,8 @@ describe("withTokenRetry", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await (jsrDryRunPublishTask as any).task({ runtime: {} }, mockTask);
+    const task = createJsrDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, mockTask);
 
     expect(mockDbSet).toHaveBeenCalledWith("jsr-token", "fresh-jsr-token");
 

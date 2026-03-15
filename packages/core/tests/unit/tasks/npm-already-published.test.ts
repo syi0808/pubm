@@ -5,14 +5,14 @@ vi.mock("../../../src/registry/npm.js", () => ({
 }));
 
 import { npmPackageRegistry } from "../../../src/registry/npm.js";
-import { npmPublishTasks } from "../../../src/tasks/npm.js";
+import { createNpmPublishTask } from "../../../src/tasks/npm.js";
 
 const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
 
-describe("npmPublishTasks — already published", () => {
+describe("createNpmPublishTask — already published", () => {
   const mockTask = {
     output: "",
-    title: "Running npm publish",
+    title: "",
     skip: vi.fn(),
     prompt: vi.fn(),
   };
@@ -20,7 +20,22 @@ describe("npmPublishTasks — already published", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTask.output = "";
-    mockTask.title = "Running npm publish";
+    mockTask.title = "";
+  });
+
+  it("calls npmPackageRegistry with the provided packagePath", async () => {
+    const mockNpm = {
+      isVersionPublished: vi.fn().mockResolvedValue(true),
+      packageName: "test-package",
+    };
+    mockedNpmRegistry.mockResolvedValue(mockNpm as any);
+
+    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const task = createNpmPublishTask("packages/core");
+
+    await (task.task as any)(ctx, mockTask);
+
+    expect(mockedNpmRegistry).toHaveBeenCalledWith("packages/core");
   });
 
   it("skips publish when version is already published", async () => {
@@ -31,8 +46,9 @@ describe("npmPublishTasks — already published", () => {
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const task = createNpmPublishTask("packages/core");
 
-    await (npmPublishTasks as any).task(ctx, mockTask);
+    await (task.task as any)(ctx, mockTask);
 
     expect(mockNpm.isVersionPublished).toHaveBeenCalledWith("1.0.0");
     expect(mockTask.skip).toHaveBeenCalled();
@@ -54,8 +70,9 @@ describe("npmPublishTasks — already published", () => {
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const task = createNpmPublishTask("packages/core");
 
-    await (npmPublishTasks as any).task(ctx, mockTask);
+    await (task.task as any)(ctx, mockTask);
 
     expect(mockTask.skip).toHaveBeenCalled();
     expect(mockTask.title).toContain("already published");
@@ -70,8 +87,9 @@ describe("npmPublishTasks — already published", () => {
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const task = createNpmPublishTask("packages/core");
 
-    await (npmPublishTasks as any).task(ctx, mockTask);
+    await (task.task as any)(ctx, mockTask);
 
     expect(mockNpm.publish).toHaveBeenCalled();
   });

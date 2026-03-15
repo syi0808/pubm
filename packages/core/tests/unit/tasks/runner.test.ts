@@ -79,10 +79,10 @@ vi.mock("../../../src/tasks/npm.js", () => ({
   },
 }));
 vi.mock("../../../src/tasks/jsr.js", () => ({
-  jsrPublishTasks: {
+  createJsrPublishTask: vi.fn(() => ({
     title: "jsr publish",
     task: vi.fn(),
-  },
+  })),
 }));
 vi.mock("../../../src/tasks/crates.js", () => ({
   cratesPublishTasks: {
@@ -1147,8 +1147,8 @@ describe("run", () => {
       const registrySubtasks = (ecosystemParentTask.newListr as any).mock
         .calls[0][0];
       expect(registrySubtasks).toHaveLength(2);
-      expect(registrySubtasks[0].title).toBe("npm publish");
-      expect(registrySubtasks[1].title).toBe("jsr publish");
+      expect(registrySubtasks[0].title).toBe("Running npm publish");
+      expect(registrySubtasks[1].title).toBe("Running jsr publish");
     });
 
     it("creates per-package crate publish tasks with package path", async () => {
@@ -1203,10 +1203,8 @@ describe("run", () => {
         .calls[0][0];
       const rustRegistrySubtasks = (rustParentTask.newListr as any).mock
         .calls[0][0];
-      expect(jsRegistrySubtasks[0].title).toBe("npm publish");
-      expect(rustRegistrySubtasks[0].title).toBe(
-        "Publishing to crates.io (sequential)",
-      );
+      expect(jsRegistrySubtasks[0].title).toBe("Running npm publish");
+      expect(rustRegistrySubtasks[0].title).toBe("Running crates.io publish");
     });
 
     it("creates per-package crate publish tasks in publishOnly mode", async () => {
@@ -1328,13 +1326,11 @@ describe("run", () => {
 
       const jsRegistrySubtasks = (jsParentTask.newListr as any).mock
         .calls[0][0];
-      expect(jsRegistrySubtasks[0].title).toBe("npm publish");
+      expect(jsRegistrySubtasks[0].title).toBe("Running npm publish");
 
       const rustRegistrySubtasks = (rustParentTask.newListr as any).mock
         .calls[0][0];
-      expect(rustRegistrySubtasks[0].title).toBe(
-        "Publishing to crates.io (sequential)",
-      );
+      expect(rustRegistrySubtasks[0].title).toBe("Running crates.io publish");
 
       const innerParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
@@ -1386,7 +1382,7 @@ describe("run", () => {
       const registrySubtasks = (ecosystemParentTask.newListr as any).mock
         .calls[0][0];
       expect(registrySubtasks).toHaveLength(1);
-      expect(registrySubtasks[0].title).toBe("npm publish");
+      expect(registrySubtasks[0].title).toBe("Running npm publish");
     });
   });
 
@@ -1620,7 +1616,16 @@ describe("run", () => {
 
       await ecosystemTasks[0].task(ctx, ecosystemParentTask);
 
-      expect(ecosystemParentTask.newListr.mock.calls[0][0][0].title).toBe(
+      const registryWrapperTask =
+        ecosystemParentTask.newListr.mock.calls[0][0][0];
+      expect(registryWrapperTask.title).toBe("Dry-run custom-registry publish");
+
+      const innerParentTask = {
+        newListr: vi.fn(() => ({ run: vi.fn() })),
+      };
+      registryWrapperTask.task(ctx, innerParentTask);
+
+      expect(innerParentTask.newListr.mock.calls[0][0][0].title).toBe(
         "Dry-run custom-registry",
       );
     });

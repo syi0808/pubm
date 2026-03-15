@@ -984,9 +984,9 @@ describe("jsrPackageRegistry()", () => {
         dependencies: [],
       });
 
-    const result = await jsrPackageRegistry();
+    const result = await jsrPackageRegistry("/test/path");
 
-    expect(readSpy).toHaveBeenCalled();
+    expect(readSpy).toHaveBeenCalledWith("/test/path");
     expect(result).toBeInstanceOf(JsrPackageRegistry);
     expect(result.packageName).toBe("@scope/my-lib");
     readSpy.mockRestore();

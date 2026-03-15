@@ -1,12 +1,14 @@
-import process from "node:process";
-import type { PackageConfig, PrivateRegistryConfig } from "../config/types.js";
+import type {
+  PrivateRegistryConfig,
+  ResolvedPackageConfig,
+} from "../config/types.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
 import type { RegistryConnector } from "./connector.js";
 import { CratesConnector, cratesPackageRegistry } from "./crates.js";
 import { CustomPackageRegistry } from "./custom-registry.js";
-import { JsrPackageRegistry, jsrConnector, jsrPackageRegistry } from "./jsr.js";
+import { jsrConnector, jsrPackageRegistry } from "./jsr.js";
 import { NpmPackageRegistry, npmConnector, npmPackageRegistry } from "./npm.js";
 import type { PackageRegistry } from "./package-registry.js";
 
@@ -30,7 +32,7 @@ export interface RegistryDescriptor {
   additionalEnvVars?: (token: string) => Record<string, string>;
   resolveTokenUrl?: (baseUrl: string) => Promise<string>;
   resolveDisplayName?: (ctx: {
-    packages?: PackageConfig[];
+    packages?: ResolvedPackageConfig[];
   }) => Promise<string[]>;
   concurrentPublish: boolean;
   orderPackages?: (paths: string[]) => Promise<string[]>;
@@ -85,13 +87,12 @@ registryCatalog.register({
     const username = result.stdout.trim();
     return username ? baseUrl.replace("~", username) : baseUrl;
   },
-  resolveDisplayName: async () => {
-    try {
-      const manifest = await NpmPackageRegistry.reader.read(process.cwd());
-      return manifest.name ? [manifest.name] : [];
-    } catch {
-      return [];
-    }
+  resolveDisplayName: async (ctx) => {
+    return (
+      ctx.packages
+        ?.filter((pkg) => pkg.registries?.includes("npm"))
+        .map((pkg) => pkg.name) ?? []
+    );
   },
   concurrentPublish: true,
   connector: () => npmConnector(),
@@ -111,13 +112,12 @@ registryCatalog.register({
     tokenUrlLabel: "jsr.io",
   },
   needsPackageScripts: false,
-  resolveDisplayName: async () => {
-    try {
-      const manifest = await JsrPackageRegistry.reader.read(process.cwd());
-      return manifest.name ? [manifest.name] : [];
-    } catch {
-      return [];
-    }
+  resolveDisplayName: async (ctx) => {
+    return (
+      ctx.packages
+        ?.filter((pkg) => pkg.registries?.includes("jsr"))
+        .map((pkg) => pkg.name) ?? []
+    );
   },
   concurrentPublish: true,
   connector: () => jsrConnector(),
