@@ -1,6 +1,6 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
-import { type PubmContext, getPackageVersion } from "../context.js";
+import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { CratesPackageRegistry } from "../registry/crates.js";

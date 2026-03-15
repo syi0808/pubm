@@ -240,6 +240,11 @@ function createOptions(
     options: overrides.options,
     runtime: {
       version: "1.0.0",
+      versionPlan: {
+        mode: "single" as const,
+        version: "1.0.0",
+        packageName: "my-package",
+      },
       pluginRunner: new PluginRunner([]),
       ...overrides.runtime,
     },
@@ -321,6 +326,8 @@ beforeEach(() => {
       repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
       stash: vi.fn().mockResolvedValue(undefined),
       popStash: vi.fn().mockResolvedValue(undefined),
+      status: vi.fn().mockResolvedValue(""),
+      checkTagExist: vi.fn().mockResolvedValue(false),
     } as any;
   });
   mockedGetPackageManager.mockResolvedValue("pnpm" as any);
@@ -909,6 +916,7 @@ describe("run", () => {
           stash,
           popStash,
           status: vi.fn().mockResolvedValue(" M package.json"),
+          checkTagExist: vi.fn().mockResolvedValue(false),
         } as any;
       });
 
@@ -943,6 +951,8 @@ describe("run", () => {
           stash: vi.fn().mockResolvedValue(undefined),
           popStash: vi.fn().mockResolvedValue(undefined),
           deleteTag: vi.fn().mockResolvedValue(undefined),
+          status: vi.fn().mockResolvedValue(""),
+          checkTagExist: vi.fn().mockResolvedValue(false),
         } as any;
       });
 
@@ -976,6 +986,8 @@ describe("run", () => {
           stash: vi.fn().mockResolvedValue(undefined),
           popStash: vi.fn().mockResolvedValue(undefined),
           deleteTag: vi.fn().mockResolvedValue(undefined),
+          status: vi.fn().mockResolvedValue(""),
+          checkTagExist: vi.fn().mockResolvedValue(false),
         } as any;
       });
 

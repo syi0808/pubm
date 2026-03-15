@@ -1,5 +1,5 @@
 import type { ListrTask } from "listr2";
-import { type PubmContext, getPackageVersion } from "../context.js";
+import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
 import { CratesConnector, CratesPackageRegistry } from "../registry/crates.js";

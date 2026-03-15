@@ -115,7 +115,13 @@ export class JsrPackageRegistry extends PackageRegistry {
     try {
       await exec(
         "jsr",
-        ["publish", "--allow-dirty", "--allow-slow-types", "--token", `${JsrClient.token}`],
+        [
+          "publish",
+          "--allow-dirty",
+          "--allow-slow-types",
+          "--token",
+          `${JsrClient.token}`,
+        ],
         {
           throwOnError: true,
         },

@@ -16,14 +16,7 @@
       "author": {
         "name": "pubm"
       },
-      "keywords": [
-        "publish",
-        "npm",
-        "jsr",
-        "crates",
-        "registry",
-        "release"
-      ],
+      "keywords": ["publish", "npm", "jsr", "crates", "registry", "release"],
       "category": "devtools"
     }
   ]

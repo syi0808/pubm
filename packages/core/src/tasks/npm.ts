@@ -1,7 +1,7 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
-import { type PubmContext, getPackageVersion } from "../context.js";
+import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 

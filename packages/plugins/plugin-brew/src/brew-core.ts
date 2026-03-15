@@ -53,7 +53,10 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
     ],
     hooks: {
       afterRelease: async (_ctx, releaseCtx) => {
-        if (options.packageName && releaseCtx.packageName !== options.packageName) {
+        if (
+          options.packageName &&
+          releaseCtx.packageName !== options.packageName
+        ) {
           return;
         }
         const { execSync } = await import("node:child_process");
