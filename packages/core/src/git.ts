@@ -6,6 +6,18 @@ class GitError extends AbstractError {
   name = "Git Error";
 }
 
+export function extractVersion(tag: string): string {
+  const atIndex = tag.lastIndexOf("@");
+  if (atIndex > 0) return tag.slice(atIndex + 1);
+  return tag.replace(/^v/, "");
+}
+
+export function extractPrefix(tag: string): string {
+  const atIndex = tag.lastIndexOf("@");
+  if (atIndex > 0) return tag.slice(0, atIndex);
+  return tag.startsWith("v") ? "v" : "";
+}
+
 export class Git {
   async git(args: string[]): Promise<string> {
     const { stdout } = await exec("git", args, { throwOnError: true });
@@ -33,10 +45,19 @@ export class Git {
 
   async tags(): Promise<string[]> {
     try {
-      return (await this.git(["tag", "-l"]))
+      const raw = (await this.git(["tag", "-l"]))
         .trim()
         .split("\n")
-        .sort(semver.compareIdentifiers);
+        .filter(Boolean);
+      return raw.sort((a, b) => {
+        const va = extractVersion(a);
+        const vb = extractVersion(b);
+        try {
+          return semver.compare(va, vb);
+        } catch {
+          return semver.compareIdentifiers(va, vb);
+        }
+      });
     } catch (error) {
       throw new GitError("Failed to run `git tag -l`", {
         cause: error,
@@ -46,21 +67,40 @@ export class Git {
 
   async previousTag(tag: string): Promise<string | null> {
     try {
-      const tags = await this.tags();
-      const strip = (t: string) => t.replace(/^v/, "");
-      const currentIndex = tags.findIndex((t) => strip(t) === strip(tag));
-
-      const previousIndex = currentIndex - 1;
-
-      if (previousIndex >= 0) {
-        return tags[previousIndex] ?? null;
-      }
-
-      const wrappedIndex = tags.length + previousIndex;
-      return wrappedIndex >= 0 ? (tags[wrappedIndex] ?? null) : null;
+      const prefix = extractPrefix(tag);
+      const allTags = await this.tags();
+      const samePrefixTags = allTags.filter((t) => extractPrefix(t) === prefix);
+      const sorted = samePrefixTags.sort((a, b) =>
+        semver.compare(extractVersion(a), extractVersion(b)),
+      );
+      const idx = sorted.indexOf(tag);
+      return idx > 0 ? (sorted[idx - 1] ?? null) : null;
     } catch {
       return null;
     }
+  }
+
+  async tagsByPackage(packageName: string): Promise<string[]> {
+    try {
+      const raw = (await this.git(["tag", "-l", `${packageName}@*`]))
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+      return raw;
+    } catch {
+      return [];
+    }
+  }
+
+  async latestTagForPackage(packageName: string): Promise<string | null> {
+    const tags = await this.tagsByPackage(packageName);
+    if (tags.length === 0) return null;
+    const sorted = tags.sort((a, b) => {
+      const va = a.slice(packageName.length + 1);
+      const vb = b.slice(packageName.length + 1);
+      return semver.compare(va, vb);
+    });
+    return sorted[sorted.length - 1] ?? null;
   }
 
   async dryFetch(): Promise<string> {

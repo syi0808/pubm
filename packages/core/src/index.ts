@@ -71,7 +71,7 @@ export type { Ecosystem } from "./ecosystem/ecosystem.js";
 // Error
 export { consoleError } from "./error.js";
 // Git
-export { Git } from "./git.js";
+export { extractPrefix, extractVersion, Git } from "./git.js";
 // Manifest
 export {
   ManifestReader,
