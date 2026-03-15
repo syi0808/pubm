@@ -16,8 +16,8 @@ export default defineConfig({
     externalVersionSync({
       targets: [
         {
-          file: "website/src/components/landing/Hero.astro",
-          pattern: /v\d+\.\d+\.\d+ available/,
+          file: "website/src/i18n/landing.ts",
+          pattern: /v\d+\.\d+\.\d+/,
         },
         {
           file: "plugins/pubm-plugin/.claude-plugin/plugin.json",
