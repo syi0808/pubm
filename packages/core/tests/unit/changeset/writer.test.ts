@@ -112,9 +112,7 @@ describe("writeChangeset", () => {
     writeChangeset([{ name: "pkg", type: "patch" }], "Fix.");
 
     expect(mockedMkdirSync).toHaveBeenCalledWith(
-      expect.stringContaining(
-        path.join(process.cwd(), ".pubm", "changesets"),
-      ),
+      expect.stringContaining(path.join(process.cwd(), ".pubm", "changesets")),
       { recursive: true },
     );
   });

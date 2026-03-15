@@ -48,7 +48,12 @@ describe("Ecosystem", () => {
           {
             reader: {
               exists: async () => false,
-              read: async () => ({ name: "", version: "", private: false, dependencies: [] }),
+              read: async () => ({
+                name: "",
+                version: "",
+                private: false,
+                dependencies: [],
+              }),
               clearCache: () => {},
             },
             registryType: "npm",
@@ -56,10 +61,18 @@ describe("Ecosystem", () => {
         ];
       }
       async writeVersion() {}
-      manifestFiles() { return []; }
-      defaultTestCommand() { return ""; }
-      defaultBuildCommand() { return ""; }
-      supportedRegistries(): RegistryType[] { return ["npm"]; }
+      manifestFiles() {
+        return [];
+      }
+      defaultTestCommand() {
+        return "";
+      }
+      defaultBuildCommand() {
+        return "";
+      }
+      supportedRegistries(): RegistryType[] {
+        return ["npm"];
+      }
     }
 
     const eco = new NoManifestEcosystem("/some/path");
