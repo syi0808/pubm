@@ -349,6 +349,7 @@ beforeEach(() => {
       commit: vi.fn().mockResolvedValue("commit-sha"),
       createTag: vi.fn().mockResolvedValue(undefined),
       deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(false),
       latestTag: vi.fn().mockResolvedValue("v1.0.0"),
       previousTag: vi.fn().mockResolvedValue("v0.9.0"),
       firstCommit: vi.fn().mockResolvedValue("first-commit"),
@@ -364,6 +365,7 @@ beforeEach(() => {
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
   mockedCreateGitHubRelease.mockResolvedValue({
+    packageName: "pubm",
     version: "1.0.0",
     tag: "v1.0.0",
     releaseUrl: "https://github.com/pubm/pubm/releases/tag/v1.0.0",
@@ -438,7 +440,6 @@ describe("runner coverage scenarios", () => {
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseTask = tasks[1];
-    const afterReleaseTask = tasks[2];
     const releaseCtx: any = {
       config: {
         packages: [
@@ -464,26 +465,33 @@ describe("runner coverage scenarios", () => {
         version: "1.2.0",
         versions,
         pluginRunner,
+        versionPlan: {
+          mode: "fixed",
+          version: "1.2.0",
+          packages: versions,
+        },
       },
     };
     const task = createTask();
 
     await releaseTask.task(releaseCtx, task);
 
-    expect(task.title).toContain("@pubm/core@1.2.0, pubm@1.2.0");
+    expect(task.title).toContain("v1.2.0");
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       releaseCtx,
-      expect.stringContaining("## @pubm/core v1.2.0"),
+      expect.objectContaining({
+        packageName: "@pubm/core",
+        version: "1.2.0",
+        tag: "v1.2.0",
+        changelogBody: expect.stringContaining("## @pubm/core v1.2.0"),
+      }),
     );
-    expect(releaseCtx.runtime.releaseContext.releaseUrl).toContain(
-      "github.com",
-    );
-
-    const afterReleaseTaskRecorder = createTask();
-    await afterReleaseTask.task(releaseCtx, afterReleaseTaskRecorder);
     expect(afterRelease).toHaveBeenCalledWith(
       releaseCtx,
-      releaseCtx.runtime.releaseContext,
+      expect.objectContaining({
+        packageName: "pubm",
+        releaseUrl: expect.stringContaining("github.com"),
+      }),
     );
   });
 
@@ -692,6 +700,10 @@ describe("runner coverage scenarios", () => {
         versions,
         changesetConsumed: true,
         pluginRunner,
+        versionPlan: {
+          mode: "independent",
+          packages: versions,
+        },
       },
     };
     const task = createTask();
@@ -711,7 +723,7 @@ describe("runner coverage scenarios", () => {
 
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
     expect(gitInstance.commit).toHaveBeenCalledWith(
-      "@pubm/core@2.0.0, pubm@2.1.0",
+      "Version Packages\n\n- @pubm/core: 2.0.0\n- pubm: 2.1.0",
     );
     expect(gitInstance.createTag).toHaveBeenCalledWith(
       "@pubm/core@2.0.0",
@@ -800,6 +812,11 @@ describe("runner coverage scenarios", () => {
         versions,
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "fixed",
+          version: "3.0.0",
+          packages: versions,
+        },
       },
     };
 
@@ -859,6 +876,11 @@ describe("runner coverage scenarios", () => {
         version: "1.2.0",
         versions,
         pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "fixed",
+          version: "1.2.0",
+          packages: versions,
+        },
       },
     };
 
@@ -866,7 +888,12 @@ describe("runner coverage scenarios", () => {
 
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       releaseCtx,
-      undefined,
+      expect.objectContaining({
+        packageName: "@pubm/core",
+        version: "1.2.0",
+        tag: "v1.2.0",
+        changelogBody: undefined,
+      }),
     );
   });
 
@@ -899,6 +926,11 @@ describe("runner coverage scenarios", () => {
         version: "4.0.0",
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "single",
+          version: "4.0.0",
+          packageName: "pubm",
+        },
       },
     };
 
