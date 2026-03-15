@@ -246,6 +246,12 @@ describe("CLI action handler - non-CI mode", () => {
         runtime: expect.objectContaining({ version: "1.2.3" }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "1.2.3",
+      packageName: "default-pkg",
+    });
   });
 
   it("should call console.clear at the start", async () => {
@@ -269,6 +275,12 @@ describe("CLI action handler - non-CI mode", () => {
         }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "snapshot",
+      packageName: "default-pkg",
+    });
   });
 
   it("passes an explicit snapshot tag through to pubm", async () => {
@@ -323,6 +335,12 @@ describe("CLI action handler - CI mode", () => {
         runtime: expect.objectContaining({ version: "2.0.0" }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "2.0.0",
+      packageName: "default-pkg",
+    });
   });
 
   it("should throw when no latest tag exists in --publish-only mode", async () => {
@@ -400,6 +418,12 @@ describe("CLI action handler - CI mode", () => {
         runtime: expect.objectContaining({ version: "1.2.3" }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "1.2.3",
+      packageName: "default-pkg",
+    });
   });
 
   it("derives the next version from a single pending changeset in CI", async () => {
@@ -443,6 +467,11 @@ describe("CLI action handler - CI mode", () => {
     // versions should not be set for single-package
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versions).toBeUndefined();
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "1.1.0",
+      packageName: "pkg-a",
+    });
     expect(logSpy).toHaveBeenCalledWith("Changesets detected:");
     expect(logSpy).toHaveBeenCalledWith("  pkg-a: 1.0.0 → 1.1.0 (minor)");
   });
@@ -500,6 +529,15 @@ describe("CLI action handler - CI mode", () => {
         }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "2.0.0",
+      packages: new Map([
+        ["pkg-a", "2.0.0"],
+        ["pkg-b", "2.0.0"],
+      ]),
+    });
   });
 
   it("keeps per-package versions for independent workspaces in CI", async () => {
@@ -555,6 +593,14 @@ describe("CLI action handler - CI mode", () => {
         }),
       }),
     );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "independent",
+      packages: new Map([
+        ["pkg-a", "1.1.0"],
+        ["pkg-b", "2.3.1"],
+      ]),
+    });
   });
 
   it("allows explicit CI versions when pending changesets do not produce a bump", async () => {

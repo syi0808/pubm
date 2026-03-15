@@ -159,6 +159,22 @@ export function createProgram(): Command {
 
         if (nextVersion) {
           ctx.runtime.version = nextVersion;
+          if (resolvedConfig.packages.length <= 1) {
+            ctx.runtime.versionPlan = {
+              mode: "single",
+              version: nextVersion,
+              packageName: resolvedConfig.packages[0]?.name ?? "",
+            };
+          } else {
+            const packages = new Map(
+              resolvedConfig.packages.map((p) => [p.name, nextVersion]),
+            );
+            ctx.runtime.versionPlan = {
+              mode: "fixed",
+              version: nextVersion,
+              packages,
+            };
+          }
         }
         ctx.runtime.tag = options.tag;
 
@@ -169,6 +185,11 @@ export function createProgram(): Command {
               : "snapshot";
 
           ctx.runtime.version = "snapshot";
+          ctx.runtime.versionPlan = {
+            mode: "single",
+            version: "snapshot",
+            packageName: resolvedConfig.packages[0]?.name ?? "",
+          };
           ctx.runtime.tag = snapshotTag;
           await pubm(ctx);
           return;
@@ -195,6 +216,22 @@ export function createProgram(): Command {
               }
 
               ctx.runtime.version = latestVersion;
+              if (resolvedConfig.packages.length <= 1) {
+                ctx.runtime.versionPlan = {
+                  mode: "single",
+                  version: latestVersion,
+                  packageName: resolvedConfig.packages[0]?.name ?? "",
+                };
+              } else {
+                const packages = new Map(
+                  resolvedConfig.packages.map((p) => [p.name, latestVersion]),
+                );
+                ctx.runtime.versionPlan = {
+                  mode: "fixed",
+                  version: latestVersion,
+                  packages,
+                };
+              }
             } else {
               // Check for pending changesets in CI
               const status = getStatus(process.cwd());
@@ -210,8 +247,13 @@ export function createProgram(): Command {
                 if (bumps.size > 0) {
                   if (bumps.size === 1) {
                     // Single package
-                    const [, bump] = [...bumps][0];
+                    const [name, bump] = [...bumps][0];
                     ctx.runtime.version = bump.newVersion;
+                    ctx.runtime.versionPlan = {
+                      mode: "single",
+                      version: bump.newVersion,
+                      packageName: name,
+                    };
                   } else {
                     // Multi-package
                     ctx.runtime.versions = new Map(
@@ -223,6 +265,25 @@ export function createProgram(): Command {
                     } else {
                       // Independent mode: use first version as fallback for required version field
                       ctx.runtime.version = [...bumps.values()][0].newVersion;
+                    }
+                    const bumpedPackages = new Map(
+                      [...bumps].map(([name, bump]) => [name, bump.newVersion]),
+                    );
+                    const allSame = new Set(bumpedPackages.values()).size === 1;
+                    const mode =
+                      resolvedConfig.versioning ??
+                      (allSame ? "fixed" : "independent");
+                    if (mode === "fixed") {
+                      ctx.runtime.versionPlan = {
+                        mode: "fixed",
+                        version: [...bumpedPackages.values()][0],
+                        packages: bumpedPackages,
+                      };
+                    } else {
+                      ctx.runtime.versionPlan = {
+                        mode: "independent",
+                        packages: bumpedPackages,
+                      };
                     }
                   }
                   ctx.runtime.changesetConsumed = true;
@@ -236,7 +297,11 @@ export function createProgram(): Command {
                 }
               }
 
-              if (!ctx.runtime.version && !ctx.runtime.versions) {
+              if (
+                !ctx.runtime.version &&
+                !ctx.runtime.versions &&
+                !ctx.runtime.versionPlan
+              ) {
                 throw new Error(
                   "Version must be set in the CI environment. Please define the version before proceeding.",
                 );
