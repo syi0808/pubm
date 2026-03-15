@@ -238,7 +238,7 @@ describe("JsrPackageRegistry", () => {
 
       expect(mockedExec).toHaveBeenCalledWith(
         "jsr",
-        ["publish", "--allow-dirty", "--token", "test-token"],
+        ["publish", "--allow-dirty", "--allow-slow-types", "--token", "test-token"],
         { throwOnError: true },
       );
       expect(result).toBe(true);
@@ -293,6 +293,7 @@ describe("JsrPackageRegistry", () => {
           "publish",
           "--dry-run",
           "--allow-dirty",
+          "--allow-slow-types",
           "--token",
           expect.any(String),
         ],
