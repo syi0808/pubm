@@ -267,6 +267,16 @@ function countPublishTargets(ctx: PubmContext): number {
 }
 
 function formatVersionSummary(ctx: PubmContext): string {
+  const plan = ctx.runtime.versionPlan;
+  if (plan) {
+    if (plan.mode === "independent") {
+      return [...plan.packages]
+        .map(([name, ver]) => `${name}@${ver}`)
+        .join(", ");
+    }
+    return `v${plan.version}`;
+  }
+  // Fallback for backward compat during migration
   if (ctx.runtime.versions && ctx.runtime.versions.size > 1) {
     return [...ctx.runtime.versions]
       .map(([name, ver]) => `${name}@${ver}`)
@@ -277,9 +287,19 @@ function formatVersionSummary(ctx: PubmContext): string {
 }
 
 function formatVersionPlan(ctx: PubmContext): string {
+  const plan = ctx.runtime.versionPlan;
+  if (plan) {
+    if (plan.mode === "independent" || plan.mode === "fixed") {
+      return `Target versions:\n${[...plan.packages]
+        .map(([name, ver]) => `  ${name}: ${ver}`)
+        .join("\n")}`;
+    }
+    return `Target version: v${plan.version}`;
+  }
+  // Fallback for backward compat during migration
   if (ctx.runtime.versions && ctx.runtime.versions.size > 0) {
     return `Target versions:\n${[...ctx.runtime.versions]
-      .map(([name, version]) => `- ${name}@${version}`)
+      .map(([name, ver]) => `  - ${name}@${ver}`)
       .join("\n")}`;
   }
 
@@ -465,6 +485,11 @@ export async function run(ctx: PubmContext): Promise<void> {
               });
 
               ctx.runtime.version = snapshotVersion;
+              ctx.runtime.versionPlan = {
+                mode: "single",
+                version: snapshotVersion,
+                packageName: ctx.config.packages[0].name,
+              };
               task.title = `Publishing snapshot (${snapshotVersion})`;
               task.output = `Snapshot version: ${snapshotVersion}`;
 
