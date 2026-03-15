@@ -171,9 +171,7 @@ export const requiredMissingInformationTasks = (
       parentTask.newListr([
         {
           title: "Checking version information",
-          skip: (ctx) =>
-            !!ctx.runtime.version ||
-            (!!ctx.runtime.versions && ctx.runtime.versions.size > 0),
+          skip: (ctx) => !!ctx.runtime.versionPlan,
           task: async (ctx, task): Promise<void> => {
             const packages = ctx.config.packages;
             const isSinglePackage = packages.length <= 1;
@@ -189,9 +187,12 @@ export const requiredMissingInformationTasks = (
         {
           title: "Checking tag information",
           skip: (ctx) => {
-            const ver =
-              ctx.runtime.version ??
-              ctx.runtime.versions?.values().next().value;
+            const plan = ctx.runtime.versionPlan;
+            const ver = plan
+              ? plan.mode === "independent"
+                ? [...plan.packages.values()][0]
+                : plan.version
+              : undefined;
             return !ver
               ? true
               : !prerelease(`${ver}`) && ctx.runtime.tag === defaultOptions.tag;
@@ -297,6 +298,11 @@ async function handleSinglePackage(
 
       if (choice === "accept") {
         ctx.runtime.version = bump.newVersion;
+        ctx.runtime.versionPlan = {
+          mode: "single",
+          version: bump.newVersion,
+          packageName: ctx.config.packages[0].name,
+        };
         ctx.runtime.changesetConsumed = true;
         return;
       }
@@ -320,6 +326,11 @@ async function handleSinglePackage(
   }
 
   ctx.runtime.version = nextVersion;
+  ctx.runtime.versionPlan = {
+    mode: "single",
+    version: nextVersion,
+    packageName: ctx.config.packages[0].name,
+  };
 }
 
 function sortPackageInfosByDependency(
@@ -445,6 +456,10 @@ async function promptChangesetRecommendations(
       versions.set(name, bump.newVersion);
     }
     ctx.runtime.versions = versions;
+    ctx.runtime.versionPlan = {
+      mode: "independent",
+      packages: versions,
+    };
     ctx.runtime.changesetConsumed = true;
     return true;
   }
@@ -584,19 +599,22 @@ async function handleFixedMode(
     });
   }
 
-  ctx.runtime.version = nextVersion;
-
-  // Set per-package versions so runner replaces all package.json files
-  const versions = new Map<string, string>();
+  const packages = new Map<string, string>();
   for (const name of currentVersions.keys()) {
-    versions.set(name, nextVersion);
+    packages.set(name, nextVersion);
   }
-  ctx.runtime.versions = versions;
+  ctx.runtime.version = nextVersion;
+  ctx.runtime.versions = packages;
+  ctx.runtime.versionPlan = {
+    mode: "fixed",
+    version: nextVersion,
+    packages,
+  };
 
   task.output = renderPackageVersionSummary(
     packageInfos,
     currentVersions,
-    versions,
+    packages,
   );
 }
 
@@ -729,4 +747,8 @@ async function handleIndependentMode(
   );
 
   ctx.runtime.versions = versions;
+  ctx.runtime.versionPlan = {
+    mode: "independent",
+    packages: versions,
+  };
 }

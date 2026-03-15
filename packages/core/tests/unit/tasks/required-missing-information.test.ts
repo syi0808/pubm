@@ -145,38 +145,47 @@ describe("requiredMissingInformationTasks", () => {
   });
 
   describe("version subtask", () => {
-    it("skips when ctx.version is already set", () => {
-      requiredMissingInformationTasks();
-      const subtasks = getSubtasks();
-      const versionTask = subtasks[0];
-
-      expect(versionTask.skip({ runtime: { version: "2.0.0" } })).toBe(true);
-    });
-
-    it("does not skip when ctx.version is empty", () => {
-      requiredMissingInformationTasks();
-      const subtasks = getSubtasks();
-      const versionTask = subtasks[0];
-
-      expect(versionTask.skip({ runtime: { version: "" } })).toBe(false);
-    });
-
-    it("does not skip when ctx.version is undefined", () => {
-      requiredMissingInformationTasks();
-      const subtasks = getSubtasks();
-      const versionTask = subtasks[0];
-
-      expect(versionTask.skip({ runtime: { version: undefined } })).toBe(false);
-    });
-
-    it("skips when workspace versions are already provided", () => {
+    it("skips when ctx.versionPlan is already set", () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       expect(
         versionTask.skip({
-          runtime: { versions: new Map([["@pubm/core", "1.0.0"]]) },
+          runtime: {
+            versionPlan: {
+              mode: "single",
+              version: "2.0.0",
+              packageName: "my-pkg",
+            },
+          },
+        }),
+      ).toBe(true);
+    });
+
+    it("does not skip when ctx.versionPlan is undefined", () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      expect(versionTask.skip({ runtime: { versionPlan: undefined } })).toBe(
+        false,
+      );
+    });
+
+    it("skips when workspace versionPlan is already provided", () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      expect(
+        versionTask.skip({
+          runtime: {
+            versionPlan: {
+              mode: "independent",
+              packages: new Map([["@pubm/core", "1.0.0"]]),
+            },
+          },
         }),
       ).toBe(true);
     });
@@ -205,6 +214,10 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(mockTask.prompt).toHaveBeenCalled();
       expect(ctx.runtime.version).toBe("1.1.0");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.1.0",
+      });
     });
 
     it('prompts for custom version when user selects "specify"', async () => {
@@ -226,6 +239,10 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(2);
       expect(ctx.runtime.version).toBe("3.0.0-alpha.1");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "3.0.0-alpha.1",
+      });
     });
 
     it("sets ctx.version to the selected semver version", async () => {
@@ -244,6 +261,10 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.runtime.version).toBe("2.0.0");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "2.0.0",
+      });
     });
 
     it("accepts a single-package changeset recommendation and marks it consumed", async () => {
@@ -280,6 +301,10 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.runtime.version).toBe("1.1.0");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.1.0",
+      });
       expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
     });
@@ -320,6 +345,10 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.runtime.version).toBe("1.0.1");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.0.1",
+      });
       expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask._promptAdapter.run.mock.calls[0][0].message).toContain(
         "0 changesets",
@@ -363,6 +392,10 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(ctx.runtime.version).toBe("1.2.0");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.2.0",
+      });
       expect(ctx.runtime.changesetConsumed).toBeUndefined();
       expect(mockTask.prompt).toHaveBeenCalledTimes(3);
     });
@@ -391,6 +424,10 @@ describe("requiredMissingInformationTasks", () => {
         ]),
       );
       expect(ctx.runtime.version).toBe("1.0.0");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.0.0",
+      });
     });
 
     it("keeps the package summary visible while selecting independent versions", async () => {
@@ -431,6 +468,9 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "0.3.6"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
       expect(
         mockTask.outputs.some(
           (output) =>
@@ -517,6 +557,9 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "0.4.0"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
       expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask.output).toContain("Changesets suggest:");
     });
@@ -626,6 +669,10 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "1.0.1"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "fixed",
+        version: "1.0.1",
+      });
     });
 
     it("supports fixed versioning for a workspace when no versioning mode is configured", async () => {
@@ -668,6 +715,10 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "2.0.0"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "fixed",
+        version: "2.0.0",
+      });
       expect(mockTask.output).toContain("1.2.0");
     });
 
@@ -703,6 +754,10 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
       expect(ctx.runtime.version).toBe("2.0.1");
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "fixed",
+        version: "2.0.1",
+      });
     });
 
     it("offers a cascade patch bump for dependents left unchanged after a dependency bump", async () => {
@@ -744,6 +799,9 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "0.3.7"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
       expect(
         mockTask.outputs.some((output) =>
           output.includes("Bump these dependent packages too?"),
@@ -803,6 +861,9 @@ describe("requiredMissingInformationTasks", () => {
           ["pkg-b", "0.3.6"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
       expect(
         mockTask.outputs.some((output) =>
           output.includes("dependencies @pubm/core, @pubm/core bumped"),
@@ -857,6 +918,9 @@ describe("requiredMissingInformationTasks", () => {
           ["app", "3.0.1"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
       expect(
         mockTask.outputs.some((output) =>
           output.includes("💡 dependencies @pubm/core, @pubm/utils bumped"),
@@ -908,6 +972,9 @@ describe("requiredMissingInformationTasks", () => {
           ["pubm", "0.3.6"],
         ]),
       );
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "independent",
+      });
     });
 
     it("sorts packages by dependency order (dependencies first)", async () => {
@@ -1368,9 +1435,7 @@ describe("requiredMissingInformationTasks", () => {
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      expect(
-        tagTask.skip({ runtime: { version: undefined, versions: undefined } }),
-      ).toBe(true);
+      expect(tagTask.skip({ runtime: { versionPlan: undefined } })).toBe(true);
     });
 
     it('skips when version is not a prerelease and tag is default ("latest")', () => {
@@ -1380,7 +1445,16 @@ describe("requiredMissingInformationTasks", () => {
 
       // not prerelease + tag is 'latest' (default) => skip
       expect(
-        tagTask.skip({ runtime: { version: "1.0.0", tag: "latest" } }),
+        tagTask.skip({
+          runtime: {
+            versionPlan: {
+              mode: "single",
+              version: "1.0.0",
+              packageName: "my-pkg",
+            },
+            tag: "latest",
+          },
+        }),
       ).toBe(true);
     });
 
@@ -1391,7 +1465,16 @@ describe("requiredMissingInformationTasks", () => {
 
       // prerelease version => do not skip
       expect(
-        tagTask.skip({ runtime: { version: "1.0.0-beta.1", tag: "latest" } }),
+        tagTask.skip({
+          runtime: {
+            versionPlan: {
+              mode: "single",
+              version: "1.0.0-beta.1",
+              packageName: "my-pkg",
+            },
+            tag: "latest",
+          },
+        }),
       ).toBe(false);
     });
 
@@ -1401,9 +1484,18 @@ describe("requiredMissingInformationTasks", () => {
       const tagTask = subtasks[1];
 
       // tag is not 'latest' => do not skip
-      expect(tagTask.skip({ runtime: { version: "1.0.0", tag: "next" } })).toBe(
-        false,
-      );
+      expect(
+        tagTask.skip({
+          runtime: {
+            versionPlan: {
+              mode: "single",
+              version: "1.0.0",
+              packageName: "my-pkg",
+            },
+            tag: "next",
+          },
+        }),
+      ).toBe(false);
     });
 
     it("has exitOnError set to true", () => {
