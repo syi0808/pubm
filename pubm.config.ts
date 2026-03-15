@@ -12,7 +12,10 @@ export default defineConfig({
     { path: "packages/plugins/plugin-brew" },
   ],
   plugins: [
-    brewTap({ formula: "Formula/pubm.rb" }),
+    brewTap({
+      formula: "Formula/pubm.rb",
+      packageName: "pubm",
+    }),
     externalVersionSync({
       targets: [
         {
@@ -32,6 +35,7 @@ export default defineConfig({
           jsonPath: "plugins.0.version",
         },
       ],
+      version: (packages) => packages.get("@pubm/core") ?? "",
     }),
   ],
 });
