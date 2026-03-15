@@ -151,32 +151,6 @@ export const prerequisitesCheckTask = (
             }
           },
         },
-        {
-          title: "Checking git tag existence",
-          task: async (ctx, task): Promise<void> => {
-            const gitTag = `v${ctx.runtime.version}`;
-
-            if (await git.checkTagExist(gitTag)) {
-              const deleteTag = await task
-                .prompt(ListrEnquirerPromptAdapter)
-                .run<boolean>({
-                  type: "toggle",
-                  message: `${warningBadge} The Git tag '${gitTag}' already exists. Do you want to delete tag?`,
-                  enabled: "Yes",
-                  disabled: "No",
-                });
-
-              if (deleteTag) {
-                task.output = `Deleting git tag ${gitTag}...`;
-                await git.deleteTag(gitTag);
-              } else {
-                throw new PrerequisitesCheckError(
-                  `The Git tag '${gitTag}' already exists. Please check the selected version '${ctx.runtime.version}'.`,
-                );
-              }
-            }
-          },
-        },
       ]),
   };
 
