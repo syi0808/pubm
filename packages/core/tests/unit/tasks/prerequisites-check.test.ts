@@ -432,5 +432,4 @@ describe("prerequisitesCheckTask", () => {
       );
     });
   });
-
 });
