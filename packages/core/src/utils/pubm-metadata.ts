@@ -16,7 +16,7 @@ function resolveDefine(injected: string | undefined, fallback: string): string {
   return typeof injected === "string" ? injected : fallback;
 }
 
-export const PUBM_VERSION = resolveDefine(
+export const PUBM_VERSION: string = resolveDefine(
   typeof __PUBM_VERSION__ === "string" ? __PUBM_VERSION__ : undefined,
   cliPackageJson.version,
 );
