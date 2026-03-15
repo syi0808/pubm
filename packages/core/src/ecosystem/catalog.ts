@@ -38,7 +38,7 @@ export class EcosystemCatalog {
   }
 }
 
-export const ecosystemCatalog = new EcosystemCatalog();
+export const ecosystemCatalog: EcosystemCatalog = new EcosystemCatalog();
 
 ecosystemCatalog.register({
   key: "js",
