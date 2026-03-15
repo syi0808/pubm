@@ -108,6 +108,17 @@ describe("writeChangeset", () => {
     );
   });
 
+  it("uses process.cwd() as default when cwd is omitted", () => {
+    writeChangeset([{ name: "pkg", type: "patch" }], "Fix.");
+
+    expect(mockedMkdirSync).toHaveBeenCalledWith(
+      expect.stringContaining(
+        path.join(process.cwd(), ".pubm", "changesets"),
+      ),
+      { recursive: true },
+    );
+  });
+
   it("returns the file path", () => {
     const filePath = writeChangeset(
       [{ name: "pkg", type: "patch" }],

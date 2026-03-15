@@ -98,6 +98,18 @@ Summary.`;
     expect(result.id).toBe("my-change");
   });
 
+  it("throws on invalid bump type", () => {
+    const content = `---
+"pkg-name": invalid
+---
+
+Summary.`;
+
+    expect(() => parseChangeset(content, "bad-type.md")).toThrow(
+      'Invalid bump type "invalid" for package "pkg-name" in "bad-type.md"',
+    );
+  });
+
   it("throws on invalid frontmatter", () => {
     const content = "No frontmatter here, just text.";
 
