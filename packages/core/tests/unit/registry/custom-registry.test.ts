@@ -159,9 +159,9 @@ describe("customPackageRegistry()", () => {
         dependencies: [],
       });
 
-    const result = await customPackageRegistry();
+    const result = await customPackageRegistry("/test/path");
 
-    expect(readSpy).toHaveBeenCalled();
+    expect(readSpy).toHaveBeenCalledWith("/test/path");
     expect(result).toBeInstanceOf(CustomPackageRegistry);
     expect(result.packageName).toBe("my-lib");
     readSpy.mockRestore();

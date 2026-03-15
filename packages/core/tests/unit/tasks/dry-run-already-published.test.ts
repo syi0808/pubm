@@ -42,8 +42,8 @@ import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
   createCratesDryRunPublishTask,
-  jsrDryRunPublishTask,
-  npmDryRunPublishTask,
+  createJsrDryRunPublishTask,
+  createNpmDryRunPublishTask,
 } from "../../../src/tasks/dry-run-publish.js";
 
 describe("dry-run publish — already published", () => {
@@ -70,8 +70,12 @@ describe("dry-run publish — already published", () => {
       vi.mocked(npmPackageRegistry).mockResolvedValue(mockNpm as any);
 
       const ctx = { runtime: { version: "1.0.0" } } as any;
-      await (npmDryRunPublishTask as any).task(ctx, mockTask);
+      const task = createNpmDryRunPublishTask("packages/core");
+      await (task as any).task(ctx, mockTask);
 
+      expect(vi.mocked(npmPackageRegistry)).toHaveBeenCalledWith(
+        "packages/core",
+      );
       expect(mockNpm.isVersionPublished).toHaveBeenCalledWith("1.0.0");
       expect(mockTask.skip).toHaveBeenCalled();
       expect(mockNpm.dryRunPublish).not.toHaveBeenCalled();
@@ -88,8 +92,12 @@ describe("dry-run publish — already published", () => {
       vi.mocked(jsrPackageRegistry).mockResolvedValue(mockJsr as any);
 
       const ctx = { runtime: { version: "1.0.0" } } as any;
-      await (jsrDryRunPublishTask as any).task(ctx, mockTask);
+      const task = createJsrDryRunPublishTask("packages/core");
+      await (task as any).task(ctx, mockTask);
 
+      expect(vi.mocked(jsrPackageRegistry)).toHaveBeenCalledWith(
+        "packages/core",
+      );
       expect(mockJsr.isVersionPublished).toHaveBeenCalledWith("1.0.0");
       expect(mockTask.skip).toHaveBeenCalled();
       expect(mockJsr.dryRunPublish).not.toHaveBeenCalled();

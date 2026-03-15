@@ -231,9 +231,8 @@ export class JsrPackageRegistry extends PackageRegistry {
 
       if (install) {
         task.output = "Installing jsr...";
-        const { npmPackageRegistry } = await import("./npm.js");
-        const npm = await npmPackageRegistry();
-        await npm.installGlobally("jsr");
+        const { npmInstallGlobally } = await import("../utils/npm-install.js");
+        await npmInstallGlobally("jsr");
       } else {
         throw new Error("jsr is not installed. Please install jsr to proceed.");
       }
@@ -497,12 +496,8 @@ export function jsrConnector(): JsrConnector {
 }
 
 export async function jsrPackageRegistry(
-  packagePath?: string,
+  packagePath: string,
 ): Promise<JsrPackageRegistry> {
-  if (packagePath) {
-    const manifest = await JsrPackageRegistry.reader.read(packagePath);
-    return new JsrPackageRegistry(manifest.name);
-  }
-  const manifest = await JsrPackageRegistry.reader.read(process.cwd());
+  const manifest = await JsrPackageRegistry.reader.read(packagePath);
   return new JsrPackageRegistry(manifest.name);
 }

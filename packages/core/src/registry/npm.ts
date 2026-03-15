@@ -270,18 +270,6 @@ export class NpmPackageRegistry extends PackageRegistry {
     };
   }
 
-  async installGlobally(packageName: string): Promise<boolean> {
-    try {
-      await this.npm(["install", "-g", packageName]);
-
-      return true;
-    } catch (error) {
-      throw new NpmError(`Failed to run \`npm install -g ${packageName}\``, {
-        cause: error,
-      });
-    }
-  }
-
   private isProvenanceError(error: unknown): boolean {
     if (!(error instanceof NonZeroExitError)) return false;
     const stderr = error.output.stderr;
@@ -326,12 +314,8 @@ export function npmConnector(): NpmConnector {
 }
 
 export async function npmPackageRegistry(
-  packagePath?: string,
+  packagePath: string,
 ): Promise<NpmPackageRegistry> {
-  if (packagePath) {
-    const manifest = await NpmPackageRegistry.reader.read(packagePath);
-    return new NpmPackageRegistry(manifest.name);
-  }
-  const manifest = await NpmPackageRegistry.reader.read(process.cwd());
+  const manifest = await NpmPackageRegistry.reader.read(packagePath);
   return new NpmPackageRegistry(manifest.name);
 }

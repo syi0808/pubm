@@ -136,30 +136,40 @@ describe("default registrations", () => {
     );
   });
 
-  it("returns no npm display names when package metadata is missing a name", async () => {
+  it("returns no npm display names when no packages have npm registry", async () => {
     const npm = registryCatalog.get("npm")!;
-    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
-      name: "",
-      version: "0.0.0",
-      private: false,
-      dependencies: [],
-    });
 
-    await expect(npm.resolveDisplayName?.({})).resolves.toEqual([]);
-    spy.mockRestore();
+    await expect(
+      npm.resolveDisplayName?.({
+        packages: [
+          { name: "my-crate", path: "/crate", registries: ["crates"] } as any,
+        ],
+      }),
+    ).resolves.toEqual([]);
   });
 
-  it("returns no jsr display names when jsr metadata is missing a name", async () => {
+  it("returns no npm display names when packages is undefined", async () => {
+    const npm = registryCatalog.get("npm")!;
+
+    await expect(npm.resolveDisplayName?.({})).resolves.toEqual([]);
+  });
+
+  it("returns no jsr display names when no packages have jsr registry", async () => {
     const jsr = registryCatalog.get("jsr")!;
-    const spy = vi.spyOn(JsrPackageRegistry.reader, "read").mockResolvedValue({
-      name: "",
-      version: "0.0.0",
-      private: false,
-      dependencies: [],
-    });
+
+    await expect(
+      jsr.resolveDisplayName?.({
+        packages: [
+          { name: "my-pkg", path: "/pkg", registries: ["npm"] } as any,
+        ],
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("returns no jsr display names when packages is undefined", async () => {
+    const jsr = registryCatalog.get("jsr")!;
 
     await expect(jsr.resolveDisplayName?.({})).resolves.toEqual([]);
-    spy.mockRestore();
   });
 
   it("uses a generic crates display name when no packages were discovered", async () => {
@@ -279,40 +289,37 @@ describe("default registration factory and connector invocations", () => {
     expect(result).toBe("https://www.npmjs.com/settings/testuser/tokens");
   });
 
-  it("npm resolveDisplayName returns package name", async () => {
+  it("npm resolveDisplayName returns package names from ctx.packages", async () => {
     const npm = registryCatalog.get("npm")!;
-    const spy = vi.spyOn(NpmPackageRegistry.reader, "read").mockResolvedValue({
-      name: "my-real-pkg",
-      version: "1.0.0",
-      private: false,
-      dependencies: [],
+
+    const names = await npm.resolveDisplayName!({
+      packages: [
+        {
+          name: "@pubm/core",
+          path: "packages/core",
+          registries: ["npm", "jsr"],
+        } as any,
+        { name: "pubm", path: "packages/cli", registries: ["npm"] } as any,
+        { name: "my-crate", path: "crates/foo", registries: ["crates"] } as any,
+      ],
     });
-
-    const names = await npm.resolveDisplayName!({});
-    expect(names).toEqual(["my-real-pkg"]);
-    spy.mockRestore();
+    expect(names).toEqual(["@pubm/core", "pubm"]);
   });
 
-  it("npm resolveDisplayName returns empty when reader throws", async () => {
-    const npm = registryCatalog.get("npm")!;
-    const spy = vi
-      .spyOn(NpmPackageRegistry.reader, "read")
-      .mockRejectedValue(new Error("no manifest"));
-
-    const names = await npm.resolveDisplayName!({});
-    expect(names).toEqual([]);
-    spy.mockRestore();
-  });
-
-  it("jsr resolveDisplayName returns empty when reader throws", async () => {
+  it("jsr resolveDisplayName returns package names from ctx.packages", async () => {
     const jsr = registryCatalog.get("jsr")!;
-    const spy = vi
-      .spyOn(JsrPackageRegistry.reader, "read")
-      .mockRejectedValue(new Error("no manifest"));
 
-    const names = await jsr.resolveDisplayName!({});
-    expect(names).toEqual([]);
-    spy.mockRestore();
+    const names = await jsr.resolveDisplayName!({
+      packages: [
+        {
+          name: "@pubm/core",
+          path: "packages/core",
+          registries: ["npm", "jsr"],
+        } as any,
+        { name: "pubm", path: "packages/cli", registries: ["npm"] } as any,
+      ],
+    });
+    expect(names).toEqual(["@pubm/core"]);
   });
 
   it("crates resolveDisplayName filters packages by crates registry", async () => {

@@ -6,11 +6,11 @@ vi.mock("../../../src/registry/jsr.js", () => ({
 }));
 
 import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
-import { jsrPublishTasks } from "../../../src/tasks/jsr.js";
+import { createJsrPublishTask } from "../../../src/tasks/jsr.js";
 
 const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
 
-describe("jsrPublishTasks — already published", () => {
+describe("createJsrPublishTask — already published", () => {
   const mockTask = {
     output: "",
     title: "Running jsr publish",
@@ -33,8 +33,10 @@ describe("jsrPublishTasks — already published", () => {
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
-    await (jsrPublishTasks as any).task(ctx, mockTask);
+    const listrTask = createJsrPublishTask("packages/core");
+    await (listrTask as any).task(ctx, mockTask);
 
+    expect(mockedJsrRegistry).toHaveBeenCalledWith("packages/core");
     expect(mockJsr.isVersionPublished).toHaveBeenCalledWith("1.0.0");
     expect(mockTask.skip).toHaveBeenCalled();
     expect(mockTask.title).toContain("already published");
@@ -53,8 +55,10 @@ describe("jsrPublishTasks — already published", () => {
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
-    await (jsrPublishTasks as any).task(ctx, mockTask);
+    const listrTask = createJsrPublishTask("packages/core");
+    await (listrTask as any).task(ctx, mockTask);
 
+    expect(mockedJsrRegistry).toHaveBeenCalledWith("packages/core");
     expect(mockTask.skip).toHaveBeenCalled();
     expect(mockTask.title).toContain("already published");
   });
@@ -69,8 +73,10 @@ describe("jsrPublishTasks — already published", () => {
 
     const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
 
-    await (jsrPublishTasks as any).task(ctx, mockTask);
+    const listrTask = createJsrPublishTask("packages/core");
+    await (listrTask as any).task(ctx, mockTask);
 
+    expect(mockedJsrRegistry).toHaveBeenCalledWith("packages/core");
     expect(mockJsr.publish).toHaveBeenCalled();
   });
 });

@@ -149,46 +149,19 @@ describe("NpmPackageRegistry", () => {
 
   describe("npm(args)", () => {
     it("calls exec with npm and returns stdout", async () => {
-      mockStdout("help output");
-
-      // npm() is protected, test indirectly via installGlobally
-      const result = await registry.installGlobally("some-pkg");
-
+      mockStdout("test-user");
+      const result = await registry.userName();
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
-        ["install", "-g", "some-pkg"],
-        { throwOnError: true },
+        expect.arrayContaining(["whoami"]),
+        expect.any(Object),
       );
-      expect(result).toBe(true);
+      expect(result).toBe("test-user");
     });
 
     it("throws when exec rejects", async () => {
       mockedExec.mockRejectedValue(new Error("fatal error"));
-
       await expect(registry.userName()).rejects.toThrow();
-    });
-  });
-
-  describe("installGlobally(packageName)", () => {
-    it("returns true on success", async () => {
-      mockStdout("added 1 package");
-
-      const result = await registry.installGlobally("some-pkg");
-
-      expect(mockedExec).toHaveBeenCalledWith(
-        "npm",
-        ["install", "-g", "some-pkg"],
-        { throwOnError: true },
-      );
-      expect(result).toBe(true);
-    });
-
-    it("throws NpmError on failure", async () => {
-      mockedExec.mockRejectedValue(new Error("ERR! code EACCES"));
-
-      await expect(registry.installGlobally("some-pkg")).rejects.toThrow(
-        "Failed to run `npm install -g some-pkg`",
-      );
     });
   });
 
@@ -704,9 +677,9 @@ describe("npmPackageRegistry()", () => {
         dependencies: [],
       });
 
-    const result = await npmPackageRegistry();
+    const result = await npmPackageRegistry("/test/path");
 
-    expect(readSpy).toHaveBeenCalled();
+    expect(readSpy).toHaveBeenCalledWith("/test/path");
     expect(result).toBeInstanceOf(NpmPackageRegistry);
     expect(result.packageName).toBe("my-lib");
     readSpy.mockRestore();

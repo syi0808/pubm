@@ -8,8 +8,7 @@ import { calculateVersionBumps } from "../changeset/version.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
 import { defaultOptions } from "../options.js";
-import { jsrPackageRegistry } from "../registry/jsr.js";
-import { npmPackageRegistry } from "../registry/npm.js";
+import { registryCatalog } from "../registry/catalog.js";
 import { createListr } from "../utils/listr.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
@@ -186,13 +185,26 @@ export const requiredMissingInformationTasks = (
               : !prerelease(`${ver}`) && ctx.runtime.tag === defaultOptions.tag;
           },
           task: async (ctx, task): Promise<void> => {
-            const npm = await npmPackageRegistry();
-            const jsr = await jsrPackageRegistry();
-            const distTags = [
-              ...new Set(
-                (await Promise.all([npm.distTags(), jsr.distTags()])).flat(),
-              ),
-            ].filter((tag) => tag !== defaultOptions.tag);
+            const registryKeys = new Set(
+              ctx.config.packages.flatMap((pkg) => pkg.registries ?? []),
+            );
+            const firstPkgPath = ctx.config.packages[0]?.path;
+            const allDistTags: string[] = [];
+
+            for (const key of registryKeys) {
+              const descriptor = registryCatalog.get(key);
+              if (!descriptor) continue;
+              try {
+                const registry = await descriptor.factory(firstPkgPath);
+                allDistTags.push(...(await registry.distTags()));
+              } catch {
+                // Registry not yet published — ignore
+              }
+            }
+
+            const distTags = [...new Set(allDistTags)].filter(
+              (tag) => tag !== defaultOptions.tag,
+            );
 
             if (distTags.length <= 0) distTags.push("next");
 

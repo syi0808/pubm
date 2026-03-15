@@ -9,11 +9,10 @@ vi.mock("../../../src/changeset/version.js", () => ({
 vi.mock("../../../src/config/loader.js", () => ({
   loadConfig: vi.fn(),
 }));
-vi.mock("../../../src/registry/npm.js", () => ({
-  npmPackageRegistry: vi.fn(),
-}));
-vi.mock("../../../src/registry/jsr.js", () => ({
-  jsrPackageRegistry: vi.fn(),
+vi.mock("../../../src/registry/catalog.js", () => ({
+  registryCatalog: {
+    get: vi.fn(),
+  },
 }));
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn((...args: any[]) => {
@@ -29,16 +28,14 @@ import { getStatus } from "../../../src/changeset/status.js";
 import { calculateVersionBumps } from "../../../src/changeset/version.js";
 import { loadConfig } from "../../../src/config/loader.js";
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
-import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
-import { npmPackageRegistry } from "../../../src/registry/npm.js";
+import { registryCatalog } from "../../../src/registry/catalog.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
 import { createListr } from "../../../src/utils/listr.js";
 
 const mockedGetStatus = vi.mocked(getStatus);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedLoadConfig = vi.mocked(loadConfig);
-const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
-const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
+const mockedRegistryCatalogGet = vi.mocked(registryCatalog.get);
 const mockedCreateListr = vi.mocked(createListr);
 
 function createMockPromptAdapter() {
@@ -102,12 +99,23 @@ beforeEach(() => {
   } as any);
   mockedCalculateVersionBumps.mockReturnValue(new Map() as any);
   mockedLoadConfig.mockResolvedValue(undefined as any);
-  mockedNpmRegistry.mockResolvedValue({
-    distTags: vi.fn().mockResolvedValue(["latest", "next", "beta"]),
-  } as any);
-  mockedJsrRegistry.mockResolvedValue({
-    distTags: vi.fn().mockResolvedValue([]),
-  } as any);
+  mockedRegistryCatalogGet.mockImplementation((key: string) => {
+    if (key === "npm") {
+      return {
+        factory: vi.fn().mockResolvedValue({
+          distTags: vi.fn().mockResolvedValue(["latest", "next", "beta"]),
+        }),
+      } as any;
+    }
+    if (key === "jsr") {
+      return {
+        factory: vi.fn().mockResolvedValue({
+          distTags: vi.fn().mockResolvedValue([]),
+        }),
+      } as any;
+    }
+    return undefined;
+  });
 });
 
 describe("requiredMissingInformationTasks", () => {
@@ -1405,17 +1413,33 @@ describe("requiredMissingInformationTasks", () => {
       expect(subtasks[1].exitOnError).toBe(true);
     });
 
-    it("fetches dist-tags from both npm and jsr registries", async () => {
+    it("fetches dist-tags from registries via registryCatalog", async () => {
       const mockNpmDistTags = vi.fn().mockResolvedValue(["latest", "beta"]);
       const mockJsrDistTags = vi.fn().mockResolvedValue(["latest", "rc"]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        if (key === "jsr")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockJsrDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [
+            { name: "my-pkg", path: "/pkg", registries: ["npm", "jsr"] },
+          ],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
@@ -1430,14 +1454,30 @@ describe("requiredMissingInformationTasks", () => {
         .fn()
         .mockResolvedValue(["latest", "beta", "next"]);
       const mockJsrDistTags = vi.fn().mockResolvedValue(["latest", "beta"]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        if (key === "jsr")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockJsrDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [
+            { name: "my-pkg", path: "/pkg", registries: ["npm", "jsr"] },
+          ],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
@@ -1450,15 +1490,24 @@ describe("requiredMissingInformationTasks", () => {
 
     it('filters out "latest" from dist-tags choices', async () => {
       const mockNpmDistTags = vi.fn().mockResolvedValue(["latest", "beta"]);
-      const mockJsrDistTags = vi.fn().mockResolvedValue([]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [{ name: "my-pkg", path: "/pkg", registries: ["npm"] }],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
@@ -1470,15 +1519,24 @@ describe("requiredMissingInformationTasks", () => {
 
     it('defaults to ["next"] when no dist-tags remain after filtering', async () => {
       const mockNpmDistTags = vi.fn().mockResolvedValue(["latest"]);
-      const mockJsrDistTags = vi.fn().mockResolvedValue([]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [{ name: "my-pkg", path: "/pkg", registries: ["npm"] }],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("next");
 
@@ -1489,15 +1547,24 @@ describe("requiredMissingInformationTasks", () => {
 
     it('prompts for custom tag when user selects "specify"', async () => {
       const mockNpmDistTags = vi.fn().mockResolvedValue(["latest", "beta"]);
-      const mockJsrDistTags = vi.fn().mockResolvedValue([]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [{ name: "my-pkg", path: "/pkg", registries: ["npm"] }],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
         .mockResolvedValueOnce("specify")
@@ -1513,15 +1580,24 @@ describe("requiredMissingInformationTasks", () => {
       const mockNpmDistTags = vi
         .fn()
         .mockResolvedValue(["latest", "next", "beta"]);
-      const mockJsrDistTags = vi.fn().mockResolvedValue([]);
-      mockedNpmRegistry.mockResolvedValue({ distTags: mockNpmDistTags } as any);
-      mockedJsrRegistry.mockResolvedValue({ distTags: mockJsrDistTags } as any);
+      mockedRegistryCatalogGet.mockImplementation((key: string) => {
+        if (key === "npm")
+          return {
+            factory: vi.fn().mockResolvedValue({ distTags: mockNpmDistTags }),
+          } as any;
+        return undefined;
+      });
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const tagTask = subtasks[1];
 
-      const ctx: any = { runtime: { version: "2.0.0-beta.1", tag: "latest" } };
+      const ctx: any = {
+        config: {
+          packages: [{ name: "my-pkg", path: "/pkg", registries: ["npm"] }],
+        },
+        runtime: { version: "2.0.0-beta.1", tag: "latest" },
+      };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run.mockResolvedValueOnce("beta");
 
