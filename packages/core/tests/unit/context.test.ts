@@ -74,6 +74,15 @@ describe("createContext", () => {
     expect(ctx.runtime.changesetConsumed).toBeUndefined();
   });
 
+  it("defaults tag to 'latest' when options.tag is undefined", () => {
+    const ctx = createContext(
+      makeConfig(),
+      makeOptions({ tag: undefined }),
+      "/test/cwd",
+    );
+    expect(ctx.runtime.tag).toBe("latest");
+  });
+
   it("runtime is mutable", () => {
     const ctx = createContext(makeConfig(), makeOptions());
     ctx.runtime.version = "1.0.0";

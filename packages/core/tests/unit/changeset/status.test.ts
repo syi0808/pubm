@@ -14,6 +14,15 @@ beforeEach(() => {
 });
 
 describe("getStatus", () => {
+  it("uses process.cwd() as default when cwd is omitted", () => {
+    mockedReadChangesets.mockReturnValue([]);
+
+    const result = getStatus();
+
+    expect(result.hasChangesets).toBe(false);
+    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd());
+  });
+
   it("returns empty map when no changesets", () => {
     mockedReadChangesets.mockReturnValue([]);
 

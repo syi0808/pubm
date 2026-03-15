@@ -140,6 +140,18 @@ describe("syncGhSecrets", () => {
     );
   });
 
+  it("skips registries without a descriptor in the catalog", async () => {
+    mockedExec.mockResolvedValue({
+      stdout: "",
+      stderr: "",
+      exitCode: 0,
+    } as any);
+
+    await syncGhSecrets({ "unknown-registry": "tok-999" });
+
+    expect(mockedExec).not.toHaveBeenCalled();
+  });
+
   it("throws when gh is not installed", async () => {
     mockedExec.mockRejectedValue(new Error("not found"));
 

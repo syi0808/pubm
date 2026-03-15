@@ -84,6 +84,17 @@ describe("JsEcosystem", () => {
       expect(writtenContent).not.toContain('"1.0.0"');
     });
 
+    it("silently skips files that do not exist (ENOENT)", async () => {
+      const enoentError = new Error("File not found") as NodeJS.ErrnoException;
+      enoentError.code = "ENOENT";
+      mockedReadFile.mockRejectedValue(enoentError);
+
+      const eco = new JsEcosystem(pkgPath);
+      await eco.writeVersion("2.0.0");
+
+      expect(mockedWriteFile).not.toHaveBeenCalled();
+    });
+
     it("rethrows non-ENOENT errors during writeVersion", async () => {
       const eaccesError = new Error(
         "Permission denied",

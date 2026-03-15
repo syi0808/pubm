@@ -192,6 +192,16 @@ describe("Git", () => {
       expect(result).toBeNull();
     });
 
+    it("returns null when tag list is empty (tags command returns empty)", async () => {
+      mockStdout("\n");
+
+      const result = await git.previousTag("v1.0.0");
+
+      // empty string split gives [""], sorted, findIndex returns -1
+      // previousIndex = -2, wrappedIndex = 1 + (-2) = -1 < 0 → null
+      expect(result).toBeNull();
+    });
+
     it("returns null on error (catch returns null)", async () => {
       mockedExec.mockRejectedValue(new Error("error"));
 

@@ -41,6 +41,32 @@ describe("Ecosystem", () => {
     await expect(eco.readManifest()).rejects.toThrow("No manifest file found");
   });
 
+  it("readRegistryVersions returns empty map when no manifests exist", async () => {
+    class NoManifestEcosystem extends Ecosystem {
+      registryClasses(): (typeof PackageRegistry)[] {
+        return [
+          {
+            reader: {
+              exists: async () => false,
+              read: async () => ({ name: "", version: "", private: false, dependencies: [] }),
+              clearCache: () => {},
+            },
+            registryType: "npm",
+          } as unknown as typeof PackageRegistry,
+        ];
+      }
+      async writeVersion() {}
+      manifestFiles() { return []; }
+      defaultTestCommand() { return ""; }
+      defaultBuildCommand() { return ""; }
+      supportedRegistries(): RegistryType[] { return ["npm"]; }
+    }
+
+    const eco = new NoManifestEcosystem("/some/path");
+    const versions = await eco.readRegistryVersions();
+    expect(versions.size).toBe(0);
+  });
+
   it("updateSiblingDependencyVersions returns false by default", async () => {
     const eco = new TestEcosystem("/some/path");
     const result = await eco.updateSiblingDependencyVersions(new Map());

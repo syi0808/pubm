@@ -55,6 +55,17 @@ describe("readChangesets", () => {
     });
   });
 
+  it("uses process.cwd() as default when cwd is omitted", () => {
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = readChangesets();
+
+    expect(result).toEqual([]);
+    expect(mockedExistsSync).toHaveBeenCalledWith(
+      path.join(process.cwd(), ".pubm", "changesets"),
+    );
+  });
+
   it("skips non-.md files", () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReaddirSync.mockReturnValue([
