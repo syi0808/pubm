@@ -19,6 +19,7 @@ vi.mock("../../../src/utils/db.js", () => ({
 vi.mock("../../../src/utils/package-name.js", () => ({
   getScope: vi.fn(),
   getScopeAndName: vi.fn(),
+  isScopedPackage: vi.fn(),
   isValidPackageName: vi.fn(),
 }));
 
@@ -32,12 +33,14 @@ import { exec, NonZeroExitError } from "../../../src/utils/exec.js";
 import {
   getScope,
   getScopeAndName,
+  isScopedPackage,
   isValidPackageName,
 } from "../../../src/utils/package-name.js";
 
 const mockedExec = vi.mocked(exec);
 const mockedGetScope = vi.mocked(getScope);
 const mockedGetScopeAndName = vi.mocked(getScopeAndName);
+const mockedIsScopedPackage = vi.mocked(isScopedPackage);
 const mockedIsValidPackageName = vi.mocked(isValidPackageName);
 
 let mockedFetch: ReturnType<typeof vi.fn>;
@@ -990,5 +993,230 @@ describe("jsrPackageRegistry()", () => {
     expect(result).toBeInstanceOf(JsrPackageRegistry);
     expect(result.packageName).toBe("@scope/my-lib");
     readSpy.mockRestore();
+  });
+});
+
+describe("JsrPackageRegistry checkAvailability()", () => {
+  let registry: JsrPackageRegistry;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedFetch = vi.fn();
+    vi.stubGlobal("fetch", mockedFetch);
+    JsrClient.token = "test-token";
+    registry = new JsrPackageRegistry("@scope/pkg");
+    // Mock JsrConnector.isInstalled to return true (bypass jsr install prompt)
+    mockedExec.mockResolvedValue({ stdout: "0.1.0", stderr: "" } as any);
+  });
+
+  function makeTask() {
+    return {
+      output: "",
+      prompt: vi.fn().mockReturnValue({
+        run: vi.fn(),
+      }),
+    } as any;
+  }
+
+  function makeCtx(promptEnabled = false) {
+    return {
+      runtime: { promptEnabled },
+    } as any;
+  }
+
+  describe("J1-J3: non-scoped package handling", () => {
+    it("skips scope selection in non-interactive mode for unscoped package", async () => {
+      const unscopedRegistry = new JsrPackageRegistry("my-pkg");
+      mockedIsScopedPackage.mockReturnValue(false);
+      mockedGetScope.mockReturnValue(null);
+      vi.spyOn(unscopedRegistry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(unscopedRegistry, "isPublished").mockResolvedValue(false);
+      mockedIsValidPackageName.mockReturnValue(true);
+
+      await expect(
+        unscopedRegistry.checkAvailability(makeTask(), makeCtx(false)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("prompts scope selection and creates scope/package in interactive mode", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/exec.js", async (importOriginal) => {
+        const actual =
+          await importOriginal<typeof import("../../../src/utils/exec.js")>();
+        return {
+          ...actual,
+          exec: vi.fn().mockResolvedValue({ stdout: "0.1.0", stderr: "" }),
+        };
+      });
+      vi.doMock("../../../src/utils/package-name.js", () => ({
+        getScope: vi.fn().mockReturnValue("newscope"),
+        getScopeAndName: vi.fn(),
+        isScopedPackage: vi
+          .fn()
+          .mockReturnValueOnce(false)
+          .mockReturnValueOnce(true),
+        isValidPackageName: vi.fn().mockReturnValue(true),
+      }));
+      vi.doMock("../../../src/git.js", () => ({
+        Git: class {
+          userName() {
+            return Promise.resolve("testuser");
+          }
+        },
+      }));
+
+      const { JsrPackageRegistry: FreshJsr } = await import(
+        "../../../src/registry/jsr.js"
+      );
+      const unscopedRegistry = new FreshJsr("my-pkg");
+
+      vi.spyOn(unscopedRegistry.client, "scopes").mockResolvedValue([]);
+      vi.spyOn(unscopedRegistry.client, "createScope").mockResolvedValue(true);
+      vi.spyOn(unscopedRegistry.client, "package").mockResolvedValue(null);
+      vi.spyOn(unscopedRegistry.client, "createPackage").mockResolvedValue(
+        true,
+      );
+
+      const mockPrompt = vi.fn().mockReturnValue({
+        run: vi.fn().mockResolvedValue("@newscope/my-pkg"),
+      });
+      const task = { output: "", prompt: mockPrompt } as any;
+
+      vi.spyOn(unscopedRegistry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(unscopedRegistry, "isPublished").mockResolvedValue(false);
+
+      const ctx = makeCtx(true);
+
+      await expect(
+        unscopedRegistry.checkAvailability(task, ctx),
+      ).resolves.toBeUndefined();
+
+      expect(unscopedRegistry.client.createScope).toHaveBeenCalledWith(
+        "newscope",
+      );
+      expect(ctx.runtime.scopeCreated).toBe(true);
+      expect(ctx.runtime.packageCreated).toBe(true);
+    });
+
+    it("skips scope creation when scope already exists", async () => {
+      vi.resetModules();
+
+      vi.doMock("../../../src/utils/exec.js", async (importOriginal) => {
+        const actual =
+          await importOriginal<typeof import("../../../src/utils/exec.js")>();
+        return {
+          ...actual,
+          exec: vi.fn().mockResolvedValue({ stdout: "0.1.0", stderr: "" }),
+        };
+      });
+      vi.doMock("../../../src/utils/package-name.js", () => ({
+        getScope: vi.fn().mockReturnValue("existing"),
+        getScopeAndName: vi.fn(),
+        isScopedPackage: vi
+          .fn()
+          .mockReturnValueOnce(false)
+          .mockReturnValueOnce(true),
+        isValidPackageName: vi.fn().mockReturnValue(true),
+      }));
+      vi.doMock("../../../src/git.js", () => ({
+        Git: class {
+          userName() {
+            return Promise.resolve("testuser");
+          }
+        },
+      }));
+
+      const { JsrPackageRegistry: FreshJsr } = await import(
+        "../../../src/registry/jsr.js"
+      );
+      const unscopedRegistry = new FreshJsr("my-pkg");
+
+      vi.spyOn(unscopedRegistry.client, "scopes").mockResolvedValue([
+        "existing",
+      ]);
+      vi.spyOn(unscopedRegistry.client, "package").mockResolvedValue({
+        scope: "existing",
+        name: "my-pkg",
+      } as any);
+
+      const mockPrompt = vi.fn().mockReturnValue({
+        run: vi.fn().mockResolvedValue("@existing/my-pkg"),
+      });
+      const task = { output: "", prompt: mockPrompt } as any;
+
+      vi.spyOn(unscopedRegistry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(unscopedRegistry, "isPublished").mockResolvedValue(false);
+
+      const ctx = makeCtx(true);
+
+      await expect(
+        unscopedRegistry.checkAvailability(task, ctx),
+      ).resolves.toBeUndefined();
+
+      expect(ctx.runtime.scopeCreated).toBeUndefined();
+    });
+  });
+
+  describe("J4: scope permission check", () => {
+    it("throws when scoped package and no scope permission", async () => {
+      mockedIsScopedPackage.mockReturnValue(true);
+      mockedGetScope.mockReturnValue("scope");
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(false);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx()),
+      ).rejects.toThrow("No permission to publish scope.");
+    });
+  });
+
+  describe("J5: published + permission", () => {
+    it("succeeds when published and has permission", async () => {
+      mockedIsScopedPackage.mockReturnValue(true);
+      mockedGetScope.mockReturnValue("scope");
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(true);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx()),
+      ).resolves.toBeUndefined();
+    });
+
+    it("throws scope permission error when published but no permission (J4 catches first)", async () => {
+      mockedIsScopedPackage.mockReturnValue(true);
+      mockedGetScope.mockReturnValue("scope");
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(false);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(true);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx()),
+      ).rejects.toThrow("No permission to publish scope.");
+    });
+  });
+
+  describe("J6: package name availability", () => {
+    it("throws when not published and name not available", async () => {
+      mockedIsScopedPackage.mockReturnValue(true);
+      mockedGetScope.mockReturnValue("scope");
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      mockedIsValidPackageName.mockReturnValue(false);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx()),
+      ).rejects.toThrow("Package name is not available on jsr.");
+    });
+
+    it("passes when not published and name is available", async () => {
+      mockedIsScopedPackage.mockReturnValue(true);
+      mockedGetScope.mockReturnValue("scope");
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      mockedIsValidPackageName.mockReturnValue(true);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx()),
+      ).resolves.toBeUndefined();
+    });
   });
 });

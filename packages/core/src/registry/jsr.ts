@@ -1,5 +1,6 @@
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import type { JsrApi } from "../types/jsr-api.js";
@@ -8,9 +9,11 @@ import { exec, NonZeroExitError } from "../utils/exec.js";
 import {
   getScope,
   getScopeAndName,
+  isScopedPackage,
   isValidPackageName,
 } from "../utils/package-name.js";
 import { PUBM_VERSION } from "../utils/pubm-metadata.js";
+import { addRollback } from "../utils/rollback.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { RegistryConnector } from "./connector.js";
 import {
@@ -219,7 +222,9 @@ export class JsrPackageRegistry extends PackageRegistry {
   async checkAvailability(
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     task: any,
+    ctx: PubmContext,
   ): Promise<void> {
+    // Existing: jsr CLI install prompt
     const connector = new JsrConnector();
     if (!(await connector.isInstalled())) {
       const install = await task.prompt(ListrEnquirerPromptAdapter).run({
@@ -237,7 +242,92 @@ export class JsrPackageRegistry extends PackageRegistry {
         throw new Error("jsr is not installed. Please install jsr to proceed.");
       }
     }
-    await super.checkAvailability(task);
+
+    // J1, J2, J3: Non-scoped package → scope selection + creation + rollback
+    if (!isScopedPackage(this.packageName)) {
+      // J3: Register rollback
+      addRollback(async (rollbackCtx: PubmContext): Promise<void> => {
+        if (rollbackCtx.runtime.packageCreated) {
+          await this.client.deletePackage(this.packageName);
+        }
+        if (rollbackCtx.runtime.scopeCreated) {
+          await this.client.deleteScope(`${getScope(this.packageName)}`);
+        }
+      }, ctx);
+
+      // J1: Scope selection prompt (interactive only)
+      if (ctx.runtime.promptEnabled) {
+        const scopes = await this.client.scopes();
+        const { Git } = await import("../git.js");
+        const userName = await new Git().userName();
+
+        const selectedName: string = await task
+          .prompt(ListrEnquirerPromptAdapter)
+          .run({
+            type: "select",
+            message:
+              "Package name is not scoped. Please select a scope for jsr",
+            choices: [
+              {
+                message: `@${this.packageName}/${this.packageName} (scoped by package name)`,
+                name: `@${this.packageName}/${this.packageName}`,
+              },
+              {
+                message: `@${userName}/${this.packageName} (scoped by git name)`,
+                name: `@${userName}/${this.packageName}`,
+              },
+              ...scopes.flatMap((scope) =>
+                scope === this.packageName || scope === userName
+                  ? []
+                  : [
+                      {
+                        message: `@${scope}/${this.packageName} (scope from jsr)`,
+                        name: `@${scope}/${this.packageName}`,
+                      },
+                    ],
+              ),
+            ],
+          });
+
+        this.packageName = selectedName;
+
+        // J2: Auto-create scope/package
+        const scope = getScope(this.packageName);
+        if (scope && !scopes.includes(scope)) {
+          task.output = "Creating scope for jsr...";
+          await this.client.createScope(scope);
+          ctx.runtime.scopeCreated = true;
+        }
+
+        if (
+          ctx.runtime.scopeCreated ||
+          !(await this.client.package(this.packageName))
+        ) {
+          task.output = "Creating package for jsr...";
+          await this.client.createPackage(this.packageName);
+          ctx.runtime.packageCreated = true;
+        }
+      }
+    }
+
+    // J4: Scope permission check
+    const hasPermission = await this.hasPermission();
+    if (isScopedPackage(this.packageName) && !hasPermission) {
+      throw new JsrError("No permission to publish scope.");
+    }
+
+    // J5: Published + permission
+    if (await this.isPublished()) {
+      if (!hasPermission) {
+        throw new JsrError("No permission to publish on jsr.");
+      }
+      return;
+    }
+
+    // J6: Package name availability
+    if (!(await this.isPackageNameAvailable())) {
+      throw new JsrError("Package name is not available on jsr.");
+    }
   }
 }
 

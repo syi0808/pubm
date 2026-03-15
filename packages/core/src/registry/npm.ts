@@ -1,6 +1,8 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
+import { color } from "listr2";
+import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
@@ -261,6 +263,110 @@ export class NpmPackageRegistry extends PackageRegistry {
 
   async isPackageNameAvailable(): Promise<boolean> {
     return isValidPackageName(this.packageName);
+  }
+
+  async checkAvailability(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    task: any,
+    ctx: PubmContext,
+  ): Promise<void> {
+    // N1: Login check
+    if (!(await this.isLoggedIn())) {
+      if (ctx.runtime.promptEnabled) {
+        try {
+          task.output = "Launching npm login...";
+
+          const { spawnInteractive } = await import(
+            "../utils/spawn-interactive.js"
+          );
+          const child = spawnInteractive(["npm", "login"]);
+
+          let opened = false;
+
+          const readStream = async (
+            stream: ReadableStream<Uint8Array>,
+            onData: (text: string) => void,
+          ) => {
+            const reader = stream.getReader();
+            const decoder = new TextDecoder();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onData(decoder.decode(value));
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          };
+
+          await new Promise<void>((resolve, reject) => {
+            const onData = (text: string) => {
+              const urlMatch = text.match(
+                /https:\/\/www\.npmjs\.com\/login[^\s]*/,
+              );
+
+              if (urlMatch && !opened) {
+                opened = true;
+                task.output = `Login at: ${color.cyan(urlMatch[0])}`;
+                import("../utils/open-url.js").then(({ openUrl }) =>
+                  openUrl(urlMatch[0]),
+                );
+                child.stdin.write("\n");
+                child.stdin.flush();
+              }
+            };
+
+            Promise.all([
+              readStream(child.stdout, onData),
+              readStream(child.stderr, onData),
+            ]).catch(reject);
+
+            child.exited
+              .then((code) =>
+                code === 0
+                  ? resolve()
+                  : reject(new Error(`npm login exited with code ${code}`)),
+              )
+              .catch(reject);
+          });
+        } catch (error) {
+          throw new NpmError(
+            "npm login failed. Please run `npm login` manually and try again.",
+            { cause: error },
+          );
+        }
+
+        if (!(await this.isLoggedIn())) {
+          throw new NpmError(
+            "Still not logged in after npm login. Please verify your credentials.",
+          );
+        }
+      } else {
+        throw new NpmError("Not logged in to npm. Set NODE_AUTH_TOKEN.");
+      }
+    }
+
+    // N2: Published + permission
+    if (await this.isPublished()) {
+      if (!(await this.hasPermission())) {
+        throw new NpmError("No permission to publish on npm.");
+      }
+      return;
+    }
+
+    // N3: Package name availability
+    if (!(await this.isPackageNameAvailable())) {
+      throw new NpmError("Package name is not available.");
+    }
+
+    // N4: CI 2FA warning
+    if (!ctx.runtime.promptEnabled) {
+      const tfaMode = await this.twoFactorAuthMode();
+      if (tfaMode === "auth-and-writes") {
+        throw new NpmError("2FA auth-and-writes blocks CI publish.");
+      }
+    }
   }
 
   getRequirements(): RegistryRequirements {

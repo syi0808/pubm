@@ -39,7 +39,9 @@ describe("PackageRegistry", () => {
 
   it("has default checkAvailability implementation", async () => {
     const reg = new TestPackageRegistry("my-package");
-    await expect(reg.checkAvailability({} as any)).resolves.toBeUndefined();
+    await expect(
+      reg.checkAvailability({} as any, {} as any),
+    ).resolves.toBeUndefined();
   });
 
   it("has default dryRunPublish as no-op", async () => {
@@ -75,21 +77,25 @@ describe("base checkAvailability", () => {
 
   it("succeeds when package name is available", async () => {
     const reg = new BaseTestRegistry("my-package");
-    await expect(reg.checkAvailability({} as any)).resolves.toBeUndefined();
+    await expect(
+      reg.checkAvailability({} as any, {} as any),
+    ).resolves.toBeUndefined();
   });
 
   it("succeeds when package exists but user has permission", async () => {
     const reg = new BaseTestRegistry("my-package");
     vi.spyOn(reg, "isPackageNameAvailable").mockResolvedValue(false);
     vi.spyOn(reg, "hasPermission").mockResolvedValue(true);
-    await expect(reg.checkAvailability({} as any)).resolves.toBeUndefined();
+    await expect(
+      reg.checkAvailability({} as any, {} as any),
+    ).resolves.toBeUndefined();
   });
 
   it("throws when package exists and user lacks permission", async () => {
     const reg = new BaseTestRegistry("my-package");
     vi.spyOn(reg, "isPackageNameAvailable").mockResolvedValue(false);
     vi.spyOn(reg, "hasPermission").mockResolvedValue(false);
-    await expect(reg.checkAvailability({} as any)).rejects.toThrow(
+    await expect(reg.checkAvailability({} as any, {} as any)).rejects.toThrow(
       "No permission to publish my-package.",
     );
   });

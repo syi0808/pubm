@@ -1,3 +1,4 @@
+import type { PubmContext } from "../context.js";
 import type { ManifestReader } from "../manifest/manifest-reader.js";
 
 export interface RegistryRequirements {
@@ -27,6 +28,7 @@ export abstract class PackageRegistry {
   async checkAvailability(
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     _task: any,
+    _ctx: PubmContext,
   ): Promise<void> {
     const available = await this.isPackageNameAvailable();
     if (!available) {

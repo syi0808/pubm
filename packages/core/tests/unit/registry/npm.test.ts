@@ -685,3 +685,222 @@ describe("npmPackageRegistry()", () => {
     readSpy.mockRestore();
   });
 });
+
+describe("NpmPackageRegistry checkAvailability()", () => {
+  let registry: NpmPackageRegistry;
+
+  beforeEach(() => {
+    registry = new NpmPackageRegistry("my-package");
+  });
+
+  function makeTask() {
+    return { output: "" } as any;
+  }
+
+  function makeCtx(promptEnabled = true) {
+    return { runtime: { promptEnabled } } as any;
+  }
+
+  describe("N1: login check", () => {
+    it("throws when not logged in in CI mode", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(false);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).rejects.toThrow("Not logged in to npm. Set NODE_AUTH_TOKEN.");
+    });
+
+    it("launches interactive npm login when promptEnabled and not logged in", async () => {
+      const mockChild = {
+        stdout: new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                "Login at: https://www.npmjs.com/login?token=abc",
+              ),
+            );
+            controller.close();
+          },
+        }),
+        stderr: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        stdin: { write: vi.fn(), flush: vi.fn() },
+        exited: Promise.resolve(0),
+      };
+
+      vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
+        spawnInteractive: vi.fn().mockReturnValue(mockChild),
+      }));
+      vi.doMock("../../../src/utils/open-url.js", () => ({
+        openUrl: vi.fn(),
+      }));
+
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package");
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("throws when npm login process exits with non-zero code", async () => {
+      const mockChild = {
+        stdout: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        stderr: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        stdin: { write: vi.fn(), flush: vi.fn() },
+        exited: Promise.resolve(1),
+      };
+
+      vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
+        spawnInteractive: vi.fn().mockReturnValue(mockChild),
+      }));
+
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package");
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm login failed");
+    });
+
+    it("throws when still not logged in after npm login succeeds", async () => {
+      const mockChild = {
+        stdout: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        stderr: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        stdin: { write: vi.fn(), flush: vi.fn() },
+        exited: Promise.resolve(0),
+      };
+
+      vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
+        spawnInteractive: vi.fn().mockReturnValue(mockChild),
+      }));
+
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package");
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("Still not logged in after npm login");
+    });
+  });
+
+  describe("N2: published + permission", () => {
+    it("succeeds when published and has permission", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(true);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("throws when published but no permission", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(registry, "hasPermission").mockResolvedValue(false);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).rejects.toThrow("No permission to publish on npm.");
+    });
+  });
+
+  describe("N3: package name availability", () => {
+    it("throws when not published and name not available", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      vi.spyOn(registry, "isPackageNameAvailable").mockResolvedValue(false);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).rejects.toThrow("Package name is not available.");
+    });
+
+    it("passes when not published and name is available", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      vi.spyOn(registry, "isPackageNameAvailable").mockResolvedValue(true);
+      vi.spyOn(registry, "twoFactorAuthMode").mockResolvedValue(null);
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("N4: CI 2FA warning", () => {
+    it("throws when CI and 2FA is auth-and-writes", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      vi.spyOn(registry, "isPackageNameAvailable").mockResolvedValue(true);
+      vi.spyOn(registry, "twoFactorAuthMode").mockResolvedValue(
+        "auth-and-writes",
+      );
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).rejects.toThrow("2FA auth-and-writes blocks CI publish.");
+    });
+
+    it("passes when CI and 2FA is auth-only", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      vi.spyOn(registry, "isPackageNameAvailable").mockResolvedValue(true);
+      vi.spyOn(registry, "twoFactorAuthMode").mockResolvedValue("auth-only");
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(false)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("skips 2FA check in interactive mode", async () => {
+      vi.spyOn(registry, "isLoggedIn").mockResolvedValue(true);
+      vi.spyOn(registry, "isPublished").mockResolvedValue(false);
+      vi.spyOn(registry, "isPackageNameAvailable").mockResolvedValue(true);
+      const tfaSpy = vi
+        .spyOn(registry, "twoFactorAuthMode")
+        .mockResolvedValue("auth-and-writes");
+
+      await expect(
+        registry.checkAvailability(makeTask(), makeCtx(true)),
+      ).resolves.toBeUndefined();
+
+      expect(tfaSpy).not.toHaveBeenCalled();
+    });
+  });
+});
