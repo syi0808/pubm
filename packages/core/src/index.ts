@@ -64,7 +64,7 @@ export type {
   VersionPlan,
 } from "./context.js";
 // Context
-export { createContext, resolveVersion } from "./context.js";
+export { createContext, getPackageVersion, resolveVersion } from "./context.js";
 export { ecosystemCatalog } from "./ecosystem/catalog.js";
 // Ecosystem
 export type { Ecosystem } from "./ecosystem/ecosystem.js";

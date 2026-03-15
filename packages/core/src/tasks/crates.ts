@@ -1,5 +1,5 @@
 import type { ListrTask } from "listr2";
-import type { PubmContext } from "../context.js";
+import { type PubmContext, getPackageVersion } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
 import { CratesConnector, CratesPackageRegistry } from "../registry/crates.js";
@@ -54,15 +54,17 @@ export function createCratesPublishTask(
       const packageName = await getCrateName(packagePath);
       const registry = new CratesPackageRegistry(packageName);
 
+      const version = getPackageVersion(ctx, packageName);
+
       // Pre-check: skip if version already published
-      if (await registry.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] crates.io${label}: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${packageName}@${ctx.runtime.version} is already published on crates.io`;
+      if (await registry.isVersionPublished(version)) {
+        task.title = `[SKIPPED] crates.io${label}: v${version} already published`;
+        task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
         return task.skip();
       }
 
       try {
-        task.output = `Publishing ${packageName}@${ctx.runtime.version} on crates.io...`;
+        task.output = `Publishing ${packageName}@${version} on crates.io...`;
         await registry.publish(packagePath);
       } catch (error) {
         // Fallback: catch "already uploaded" errors
@@ -70,8 +72,8 @@ export function createCratesPublishTask(
           error instanceof Error &&
           error.message.includes("is already uploaded")
         ) {
-          task.title = `[SKIPPED] crates.io${label}: v${ctx.runtime.version} already published`;
-          task.output = `⚠ ${packageName}@${ctx.runtime.version} is already published on crates.io`;
+          task.title = `[SKIPPED] crates.io${label}: v${version} already published`;
+          task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
           return task.skip();
         }
         throw error;

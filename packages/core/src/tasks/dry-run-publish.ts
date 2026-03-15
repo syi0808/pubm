@@ -1,6 +1,6 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
-import type { PubmContext } from "../context.js";
+import { type PubmContext, getPackageVersion } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { CratesPackageRegistry } from "../registry/crates.js";
@@ -68,10 +68,11 @@ export function createNpmDryRunPublishTask(
     task: async (ctx, task): Promise<void> => {
       const npm = await npmPackageRegistry(packagePath);
       task.title = npm.packageName;
+      const version = getPackageVersion(ctx, npm.packageName);
 
-      if (await npm.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] Dry-run npm publish: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${npm.packageName}@${ctx.runtime.version} is already published on npm`;
+      if (await npm.isVersionPublished(version)) {
+        task.title = `[SKIPPED] Dry-run npm publish: v${version} already published`;
+        task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
         return task.skip();
       }
 
@@ -91,10 +92,11 @@ export function createJsrDryRunPublishTask(
     task: async (ctx, task): Promise<void> => {
       const jsr = await jsrPackageRegistry(packagePath);
       task.title = jsr.packageName;
+      const version = getPackageVersion(ctx, jsr.packageName);
 
-      if (await jsr.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] Dry-run jsr publish: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${jsr.packageName}@${ctx.runtime.version} is already published on jsr`;
+      if (await jsr.isVersionPublished(version)) {
+        task.title = `[SKIPPED] Dry-run jsr publish: v${version} already published`;
+        task.output = `⚠ ${jsr.packageName}@${version} is already published on jsr`;
         return task.skip();
       }
 
@@ -143,10 +145,11 @@ export function createCratesDryRunPublishTask(
       // Pre-check: skip if version already published
       const packageName = await getCrateName(packagePath);
       const registry = new CratesPackageRegistry(packageName);
+      const version = getPackageVersion(ctx, packageName);
 
-      if (await registry.isVersionPublished(ctx.runtime.version!)) {
-        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${ctx.runtime.version} already published`;
-        task.output = `⚠ ${packageName}@${ctx.runtime.version} is already published on crates.io`;
+      if (await registry.isVersionPublished(version)) {
+        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${version} already published`;
+        task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
         return task.skip();
       }
 
