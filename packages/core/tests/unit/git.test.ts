@@ -805,6 +805,63 @@ describe("Git", () => {
     });
   });
 
+  describe("tagsByPackage(packageName)", () => {
+    it("returns filtered tags for the given package", async () => {
+      mockStdout("my-pkg@1.0.0\nmy-pkg@2.0.0\n");
+
+      const result = await git.tagsByPackage("my-pkg");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["tag", "-l", "my-pkg@*"],
+        { throwOnError: true },
+      );
+      expect(result).toEqual(["my-pkg@1.0.0", "my-pkg@2.0.0"]);
+    });
+
+    it("returns empty array on error", async () => {
+      mockedExec.mockRejectedValue(new Error("error"));
+
+      const result = await git.tagsByPackage("my-pkg");
+
+      expect(result).toEqual([]);
+    });
+
+    it("returns empty array when output is empty", async () => {
+      mockStdout("\n");
+
+      const result = await git.tagsByPackage("my-pkg");
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("latestTagForPackage(packageName)", () => {
+    it("returns the latest semver-sorted tag", async () => {
+      mockStdout("my-pkg@1.0.0\nmy-pkg@2.0.0\nmy-pkg@1.5.0\n");
+
+      const result = await git.latestTagForPackage("my-pkg");
+
+      expect(result).toBe("my-pkg@2.0.0");
+    });
+
+    it("returns null when no tags exist", async () => {
+      mockedExec.mockRejectedValue(new Error("error"));
+
+      const result = await git.latestTagForPackage("my-pkg");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns the single tag when only one exists", async () => {
+      mockStdout("my-pkg@1.0.0\n");
+
+      const result = await git.latestTagForPackage("my-pkg");
+
+      expect(result).toBe("my-pkg@1.0.0");
+    });
+  });
+
   describe("push(options?)", () => {
     it("returns true on successful push without options", async () => {
       mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);

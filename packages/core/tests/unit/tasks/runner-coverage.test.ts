@@ -81,6 +81,9 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
+vi.mock("../../../src/utils/snapshot.js", () => ({
+  generateSnapshotVersion: vi.fn(() => "1.0.0-snapshot-20260316"),
+}));
 vi.mock("../../../src/utils/package-manager.js", () => ({
   getPackageManager: vi.fn(),
 }));
@@ -258,8 +261,12 @@ import { PluginRunner } from "../../../src/plugin/runner.js";
 import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import { run } from "../../../src/tasks/runner.js";
+import { exec } from "../../../src/utils/exec.js";
 import { createListr } from "../../../src/utils/listr.js";
+import { openUrl } from "../../../src/utils/open-url.js";
+import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback } from "../../../src/utils/rollback.js";
+import { generateSnapshotVersion } from "../../../src/utils/snapshot.js";
 import { makeTestContext } from "../../helpers/make-context.js";
 
 const mockedExistsSync = vi.mocked(existsSync);
@@ -282,6 +289,10 @@ const mockedCreateCratesDryRunPublishTask = vi.mocked(
   createCratesDryRunPublishTask,
 );
 const mockedAddRollback = vi.mocked(addRollback);
+const mockedGenerateSnapshotVersion = vi.mocked(generateSnapshotVersion);
+const mockedGetPackageManager = vi.mocked(getPackageManager);
+const mockedExec = vi.mocked(exec);
+const mockedOpenUrl = vi.mocked(openUrl);
 
 function createOptions(
   overrides: {
@@ -953,5 +964,935 @@ describe("runner coverage scenarios", () => {
     );
 
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("crate"));
+  });
+});
+
+describe("snapshot pipeline", () => {
+  it("runs snapshot pipeline and logs success", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    // The snapshot pipeline calls createListr once for the inner tasks
+    expect(mockedCreateListr).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("snapshot"),
+    );
+  });
+
+  it("executes snapshot test task successfully", async () => {
+    mockedGetPackageManager.mockResolvedValue("bun");
+    mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    // Extract the snapshot pipeline tasks from the createListr call
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const testTask = snapshotTasks[0];
+    const task = createTask();
+
+    await testTask.task(
+      createOptions({
+        options: { testScript: "test", snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+      task,
+    );
+
+    expect(task.title).toContain("Running tests");
+    expect(mockedExec).toHaveBeenCalledWith("bun", ["run", "test"], {
+      throwOnError: true,
+    });
+  });
+
+  it("executes snapshot build task successfully", async () => {
+    mockedGetPackageManager.mockResolvedValue("bun");
+    mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const buildTask = snapshotTasks[1];
+    const task = createTask();
+
+    await buildTask.task(
+      createOptions({
+        options: { buildScript: "build", snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+      task,
+    );
+
+    expect(task.title).toContain("Building the project");
+    expect(mockedExec).toHaveBeenCalledWith("bun", ["run", "build"], {
+      throwOnError: true,
+    });
+  });
+
+  it("throws when test script fails in snapshot mode", async () => {
+    mockedGetPackageManager.mockResolvedValue("bun");
+    mockedExec.mockRejectedValue(new Error("test failed"));
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const testTask = snapshotTasks[0];
+
+    await expect(
+      testTask.task(
+        createOptions({
+          options: { testScript: "test", snapshot: true },
+          config: {
+            packages: [
+              {
+                path: ".",
+                name: "pubm",
+                version: "1.0.0",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+        }),
+        createTask(),
+      ),
+    ).rejects.toThrow("Test script 'test' failed.");
+  });
+
+  it("throws when build script fails in snapshot mode", async () => {
+    mockedGetPackageManager.mockResolvedValue("bun");
+    mockedExec.mockRejectedValue(new Error("build failed"));
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const buildTask = snapshotTasks[1];
+
+    await expect(
+      buildTask.task(
+        createOptions({
+          options: { buildScript: "build", snapshot: true },
+          config: {
+            packages: [
+              {
+                path: ".",
+                name: "pubm",
+                version: "1.0.0",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+        }),
+        createTask(),
+      ),
+    ).rejects.toThrow("Build script 'build' failed.");
+  });
+
+  it("executes snapshot publish task with snapshot version", async () => {
+    mockedGenerateSnapshotVersion.mockReturnValue("1.0.0-snapshot-20260316");
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const publishTask = snapshotTasks[2];
+    const task = createTask();
+    const ctx = createOptions({
+      options: { snapshot: true },
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: { version: "1.0.0" },
+    });
+
+    await publishTask.task(ctx, task);
+
+    expect(task.title).toContain("1.0.0-snapshot-20260316");
+    expect(ctx.runtime.version).toBe("1.0.0-snapshot-20260316");
+    expect(ctx.runtime.tag).toBe("snapshot");
+    // writeVersions called to set then restore
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses string snapshot tag when snapshot option is a string", async () => {
+    mockedGenerateSnapshotVersion.mockReturnValue("1.0.0-beta-20260316");
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { snapshot: "beta" },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const publishTask = snapshotTasks[2];
+    const task = createTask();
+    const ctx = createOptions({
+      options: { snapshot: "beta" },
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: { version: "1.0.0" },
+    });
+
+    await publishTask.task(ctx, task);
+
+    expect(ctx.runtime.tag).toBe("beta");
+  });
+
+  it("rejects snapshot for monorepo (multiple packages)", async () => {
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: "pkg-a",
+              name: "pkg-a",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              path: "pkg-b",
+              name: "pkg-b",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const publishTask = snapshotTasks[2];
+
+    await expect(
+      publishTask.task(
+        createOptions({
+          options: { snapshot: true },
+          config: {
+            packages: [
+              {
+                path: "pkg-a",
+                name: "pkg-a",
+                version: "1.0.0",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+              {
+                path: "pkg-b",
+                name: "pkg-b",
+                version: "1.0.0",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+        }),
+        createTask(),
+      ),
+    ).rejects.toThrow(
+      "Snapshot publishing is only supported for single-package projects.",
+    );
+  });
+
+  it("creates and pushes snapshot tag when preview is not set", async () => {
+    mockedGenerateSnapshotVersion.mockReturnValue("1.0.0-snapshot-20260316");
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { snapshot: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tagTask = snapshotTasks[3];
+    const task = createTask();
+    const ctx = createOptions({
+      options: { snapshot: true },
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: { version: "1.0.0-snapshot-20260316" },
+    });
+
+    // skip should not skip when preview is not set
+    expect(tagTask.skip(ctx)).toBe(false);
+
+    // The tag task creates its own Git instance internally
+    const tagGitInstance = {
+      latestCommit: vi.fn().mockResolvedValue("head-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return tagGitInstance as any;
+    } as any);
+
+    await tagTask.task(ctx, task);
+
+    expect(tagGitInstance.createTag).toHaveBeenCalledWith(
+      "v1.0.0-snapshot-20260316",
+      "head-sha",
+    );
+    expect(tagGitInstance.push).toHaveBeenCalledWith("--tags");
+  });
+
+  it("skips tag creation when preview is set", async () => {
+    await run(
+      createOptions({
+        options: { snapshot: true, preview: true },
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "pubm",
+              version: "1.0.0",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tagTask = snapshotTasks[3];
+    const ctx = createOptions({
+      options: { snapshot: true, preview: true },
+    });
+
+    expect(tagTask.skip(ctx)).toBe(true);
+  });
+});
+
+describe("tag existence check", () => {
+  it("prompts to delete existing tag when promptEnabled and user confirms", async () => {
+    await run(createOptions({ runtime: { version: "5.0.0" } }));
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+
+    const gitInstance = {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return gitInstance as any;
+    } as any);
+
+    const mockPrompt = {
+      run: vi.fn().mockResolvedValue(true),
+    };
+    const task = {
+      output: "",
+      title: "",
+      prompt: vi.fn().mockReturnValue(mockPrompt),
+    };
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
+      runtime: {
+        version: "5.0.0",
+        promptEnabled: true,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "single",
+          version: "5.0.0",
+          packageName: "pubm",
+        },
+      },
+    };
+
+    await versionTask.task(ctx, task);
+
+    expect(gitInstance.checkTagExist).toHaveBeenCalledWith("v5.0.0");
+    expect(gitInstance.deleteTag).toHaveBeenCalledWith("v5.0.0");
+  });
+
+  it("throws when tag exists and promptEnabled but user declines deletion", async () => {
+    await run(createOptions({ runtime: { version: "5.0.0" } }));
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+
+    const gitInstance = {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return gitInstance as any;
+    } as any);
+
+    const mockPrompt = {
+      run: vi.fn().mockResolvedValue(false),
+    };
+    const task = {
+      output: "",
+      title: "",
+      prompt: vi.fn().mockReturnValue(mockPrompt),
+    };
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
+      runtime: {
+        version: "5.0.0",
+        promptEnabled: true,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "single",
+          version: "5.0.0",
+          packageName: "pubm",
+        },
+      },
+    };
+
+    await expect(versionTask.task(ctx, task)).rejects.toThrow(
+      "Git tag 'v5.0.0' already exists.",
+    );
+  });
+
+  it("throws when tag exists and promptEnabled is false", async () => {
+    await run(createOptions({ runtime: { version: "5.0.0" } }));
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+
+    const gitInstance = {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return gitInstance as any;
+    } as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
+      runtime: {
+        version: "5.0.0",
+        promptEnabled: false,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "single",
+          version: "5.0.0",
+          packageName: "pubm",
+        },
+      },
+    };
+
+    await expect(versionTask.task(ctx, createTask())).rejects.toThrow(
+      "Git tag 'v5.0.0' already exists. Remove it manually or use a different version.",
+    );
+  });
+
+  it("prompts to delete existing tag in fixed mode", async () => {
+    const versions = new Map([
+      ["@pubm/core", "3.0.0"],
+      ["pubm", "3.0.0"],
+    ]);
+
+    await run(
+      createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: { versions, version: "3.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+
+    const gitInstance = {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return gitInstance as any;
+    } as any);
+
+    const mockPrompt = {
+      run: vi.fn().mockResolvedValue(true),
+    };
+    const task = {
+      output: "",
+      title: "",
+      prompt: vi.fn().mockReturnValue(mockPrompt),
+    };
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        version: "3.0.0",
+        versions,
+        promptEnabled: true,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "fixed",
+          version: "3.0.0",
+          packages: versions,
+        },
+      },
+    };
+
+    await versionTask.task(ctx, task);
+
+    expect(gitInstance.checkTagExist).toHaveBeenCalledWith("v3.0.0");
+    expect(gitInstance.deleteTag).toHaveBeenCalledWith("v3.0.0");
+  });
+
+  it("prompts to delete existing tag in independent mode", async () => {
+    const versions = new Map([
+      ["@pubm/core", "2.0.0"],
+      ["pubm", "2.1.0"],
+    ]);
+
+    await run(
+      createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: { versions, version: "2.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+
+    const gitInstance = {
+      reset: vi.fn().mockResolvedValue(undefined),
+      stage: vi.fn().mockResolvedValue(undefined),
+      commit: vi.fn().mockResolvedValue("commit-sha"),
+      createTag: vi.fn().mockResolvedValue(undefined),
+      deleteTag: vi.fn().mockResolvedValue(undefined),
+      checkTagExist: vi.fn().mockResolvedValue(true),
+    };
+    mockedGit.mockImplementation(function () {
+      return gitInstance as any;
+    } as any);
+
+    const mockPrompt = {
+      run: vi.fn().mockResolvedValue(true),
+    };
+    const task = {
+      output: "",
+      title: "",
+      prompt: vi.fn().mockReturnValue(mockPrompt),
+    };
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        version: "2.0.0",
+        versions,
+        changesetConsumed: true,
+        promptEnabled: true,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "independent",
+          packages: versions,
+        },
+      },
+    };
+
+    await versionTask.task(ctx, task);
+
+    expect(gitInstance.checkTagExist).toHaveBeenCalledWith("@pubm/core@2.0.0");
+    expect(gitInstance.deleteTag).toHaveBeenCalledWith("@pubm/core@2.0.0");
+  });
+});
+
+describe("independent release draft", () => {
+  it("creates per-package release URLs and opens only the first one", async () => {
+    const versions = new Map([
+      ["@pubm/core", "2.0.0"],
+      ["pubm", "2.1.0"],
+    ]);
+
+    await run(
+      createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: { versions, version: "2.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    // Find the release draft task (last task in the pipeline)
+    const releaseDraftTask = tasks.find(
+      (t: any) =>
+        t.title === "Creating release draft on GitHub" ||
+        (typeof t.title === "string" && t.title.includes("release draft")),
+    );
+
+    expect(releaseDraftTask).toBeDefined();
+
+    const task = createTask();
+    const ctx: any = {
+      config: {
+        releaseDraft: true,
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        version: "2.0.0",
+        versions,
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "independent",
+          packages: versions,
+        },
+      },
+    };
+
+    await releaseDraftTask.task(ctx, task);
+
+    // openUrl should be called exactly once (only the first package)
+    expect(mockedOpenUrl).toHaveBeenCalledTimes(1);
+    expect(mockedOpenUrl).toHaveBeenCalledWith(
+      expect.stringContaining("releases/new"),
+    );
   });
 });
