@@ -3,7 +3,6 @@ import {
   calculateVersionBumps,
   consoleError,
   createContext,
-  Git,
   getStatus,
   loadConfig,
   notifyNewVersion,
@@ -26,7 +25,7 @@ import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
 import { showSplash } from "./splash.js";
 
-const { RELEASE_TYPES, valid } = semver;
+const { RELEASE_TYPES } = semver;
 
 interface CliOptions {
   version: string;
@@ -210,35 +209,31 @@ export function createProgram(): Command {
             await requiredMissingInformationTasks().run(ctx);
           } else if (isCI) {
             if (options.publishOnly || options.ci) {
-              const git = new Git();
-              const latestVersion = (await git.latestTag())?.slice(1);
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [p.name, p.version]),
+              );
 
-              if (!latestVersion) {
-                throw new Error(
-                  "Cannot find the latest tag. Please ensure tags exist in the repository.",
-                );
-              }
-
-              if (!valid(latestVersion)) {
-                throw new Error(
-                  "Cannot parse the latest tag to a valid SemVer version. Please check the tag format.",
-                );
-              }
-
-              ctx.runtime.version = latestVersion;
               if (resolvedConfig.packages.length <= 1) {
+                const [name, version] = [...packages][0];
+                ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
                   mode: "single",
-                  version: latestVersion,
-                  packageName: resolvedConfig.packages[0]?.name ?? "",
+                  version,
+                  packageName: name,
+                };
+              } else if (resolvedConfig.versioning === "independent") {
+                ctx.runtime.version = [...packages.values()][0];
+                ctx.runtime.versions = packages;
+                ctx.runtime.versionPlan = {
+                  mode: "independent",
+                  packages,
                 };
               } else {
-                const packages = new Map(
-                  resolvedConfig.packages.map((p) => [p.name, latestVersion]),
-                );
+                const version = [...packages.values()][0];
+                ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
                   mode: "fixed",
-                  version: latestVersion,
+                  version,
                   packages,
                 };
               }
