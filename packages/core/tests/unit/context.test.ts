@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResolvedPubmConfig } from "../../src/config/types.js";
-import { createContext } from "../../src/context.js";
+import { createContext, getPackageVersion } from "../../src/context.js";
 import type { ResolvedOptions } from "../../src/types/options.js";
 
 function makeConfig(
@@ -103,5 +103,59 @@ describe("createContext", () => {
     expect(() => {
       (ctx as any).config = makeConfig();
     }).toThrow();
+  });
+});
+
+describe("getPackageVersion", () => {
+  it("returns plan.version for single mode", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    ctx.runtime.versionPlan = {
+      mode: "single",
+      version: "1.2.3",
+      packageName: "my-pkg",
+    };
+    expect(getPackageVersion(ctx, "my-pkg")).toBe("1.2.3");
+  });
+
+  it("returns plan.version for fixed mode", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    ctx.runtime.versionPlan = {
+      mode: "fixed",
+      version: "2.0.0",
+      packages: new Map([["pkg-a", "2.0.0"]]),
+    };
+    expect(getPackageVersion(ctx, "pkg-a")).toBe("2.0.0");
+  });
+
+  it("returns per-package version for independent mode", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    ctx.runtime.versionPlan = {
+      mode: "independent",
+      packages: new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "2.0.0"],
+      ]),
+    };
+    expect(getPackageVersion(ctx, "pkg-b")).toBe("2.0.0");
+  });
+
+  it("returns empty string for independent mode when package is not in map", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    ctx.runtime.versionPlan = {
+      mode: "independent",
+      packages: new Map([["pkg-a", "1.0.0"]]),
+    };
+    expect(getPackageVersion(ctx, "unknown-pkg")).toBe("");
+  });
+
+  it("falls back to runtime.version when no versionPlan", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    ctx.runtime.version = "3.0.0";
+    expect(getPackageVersion(ctx, "any-pkg")).toBe("3.0.0");
+  });
+
+  it("returns empty string when no versionPlan and no runtime.version", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    expect(getPackageVersion(ctx, "any-pkg")).toBe("");
   });
 });
