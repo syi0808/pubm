@@ -158,11 +158,16 @@ vi.mock("../../../src/utils/listr.js", () => ({
   createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
 }));
 
+vi.mock("../../../src/registry/jsr.js", () => ({
+  JsrClient: { token: null },
+}));
+
 import type { PubmContext } from "../../../src/context.js";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
+import { JsrClient } from "../../../src/registry/jsr.js";
 import {
   collectTokens,
   promptGhSecretsSync,
@@ -346,6 +351,7 @@ beforeEach(() => {
   mockedCollectTokens.mockResolvedValue({ npm: "test-token" });
   mockedPromptGhSecretsSync.mockResolvedValue(undefined);
   mockedInjectTokensToEnv.mockReturnValue(vi.fn());
+  JsrClient.token = null;
   mockedCreateCiListrOptions.mockReturnValue({
     renderer: "ci-renderer",
   } as any);
@@ -1520,6 +1526,119 @@ describe("run", () => {
       expect(processExitSpy).toHaveBeenCalledWith(130);
 
       onSpy.mockRestore();
+    });
+  });
+
+  describe("JSR token early collection", () => {
+    it("collects JSR token before conditions check when jsr registry is configured", async () => {
+      const originalIsTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      mockedCollectTokens.mockResolvedValue({ jsr: "jsr-test-token" });
+
+      const options = createOptions();
+      await run(options);
+
+      expect(mockedCollectTokens).toHaveBeenCalledWith(
+        ["jsr"],
+        expect.anything(),
+      );
+      expect(mockedInjectTokensToEnv).toHaveBeenCalledWith({
+        jsr: "jsr-test-token",
+      });
+      expect(JsrClient.token).toBe("jsr-test-token");
+
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+    });
+
+    it("skips JSR token collection when jsr is not in registries", async () => {
+      const originalIsTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      const options = createOptions({
+        config: {
+          packages: [pkg({ path: ".", registries: ["npm"] })],
+        },
+      });
+      await run(options);
+
+      const createListrCalls = mockedCreateListr.mock.calls;
+      const jsrAuthCall = createListrCalls.find(
+        (call) =>
+          !Array.isArray(call[0]) &&
+          call[0]?.title === "Ensuring JSR authentication",
+      );
+      expect(jsrAuthCall).toBeUndefined();
+      expect(mockedCollectTokens).not.toHaveBeenCalledWith(
+        ["jsr"],
+        expect.anything(),
+      );
+
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+    });
+
+    it("skips JSR token collection when promptEnabled is false", async () => {
+      const originalIsTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: false,
+        configurable: true,
+      });
+
+      const options = createOptions();
+      await run(options);
+
+      const createListrCalls = mockedCreateListr.mock.calls;
+      const jsrAuthCall = createListrCalls.find(
+        (call) =>
+          !Array.isArray(call[0]) &&
+          call[0]?.title === "Ensuring JSR authentication",
+      );
+      expect(jsrAuthCall).toBeUndefined();
+      expect(mockedCollectTokens).not.toHaveBeenCalledWith(
+        ["jsr"],
+        expect.anything(),
+      );
+
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+    });
+
+    // The prompt-skip-when-token-exists logic lives inside collectTokens itself
+    // and is tested in preflight.test.ts. At the runner level, collectTokens is
+    // always called and the runner uses whatever it returns.
+    it("delegates token existence check to collectTokens (prompt-skip tested in preflight.test.ts)", async () => {
+      const originalIsTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      mockedCollectTokens.mockResolvedValue({ jsr: "existing-token" });
+
+      const options = createOptions();
+      await run(options);
+
+      expect(mockedCollectTokens).toHaveBeenCalled();
+      expect(JsrClient.token).toBe("existing-token");
+
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
     });
   });
 
