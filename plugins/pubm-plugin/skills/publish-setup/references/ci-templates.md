@@ -6,7 +6,8 @@ pubm detects CI environments using the `std-env` package (`isCI` flag). When run
 
 - Interactive prompts are disabled (`promptEnabled` is set to `false`).
 - **Use `--ci` mode** for the full CI pipeline: publish + GitHub Release with assets. Alternatively, use `--publish-only` if you only need the publish step.
-- Both modes read the latest git tag (via `git describe --tags --abbrev=0`), strip the `v` prefix, and use it as the publish version. The tag must already exist and be a valid semver.
+- Both modes read each package's version from its local manifest (`package.json`, `jsr.json`, `Cargo.toml`). Packages whose version is already published on the registry are automatically skipped.
+- In monorepo independent versioning mode, each package's version is read independently. Fixed mode uses a single shared version.
 - Authentication is handled entirely through environment variables (no interactive login).
 
 ### What `--ci` Does
@@ -23,7 +24,7 @@ pubm detects CI environments using the `std-env` package (`isCI` flag). When run
 - Same as `--ci` but **without** GitHub Release creation.
 - Runs **only** the publish step for all configured registries, concurrently.
 
-Both modes require the git tag to already exist before running.
+For tag-based workflows, the git tag must already exist before running. For commit-based monorepo workflows, tags are created locally and pushed alongside the commit.
 
 ## Required Secrets
 
@@ -86,6 +87,60 @@ jobs:
 2. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
 3. The pushed `v*` tag triggers this workflow.
 4. `pubm --ci` reads the tag, publishes, and creates a GitHub Release.
+
+## Template: GitHub Actions -- Monorepo Auto Publish (Commit-Based)
+
+For monorepos using pubm's changeset workflow with independent or fixed versioning. The workflow triggers when a "Version Packages" commit is pushed to main.
+
+```yaml
+# .github/workflows/publish.yml
+name: Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    if: startsWith(github.event.head_commit.message, 'Version Packages')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install pubm
+        run: npm install -g pubm
+
+      - name: Publish to registries
+        run: pubm --ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+```
+
+### Workflow
+
+1. Develop and merge to main.
+2. When ready to release, merge the "Version Packages" PR (created by pubm's changeset workflow).
+3. The merged commit message starts with "Version Packages", triggering this workflow.
+4. `pubm --ci` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
+
+**Important:** This template requires merge commit or fast-forward merge strategy. Squash merges may alter the commit message and break the trigger condition.
 
 ## Template: GitHub Actions -- Manual Trigger (workflow_dispatch)
 
@@ -266,7 +321,7 @@ jobs:
 
 - **`--ci` is the recommended CI mode.** It publishes to all configured registries and creates a GitHub Release with assets. Use `--publish-only` if you only want the publish step without GitHub Release creation.
 - **`id-token: write` permission** is needed for npm provenance. pubm automatically uses `npm publish --provenance --access public` in CI.
-- **`fetch-depth: 0`** is required on `actions/checkout` so that `git describe --tags --abbrev=0` can find the latest tag. Without full history, the tag lookup fails.
+- **`fetch-depth: 0`** is recommended on `actions/checkout` for GitHub Release note generation, which uses git history to build commit-based release notes. For single-package tag-based workflows, it's also needed for tag lookup.
 - **`registry-url` on `actions/setup-node`** configures the npm registry URL. This is required for `NODE_AUTH_TOKEN` to be picked up by npm.
 - **jsr CLI dependency:** If publishing to jsr, ensure `jsr` is listed as a devDependency in `package.json`. The `npm install` step in CI will make it available. pubm invokes `jsr` directly for jsr publishing.
 - **The `--registry` flag** defaults to `npm,jsr`. Use `--registry npm` for npm-only, `--registry jsr` for jsr-only, or `--registry npm,jsr,crates` for all three.
