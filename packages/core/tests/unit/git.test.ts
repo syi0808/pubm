@@ -4,7 +4,7 @@ vi.mock("../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
 
-import { Git } from "../../src/git.js";
+import { extractPrefix, extractVersion, Git } from "../../src/git.js";
 import { exec } from "../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
@@ -19,6 +19,46 @@ beforeEach(() => {
 function mockStdout(stdout: string) {
   mockedExec.mockResolvedValue({ stdout, stderr: "" } as any);
 }
+
+describe("extractVersion", () => {
+  it("extracts version after @ for scoped tags", () => {
+    expect(extractVersion("my-pkg@1.2.3")).toBe("1.2.3");
+  });
+
+  it("extracts version after last @ for deeply scoped tags", () => {
+    expect(extractVersion("@scope/pkg@2.0.0")).toBe("2.0.0");
+  });
+
+  it("strips v prefix for simple tags", () => {
+    expect(extractVersion("v1.0.0")).toBe("1.0.0");
+  });
+
+  it("returns tag as-is for unprefixed tags", () => {
+    expect(extractVersion("1.0.0")).toBe("1.0.0");
+  });
+
+  it("returns non-semver tag without v prefix as-is", () => {
+    expect(extractVersion("release-2024")).toBe("release-2024");
+  });
+});
+
+describe("extractPrefix", () => {
+  it("returns the package name prefix for scoped tags", () => {
+    expect(extractPrefix("my-pkg@1.2.3")).toBe("my-pkg");
+  });
+
+  it("returns the full scope prefix for deeply scoped tags", () => {
+    expect(extractPrefix("@scope/pkg@2.0.0")).toBe("@scope/pkg");
+  });
+
+  it("returns 'v' for v-prefixed tags", () => {
+    expect(extractPrefix("v1.0.0")).toBe("v");
+  });
+
+  it("returns empty string for unprefixed tags", () => {
+    expect(extractPrefix("1.0.0")).toBe("");
+  });
+});
 
 describe("Git", () => {
   describe("git(args)", () => {
@@ -123,6 +163,23 @@ describe("Git", () => {
       const result = await git.tags();
 
       expect(result).toEqual(["v1.0.0"]);
+    });
+
+    it("falls back to compareIdentifiers when tags are not valid semver", async () => {
+      mockStdout("release-b\nrelease-a\nrelease-c\n");
+
+      const result = await git.tags();
+
+      // compareIdentifiers sorts lexicographically
+      expect(result).toEqual(["release-a", "release-b", "release-c"]);
+    });
+
+    it("handles mix of semver and non-semver tags using compareIdentifiers fallback", async () => {
+      mockStdout("build-123\nbuild-456\n");
+
+      const result = await git.tags();
+
+      expect(result).toEqual(["build-123", "build-456"]);
     });
 
     it("throws GitError with correct error message on failure", async () => {

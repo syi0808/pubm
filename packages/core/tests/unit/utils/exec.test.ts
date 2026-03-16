@@ -85,6 +85,48 @@ describe("exec", () => {
     });
   });
 
+  it("returns result with non-zero exitCode when throwOnError is not set", async () => {
+    vi.stubGlobal("Bun", {
+      spawn: vi.fn().mockReturnValue({
+        stdout: streamFromChunks(["partial"]),
+        stderr: streamFromChunks(["error output"]),
+        exited: Promise.resolve(1),
+      }),
+    });
+
+    const { exec } = await import("../../../src/utils/exec.js");
+
+    const result = await exec("failing-cmd", ["arg1"]);
+
+    expect(result).toEqual({
+      stdout: "partial",
+      stderr: "error output",
+      exitCode: 1,
+    });
+  });
+
+  it("uses default args and options when not provided", async () => {
+    const spawn = vi.fn().mockReturnValue({
+      stdout: streamFromChunks(["ok"]),
+      stderr: streamFromChunks([]),
+      exited: Promise.resolve(0),
+    });
+    vi.stubGlobal("Bun", { spawn });
+
+    const { exec } = await import("../../../src/utils/exec.js");
+
+    const result = await exec("echo");
+
+    expect(result.exitCode).toBe(0);
+    expect(spawn).toHaveBeenCalledWith(
+      ["echo"],
+      expect.objectContaining({
+        stdout: "pipe",
+        stderr: "pipe",
+      }),
+    );
+  });
+
   it("throws NonZeroExitError with captured output when throwOnError is enabled", async () => {
     vi.stubGlobal("Bun", {
       spawn: vi.fn().mockReturnValue({

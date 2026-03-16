@@ -17,6 +17,12 @@ export default defineConfig({
       reporter: ["json-summary", "json", "text-summary"],
       reportOnFailure: true,
       include: ["src/**/*.ts"],
+      thresholds: {
+        lines: 95,
+        functions: 95,
+        statements: 95,
+        branches: 90,
+      },
     },
     pool: "forks",
     testTimeout: 30000,

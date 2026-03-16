@@ -338,6 +338,18 @@ describe("requiredConditionsCheckTask", () => {
       expect(scriptsTask.skip(ctx)).toBe(true);
     });
 
+    it("defaults to true (does not skip) when registryCatalog.get returns undefined for unknown registry", async () => {
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: { packages: [{ path: ".", registries: ["unknown-registry"] }] },
+      });
+
+      // registryCatalog.get("unknown-registry") returns undefined
+      // needsPackageScripts defaults to true via ?? true
+      expect(scriptsTask.skip(ctx)).toBe(false);
+    });
+
     it("does not skip when any registry has needsPackageScripts true", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];

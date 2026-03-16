@@ -14,6 +14,7 @@ const {
   mockResolveConfig,
   mockResolveOptions,
   mockNotifyNewVersion,
+  sharedResolvedConfig,
 } = vi.hoisted(() => {
   const createMockContext = (config: any, options: any, cwd: string): any => ({
     config: config ?? {},
@@ -26,6 +27,19 @@ const {
       pluginRunner: { run: vi.fn() },
     },
   });
+
+  const sharedResolvedConfig: Record<string, any> = {
+    plugins: [],
+    packages: [
+      {
+        name: "default-pkg",
+        version: "0.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ],
+  };
 
   return {
     mockIsCI: { isCI: false },
@@ -41,19 +55,7 @@ const {
     mockPubm: vi.fn(),
     mockPubmVersion: "1.0.0",
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
-    mockResolveConfig: vi.fn(async (raw: any) => ({
-      plugins: [],
-      packages: [
-        {
-          name: "default-pkg",
-          version: "0.0.0",
-          path: ".",
-          registries: ["npm"],
-          dependencies: [],
-        },
-      ],
-      ...raw,
-    })),
+    mockResolveConfig: vi.fn(async (_raw: any) => sharedResolvedConfig),
     mockResolveOptions: vi.fn((opts: any) => ({
       testScript: "test",
       buildScript: "build",
@@ -63,6 +65,7 @@ const {
       ...opts,
     })),
     mockNotifyNewVersion: vi.fn(),
+    sharedResolvedConfig,
   };
 });
 
@@ -91,6 +94,7 @@ vi.mock("@pubm/core", () => ({
     error: vi.fn(),
     hint: vi.fn(),
     labels: { DRY_RUN: "[dry-run]" },
+    chalk: { level: 3 },
   },
 }));
 
@@ -122,6 +126,12 @@ vi.mock("../../src/commands/version-cmd.js", () => ({
   }),
 }));
 
+vi.mock("../../src/commands/inspect.js", () => ({
+  registerInspectCommand: vi.fn((_program: any, getConfig: () => any) => {
+    getConfig();
+  }),
+}));
+
 const mockShowSplash = vi.hoisted(() => vi.fn());
 vi.mock("../../src/splash.js", () => ({
   showSplash: mockShowSplash,
@@ -147,6 +157,19 @@ beforeEach(() => {
   mockPubm.mockResolvedValue(undefined);
   vi.spyOn(console, "clear").mockImplementation(() => {});
   process.exitCode = undefined;
+
+  // Reset shared config to default single-package state
+  sharedResolvedConfig.plugins = [];
+  sharedResolvedConfig.packages = [
+    {
+      name: "default-pkg",
+      version: "0.0.0",
+      path: ".",
+      registries: ["npm"],
+      dependencies: [],
+    },
+  ];
+  delete sharedResolvedConfig.versioning;
 });
 
 describe("resolveCliOptions (tested through CLI action)", () => {
@@ -202,6 +225,23 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({ skipConditionsCheck: true }),
     );
+  });
+
+  it("sets NO_COLOR and chalk level to 0 when --no-color is passed", async () => {
+    const { ui: mockUi } = await import("@pubm/core");
+    const originalNoColor = process.env.NO_COLOR;
+
+    await run("1.0.0", "--no-color");
+
+    expect(process.env.NO_COLOR).toBe("1");
+    expect(mockUi.chalk.level).toBe(0);
+
+    // Restore
+    if (originalNoColor === undefined) {
+      delete process.env.NO_COLOR;
+    } else {
+      process.env.NO_COLOR = originalNoColor;
+    }
   });
 
   it("renders trailing help text describing accepted version formats", () => {
@@ -322,6 +362,41 @@ describe("CLI action handler - non-CI mode", () => {
     }
   });
 
+  it("creates a fixed versionPlan for multi-package configs when version is given", async () => {
+    mockIsCI.isCI = false;
+    const mockRun = vi.fn();
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "1.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("2.0.0");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.version).toBe("2.0.0");
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "2.0.0",
+      packages: new Map([
+        ["pkg-a", "2.0.0"],
+        ["pkg-b", "2.0.0"],
+      ]),
+    });
+  });
+
   it("rejects --snapshot and --preflight when used together", async () => {
     await expect(run("--snapshot", "--preflight")).rejects.toThrow(
       "Cannot use --snapshot and --preflight together.",
@@ -375,6 +450,40 @@ describe("CLI action handler - CI mode", () => {
         message: expect.stringContaining("Cannot parse the latest tag"),
       }),
     );
+  });
+
+  it("creates a fixed versionPlan from latest tag for multi-package in --ci mode", async () => {
+    mockIsCI.isCI = true;
+    mockGitInstance.latestTag.mockResolvedValue("v3.0.0");
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "2.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "2.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("--ci");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.version).toBe("3.0.0");
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "3.0.0",
+      packages: new Map([
+        ["pkg-a", "3.0.0"],
+        ["pkg-b", "3.0.0"],
+      ]),
+    });
   });
 
   it("should throw when version not provided and not --publish-only in CI", async () => {
@@ -441,18 +550,15 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockResolveConfig.mockResolvedValue({
-      plugins: [],
-      packages: [
-        {
-          name: "pkg-a",
-          version: "1.0.0",
-          path: ".",
-          registries: ["npm"],
-          dependencies: [],
-        },
-      ],
-    });
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
     mockCalculateVersionBumps.mockReturnValue(
       new Map([
         [
@@ -503,26 +609,23 @@ describe("CLI action handler - CI mode", () => {
         ],
       ]),
     );
-    mockResolveConfig.mockResolvedValue({
-      plugins: [],
-      versioning: "fixed",
-      packages: [
-        {
-          name: "pkg-a",
-          version: "1.0.0",
-          path: "packages/a",
-          registries: ["npm"],
-          dependencies: [],
-        },
-        {
-          name: "pkg-b",
-          version: "1.0.0",
-          path: "packages/b",
-          registries: ["npm"],
-          dependencies: [],
-        },
-      ],
-    });
+    sharedResolvedConfig.versioning = "fixed";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "1.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
 
     await run();
 
@@ -567,26 +670,23 @@ describe("CLI action handler - CI mode", () => {
         ],
       ]),
     );
-    mockResolveConfig.mockResolvedValue({
-      plugins: [],
-      versioning: "independent",
-      packages: [
-        {
-          name: "pkg-a",
-          version: "1.0.0",
-          path: "packages/a",
-          registries: ["npm"],
-          dependencies: [],
-        },
-        {
-          name: "pkg-b",
-          version: "2.3.0",
-          path: "packages/b",
-          registries: ["npm"],
-          dependencies: [],
-        },
-      ],
-    });
+    sharedResolvedConfig.versioning = "independent";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "2.3.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
 
     await run();
 
@@ -618,18 +718,15 @@ describe("CLI action handler - CI mode", () => {
       hasChangesets: true,
       changesets: ["a.md"],
     });
-    mockResolveConfig.mockResolvedValue({
-      plugins: [],
-      packages: [
-        {
-          name: "pkg-a",
-          version: "1.0.0",
-          path: ".",
-          registries: ["npm"],
-          dependencies: [],
-        },
-      ],
-    });
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
     mockCalculateVersionBumps.mockReturnValue(new Map());
 
     await run("3.4.5");
