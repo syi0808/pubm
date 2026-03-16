@@ -485,7 +485,7 @@ describe("requiredMissingInformationTasks", () => {
             output.includes("@pubm/core") &&
             output.includes("0.3.7") &&
             output.includes("> pubm") &&
-            output.includes("💡 dependency @pubm/core bumped"),
+            output.includes("dependency @pubm/core bumped"),
         ),
       ).toBe(true);
       expect(mockTask.output).toContain("@pubm/core");
@@ -809,7 +809,7 @@ describe("requiredMissingInformationTasks", () => {
       ).toBe(false);
       expect(
         mockTask.outputs.some((output) =>
-          output.includes("💡 dependency @pubm/core bumped"),
+          output.includes("dependency @pubm/core bumped"),
         ),
       ).toBe(true);
     });
@@ -923,7 +923,7 @@ describe("requiredMissingInformationTasks", () => {
       });
       expect(
         mockTask.outputs.some((output) =>
-          output.includes("💡 dependencies @pubm/core, @pubm/utils bumped"),
+          output.includes("dependencies @pubm/core, @pubm/utils bumped"),
         ),
       ).toBe(true);
       expect(
@@ -1141,7 +1141,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(
         mockTask.outputs.some(
           (output) =>
-            output.includes("📦 3 changesets suggest") &&
+            output.includes("3 changesets suggest") &&
             output.includes("minor") &&
             output.includes("1.1.0"),
         ),
@@ -1149,7 +1149,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(
         mockTask.outputs.some(
           (output) =>
-            output.includes("📦 1 changeset suggests") &&
+            output.includes("1 changeset suggests") &&
             output.includes("patch") &&
             output.includes("1.0.1"),
         ),
@@ -1212,7 +1212,7 @@ describe("requiredMissingInformationTasks", () => {
         mockTask.outputs.some(
           (output) =>
             output.includes("> @pubm/core") &&
-            output.includes("📦 changesets suggest minor -> 1.1.0"),
+            output.includes("changesets suggest minor -> 1.1.0"),
         ),
       ).toBe(true);
     });

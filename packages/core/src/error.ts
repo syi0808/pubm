@@ -1,5 +1,5 @@
-import { color } from "listr2";
 import { NonZeroExitError } from "./utils/exec.js";
+import { ui } from "./utils/ui.js";
 
 export class AbstractError extends Error {
   cause?: unknown;
@@ -12,13 +12,13 @@ export class AbstractError extends Error {
 }
 
 function replaceCode(code: string): string {
-  return code.replace(/`([^`].+)`/g, color.bold(color.underline("$1")));
+  return code.replace(/`([^`].+)`/g, ui.chalk.bold(ui.chalk.underline("$1")));
 }
 
 function formatStderr(stderr: string): string {
   return stderr
     .split("\n")
-    .map((line) => `  ${color.dim("│")} ${line}`)
+    .map((line) => `  ${ui.chalk.dim("│")} ${line}`)
     .join("\n");
 }
 
@@ -52,20 +52,20 @@ function formatError(error: AbstractError | string): string {
     summary = rawMessage;
   }
 
-  let result = `${color.bgRed(` ${error.name} `)}${color.reset("")} ${replaceCode(summary)}\n`;
+  let result = `${ui.badge(error.name)} ${replaceCode(summary)}\n`;
 
   if (detail) {
     result += `\n${formatStderr(detail)}\n`;
   }
 
   // Stack trace only in debug mode
-  if (process.env.DEBUG === "pubm" && error.stack) {
+  if (ui.isDebug() && error.stack) {
     result += error.stack
       .split("\n")
       .slice(1)
       .join("\n")
-      .replace(/at/g, color.dim("at"))
-      .replace(/\(([^(].+)\)/g, `(${color.blue("$1")})`);
+      .replace(/at/g, ui.chalk.dim("at"))
+      .replace(/\(([^(].+)\)/g, `(${ui.chalk.blue("$1")})`);
   }
 
   // Show cause only if meaningful
@@ -73,7 +73,7 @@ function formatError(error: AbstractError | string): string {
     const causeMsg =
       error.cause instanceof Error ? error.cause.message : String(error.cause);
     if (causeMsg !== summary) {
-      result += `\n${color.dim("Caused by:")} `;
+      result += `\n${ui.chalk.dim("Caused by:")} `;
       result += formatError(error.cause as AbstractError);
     }
   }

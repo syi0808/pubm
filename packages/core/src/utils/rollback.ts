@@ -1,4 +1,4 @@
-import { color } from "listr2";
+import { ui } from "./ui.js";
 
 type Rollback<Ctx extends {}> = (ctx: Ctx) => Promise<unknown>;
 
@@ -13,11 +13,11 @@ export function addRollback<Ctx extends {}>(
 }
 
 export function rollbackLog(message: string): void {
-  console.log(`  ${color.yellow("↩")} ${message}`);
+  console.log(`  ${ui.chalk.yellow("↩")} ${message}`);
 }
 
 export function rollbackError(message: string): void {
-  console.error(`  ${color.red("✗")} ${message}`);
+  console.error(`  ${ui.chalk.red("✗")} ${message}`);
 }
 
 let called = false;
@@ -29,7 +29,9 @@ export async function rollback(): Promise<void> {
 
   if (rollbacks.length <= 0) return void 0;
 
-  console.log(`\n${color.yellow("⟲")} ${color.yellow("Rolling back...")}`);
+  console.log(
+    `\n${ui.chalk.yellow("⟲")} ${ui.chalk.yellow("Rolling back...")}`,
+  );
 
   const results = await Promise.allSettled(
     rollbacks.map(({ fn, ctx }) => fn(ctx)),
@@ -48,9 +50,9 @@ export async function rollback(): Promise<void> {
       );
     }
     console.log(
-      `${color.red("✗")} ${color.red("Rollback completed with errors.")} Some operations may require manual recovery.`,
+      `${ui.chalk.red("✗")} ${ui.chalk.red("Rollback completed with errors.")} Some operations may require manual recovery.`,
     );
   } else {
-    console.log(`${color.green("✓")} Rollback completed`);
+    console.log(`${ui.chalk.green("✓")} Rollback completed`);
   }
 }

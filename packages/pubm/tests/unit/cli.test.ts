@@ -84,6 +84,14 @@ vi.mock("@pubm/core", () => ({
   resolveConfig: mockResolveConfig,
   resolveOptions: mockResolveOptions,
   notifyNewVersion: mockNotifyNewVersion,
+  ui: {
+    success: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    hint: vi.fn(),
+    labels: { DRY_RUN: "[dry-run]" },
+  },
 }));
 
 vi.mock("../../src/commands/changesets.js", () => ({
@@ -472,7 +480,8 @@ describe("CLI action handler - CI mode", () => {
       version: "1.1.0",
       packageName: "pkg-a",
     });
-    expect(logSpy).toHaveBeenCalledWith("Changesets detected:");
+    const { ui: mockUi } = await import("@pubm/core");
+    expect(mockUi.info).toHaveBeenCalledWith("Changesets detected:");
     expect(logSpy).toHaveBeenCalledWith("  pkg-a: 1.0.0 → 1.1.0 (minor)");
   });
 

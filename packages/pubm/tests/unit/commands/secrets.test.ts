@@ -4,9 +4,17 @@ vi.mock("@pubm/core", () => ({
   loadTokensFromDb: vi.fn(),
   syncGhSecrets: vi.fn(),
   consoleError: vi.fn(),
+  ui: {
+    success: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    hint: vi.fn(),
+    labels: { DRY_RUN: "[dry-run]" },
+  },
 }));
 
-import { consoleError, loadTokensFromDb, syncGhSecrets } from "@pubm/core";
+import { consoleError, loadTokensFromDb, syncGhSecrets, ui } from "@pubm/core";
 import { Command } from "commander";
 
 const mockedConsoleError = vi.mocked(consoleError);
@@ -61,21 +69,17 @@ describe("registerSecretsCommand", () => {
 
   it("shows message when no tokens found", async () => {
     mockedLoadTokens.mockReturnValue({});
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await createParentAndParse("secrets", "sync");
 
     expect(mockedSyncGhSecrets).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(ui.info).toHaveBeenCalledWith(
       expect.stringContaining("No stored tokens"),
     );
-
-    consoleSpy.mockRestore();
   });
 
   it("reports sync errors without pretending the secrets were uploaded", async () => {
     const error = new Error("gh auth missing");
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     mockedLoadTokens.mockReturnValue({ npm: "tok-1" });
     mockedSyncGhSecrets.mockRejectedValue(error);
 
@@ -83,8 +87,8 @@ describe("registerSecretsCommand", () => {
 
     expect(mockedConsoleError).toHaveBeenCalledWith(error);
     expect(process.exitCode).toBe(1);
-    expect(consoleLogSpy).not.toHaveBeenCalledWith(
-      "Done! Tokens synced to GitHub Secrets.",
+    expect(ui.success).not.toHaveBeenCalledWith(
+      "Tokens synced to GitHub Secrets.",
     );
   });
 });

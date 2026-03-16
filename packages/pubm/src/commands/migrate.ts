@@ -1,4 +1,4 @@
-import { migrateFromChangesets } from "@pubm/core";
+import { migrateFromChangesets, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerMigrateCommand(parent: Command): void {
@@ -9,14 +9,14 @@ export function registerMigrateCommand(parent: Command): void {
       const result = migrateFromChangesets();
 
       if (!result.success) {
-        console.error(result.error);
+        ui.error(String(result.error));
         process.exit(1);
       }
 
-      console.log(`Migrated ${result.migratedFiles.length} changeset files.`);
+      ui.success(`Migrated ${result.migratedFiles.length} changeset files.`);
       if (result.configMigrated) {
-        console.log(
-          "Note: .changeset/config.json detected. Please manually create pubm.config.ts.",
+        ui.hint(
+          ".changeset/config.json detected. Please manually create pubm.config.ts.",
         );
       }
     });

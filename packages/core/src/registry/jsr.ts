@@ -4,7 +4,6 @@ import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import type { JsrApi } from "../types/jsr-api.js";
-import { warningBadge } from "../utils/cli.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import {
   getScope,
@@ -15,6 +14,7 @@ import {
 import { PUBM_VERSION } from "../utils/pubm-metadata.js";
 import { addRollback } from "../utils/rollback.js";
 import { SecureStore } from "../utils/secure-store.js";
+import { ui } from "../utils/ui.js";
 import { RegistryConnector } from "./connector.js";
 import {
   PackageRegistry,
@@ -236,7 +236,7 @@ export class JsrPackageRegistry extends PackageRegistry {
     if (!(await connector.isInstalled())) {
       const install = await task.prompt(ListrEnquirerPromptAdapter).run({
         type: "toggle",
-        message: `${warningBadge} jsr is not installed. Do you want to install jsr?`,
+        message: `${ui.labels.WARNING} jsr is not installed. Do you want to install jsr?`,
         enabled: "Yes",
         disabled: "No",
       });

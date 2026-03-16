@@ -2,6 +2,7 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export interface DiscoveredReference {
@@ -172,20 +173,20 @@ export function registerSyncCommand(parent: Command): void {
       const currentVersion = (JSON.parse(raw) as { version?: string }).version;
 
       if (!currentVersion) {
-        console.log("No version found in package.json.");
+        ui.warn("No version found in package.json.");
         return;
       }
 
-      console.log(`Scanning for version references (v${currentVersion})...\n`);
+      ui.info(`Scanning for version references (v${currentVersion})...`);
 
       const refs = await discoverVersionReferences(cwd, currentVersion);
 
       if (refs.length === 0) {
-        console.log("No version references found outside of manifest files.");
+        ui.info("No version references found outside of manifest files.");
         return;
       }
 
-      console.log(`Found ${refs.length} version reference(s):\n`);
+      ui.success(`Found ${refs.length} version reference(s):`);
 
       for (const ref of refs) {
         if (ref.type === "json") {

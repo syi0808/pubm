@@ -18,6 +18,7 @@ import {
   generateChangelog,
   readChangesets,
   resolveGroups,
+  ui,
   writeChangelogToFile,
   writeVersionsForEcosystem,
 } from "@pubm/core";
@@ -38,7 +39,7 @@ export async function runVersionCommand(
   // 1. Read changesets
   const changesets = readChangesets(cwd);
   if (changesets.length === 0) {
-    console.log("No changesets found.");
+    ui.info("No changesets found.");
     return;
   }
 
@@ -54,7 +55,7 @@ export async function runVersionCommand(
   const bumps = calculateVersionBumps(currentVersions, cwd);
 
   if (bumps.size === 0) {
-    console.log("No changesets found.");
+    ui.info("No changesets found.");
     return;
   }
 
@@ -95,8 +96,8 @@ export async function runVersionCommand(
     const changelogContent = generateChangelog(newVersion, entries);
 
     if (dryRun) {
-      console.log(`[dry-run] Would write version ${newVersion}`);
-      console.log(`[dry-run] Changelog:\n${changelogContent}`);
+      console.log(`${ui.labels.DRY_RUN} Would write version ${newVersion}`);
+      console.log(`${ui.labels.DRY_RUN} Changelog:\n${changelogContent}`);
       continue;
     }
 
@@ -130,8 +131,8 @@ export async function runVersionCommand(
   await git.stage(".");
   const bumpedNames = [...bumps.keys()].join(", ");
   await git.commit(`chore: version ${bumpedNames}`);
-  console.log(
-    `\nConsumed ${changesets.length} changeset(s) and committed version bump.`,
+  ui.success(
+    `Consumed ${changesets.length} changeset(s) and committed version bump.`,
   );
 }
 

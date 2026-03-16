@@ -3,6 +3,7 @@ import type { ChangelogEntry } from "@pubm/core";
 import {
   generateChangelog,
   readChangesets,
+  ui,
   writeChangelogToFile,
 } from "@pubm/core";
 import type { Command } from "commander";
@@ -64,14 +65,14 @@ export function registerChangelogCommand(parent: Command): void {
       const result = runChangelogCommand(process.cwd(), options);
 
       if (!result) {
-        console.log("No pending changesets to generate changelog from.");
+        ui.info("No pending changesets to generate changelog from.");
         return;
       }
 
       console.log(result);
 
       if (!options.dryRun) {
-        console.log("\nChangelog written to CHANGELOG.md");
+        ui.success("Changelog written to CHANGELOG.md");
       }
     });
 }

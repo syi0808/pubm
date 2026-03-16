@@ -12,6 +12,7 @@ import {
   requiredMissingInformationTasks,
   resolveConfig,
   resolveOptions,
+  ui,
 } from "@pubm/core";
 import { Command } from "commander";
 import semver from "semver";
@@ -81,6 +82,13 @@ export function createProgram(): Command {
 
   program.description("Publish packages to registries");
   program.version(PUBM_VERSION);
+  program.option("--no-color", "Disable colored output");
+  program.hook("preAction", (thisCommand) => {
+    if (!thisCommand.opts().color) {
+      process.env.NO_COLOR = "1";
+      ui.chalk.level = 0;
+    }
+  });
 
   // Register subcommands
   registerChangesetsCommand(program, () => resolvedConfig);
@@ -290,7 +298,7 @@ export function createProgram(): Command {
                   }
                   ctx.runtime.changesetConsumed = true;
 
-                  console.log("Changesets detected:");
+                  ui.info("Changesets detected:");
                   for (const [name, bump] of bumps) {
                     console.log(
                       `  ${name}: ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType})`,

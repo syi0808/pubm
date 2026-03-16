@@ -1,4 +1,4 @@
-import { getStatus } from "@pubm/core";
+import { getStatus, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerStatusCommand(parent: Command): void {
@@ -12,14 +12,14 @@ export function registerStatusCommand(parent: Command): void {
 
       if (!status.hasChangesets) {
         if (options.since) {
-          console.log("No changesets found.");
+          ui.info("No changesets found.");
           process.exit(1);
         }
-        console.log("No pending changesets.");
+        ui.info("No pending changesets.");
         return;
       }
 
-      console.log("Pending changesets:");
+      ui.info("Pending changesets:");
       for (const [name, info] of status.packages) {
         console.log(
           `  ${name}: ${info.bumpType} (${info.changesetCount} changeset${info.changesetCount > 1 ? "s" : ""})`,
