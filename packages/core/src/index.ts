@@ -72,6 +72,9 @@ export type { Ecosystem } from "./ecosystem/ecosystem.js";
 export { consoleError } from "./error.js";
 // Git
 export { extractPrefix, extractVersion, Git } from "./git.js";
+export type { InspectPackagesResult } from "./inspect.js";
+// Inspect
+export { inspectPackages } from "./inspect.js";
 // Manifest
 export {
   ManifestReader,
