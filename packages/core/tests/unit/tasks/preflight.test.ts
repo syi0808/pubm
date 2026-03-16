@@ -99,7 +99,7 @@ describe("collectTokens", () => {
     };
 
     await expect(collectTokens(["npm"], mockTask as any)).rejects.toThrow(
-      "npm access token is required to continue in preflight mode.",
+      "npm access token is required to continue.",
     );
   });
 

@@ -43,7 +43,7 @@ export async function collectTokens(
 
     if (!`${token}`.trim()) {
       throw new PreflightError(
-        `${config.promptLabel} is required to continue in preflight mode.`,
+        `${config.promptLabel} is required to continue.`,
       );
     }
 
