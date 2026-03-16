@@ -3,13 +3,7 @@ import path, { join } from "node:path";
 import process from "node:process";
 import { stripVTControlCharacters } from "node:util";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import {
-  color,
-  type Listr,
-  type ListrRenderer,
-  type ListrTask,
-  type ListrTaskWrapper,
-} from "listr2";
+import type { Listr, ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
 import {
@@ -26,7 +20,6 @@ import { Git } from "../git.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { JsrClient } from "../registry/jsr.js";
-import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
@@ -40,6 +33,7 @@ import {
 } from "../utils/rollback.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
 import { injectTokensToEnv } from "../utils/token.js";
+import { ui } from "../utils/ui.js";
 import { createCratesPublishTask } from "./crates.js";
 import {
   createCratesDryRunPublishTask,
@@ -549,12 +543,12 @@ export async function run(ctx: PubmContext): Promise<void> {
         if (!descriptor?.resolveDisplayName) continue;
         const names = await descriptor.resolveDisplayName(ctx.config);
         for (const name of names) {
-          parts.push(`${color.bold(name)} on ${descriptor.label}`);
+          parts.push(`${ui.chalk.bold(name)} on ${descriptor.label}`);
         }
       }
 
       console.log(
-        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${color.blueBright(ctx.runtime.version ?? "")} 📸\n`,
+        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${ui.chalk.blueBright(ctx.runtime.version ?? "")} 📸\n`,
       );
 
       return;
@@ -1242,7 +1236,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                         `${!!prerelease(pkgVersion)}`,
                       );
 
-                      const linkUrl = link(tag, releaseDraftUrl.toString());
+                      const linkUrl = ui.link(tag, releaseDraftUrl.toString());
                       task.title += ` ${linkUrl}`;
 
                       if (first) {
@@ -1277,7 +1271,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       `${!!prerelease(version)}`,
                     );
 
-                    const linkUrl = link("Link", releaseDraftUrl.toString());
+                    const linkUrl = ui.link("Link", releaseDraftUrl.toString());
                     task.title += ` ${linkUrl}`;
                     task.output = `Opening release draft for ${tag}...`;
                     await openUrl(releaseDraftUrl.toString());
@@ -1296,7 +1290,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       if (!descriptor?.resolveDisplayName) continue;
       const names = await descriptor.resolveDisplayName(ctx.config);
       for (const name of names) {
-        parts.push(`${color.bold(name)} on ${descriptor.label}`);
+        parts.push(`${ui.chalk.bold(name)} on ${descriptor.label}`);
       }
     }
 
@@ -1309,7 +1303,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       );
     } else {
       console.log(
-        `\n\n🚀 Successfully published ${parts.join(", ")} ${color.blueBright(formatVersionSummary(ctx))} 🚀\n`,
+        `\n\n🚀 Successfully published ${parts.join(", ")} ${ui.chalk.blueBright(formatVersionSummary(ctx))} 🚀\n`,
       );
     }
 

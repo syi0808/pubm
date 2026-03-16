@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { ui } from "@pubm/core";
 import type { Command } from "commander";
 import {
   detectDefaultBranch,
@@ -19,7 +20,7 @@ export function registerInitCommand(parent: Command): void {
       const pubmDir = path.resolve(cwd, ".pubm", "changesets");
       if (!existsSync(pubmDir)) {
         mkdirSync(pubmDir, { recursive: true });
-        console.log("Created .pubm/changesets/");
+        ui.success("Created .pubm/changesets/");
       }
 
       // Base init: create pubm.config.ts
@@ -34,7 +35,7 @@ export function registerInitCommand(parent: Command): void {
             "",
           ].join("\n"),
         );
-        console.log("Created pubm.config.ts");
+        ui.success("Created pubm.config.ts");
       }
 
       // Changesets setup (only with --changesets flag)
@@ -42,21 +43,21 @@ export function registerInitCommand(parent: Command): void {
         const defaultBranch = detectDefaultBranch(cwd);
 
         if (updateGitignoreForChangesets(cwd)) {
-          console.log("Updated .gitignore (changeset files tracked)");
+          ui.success("Updated .gitignore (changeset files tracked)");
         }
 
         if (writeChangesetCheckWorkflow(cwd, defaultBranch)) {
-          console.log("Created .github/workflows/changeset-check.yml");
+          ui.success("Created .github/workflows/changeset-check.yml");
         }
 
+        ui.success("pubm initialized successfully.");
         console.log(
-          "\nChangeset workflow is ready!\n" +
-            "- Add changesets: pubm changesets add\n" +
+          "- Add changesets: pubm changesets add\n" +
             "- PRs without changesets will fail the changeset-check CI\n" +
             "- Use 'no-changeset' label to skip for non-code changes",
         );
       } else {
-        console.log("pubm initialized successfully.");
+        ui.success("pubm initialized successfully.");
       }
     });
 }

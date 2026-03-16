@@ -63,8 +63,16 @@ vi.mock("../../../src/utils/rollback.js", () => ({
   rollbackLog: vi.fn(),
   rollbackError: vi.fn(),
 }));
-vi.mock("../../../src/utils/cli.js", () => ({
-  link: vi.fn(),
+vi.mock("../../../src/utils/ui.js", () => ({
+  ui: {
+    link: vi.fn(),
+    labels: { WARNING: "WARNING" },
+    badges: { ERROR: "ERROR", ROLLBACK: "ROLLBACK" },
+    chalk: {
+      bold: (s: string) => s,
+      blueBright: (s: string) => s,
+    },
+  },
 }));
 vi.mock("../../../src/tasks/prerequisites-check.js", () => ({
   prerequisitesCheckTask: vi.fn(),
@@ -175,13 +183,13 @@ import {
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
-import { link } from "../../../src/utils/cli.js";
 import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { exec } from "../../../src/utils/exec.js";
 import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { addRollback, rollback } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
+import { ui } from "../../../src/utils/ui.js";
 import { makeTestContext } from "../../helpers/make-context.js";
 
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
@@ -196,7 +204,7 @@ const mockedExec = vi.mocked(exec);
 const mockedGetPackageManager = vi.mocked(getPackageManager);
 const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedAddRollback = vi.mocked(addRollback);
-const mockedLink = vi.mocked(link);
+const mockedLink = vi.mocked(ui.link);
 const mockedGit = vi.mocked(Git);
 const mockedSortCrates = vi.mocked(sortCratesByDependencyOrder);
 const mockedCollectTokens = vi.mocked(collectTokens);

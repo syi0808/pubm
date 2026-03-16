@@ -1,4 +1,4 @@
-import { consoleError, loadTokensFromDb, syncGhSecrets } from "@pubm/core";
+import { consoleError, loadTokensFromDb, syncGhSecrets, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerSecretsCommand(parent: Command): void {
@@ -17,17 +17,17 @@ export function registerSecretsCommand(parent: Command): void {
         const tokens = loadTokensFromDb(registries);
 
         if (Object.keys(tokens).length === 0) {
-          console.log(
+          ui.info(
             "No stored tokens found. Run `pubm --preflight` first to save tokens.",
           );
           return;
         }
 
-        console.log(
+        ui.info(
           `Syncing ${Object.keys(tokens).length} token(s) to GitHub Secrets...`,
         );
         await syncGhSecrets(tokens);
-        console.log("Done! Tokens synced to GitHub Secrets.");
+        ui.success("Tokens synced to GitHub Secrets.");
       } catch (e) {
         consoleError(e as Error);
         process.exitCode = 1;

@@ -1,4 +1,4 @@
-import { PUBM_VERSION } from "@pubm/core";
+import { PUBM_VERSION, ui } from "@pubm/core";
 import type { Command } from "commander";
 import { UpdateKit } from "update-kit";
 
@@ -27,7 +27,7 @@ export function registerUpdateCommand(parent: Command): void {
 
       switch (result.kind) {
         case "success":
-          console.log(
+          ui.success(
             `Updated from ${result.fromVersion} to ${result.toVersion}`,
           );
           break;
@@ -35,7 +35,7 @@ export function registerUpdateCommand(parent: Command): void {
           console.log(result.message);
           break;
         case "failed":
-          console.error(`Update failed: ${result.error.message}`);
+          ui.error(`Update failed: ${result.error.message}`);
           process.exitCode = 1;
           break;
       }

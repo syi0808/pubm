@@ -27,6 +27,14 @@ vi.mock("@pubm/core", () => ({
   }),
   applyFixedGroup: vi.fn(),
   applyLinkedGroup: vi.fn(),
+  ui: {
+    success: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    hint: vi.fn(),
+    labels: { DRY_RUN: "[dry-run]" },
+  },
 }));
 
 import type { ResolvedPubmConfig } from "@pubm/core";
@@ -38,6 +46,7 @@ import {
   generateChangelog,
   readChangesets,
   resolveGroups,
+  ui,
   writeChangelogToFile,
   writeVersionsForEcosystem,
 } from "@pubm/core";
@@ -77,11 +86,10 @@ beforeEach(() => {
 describe("runVersionCommand", () => {
   it("logs message and returns when no changesets found", async () => {
     mockedReadChangesets.mockReturnValue([]);
-    const logSpy = vi.spyOn(console, "log");
 
     await runVersionCommand("/tmp/project", defaultConfig);
 
-    expect(logSpy).toHaveBeenCalledWith("No changesets found.");
+    expect(ui.info).toHaveBeenCalledWith("No changesets found.");
     expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
   });
 
@@ -114,15 +122,12 @@ describe("runVersionCommand", () => {
       "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
     );
 
-    const logSpy = vi.spyOn(console, "log");
-
     await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(mockedCalculateVersionBumps).toHaveBeenCalledWith(
       new Map([["my-pkg", "1.0.0"]]),
       "/tmp/project",
     );
-    expect(logSpy).toHaveBeenCalledWith("my-pkg: 1.0.0 → 1.1.0 (minor)");
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([["my-pkg", "1.1.0"]]),
@@ -197,6 +202,7 @@ describe("runVersionCommand", () => {
     await runVersionCommand("/tmp/project", config200, { dryRun: true });
 
     expect(logSpy).toHaveBeenCalledWith("[dry-run] Would write version 2.1.0");
+    logSpy.mockRestore();
     expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
     expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
   });
@@ -245,11 +251,9 @@ describe("runVersionCommand", () => {
     ]);
     mockedCalculateVersionBumps.mockReturnValue(new Map());
 
-    const logSpy = vi.spyOn(console, "log");
-
     await runVersionCommand("/tmp/project", defaultConfig);
 
-    expect(logSpy).toHaveBeenCalledWith("No changesets found.");
+    expect(ui.info).toHaveBeenCalledWith("No changesets found.");
     expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
   });
 

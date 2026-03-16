@@ -60,7 +60,7 @@ describe("registerUpdateCommand", () => {
     await parent.parseAsync(["node", "test", "update"]);
 
     expect(console.error).toHaveBeenCalledWith(
-      "Update failed: network unavailable",
+      expect.stringContaining("Update failed: network unavailable"),
     );
     expect(process.exitCode).toBe(1);
   });

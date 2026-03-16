@@ -10,6 +10,7 @@ import type { PubmContext } from "../context.js";
 import { defaultOptions } from "../options.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { createListr } from "../utils/listr.js";
+import { ui } from "../utils/ui.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
 
@@ -40,7 +41,10 @@ function buildDependencyBumpNote(
   const dependencyLabel =
     bumpedDependencies.length === 1 ? "dependency" : "dependencies";
 
-  return `💡 ${dependencyLabel} ${bumpedDependencies.join(", ")} bumped, suggest at least patch -> ${suggestedVersion}`;
+  return ui.formatNote(
+    "hint",
+    `${dependencyLabel} ${bumpedDependencies.join(", ")} bumped, suggest at least patch -> ${suggestedVersion}`,
+  );
 }
 
 function renderPackageVersionSummary(
@@ -483,7 +487,10 @@ function buildChangesetNotes(
     const changesetCount = pkgStatus?.changesetCount ?? 0;
     const changesetLabel = pluralize(changesetCount, "changeset");
     notes.set(pkg.name, [
-      `📦 ${changesetLabel} suggests ${bump.bumpType} -> ${bump.newVersion}`,
+      ui.formatNote(
+        "suggest",
+        `${changesetLabel} suggests ${bump.bumpType} -> ${bump.newVersion}`,
+      ),
     ]);
   }
   return notes;
@@ -653,7 +660,10 @@ async function handleIndependentMode(
     const bump = bumps?.get(pkg.name);
     if (bump) {
       pkgNotes.push(
-        `📦 changesets suggest ${bump.bumpType} -> ${bump.newVersion}`,
+        ui.formatNote(
+          "suggest",
+          `changesets suggest ${bump.bumpType} -> ${bump.newVersion}`,
+        ),
       );
     }
 

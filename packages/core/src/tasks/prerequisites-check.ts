@@ -4,8 +4,8 @@ import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
-import { warningBadge } from "../utils/cli.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
+import { ui } from "../utils/ui.js";
 
 class PrerequisitesCheckError extends AbstractError {
   name = "Failed prerequisite check";
@@ -36,7 +36,7 @@ export const prerequisitesCheckTask = (
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} The current HEAD branch is not the release target branch. Do you want to switch branch to ${ctx.options.branch}?`,
+                  message: `${ui.labels.WARNING} The current HEAD branch is not the release target branch. Do you want to switch branch to ${ctx.options.branch}?`,
                   enabled: "Yes",
                   disabled: "No",
                 });
@@ -62,7 +62,7 @@ export const prerequisitesCheckTask = (
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} Local history is outdated. Do you want to run \`git fetch\`?`,
+                  message: `${ui.labels.WARNING} Local history is outdated. Do you want to run \`git fetch\`?`,
                   enabled: "Yes",
                   disabled: "No",
                 });
@@ -83,7 +83,7 @@ export const prerequisitesCheckTask = (
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} Local history is outdated. Do you want to run \`git pull\`?`,
+                  message: `${ui.labels.WARNING} Local history is outdated. Do you want to run \`git pull\`?`,
                   enabled: "Yes",
                   disabled: "No",
                 });
@@ -108,7 +108,7 @@ export const prerequisitesCheckTask = (
               if (
                 !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} Local working tree is not clean. Do you want to skip?`,
+                  message: `${ui.labels.WARNING} Local working tree is not clean. Do you want to skip?`,
                   enabled: "Yes",
                   disabled: "No",
                 }))
@@ -139,7 +139,7 @@ export const prerequisitesCheckTask = (
               if (
                 !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
                   type: "toggle",
-                  message: `${warningBadge} No commits exist from the latest tag. Do you want to skip?`,
+                  message: `${ui.labels.WARNING} No commits exist from the latest tag. Do you want to skip?`,
                   enabled: "Yes",
                   disabled: "No",
                 }))

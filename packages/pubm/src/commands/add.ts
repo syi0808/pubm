@@ -1,6 +1,6 @@
 import process from "node:process";
 import type { BumpType, Release, ResolvedPubmConfig } from "@pubm/core";
-import { writeChangeset } from "@pubm/core";
+import { ui, writeChangeset } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
@@ -24,7 +24,7 @@ export function registerAddCommand(
       }) => {
         if (options.empty) {
           const filePath = writeChangeset([], "");
-          console.log(`Created empty changeset: ${filePath}`);
+          ui.success(`Created empty changeset: ${filePath}`);
           return;
         }
 
@@ -43,7 +43,7 @@ export function registerAddCommand(
             type: options.bump as BumpType,
           }));
           const filePath = writeChangeset(releases, options.message);
-          console.log(`Created changeset: ${filePath}`);
+          ui.success(`Created changeset: ${filePath}`);
           return;
         }
 
@@ -85,7 +85,7 @@ export function registerAddCommand(
           });
 
           if (selectedNames.length === 0) {
-            console.log("No packages selected. Aborting.");
+            ui.warn("No packages selected. Aborting.");
             return;
           }
 
@@ -130,7 +130,7 @@ export function registerAddCommand(
         const filePath = writeChangeset(releases, summary, cwd);
 
         // Step 5: Success output
-        console.log(`Created changeset: ${filePath}`);
+        ui.success(`Created changeset: ${filePath}`);
       },
     );
 }

@@ -3,7 +3,6 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color } from "listr2";
 import { AbstractError } from "../error.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
 import {
   readGhSecretsSyncHash,
@@ -11,6 +10,7 @@ import {
 } from "../utils/gh-secrets-sync-state.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { loadTokensFromDb } from "../utils/token.js";
+import { ui } from "../utils/ui.js";
 
 class PreflightError extends AbstractError {
   name = "Preflight Error";
@@ -62,7 +62,7 @@ export async function collectTokens(
       const token = await task.prompt(ListrEnquirerPromptAdapter).run({
         type: "password",
         message: `Enter ${config.promptLabel}`,
-        footer: `\nGenerate a token from ${color.bold(link(config.tokenUrlLabel, tokenUrl))}`,
+        footer: `\nGenerate a token from ${color.bold(ui.link(config.tokenUrlLabel, tokenUrl))}`,
       });
 
       if (!`${token}`.trim()) {
