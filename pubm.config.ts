@@ -20,7 +20,7 @@ export default defineConfig({
       targets: [
         {
           file: "website/src/i18n/landing.ts",
-          pattern: /v\d+\.\d+\.\d+/,
+          pattern: /v\d+\.\d+\.\d+/g,
         },
         {
           file: "plugins/pubm-plugin/.claude-plugin/plugin.json",
