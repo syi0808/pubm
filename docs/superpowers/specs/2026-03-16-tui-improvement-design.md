@@ -10,6 +10,8 @@
 
 중앙 테마 시스템 (`ui.ts`) 도입. chalk을 추가 의존성으로 사용하며, publish 파이프라인과 CLI 서브커맨드 양쪽이 공유하는 단일 출력 모듈을 만든다.
 
+chalk을 선택한 이유: listr2가 내부적으로 colorette를 사용하지만, chalk의 chaining API(`chalk.bgRed.white.bold`)가 badge 정의에 더 가독성이 좋고, `NO_COLOR`/`FORCE_COLOR` 를 자동 지원한다.
+
 ## Design
 
 ### 1. Theme & Color System
@@ -61,7 +63,11 @@ ui.debug(message)     // DEBUG=pubm 일 때만 출력
 **Output Channel Rules:**
 - **stderr**: `error()`, `warn()`, `debug()`
 - **stdout**: `success()`, `info()`, `hint()`
-- `NO_COLOR` 환경변수 및 `--no-color` 플래그 지원 (chalk 자동 처리)
+- `NO_COLOR` 환경변수: chalk 5+가 자동 처리
+- `--no-color` CLI 플래그: Commander 레벨에서 `chalk.level = 0` 설정
+
+**Debug 체크:**
+- `ui.ts` 내부에 `isDebug()` 헬퍼를 두고, `debug()` 함수와 `error.ts`의 debug 조건부 로직이 공유
 
 ### 3. Module Structure
 
@@ -74,11 +80,12 @@ packages/core/src/index.ts       — ui module export 추가
 **`ui.ts` 내부 구조:**
 - Theme constants (badges, labels, colors)
 - Output functions (`success`, `info`, `warn`, `error`, `hint`, `debug`)
-- `link()` function (cli.ts에서 이동)
+- `link()` function (cli.ts에서 이동, OSC 8 hyperlink 방식 유지 — 색상이 아닌 터미널 하이퍼링크)
 - `formatNote()` — emoji + label combination
+- `isDebug()` — `process.env.DEBUG === "pubm"` 체크 헬퍼
 
 **Dependencies:**
-- `chalk` — 새로 추가 (CLI 출력용)
+- `chalk` — `packages/core`의 `package.json`에 추가 (CLI는 `@pubm/core` export를 통해 사용)
 - `listr2.color` — publish 파이프라인 내부에서는 기존대로 유지
 
 ### 4. Migration Scope
@@ -87,24 +94,28 @@ packages/core/src/index.ts       — ui module export 추가
 
 | File | Change |
 |------|--------|
-| `error.ts` | `color.bgRed` → theme badge 사용 |
+| `error.ts` | badge(`color.bgRed`) → theme badge 사용. 나머지 color 사용(`color.bold`, `color.underline`, `color.dim`, `color.blue`)도 chalk으로 전환 |
 | `utils/cli.ts` | 파일 삭제, `warningBadge`/`link()` → `ui.ts`로 이동 |
 | `utils/rollback.ts` | `color.yellow`/`color.red`/`color.green` → theme 색상 통일 |
 | `tasks/runner.ts` | 성공 메시지 색상 통일 |
 | `tasks/required-missing-information.ts` | Notes → `💡 Hint:`, `📦 Suggest:` 패턴 |
 
-#### CLI Subcommands (packages/cli) — 변경
+`warningBadge`는 현재 listr2 prompt `message` 속성에서도 사용됨 (jsr.ts, prerequisites-check.ts 등). 이들은 listr2 task title/output이 아닌 prompt message이므로 함께 마이그레이션한다.
+
+#### CLI Subcommands (packages/pubm) — 변경
 
 | File | Change |
 |------|--------|
 | 모든 서브커맨드 | `console.log()`/`console.error()` → `ui.*()` 함수 |
 | `version-cmd.ts` | `[dry-run]` → theme `DRY-RUN` 라벨 |
+| `changelog.ts` | `[dry-run]` 출력도 theme `DRY-RUN` 라벨 적용 |
+| `update.ts` | 성공/실패 메시지 → `ui.success()`/`ui.error()`. progress 콜백의 `process.stderr.write()`는 유지 |
 
 #### 변경하지 않는 것
 
 | File | Reason |
 |------|--------|
 | listr2 task title/output 내 `listr2.color` | listr2 렌더러 호환성 유지 |
-| `splash.ts` | 별도 로고 렌더링, 독립 유지 |
+| `splash.ts` | 별도 로고 렌더링, 독립 유지 (listr2 color 사용하지만 순수 장식적 요소) |
 | `listr-ci-renderer.ts` | 별도 CI 포맷 체계 |
-| `update.ts` progress | stderr 직접 write 방식 유지 |
+| `update.ts` progress 콜백 | stderr 직접 write 방식 유지 (다운로드 진행률 표시) |
