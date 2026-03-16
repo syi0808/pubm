@@ -1,7 +1,7 @@
-import cliPackageJson from "../../../pubm/package.json" with { type: "json" };
+import corePackageJson from "../../package.json" with { type: "json" };
 import type { Engine } from "../types/package-json.js";
 
-const cliEngines = (cliPackageJson.engines ?? {}) as Partial<
+const coreEngines = (corePackageJson.engines ?? {}) as Partial<
   Record<Engine, string>
 >;
 
@@ -19,33 +19,33 @@ function resolveDefine(injected: string | undefined, fallback: string): string {
 export const PUBM_VERSION: string = resolveDefine(
   /* istanbul ignore next -- compile-time constant */
   typeof __PUBM_VERSION__ === "string" ? __PUBM_VERSION__ : undefined,
-  cliPackageJson.version,
+  corePackageJson.version,
 );
 
 export const PUBM_ENGINES: Record<Engine, string> = {
   node: resolveDefine(
     /* istanbul ignore next -- compile-time constant */
     typeof __PUBM_NODE_ENGINE__ === "string" ? __PUBM_NODE_ENGINE__ : undefined,
-    cliEngines.node ?? ">=18",
+    coreEngines.node ?? ">=18",
   ),
   git: resolveDefine(
     /* istanbul ignore next -- compile-time constant */
     typeof __PUBM_GIT_ENGINE__ === "string" ? __PUBM_GIT_ENGINE__ : undefined,
-    cliEngines.git ?? ">=2.11.0",
+    coreEngines.git ?? ">=2.11.0",
   ),
   npm: resolveDefine(
     /* istanbul ignore next -- compile-time constant */
     typeof __PUBM_NPM_ENGINE__ === "string" ? __PUBM_NPM_ENGINE__ : undefined,
-    cliEngines.npm ?? "*",
+    coreEngines.npm ?? "*",
   ),
   pnpm: resolveDefine(
     /* istanbul ignore next -- compile-time constant */
     typeof __PUBM_PNPM_ENGINE__ === "string" ? __PUBM_PNPM_ENGINE__ : undefined,
-    cliEngines.pnpm ?? "*",
+    coreEngines.pnpm ?? "*",
   ),
   yarn: resolveDefine(
     /* istanbul ignore next -- compile-time constant */
     typeof __PUBM_YARN_ENGINE__ === "string" ? __PUBM_YARN_ENGINE__ : undefined,
-    cliEngines.yarn ?? "*",
+    coreEngines.yarn ?? "*",
   ),
 };
