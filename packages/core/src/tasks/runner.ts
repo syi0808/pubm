@@ -25,6 +25,7 @@ import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
 import { registryCatalog } from "../registry/catalog.js";
+import { JsrClient } from "../registry/jsr.js";
 import { link } from "../utils/cli.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
@@ -587,6 +588,21 @@ export async function run(ctx: PubmContext): Promise<void> {
       await prerequisitesCheckTask({
         skip: ctx.options.skipPrerequisitesCheck,
       }).run(ctx);
+
+      // Collect JSR token early if JSR registry is configured
+      const registries = collectRegistries(ctx.config);
+      if (registries.includes("jsr") && ctx.runtime.promptEnabled) {
+        await createListr<PubmContext>({
+          title: "Ensuring JSR authentication",
+          task: async (_ctx, task): Promise<void> => {
+            const tokens = await collectTokens(["jsr"], task);
+            cleanupEnv = injectTokensToEnv(tokens);
+            if (tokens.jsr) {
+              JsrClient.token = tokens.jsr;
+            }
+          },
+        }).run(ctx);
+      }
 
       await requiredConditionsCheckTask({
         skip: ctx.options.skipConditionsCheck,
