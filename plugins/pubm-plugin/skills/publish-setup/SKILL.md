@@ -15,96 +15,146 @@ allowed-tools:
 
 Interactive setup wizard for pubm in the current project.
 
-pubm publishes packages to multiple registries (npm, jsr, crates.io, private registries) simultaneously. It supports JavaScript/TypeScript and Rust ecosystems.
+pubm publishes packages to multiple registries (npm, jsr, crates.io, private registries) simultaneously. It supports JavaScript/TypeScript and Rust ecosystems with automatic detection.
 
 ## Workflow
 
-### 1. Detect Ecosystem
-
-Use Glob to check for:
-- `package.json` (JavaScript/TypeScript)
-- `Cargo.toml` (Rust)
-- Workspace config (`pnpm-workspace.yaml`, `workspaces` in `package.json`)
-
-If both exist, note the multi-ecosystem setup. If multiple publishable packages exist across different directories (with or without a formal workspace), ask the user which packages they want to publish and configure them via `packages` in the config with explicit `path`, `registries`, and `ecosystem` fields.
-
-### 2. Check if pubm is installed
+### 1. Check if pubm is installed
 
 Check `package.json` devDependencies for `pubm`. If not installed, ask whether to install:
-- `npm install -D pubm` or `pnpm add -D pubm`
+- `npm install -D pubm` or `pnpm add -D pubm` (detect package manager from lock files)
 - pubm itself is an npm package, so even Rust projects need Node.js and npm to use it
 
-### 3. Ask setup scope
+### 2. Review auto-detected packages and registries
 
-Ask the user all setup questions upfront before proceeding to configuration:
+Run `pubm inspect packages` to show the auto-detected ecosystem, packages, and target registries.
 
-1. **Which registries** to publish to? (npm, jsr, crates, private)
-2. **Set up CI/CD** for automated publishing?
-3. **Use changesets workflow?** (Track changes per PR, automate versioning + CHANGELOG)
-4. **Use external version sync?** (Sync version to non-manifest files)
+pubm auto-detects:
+- **Ecosystem**: JavaScript (package.json) or Rust (Cargo.toml)
+- **Packages**: Workspace packages via pnpm-workspace.yaml, package.json workspaces, or Cargo.toml [workspace]. Falls back to single-package if no workspace found.
+- **Registries per package**:
+  - JS: npm (default when package.json exists), jsr (when jsr.json exists), private registry (from publishConfig.registry or .npmrc)
+  - Rust: crates (always)
 
-Store the answers and use them to conditionally execute subsequent steps.
+Show the output and ask the user:
+1. **"이 감지 결과가 맞나요?"** — Confirm the detected packages and registries are correct
+2. **"추가로 배포할 registry가 있나요?"** — e.g., adding jsr to a package that only has npm, adding a private registry URL
 
-### 3.1. Install jsr CLI (if jsr selected)
+If the user wants changes (add/remove registries, add/remove packages), note them for config generation in Step 5.
 
-If the user selected jsr, check `package.json` devDependencies for `jsr`. If not installed, install it as a devDependency using the project's package manager (detect from lock files: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm).
+### 3. Ask about official plugins
 
-### 4. Generate missing registry config files
+Present the available official plugins and ask which (if any) to use:
 
-For each selected registry, check if its required config file exists. If missing, generate it from whichever source file is available.
+| Plugin | Package | Description |
+|--------|---------|-------------|
+| `externalVersionSync()` | `@pubm/plugin-external-version-sync` | Sync version to non-manifest files (plugin.json, README badges, etc.) |
+| `brewCore()` | `@pubm/plugin-brew` | Open PR to homebrew-core on release |
+| `brewTap()` | `@pubm/plugin-brew` | Update formula in a custom Homebrew tap repo on release |
+
+**If `externalVersionSync` selected:**
+1. Install the plugin: `npm install -D @pubm/plugin-external-version-sync` (or pnpm/bun equivalent)
+2. Run `pubm sync --discover` to scan for version references outside manifest files
+3. Show discovered references and ask which to include as sync targets
+4. If the project uses independent versioning (monorepo), ask which package's version to sync, and note the `version` callback for config
+
+**If `brewCore` selected:**
+1. Install the plugin: `npm install -D @pubm/plugin-brew`
+2. Ask for the formula file path (default: `Formula/<package-name>.rb`)
+3. Optionally ask for `packageName` filter (for monorepo per-package releases)
+
+**If `brewTap` selected:**
+1. Install the plugin: `npm install -D @pubm/plugin-brew`
+2. Ask for the formula file path (default: `Formula/<package-name>.rb`)
+3. Ask for the tap repo (e.g., `user/homebrew-tap`)
+4. Optionally ask for `packageName` filter
+
+### 4. Ask about CI/CD and changesets
+
+Ask the user:
+1. **Set up CI/CD** for automated publishing?
+2. **Use changesets workflow?** (Track changes per PR, automate versioning + CHANGELOG)
+
+Store the answers for subsequent steps.
+
+### 4.1. Install jsr CLI (if jsr is among registries)
+
+If any package targets jsr, check `package.json` devDependencies for `jsr`. If not installed, install it using the project's package manager.
+
+### 5. Generate pubm config file (conditional)
+
+**Only create `pubm.config.ts` when needed.** A config file is needed when:
+- User overrode auto-detected registries (explicit packages config required)
+- User selected plugins
+- User needs non-default config (versioning strategy, etc.)
+
+**When config is NOT needed:** Inform the user that pubm's auto-detection covers their setup and no config file is required.
+
+**When creating config:**
+
+Use `defineConfig()` from `pubm` for type safety. Use `packages` array with per-package `path` and `registries`. Read `references/config-examples.md` for templates.
+
+Example with plugins:
+```typescript
+import { defineConfig } from 'pubm'
+import { externalVersionSync } from '@pubm/plugin-external-version-sync'
+
+export default defineConfig({
+  packages: [
+    { path: 'packages/core', registries: ['npm', 'jsr'] },
+    { path: 'packages/cli', registries: ['npm'] },
+  ],
+  plugins: [
+    externalVersionSync({
+      targets: [
+        { file: 'plugins/.claude-plugin/plugin.json', jsonPath: 'version' },
+      ],
+    }),
+  ],
+})
+```
+
+### 6. Generate missing registry config files
+
+For each registry that a package targets, check if its required config file exists. If missing, generate it from whichever source file is available.
 
 **Generation rules:**
 
-| Selected registry | Required file | Source file | Reference |
+| Target registry | Required file | Source file | Reference |
 |---|---|---|---|
 | `jsr` | `jsr.json` | `package.json` | `references/registry-jsr.md` |
 | `npm` or custom URL | `package.json` | `jsr.json` | `references/registry-npm.md` |
 | `crates` | `Cargo.toml` | `package.json` | `references/registry-crates.md` |
 
-Read the corresponding registry reference file for the template and constraints specific to that registry.
+Read the corresponding registry reference file for the template and constraints.
 
 **Behavior:**
 - If the required file already exists, skip silently.
 - If neither source file nor target file exists, inform the user and ask them to create one manually.
 - Before writing any generated file, show the user the content and ask for confirmation.
 
-### 5. Generate pubm config file
+### 7. Update .gitignore
 
-Create `pubm.config.ts` using `defineConfig()` for type safety. Read `references/config-examples.md` for templates.
+Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted tokens and should not be committed.
 
-Example for npm + jsr:
-```typescript
-import { defineConfig } from 'pubm'
+**Note:** If the user selected changesets workflow in Step 4, the `.gitignore` update will be handled by `pubm init --changesets` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
 
-export default defineConfig({
-  registries: ['npm', 'jsr'],
-})
-```
-
-### 6. Update .gitignore
-
-Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted JSR tokens and should not be committed.
-
-**Note:** If the user selected changesets workflow in Step 3, the `.gitignore` update will be handled by `pubm init --changesets` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
-
-### 7. Ask about CI setup
-
-Ask if the user wants to set up CI/CD for automated publishing. If yes:
+### 8. CI setup (if selected in Step 4)
 
 1. **Ask CI platform**: Default to GitHub Actions if not specified.
 2. **Ask trigger method**:
    - **Tag-based** (recommended): push a `v*` tag to trigger publish
    - **Manual** (workflow_dispatch): trigger from the GitHub Actions UI
    - **Both**: supports both triggers
-3. **Determine registries**: Use the registries selected in step 3.
+3. **Determine registries**: Use the registries confirmed in Step 2.
 4. **Generate workflow file**: Read `references/ci-templates.md` for the appropriate template. Create `.github/workflows/publish.yml`.
 5. **List required secrets**: Based on the target registries:
-   - `GITHUB_TOKEN` for GitHub Releases (automatically available as `secrets.GITHUB_TOKEN` in GitHub Actions — no manual setup needed)
+   - `GITHUB_TOKEN` for GitHub Releases (automatically available as `secrets.GITHUB_TOKEN` — no manual setup needed)
    - `NODE_AUTH_TOKEN` for npm (create at npmjs.com > Access Tokens > Automation)
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
 
-### 7.1. Changesets Workflow (if selected in Step 3)
+### 8.1. Changesets Workflow (if selected in Step 4)
 
 Run the CLI to set up the changesets workflow:
 
@@ -151,9 +201,9 @@ This project uses pubm changesets to track changes and automate versioning.
 - [ ] Summary is clear and user-facing
 ```
 
-### 8. Add npm scripts (JS projects only)
+### 9. Add npm scripts (JS projects only)
 
-Add to `package.json`. The `release` script depends on whether CI was set up in the previous step:
+Add to `package.json`. The `release` script depends on whether CI was set up:
 
 **If CI was configured** (publishing is handled by CI):
 ```json
@@ -175,7 +225,7 @@ Add to `package.json`. The `release` script depends on whether CI was set up in 
 }
 ```
 
-### 9. Present summary
+### 10. Present summary
 
 List all files created/modified and remind about required authentication. Show only lines for registries the user selected:
 
@@ -183,36 +233,14 @@ List all files created/modified and remind about required authentication. Show o
 - **jsr**: Run `pubm` locally (interactive token prompt), or set `JSR_TOKEN` secret in GitHub
 - **crates.io**: Run `cargo login` locally, or set `CARGO_REGISTRY_TOKEN` secret in GitHub
 
-### 10. External Version Sync (Optional)
-
-Ask if the project has version references outside of package manifest files (e.g., plugin metadata, docs with install commands, CI configs).
-
-If yes:
-1. Run `pubm sync --discover` to scan for references
-2. Show discovered references and ask which to include
-3. Add `externalVersionSync()` plugin to `pubm.config.ts`:
-
-```typescript
-import { defineConfig, externalVersionSync } from "pubm";
-
-export default defineConfig({
-  registries: ["npm", "jsr"],
-  plugins: [
-    externalVersionSync({
-      targets: [
-        // discovered targets here
-      ],
-    }),
-  ],
-});
-```
-
-If no, skip this step.
+Remind the user they can run `pubm inspect packages` at any time to verify their detected setup.
 
 ## Constraints
 
 - Always use `defineConfig()` from `pubm` for type safety in config files.
-- Always add `.pubm/` to `.gitignore`.
+- Config uses `packages` array with per-package `registries` — there is no top-level `registries` field on `PubmConfig`.
+- Config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
+- Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init --changesets`).
 - If unsure which registries the user wants, ask. Do not assume.
 - When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --ci"` for CI.
 - In CI, use `--ci` mode (publish + GitHub Release) or `--publish-only` mode (publish only).
@@ -223,5 +251,5 @@ If no, skip this step.
 - `references/registry-jsr.md` -- JSR-specific constraints and templates
 - `references/registry-npm.md` -- npm-specific constraints and templates
 - `references/registry-crates.md` -- crates.io-specific constraints and templates
-- `references/config-examples.md` -- Config file templates
+- `references/config-examples.md` -- Config file templates and type reference
 - `references/ci-templates.md` -- CI/CD pipeline templates
