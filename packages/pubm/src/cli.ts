@@ -18,6 +18,7 @@ import semver from "semver";
 import { isCI } from "std-env";
 import { registerChangesetsCommand } from "./commands/changesets.js";
 import { registerInitCommand } from "./commands/init.js";
+import { registerInspectCommand } from "./commands/inspect.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
@@ -88,6 +89,7 @@ export function createProgram(): Command {
   registerSecretsCommand(program);
   registerSyncCommand(program);
   registerVersionCommand(program, () => resolvedConfig);
+  registerInspectCommand(program, () => resolvedConfig);
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program
