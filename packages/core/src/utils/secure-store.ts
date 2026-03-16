@@ -7,6 +7,7 @@ const KEYRING_SERVICE = "pubm";
 interface KeyringEntry {
   getPassword(): string | null;
   setPassword(password: string): void;
+  deletePassword(): void;
 }
 
 type KeyringEntryConstructor = new (
@@ -101,5 +102,23 @@ export class SecureStore {
     }
 
     this.getDb().set(field, normalized);
+  }
+
+  delete(field: string): void {
+    const keyringEntry = this.getKeyringEntry(field);
+
+    if (keyringEntry) {
+      try {
+        keyringEntry.deletePassword();
+      } catch {
+        // Ignore — may not exist in keyring
+      }
+    }
+
+    try {
+      this.getDb().delete(field);
+    } catch {
+      // Ignore — may not exist in Db
+    }
   }
 }

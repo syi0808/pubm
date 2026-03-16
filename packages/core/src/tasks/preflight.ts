@@ -26,29 +26,65 @@ export async function collectTokens(
 
   for (const registry of registries) {
     const descriptor = registryCatalog.get(registry);
-    if (!descriptor || tokens[registry]) continue;
+    if (!descriptor) continue;
     const config = descriptor.tokenConfig;
+
+    // Validate existing token (from env or SecureStore)
+    if (tokens[registry] && descriptor.validateToken) {
+      task.output = `Validating stored ${config.promptLabel}...`;
+      const isValid = await descriptor.validateToken(tokens[registry]);
+
+      if (!isValid) {
+        // Check if token came from environment variable
+        if (process.env[config.envVar]) {
+          throw new PreflightError(
+            `${config.envVar} is set but invalid. Please update the environment variable.`,
+          );
+        }
+
+        // Token from SecureStore — delete and re-prompt
+        task.output = `Stored ${config.promptLabel} is invalid`;
+        new SecureStore().delete(config.dbKey);
+        delete tokens[registry];
+      }
+    }
+
+    if (tokens[registry]) continue;
 
     let { tokenUrl } = config;
     if (descriptor.resolveTokenUrl) {
       tokenUrl = await descriptor.resolveTokenUrl(tokenUrl);
     }
 
-    task.output = `Enter ${config.promptLabel}`;
-    const token = await task.prompt(ListrEnquirerPromptAdapter).run({
-      type: "password",
-      message: `Enter ${config.promptLabel}`,
-      footer: `\nGenerate a token from ${color.bold(link(config.tokenUrlLabel, tokenUrl))}`,
-    });
+    // Prompt loop (infinite until valid token or Ctrl+C)
+    while (true) {
+      task.output = `Enter ${config.promptLabel}`;
+      const token = await task.prompt(ListrEnquirerPromptAdapter).run({
+        type: "password",
+        message: `Enter ${config.promptLabel}`,
+        footer: `\nGenerate a token from ${color.bold(link(config.tokenUrlLabel, tokenUrl))}`,
+      });
 
-    if (!`${token}`.trim()) {
-      throw new PreflightError(
-        `${config.promptLabel} is required to continue.`,
-      );
+      if (!`${token}`.trim()) {
+        throw new PreflightError(
+          `${config.promptLabel} is required to continue.`,
+        );
+      }
+
+      if (descriptor.validateToken) {
+        task.output = `Validating ${config.promptLabel}...`;
+        const isValid = await descriptor.validateToken(token);
+
+        if (!isValid) {
+          task.output = `${config.promptLabel} is invalid. Please try again.`;
+          continue;
+        }
+      }
+
+      tokens[registry] = token;
+      new SecureStore().set(config.dbKey, token);
+      break;
     }
-
-    tokens[registry] = token;
-    new SecureStore().set(config.dbKey, token);
   }
 
   return tokens;

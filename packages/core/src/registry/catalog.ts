@@ -30,6 +30,7 @@ export interface RegistryDescriptor {
   tokenConfig: TokenEntry;
   needsPackageScripts: boolean;
   additionalEnvVars?: (token: string) => Record<string, string>;
+  validateToken?: (token: string) => Promise<boolean>;
   resolveTokenUrl?: (baseUrl: string) => Promise<string>;
   resolveDisplayName?: (ctx: {
     packages?: ResolvedPackageConfig[];
@@ -81,6 +82,12 @@ registryCatalog.register({
   additionalEnvVars: (token) => ({
     "npm_config_//registry.npmjs.org/:_authToken": token,
   }),
+  validateToken: async (token) => {
+    const res = await fetch("https://registry.npmjs.org/-/whoami", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  },
   resolveTokenUrl: async (baseUrl) => {
     if (!baseUrl.includes("~")) return baseUrl;
     const result = await exec("npm", ["whoami"]);
@@ -112,6 +119,12 @@ registryCatalog.register({
     tokenUrlLabel: "jsr.io",
   },
   needsPackageScripts: false,
+  validateToken: async (token) => {
+    const res = await fetch("https://jsr.io/api/user", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  },
   resolveDisplayName: async (ctx) => {
     return (
       ctx.packages
@@ -137,6 +150,15 @@ registryCatalog.register({
     tokenUrlLabel: "crates.io",
   },
   needsPackageScripts: false,
+  validateToken: async (token) => {
+    const res = await fetch("https://crates.io/api/v1/me", {
+      headers: {
+        Authorization: token,
+        "User-Agent": "pubm (https://github.com/syi0808/pubm)",
+      },
+    });
+    return res.ok;
+  },
   resolveDisplayName: async (ctx) => {
     return (
       ctx.packages

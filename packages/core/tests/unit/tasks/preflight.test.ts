@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
@@ -8,6 +8,7 @@ vi.mock("../../../src/utils/secure-store.js", () => ({
     return {
       get: vi.fn(),
       set: vi.fn(),
+      delete: vi.fn(),
     };
   }),
 }));
@@ -25,6 +26,7 @@ vi.mock("../../../src/utils/token.js", async (importOriginal) => {
   };
 });
 
+import { registryCatalog } from "../../../src/registry/catalog.js";
 import {
   collectTokens,
   promptGhSecretsSync,
@@ -49,6 +51,17 @@ beforeEach(() => {
 });
 
 describe("collectTokens", () => {
+  // Disable real network validateToken calls for all tests in this suite
+  // (the "token validation" sub-describe sets its own mocks as needed)
+  const npmDescriptorOuter = registryCatalog.get("npm")!;
+  const originalValidateOuter = npmDescriptorOuter.validateToken;
+  beforeEach(() => {
+    npmDescriptorOuter.validateToken = undefined;
+  });
+  afterEach(() => {
+    npmDescriptorOuter.validateToken = originalValidateOuter;
+  });
+
   it("uses existing tokens from Db without prompting", async () => {
     mockedLoadTokens.mockReturnValue({ npm: "existing-token" });
 
@@ -115,6 +128,129 @@ describe("collectTokens", () => {
 
     expect(tokens).toEqual({});
     expect(mockTask.prompt).not.toHaveBeenCalled();
+  });
+
+  describe("token validation", () => {
+    const npmDescriptor = registryCatalog.get("npm")!;
+    const originalValidate = npmDescriptor.validateToken;
+    const originalEnv = process.env.NODE_AUTH_TOKEN;
+
+    afterEach(() => {
+      npmDescriptor.validateToken = originalValidate;
+      if (originalEnv === undefined) {
+        delete process.env.NODE_AUTH_TOKEN;
+      } else {
+        process.env.NODE_AUTH_TOKEN = originalEnv;
+      }
+    });
+
+    it("re-prompts when stored token fails validation", async () => {
+      mockedLoadTokens.mockReturnValue({ npm: "expired-token" });
+
+      npmDescriptor.validateToken = vi
+        .fn()
+        .mockResolvedValueOnce(false) // stored token invalid
+        .mockResolvedValueOnce(true); // prompted token valid
+
+      const mockPromptAdapter = {
+        run: vi.fn().mockResolvedValue("fresh-token"),
+      };
+      const mockTask = {
+        output: "",
+        prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+      };
+
+      const mockDbDelete = vi.fn();
+      const mockDbSet = vi.fn();
+      mockedSecureStore.mockImplementation(function () {
+        return { get: vi.fn(), set: mockDbSet, delete: mockDbDelete } as any;
+      });
+
+      const tokens = await collectTokens(["npm"], mockTask as any);
+
+      expect(tokens).toEqual({ npm: "fresh-token" });
+      expect(mockDbDelete).toHaveBeenCalledWith("npm-token");
+      expect(mockDbSet).toHaveBeenCalledWith("npm-token", "fresh-token");
+    });
+
+    it("skips validation when validateToken is not defined", async () => {
+      mockedLoadTokens.mockReturnValue({ npm: "some-token" });
+      npmDescriptor.validateToken = undefined;
+
+      const mockTask = {
+        output: "",
+        prompt: vi.fn(),
+      };
+
+      const tokens = await collectTokens(["npm"], mockTask as any);
+
+      expect(tokens).toEqual({ npm: "some-token" });
+      expect(mockTask.prompt).not.toHaveBeenCalled();
+    });
+
+    it("throws when env var token fails validation", async () => {
+      process.env.NODE_AUTH_TOKEN = "bad-env-token";
+      mockedLoadTokens.mockReturnValue({ npm: "bad-env-token" });
+      npmDescriptor.validateToken = vi.fn().mockResolvedValue(false);
+
+      const mockTask = {
+        output: "",
+        prompt: vi.fn(),
+      };
+
+      await expect(collectTokens(["npm"], mockTask as any)).rejects.toThrow(
+        "NODE_AUTH_TOKEN is set but invalid",
+      );
+    });
+
+    it("re-prompts when prompted token fails validation", async () => {
+      mockedLoadTokens.mockReturnValue({});
+      npmDescriptor.validateToken = vi
+        .fn()
+        .mockResolvedValueOnce(false) // first prompted token invalid
+        .mockResolvedValueOnce(true); // second prompted token valid
+
+      // resolveTokenUrl needs exec mock
+      mockedExec.mockResolvedValue({ stdout: "testuser\n", stderr: "" } as any);
+
+      const mockPromptAdapter = {
+        run: vi
+          .fn()
+          .mockResolvedValueOnce("bad-token")
+          .mockResolvedValueOnce("good-token"),
+      };
+      const mockTask = {
+        output: "",
+        prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+      };
+
+      const mockDbSet = vi.fn();
+      mockedSecureStore.mockImplementation(function () {
+        return { get: vi.fn(), set: mockDbSet, delete: vi.fn() } as any;
+      });
+
+      const tokens = await collectTokens(["npm"], mockTask as any);
+
+      expect(tokens).toEqual({ npm: "good-token" });
+      expect(mockPromptAdapter.run).toHaveBeenCalledTimes(2);
+      expect(mockDbSet).toHaveBeenCalledWith("npm-token", "good-token");
+    });
+
+    it("propagates network errors from validateToken", async () => {
+      mockedLoadTokens.mockReturnValue({ npm: "some-token" });
+      npmDescriptor.validateToken = vi
+        .fn()
+        .mockRejectedValue(new Error("ECONNREFUSED"));
+
+      const mockTask = {
+        output: "",
+        prompt: vi.fn(),
+      };
+
+      await expect(collectTokens(["npm"], mockTask as any)).rejects.toThrow(
+        "ECONNREFUSED",
+      );
+    });
   });
 });
 

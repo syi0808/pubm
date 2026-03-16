@@ -1,5 +1,11 @@
 import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -72,6 +78,19 @@ export class Db {
       return d(Buffer.from(raw).toString(), field);
     } catch {
       return null;
+    }
+  }
+
+  delete(field: string): void {
+    const filePath = path.resolve(
+      this.path,
+      Buffer.from(e(field, field)).toString("base64"),
+    );
+
+    try {
+      unlinkSync(filePath);
+    } catch {
+      // Ignore — file may not exist
     }
   }
 }

@@ -20,6 +20,10 @@ vi.mock("../../../src/utils/db.js", () => ({
       if (!dbControl.available) throw new Error("db unavailable");
       dbStore[field] = `${value}`;
     }
+    delete(field: string): void {
+      if (!dbControl.available) throw new Error("db unavailable");
+      delete dbStore[field];
+    }
   },
 }));
 
@@ -128,6 +132,49 @@ describe("SecureStore", () => {
 
       const store = new SecureStore();
       expect(() => store.set("field-token", "value")).toThrow("db unavailable");
+    });
+  });
+
+  describe("delete", () => {
+    it("removes token from keyring for token-type fields", () => {
+      keyringStore["test-token"] = "secret";
+
+      const store = new SecureStore();
+      store.delete("test-token");
+
+      expect(keyringStore["test-token"]).toBeUndefined();
+    });
+
+    it("removes value from Db for non-token fields", () => {
+      dbStore["gh-secrets-sync-hash"] = "hash-value";
+
+      const store = new SecureStore();
+      store.delete("gh-secrets-sync-hash");
+
+      expect(dbStore["gh-secrets-sync-hash"]).toBeUndefined();
+    });
+
+    it("does not throw when keyring entry does not exist", () => {
+      keyringControl.available = false;
+
+      const store = new SecureStore();
+      expect(() => store.delete("test-token")).not.toThrow();
+    });
+
+    it("does not throw when Db entry does not exist", () => {
+      const store = new SecureStore();
+      expect(() => store.delete("nonexistent-field")).not.toThrow();
+    });
+
+    it("removes token from both keyring and Db when present in both", () => {
+      keyringStore["test-token"] = "keyring-value";
+      dbStore["test-token"] = "db-value";
+
+      const store = new SecureStore();
+      store.delete("test-token");
+
+      expect(keyringStore["test-token"]).toBeUndefined();
+      expect(dbStore["test-token"]).toBeUndefined();
     });
   });
 });

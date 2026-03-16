@@ -26,6 +26,14 @@ const { keyringControl, keyringStore, loadMockKeyringModule } = vi.hoisted(
 
         keyringStore[this.field] = value;
       }
+
+      deletePassword(): void {
+        if (!keyringControl.available) {
+          throw new Error("keyring unavailable");
+        }
+
+        delete keyringStore[this.field];
+      }
     }
 
     function loadMockKeyringModule() {
