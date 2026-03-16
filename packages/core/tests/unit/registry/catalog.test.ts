@@ -228,6 +228,121 @@ describe("RegistryDescriptor connector", () => {
   });
 });
 
+describe("validateToken", () => {
+  it("npm validateToken returns true for valid token", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await npm.validateToken!("valid-token");
+
+    expect(result).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://registry.npmjs.org/-/whoami",
+      { headers: { Authorization: "Bearer valid-token" } },
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("npm validateToken returns false for invalid token", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 401 });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await npm.validateToken!("bad-token");
+
+    expect(result).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("npm validateToken throws on network error", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const mockFetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(npm.validateToken!("any-token")).rejects.toThrow(
+      "ECONNREFUSED",
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("jsr validateToken throws on network error", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const mockFetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(jsr.validateToken!("any-token")).rejects.toThrow(
+      "ECONNREFUSED",
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("jsr validateToken returns true for valid token", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await jsr.validateToken!("valid-jsr-token");
+
+    expect(result).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith("https://jsr.io/api/user", {
+      headers: { Authorization: "Bearer valid-jsr-token" },
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("jsr validateToken returns false for invalid token", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 401 });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await jsr.validateToken!("bad-jsr-token");
+
+    expect(result).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("crates validateToken returns true for valid token", async () => {
+    const crates = registryCatalog.get("crates")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await crates.validateToken!("valid-cargo-token");
+
+    expect(result).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith("https://crates.io/api/v1/me", {
+      headers: {
+        Authorization: "valid-cargo-token",
+        "User-Agent": "pubm (https://github.com/syi0808/pubm)",
+      },
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("crates validateToken returns false for invalid token", async () => {
+    const crates = registryCatalog.get("crates")!;
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 403 });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await crates.validateToken!("bad-cargo-token");
+
+    expect(result).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("crates validateToken throws on network error", async () => {
+    const crates = registryCatalog.get("crates")!;
+    const mockFetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(crates.validateToken!("any-token")).rejects.toThrow(
+      "ECONNREFUSED",
+    );
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("default registration factory and connector invocations", () => {
   it("npm connector returns a RegistryConnector instance", () => {
     const npm = registryCatalog.get("npm")!;
