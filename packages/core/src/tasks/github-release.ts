@@ -142,7 +142,7 @@ export async function createGitHubRelease(
     tag: string;
     changelogBody?: string;
   },
-): Promise<ReleaseContext> {
+): Promise<ReleaseContext | null> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new GitHubReleaseError(
@@ -189,6 +189,10 @@ export async function createGitHubRelease(
       }),
     },
   );
+
+  if (createResponse.status === 422) {
+    return null;
+  }
 
   if (!createResponse.ok) {
     const errorBody = await createResponse.text();

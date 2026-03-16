@@ -662,11 +662,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                       tag,
                       changelogBody,
                     });
-                    task.output = `Release created: ${result.releaseUrl}`;
-                    await ctx.runtime.pluginRunner.runAfterReleaseHook(
-                      ctx,
-                      result,
-                    );
+                    if (result) {
+                      task.output = `Release created: ${result.releaseUrl}`;
+                      await ctx.runtime.pluginRunner.runAfterReleaseHook(
+                        ctx,
+                        result,
+                      );
+                    } else {
+                      task.output = `Release already exists for ${tag}, skipped.`;
+                    }
                   }
                 } else {
                   // Single or fixed: one release
@@ -724,11 +728,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                     tag,
                     changelogBody,
                   });
-                  task.output = `Release created: ${result.releaseUrl}`;
-                  await ctx.runtime.pluginRunner.runAfterReleaseHook(
-                    ctx,
-                    result,
-                  );
+                  if (result) {
+                    task.output = `Release created: ${result.releaseUrl}`;
+                    await ctx.runtime.pluginRunner.runAfterReleaseHook(
+                      ctx,
+                      result,
+                    );
+                  } else {
+                    task.output = `Release already exists for ${tag}, skipped.`;
+                  }
                 }
               },
             },

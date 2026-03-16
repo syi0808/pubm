@@ -271,6 +271,37 @@ describe("createGitHubRelease", () => {
     expect(result.assets).toEqual([]);
   });
 
+  it("skips gracefully when the release already exists (HTTP 422)", async () => {
+    const { createGitHubRelease } = await freshImport();
+    const { mockExistsSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockReturnValue(false);
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+        commits: vi.fn().mockResolvedValue([{ id: "skip", message: "skip" }]),
+      } as any;
+    } as any);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: vi.fn().mockResolvedValue('{"message":"Validation Failed"}'),
+    }) as any;
+
+    const result = await createGitHubRelease({} as any, {
+      packageName: "pubm",
+      version: "1.0.0",
+      tag: "v1.0.0",
+    });
+
+    expect(result).toBeNull();
+  });
+
   it("surfaces GitHub API failures when creating the release", async () => {
     const { createGitHubRelease } = await freshImport();
     const { mockExistsSync, mockGit } = await getMocks();
@@ -290,8 +321,8 @@ describe("createGitHubRelease", () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
-      status: 422,
-      text: vi.fn().mockResolvedValue("validation failed"),
+      status: 500,
+      text: vi.fn().mockResolvedValue("internal server error"),
     }) as any;
 
     await expect(
@@ -301,7 +332,7 @@ describe("createGitHubRelease", () => {
         tag: "v1.0.0",
       }),
     ).rejects.toThrow(
-      /Failed to create GitHub Release \(422\): validation failed/,
+      /Failed to create GitHub Release \(500\): internal server error/,
     );
   });
 
