@@ -1,5 +1,15 @@
 # pubm Config Reference
 
+## When is a config file needed?
+
+pubm auto-detects ecosystems, packages, and registries without any config file. A `pubm.config.ts` is only needed when:
+
+- **Overriding auto-detected registries** (e.g., adding jsr to a package that wasn't auto-detected)
+- **Using plugins** (externalVersionSync, brewTap, brewCore, etc.)
+- **Setting non-default options** (versioning strategy, changelog format, etc.)
+
+If auto-detection covers your setup, no config file is required.
+
 ## Config file search order
 
 pubm looks for config files in the project root in this order:
@@ -11,55 +21,25 @@ pubm looks for config files in the project root in this order:
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
 
-Config files are loaded via `jiti` (with `interopDefault: true`), so TypeScript works without a build step. The file must export a config object as the default export. Use `defineConfig()` from `pubm` for type safety.
+The file must export a config object as the default export. Use `defineConfig()` from `pubm` for type safety.
 
 ## Examples
 
-### Single JS package publishing to npm and jsr
+### No config (auto-detection only)
 
-Use when a single-package repo targets both npm and jsr registries.
+When auto-detection is sufficient, no config file is needed. pubm will:
+- Detect packages from workspace config or single-package root
+- Detect JS ecosystem (package.json) or Rust ecosystem (Cargo.toml)
+- Infer registries: npm (default for JS), jsr (when jsr.json exists), crates (for Rust), private (from .npmrc or publishConfig)
 
-```typescript
-import { defineConfig } from 'pubm'
+### Monorepo with explicit packages and registries
 
-export default defineConfig({
-  registries: ['npm', 'jsr'],
-})
-```
-
-### Single JS package publishing to npm only
-
-Use when only npm is needed (no jsr).
+Use when auto-detection doesn't match your desired publish targets.
 
 ```typescript
 import { defineConfig } from 'pubm'
 
 export default defineConfig({
-  registries: ['npm'],
-})
-```
-
-### Single Rust crate
-
-Use for a Rust project publishing to crates.io.
-
-```typescript
-import { defineConfig } from 'pubm'
-
-export default defineConfig({
-  registries: ['crates'],
-})
-```
-
-### Monorepo with JS + Rust and independent versioning
-
-Use when a monorepo contains multiple packages across ecosystems, each versioned independently.
-
-```typescript
-import { defineConfig } from 'pubm'
-
-export default defineConfig({
-  versioning: 'independent',
   packages: [
     { path: 'packages/my-lib', registries: ['npm', 'jsr'] },
     { path: 'crates/my-crate', registries: ['crates'] },
@@ -67,21 +47,7 @@ export default defineConfig({
 })
 ```
 
-### Private registry
-
-Use when publishing to a corporate/private registry alongside npm. Any URL string is treated as a custom registry.
-
-```typescript
-import { defineConfig } from 'pubm'
-
-export default defineConfig({
-  registries: ['npm', 'https://registry.mycorp.com'],
-})
-```
-
-### Custom build and test commands per package
-
-Use in a monorepo when individual packages need their own build/test scripts.
+### Monorepo with independent versioning
 
 ```typescript
 import { defineConfig } from 'pubm'
@@ -89,12 +55,105 @@ import { defineConfig } from 'pubm'
 export default defineConfig({
   versioning: 'independent',
   packages: [
+    { path: 'packages/core', registries: ['npm', 'jsr'] },
+    { path: 'packages/cli', registries: ['npm'] },
+  ],
+})
+```
+
+### Private registry
+
+Any URL string in `registries` is treated as a custom registry.
+
+```typescript
+import { defineConfig } from 'pubm'
+
+export default defineConfig({
+  packages: [
+    {
+      path: '.',
+      registries: [
+        'npm',
+        { url: 'https://registry.mycorp.com', token: { envVar: 'CUSTOM_TOKEN' } },
+      ],
+    },
+  ],
+})
+```
+
+### Custom build and test commands per package
+
+```typescript
+import { defineConfig } from 'pubm'
+
+export default defineConfig({
+  packages: [
     {
       path: 'packages/ui',
       registries: ['npm'],
       buildCommand: 'pnpm run build:ui',
       testCommand: 'pnpm run test:ui',
     },
+  ],
+})
+```
+
+### With externalVersionSync plugin
+
+```typescript
+import { defineConfig } from 'pubm'
+import { externalVersionSync } from '@pubm/plugin-external-version-sync'
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        { file: 'plugins/.claude-plugin/plugin.json', jsonPath: 'version' },
+        { file: 'README.md', pattern: /pubm@[\d.]+/g },
+      ],
+    }),
+  ],
+})
+```
+
+For independent versioning, provide a `version` callback to select which package's version to sync:
+
+```typescript
+externalVersionSync({
+  targets: [
+    { file: 'plugin.json', jsonPath: 'version' },
+  ],
+  version: (packages) => packages.get('@pubm/core') ?? '',
+})
+```
+
+### With brewTap plugin
+
+```typescript
+import { defineConfig } from 'pubm'
+import { brewTap } from '@pubm/plugin-brew'
+
+export default defineConfig({
+  plugins: [
+    brewTap({
+      formula: 'Formula/my-tool.rb',
+      repo: 'user/homebrew-tap',
+    }),
+  ],
+})
+```
+
+### With brewCore plugin
+
+```typescript
+import { defineConfig } from 'pubm'
+import { brewCore } from '@pubm/plugin-brew'
+
+export default defineConfig({
+  plugins: [
+    brewCore({
+      formula: 'Formula/my-tool.rb',
+    }),
   ],
 })
 ```
@@ -107,42 +166,24 @@ export default defineConfig({
 type RegistryType = 'npm' | 'jsr' | 'crates' | string
 ```
 
-`'npm'`, `'jsr'`, and `'crates'` are built-in registries. Any other string is treated as a custom registry URL.
+`'npm'`, `'jsr'`, and `'crates'` are built-in registries. For custom/private registries, use the `PrivateRegistryConfig` object format in the `registries` array (see example above) to specify the URL and token environment variable.
 
-### `PubmConfig`
+### `PrivateRegistryConfig`
 
 ```typescript
-interface PubmConfig {
-  versioning?: 'independent' | 'fixed'
-  packages?: PackageConfig[]
-  registries?: RegistryType[]
-  branch?: string
-  tag?: string
-  skipTests?: boolean
-  skipBuild?: boolean
-  skipPublish?: boolean
-  skipReleaseDraft?: boolean
+interface PrivateRegistryConfig {
+  url: string
+  token: { envVar: string }
 }
 ```
-
-| Field | Type | Description |
-|---|---|---|
-| `versioning` | `'independent' \| 'fixed'` | Versioning strategy for monorepos. `'independent'` = each package versioned separately, `'fixed'` = all share one version. |
-| `packages` | `PackageConfig[]` | List of packages in a monorepo. Omit for single-package repos. |
-| `registries` | `RegistryType[]` | Target registries for single-package repos. Ignored when `packages` is set. |
-| `branch` | `string` | Target branch for release (default: `'main'`). |
-| `tag` | `string` | Dist-tag to publish under (default: `'latest'`). |
-| `skipTests` | `boolean` | Skip running tests before publish. |
-| `skipBuild` | `boolean` | Skip running build before publish. |
-| `skipPublish` | `boolean` | Skip the actual publish step. |
-| `skipReleaseDraft` | `boolean` | Skip creating a GitHub release draft. |
 
 ### `PackageConfig`
 
 ```typescript
 interface PackageConfig {
   path: string
-  registries: RegistryType[]
+  registries?: (RegistryType | PrivateRegistryConfig)[]
+  ecosystem?: 'js' | 'rust'
   buildCommand?: string
   testCommand?: string
 }
@@ -150,7 +191,68 @@ interface PackageConfig {
 
 | Field | Type | Description |
 |---|---|---|
-| `path` | `string` | Relative path to the package directory from the project root. Required. |
-| `registries` | `RegistryType[]` | Target registries for this package. Required. |
-| `buildCommand` | `string` | Custom build command for this package. Overrides the default build script. |
-| `testCommand` | `string` | Custom test command for this package. Overrides the default test script. |
+| `path` | `string` | Relative path to the package directory from the project root. |
+| `registries` | `(RegistryType \| PrivateRegistryConfig)[]` | Target registries. If omitted, auto-detected from manifest files. |
+| `ecosystem` | `'js' \| 'rust'` | Override auto-detected ecosystem. |
+| `buildCommand` | `string` | Custom build command for this package. |
+| `testCommand` | `string` | Custom test command for this package. |
+
+### `PubmConfig`
+
+```typescript
+interface PubmConfig {
+  versioning?: 'independent' | 'fixed'
+  branch?: string
+  packages?: PackageConfig[]
+  changelog?: boolean | string
+  changelogFormat?: 'default' | 'github' | string
+  commit?: boolean
+  access?: 'public' | 'restricted'
+  fixed?: string[][]
+  linked?: string[][]
+  updateInternalDependencies?: 'patch' | 'minor'
+  ignore?: string[]
+  validate?: ValidateConfig
+  snapshotTemplate?: string
+  tag?: string
+  contents?: string
+  saveToken?: boolean
+  releaseDraft?: boolean
+  releaseNotes?: boolean
+  rollbackStrategy?: 'individual' | 'all'
+  plugins?: PubmPlugin[]
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `versioning` | `'independent' \| 'fixed'` | `'independent'` | Versioning strategy for monorepos. |
+| `branch` | `string` | `'main'` | Target branch for release. |
+| `packages` | `PackageConfig[]` | auto-detected | List of packages. Omit for auto-detection. |
+| `changelog` | `boolean \| string` | `true` | Enable CHANGELOG generation, or path to custom template. |
+| `changelogFormat` | `string` | `'default'` | Changelog format: `'default'`, `'github'`, or custom. |
+| `commit` | `boolean` | `false` | Create a git commit on version bump. |
+| `access` | `'public' \| 'restricted'` | `'public'` | npm access level. |
+| `fixed` | `string[][]` | `[]` | Groups of packages that share the same version. |
+| `linked` | `string[][]` | `[]` | Groups of packages with linked version bumps. |
+| `updateInternalDependencies` | `'patch' \| 'minor'` | `'patch'` | How to bump internal dependency ranges. |
+| `ignore` | `string[]` | `[]` | Package names to exclude from publishing. |
+| `validate` | `ValidateConfig` | all enabled | Pre-publish validation settings. |
+| `snapshotTemplate` | `string` | `'{tag}-{timestamp}'` | Template for snapshot versions. |
+| `tag` | `string` | `'latest'` | Dist-tag to publish under. |
+| `contents` | `string` | `'.'` | Subdirectory to publish. |
+| `saveToken` | `boolean` | `true` | Save JSR tokens to encrypted local store. |
+| `releaseDraft` | `boolean` | `true` | Create GitHub release draft. |
+| `releaseNotes` | `boolean` | `true` | Include release notes in GitHub release. |
+| `rollbackStrategy` | `'individual' \| 'all'` | `'individual'` | Rollback scope on publish failure. |
+| `plugins` | `PubmPlugin[]` | `[]` | Plugins to extend the publish pipeline. |
+
+### `ValidateConfig`
+
+```typescript
+interface ValidateConfig {
+  cleanInstall?: boolean  // default: true
+  entryPoints?: boolean   // default: true
+  extraneousFiles?: boolean // default: true
+}
+```
