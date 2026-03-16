@@ -406,13 +406,20 @@ describe("CLI action handler - non-CI mode", () => {
 });
 
 describe("CLI action handler - CI mode", () => {
-  it("should get version from latest git tag when --publish-only is set", async () => {
+  it("should read version from manifest when --publish-only is set", async () => {
     mockIsCI.isCI = true;
-    mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
+    sharedResolvedConfig.packages = [
+      {
+        name: "default-pkg",
+        version: "2.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
 
     await run("--publish-only");
 
-    expect(mockGitInstance.latestTag).toHaveBeenCalled();
     expect(mockPubm).toHaveBeenCalledWith(
       expect.objectContaining({
         runtime: expect.objectContaining({ version: "2.0.0" }),
@@ -426,35 +433,8 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
-  it("should throw when no latest tag exists in --publish-only mode", async () => {
+  it("creates a fixed versionPlan from manifests for multi-package in --ci mode", async () => {
     mockIsCI.isCI = true;
-    mockGitInstance.latestTag.mockResolvedValue(null);
-
-    await run("--publish-only");
-
-    expect(mockConsoleError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining("Cannot find the latest tag"),
-      }),
-    );
-  });
-
-  it("should throw when latest tag is not valid semver in --publish-only mode", async () => {
-    mockIsCI.isCI = true;
-    mockGitInstance.latestTag.mockResolvedValue("vnot-semver");
-
-    await run("--publish-only");
-
-    expect(mockConsoleError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining("Cannot parse the latest tag"),
-      }),
-    );
-  });
-
-  it("creates a fixed versionPlan from latest tag for multi-package in --ci mode", async () => {
-    mockIsCI.isCI = true;
-    mockGitInstance.latestTag.mockResolvedValue("v3.0.0");
     sharedResolvedConfig.packages = [
       {
         name: "pkg-a",
@@ -475,13 +455,52 @@ describe("CLI action handler - CI mode", () => {
     await run("--ci");
 
     const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.version).toBe("3.0.0");
+    expect(ctx.runtime.version).toBe("2.0.0");
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "fixed",
-      version: "3.0.0",
+      version: "2.0.0",
       packages: new Map([
-        ["pkg-a", "3.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["pkg-a", "2.0.0"],
+        ["pkg-b", "2.0.0"],
+      ]),
+    });
+  });
+
+  it("creates an independent versionPlan from manifests for independent versioning in --ci mode", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.versioning = "independent";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "2.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("--ci");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.version).toBe("1.0.0");
+    expect(ctx.runtime.versions).toEqual(
+      new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "2.0.0"],
+      ]),
+    );
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "independent",
+      packages: new Map([
+        ["pkg-a", "1.0.0"],
+        ["pkg-b", "2.0.0"],
       ]),
     });
   });
