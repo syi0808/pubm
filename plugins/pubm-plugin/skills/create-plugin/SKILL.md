@@ -13,7 +13,7 @@ allowed-tools:
 
 # Create pubm Plugin
 
-Scaffold a new pubm plugin package with all boilerplate files and guide implementation.
+Guide creation of a new pubm plugin — from a simple inline function to a full publishable package.
 
 ## Workflow
 
@@ -45,9 +45,124 @@ Available hooks (see `references/plugin-api.md` for details):
 | `onRollback` | During rollback |
 | `onSuccess` | On successful publish |
 
-### 2. Scaffold Files
+### 2. Choose Plugin Form
 
-Create `packages/plugins/plugin-{name}/` with these files:
+Use AskUserQuestion to ask the user which form they want:
+
+| Form | When to use | What gets created |
+|------|-------------|-------------------|
+| **Config inline** | Simple one-off hook logic | Plugin function added directly in `pubm.config.ts` |
+| **Single file** | Reusable but lightweight | A single `.ts` file with factory function, imported in `pubm.config.ts` |
+| **Package** | Publishable, has deps/tests | Full `packages/plugins/plugin-{name}/` scaffold |
+
+Then follow the corresponding section below.
+
+---
+
+## Form A: Config Inline
+
+Add the plugin factory function and its invocation directly in `pubm.config.ts`. No new files are created.
+
+```typescript
+import { defineConfig } from "@pubm/core";
+import type { PubmPlugin } from "@pubm/core";
+
+function {camelName}(): PubmPlugin {
+  return {
+    name: "{name}",
+    hooks: {
+      {selectedHook}: async (ctx) => {
+        // TODO: Implement {selectedHook} logic
+      },
+    },
+  };
+}
+
+export default defineConfig({
+  // ...existing config...
+  plugins: [
+    // ...existing plugins...
+    {camelName}(),
+  ],
+});
+```
+
+If the plugin needs options, define an inline interface above the function:
+
+```typescript
+interface {PascalName}Options {
+  // options here
+}
+
+function {camelName}(options: {PascalName}Options): PubmPlugin {
+  // ...
+}
+```
+
+After adding, skip to **Step: Present Next Steps**.
+
+---
+
+## Form B: Single File
+
+Create a single `.ts` file with the factory function. The user chooses the file location (suggest `plugins/{name}.ts` or `src/plugins/{name}.ts`).
+
+#### `plugins/{name}.ts`
+
+```typescript
+import type { PubmPlugin } from "@pubm/core";
+
+export interface {PascalName}Options {
+  // TODO: Define your plugin options here
+}
+
+export function {camelName}(options: {PascalName}Options): PubmPlugin {
+  return {
+    name: "{name}",
+    hooks: {
+      {selectedHook}: async (ctx) => {
+        // TODO: Implement {selectedHook} logic
+      },
+    },
+  };
+}
+```
+
+If `afterRelease` is selected, use the special signature:
+```typescript
+afterRelease: async (ctx, releaseCtx) => {
+  // releaseCtx has: { releaseUrl, tagName, releaseName }
+},
+```
+
+If `onError` is selected, use the error signature:
+```typescript
+onError: async (ctx, error) => {
+  // error is the Error that caused the failure
+},
+```
+
+Then register in `pubm.config.ts`:
+```typescript
+import { defineConfig } from "@pubm/core";
+import { {camelName} } from "./plugins/{name}.js";
+
+export default defineConfig({
+  // ...existing config...
+  plugins: [
+    // ...existing plugins...
+    {camelName}({ /* options */ }),
+  ],
+});
+```
+
+After creating, skip to **Step: Present Next Steps**.
+
+---
+
+## Form C: Package
+
+Create `packages/plugins/plugin-{name}/` with full boilerplate.
 
 #### `package.json`
 
@@ -233,31 +348,33 @@ describe("{name} plugin", () => {
 });
 ```
 
-### 3. Register in Workspace
+### Package-only: Register in Workspace
 
 Check root `package.json` for the `workspaces` field. If it uses a glob pattern like `packages/plugins/*`, it's already covered. Otherwise, add the new plugin path.
 
-### 4. Install Dependencies
+### Package-only: Install Dependencies
 
 Run `bun install` from the repo root to link the new package.
 
-### 5. Verify Scaffold
+### Package-only: Verify Scaffold
 
 Run in sequence:
 ```bash
 cd packages/plugins/plugin-{name} && bun run build && bun run test
 ```
 
-### 6. Present Next Steps
+---
 
-After scaffolding, tell the user:
+## Step: Present Next Steps
 
-1. Implement hook logic in `src/index.ts`
-2. Define options in `src/types.ts`
-3. Add tests in `tests/unit/` and `tests/integration/`
-4. Register the plugin in `pubm.config.ts`:
+After creation, tell the user:
+
+1. Implement hook logic in the plugin source
+2. Define options (if not already done)
+3. Add tests (for Package form: in `tests/unit/` and `tests/integration/`)
+4. Register the plugin in `pubm.config.ts` (if not already done):
    ```typescript
-   import { defineConfig } from "pubm";
+   import { defineConfig } from "@pubm/core";
    import { {camelName} } from "@pubm/plugin-{name}";
 
    export default defineConfig({
@@ -279,7 +396,7 @@ Convert the user-provided `{name}` (kebab-case) to:
 ## Constraints
 
 - Always use the factory function pattern (function returning `PubmPlugin`)
-- Always use `@pubm/core` as a peer dependency, never a regular dependency
+- Always use `@pubm/core` as a peer dependency (Package form), never a regular dependency
 - Always use ESM (`"type": "module"`)
 - Follow the existing plugin structure exactly (same scripts, tsconfig, vitest config)
 - Do not add dependencies beyond `@pubm/core` unless the user explicitly requests them
