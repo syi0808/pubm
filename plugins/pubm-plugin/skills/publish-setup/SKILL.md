@@ -143,9 +143,10 @@ Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory 
 
 1. **Ask CI platform**: Default to GitHub Actions if not specified.
 2. **Ask trigger method**:
-   - **Tag-based** (recommended): push a `v*` tag to trigger publish
+   - **Tag-based** (recommended for single-package): push a `v*` tag to trigger publish
+   - **Commit-based** (recommended for monorepo): trigger on "Version Packages" commit to main
    - **Manual** (workflow_dispatch): trigger from the GitHub Actions UI
-   - **Both**: supports both triggers
+   - **Both**: supports multiple triggers
 3. **Determine registries**: Use the registries confirmed in Step 2.
 4. **Generate workflow file**: Read `references/ci-templates.md` for the appropriate template. Create `.github/workflows/publish.yml`.
 5. **List required secrets**: Based on the target registries:
