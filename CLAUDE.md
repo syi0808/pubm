@@ -130,6 +130,15 @@ Before committing, always run these checks in order and fix any failures:
 
 Only commit after all three pass.
 
+## Coverage Maintenance
+
+Coverage thresholds are enforced per-package in `vitest.config.mts`. **Never lower thresholds.**
+
+- Every new source file must have a corresponding test file in `tests/unit/`
+- New code must not decrease coverage — run `bun run coverage` before committing
+- Use `/* istanbul ignore next */` sparingly — only for genuinely untestable code (compile-time constants, exhaustiveness guards). Always include a reason comment
+- When modifying a file below threshold, add tests to bring it up
+
 ## Code Style
 
 - **Formatter/Linter**: Biome with recommended rules

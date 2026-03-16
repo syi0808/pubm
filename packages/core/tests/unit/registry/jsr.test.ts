@@ -250,6 +250,16 @@ describe("JsrPackageRegistry", () => {
       expect(result).toBe(true);
     });
 
+    it("clears packageCreationUrls on successful publish", async () => {
+      registry.packageCreationUrls = ["https://jsr.io/new?scope=scope"];
+      mockedExec.mockResolvedValue({ stdout: "published", stderr: "" } as any);
+
+      const result = await registry.publish();
+
+      expect(result).toBe(true);
+      expect(registry.packageCreationUrls).toBeUndefined();
+    });
+
     it("throws JsrError when publish fails", async () => {
       mockedExec.mockRejectedValue(new Error("publish failed"));
 
@@ -273,6 +283,19 @@ describe("JsrPackageRegistry", () => {
       expect(registry.packageCreationUrls).toEqual([
         "https://jsr.io/new?scope=scope&package=pkg",
       ]);
+    });
+
+    it("throws with stderr appended when NonZeroExitError with unrelated stderr", async () => {
+      mockedExec.mockRejectedValue(
+        new NonZeroExitError("jsr", 1, {
+          stdout: "",
+          stderr: "Some other error occurred",
+        }),
+      );
+
+      await expect(registry.publish()).rejects.toThrow(
+        "Some other error occurred",
+      );
     });
 
     it("throws when missing-package stderr does not include a creation URL", async () => {
@@ -309,6 +332,14 @@ describe("JsrPackageRegistry", () => {
 
     it("throws on dry-run failure", async () => {
       mockedExec.mockRejectedValue(new Error("dry-run failed"));
+      await expect(registry.dryRunPublish()).rejects.toThrow(
+        "Failed to run `jsr publish --dry-run`",
+      );
+    });
+
+    it("throws without stderr suffix when error is not NonZeroExitError", async () => {
+      mockedExec.mockRejectedValue(new Error("generic failure"));
+
       await expect(registry.dryRunPublish()).rejects.toThrow(
         "Failed to run `jsr publish --dry-run`",
       );
@@ -351,6 +382,38 @@ describe("JsrPackageRegistry", () => {
 
       await expect(registry.isPublished()).rejects.toThrow(
         "Failed to fetch `https://jsr.io/@scope/pkg`",
+      );
+    });
+  });
+
+  describe("isVersionPublished()", () => {
+    it("returns true when registry responds with 200", async () => {
+      mockedGetScopeAndName.mockReturnValue(["scope", "pkg"]);
+      mockedFetch.mockResolvedValue({ status: 200 });
+
+      const result = await registry.isVersionPublished("1.0.0");
+
+      expect(mockedFetch).toHaveBeenCalledWith(
+        "https://jsr.io/@scope/pkg/1.0.0",
+      );
+      expect(result).toBe(true);
+    });
+
+    it("returns false when registry responds with 404", async () => {
+      mockedGetScopeAndName.mockReturnValue(["scope", "pkg"]);
+      mockedFetch.mockResolvedValue({ status: 404 });
+
+      const result = await registry.isVersionPublished("2.0.0");
+
+      expect(result).toBe(false);
+    });
+
+    it("throws JsrError when fetch fails", async () => {
+      mockedGetScopeAndName.mockReturnValue(["scope", "pkg"]);
+      mockedFetch.mockRejectedValue(new Error("network error"));
+
+      await expect(registry.isVersionPublished("1.0.0")).rejects.toThrow(
+        "Failed to fetch `https://jsr.io/@scope/pkg/1.0.0`",
       );
     });
   });

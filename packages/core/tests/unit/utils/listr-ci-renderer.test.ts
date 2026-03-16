@@ -80,6 +80,42 @@ describe("PubmCiRenderer", () => {
     ]);
   });
 
+  it("logs rollback without message text", () => {
+    const task = new MockTask();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const renderer = new PubmCiRenderer([task as never]);
+
+    renderer.render();
+
+    task.emit("MESSAGE", { rollback: "   " });
+
+    expect(logSpy.mock.calls.map((call) => call[0])).toEqual([
+      "[pubm][rollback] Release > Running tests",
+    ]);
+  });
+
+  it("end() is a no-op", () => {
+    const renderer = new PubmCiRenderer([], {});
+    expect(() => renderer.end()).not.toThrow();
+  });
+
+  it("strips multiple hyperlink sequences from output", () => {
+    const task = new MockTask();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const renderer = new PubmCiRenderer([task as never]);
+
+    renderer.render();
+
+    task.emit(
+      "OUTPUT",
+      "\u001B]8;;https://a.com\u0007A\u001B]8;;\u0007 and \u001B]8;;https://b.com\u0007B\u001B]8;;\u0007",
+    );
+
+    expect(logSpy.mock.calls.map((call) => call[0])).toEqual([
+      "[pubm][output] Release > Running tests: A and B",
+    ]);
+  });
+
   it("avoids duplicate listeners and ignores blank title or output updates", () => {
     const task = new MockTask();
     task.path = [];

@@ -343,6 +343,26 @@ describe("validateToken", () => {
   });
 });
 
+describe("registerPrivateRegistry duplicate key", () => {
+  it("returns existing key without re-registering when already in catalog", async () => {
+    const { registerPrivateRegistry } = await import(
+      "../../../src/registry/catalog.js"
+    );
+    const catalog = new RegistryCatalog();
+    const desc = createDescriptor({ key: "npm.internal.com" });
+    catalog.register(desc);
+
+    const key = registerPrivateRegistry(
+      { url: "https://npm.internal.com", token: { envVar: "TOK" } },
+      "js",
+      catalog,
+    );
+    expect(key).toBe("npm.internal.com");
+    // The original descriptor should still be there, not overwritten
+    expect(catalog.get(key)).toBe(desc);
+  });
+});
+
 describe("default registration factory and connector invocations", () => {
   it("npm connector returns a RegistryConnector instance", () => {
     const npm = registryCatalog.get("npm")!;

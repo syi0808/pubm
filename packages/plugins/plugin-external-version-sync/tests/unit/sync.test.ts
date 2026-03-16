@@ -101,6 +101,34 @@ describe("syncVersionInFile", () => {
     );
   });
 
+  it("returns false when regex pattern does not match anything", () => {
+    const filePath = join(tmpDir, "no-match.txt");
+    writeFileSync(filePath, "no version info here\n");
+
+    const target: RegexTarget = {
+      file: filePath,
+      pattern: /version is \d+\.\d+\.\d+/,
+    };
+    const changed = syncVersionInFile(filePath, "1.0.0", target);
+
+    expect(changed).toBe(false);
+  });
+
+  it("uses default indent when JSON has no leading whitespace", () => {
+    const filePath = join(tmpDir, "compact.json");
+    writeFileSync(filePath, '{"version":"0.1.0"}');
+
+    const target: JsonTarget = { file: filePath, jsonPath: "version" };
+    const changed = syncVersionInFile(filePath, "1.0.0", target);
+
+    expect(changed).toBe(true);
+    const content = readFileSync(filePath, "utf-8");
+    // Should use default 2-space indent
+    expect(content).toContain("  ");
+    const result = JSON.parse(content);
+    expect(result.version).toBe("1.0.0");
+  });
+
   it("throws on invalid nested path", () => {
     const filePath = join(tmpDir, "shallow.json");
     writeFileSync(filePath, JSON.stringify({ name: "test" }, null, "  "));

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { PubmContext } from "@pubm/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { externalVersionSync } from "../../src/index.js";
+import * as syncModule from "../../src/sync.js";
 
 const tmpDir = join(import.meta.dirname, ".tmp-plugin-test");
 
@@ -144,6 +145,54 @@ describe("externalVersionSync", () => {
     await expect(plugin.hooks?.afterVersion?.(ctx)).rejects.toThrow(
       "failed for 2 target(s)",
     );
+  });
+
+  it("resolves relative file paths using process.cwd()", async () => {
+    const fileName = "relative-test.json";
+    const absolutePath = join(tmpDir, fileName);
+    writeFileSync(
+      absolutePath,
+      JSON.stringify({ version: "0.0.0" }, null, "  "),
+    );
+
+    const originalCwd = process.cwd();
+    vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
+
+    try {
+      const plugin = externalVersionSync({
+        targets: [{ file: fileName, jsonPath: "version" }],
+      });
+
+      const ctx = {
+        runtime: { version: "1.0.0" },
+      } as unknown as PubmContext;
+      await plugin.hooks?.afterVersion?.(ctx);
+
+      const result = JSON.parse(readFileSync(absolutePath, "utf-8"));
+      expect(result.version).toBe("1.0.0");
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("converts non-Error exceptions to string in error messages", async () => {
+    const filePath = join(tmpDir, "throw-string.json");
+    writeFileSync(filePath, JSON.stringify({ version: "0.0.0" }, null, "  "));
+
+    vi.spyOn(syncModule, "syncVersionInFile").mockImplementation(() => {
+      throw "raw string error";
+    });
+
+    const plugin = externalVersionSync({
+      targets: [{ file: filePath, jsonPath: "version" }],
+    });
+
+    const ctx = { runtime: { version: "1.0.0" } } as unknown as PubmContext;
+    await expect(plugin.hooks?.afterVersion?.(ctx)).rejects.toThrow(
+      "failed for 1 target(s)",
+    );
+
+    vi.restoreAllMocks();
   });
 
   it("does not log when file is already up to date", async () => {

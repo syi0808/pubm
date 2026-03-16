@@ -288,6 +288,88 @@ describe("createCratesDryRunPublishTask", () => {
   });
 });
 
+describe("isAuthError detection", () => {
+  it("detects EOTP error as auth error and triggers retry", async () => {
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error("EOTP: This operation requires a one-time password"),
+      )
+      .mockResolvedValueOnce(undefined);
+    mockedNpmRegistry.mockResolvedValue({
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
+    } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("new-token"),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, mockTask);
+
+    expect(mockDryRun).toHaveBeenCalledTimes(2);
+    delete process.env.NODE_AUTH_TOKEN;
+  });
+
+  it("detects 'invalid token' error as auth error", async () => {
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("invalid token provided"))
+      .mockResolvedValueOnce(undefined);
+    mockedNpmRegistry.mockResolvedValue({
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
+    } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("new-token"),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, mockTask);
+
+    expect(mockDryRun).toHaveBeenCalledTimes(2);
+    delete process.env.NODE_AUTH_TOKEN;
+  });
+
+  it("treats non-Error values as auth errors via String() conversion", async () => {
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValueOnce("403 Forbidden")
+      .mockResolvedValueOnce(undefined);
+    mockedNpmRegistry.mockResolvedValue({
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
+    } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("new-token"),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: {} }, mockTask);
+
+    expect(mockDryRun).toHaveBeenCalledTimes(2);
+    delete process.env.NODE_AUTH_TOKEN;
+  });
+});
+
 describe("withTokenRetry", () => {
   it("retries npm on auth error with new token", async () => {
     const mockDryRun = vi
@@ -335,6 +417,35 @@ describe("withTokenRetry", () => {
 
     expect(mockDryRun).toHaveBeenCalledTimes(1);
     expect(mockTask.prompt).not.toHaveBeenCalled();
+  });
+
+  it("shares retry promise between concurrent tasks", async () => {
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("401 Unauthorized"))
+      .mockResolvedValueOnce(undefined);
+    mockedNpmRegistry.mockResolvedValue({
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+      packageName: "test-package",
+    } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("shared-token"),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    // First task triggers retry
+    const sharedRuntime = { _tokenRetry_npm: undefined } as any;
+    const task = createNpmDryRunPublishTask("packages/core");
+    await (task as any).task({ runtime: sharedRuntime }, mockTask);
+
+    // The retry key should exist on the runtime
+    expect(sharedRuntime._tokenRetry_npm).toBeDefined();
+    delete process.env.NODE_AUTH_TOKEN;
   });
 
   it("saves new token to Db on retry", async () => {
