@@ -1,13 +1,18 @@
-import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
-const cliPath = path.resolve("src/cli.ts");
+describe("config loading", () => {
+  let ctx: E2EContext;
 
-describe("Config file loading", () => {
+  beforeAll(async () => {
+    ctx = await e2e("basic");
+  });
+
+  afterAll(() => ctx.cleanup());
+
   it("pubm --help still works without config file", async () => {
-    const { stdout, exitCode } = await runPubmCli("bun", {}, cliPath, "--help");
+    const { stdout, exitCode } = await ctx.run("--help");
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("pubm");
+    expect(stdout).toContain("Usage");
   });
 });
