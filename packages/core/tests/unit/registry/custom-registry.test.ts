@@ -1,4 +1,7 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const FIXTURE_PATH = path.resolve(__dirname, "../../fixtures/basic");
 
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
@@ -22,7 +25,7 @@ let registry: CustomPackageRegistry;
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("fetch", vi.fn());
-  registry = new CustomPackageRegistry("my-package");
+  registry = new CustomPackageRegistry("my-package", FIXTURE_PATH);
 });
 
 function mockStdout(stdout: string) {
@@ -43,7 +46,10 @@ describe("CustomPackageRegistry", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["publish", "--registry", "https://registry.npmjs.org"],
-        { throwOnError: true },
+        {
+          throwOnError: true,
+          nodeOptions: { cwd: FIXTURE_PATH },
+        },
       );
     });
 
@@ -84,7 +90,10 @@ describe("CustomPackageRegistry", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["publish", "--registry", "https://registry.npmjs.org"],
-        { throwOnError: true },
+        {
+          throwOnError: true,
+          nodeOptions: { cwd: FIXTURE_PATH },
+        },
       );
     });
 
@@ -96,7 +105,10 @@ describe("CustomPackageRegistry", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["publish", "--registry", "https://registry.npmjs.org"],
-        { throwOnError: true },
+        {
+          throwOnError: true,
+          nodeOptions: { cwd: FIXTURE_PATH },
+        },
       );
     });
 
@@ -114,7 +126,10 @@ describe("CustomPackageRegistry", () => {
           "--registry",
           "https://registry.npmjs.org",
         ],
-        { throwOnError: true },
+        {
+          throwOnError: true,
+          nodeOptions: { cwd: FIXTURE_PATH },
+        },
       );
     });
 
@@ -137,13 +152,14 @@ describe("CustomPackageRegistry URL support", () => {
   it("uses custom registry URL when provided", () => {
     const registry = new CustomPackageRegistry(
       "test-pkg",
+      FIXTURE_PATH,
       "https://npm.internal.com",
     );
     expect(registry.registry).toBe("https://npm.internal.com");
   });
 
   it("falls back to npm registry when no URL provided", () => {
-    const registry = new CustomPackageRegistry("test-pkg");
+    const registry = new CustomPackageRegistry("test-pkg", FIXTURE_PATH);
     expect(registry.registry).toBe("https://registry.npmjs.org");
   });
 });

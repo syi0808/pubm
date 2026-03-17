@@ -1,5 +1,8 @@
+import path from "node:path";
 import process from "node:process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const FIXTURE_PATH = path.resolve(__dirname, "../../fixtures/basic");
 
 vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
   const actual =
@@ -179,7 +182,7 @@ describe("JsrPackageRegistry", () => {
     mockedFetch = vi.fn();
     vi.stubGlobal("fetch", mockedFetch);
     JsrClient.token = "test-token";
-    registry = new JsrPackageRegistry("@scope/pkg");
+    registry = new JsrPackageRegistry("@scope/pkg", FIXTURE_PATH);
   });
 
   it("has default registry url", () => {
@@ -245,7 +248,7 @@ describe("JsrPackageRegistry", () => {
           "--token",
           "test-token",
         ],
-        { throwOnError: true },
+        { throwOnError: true, nodeOptions: { cwd: FIXTURE_PATH } },
       );
       expect(result).toBe(true);
     });
@@ -469,7 +472,7 @@ describe("JsrPackageRegistry", () => {
 
 describe("getRequirements", () => {
   it("returns needsPackageScripts false and requiredManifest jsr.json", () => {
-    const registry = new JsrPackageRegistry("@scope/my-package");
+    const registry = new JsrPackageRegistry("@scope/my-package", FIXTURE_PATH);
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
       needsPackageScripts: false,
@@ -1074,7 +1077,7 @@ describe("JsrPackageRegistry checkAvailability()", () => {
     mockedFetch = vi.fn();
     vi.stubGlobal("fetch", mockedFetch);
     JsrClient.token = "test-token";
-    registry = new JsrPackageRegistry("@scope/pkg");
+    registry = new JsrPackageRegistry("@scope/pkg", FIXTURE_PATH);
     // Mock JsrConnector.isInstalled to return true (bypass jsr install prompt)
     mockedExec.mockResolvedValue({ stdout: "0.1.0", stderr: "" } as any);
   });
@@ -1096,7 +1099,7 @@ describe("JsrPackageRegistry checkAvailability()", () => {
 
   describe("J1-J3: non-scoped package handling", () => {
     it("skips scope selection in non-interactive mode for unscoped package", async () => {
-      const unscopedRegistry = new JsrPackageRegistry("my-pkg");
+      const unscopedRegistry = new JsrPackageRegistry("my-pkg", FIXTURE_PATH);
       mockedIsScopedPackage.mockReturnValue(false);
       mockedGetScope.mockReturnValue(null);
       vi.spyOn(unscopedRegistry, "hasPermission").mockResolvedValue(true);

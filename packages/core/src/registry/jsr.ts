@@ -97,8 +97,8 @@ export class JsrPackageRegistry extends PackageRegistry {
   client: JsrClient;
   packageCreationUrls?: string[];
 
-  constructor(packageName: string, registry?: string) {
-    super(packageName, registry);
+  constructor(packageName: string, packagePath: string, registry?: string) {
+    super(packageName, packagePath, registry);
 
     this.client = new JsrClient(getApiEndpoint(this.registry));
   }
@@ -124,6 +124,7 @@ export class JsrPackageRegistry extends PackageRegistry {
         ],
         {
           throwOnError: true,
+          nodeOptions: { cwd: this.packagePath },
         },
       );
 
@@ -165,7 +166,10 @@ export class JsrPackageRegistry extends PackageRegistry {
           "--token",
           `${JsrClient.token}`,
         ],
-        { throwOnError: true },
+        {
+          throwOnError: true,
+          nodeOptions: { cwd: this.packagePath },
+        },
       );
     } catch (error) {
       const stderr =
@@ -596,5 +600,5 @@ export async function jsrPackageRegistry(
   packagePath: string,
 ): Promise<JsrPackageRegistry> {
   const manifest = await JsrPackageRegistry.reader.read(packagePath);
-  return new JsrPackageRegistry(manifest.name);
+  return new JsrPackageRegistry(manifest.name, packagePath);
 }

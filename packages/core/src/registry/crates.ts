@@ -98,8 +98,8 @@ export class CratesPackageRegistry extends PackageRegistry {
   });
   static override registryType = "crates" as const;
 
-  constructor(packageName: string, registry = "https://crates.io") {
-    super(packageName, registry);
+  constructor(packageName: string, packagePath: string, registry = "https://crates.io") {
+    super(packageName, packagePath, registry);
   }
 
   private get headers(): Record<string, string> {
@@ -141,11 +141,11 @@ export class CratesPackageRegistry extends PackageRegistry {
     }
   }
 
-  async publish(manifestDir?: string): Promise<boolean> {
+  async publish(): Promise<boolean> {
     try {
       const args = ["publish"];
-      if (manifestDir) {
-        args.push("--manifest-path", path.join(manifestDir, "Cargo.toml"));
+      if (this.packagePath) {
+        args.push("--manifest-path", path.join(this.packagePath, "Cargo.toml"));
       }
       await exec("cargo", args, { throwOnError: true });
       return true;
@@ -159,11 +159,11 @@ export class CratesPackageRegistry extends PackageRegistry {
     }
   }
 
-  async dryRunPublish(manifestDir?: string): Promise<void> {
+  async dryRunPublish(): Promise<void> {
     try {
       const args = ["publish", "--dry-run"];
-      if (manifestDir) {
-        args.push("--manifest-path", path.join(manifestDir, "Cargo.toml"));
+      if (this.packagePath) {
+        args.push("--manifest-path", path.join(this.packagePath, "Cargo.toml"));
       }
       await exec("cargo", args, { throwOnError: true });
     } catch (error) {
@@ -237,7 +237,8 @@ export function cratesConnector(): CratesConnector {
 }
 
 export async function cratesPackageRegistry(
-  packageName: string,
+  packagePath: string,
 ): Promise<CratesPackageRegistry> {
-  return new CratesPackageRegistry(packageName);
+  const manifest = await CratesPackageRegistry.reader.read(packagePath);
+  return new CratesPackageRegistry(manifest.name, packagePath);
 }
