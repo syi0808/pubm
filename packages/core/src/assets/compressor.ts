@@ -80,9 +80,24 @@ export async function compressFile(
       );
       break;
     case "zip":
-      await exec("zip", ["-j", archivePath, filePath, ...(extraFiles ?? [])], {
-        throwOnError: true,
-      });
+      if (process.platform === "win32") {
+        const sources = [filePath, ...(extraFiles ?? [])].join("','");
+        await exec(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            `Compress-Archive -Path '${sources}' -DestinationPath '${archivePath}'`,
+          ],
+          { throwOnError: true },
+        );
+      } else {
+        await exec(
+          "zip",
+          ["-j", archivePath, filePath, ...(extraFiles ?? [])],
+          { throwOnError: true },
+        );
+      }
       break;
   }
 
