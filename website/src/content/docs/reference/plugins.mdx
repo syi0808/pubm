@@ -10,7 +10,7 @@ The plugin system lets you extend `pubm` without forking the core publish pipeli
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: Registry[];
+  registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
@@ -21,6 +21,7 @@ export interface PubmPlugin {
 
 ```ts
 export interface PluginHooks {
+  // Lifecycle hooks
   beforeTest?: HookFn;
   afterTest?: HookFn;
   beforeBuild?: HookFn;
@@ -35,45 +36,72 @@ export interface PluginHooks {
   onError?: ErrorHookFn;
   onRollback?: HookFn;
   onSuccess?: HookFn;
+
+  // Asset pipeline hooks
+  resolveAssets?: AssetPipelineHooks["resolveAssets"];
+  transformAsset?: AssetPipelineHooks["transformAsset"];
+  compressAsset?: AssetPipelineHooks["compressAsset"];
+  nameAsset?: AssetPipelineHooks["nameAsset"];
+  generateChecksums?: AssetPipelineHooks["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks["uploadAssets"];
 }
 ```
+
+### Asset pipeline hooks
+
+Six hooks let plugins intercept every stage of the release asset pipeline. They run between the build step and the GitHub Release upload.
+
+| Hook | When it runs | Input → Output |
+|------|-------------|----------------|
+| `resolveAssets` | After glob matching | `ResolvedAsset[]` → `ResolvedAsset[]` |
+| `transformAsset` | Per asset, before compression | `ResolvedAsset` → `TransformedAsset \| TransformedAsset[]` |
+| `compressAsset` | Per asset, replaces built-in compression | `TransformedAsset` → `CompressedAsset` |
+| `nameAsset` | Per asset, after compression | `CompressedAsset` → `string` |
+| `generateChecksums` | After all assets are named and hashed | `PreparedAsset[]` → `PreparedAsset[]` |
+| `uploadAssets` | After GitHub Release upload | `PreparedAsset[]` → `UploadedAsset[]` |
+
+When multiple plugins register the same asset pipeline hook, they are chained in registration order. `uploadAssets` is an exception: each plugin receives the same input independently and all results are concatenated.
+
+Read [Asset Pipeline Hooks](/pubm/guides/asset-pipeline-hooks/) for full signatures, examples, and composition rules.
 
 ## Hook signatures
 
 ```ts
-type HookFn = (ctx: Ctx) => Promise<void> | void;
-type ErrorHookFn = (ctx: Ctx, error: Error) => Promise<void> | void;
+type HookFn = (ctx: PubmContext) => Promise<void> | void;
+type ErrorHookFn = (ctx: PubmContext, error: Error) => Promise<void> | void;
 type AfterReleaseHookFn = (
-  ctx: Ctx,
+  ctx: PubmContext,
   releaseCtx: ReleaseContext,
 ) => Promise<void> | void;
 ```
 
-## `Ctx`
+## `PubmContext`
 
-Hooks receive the current pipeline context. The runtime type is based on resolved CLI options plus a few internal flags.
+Hooks receive the current pipeline context:
 
 ```ts
-export interface Ctx extends ResolvedOptions {
-  promptEnabled: boolean;
-  cleanWorkingTree: boolean;
-  pluginRunner: PluginRunner;
-  releaseContext?: ReleaseContext;
+export interface PubmContext {
+  readonly config: ResolvedPubmConfig;
+  readonly options: ResolvedOptions;
+  readonly cwd: string;
+  runtime: {
+    tag: string;
+    promptEnabled: boolean;
+    cleanWorkingTree: boolean;
+    pluginRunner: PluginRunner;
+    versionPlan?: VersionPlan;
+    releaseContext?: ReleaseContext;
+    tempDir?: string;
+  };
 }
 ```
 
-Useful fields from `ResolvedOptions` include:
+Key fields:
 
-- `version`
-- `versions`
-- `packages`
-- `tag`
-- `preview`
-- `preflight`
-- `ci`
-- `changesetConsumed`
-
-Treat `Ctx` as runtime state for the current pipeline execution, not as a persistence layer.
+- `ctx.config` — resolved pubm config (packages, registries, plugins, releaseAssets, etc.)
+- `ctx.options` — resolved CLI options (version, tag, preview, ci, etc.)
+- `ctx.cwd` — working directory
+- `ctx.runtime` — mutable runtime state (version plan, temp directory, etc.)
 
 ## Example
 

@@ -1,7 +1,7 @@
+import type { AssetPipelineHooks, ReleaseContext } from "../assets/types.js";
 import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
-import type { ReleaseContext } from "../tasks/github-release.js";
 
 export type HookFn = (ctx: PubmContext) => Promise<void> | void;
 export type ErrorHookFn = (
@@ -28,6 +28,13 @@ export interface PluginHooks {
   onError?: ErrorHookFn;
   onRollback?: HookFn;
   onSuccess?: HookFn;
+  // Asset pipeline hooks
+  resolveAssets?: AssetPipelineHooks["resolveAssets"];
+  transformAsset?: AssetPipelineHooks["transformAsset"];
+  compressAsset?: AssetPipelineHooks["compressAsset"];
+  nameAsset?: AssetPipelineHooks["nameAsset"];
+  generateChecksums?: AssetPipelineHooks["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks["uploadAssets"];
 }
 
 export type HookName = keyof PluginHooks;

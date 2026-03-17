@@ -104,7 +104,59 @@ Use automation-compatible tokens for CI publish.
 
 If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --ci`.
 
+## GitHub Release assets
+
+If your project uses `releaseAssets` in `pubm.config.ts`, `pubm --ci` runs the asset pipeline and uploads the artifacts to the GitHub Release automatically.
+
+### `GITHUB_TOKEN` requirement
+
+Asset upload uses the GitHub API. Provide `GITHUB_TOKEN` (or a fine-grained token with `contents: write` permission) when release assets are configured:
+
+```yaml
+- run: pubm --ci
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run. You do not need to create it manually — just pass it through the environment.
+
+### Build outputs must exist before upload
+
+The asset pipeline runs after the build step. Make sure your workflow produces the binary artifacts (e.g., compiled binaries in `platforms/*/bin/`) before `pubm --ci` executes. If a configured glob pattern matches zero files at upload time, `pubm` treats it as an error.
+
+### Example with release assets
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build       # Must produce platforms/*/bin/mytool
+      - run: pubm --ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Next steps
 
 - Read the [Troubleshooting](/pubm/guides/troubleshooting/) guide for failure diagnosis.
 - Read the [CLI Reference](/pubm/reference/cli/) for every execution flag used in CI.
+- Read the [Release Assets](/pubm/guides/release-assets/) guide to configure `releaseAssets` in your project.

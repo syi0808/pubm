@@ -37,13 +37,48 @@ export default defineConfig({
 |--------|------|-------------|
 | `formula` | `string` | Formula path relative to the repository root. |
 | `repo` | `string` | Optional remote tap repository URL. If omitted, the current repository is used. |
+| `packageName` | `string` | Optional package name filter. When set, the plugin only runs for releases matching this package name. Useful in monorepos. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Optional custom platform matchers. Overrides the default `os + arch` matching logic. |
+
+### Platform matching
+
+The plugin uses structured `ParsedPlatform` data from each `ReleaseAsset` to match assets to formula platform entries. The default matching logic covers four platforms:
+
+| Formula key | Matches when |
+|-------------|-------------|
+| `darwin-arm64` | `asset.platform.os === "darwin" && asset.platform.arch === "arm64"` |
+| `darwin-x64` | `asset.platform.os === "darwin" && asset.platform.arch === "x64"` |
+| `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
+| `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
+
+This replaces the previous approach of string-matching asset names (e.g., `asset.name.includes("darwin-arm64")`), which was fragile when names changed.
+
+### Custom platform matchers
+
+Use `assetPlatforms` when the default `os + arch` matching is insufficient — for example, when you only want musl builds for Linux:
+
+```ts
+brewTap({
+  formula: "Formula/mytool.rb",
+  assetPlatforms: {
+    "darwin-arm64": (asset) =>
+      asset.platform.os === "darwin" && asset.platform.arch === "arm64",
+    "linux-x64": (asset) =>
+      asset.platform.os === "linux" &&
+      asset.platform.arch === "x64" &&
+      asset.platform.abi === "musl",
+  },
+})
+```
+
+Each predicate receives a `ReleaseAsset` and returns `true` if the asset should be used for that formula entry.
 
 ### Behavior
 
 The plugin can:
 
 - create a formula scaffold when one does not exist
-- update `url` and `sha256` values for release assets
+- update `url` and `sha256` values for release assets using structured platform info
 - commit and push formula changes
 - fall back to a pull-request workflow when direct push is not appropriate
 
@@ -54,6 +89,30 @@ pubm brew init
 ```
 
 Use this to scaffold a starting formula from package metadata.
+
+### `brewCore`
+
+For contributing to homebrew-core (the default Homebrew repository), use `brewCore` instead of `brewTap`:
+
+```ts
+import { brewCore } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewCore({
+      formula: "Formula/my-tool.rb",
+    }),
+  ],
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | Formula path relative to the repository root. |
+| `packageName` | `string` | Optional package name filter for monorepos. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Optional custom platform matchers. |
+
+`brewCore` forks `homebrew/homebrew-core`, updates the formula, and opens a PR automatically.
 
 ## `@pubm/plugin-external-version-sync`
 

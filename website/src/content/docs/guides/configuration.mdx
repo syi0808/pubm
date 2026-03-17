@@ -359,7 +359,67 @@ export default defineConfig({
 });
 ```
 
+## Release assets
+
+`releaseAssets` declares the binary artifacts to attach to each GitHub Release. A simple glob string is enough for most cases:
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `compress`
+
+- Type: `"tar.gz" | "zip" | "tar.xz" | "tar.zst" | false | Record<string, CompressFormat>`
+- Default: OS-aware auto-detect (windows → `zip`, others → `tar.gz`)
+
+Global default compression format. Can be overridden at the group or file level inside `releaseAssets`.
+
+```ts
+export default defineConfig({
+  // Use zip for Windows, tar.gz everywhere else
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `releaseAssets`
+
+- Type: `(string | ReleaseAssetGroupConfig)[]`
+- Default: `undefined` (no assets attached)
+
+Each entry is either a glob string or an object with explicit control:
+
+```ts
+releaseAssets: [
+  // String: glob, fully automatic
+  "platforms/*/bin/mytool",
+
+  // Object: explicit per-group settings
+  {
+    packagePath: "packages/cli",    // Monorepo: link to this package's release
+    files: [
+      "platforms/*/bin/mytool",
+      { path: "dist/*.dmg", compress: false, name: "MyTool-{version}-{os}" },
+    ],
+    compress: "tar.gz",             // Group default
+    name: "{name}-{platform}",      // Group name template
+  },
+]
+```
+
+Read the [Release Assets](/pubm/guides/release-assets/) guide for the full compress cascade rules, name template variables, and use-case examples.
+
 ## Next steps
 
 - Use the [Monorepo](/pubm/guides/monorepo/) guide if you need package grouping or mixed registries.
 - Use the [Plugins API Reference](/pubm/reference/plugins/) if your config registers custom plugins.
+- Use the [Release Assets](/pubm/guides/release-assets/) guide to attach binaries and archives to GitHub Releases.

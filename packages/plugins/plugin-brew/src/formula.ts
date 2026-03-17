@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import type { ReleaseAsset } from "@pubm/core";
+import type { AssetPlatformMatcher } from "./types.js";
 
 export interface FormulaAsset {
   platform: "darwin-arm64" | "darwin-x64" | "linux-arm64" | "linux-x64";
@@ -105,36 +106,39 @@ export function updateFormula(
   return updated;
 }
 
-export function mapReleaseAssets(
-  assets: { name: string; url: string; sha256: string }[],
-): FormulaAsset[] {
-  const platformMap: Record<string, FormulaAsset["platform"]> = {
-    "darwin-arm64": "darwin-arm64",
-    "darwin-x64": "darwin-x64",
-    "linux-arm64": "linux-arm64",
-    "linux-x64": "linux-x64",
-  };
+const FORMULA_PLATFORMS = {
+  "darwin-arm64": { os: "darwin", arch: "arm64" },
+  "darwin-x64": { os: "darwin", arch: "x64" },
+  "linux-arm64": { os: "linux", arch: "arm64" },
+  "linux-x64": { os: "linux", arch: "x64" },
+} as const;
 
-  const result: FormulaAsset[] = [];
+export type FormulaPlatformKey = keyof typeof FORMULA_PLATFORMS;
 
-  for (const asset of assets) {
-    for (const [key, platform] of Object.entries(platformMap)) {
-      if (asset.name.includes(key)) {
-        result.push({ platform, url: asset.url, sha256: asset.sha256 });
-        break;
-      }
-    }
-  }
-
-  return result;
+export function matchAssetToPlatform(
+  assets: ReleaseAsset[],
+  formulaPlatform: FormulaPlatformKey,
+  customMatcher?: AssetPlatformMatcher,
+): ReleaseAsset | undefined {
+  if (customMatcher) return assets.find(customMatcher);
+  const { os, arch } = FORMULA_PLATFORMS[formulaPlatform];
+  return assets.find((a) => a.platform.os === os && a.platform.arch === arch);
 }
 
-export async function computeSha256FromUrl(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+export function releaseAssetsToFormulaAssets(
+  assets: ReleaseAsset[],
+  customMatchers?: Record<string, AssetPlatformMatcher>,
+): FormulaAsset[] {
+  const result: FormulaAsset[] = [];
+  for (const key of Object.keys(FORMULA_PLATFORMS) as FormulaPlatformKey[]) {
+    const matched = matchAssetToPlatform(assets, key, customMatchers?.[key]);
+    if (matched) {
+      result.push({
+        platform: key,
+        url: matched.url,
+        sha256: matched.sha256,
+      });
+    }
   }
-  const buffer = await response.arrayBuffer();
-  const hash = createHash("sha256").update(Buffer.from(buffer)).digest("hex");
-  return hash;
+  return result;
 }

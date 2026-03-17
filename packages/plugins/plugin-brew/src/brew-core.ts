@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { PubmPlugin } from "@pubm/core";
-import { generateFormula, mapReleaseAssets, updateFormula } from "./formula.js";
+import {
+  generateFormula,
+  releaseAssetsToFormulaAssets,
+  updateFormula,
+} from "./formula.js";
 import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewCoreOptions } from "./types.js";
 
@@ -69,7 +73,10 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
 
         const name =
           (pkg.name as string)?.replace(/^@[^/]+\//, "") ?? "my-tool";
-        const formulaAssets = mapReleaseAssets(releaseCtx.assets);
+        const formulaAssets = releaseAssetsToFormulaAssets(
+          releaseCtx.assets,
+          options.assetPlatforms,
+        );
 
         // Fork homebrew-core if needed
         try {

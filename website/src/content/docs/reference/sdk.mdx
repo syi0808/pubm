@@ -95,11 +95,18 @@ Use the plugin exports when you want to extend the publish pipeline with custom 
 | Export | Kind | Purpose |
 |------|------|---------|
 | `PubmPlugin` | type | Top-level plugin contract. |
-| `PluginHooks` | type | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, and `afterRelease`. |
+| `PluginHooks` | type | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, `afterRelease`, and asset pipeline hooks. |
 | `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook signatures. |
 | `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Custom CLI command model for plugins. |
 | `PluginRunner` | class | Utility that executes hooks and collects registries/ecosystems from loaded plugins. |
-| `ReleaseContext` / `ReleaseAsset` | types | Metadata passed to `afterRelease` hooks. |
+| `ReleaseContext` | type | Release metadata passed to `afterRelease` hooks. Includes `packageName`, `version`, `tag`, `releaseUrl`, and `assets`. |
+| `ReleaseAsset` | type | One uploaded asset: `name`, `url`, `sha256`, and structured `platform`. |
+| `ParsedPlatform` | type | Structured platform info: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |
+| `PreparedAsset` | type | Asset after compression and hashing, ready for upload. |
+| `TransformedAsset` | type | Asset after `transformAsset` hook, before compression. |
+| `CompressedAsset` | type | Asset after `compressAsset` step, before naming. |
+| `UploadedAsset` | type | Asset after upload with `url` and `target`. |
+| `ResolvedAsset` | type | Asset after glob matching with parsed platform info. |
 
 ```ts
 import { defineConfig, type PubmPlugin } from "@pubm/core";
@@ -117,6 +124,43 @@ export default defineConfig({
   plugins: [plugin],
 });
 ```
+
+## Asset pipeline
+
+These exports power the release asset pipeline and are useful for plugin authors and custom tooling.
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `parsePlatform` | function | Parse OS, arch, ABI, variant, and vendor from a path segment string using the built-in tables. |
+| `runAssetPipeline` | function | Run the full asset pipeline (resolve, transform, compress, name, hash, checksums) given a resolved config and hook set. |
+
+```ts
+import { parsePlatform, runAssetPipeline } from "@pubm/core";
+
+// Parse a path segment or capture string
+const platform = parsePlatform("darwin-arm64");
+// { raw: "darwin-arm64", os: "darwin", arch: "arm64" }
+
+const platform2 = parsePlatform("x86_64-unknown-linux-gnu");
+// { raw: "x86_64-unknown-linux-gnu", os: "linux", arch: "x64", vendor: "unknown", abi: "gnu" }
+```
+
+Asset pipeline types:
+
+```ts
+import type {
+  ParsedPlatform,
+  ReleaseContext,
+  ReleaseAsset,
+  ResolvedAsset,
+  TransformedAsset,
+  CompressedAsset,
+  PreparedAsset,
+  UploadedAsset,
+} from "@pubm/core";
+```
+
+See [Release Assets](/pubm/guides/release-assets/) and [Asset Pipeline Hooks](/pubm/guides/asset-pipeline-hooks/) for usage guides.
 
 ## Changeset and versioning helpers
 

@@ -169,6 +169,7 @@ describe("brewCore", () => {
             name: "pubm-darwin-arm64.tar.gz",
             url: "https://example.com/new-darwin-arm64.tar.gz",
             sha256: "new-darwin-arm64",
+            platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
           },
         ],
       } as never,

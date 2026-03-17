@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { PubmPlugin } from "@pubm/core";
-import { generateFormula, mapReleaseAssets, updateFormula } from "./formula.js";
+import {
+  generateFormula,
+  releaseAssetsToFormulaAssets,
+  updateFormula,
+} from "./formula.js";
 import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewTapOptions } from "./types.js";
 
@@ -56,7 +60,10 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
         ) {
           return;
         }
-        const formulaAssets = mapReleaseAssets(releaseCtx.assets);
+        const formulaAssets = releaseAssetsToFormulaAssets(
+          releaseCtx.assets,
+          options.assetPlatforms,
+        );
         const formulaPath = resolve(process.cwd(), options.formula);
 
         let content: string;
