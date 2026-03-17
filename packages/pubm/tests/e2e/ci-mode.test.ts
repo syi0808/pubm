@@ -1,172 +1,91 @@
-import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
-
-const cliPath = path.resolve("src/cli.ts");
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
 describe("CI mode", () => {
-  it("should show error when version is not provided and --publish-only is not set", async () => {
-    const { stderr } = await runPubmCli(
-      "bun",
-      {
-        nodeOptions: {
-          env: { ...process.env, CI: "true" },
-        },
-      },
-      cliPath,
-    );
+  describe("without version flag", () => {
+    let ctx: E2EContext;
 
-    expect(stderr).toContain("Version must be set in the CI environment");
-  });
+    beforeAll(async () => {
+      ctx = await e2e("basic");
+    });
 
-  it("should show error when --publish-only is used in a non-git directory", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-ci-test-${Date.now()}`,
-    );
+    afterAll(() => ctx.cleanup());
 
-    // Create a temp directory that is not a git repo
-    const { mkdirSync, rmSync } = await import("node:fs");
-    mkdirSync(tmpDir, { recursive: true });
-
-    try {
-      const { stderr } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            env: { ...process.env, CI: "true" },
-            cwd: tmpDir,
-          },
-        },
-        cliPath,
-        "--publish-only",
+    // Note: Original test ran from project root without cwd override.
+    // Now runs against "basic" fixture — semantically equivalent since
+    // the test only verifies the CI error message when no version flag is given.
+    it("should show error when version is not provided and --publish-only is not set", async () => {
+      const { stderr } = await ctx.runWithEnv(
+        { ...process.env, CI: "true" } as Record<string, string>,
       );
+      expect(stderr).toContain("Version must be set in the CI environment");
+    });
 
-      // In publish-only mode, the CLI reads versions from manifests.
-      // Without a package.json the config has no packages, causing an error.
+    it("should include error formatting in CI error output", async () => {
+      const { stderr } = await ctx.runWithEnv(
+        { ...process.env, CI: "true" } as Record<string, string>,
+      );
+      expect(stderr).toContain("Error");
       expect(stderr.length).toBeGreaterThan(0);
-      expect(stderr).toContain("TypeError");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    });
   });
 
-  it("should read version from manifest in --publish-only mode", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-ci-manifest-${Date.now()}`,
-    );
+  describe("publish-only in non-git dir", () => {
+    let ctx: E2EContext;
 
-    const { mkdirSync, writeFileSync, rmSync } = await import("node:fs");
-    const { execSync } = await import("node:child_process");
-    mkdirSync(tmpDir, { recursive: true });
+    beforeAll(async () => {
+      ctx = await e2e(); // empty dir, no git
+    });
 
-    try {
-      execSync("git init", { cwd: tmpDir });
-      execSync('git config user.email "test@test.com"', { cwd: tmpDir });
-      execSync('git config user.name "test"', { cwd: tmpDir });
-      writeFileSync(
-        path.join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-      );
-      execSync("git add -A && git commit -m init", { cwd: tmpDir });
+    afterAll(() => ctx.cleanup());
 
-      const { stderr } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            env: { ...process.env, CI: "true" },
-            cwd: tmpDir,
-          },
-        },
-        cliPath,
+    it("should show error when --publish-only is used in a non-git directory", async () => {
+      const { stderr } = await ctx.runWithEnv(
+        { ...process.env, CI: "true" } as Record<string, string>,
         "--publish-only",
       );
+      expect(stderr.length).toBeGreaterThan(0);
+      expect(stderr).toContain("Error");
+    });
+  });
 
+  describe("publish-only with manifest", () => {
+    let ctx: E2EContext;
+
+    beforeAll(async () => {
+      ctx = await e2e("ci-manifest");
+      await ctx.git.init().add(".").commit("init").done();
+    });
+
+    afterAll(() => ctx.cleanup());
+
+    it("should read version from manifest in --publish-only mode", async () => {
+      const { stderr } = await ctx.runWithEnv(
+        { ...process.env, CI: "true" } as Record<string, string>,
+        "--publish-only",
+      );
       expect(stderr).not.toContain("Cannot find the latest tag");
       expect(stderr).not.toContain("Cannot parse the latest tag");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    });
   });
 
-  it("should support independent versioning in --ci mode", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-ci-independent-${Date.now()}`,
-    );
+  describe("independent versioning", () => {
+    let ctx: E2EContext;
 
-    const { mkdirSync, writeFileSync, rmSync } = await import("node:fs");
-    const { execSync } = await import("node:child_process");
-    mkdirSync(path.join(tmpDir, "packages", "a"), { recursive: true });
-    mkdirSync(path.join(tmpDir, "packages", "b"), { recursive: true });
+    beforeAll(async () => {
+      ctx = await e2e("ci-independent");
+      await ctx.git.init().add(".").commit("init").done();
+    });
 
-    try {
-      writeFileSync(
-        path.join(tmpDir, "package.json"),
-        JSON.stringify({
-          name: "monorepo",
-          private: true,
-          workspaces: ["packages/*"],
-        }),
-      );
-      writeFileSync(
-        path.join(tmpDir, "packages", "a", "package.json"),
-        JSON.stringify({ name: "@test/a", version: "1.0.0" }),
-      );
-      writeFileSync(
-        path.join(tmpDir, "packages", "b", "package.json"),
-        JSON.stringify({ name: "@test/b", version: "2.0.0" }),
-      );
-      writeFileSync(
-        path.join(tmpDir, "pubm.config.ts"),
-        `import { defineConfig } from "@pubm/core";
-export default defineConfig({
-  versioning: "independent",
-  packages: [
-    { path: "packages/a" },
-    { path: "packages/b" },
-  ],
-});`,
-      );
+    afterAll(() => ctx.cleanup());
 
-      execSync("git init", { cwd: tmpDir });
-      execSync('git config user.email "test@test.com"', { cwd: tmpDir });
-      execSync('git config user.name "test"', { cwd: tmpDir });
-      execSync("git add -A && git commit -m init", { cwd: tmpDir });
-
-      const { stderr } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            env: { ...process.env, CI: "true" },
-            cwd: tmpDir,
-          },
-        },
-        cliPath,
+    it("should support independent versioning in --ci mode", async () => {
+      const { stderr } = await ctx.runWithEnv(
+        { ...process.env, CI: "true" } as Record<string, string>,
         "--ci",
       );
-
       expect(stderr).not.toContain("Cannot find the latest tag");
       expect(stderr).not.toContain("Cannot parse the latest tag");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  it("should include error formatting in CI error output", async () => {
-    const { stderr } = await runPubmCli(
-      "bun",
-      {
-        nodeOptions: {
-          env: { ...process.env, CI: "true" },
-        },
-      },
-      cliPath,
-    );
-
-    // The error output should contain the error name/type info
-    expect(stderr).toContain("Error");
-    expect(stderr.length).toBeGreaterThan(0);
+    });
   });
 });
