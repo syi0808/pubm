@@ -1,7 +1,7 @@
 class Pubm < Formula
   desc "Publish manager for multiple registries"
   homepage "https://github.com/syi0808/pubm"
-  version "0.2.12"
+  version "0.4.0"
   license "Apache-2.0"
 
   on_macos do
