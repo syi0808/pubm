@@ -84,9 +84,23 @@ interface ResolvedReleaseAssetConfig {
 /** packages/core/src/config/types.ts의 PubmConfig에 추가되는 필드 */
 interface PubmConfig {
   // ... 기존 필드
+  /** 글로벌 압축 포맷 기본값. releaseAssets의 group/file level에서 오버라이드 가능. */
+  compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
 }
-// ResolvedPubmConfig도 동일하게 releaseAssets 필드를 포함한다.
+// ResolvedPubmConfig도 동일하게 compress, releaseAssets 필드를 포함한다.
+
+/**
+ * compress 우선순위 (높은 순):
+ * 1. file-level compress
+ * 2. group-level compress
+ * 3. global compress (PubmConfig.compress)
+ * 4. OS-aware 자동 감지 (windows → "zip", 나머지 → "tar.gz")
+ *
+ * 각 레벨에서 CompressOption이 Record<string, CompressFormat>이면,
+ * 해당 asset의 파싱된 OS에 맞는 엔트리를 선택한다.
+ * 매칭되는 OS 엔트리가 없으면 다음 우선순위로 fallback한다.
+ */
 ```
 
 ### 1.2 사용 예시
@@ -98,25 +112,26 @@ releaseAssets: [
 ]
 
 // ② 풀 설정
+compress: { windows: "zip" },  // 글로벌 기본값
 releaseAssets: [
   {
     packagePath: "packages/pubm",
     files: [
-      // string = glob, 자동 (OS-aware: windows→zip, 나머지→tar.gz)
+      // string = glob, 자동 (글로벌 → OS-aware fallback)
       "platforms/*/bin/pubm",
       // object = 명시적 설정
       {
         path: "dist/*.dmg",
-        compress: false,
+        compress: false,            // file-level: 압축 안 함
         name: "myapp-{version}-{arch}",
       },
       {
         path: "target/{arch}-{vendor}-{os}/release/myapp",
-        compress: { windows: "zip", linux: "tar.xz" },  // OS별 포맷
+        compress: { linux: "tar.xz" },  // file-level: linux만 tar.xz, 나머지는 그룹→글로벌→자동
         name: "myapp-{version}-{arch}-{os}",
       },
     ],
-    compress: "tar.gz",   // 그룹 기본값 (file-level이 오버라이드)
+    compress: "tar.gz",   // 그룹 기본값 (글로벌 오버라이드, file-level이 다시 오버라이드)
     name: "{name}-{platform}",
   },
 ]
