@@ -47,7 +47,11 @@ packages/pubm/tests/
 import { e2e } from "../utils/e2e";
 
 describe("publish flow", () => {
-  const ctx = e2e("monorepo-basic");
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e("monorepo-basic");
+  });
 
   afterAll(() => ctx.cleanup());
 
@@ -69,35 +73,37 @@ describe("publish flow", () => {
 });
 ```
 
+같은 `describe` 블록 내 테스트들은 동일한 temp dir을 공유합니다.
+git 상태도 누적되므로, 테스트 간 독립성이 필요하면 `describe`를 분리하세요.
+
 구현:
 
 ```ts
-function e2e(fixtureName?: string) {
-  let fixture: FixtureManager;
-  let runner: BinaryRunner;
+interface E2EContext {
+  dir: string;                     // fixture temp dir 경로
+  git: GitFixture;                 // git 빌더
+  run(...args: string[]): Promise<RunResult>;
+  runWithEnv(env: Record<string, string>, ...args: string[]): Promise<RunResult>;
+  cleanup(): Promise<void>;        // temp dir 삭제
+}
 
-  const ensureInit = async () => {
-    if (!fixture) {
-      fixture = await FixtureManager.create(fixtureName);
-      runner = new BinaryRunner(fixture.dir);
-    }
-  };
+async function e2e(fixtureName?: string): Promise<E2EContext> {
+  const fixture = await FixtureManager.create(fixtureName);
+  const runner = new BinaryRunner(fixture.dir);
 
   return {
-    get dir(): string;              // fixture temp dir 경로
-
-    get git(): GitFixture;          // git 빌더 (접근 시 auto-init)
-
-    async run(...args: string[]): Promise<RunResult>;
-    async runWithEnv(env: Record<string, string>, ...args: string[]): Promise<RunResult>;
-
-    async cleanup(): Promise<void>; // temp dir 삭제
+    get dir() { return fixture.dir; },
+    get git() { return new GitFixture(fixture.dir); },
+    run: (...args) => runner.run(...args),
+    runWithEnv: (env, ...args) => runner.runWithEnv(env, ...args),
+    cleanup: () => fixture.cleanup(),
   };
 }
 ```
 
+- `e2e()`는 async — `beforeAll`에서 `await`로 호출
 - fixture 이름 생략 시 빈 temp dir 생성
-- `ctx.git`, `ctx.run()` 첫 접근 시 lazy 초기화
+- `dir`, `git`은 초기화 완료 후 동기적으로 접근 가능
 
 ### 2. FixtureManager
 
@@ -140,14 +146,25 @@ class GitFixture {
 
 - `init()` 호출 시 `user.name`/`user.email` 테스트용 기본값 자동 설정
 - `done()` 후 큐는 비워짐 (재사용 가능)
-- 각 git 명령 실패 시 명확한 에러 메시지
+- `done()`은 명령을 순차 실행하며, 첫 번째 실패 시 즉시 중단하고 실패한 명령과 stderr를 포함한 에러를 throw
 
 ### 4. BinaryRunner
 
 ```ts
+// runPubmCli 반환 타입과 동일
+interface RunResult {
+  controller: CliController;
+  exitCode: number | undefined;
+  stdout: string;
+  stderr: string;
+  waitForClose: () => Promise<unknown>;
+}
+
 class BinaryRunner {
   constructor(private cwd: string) {}
 
+  // process.platform + process.arch → 바이너리 경로 resolve
+  // 경로: path.resolve(import.meta.dir, "../../platforms", platformDir, "bin", binaryName)
   private static resolveBinaryPath(): string;
 
   async run(...args: string[]): Promise<RunResult>;
@@ -156,11 +173,15 @@ class BinaryRunner {
 ```
 
 - `process.platform` + `process.arch` → 바이너리 경로 자동 resolve
-  - `darwin` + `arm64` → `packages/pubm/platforms/darwin-arm64/bin/pubm`
-  - `win32` → `.exe` 확장자 자동 처리
+  - 플랫폼 매핑: `darwin`→`darwin`, `linux`→`linux`, `win32`→`windows`
+  - 아키텍처 매핑: `arm64`→`arm64`, `x64`→`x64`
+  - 예: `darwin` + `arm64` → `platforms/darwin-arm64/bin/pubm`
+  - `win32` → `pubm.exe` 확장자 자동 처리
+- 경로 resolve: `import.meta.dir` 기준 상대 경로로 `platforms/` 디렉토리 참조
 - 바이너리 미빌드 시: `"Binary not found at {path}. Run 'bun run build' first."`
-- 기존 `CliController`를 재사용하여 stdout/stderr 캡처, interactive 입력 지원
-- `RunResult` 타입은 기존 `runPubmCli` 반환 타입과 동일
+- 내부적으로 기존 `runPubmCli(binaryPath, { cwd, env }, ...args)`를 위임 호출
+  - `runPubmCli`의 첫 번째 인자가 임의 command를 받으므로 바이너리 경로를 그대로 전달
+  - `CliController`를 통한 stdout/stderr 캡처, interactive 입력 지원 그대로 활용
 
 ### 5. Fixture 정리
 
