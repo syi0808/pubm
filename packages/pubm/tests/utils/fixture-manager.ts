@@ -1,9 +1,23 @@
-import { existsSync } from "node:fs";
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 const FIXTURES_DIR = path.resolve(import.meta.dirname, "../fixtures");
+
+function copyDirSync(src: string, dest: string): void {
+  const entries = readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      mkdirSync(destPath, { recursive: true });
+      copyDirSync(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
+    }
+  }
+}
 
 export class FixtureManager {
   private constructor(private tmpDir: string) {}
@@ -20,7 +34,7 @@ export class FixtureManager {
           `Fixture not found: ${fixtureName} (looked in ${fixtureDir})`,
         );
       }
-      await cp(fixtureDir, tmpDir, { recursive: true });
+      copyDirSync(fixtureDir, tmpDir);
     }
 
     return new FixtureManager(tmpDir);

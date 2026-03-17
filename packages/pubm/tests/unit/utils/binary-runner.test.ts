@@ -22,8 +22,9 @@ describe("BinaryRunner", () => {
   it("should resolve the binary path for current platform", () => {
     const binaryPath = BinaryRunner.resolveBinaryPath();
 
-    expect(binaryPath).toContain("platforms/");
-    expect(binaryPath).toContain("/bin/pubm");
+    const normalized = binaryPath.replace(/\\/g, "/");
+    expect(normalized).toContain("platforms/");
+    expect(normalized).toContain("/bin/pubm");
   });
 
   it("should run --help and capture stdout", async () => {
