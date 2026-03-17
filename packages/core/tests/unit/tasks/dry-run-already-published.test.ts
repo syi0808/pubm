@@ -15,7 +15,7 @@ vi.mock("../../../src/registry/jsr.js", () => ({
 }));
 
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesPackageRegistry: vi.fn(),
+  cratesPackageRegistry: vi.fn(),
 }));
 
 vi.mock("../../../src/ecosystem/rust.js", () => ({
@@ -37,7 +37,7 @@ vi.mock("../../../src/utils/db.js", () => ({
 }));
 
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { cratesPackageRegistry } from "../../../src/registry/crates.js";
 import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
@@ -118,11 +118,9 @@ describe("dry-run publish — already published", () => {
         dryRunPublish: vi.fn(),
         packageName: "test-crate",
       };
-      vi.mocked(CratesPackageRegistry).mockImplementation(function () {
-        return mockRegistry as any;
-      });
+      vi.mocked(cratesPackageRegistry).mockResolvedValue(mockRegistry as any);
 
-      const task = createCratesDryRunPublishTask();
+      const task = createCratesDryRunPublishTask("packages/my-crate");
       const ctx = { runtime: { version: "1.0.0" } } as any;
       await (task as any).task(ctx, mockTask);
 

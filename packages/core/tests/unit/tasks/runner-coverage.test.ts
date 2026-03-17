@@ -126,32 +126,24 @@ vi.mock("../../../src/tasks/jsr.js", () => ({
   })),
 }));
 vi.mock("../../../src/tasks/crates.js", () => ({
-  cratesPublishTasks: {
-    title: "crates publish",
-    task: vi.fn(),
-  },
-  createCratesPublishTask: vi.fn((packagePath?: string) => ({
+  createCratesPublishTask: vi.fn((packagePath: string) => ({
     title: `crates publish (${packagePath})`,
     task: vi.fn(),
   })),
 }));
 vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
-  npmDryRunPublishTask: {
-    title: "Dry-run npm publish",
+  createNpmDryRunPublishTask: vi.fn((packagePath: string) => ({
+    title: `Dry-run npm publish (${packagePath})`,
     task: vi.fn(),
-  },
-  jsrDryRunPublishTask: {
-    title: "Dry-run jsr publish",
+  })),
+  createJsrDryRunPublishTask: vi.fn((packagePath: string) => ({
+    title: `Dry-run jsr publish (${packagePath})`,
     task: vi.fn(),
-  },
-  cratesDryRunPublishTask: {
-    title: "Dry-run crates publish",
-    task: vi.fn(),
-  },
+  })),
   createCratesDryRunPublishTask: vi.fn(
-    (packagePath?: string, siblings?: string[]) => ({
+    (packagePath: string, siblingPaths?: string[]) => ({
       title: `Dry-run crates publish (${packagePath})`,
-      siblings,
+      siblingPaths,
       task: vi.fn(),
     }),
   ),
@@ -642,7 +634,7 @@ describe("runner coverage scenarios", () => {
 
     expect(mockedCreateCratesDryRunPublishTask).toHaveBeenCalledWith(
       "rust/crates/lib-b",
-      ["lib-a", "lib-b"],
+      ["rust/crates/lib-a", "rust/crates/lib-b"],
     );
     expect(innerParent.newListr.mock.calls[0][1]).toEqual({
       concurrent: false,

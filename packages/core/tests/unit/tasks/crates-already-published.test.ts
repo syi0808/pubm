@@ -1,20 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockIsVersionPublished, mockPublish, MockCratesRegistryCtor } =
-  vi.hoisted(() => ({
-    mockIsVersionPublished: vi.fn().mockResolvedValue(false),
-    mockPublish: vi.fn().mockResolvedValue(true),
-    MockCratesRegistryCtor: vi.fn(),
-  }));
+const { mockIsVersionPublished, mockPublish } = vi.hoisted(() => ({
+  mockIsVersionPublished: vi.fn().mockResolvedValue(false),
+  mockPublish: vi.fn().mockResolvedValue(true),
+}));
 
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesPackageRegistry: class MockCratesPackageRegistry {
-    constructor(name: string) {
-      MockCratesRegistryCtor(name);
-    }
-    isVersionPublished = mockIsVersionPublished;
-    publish = mockPublish;
-  },
+  cratesPackageRegistry: vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      packageName: "test-crate",
+      isVersionPublished: mockIsVersionPublished,
+      publish: mockPublish,
+    }),
+  ),
 }));
 
 vi.mock("../../../src/ecosystem/rust.js", () => ({
@@ -35,7 +33,6 @@ describe("cratesPublishTask — already published", () => {
   beforeEach(() => {
     mockIsVersionPublished.mockClear().mockResolvedValue(false);
     mockPublish.mockClear().mockResolvedValue(true);
-    MockCratesRegistryCtor.mockClear();
     mockTask.output = "";
     mockTask.title = "";
     mockTask.skip.mockClear();
@@ -44,7 +41,7 @@ describe("cratesPublishTask — already published", () => {
   it("skips publish when version is already published", async () => {
     mockIsVersionPublished.mockResolvedValue(true);
 
-    const task = createCratesPublishTask();
+    const task = createCratesPublishTask("packages/my-crate");
     const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);
@@ -60,7 +57,7 @@ describe("cratesPublishTask — already published", () => {
       new Error("crate version `1.0.0` is already uploaded"),
     );
 
-    const task = createCratesPublishTask();
+    const task = createCratesPublishTask("packages/my-crate");
     const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);
@@ -72,7 +69,7 @@ describe("cratesPublishTask — already published", () => {
   it("proceeds with publish when version is not published", async () => {
     mockIsVersionPublished.mockResolvedValue(false);
 
-    const task = createCratesPublishTask();
+    const task = createCratesPublishTask("packages/my-crate");
     const ctx = { runtime: { version: "1.0.0" } } as any;
 
     await (task as any).task(ctx, mockTask);

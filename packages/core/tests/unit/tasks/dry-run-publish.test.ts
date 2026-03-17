@@ -45,18 +45,17 @@ vi.mock("../../../src/registry/jsr.js", () => ({
   jsrPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/registry/crates.js", () => ({
-  CratesPackageRegistry: vi.fn(),
+  cratesPackageRegistry: vi.fn(),
 }));
 vi.mock("../../../src/ecosystem/rust.js", () => ({
   RustEcosystem: vi.fn(),
 }));
 
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
-import { CratesPackageRegistry } from "../../../src/registry/crates.js";
+import { cratesPackageRegistry } from "../../../src/registry/crates.js";
 import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import {
-  cratesDryRunPublishTask,
   createCratesDryRunPublishTask,
   createJsrDryRunPublishTask,
   createNpmDryRunPublishTask,
@@ -65,7 +64,7 @@ import { SecureStore } from "../../../src/utils/secure-store.js";
 
 const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
 const mockedJsrRegistry = vi.mocked(jsrPackageRegistry);
-const mockedCratesRegistry = vi.mocked(CratesPackageRegistry);
+const mockedCratesRegistry = vi.mocked(cratesPackageRegistry);
 const mockedRustEcosystem = vi.mocked(RustEcosystem);
 const mockedSecureStore = vi.mocked(SecureStore);
 
@@ -118,19 +117,13 @@ describe("createJsrDryRunPublishTask", () => {
   });
 });
 
-describe("cratesDryRunPublishTask", () => {
-  it("has correct title", () => {
-    expect(cratesDryRunPublishTask.title).toBe("Dry-run crates.io publish");
-  });
-});
-
 describe("createCratesDryRunPublishTask", () => {
   it("includes package path in title", () => {
     const task = createCratesDryRunPublishTask("packages/my-crate");
     expect(task.title).toBe("Dry-run crates.io publish (packages/my-crate)");
   });
 
-  it("calls dryRunPublish with manifestDir", async () => {
+  it("calls dryRunPublish with no args", async () => {
     const mockDryRun = vi.fn().mockResolvedValue(undefined);
     mockedRustEcosystem.mockImplementation(function () {
       return {
@@ -138,37 +131,39 @@ describe("createCratesDryRunPublishTask", () => {
         dependencies: vi.fn().mockResolvedValue([]),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function () {
-      return {
-        dryRunPublish: mockDryRun,
-        isVersionPublished: vi.fn().mockResolvedValue(false),
-      } as any;
-    });
+    mockedCratesRegistry.mockResolvedValue({
+      packageName: "my-crate",
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+    } as any);
 
     const task = createCratesDryRunPublishTask("packages/my-crate");
     await (task as any).task({ runtime: {} }, { output: "" });
-    expect(mockDryRun).toHaveBeenCalledWith("packages/my-crate");
+    expect(mockDryRun).toHaveBeenCalledWith();
   });
 
   it("proactively skips when sibling dependency is not published on crates.io", async () => {
-    mockedRustEcosystem.mockImplementation(function () {
+    mockedRustEcosystem.mockImplementation(function (this: any, p: string) {
+      const name = p.includes("my-lib") ? "my-lib" : "my-cli";
       return {
-        packageName: vi.fn().mockResolvedValue("my-cli"),
+        packageName: vi.fn().mockResolvedValue(name),
         dependencies: vi.fn().mockResolvedValue(["my-lib", "serde"]),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function (name: string) {
-      return {
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      return Promise.resolve({
+        packageName: name,
         isPublished: vi.fn().mockResolvedValue(name !== "my-lib"),
         isVersionPublished: vi.fn().mockResolvedValue(false),
         dryRunPublish: vi.fn(),
-      } as any;
+      } as any);
     });
 
     const mockTask = { output: "", title: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
-      "my-lib",
-      "my-cli",
+      "packages/my-lib",
+      "packages/my-cli",
     ]);
     await (task as any).task({ runtime: {} }, mockTask);
     expect(mockTask.title).toContain("skipped");
@@ -183,21 +178,23 @@ describe("createCratesDryRunPublishTask", () => {
         dependencies: vi.fn().mockResolvedValue(["my-lib"]),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function () {
-      return {
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      return Promise.resolve({
+        packageName: name,
         isPublished: vi.fn().mockResolvedValue(true),
         isVersionPublished: vi.fn().mockResolvedValue(false),
         dryRunPublish: mockDryRun,
-      } as any;
+      } as any);
     });
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
-      "my-lib",
-      "my-cli",
+      "packages/my-lib",
+      "packages/my-cli",
     ]);
     await (task as any).task({ runtime: {} }, mockTask);
-    expect(mockDryRun).toHaveBeenCalledWith("packages/my-cli");
+    expect(mockDryRun).toHaveBeenCalledWith();
   });
 
   it("reactive fallback: skips when dry-run fails with sibling error", async () => {
@@ -208,24 +205,27 @@ describe("createCratesDryRunPublishTask", () => {
           "no matching package named `my-lib` found\nlocation searched: crates.io index",
         ),
       );
-    mockedRustEcosystem.mockImplementation(function () {
+    mockedRustEcosystem.mockImplementation(function (this: any, p: string) {
+      const name = p.includes("my-lib") ? "my-lib" : "my-cli";
       return {
-        packageName: vi.fn().mockResolvedValue("my-cli"),
+        packageName: vi.fn().mockResolvedValue(name),
         dependencies: vi.fn().mockResolvedValue([]),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function () {
-      return {
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      return Promise.resolve({
+        packageName: name,
         isPublished: vi.fn().mockResolvedValue(true),
         isVersionPublished: vi.fn().mockResolvedValue(false),
         dryRunPublish: mockDryRun,
-      } as any;
+      } as any);
     });
 
     const mockTask = { output: "", title: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
-      "my-lib",
-      "my-cli",
+      "packages/my-lib",
+      "packages/my-cli",
     ]);
     await (task as any).task({ runtime: {} }, mockTask);
     expect(mockTask.title).toContain("skipped");
@@ -246,25 +246,27 @@ describe("createCratesDryRunPublishTask", () => {
         dependencies: vi.fn().mockResolvedValue([]),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function () {
-      return {
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      return Promise.resolve({
+        packageName: name,
         isPublished: vi.fn().mockResolvedValue(true),
         isVersionPublished: vi.fn().mockResolvedValue(false),
         dryRunPublish: mockDryRun,
-      } as any;
+      } as any);
     });
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
-      "my-lib",
-      "my-cli",
+      "packages/my-lib",
+      "packages/my-cli",
     ]);
     await expect((task as any).task({ runtime: {} }, mockTask)).rejects.toThrow(
       "unknown-crate",
     );
   });
 
-  it("throws when no siblingCrateNames provided", async () => {
+  it("throws when no siblingPaths provided", async () => {
     const mockDryRun = vi
       .fn()
       .mockRejectedValue(new Error("no matching package named `my-lib` found"));
@@ -273,12 +275,11 @@ describe("createCratesDryRunPublishTask", () => {
         packageName: vi.fn().mockResolvedValue("my-cli"),
       } as any;
     });
-    mockedCratesRegistry.mockImplementation(function () {
-      return {
-        dryRunPublish: mockDryRun,
-        isVersionPublished: vi.fn().mockResolvedValue(false),
-      } as any;
-    });
+    mockedCratesRegistry.mockResolvedValue({
+      packageName: "my-cli",
+      dryRunPublish: mockDryRun,
+      isVersionPublished: vi.fn().mockResolvedValue(false),
+    } as any);
 
     const mockTask = { output: "" };
     const task = createCratesDryRunPublishTask("packages/my-cli");
