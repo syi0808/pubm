@@ -15,16 +15,18 @@ describe("CI mode", () => {
     // Now runs against "basic" fixture — semantically equivalent since
     // the test only verifies the CI error message when no version flag is given.
     it("should show error when version is not provided and --publish-only is not set", async () => {
-      const { stderr } = await ctx.runWithEnv(
-        { ...process.env, CI: "true" } as Record<string, string>,
-      );
+      const { stderr } = await ctx.runWithEnv({
+        ...process.env,
+        CI: "true",
+      } as Record<string, string>);
       expect(stderr).toContain("Version must be set in the CI environment");
     });
 
     it("should include error formatting in CI error output", async () => {
-      const { stderr } = await ctx.runWithEnv(
-        { ...process.env, CI: "true" } as Record<string, string>,
-      );
+      const { stderr } = await ctx.runWithEnv({
+        ...process.env,
+        CI: "true",
+      } as Record<string, string>);
       expect(stderr).toContain("Error");
       expect(stderr.length).toBeGreaterThan(0);
     });

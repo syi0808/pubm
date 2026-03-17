@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { e2e } from "../../utils/e2e.js";
 import type { E2EContext } from "../../utils/e2e.js";
+import { e2e } from "../../utils/e2e.js";
 
 describe("e2e() facade", () => {
   let ctx: E2EContext | undefined;
