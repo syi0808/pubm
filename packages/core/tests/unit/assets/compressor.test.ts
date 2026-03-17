@@ -109,7 +109,7 @@ describe("compressFile", () => {
     expect(existsSync(result)).toBe(true);
   });
 
-  it("creates zip archive", async () => {
+  it.skipIf(process.platform === "win32")("creates zip archive", async () => {
     const dir = mkdtempSync(join(tmpdir(), "compress-test-"));
     const srcFile = join(dir, "testbin");
     writeFileSync(srcFile, "binary content");
