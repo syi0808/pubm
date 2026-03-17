@@ -1,26 +1,26 @@
 class Pubm < Formula
   desc "Publish manager for multiple registries"
   homepage "https://github.com/syi0808/pubm"
-  version "0.4.2"
+  version "0.4.3"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.2/pubm-darwin-arm64.tar.gz"
-      sha256 "bed2df6cf787ddd79bbf415c8802188e9eef12b59bdbd10b9022393d2e2f40f5"
+      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.3/pubm-darwin-arm64.tar.gz"
+      sha256 "f5aca1f7df98aece3d18628a2ce4f99b5b21be40623bf74e53f074c847317b1f"
     elsif Hardware::CPU.intel?
-      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.2/pubm-darwin-x64.tar.gz"
-      sha256 "c6fd4952803178c42a23f05255e7b4fdf8ee9f39adbc15bda025c59aa9800c7f"
+      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.3/pubm-darwin-x64.tar.gz"
+      sha256 "a485848c9ce746f7254ca6a1c3a5fed22b33eef7c78034067ecdb39e60f8c39d"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.2/pubm-linux-arm64.tar.gz"
-      sha256 "7656ff77cf50e0e025afe8be0fbc3b9b64bf303444fb86b67acfa3830a157e3c"
+      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.3/pubm-linux-arm64.tar.gz"
+      sha256 "af1980db02eacf8a2af83a3c8bfb81269a41c161f0ea0bc0a4f15e79d5d29a65"
     elsif Hardware::CPU.intel?
-      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.2/pubm-linux-x64.tar.gz"
-      sha256 "cb1fddab48546fd7abc886568bec314d49d3161baf30ea297fb135e80b698bfa"
+      url "https://github.com/syi0808/pubm/releases/download/pubm%400.4.3/pubm-linux-x64.tar.gz"
+      sha256 "859675e0a7a3c2dee13a39b4ee197e4c174cf652b086cb89146e8000488e8bab"
     end
   end
 
