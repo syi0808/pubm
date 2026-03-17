@@ -47,7 +47,7 @@ function matchesIgnore(pkgPath: string, ignorePatterns: string[]): boolean {
   });
 }
 
-function resolvePatterns(cwd: string, patterns: string[]): string[] {
+export function resolvePatterns(cwd: string, patterns: string[]): string[] {
   const entries = readdirSync(cwd, { recursive: true, encoding: "utf-8" });
 
   const dirs = entries.filter((entry) => {

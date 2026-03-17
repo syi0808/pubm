@@ -22,6 +22,11 @@ import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
+import {
+  collectWorkspaceVersions,
+  resolveWorkspaceProtocolsInManifests,
+  restoreManifests,
+} from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { JsrClient } from "../registry/jsr.js";
 import { exec } from "../utils/exec.js";
@@ -150,6 +155,38 @@ function createPublishTaskForPath(
   if (!factory)
     return { title: `Publish to ${registryKey}`, task: async () => {} };
   return factory(packagePath);
+}
+
+function resolveWorkspaceProtocols(ctx: PubmContext): void {
+  if (!ctx.cwd) return;
+
+  const workspaceVersions = collectWorkspaceVersions(ctx.cwd);
+  if (workspaceVersions.size === 0) return;
+
+  const packagePaths = ctx.config.packages.map((pkg) =>
+    path.resolve(ctx.cwd, pkg.path),
+  );
+
+  const backups = resolveWorkspaceProtocolsInManifests(
+    packagePaths,
+    workspaceVersions,
+  );
+
+  if (backups.size > 0) {
+    ctx.runtime.workspaceBackups = backups;
+    addRollback(async () => restoreManifests(backups), ctx);
+  }
+}
+
+function createRestoreWorkspaceProtocolsTask(): ListrTask<PubmContext> {
+  return {
+    title: "Restoring workspace protocols",
+    skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
+    task: (ctx) => {
+      restoreManifests(ctx.runtime.workspaceBackups!);
+      ctx.runtime.workspaceBackups = undefined;
+    },
+  };
 }
 
 async function collectPublishTasks(ctx: PubmContext) {
@@ -637,6 +674,8 @@ export async function run(ctx: PubmContext): Promise<void> {
             {
               title: "Publishing",
               task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+                resolveWorkspaceProtocols(ctx);
+
                 const publishTasks = await collectPublishTasks(ctx);
                 parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
                 parentTask.output = formatRegistryGroupSummary(
@@ -650,6 +689,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 });
               },
             },
+            createRestoreWorkspaceProtocolsTask(),
             {
               title: "Creating GitHub Release",
               task: async (ctx, task): Promise<void> => {
@@ -826,22 +866,27 @@ export async function run(ctx: PubmContext): Promise<void> {
             },
           ]
         : ctx.options.publishOnly
-          ? {
-              title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-                const publishTasks = await collectPublishTasks(ctx);
-                parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
-                parentTask.output = formatRegistryGroupSummary(
-                  "Concurrent publish tasks",
-                  ctx,
-                  true,
-                );
+          ? [
+              {
+                title: "Publishing",
+                task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+                  resolveWorkspaceProtocols(ctx);
 
-                return parentTask.newListr(publishTasks, {
-                  concurrent: true,
-                });
+                  const publishTasks = await collectPublishTasks(ctx);
+                  parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+                  parentTask.output = formatRegistryGroupSummary(
+                    "Concurrent publish tasks",
+                    ctx,
+                    true,
+                  );
+
+                  return parentTask.newListr(publishTasks, {
+                    concurrent: true,
+                  });
+                },
               },
-            }
+              createRestoreWorkspaceProtocolsTask(),
+            ]
           : [
               {
                 skip: ctx.options.skipTests,
@@ -1227,6 +1272,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                 task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
                   parentTask.output = "Running plugin beforePublish hooks...";
                   await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
+                  resolveWorkspaceProtocols(ctx);
+
                   const publishTasks = await collectPublishTasks(ctx);
                   parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
                   parentTask.output = formatRegistryGroupSummary(
@@ -1238,6 +1285,18 @@ export async function run(ctx: PubmContext): Promise<void> {
                   return parentTask.newListr(publishTasks, {
                     concurrent: true,
                   });
+                },
+              },
+              {
+                skip: (ctx) =>
+                  !!ctx.options.skipPublish ||
+                  !!ctx.options.preview ||
+                  !!ctx.options.preflight ||
+                  !ctx.runtime.workspaceBackups?.size,
+                title: "Restoring workspace protocols",
+                task: (ctx) => {
+                  restoreManifests(ctx.runtime.workspaceBackups!);
+                  ctx.runtime.workspaceBackups = undefined;
                 },
               },
               {
@@ -1256,6 +1315,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                 skip: !ctx.options.preflight,
                 title: "Validating publish (dry-run)",
                 task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+                  resolveWorkspaceProtocols(ctx);
+
                   const dryRunTasks = await collectDryRunPublishTasks(ctx);
                   parentTask.title = `Validating publish (${countRegistryTargets(
                     collectEcosystemRegistryGroups(ctx.config),
@@ -1268,6 +1329,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                   return parentTask.newListr(dryRunTasks, {
                     concurrent: true,
                   });
+                },
+              },
+              {
+                skip:
+                  !ctx.options.preflight || !ctx.runtime.workspaceBackups?.size,
+                title: "Restoring workspace protocols",
+                task: (ctx) => {
+                  restoreManifests(ctx.runtime.workspaceBackups!);
+                  ctx.runtime.workspaceBackups = undefined;
                 },
               },
               {
