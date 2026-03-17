@@ -73,11 +73,12 @@ interface ResolvedReleaseAssetConfig {
   files: ResolvedAssetFileConfig[];
 }
 
-/** PubmConfig에 추가되는 필드 */
+/** packages/core/src/config/types.ts의 PubmConfig에 추가되는 필드 */
 interface PubmConfig {
   // ... 기존 필드
   releaseAssets?: ReleaseAssetEntry[];
 }
+// ResolvedPubmConfig도 동일하게 releaseAssets 필드를 포함한다.
 ```
 
 ### 1.2 사용 예시
@@ -572,7 +573,7 @@ const checksumsPlugin: PubmPlugin = {
   hooks: {
     generateChecksums: async (assets, ctx) => {
       const lines = assets.map((a) => `${a.sha256}  ${a.name}`).join("\n");
-      const checksumPath = join(tmpdir(), "SHA256SUMS.txt");
+      const checksumPath = join(ctx.tempDir, "SHA256SUMS.txt");
       writeFileSync(checksumPath, lines);
       return [
         ...assets,
@@ -580,8 +581,10 @@ const checksumsPlugin: PubmPlugin = {
           filePath: checksumPath,
           originalPath: checksumPath,
           name: "SHA256SUMS.txt",
-          sha256: computeSha256(checksumPath),
+          sha256: await computeSha256(checksumPath),
           platform: { raw: "" },
+          compressFormat: false,
+          config: { path: "", compress: false, name: "SHA256SUMS.txt" },
         },
       ];
     },
@@ -593,7 +596,8 @@ const checksumsPlugin: PubmPlugin = {
 
 여러 플러그인이 같은 asset pipeline hook을 등록한 경우, 플러그인 등록 순서대로 체이닝된다:
 
-- **배열 입출력 hooks** (`resolveAssets`, `generateChecksums`, `uploadAssets`): 이전 플러그인의 출력이 다음 플러그인의 입력이 된다.
+- **배열 입출력 hooks** (`resolveAssets`, `generateChecksums`): 이전 플러그인의 출력이 다음 플러그인의 입력이 된다 (체이닝).
+- **`uploadAssets` hook**: 각 플러그인이 독립적으로 호출되고, 모든 플러그인의 결과가 concat된다 (누적). 각 플러그인은 동일한 `PreparedAsset[]`을 입력으로 받는다.
 - **개별 asset hooks** (`transformAsset`, `compressAsset`, `nameAsset`): 이전 플러그인의 출력이 다음 플러그인의 입력이 된다. `transformAsset`이 배열을 반환하면 각 원소에 대해 다음 플러그인이 호출된다.
 - 어떤 플러그인에서든 에러가 발생하면 체인이 중단되고 `onError` hook으로 전파된다.
 
@@ -603,7 +607,7 @@ const checksumsPlugin: PubmPlugin = {
 
 - `compressor`가 생성한 압축 파일은 `os.tmpdir()`의 `pubm-assets-{timestamp}/` 디렉토리에 저장된다.
 - `pipeline.ts`의 `runAssetPipeline`이 `PreparedAsset[]`을 반환한 후, **호출자(runner.ts)가** 업로드 완료 시점에 temp 디렉토리를 `rmSync`으로 정리한다.
-- 플러그인이 `generateChecksums` 등에서 생성한 temp 파일도 같은 디렉토리에 저장하도록 `ctx.tempDir`로 경로를 제공한다.
+- 플러그인이 `generateChecksums` 등에서 생성한 temp 파일도 같은 디렉토리에 저장하도록 `ctx.runtime.tempDir`로 경로를 제공한다. `PubmContext.runtime`에 `tempDir: string` 필드를 추가한다.
 
 ## 4.8 에러 처리 전략
 
@@ -613,12 +617,15 @@ const checksumsPlugin: PubmPlugin = {
 
 ## 4.9 Config 검증
 
-`releaseAssets` config는 로드 시점(publish 전)에 검증한다:
+검증을 두 단계로 나눈다:
 
+**구조 검증 (config 로드 시점):**
 - 잘못된 `compress` 값 → 에러
 - name 템플릿의 알 수 없는 변수 (예: `{versoin}`) → 경고
 - `packagePath`가 실제 존재하는 패키지 경로인지 확인 → 에러
-- glob 패턴이 0개 파일을 매칭하면 → 경고 (빌드 전이면 정상일 수 있으므로 에러 아닌 경고)
+
+**런타임 검증 (빌드 후, 업로드 전):**
+- glob 패턴이 0개 파일을 매칭하면 → 에러 (빌드 완료 후이므로 파일이 있어야 함)
 
 ---
 
@@ -698,7 +705,8 @@ function matchAssetToPlatform(
 | `packages/core/src/tasks/runner.ts` | `runAssetPipeline` → `createGitHubRelease` 순서로 호출 변경 |
 | `packages/core/src/plugin/types.ts` | `AssetPipelineHooks` 추가, `PluginHooks` 확장 |
 | `packages/core/src/plugin/runner.ts` | asset pipeline hook 실행 로직 추가 |
-| `packages/core/src/context.ts` | config에 `releaseAssets` 필드 추가 |
+| `packages/core/src/config/types.ts` | `PubmConfig`, `ResolvedPubmConfig`에 `releaseAssets` 필드 추가 |
+| `packages/core/src/context.ts` | `PubmContext.runtime`에 `tempDir` 필드 추가 |
 | `packages/core/src/index.ts` | `assets/` 모듈 export |
 | `packages/plugins/plugin-brew/src/formula.ts` | `mapReleaseAssets` 제거, `matchAssetToPlatform` 추가 |
 | `packages/plugins/plugin-brew/src/brew-tap.ts` | platform 객체 기반 매칭으로 변경 |
