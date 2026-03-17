@@ -8,6 +8,14 @@ const FIXTURE_PATH = path.resolve(__dirname, "../../fixtures/basic");
 
 describe("isVersionPublished", () => {
   describe("NpmPackageRegistry", () => {
+    it("returns false for empty version without making a fetch call", async () => {
+      const npm = new NpmPackageRegistry("test-package", FIXTURE_PATH);
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      expect(await npm.isVersionPublished("")).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
     it("returns true when version exists (HTTP 200)", async () => {
       const npm = new NpmPackageRegistry("test-package", FIXTURE_PATH);
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -40,6 +48,14 @@ describe("isVersionPublished", () => {
   });
 
   describe("CratesPackageRegistry", () => {
+    it("returns false for empty version without making a fetch call", async () => {
+      const crates = new CratesPackageRegistry("test-crate", FIXTURE_PATH);
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      expect(await crates.isVersionPublished("")).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
     it("returns true when version exists (HTTP 200)", async () => {
       const crates = new CratesPackageRegistry("test-crate", FIXTURE_PATH);
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -64,6 +80,14 @@ describe("isVersionPublished", () => {
   });
 
   describe("JsrPackageRegistry", () => {
+    it("returns false for empty version without making a fetch call", async () => {
+      const jsr = new JsrPackageRegistry("@scope/name", FIXTURE_PATH);
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      expect(await jsr.isVersionPublished("")).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
     it("returns true when version exists (HTTP 200)", async () => {
       const jsr = new JsrPackageRegistry("@scope/name", FIXTURE_PATH);
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

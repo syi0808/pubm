@@ -181,6 +181,7 @@ export class CratesPackageRegistry extends PackageRegistry {
   }
 
   async isVersionPublished(version: string): Promise<boolean> {
+    if (!version) return false;
     try {
       const response = await fetch(
         `${this.registry}/api/v1/crates/${this.packageName}/${version}`,
