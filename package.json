@@ -37,15 +37,15 @@
     "turbo": "^2.8.16",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "pubm": "workspace:*",
-    "@pubm/core": "workspace:*",
-    "@pubm/plugin-brew": "workspace:*",
-    "@pubm/plugin-external-version-sync": "workspace:*",
-    "@pubm/darwin-arm64": "workspace:*",
-    "@pubm/darwin-x64": "workspace:*",
-    "@pubm/linux-arm64": "workspace:*",
-    "@pubm/linux-x64": "workspace:*",
-    "@pubm/windows-x64": "workspace:*"
+    "pubm": "workspace:^",
+    "@pubm/core": "workspace:^",
+    "@pubm/plugin-brew": "workspace:^",
+    "@pubm/plugin-external-version-sync": "workspace:^",
+    "@pubm/darwin-arm64": "workspace:^",
+    "@pubm/darwin-x64": "workspace:^",
+    "@pubm/linux-arm64": "workspace:^",
+    "@pubm/linux-x64": "workspace:^",
+    "@pubm/windows-x64": "workspace:^"
   },
   "patchedDependencies": {
     "listr2@10.2.1": "patches/listr2.patch"
