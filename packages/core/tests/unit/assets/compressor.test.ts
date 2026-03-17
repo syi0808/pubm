@@ -109,7 +109,7 @@ describe("compressFile", () => {
     expect(existsSync(result)).toBe(true);
   });
 
-  it("creates zip archive", async () => {
+  it.skipIf(process.platform === "win32")("creates zip archive", async () => {
     const dir = mkdtempSync(join(tmpdir(), "compress-test-"));
     const srcFile = join(dir, "testbin");
     writeFileSync(srcFile, "binary content");
@@ -120,5 +120,65 @@ describe("compressFile", () => {
     const result = await compressFileFresh(srcFile, outDir, "zip");
     expect(result).toMatch(/\.zip$/);
     expect(existsSync(result)).toBe(true);
+  });
+});
+
+describe("compressFile Windows paths", () => {
+  const mockExec = vi.hoisted(() => vi.fn());
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.doMock("../../../src/utils/exec.js", () => ({ exec: mockExec }));
+    mockExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function importWinCompressor() {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      const mod = await import("../../../src/assets/compressor.js");
+      return mod.compressFile;
+    } finally {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
+  }
+
+  it("uses powershell Compress-Archive for zip on Windows", async () => {
+    const compress = await importWinCompressor();
+    await compress("/tmp/bin/app", "/tmp/out", "zip");
+
+    expect(mockExec).toHaveBeenCalledWith(
+      "powershell",
+      expect.arrayContaining(["-NoProfile", "-Command"]),
+      expect.objectContaining({ throwOnError: true }),
+    );
+    const cmd = mockExec.mock.calls[0][1][2] as string;
+    expect(cmd).toContain("Compress-Archive");
+  });
+
+  it("uses two-step tar + xz for tar.xz on Windows", async () => {
+    const compress = await importWinCompressor();
+    await compress("/tmp/bin/app", "/tmp/out", "tar.xz");
+
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec.mock.calls[0][0]).toBe("tar");
+    expect(mockExec.mock.calls[0][1]).toContain("-cf");
+    expect(mockExec.mock.calls[1][0]).toBe("xz");
+  });
+
+  it("uses two-step tar + zstd for tar.zst on Windows", async () => {
+    const compress = await importWinCompressor();
+    await compress("/tmp/bin/app", "/tmp/out", "tar.zst");
+
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec.mock.calls[0][0]).toBe("tar");
+    expect(mockExec.mock.calls[0][1]).toContain("-cf");
+    expect(mockExec.mock.calls[1][0]).toBe("zstd");
+    expect(mockExec.mock.calls[1][1]).toContain("-o");
   });
 });
