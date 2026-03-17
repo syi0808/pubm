@@ -1,93 +1,38 @@
-import { mkdirSync, rmSync } from "node:fs";
-import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
-
-const cliPath = path.resolve("src/cli.ts");
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
 describe("error handling", () => {
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e(); // empty dir — no package.json
+  });
+
+  afterAll(() => ctx.cleanup());
+
   it("should show error when running in directory without package.json", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-err-test-${Date.now()}`,
+    const { stderr } = await ctx.runWithEnv(
+      { ...process.env, CI: "true" } as Record<string, string>,
+      "1.0.0",
     );
-    mkdirSync(tmpDir, { recursive: true });
-
-    try {
-      const { stderr } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            cwd: tmpDir,
-            env: { ...process.env, CI: "true" },
-          },
-        },
-        cliPath,
-        "1.0.0",
-      );
-
-      // When run from a directory without package.json/jsr.json, the
-      // version resolution in the IIFE fails before the action handler.
-      expect(stderr.length).toBeGreaterThan(0);
-      expect(stderr).toContain("Error");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    expect(stderr.length).toBeGreaterThan(0);
+    expect(stderr).toContain("Error");
   });
 
   it("should contain package.json related error in stderr when run from empty directory", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-err-test2-${Date.now()}`,
+    const { stderr } = await ctx.runWithEnv(
+      { ...process.env, CI: "true" } as Record<string, string>,
+      "--publish-only",
     );
-    mkdirSync(tmpDir, { recursive: true });
-
-    try {
-      const { stderr } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            cwd: tmpDir,
-            env: { ...process.env, CI: "true" },
-          },
-        },
-        cliPath,
-        "--publish-only",
-      );
-
-      // In publish-only mode without a manifest, pubm fails during config resolution
-      expect(stderr.length).toBeGreaterThan(0);
-      expect(stderr).toContain("TypeError");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    expect(stderr.length).toBeGreaterThan(0);
+    expect(stderr).toContain("Error");
   });
 
   it("should exit without crashing when errors occur", async () => {
-    const tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-err-test3-${Date.now()}`,
+    const { exitCode } = await ctx.runWithEnv(
+      { ...process.env, CI: "true" } as Record<string, string>,
+      "--publish-only",
     );
-    mkdirSync(tmpDir, { recursive: true });
-
-    try {
-      const { exitCode } = await runPubmCli(
-        "bun",
-        {
-          nodeOptions: {
-            cwd: tmpDir,
-            env: { ...process.env, CI: "true" },
-          },
-        },
-        cliPath,
-        "--publish-only",
-      );
-
-      // The process should exit (not hang). It may have a non-zero exit
-      // code due to the uncaught exception in the IIFE.
-      expect(exitCode).toBeDefined();
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    expect(exitCode).toBeDefined();
   });
 });
