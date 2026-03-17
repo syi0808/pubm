@@ -1,6 +1,8 @@
 export type { PipelineContext } from "./pipeline.js";
 export { runAssetPipeline } from "./pipeline.js";
 export { parsePlatform } from "./platform-parser.js";
+export type { NormalizedGroup } from "./resolver.js";
+export { normalizeConfig, resolveAssets } from "./resolver.js";
 export type {
   AssetPipelineHooks,
   CompressedAsset,

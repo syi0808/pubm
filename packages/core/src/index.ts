@@ -38,7 +38,12 @@ export type {
   TransformedAsset,
   UploadedAsset,
 } from "./assets/index.js";
-export { parsePlatform, runAssetPipeline } from "./assets/index.js";
+export {
+  normalizeConfig,
+  parsePlatform,
+  resolveAssets,
+  runAssetPipeline,
+} from "./assets/index.js";
 export type {
   BumpType,
   ChangelogEntry,
