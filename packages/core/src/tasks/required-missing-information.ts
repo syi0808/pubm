@@ -301,11 +301,10 @@ async function handleSinglePackage(
       });
 
       if (choice === "accept") {
-        ctx.runtime.version = bump.newVersion;
         ctx.runtime.versionPlan = {
           mode: "single",
           version: bump.newVersion,
-          packageName: ctx.config.packages[0].name,
+          packagePath: ctx.config.packages[0].path,
         };
         ctx.runtime.changesetConsumed = true;
         return;
@@ -329,11 +328,10 @@ async function handleSinglePackage(
     });
   }
 
-  ctx.runtime.version = nextVersion;
   ctx.runtime.versionPlan = {
     mode: "single",
     version: nextVersion,
-    packageName: ctx.config.packages[0].name,
+    packagePath: ctx.config.packages[0].path,
   };
 }
 
@@ -457,9 +455,9 @@ async function promptChangesetRecommendations(
   if (choice === "accept") {
     const versions = new Map<string, string>();
     for (const [name, bump] of bumps) {
-      versions.set(name, bump.newVersion);
+      const pkg = ctx.config.packages.find((p) => p.name === name);
+      versions.set(pkg?.path ?? name, bump.newVersion);
     }
-    ctx.runtime.versions = versions;
     ctx.runtime.versionPlan = {
       mode: "independent",
       packages: versions,
@@ -608,10 +606,9 @@ async function handleFixedMode(
 
   const packages = new Map<string, string>();
   for (const name of currentVersions.keys()) {
-    packages.set(name, nextVersion);
+    const pkg = ctx.config.packages.find((p) => p.name === name);
+    packages.set(pkg?.path ?? name, nextVersion);
   }
-  ctx.runtime.version = nextVersion;
-  ctx.runtime.versions = packages;
   ctx.runtime.versionPlan = {
     mode: "fixed",
     version: nextVersion,
@@ -756,9 +753,13 @@ async function handleIndependentMode(
     versions,
   );
 
-  ctx.runtime.versions = versions;
+  const pathVersions = new Map<string, string>();
+  for (const [name, ver] of versions) {
+    const pkg = ctx.config.packages.find((p) => p.name === name);
+    pathVersions.set(pkg?.path ?? name, ver);
+  }
   ctx.runtime.versionPlan = {
     mode: "independent",
-    packages: versions,
+    packages: pathVersions,
   };
 }
