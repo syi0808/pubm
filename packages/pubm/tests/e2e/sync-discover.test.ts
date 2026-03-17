@@ -1,231 +1,208 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
-
-const cliPath = path.resolve("src/cli.ts");
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
 describe("pubm sync --discover", () => {
-  let tmpDir: string;
+  describe("should show help when run without --discover flag", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test", version: "1.0.0" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-  afterEach(() => {
-    if (tmpDir) {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+    it("should show help when run without --discover flag", async () => {
+      const { stdout } = await ctx.run("sync");
+      expect(stdout).toContain("--discover");
+    });
   });
 
-  function createTmpDir(suffix: string): string {
-    tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-sync-test-${suffix}-${Date.now()}`,
-    );
-    mkdirSync(tmpDir, { recursive: true });
-    return tmpDir;
-  }
+  describe("should show sync help via pubm sync --help", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+    });
+    afterAll(() => ctx.cleanup());
 
-  it("should show help when run without --discover flag", async () => {
-    const dir = createTmpDir("help");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test", version: "1.0.0" }),
-    );
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-    );
-
-    expect(stdout).toContain("--discover");
+    it("should show sync help via pubm sync --help", async () => {
+      const { stdout } = await ctx.run("sync", "--help");
+      expect(stdout).toContain("sync");
+    });
   });
 
-  it("should show sync help via pubm sync --help", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "sync", "--help");
+  describe("should discover JSON version references", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
+      );
+      writeFileSync(
+        path.join(ctx.dir, "config.json"),
+        JSON.stringify({ version: "1.0.0", name: "app" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    expect(stdout).toContain("sync");
+    it("should discover JSON version references", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("config.json");
+      expect(stdout).toContain("JSON");
+      expect(stdout).toContain("version");
+    });
   });
 
-  it("should discover JSON version references", async () => {
-    const dir = createTmpDir("json");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-    );
-    writeFileSync(
-      path.join(dir, "config.json"),
-      JSON.stringify({ version: "1.0.0", name: "app" }),
-    );
+  describe("should discover pattern-based version references in text files", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "2.5.0" }),
+      );
+      writeFileSync(
+        path.join(ctx.dir, "lib.ts"),
+        "/** @version 2.5.0 */\nexport const lib = {};\n",
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("config.json");
-    expect(stdout).toContain("JSON");
-    expect(stdout).toContain("version");
+    it("should discover pattern-based version references in text files", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("lib.ts");
+      expect(stdout).toContain("2.5.0");
+    });
   });
 
-  it("should discover pattern-based version references in text files", async () => {
-    const dir = createTmpDir("pattern");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "2.5.0" }),
-    );
-    // Use @version JSDoc tag which matches VERSION_PATTERNS
-    writeFileSync(
-      path.join(dir, "lib.ts"),
-      "/** @version 2.5.0 */\nexport const lib = {};\n",
-    );
+  describe("should report no references when none exist", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
+      );
+      writeFileSync(path.join(ctx.dir, "readme.txt"), "Hello world\n");
+    });
+    afterAll(() => ctx.cleanup());
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("lib.ts");
-    expect(stdout).toContain("2.5.0");
+    it("should report no references when none exist", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("No version references found");
+    });
   });
 
-  it("should report no references when none exist", async () => {
-    const dir = createTmpDir("none");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-    );
-    writeFileSync(path.join(dir, "readme.txt"), "Hello world\n");
+  describe("should show versionSync config suggestion when references are found", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "3.0.0" }),
+      );
+      writeFileSync(
+        path.join(ctx.dir, "manifest.json"),
+        JSON.stringify({ version: "3.0.0" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("No version references found");
+    it("should show versionSync config suggestion when references are found", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("versionSync");
+      expect(stdout).toContain("manifest.json");
+    });
   });
 
-  it("should show versionSync config suggestion when references are found", async () => {
-    const dir = createTmpDir("config-suggestion");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "3.0.0" }),
-    );
-    writeFileSync(
-      path.join(dir, "manifest.json"),
-      JSON.stringify({ version: "3.0.0" }),
-    );
+  describe("should discover references in nested directories", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "1.2.3" }),
+      );
+      const subDir = path.join(ctx.dir, "src");
+      mkdirSync(subDir, { recursive: true });
+      writeFileSync(
+        path.join(subDir, "meta.json"),
+        JSON.stringify({ version: "1.2.3" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("versionSync");
-    expect(stdout).toContain("manifest.json");
+    it("should discover references in nested directories", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain(path.join("src", "meta.json"));
+      expect(stdout).toContain("JSON");
+    });
   });
 
-  it("should discover references in nested directories", async () => {
-    const dir = createTmpDir("nested");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.2.3" }),
-    );
+  describe("should skip node_modules directory", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
+      );
+      const nmDir = path.join(ctx.dir, "node_modules", "some-pkg");
+      mkdirSync(nmDir, { recursive: true });
+      writeFileSync(
+        path.join(nmDir, "config.json"),
+        JSON.stringify({ version: "1.0.0" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const subDir = path.join(dir, "src");
-    mkdirSync(subDir, { recursive: true });
-    writeFileSync(
-      path.join(subDir, "meta.json"),
-      JSON.stringify({ version: "1.2.3" }),
-    );
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain(path.join("src", "meta.json"));
-    expect(stdout).toContain("JSON");
+    it("should skip node_modules directory", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("No version references found");
+    });
   });
 
-  it("should skip node_modules directory", async () => {
-    const dir = createTmpDir("skip-nodemodules");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-    );
+  describe("should show scanning message with current version", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "4.1.0" }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const nmDir = path.join(dir, "node_modules", "some-pkg");
-    mkdirSync(nmDir, { recursive: true });
-    writeFileSync(
-      path.join(nmDir, "config.json"),
-      JSON.stringify({ version: "1.0.0" }),
-    );
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("No version references found");
+    it("should show scanning message with current version", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("Scanning");
+      expect(stdout).toContain("4.1.0");
+    });
   });
 
-  it("should show scanning message with current version", async () => {
-    const dir = createTmpDir("scanning-msg");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "4.1.0" }),
-    );
+  describe("should discover nested JSON path references", () => {
+    let ctx: E2EContext;
+    beforeAll(async () => {
+      ctx = await e2e();
+      writeFileSync(
+        path.join(ctx.dir, "package.json"),
+        JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
+      );
+      writeFileSync(
+        path.join(ctx.dir, "settings.json"),
+        JSON.stringify({ app: { meta: { version: "1.0.0" } } }),
+      );
+    });
+    afterAll(() => ctx.cleanup());
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("Scanning");
-    expect(stdout).toContain("4.1.0");
-  });
-
-  it("should discover nested JSON path references", async () => {
-    const dir = createTmpDir("nested-json");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-    );
-    writeFileSync(
-      path.join(dir, "settings.json"),
-      JSON.stringify({ app: { meta: { version: "1.0.0" } } }),
-    );
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "sync",
-      "--discover",
-    );
-
-    expect(stdout).toContain("settings.json");
-    expect(stdout).toContain("app.meta.version");
+    it("should discover nested JSON path references", async () => {
+      const { stdout } = await ctx.run("sync", "--discover");
+      expect(stdout).toContain("settings.json");
+      expect(stdout).toContain("app.meta.version");
+    });
   });
 });
