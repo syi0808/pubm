@@ -21,8 +21,8 @@ vi.mock("../../../src/registry/npm.js", () => ({
   npmPackageRegistry: vi.fn(),
 }));
 
-import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import { jsrPackageRegistry } from "../../../src/registry/jsr.js";
+import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import { createJsrPublishTask } from "../../../src/tasks/jsr.js";
 import { createNpmPublishTask } from "../../../src/tasks/npm.js";
 
