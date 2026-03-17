@@ -1,173 +1,113 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
-const cliPath = path.resolve("src/cli.ts");
+describe("pubm changesets version --help", () => {
+  let ctx: E2EContext;
 
-describe("pubm changesets version --dry-run", () => {
-  let tmpDir: string;
-
-  afterEach(() => {
-    if (tmpDir) {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
+  beforeAll(async () => {
+    ctx = await e2e("basic");
   });
 
-  function createTmpDir(suffix: string): string {
-    tmpDir = path.join(
-      process.env.TMPDIR || "/tmp",
-      `pubm-version-test-${suffix}-${Date.now()}`,
-    );
-    mkdirSync(tmpDir, { recursive: true });
-    return tmpDir;
-  }
-
-  function createChangeset(
-    dir: string,
-    id: string,
-    packageName: string,
-    bumpType: string,
-    summary: string,
-  ): void {
-    const changesetsDir = path.join(dir, ".pubm", "changesets");
-    mkdirSync(changesetsDir, { recursive: true });
-    writeFileSync(
-      path.join(changesetsDir, `${id}.md`),
-      `---\n"${packageName}": ${bumpType}\n---\n\n${summary}\n`,
-    );
-  }
+  afterAll(() => ctx.cleanup());
 
   it("should show help for version command", async () => {
-    const { stdout } = await runPubmCli(
-      "bun",
-      {},
-      cliPath,
-      "changesets",
-      "version",
-      "--help",
-    );
-
+    const { stdout } = await ctx.run("changesets", "version", "--help");
     expect(stdout).toContain("version");
   });
+});
 
-  it("should report no changesets when none exist", async () => {
-    const dir = createTmpDir("no-changesets");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-pkg", version: "1.0.0" }),
-    );
+describe("pubm changesets version --dry-run (no changesets)", () => {
+  let ctx: E2EContext;
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "changesets",
-      "version",
-      "--dry-run",
-    );
-
-    expect(stdout).toContain("No changesets found");
+  beforeAll(async () => {
+    ctx = await e2e("basic");
   });
 
+  afterAll(() => ctx.cleanup());
+
+  it("should report no changesets when none exist", async () => {
+    const { stdout } = await ctx.run("changesets", "version", "--dry-run");
+    expect(stdout).toContain("No changesets found");
+  });
+});
+
+describe("pubm changesets version --dry-run (patch)", () => {
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e("with-changesets-patch");
+  });
+
+  afterAll(() => ctx.cleanup());
+
   it("should show dry-run output with version bump for a patch changeset", async () => {
-    const dir = createTmpDir("patch-bump");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
-    );
-    createChangeset(dir, "add-feature", "my-pkg", "patch", "Fix a small bug");
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "changesets",
-      "version",
-      "--dry-run",
-    );
-
+    const { stdout } = await ctx.run("changesets", "version", "--dry-run");
     expect(stdout).toContain("dry-run");
     expect(stdout).toContain("my-pkg");
     expect(stdout).toContain("1.0.1");
     expect(stdout).toContain("patch");
   });
+});
+
+describe("pubm changesets version --dry-run (minor)", () => {
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e("with-changesets-minor");
+  });
+
+  afterAll(() => ctx.cleanup());
 
   it("should show dry-run output with version bump for a minor changeset", async () => {
-    const dir = createTmpDir("minor-bump");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "my-pkg", version: "2.3.0" }),
-    );
-    createChangeset(dir, "new-feature", "my-pkg", "minor", "Add new feature");
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "changesets",
-      "version",
-      "--dry-run",
-    );
-
+    const { stdout } = await ctx.run("changesets", "version", "--dry-run");
     expect(stdout).toContain("dry-run");
     expect(stdout).toContain("my-pkg");
     expect(stdout).toContain("2.4.0");
     expect(stdout).toContain("minor");
   });
+});
+
+describe("pubm changesets version --dry-run (major)", () => {
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e("with-changesets-major");
+  });
+
+  afterAll(() => ctx.cleanup());
 
   it("should show dry-run output with version bump for a major changeset", async () => {
-    const dir = createTmpDir("major-bump");
-    writeFileSync(
-      path.join(dir, "package.json"),
-      JSON.stringify({ name: "my-pkg", version: "1.5.3" }),
-    );
-    createChangeset(
-      dir,
-      "breaking-change",
-      "my-pkg",
-      "major",
-      "Breaking API change",
-    );
-
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "changesets",
-      "version",
-      "--dry-run",
-    );
-
+    const { stdout } = await ctx.run("changesets", "version", "--dry-run");
     expect(stdout).toContain("dry-run");
     expect(stdout).toContain("my-pkg");
     expect(stdout).toContain("2.0.0");
     expect(stdout).toContain("major");
   });
+});
 
-  it("should include changelog preview in dry-run output", async () => {
-    const dir = createTmpDir("changelog-preview");
+describe("pubm changesets version --dry-run (changelog preview)", () => {
+  let ctx: E2EContext;
+
+  beforeAll(async () => {
+    ctx = await e2e();
     writeFileSync(
-      path.join(dir, "package.json"),
+      path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    createChangeset(
-      dir,
-      "cool-feature",
-      "my-pkg",
-      "minor",
-      "Added a cool feature",
+    const changesetsDir = path.join(ctx.dir, ".pubm", "changesets");
+    mkdirSync(changesetsDir, { recursive: true });
+    writeFileSync(
+      path.join(changesetsDir, "cool-feature.md"),
+      '---\n"my-pkg": minor\n---\n\nAdded a cool feature\n',
     );
+  });
 
-    const { stdout } = await runPubmCli(
-      "bun",
-      { nodeOptions: { cwd: dir } },
-      cliPath,
-      "changesets",
-      "version",
-      "--dry-run",
-    );
+  afterAll(() => ctx.cleanup());
 
+  it("should include changelog preview in dry-run output", async () => {
+    const { stdout } = await ctx.run("changesets", "version", "--dry-run");
     expect(stdout).toContain("dry-run");
     expect(stdout).toContain("Changelog");
     expect(stdout).toContain("Added a cool feature");
