@@ -92,10 +92,10 @@ export function resolveAssets(
         if (capturedVars.platform) {
           platform = parsePlatform(capturedVars.platform);
         } else {
-          const raw = [capturedVars.os, capturedVars.arch]
-            .filter(Boolean)
-            .join("-");
-          platform = { raw, ...capturedVars } as ParsedPlatform;
+          // Individual captures: join and parse through parsePlatform
+          // so aliases are resolved (e.g., win→windows, x86_64→x64)
+          const joined = Object.values(capturedVars).join("-");
+          platform = parsePlatform(joined);
         }
       } else {
         // Auto-parse from path segments

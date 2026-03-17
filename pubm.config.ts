@@ -11,6 +11,13 @@ export default defineConfig({
     { path: "packages/plugins/plugin-external-version-sync" },
     { path: "packages/plugins/plugin-brew" },
   ],
+  releaseAssets: [
+    {
+      packagePath: "packages/pubm",
+      files: ["platforms/{os}-{arch}/bin/pubm"],
+      name: "pubm-{os}-{arch}",
+    },
+  ],
   plugins: [
     brewTap({
       formula: "Formula/pubm.rb",
