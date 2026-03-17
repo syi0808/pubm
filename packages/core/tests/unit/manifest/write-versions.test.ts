@@ -39,8 +39,8 @@ describe("writeVersionsForEcosystem", () => {
         { eco: ecoB, pkg: createMockPkg("pkg-b") },
       ];
       const versions = new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
       ]);
 
       await writeVersionsForEcosystem(ecosystems, versions);
@@ -52,7 +52,7 @@ describe("writeVersionsForEcosystem", () => {
     it("skips writeVersion when package has no version in the map", async () => {
       const eco = createMockEcosystem("pkg-a");
       const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
-      const versions = new Map([["pkg-b", "2.0.0"]]);
+      const versions = new Map([["/mock/pkg-b", "2.0.0"]]);
 
       await writeVersionsForEcosystem(ecosystems, versions);
 
@@ -78,7 +78,7 @@ describe("writeVersionsForEcosystem", () => {
       } as unknown as Ecosystem;
 
       const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
-      const versions = new Map([["pkg-a", "2.0.0"]]);
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
 
       await writeVersionsForEcosystem(ecosystems, versions);
 
@@ -109,7 +109,7 @@ describe("writeVersionsForEcosystem", () => {
   });
 
   describe("Phase 2: updateSiblingDependencyVersions", () => {
-    it("calls updateSiblingDependencyVersions for all packages when multiple packages", async () => {
+    it("calls updateSiblingDependencyVersions with name-keyed map for all packages when multiple packages", async () => {
       const ecoA = createMockEcosystem("pkg-a");
       const ecoB = createMockEcosystem("pkg-b");
 
@@ -118,24 +118,28 @@ describe("writeVersionsForEcosystem", () => {
         { eco: ecoB, pkg: createMockPkg("pkg-b") },
       ];
       const versions = new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
       ]);
 
       await writeVersionsForEcosystem(ecosystems, versions);
 
+      const expectedNameKeyedVersions = new Map([
+        ["pkg-a", "2.0.0"],
+        ["pkg-b", "3.0.0"],
+      ]);
       expect(ecoA.updateSiblingDependencyVersions).toHaveBeenCalledWith(
-        versions,
+        expectedNameKeyedVersions,
       );
       expect(ecoB.updateSiblingDependencyVersions).toHaveBeenCalledWith(
-        versions,
+        expectedNameKeyedVersions,
       );
     });
 
     it("does NOT call updateSiblingDependencyVersions for a single package", async () => {
       const eco = createMockEcosystem("pkg-a");
       const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
-      const versions = new Map([["pkg-a", "2.0.0"]]);
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
 
       await writeVersionsForEcosystem(ecosystems, versions);
 
@@ -153,8 +157,8 @@ describe("writeVersionsForEcosystem", () => {
         { eco: ecoB, pkg: createMockPkg("pkg-b") },
       ];
       const versions = new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
       ]);
 
       const result = await writeVersionsForEcosystem(ecosystems, versions);
@@ -171,8 +175,8 @@ describe("writeVersionsForEcosystem", () => {
         { eco: ecoB, pkg: createMockPkg("pkg-b") },
       ];
       const versions = new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
       ]);
 
       const result = await writeVersionsForEcosystem(ecosystems, versions);
@@ -183,7 +187,7 @@ describe("writeVersionsForEcosystem", () => {
     it("returns an empty array when no lockfiles are synced", async () => {
       const eco = createMockEcosystem("pkg-a", undefined);
       const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
-      const versions = new Map([["pkg-a", "2.0.0"]]);
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
 
       const result = await writeVersionsForEcosystem(ecosystems, versions);
 
@@ -199,8 +203,8 @@ describe("writeVersionsForEcosystem", () => {
         { eco: ecoB, pkg: createMockPkg("pkg-b") },
       ];
       const versions = new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "3.0.0"],
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
       ]);
 
       await writeVersionsForEcosystem(ecosystems, versions);

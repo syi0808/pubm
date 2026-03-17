@@ -7,10 +7,9 @@ export async function writeVersionsForEcosystem(
 ): Promise<string[]> {
   const modifiedFiles: string[] = [];
 
-  // Phase 1: Write versions to manifests
+  // Phase 1: Write versions to manifests (path-keyed)
   for (const { eco } of ecosystems) {
-    const name = await eco.packageName();
-    const version = versions.get(name);
+    const version = versions.get(eco.packagePath);
     if (version) {
       await eco.writeVersion(version);
       // Invalidate ManifestReader cache
@@ -20,11 +19,17 @@ export async function writeVersionsForEcosystem(
     }
   }
 
-  // Phase 2: Update sibling dependency versions (only for multi-package)
+  // Phase 2: Build name-keyed map for sibling dependency updates
   if (ecosystems.length > 1) {
+    const nameKeyedVersions = new Map<string, string>();
+    for (const { eco } of ecosystems) {
+      const name = await eco.packageName();
+      const version = versions.get(eco.packagePath);
+      if (version) nameKeyedVersions.set(name, version);
+    }
     await Promise.all(
       ecosystems.map(({ eco }) =>
-        eco.updateSiblingDependencyVersions(versions),
+        eco.updateSiblingDependencyVersions(nameKeyedVersions),
       ),
     );
   }
