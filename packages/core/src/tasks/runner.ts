@@ -56,6 +56,10 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
 
+function getPackageName(ctx: PubmContext, packagePath: string): string {
+  return ctx.config.packages.find((p) => p.path === packagePath)?.name ?? packagePath;
+}
+
 async function writeVersions(
   ctx: PubmContext,
   versions: Map<string, string>,
@@ -258,19 +262,12 @@ function formatVersionSummary(ctx: PubmContext): string {
   if (plan) {
     if (plan.mode === "independent") {
       return [...plan.packages]
-        .map(([name, ver]) => `${name}@${ver}`)
+        .map(([pkgPath, ver]) => `${getPackageName(ctx, pkgPath)}@${ver}`)
         .join(", ");
     }
     return `v${plan.version}`;
   }
-  // Fallback for backward compat during migration
-  if (ctx.runtime.versions && ctx.runtime.versions.size > 1) {
-    return [...ctx.runtime.versions]
-      .map(([name, ver]) => `${name}@${ver}`)
-      .join(", ");
-  }
-
-  return `v${ctx.runtime.version}`;
+  return "";
 }
 
 function formatVersionPlan(ctx: PubmContext): string {
@@ -278,19 +275,12 @@ function formatVersionPlan(ctx: PubmContext): string {
   if (plan) {
     if (plan.mode === "independent" || plan.mode === "fixed") {
       return `Target versions:\n${[...plan.packages]
-        .map(([name, ver]) => `  ${name}: ${ver}`)
+        .map(([pkgPath, ver]) => `  ${getPackageName(ctx, pkgPath)}: ${ver}`)
         .join("\n")}`;
     }
     return `Target version: v${plan.version}`;
   }
-  // Fallback for backward compat during migration
-  if (ctx.runtime.versions && ctx.runtime.versions.size > 0) {
-    return `Target versions:\n${[...ctx.runtime.versions]
-      .map(([name, ver]) => `  - ${name}@${ver}`)
-      .join("\n")}`;
-  }
-
-  return `Target version: v${ctx.runtime.version}`;
+  return "";
 }
 
 function shouldRenderLiveCommandOutput(ctx: PubmContext): boolean {
@@ -471,18 +461,17 @@ export async function run(ctx: PubmContext): Promise<void> {
                 template: ctx.config.snapshotTemplate,
               });
 
-              ctx.runtime.version = snapshotVersion;
               ctx.runtime.versionPlan = {
                 mode: "single",
                 version: snapshotVersion,
-                packageName: ctx.config.packages[0].name,
+                packagePath: ctx.config.packages[0].path,
               };
               task.title = `Publishing snapshot (${snapshotVersion})`;
               task.output = `Snapshot version: ${snapshotVersion}`;
 
               // Temporarily replace manifest version
               const snapshotVersions = new Map([
-                [ctx.config.packages[0].name, snapshotVersion],
+                [ctx.config.packages[0].path, snapshotVersion],
               ]);
               await writeVersions(ctx, snapshotVersions);
 
@@ -499,7 +488,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 // Restore original version
                 task.output = "Restoring original manifest version...";
                 const restoreVersions = new Map([
-                  [ctx.config.packages[0].name, currentVersion],
+                  [ctx.config.packages[0].path, currentVersion],
                 ]);
                 await writeVersions(ctx, restoreVersions);
               }
@@ -512,7 +501,8 @@ export async function run(ctx: PubmContext): Promise<void> {
             skip: (ctx) => !!ctx.options.preview,
             task: async (ctx, task): Promise<void> => {
               const git = new Git();
-              const tagName = `v${ctx.runtime.version}`;
+              const snapshotPlan = ctx.runtime.versionPlan!;
+              const tagName = `v${snapshotPlan.mode !== "independent" ? snapshotPlan.version : ""}`;
               task.output = `Creating tag ${tagName}...`;
 
               const headCommit = await git.latestCommit();
@@ -539,7 +529,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       }
 
       console.log(
-        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${ui.chalk.blueBright(ctx.runtime.version ?? "")} 📸\n`,
+        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${ui.chalk.blueBright(ctx.runtime.versionPlan?.mode !== "independent" ? (ctx.runtime.versionPlan?.version ?? "") : "")} 📸\n`,
       );
 
       return;
@@ -624,13 +614,14 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                 if (plan.mode === "independent") {
                   // Per-package releases
-                  for (const [pkgName, pkgVersion] of plan.packages) {
+                  for (const [pkgPath, pkgVersion] of plan.packages) {
+                    const pkgName = getPackageName(ctx, pkgPath);
                     const tag = `${pkgName}@${pkgVersion}`;
                     task.output = `Creating release for ${tag}...`;
 
                     let changelogBody: string | undefined;
                     const pkgConfig = ctx.config.packages.find(
-                      (p) => p.name === pkgName,
+                      (p) => p.path === pkgPath,
                     );
                     if (pkgConfig) {
                       const changelogPath = join(
@@ -673,9 +664,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                   let changelogBody: string | undefined;
                   if (plan.mode === "fixed") {
                     const sections: string[] = [];
-                    for (const [pkgName, pkgVersion] of plan.packages) {
+                    for (const [pkgPath, pkgVersion] of plan.packages) {
+                      const pkgName = getPackageName(ctx, pkgPath);
                       const pkgConfig = ctx.config.packages.find(
-                        (p) => p.name === pkgName,
+                        (p) => p.path === pkgPath,
                       );
                       if (!pkgConfig) continue;
                       const changelogPath = join(
@@ -711,7 +703,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                   const packageName =
                     plan.mode === "single"
-                      ? plan.packageName
+                      ? getPackageName(ctx, plan.packagePath)
                       : (ctx.config.packages[0]?.name ?? "");
                   const result = await createGitHubRelease(ctx, {
                     packageName,
@@ -844,7 +836,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                       try {
                         rollbackLog("Deleting tag(s)");
                         if (plan.mode === "independent") {
-                          for (const [pkgName, pkgVersion] of plan.packages) {
+                          for (const [pkgPath, pkgVersion] of plan.packages) {
+                            const pkgName = getPackageName(ctx, pkgPath);
                             try {
                               await git.deleteTag(`${pkgName}@${pkgVersion}`);
                             } catch (tagError) {
@@ -898,10 +891,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                     // Single package: write version for all config packages
                     task.output = "Updating package manifest versions...";
                     const singleVersions = new Map(
-                      ctx.config.packages.map((pkg) => [
-                        pkg.name,
-                        plan.version,
-                      ]),
+                      ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
                     );
                     const replaced = await writeVersions(ctx, singleVersions);
                     for (const replacedFile of replaced) {
@@ -979,8 +969,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
                         const allEntries = [...plan.packages.keys()].flatMap(
-                          (pkgName) =>
-                            buildChangelogEntries(changesets, pkgName),
+                          (pkgPath) =>
+                            buildChangelogEntries(changesets, getPackageName(ctx, pkgPath)),
                         );
                         if (allEntries.length > 0) {
                           const changelogContent = generateChangelog(
@@ -1043,14 +1033,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                         "Applying changesets and generating changelog entries...";
                       const changesets = readChangesets(process.cwd());
                       if (changesets.length > 0) {
-                        for (const [pkgName, pkgVersion] of plan.packages) {
+                        for (const [pkgPath, pkgVersion] of plan.packages) {
+                          const pkgName = getPackageName(ctx, pkgPath);
                           const entries = buildChangelogEntries(
                             changesets,
                             pkgName,
                           );
                           if (entries.length > 0) {
                             const pkgConfig = ctx.config.packages.find(
-                              (p) => p.name === pkgName,
+                              (p) => p.path === pkgPath,
                             );
                             const changelogDir = pkgConfig
                               ? path.resolve(process.cwd(), pkgConfig.path)
@@ -1071,7 +1062,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                     await git.stage(".");
 
                     // Tag existence checks for all packages
-                    for (const [pkgName, pkgVersion] of plan.packages) {
+                    for (const [pkgPath, pkgVersion] of plan.packages) {
+                      const pkgName = getPackageName(ctx, pkgPath);
                       const tagName = `${pkgName}@${pkgVersion}`;
                       if (await git.checkTagExist(tagName)) {
                         if (ctx.runtime.promptEnabled) {
@@ -1100,7 +1092,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                     // Commit with "Version Packages" message
                     const commitMsg = `Version Packages\n\n${[...plan.packages]
-                      .map(([name, ver]) => `- ${name}: ${ver}`)
+                      .map(([pkgPath, ver]) => `- ${getPackageName(ctx, pkgPath)}: ${ver}`)
                       .join("\n")}`;
                     task.output = "Creating release commit...";
                     const commit = await git.commit(commitMsg);
@@ -1108,7 +1100,8 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                     // Create per-package tags
                     task.output = "Creating tags...";
-                    for (const [pkgName, pkgVersion] of plan.packages) {
+                    for (const [pkgPath, pkgVersion] of plan.packages) {
+                      const pkgName = getPackageName(ctx, pkgPath);
                       await git.createTag(`${pkgName}@${pkgVersion}`, commit);
                     }
                     tagCreated = true;
@@ -1208,7 +1201,8 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                   if (plan.mode === "independent") {
                     let first = true;
-                    for (const [pkgName, pkgVersion] of plan.packages) {
+                    for (const [pkgPath, pkgVersion] of plan.packages) {
+                      const pkgName = getPackageName(ctx, pkgPath);
                       const tag = `${pkgName}@${pkgVersion}`;
                       const lastRev =
                         (await git.previousTag(tag)) ||
