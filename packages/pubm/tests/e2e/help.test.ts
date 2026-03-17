@@ -1,68 +1,63 @@
-import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { runPubmCli } from "../utils/cli.js";
-
-const cliPath = path.resolve("src/cli.ts");
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
 describe("pubm --help", () => {
-  it("should show help text with usage info", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
+  let ctx: E2EContext;
 
+  beforeAll(async () => {
+    ctx = await e2e("basic");
+  });
+
+  afterAll(() => ctx.cleanup());
+
+  it("should show help text with usage info", async () => {
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("Usage");
     expect(stdout).toContain("pubm");
   });
 
   it("should list the --test-script option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("--test-script");
   });
 
   it("should list the --build-script option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("--build-script");
   });
 
   it("should list the -p, --preview option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("-p, --preview");
   });
 
   it("should list the -b, --branch option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("-b, --branch");
   });
 
   it("should list the --publish-only option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("--publish-only");
   });
 
   it("should list the --registry option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("--registry");
   });
 
   it("should list the -t, --tag option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("-t, --tag");
   });
 
   it("should list the -c, --contents option", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("-c, --contents");
   });
 
   it("should show version format info with semver types", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("Version can be:");
     expect(stdout).toContain("major");
     expect(stdout).toContain("minor");
@@ -71,17 +66,22 @@ describe("pubm --help", () => {
   });
 
   it('should not show "(default: true)" in options', async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--help");
-
+    const { stdout } = await ctx.run("--help");
     expect(stdout).not.toContain("(default: true)");
   });
 });
 
 describe("pubm --version", () => {
-  it("should show the current version number", async () => {
-    const { stdout } = await runPubmCli("bun", {}, cliPath, "--version");
+  let ctx: E2EContext;
 
-    // Version should match a semver-like pattern
+  beforeAll(async () => {
+    ctx = await e2e("basic");
+  });
+
+  afterAll(() => ctx.cleanup());
+
+  it("should show the current version number", async () => {
+    const { stdout } = await ctx.run("--version");
     expect(stdout.trim()).toMatch(/\d+\.\d+\.\d+/);
   });
 });
