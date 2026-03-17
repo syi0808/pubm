@@ -30,7 +30,12 @@ describe("createNpmPublishTask — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
     const task = createNpmPublishTask("packages/core");
 
     await (task.task as any)(ctx, mockTask);
@@ -45,7 +50,12 @@ describe("createNpmPublishTask — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
     const task = createNpmPublishTask("packages/core");
 
     await (task.task as any)(ctx, mockTask);
@@ -69,7 +79,12 @@ describe("createNpmPublishTask — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
     const task = createNpmPublishTask("packages/core");
 
     await (task.task as any)(ctx, mockTask);
@@ -86,7 +101,12 @@ describe("createNpmPublishTask — already published", () => {
     };
     mockedNpmRegistry.mockResolvedValue(mockNpm as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
     const task = createNpmPublishTask("packages/core");
 
     await (task.task as any)(ctx, mockTask);

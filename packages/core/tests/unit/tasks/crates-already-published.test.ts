@@ -42,7 +42,11 @@ describe("cratesPublishTask — already published", () => {
     mockIsVersionPublished.mockResolvedValue(true);
 
     const task = createCratesPublishTask("packages/my-crate");
-    const ctx = { runtime: { version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+      },
+    } as any;
 
     await (task as any).task(ctx, mockTask);
 
@@ -58,7 +62,11 @@ describe("cratesPublishTask — already published", () => {
     );
 
     const task = createCratesPublishTask("packages/my-crate");
-    const ctx = { runtime: { version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+      },
+    } as any;
 
     await (task as any).task(ctx, mockTask);
 
@@ -70,7 +78,11 @@ describe("cratesPublishTask — already published", () => {
     mockIsVersionPublished.mockResolvedValue(false);
 
     const task = createCratesPublishTask("packages/my-crate");
-    const ctx = { runtime: { version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+      },
+    } as any;
 
     await (task as any).task(ctx, mockTask);
 
