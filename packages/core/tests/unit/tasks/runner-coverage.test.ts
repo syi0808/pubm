@@ -474,7 +474,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[1];
+    const releaseTask = tasks[2];
     const releaseCtx: any = {
       config: {
         packages: [
@@ -609,7 +609,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const pipelineTasks = mockedCreateListr.mock.calls[1][0] as any[];
-    const validateTask = pipelineTasks[5];
+    const validateTask = pipelineTasks[6];
     const parentTask = createParentTask();
     const ctx: any = {
       config: {
@@ -887,7 +887,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[1];
+    const releaseTask = tasks[2];
     const releaseCtx: any = {
       config: {
         packages: [
@@ -2075,7 +2075,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[1];
+    const releaseTask = tasks[2];
     const task = createTask();
     const ctx: any = {
       config: {
@@ -2161,7 +2161,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[1];
+    const releaseTask = tasks[2];
     const task = createTask();
     const ctx: any = {
       config: {
@@ -2416,9 +2416,9 @@ describe("publishOnly mode", () => {
       }),
     );
 
-    // publishOnly passes a single task object (not array) to createListr
-    const taskDef = mockedCreateListr.mock.calls[0][0] as any;
-    expect(taskDef.title).toBe("Publishing");
+    // publishOnly passes an array with Publishing + restore task to createListr
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    expect(tasks[0].title).toBe("Publishing");
 
     const parentTask = createParentTask();
     const ctx: any = {
@@ -2441,7 +2441,7 @@ describe("publishOnly mode", () => {
       },
     };
 
-    await taskDef.task(ctx, parentTask);
+    await tasks[0].task(ctx, parentTask);
 
     expect(parentTask.title).toContain("Publishing");
     expect(parentTask.newListr).toHaveBeenCalled();
@@ -3017,7 +3017,7 @@ describe("version plan formatting fallbacks", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[1];
+    const releaseTask = tasks[2];
     const task = createTask();
     // No versionPlan but versions has > 1 entries
     const ctx: any = {

@@ -1,0 +1,10 @@
+{
+  "name": "@test/cli",
+  "version": "1.0.0",
+  "dependencies": {
+    "@test/core": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@test/utils": "workspace:^"
+  }
+}

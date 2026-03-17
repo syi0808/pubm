@@ -405,14 +405,18 @@ describe("run", () => {
       expect(mockedRequiredConditionsCheckTask).not.toHaveBeenCalled();
     });
 
-    it("passes a single publishing task object instead of task array", async () => {
+    it("passes publishing task array with restore task in publishOnly mode", async () => {
       const options = createOptions({ options: { publishOnly: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      // publishOnly passes a single object, not an array
-      expect(callArgs[0]).toHaveProperty("title", "Publishing");
-      expect(Array.isArray(callArgs[0])).toBe(false);
+      // publishOnly passes an array with Publishing + restore task
+      expect(Array.isArray(callArgs[0])).toBe(true);
+      expect(callArgs[0][0]).toHaveProperty("title", "Publishing");
+      expect(callArgs[0][1]).toHaveProperty(
+        "title",
+        "Restoring workspace protocols",
+      );
     });
   });
 
@@ -476,15 +480,17 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(8);
+      expect(tasks).toHaveLength(10);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
       expect(tasks[3].title).toBe("Publishing");
-      expect(tasks[4].title).toBe("Running post-publish hooks");
-      expect(tasks[5].title).toBe("Validating publish (dry-run)");
-      expect(tasks[6].title).toBe("Pushing tags to GitHub");
-      expect(tasks[7].title).toBe("Creating release draft on GitHub");
+      expect(tasks[4].title).toBe("Restoring workspace protocols");
+      expect(tasks[5].title).toBe("Running post-publish hooks");
+      expect(tasks[6].title).toBe("Validating publish (dry-run)");
+      expect(tasks[7].title).toBe("Restoring workspace protocols");
+      expect(tasks[8].title).toBe("Pushing tags to GitHub");
+      expect(tasks[9].title).toBe("Creating release draft on GitHub");
     });
   });
 
@@ -561,7 +567,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[6].skip as (ctx: any) => boolean;
+      const skipFn = tasks[8].skip as (ctx: any) => boolean;
 
       expect(skipFn({ options: { preview: true } })).toBe(true);
     });
@@ -572,7 +578,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[7].skip as (ctx: any) => boolean;
+      const skipFn = tasks[9].skip as (ctx: any) => boolean;
 
       expect(
         skipFn({ options: { preview: false, skipReleaseDraft: true } }),
@@ -585,7 +591,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[7].skip as (ctx: any) => boolean;
+      const skipFn = tasks[9].skip as (ctx: any) => boolean;
 
       expect(skipFn({ options: { preview: true } })).toBe(true);
     });
@@ -1015,8 +1021,8 @@ describe("run", () => {
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      const taskDef = callArgs[0] as any;
-      expect(taskDef.title).toBe("Publishing");
+      const tasks = callArgs[0] as any[];
+      expect(tasks[0].title).toBe("Publishing");
     });
 
     it("normal mode maps default registry to npmPublishTasks", async () => {
@@ -1106,7 +1112,7 @@ describe("run", () => {
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      const taskDef = callArgs[0] as any;
+      const taskDef = (callArgs[0] as any[])[0];
 
       const mockParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
@@ -1238,7 +1244,7 @@ describe("run", () => {
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      const taskDef = callArgs[0] as any;
+      const taskDef = (callArgs[0] as any[])[0];
 
       const mockParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
@@ -1660,15 +1666,17 @@ describe("run", () => {
       const tasks = pipelineCall[0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(8);
+      expect(tasks).toHaveLength(10);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
       expect(tasks[3].title).toBe("Publishing");
-      expect(tasks[4].title).toBe("Running post-publish hooks");
-      expect(tasks[5].title).toBe("Validating publish (dry-run)");
-      expect(tasks[6].title).toBe("Pushing tags to GitHub");
-      expect(tasks[7].title).toBe("Creating release draft on GitHub");
+      expect(tasks[4].title).toBe("Restoring workspace protocols");
+      expect(tasks[5].title).toBe("Running post-publish hooks");
+      expect(tasks[6].title).toBe("Validating publish (dry-run)");
+      expect(tasks[7].title).toBe("Restoring workspace protocols");
+      expect(tasks[8].title).toBe("Pushing tags to GitHub");
+      expect(tasks[9].title).toBe("Creating release draft on GitHub");
     });
 
     it("injects tokens into env and cleans up after pipeline", async () => {
@@ -1698,7 +1706,7 @@ describe("run", () => {
       ).toBe(true);
 
       // Dry-run should not be skipped in preflight
-      expect(tasks[5].skip).toBe(false);
+      expect(tasks[6].skip).toBe(false);
     });
 
     it("shows preflight success message", async () => {
@@ -1723,7 +1731,7 @@ describe("run", () => {
 
       const pipelineCall = mockedCreateListr.mock.calls[1];
       const tasks = pipelineCall[0] as any[];
-      const validateTask = tasks[5];
+      const validateTask = tasks[6];
       const parentTask = {
         output: "",
         title: "",

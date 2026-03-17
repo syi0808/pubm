@@ -1,0 +1,10 @@
+{
+  "name": "@test/utils",
+  "version": "1.0.0",
+  "dependencies": {
+    "@test/core": "workspace:~"
+  },
+  "devDependencies": {
+    "@test/core": "workspace:^1.0.0"
+  }
+}

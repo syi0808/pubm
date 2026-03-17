@@ -72,6 +72,7 @@ export interface PubmContext {
     tempDir?: string;
     npmOtp?: string;
     npmOtpPromise?: Promise<string>;
+    workspaceBackups?: Map<string, string>;
   };
 }
 
