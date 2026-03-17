@@ -34,6 +34,14 @@
 /** compress 포맷 유니온 */
 type CompressFormat = "tar.gz" | "zip" | "tar.xz" | "tar.zst";
 
+/**
+ * compress 옵션 타입.
+ * - CompressFormat: 모든 OS에 동일 포맷 적용
+ * - false: 압축하지 않음
+ * - Record<string, CompressFormat>: OS별 포맷 지정 (예: { windows: "zip", linux: "tar.xz" })
+ */
+type CompressOption = CompressFormat | false | Record<string, CompressFormat>;
+
 /** releaseAssets 배열의 각 원소 타입 */
 type ReleaseAssetEntry = string | ReleaseAssetGroupConfig;
 
@@ -43,7 +51,7 @@ interface ReleaseAssetGroupConfig {
   /** asset 파일 목록 */
   files: (string | ReleaseAssetFileConfig)[];
   /** 이 그룹의 기본 압축 포맷 (file-level에서 오버라이드 가능) */
-  compress?: CompressFormat | false;
+  compress?: CompressOption;
   /** 이 그룹의 기본 name 템플릿 (확장자 제외) */
   name?: string;
 }
@@ -51,17 +59,17 @@ interface ReleaseAssetGroupConfig {
 interface ReleaseAssetFileConfig {
   /** glob 패턴 또는 캡처 변수를 포함한 path 패턴 */
   path: string;
-  /** 압축 포맷. false=그대로, 생략=자동 감지 */
-  compress?: CompressFormat | false;
+  /** 압축 포맷. false=그대로, 생략=OS-aware 자동 감지 */
+  compress?: CompressOption;
   /** 업로드 파일명 템플릿 (확장자 제외) */
   name?: string;
 }
 
-/** group-level 기본값과 file-level 설정을 merge한 결과 */
+/** group-level 기본값과 file-level 설정을 merge한 뒤, OS별로 resolve한 결과 */
 interface ResolvedAssetFileConfig {
   /** 원본 path 패턴 */
   path: string;
-  /** 결정된 압축 포맷 (자동 감지 또는 명시) */
+  /** 결정된 압축 포맷 (OS-aware resolve 후 최종 값) */
   compress: CompressFormat | false;
   /** 결정된 name 템플릿 (확장자 제외) */
   name: string;
@@ -94,7 +102,7 @@ releaseAssets: [
   {
     packagePath: "packages/pubm",
     files: [
-      // string = glob, 자동
+      // string = glob, 자동 (OS-aware: windows→zip, 나머지→tar.gz)
       "platforms/*/bin/pubm",
       // object = 명시적 설정
       {
@@ -104,11 +112,11 @@ releaseAssets: [
       },
       {
         path: "target/{arch}-{vendor}-{os}/release/myapp",
-        compress: "tar.gz",
+        compress: { windows: "zip", linux: "tar.xz" },  // OS별 포맷
         name: "myapp-{version}-{arch}-{os}",
       },
     ],
-    compress: "tar.gz",
+    compress: "tar.gz",   // 그룹 기본값 (file-level이 오버라이드)
     name: "{name}-{platform}",
   },
 ]
@@ -128,10 +136,12 @@ name 템플릿에는 확장자를 포함하지 않는다. 확장자는 `compress
 
 ### 1.4 자동 감지 규칙
 
-**압축**: 파일 확장자가 알려진 아카이브/패키지 포맷이면 `compress: false`, 아니면 `compress: "tar.gz"`:
-- 아카이브: `.tar.gz`, `.tgz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`, `.zip`, `.7z`
-- 패키지: `.dmg`, `.msi`, `.exe`, `.deb`, `.rpm`, `.AppImage`, `.pkg`, `.snap`, `.flatpak`
-- WASM: `.wasm`
+**압축**: 파일 확장자가 알려진 아카이브/패키지 포맷이면 `compress: false`, 아니면 **OS-aware 자동 감지**:
+- 알려진 포맷 (압축 불필요):
+  - 아카이브: `.tar.gz`, `.tgz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`, `.zip`, `.7z`
+  - 패키지: `.dmg`, `.msi`, `.exe`, `.deb`, `.rpm`, `.AppImage`, `.pkg`, `.snap`, `.flatpak`
+  - WASM: `.wasm`
+- 압축 필요 시 기본값: 자동 파싱된 OS가 `windows`면 `"zip"`, 나머지는 `"tar.gz"`
 
 **Name**: 미지정 시, platform 정보가 감지되면 `{filename}-{platform}`, 아니면 `{filename}` 사용. 압축 시 확장자가 추가된다.
 
@@ -369,6 +379,8 @@ export async function runAssetPipeline(
   ctx: PubmContext,
 ): Promise<PreparedAsset[]> {
   // 1. Resolve — glob 매칭, ResolvedAsset[] 생성
+  //    이 단계에서 CompressOption (OS별 매핑)이 각 asset의 파싱된 OS를 기반으로
+  //    최종 CompressFormat | false 값으로 resolve된다.
   let resolved = resolveAssets(config, ctx);
   if (hooks.resolveAssets) {
     resolved = await hooks.resolveAssets(resolved, ctx);
