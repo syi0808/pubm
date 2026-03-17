@@ -19,7 +19,7 @@
     "build": "bun run build.ts"
   },
   "devDependencies": {
-    "@pubm/core": "workspace:*"
+    "@pubm/core": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
