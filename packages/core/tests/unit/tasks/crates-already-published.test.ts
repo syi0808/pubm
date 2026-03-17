@@ -44,7 +44,11 @@ describe("cratesPublishTask — already published", () => {
     const task = createCratesPublishTask("packages/my-crate");
     const ctx = {
       runtime: {
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/my-crate",
+        },
       },
     } as any;
 
@@ -64,7 +68,11 @@ describe("cratesPublishTask — already published", () => {
     const task = createCratesPublishTask("packages/my-crate");
     const ctx = {
       runtime: {
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/my-crate",
+        },
       },
     } as any;
 
@@ -80,7 +88,11 @@ describe("cratesPublishTask — already published", () => {
     const task = createCratesPublishTask("packages/my-crate");
     const ctx = {
       runtime: {
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/my-crate",
+        },
       },
     } as any;
 

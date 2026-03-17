@@ -71,7 +71,11 @@ describe("dry-run publish — already published", () => {
 
       const ctx = {
         runtime: {
-          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+          versionPlan: {
+            mode: "single",
+            version: "1.0.0",
+            packagePath: "packages/core",
+          },
         },
       } as any;
       const task = createNpmDryRunPublishTask("packages/core");
@@ -97,7 +101,11 @@ describe("dry-run publish — already published", () => {
 
       const ctx = {
         runtime: {
-          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+          versionPlan: {
+            mode: "single",
+            version: "1.0.0",
+            packagePath: "packages/core",
+          },
         },
       } as any;
       const task = createJsrDryRunPublishTask("packages/core");
@@ -131,7 +139,11 @@ describe("dry-run publish — already published", () => {
       const task = createCratesDryRunPublishTask("packages/my-crate");
       const ctx = {
         runtime: {
-          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+          versionPlan: {
+            mode: "single",
+            version: "1.0.0",
+            packagePath: "packages/my-crate",
+          },
         },
       } as any;
       await (task as any).task(ctx, mockTask);

@@ -122,9 +122,9 @@ describe("externalVersionSync", () => {
       ],
     });
 
-    await expect(plugin.hooks?.afterVersion?.(makeCtx("1.0.0"))).rejects.toThrow(
-      "failed for 1 target(s)",
-    );
+    await expect(
+      plugin.hooks?.afterVersion?.(makeCtx("1.0.0")),
+    ).rejects.toThrow("failed for 1 target(s)");
 
     const result = JSON.parse(readFileSync(validFile, "utf-8"));
     expect(result.version).toBe("1.0.0");
@@ -133,7 +133,9 @@ describe("externalVersionSync", () => {
   it("empty targets array works fine", async () => {
     const plugin = externalVersionSync({ targets: [] });
 
-    await expect(plugin.hooks?.afterVersion?.(makeCtx("1.0.0"))).resolves.toBeUndefined();
+    await expect(
+      plugin.hooks?.afterVersion?.(makeCtx("1.0.0")),
+    ).resolves.toBeUndefined();
   });
 
   it("all targets failing throws aggregated error", async () => {
@@ -147,9 +149,9 @@ describe("externalVersionSync", () => {
       ],
     });
 
-    await expect(plugin.hooks?.afterVersion?.(makeCtx("1.0.0"))).rejects.toThrow(
-      "failed for 2 target(s)",
-    );
+    await expect(
+      plugin.hooks?.afterVersion?.(makeCtx("1.0.0")),
+    ).rejects.toThrow("failed for 2 target(s)");
   });
 
   it("resolves relative file paths using process.cwd()", async () => {
@@ -188,9 +190,9 @@ describe("externalVersionSync", () => {
       targets: [{ file: filePath, jsonPath: "version" }],
     });
 
-    await expect(plugin.hooks?.afterVersion?.(makeCtx("1.0.0"))).rejects.toThrow(
-      "failed for 1 target(s)",
-    );
+    await expect(
+      plugin.hooks?.afterVersion?.(makeCtx("1.0.0")),
+    ).rejects.toThrow("failed for 1 target(s)");
 
     vi.restoreAllMocks();
   });

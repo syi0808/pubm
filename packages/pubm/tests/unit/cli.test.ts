@@ -289,11 +289,6 @@ describe("CLI action handler - non-CI mode", () => {
 
     await run("1.2.3");
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({ version: "1.2.3" }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
@@ -315,15 +310,8 @@ describe("CLI action handler - non-CI mode", () => {
 
     expect(mockNotifyNewVersion).toHaveBeenCalledOnce();
     expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "snapshot",
-          tag: "snapshot",
-        }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.tag).toBe("snapshot");
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "snapshot",
@@ -334,14 +322,11 @@ describe("CLI action handler - non-CI mode", () => {
   it("passes an explicit snapshot tag through to pubm", async () => {
     await run("--snapshot", "canary");
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "snapshot",
-          tag: "canary",
-        }),
-      }),
-    );
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.tag).toBe("canary");
+    expect(ctx.runtime.versionPlan).toMatchObject({
+      version: "snapshot",
+    });
   });
 
   it("shows splash when stderr is a TTY and not CI", async () => {
@@ -532,12 +517,7 @@ describe("CLI action handler - CI mode", () => {
 
     expect(mockRun).toHaveBeenCalledWith(
       expect.objectContaining({
-        runtime: expect.objectContaining({ version: "1.2.3", tag: "latest" }),
-      }),
-    );
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({ version: "1.2.3" }),
+        runtime: expect.objectContaining({ tag: "latest" }),
       }),
     );
     const ctx = mockPubm.mock.calls[0][0];
@@ -575,17 +555,9 @@ describe("CLI action handler - CI mode", () => {
 
     await run();
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "1.1.0",
-          changesetConsumed: true,
-        }),
-      }),
-    );
     // versions should not be set for single-package
     const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.versions).toBeUndefined();
+    expect(ctx.runtime.changesetConsumed).toBe(true);
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.1.0",
@@ -634,15 +606,8 @@ describe("CLI action handler - CI mode", () => {
 
     await run();
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "2.0.0",
-          changesetConsumed: true,
-        }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.changesetConsumed).toBe(true);
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "fixed",
       version: "2.0.0",
@@ -691,15 +656,8 @@ describe("CLI action handler - CI mode", () => {
 
     await run();
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "1.1.0",
-          changesetConsumed: true,
-        }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.changesetConsumed).toBe(true);
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
@@ -728,15 +686,9 @@ describe("CLI action handler - CI mode", () => {
 
     await run("3.4.5");
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          version: "3.4.5",
-        }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.changesetConsumed).toBeUndefined();
+    expect(ctx.runtime.versionPlan).toMatchObject({ version: "3.4.5" });
   });
 });
 

@@ -57,7 +57,9 @@ const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
 
 function getPackageName(ctx: PubmContext, packagePath: string): string {
-  return ctx.config.packages.find((p) => p.path === packagePath)?.name ?? packagePath;
+  return (
+    ctx.config.packages.find((p) => p.path === packagePath)?.name ?? packagePath
+  );
 }
 
 async function writeVersions(
@@ -891,7 +893,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                     // Single package: write version for all config packages
                     task.output = "Updating package manifest versions...";
                     const singleVersions = new Map(
-                      ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
+                      ctx.config.packages.map((pkg) => [
+                        pkg.path,
+                        plan.version,
+                      ]),
                     );
                     const replaced = await writeVersions(ctx, singleVersions);
                     for (const replacedFile of replaced) {
@@ -970,7 +975,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                       if (changesets.length > 0) {
                         const allEntries = [...plan.packages.keys()].flatMap(
                           (pkgPath) =>
-                            buildChangelogEntries(changesets, getPackageName(ctx, pkgPath)),
+                            buildChangelogEntries(
+                              changesets,
+                              getPackageName(ctx, pkgPath),
+                            ),
                         );
                         if (allEntries.length > 0) {
                           const changelogContent = generateChangelog(
@@ -1092,7 +1100,10 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                     // Commit with "Version Packages" message
                     const commitMsg = `Version Packages\n\n${[...plan.packages]
-                      .map(([pkgPath, ver]) => `- ${getPackageName(ctx, pkgPath)}: ${ver}`)
+                      .map(
+                        ([pkgPath, ver]) =>
+                          `- ${getPackageName(ctx, pkgPath)}: ${ver}`,
+                      )
                       .join("\n")}`;
                     task.output = "Creating release commit...";
                     const commit = await git.commit(commitMsg);
