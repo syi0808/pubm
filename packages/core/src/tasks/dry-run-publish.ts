@@ -68,7 +68,7 @@ export function createNpmDryRunPublishTask(
     task: async (ctx, task): Promise<void> => {
       const npm = await npmPackageRegistry(packagePath);
       task.title = npm.packageName;
-      const version = getPackageVersion(ctx, npm.packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       if (await npm.isVersionPublished(version)) {
         task.title = `[SKIPPED] Dry-run npm publish: v${version} already published`;
@@ -92,7 +92,7 @@ export function createJsrDryRunPublishTask(
     task: async (ctx, task): Promise<void> => {
       const jsr = await jsrPackageRegistry(packagePath);
       task.title = jsr.packageName;
-      const version = getPackageVersion(ctx, jsr.packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       if (await jsr.isVersionPublished(version)) {
         task.title = `[SKIPPED] Dry-run jsr publish: v${version} already published`;
@@ -155,7 +155,7 @@ export function createCratesDryRunPublishTask(
       // Pre-check: skip if version already published
       const registry = await cratesPackageRegistry(packagePath);
       const packageName = registry.packageName;
-      const version = getPackageVersion(ctx, packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       if (await registry.isVersionPublished(version)) {
         task.title = `[SKIPPED] Dry-run crates.io publish (${packagePath}): v${version} already published`;

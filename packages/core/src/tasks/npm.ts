@@ -25,7 +25,7 @@ export function createNpmPublishTask(
       const npm = await npmPackageRegistry(packagePath);
       task.title = npm.packageName;
 
-      const version = getPackageVersion(ctx, npm.packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       // Pre-check: skip if version already published
       if (await npm.isVersionPublished(version)) {

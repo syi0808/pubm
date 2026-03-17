@@ -69,7 +69,11 @@ describe("dry-run publish — already published", () => {
       };
       vi.mocked(npmPackageRegistry).mockResolvedValue(mockNpm as any);
 
-      const ctx = { runtime: { version: "1.0.0" } } as any;
+      const ctx = {
+        runtime: {
+          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        },
+      } as any;
       const task = createNpmDryRunPublishTask("packages/core");
       await (task as any).task(ctx, mockTask);
 
@@ -91,7 +95,11 @@ describe("dry-run publish — already published", () => {
       };
       vi.mocked(jsrPackageRegistry).mockResolvedValue(mockJsr as any);
 
-      const ctx = { runtime: { version: "1.0.0" } } as any;
+      const ctx = {
+        runtime: {
+          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        },
+      } as any;
       const task = createJsrDryRunPublishTask("packages/core");
       await (task as any).task(ctx, mockTask);
 
@@ -121,7 +129,11 @@ describe("dry-run publish — already published", () => {
       vi.mocked(cratesPackageRegistry).mockResolvedValue(mockRegistry as any);
 
       const task = createCratesDryRunPublishTask("packages/my-crate");
-      const ctx = { runtime: { version: "1.0.0" } } as any;
+      const ctx = {
+        runtime: {
+          versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/my-crate" },
+        },
+      } as any;
       await (task as any).task(ctx, mockTask);
 
       expect(mockRegistry.isVersionPublished).toHaveBeenCalledWith("1.0.0");

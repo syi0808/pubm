@@ -25,7 +25,7 @@ export function createJsrPublishTask(
       const jsr = await jsrPackageRegistry(packagePath);
       task.title = jsr.packageName;
 
-      const version = getPackageVersion(ctx, jsr.packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       // Pre-check: skip if version already published
       if (await jsr.isVersionPublished(version)) {

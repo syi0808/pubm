@@ -31,7 +31,12 @@ describe("createJsrPublishTask — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
 
     const listrTask = createJsrPublishTask("packages/core");
     await (listrTask as any).task(ctx, mockTask);
@@ -53,7 +58,12 @@ describe("createJsrPublishTask — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
 
     const listrTask = createJsrPublishTask("packages/core");
     await (listrTask as any).task(ctx, mockTask);
@@ -71,7 +81,12 @@ describe("createJsrPublishTask — already published", () => {
     };
     mockedJsrRegistry.mockResolvedValue(mockJsr as any);
 
-    const ctx = { runtime: { promptEnabled: true, version: "1.0.0" } } as any;
+    const ctx = {
+      runtime: {
+        promptEnabled: true,
+        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+      },
+    } as any;
 
     const listrTask = createJsrPublishTask("packages/core");
     await (listrTask as any).task(ctx, mockTask);

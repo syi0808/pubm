@@ -51,7 +51,7 @@ export function createCratesPublishTask(
       const packageName = await getCrateName(packagePath);
       const registry = await cratesPackageRegistry(packagePath);
 
-      const version = getPackageVersion(ctx, packageName);
+      const version = getPackageVersion(ctx, packagePath);
 
       // Pre-check: skip if version already published
       if (await registry.isVersionPublished(version)) {
