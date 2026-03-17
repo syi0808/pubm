@@ -2,11 +2,14 @@ import { exec } from "../utils/exec.js";
 import { NpmPackageRegistry } from "./npm.js";
 
 export class CustomPackageRegistry extends NpmPackageRegistry {
-  override async npm(args: string[]): Promise<string> {
+  override async npm(args: string[], cwd?: string): Promise<string> {
     const { stdout } = await exec(
       "npm",
       args.concat("--registry", this.registry!),
-      { throwOnError: true },
+      {
+        throwOnError: true,
+        nodeOptions: cwd ? { cwd } : undefined,
+      },
     );
     return stdout;
   }
@@ -17,5 +20,5 @@ export async function customPackageRegistry(
   registryUrl?: string,
 ): Promise<CustomPackageRegistry> {
   const manifest = await NpmPackageRegistry.reader.read(packagePath);
-  return new CustomPackageRegistry(manifest.name, registryUrl);
+  return new CustomPackageRegistry(manifest.name, packagePath, registryUrl);
 }

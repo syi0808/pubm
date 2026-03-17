@@ -1,4 +1,7 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const FIXTURE_PATH = path.resolve(__dirname, "../../fixtures/basic");
 
 vi.mock("../../../src/utils/exec.js", async (importOriginal) => {
   const original =
@@ -140,7 +143,7 @@ describe("NpmPackageRegistry", () => {
   let registry: NpmPackageRegistry;
 
   beforeEach(() => {
-    registry = new NpmPackageRegistry("my-package");
+    registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
   });
 
   it("has default registry url", () => {
@@ -364,7 +367,7 @@ describe("NpmPackageRegistry", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["publish", "--provenance", "--access", "public"],
-        { throwOnError: true },
+        { throwOnError: true, nodeOptions: { cwd: FIXTURE_PATH } },
       );
       expect(result).toBe(true);
     });
@@ -412,10 +415,11 @@ describe("NpmPackageRegistry", () => {
         1,
         "npm",
         ["publish", "--provenance", "--access", "public"],
-        { throwOnError: true },
+        { throwOnError: true, nodeOptions: { cwd: FIXTURE_PATH } },
       );
       expect(mockedExec).toHaveBeenNthCalledWith(2, "npm", ["publish"], {
         throwOnError: true,
+        nodeOptions: { cwd: FIXTURE_PATH },
       });
     });
 
@@ -434,6 +438,7 @@ describe("NpmPackageRegistry", () => {
       expect(result).toBe(true);
       expect(mockedExec).toHaveBeenNthCalledWith(2, "npm", ["publish"], {
         throwOnError: true,
+        nodeOptions: { cwd: FIXTURE_PATH },
       });
     });
 
@@ -474,6 +479,7 @@ describe("NpmPackageRegistry", () => {
 
       expect(mockedExec).toHaveBeenCalledWith("npm", ["publish"], {
         throwOnError: true,
+        nodeOptions: { cwd: FIXTURE_PATH },
       });
       expect(result).toBe(true);
     });
@@ -486,7 +492,7 @@ describe("NpmPackageRegistry", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["publish", "--otp", "123456"],
-        { throwOnError: true },
+        { throwOnError: true, nodeOptions: { cwd: FIXTURE_PATH } },
       );
       expect(result).toBe(true);
     });
@@ -657,7 +663,7 @@ describe("NpmPackageRegistry", () => {
 
 describe("getRequirements", () => {
   it("returns needsPackageScripts true and requiredManifest package.json", () => {
-    const registry = new NpmPackageRegistry("my-package");
+    const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
       needsPackageScripts: true,
@@ -690,7 +696,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
   let registry: NpmPackageRegistry;
 
   beforeEach(() => {
-    registry = new NpmPackageRegistry("my-package");
+    registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
   });
 
   function makeTask() {

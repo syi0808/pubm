@@ -17,8 +17,11 @@ class NpmError extends AbstractError {
   name = "npm Error";
 }
 
-async function runNpm(args: string[]): Promise<string> {
-  const { stdout } = await exec("npm", args, { throwOnError: true });
+async function runNpm(args: string[], cwd?: string): Promise<string> {
+  const { stdout } = await exec("npm", args, {
+    throwOnError: true,
+    nodeOptions: cwd ? { cwd } : undefined,
+  });
   return stdout;
 }
 
@@ -75,12 +78,12 @@ export class NpmPackageRegistry extends PackageRegistry {
   });
   static override registryType = "npm" as const;
 
-  constructor(packageName?: string, registry?: string) {
-    super(packageName ?? "", registry ?? "https://registry.npmjs.org");
+  constructor(packageName: string, packagePath: string, registry?: string) {
+    super(packageName, packagePath, registry ?? "https://registry.npmjs.org");
   }
 
-  protected async npm(args: string[]): Promise<string> {
-    return runNpm(args);
+  protected async npm(args: string[], cwd?: string): Promise<string> {
+    return runNpm(args, cwd);
   }
 
   async isPublished(): Promise<boolean> {
@@ -193,7 +196,7 @@ export class NpmPackageRegistry extends PackageRegistry {
     const args = otp ? ["publish", "--otp", otp] : ["publish"];
 
     try {
-      await this.npm(args);
+      await this.npm(args, this.packagePath);
 
       return true;
     } catch (error) {
@@ -210,7 +213,10 @@ export class NpmPackageRegistry extends PackageRegistry {
 
   async publishProvenance(): Promise<boolean> {
     try {
-      await this.npm(["publish", "--provenance", "--access", "public"]);
+      await this.npm(
+        ["publish", "--provenance", "--access", "public"],
+        this.packagePath,
+      );
 
       return true;
     } catch (error) {
@@ -234,6 +240,7 @@ export class NpmPackageRegistry extends PackageRegistry {
       await exec("npm", ["publish", "--dry-run"], {
         throwOnError: true,
         nodeOptions: {
+          cwd: this.packagePath,
           env: {
             ...process.env,
             npm_config_cache: join(tmpdir(), "pubm-npm-cache"),
@@ -423,5 +430,5 @@ export async function npmPackageRegistry(
   packagePath: string,
 ): Promise<NpmPackageRegistry> {
   const manifest = await NpmPackageRegistry.reader.read(packagePath);
-  return new NpmPackageRegistry(manifest.name);
+  return new NpmPackageRegistry(manifest.name, packagePath);
 }

@@ -12,6 +12,7 @@ export abstract class PackageRegistry {
 
   constructor(
     public packageName: string,
+    public packagePath: string,
     public registry?: string,
   ) {}
 
@@ -23,7 +24,7 @@ export abstract class PackageRegistry {
   abstract distTags(): Promise<string[]>;
   abstract getRequirements(): RegistryRequirements;
 
-  async dryRunPublish(_manifestDir?: string): Promise<void> {}
+  async dryRunPublish(): Promise<void> {}
 
   async checkAvailability(
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex

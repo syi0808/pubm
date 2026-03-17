@@ -198,7 +198,7 @@ export function registerPrivateRegistry(
     connector: () => npmConnector(),
     factory: async (packagePath) => {
       const manifest = await NpmPackageRegistry.reader.read(packagePath);
-      return new CustomPackageRegistry(manifest.name, config.url);
+      return new CustomPackageRegistry(manifest.name, packagePath, config.url);
     },
   });
 
