@@ -58,10 +58,7 @@ describe("workspace protocol resolution", () => {
     const versions = collectWorkspaceVersions(ctx.dir);
     const utilsPath = join(ctx.dir, "packages/utils");
 
-    const backups = resolveWorkspaceProtocolsInManifests(
-      [utilsPath],
-      versions,
-    );
+    const backups = resolveWorkspaceProtocolsInManifests([utilsPath], versions);
 
     const resolved = JSON.parse(
       readFileSync(join(utilsPath, "package.json"), "utf-8"),
@@ -75,10 +72,7 @@ describe("workspace protocol resolution", () => {
     const versions = collectWorkspaceVersions(ctx.dir);
     const utilsPath = join(ctx.dir, "packages/utils");
 
-    const backups = resolveWorkspaceProtocolsInManifests(
-      [utilsPath],
-      versions,
-    );
+    const backups = resolveWorkspaceProtocolsInManifests([utilsPath], versions);
 
     const resolved = JSON.parse(
       readFileSync(join(utilsPath, "package.json"), "utf-8"),
@@ -124,10 +118,7 @@ describe("workspace protocol resolution", () => {
     const utilsPath = join(ctx.dir, "packages/utils");
 
     // Read originals
-    const originalCli = readFileSync(
-      join(cliPath, "package.json"),
-      "utf-8",
-    );
+    const originalCli = readFileSync(join(cliPath, "package.json"), "utf-8");
     const originalUtils = readFileSync(
       join(utilsPath, "package.json"),
       "utf-8",
@@ -140,20 +131,14 @@ describe("workspace protocol resolution", () => {
     );
 
     // Verify files are modified
-    const modifiedCli = readFileSync(
-      join(cliPath, "package.json"),
-      "utf-8",
-    );
+    const modifiedCli = readFileSync(join(cliPath, "package.json"), "utf-8");
     expect(modifiedCli).not.toContain("workspace:");
 
     // Restore
     restoreManifests(backups);
 
     // Verify originals are back
-    const restoredCli = readFileSync(
-      join(cliPath, "package.json"),
-      "utf-8",
-    );
+    const restoredCli = readFileSync(join(cliPath, "package.json"), "utf-8");
     const restoredUtils = readFileSync(
       join(utilsPath, "package.json"),
       "utf-8",
@@ -167,10 +152,7 @@ describe("workspace protocol resolution", () => {
     const versions = collectWorkspaceVersions(ctx.dir);
     const corePath = join(ctx.dir, "packages/core");
 
-    const backups = resolveWorkspaceProtocolsInManifests(
-      [corePath],
-      versions,
-    );
+    const backups = resolveWorkspaceProtocolsInManifests([corePath], versions);
 
     expect(backups.size).toBe(0);
   });
