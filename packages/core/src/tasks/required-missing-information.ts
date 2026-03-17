@@ -615,10 +615,15 @@ async function handleFixedMode(
     packages,
   };
 
+  // Display uses name-keyed map for renderPackageVersionSummary
+  const displayVersions = new Map<string, string>();
+  for (const name of currentVersions.keys()) {
+    displayVersions.set(name, nextVersion);
+  }
   task.output = renderPackageVersionSummary(
     packageInfos,
     currentVersions,
-    packages,
+    displayVersions,
   );
 }
 
