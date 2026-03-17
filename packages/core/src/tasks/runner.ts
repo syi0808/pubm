@@ -1332,7 +1332,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 },
               },
               {
-                skip:
+                skip: (ctx) =>
                   !ctx.options.preflight || !ctx.runtime.workspaceBackups?.size,
                 title: "Restoring workspace protocols",
                 task: (ctx) => {
