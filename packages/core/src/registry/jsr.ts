@@ -198,6 +198,7 @@ export class JsrPackageRegistry extends PackageRegistry {
   }
 
   async isVersionPublished(version: string): Promise<boolean> {
+    if (!version) return false;
     try {
       const [scope, name] = getScopeAndName(this.packageName);
       const response = await fetch(

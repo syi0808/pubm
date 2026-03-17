@@ -100,6 +100,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   async isVersionPublished(version: string): Promise<boolean> {
+    if (!version) return false;
     try {
       const response = await fetch(
         `${this.registry}/${this.packageName}/${version}`,
