@@ -213,7 +213,6 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalled();
-      expect(ctx.runtime.version).toBe("1.1.0");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "1.1.0",
@@ -238,7 +237,6 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(2);
-      expect(ctx.runtime.version).toBe("3.0.0-alpha.1");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "3.0.0-alpha.1",
@@ -260,7 +258,6 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("2.0.0");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "2.0.0",
@@ -300,7 +297,6 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("1.1.0");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "1.1.0",
@@ -344,7 +340,6 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("1.0.1");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "1.0.1",
@@ -391,7 +386,6 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("1.2.0");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "1.2.0",
@@ -423,7 +417,6 @@ describe("requiredMissingInformationTasks", () => {
           }),
         ]),
       );
-      expect(ctx.runtime.version).toBe("1.0.0");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "single",
         version: "1.0.0",
@@ -462,14 +455,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "0.3.7"],
-          ["pubm", "0.3.6"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "0.3.7"],
+          ["packages/pubm", "0.3.6"],
+        ]),
       });
       expect(
         mockTask.outputs.some(
@@ -551,14 +542,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "0.3.7"],
-          ["pubm", "0.4.0"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "0.3.7"],
+          ["packages/pubm", "0.4.0"],
+        ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
       expect(mockTask.output).toContain("Changesets suggest:");
@@ -662,16 +651,13 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("1.0.1");
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "1.0.1"],
-          ["pubm", "1.0.1"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "fixed",
         version: "1.0.1",
+        packages: new Map([
+          ["packages/core", "1.0.1"],
+          ["packages/pubm", "1.0.1"],
+        ]),
       });
     });
 
@@ -708,16 +694,13 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.version).toBe("2.0.0");
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "2.0.0"],
-          ["pubm", "2.0.0"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "fixed",
         version: "2.0.0",
+        packages: new Map([
+          ["packages/core", "2.0.0"],
+          ["packages/pubm", "2.0.0"],
+        ]),
       });
       expect(mockTask.output).toContain("1.2.0");
     });
@@ -753,7 +736,6 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(mockTask.prompt).toHaveBeenCalledTimes(1);
-      expect(ctx.runtime.version).toBe("2.0.1");
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "fixed",
         version: "2.0.1",
@@ -793,14 +775,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "0.4.0"],
-          ["pubm", "0.3.7"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "0.4.0"],
+          ["packages/pubm", "0.3.7"],
+        ]),
       });
       expect(
         mockTask.outputs.some((output) =>
@@ -854,15 +834,13 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "0.4.0"],
-          ["pkg-a", "0.3.6"],
-          ["pkg-b", "0.3.6"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "0.4.0"],
+          ["packages/pkg-a", "0.3.6"],
+          ["packages/pkg-b", "0.3.6"],
+        ]),
       });
       expect(
         mockTask.outputs.some((output) =>
@@ -911,15 +889,13 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "1.0.1"],
-          ["@pubm/utils", "2.0.1"],
-          ["app", "3.0.1"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "1.0.1"],
+          ["packages/utils", "2.0.1"],
+          ["packages/app", "3.0.1"],
+        ]),
       });
       expect(
         mockTask.outputs.some((output) =>
@@ -966,14 +942,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versions).toEqual(
-        new Map([
-          ["@pubm/core", "0.4.0"],
-          ["pubm", "0.3.6"],
-        ]),
-      );
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
+        packages: new Map([
+          ["packages/core", "0.4.0"],
+          ["packages/pubm", "0.3.6"],
+        ]),
       });
     });
 

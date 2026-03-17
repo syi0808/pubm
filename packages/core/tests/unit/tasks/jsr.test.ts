@@ -61,7 +61,11 @@ function createCtx(
     },
     cwd: process.cwd(),
     runtime: {
-      version: "1.0.0",
+      versionPlan: {
+        mode: "single" as const,
+        version: "1.0.0",
+        packagePath: ".",
+      },
       tag: "latest",
       promptEnabled: true,
       cleanWorkingTree: true,

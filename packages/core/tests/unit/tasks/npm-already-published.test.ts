@@ -33,7 +33,11 @@ describe("createNpmPublishTask — already published", () => {
     const ctx = {
       runtime: {
         promptEnabled: true,
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/core",
+        },
       },
     } as any;
     const task = createNpmPublishTask("packages/core");
@@ -53,7 +57,11 @@ describe("createNpmPublishTask — already published", () => {
     const ctx = {
       runtime: {
         promptEnabled: true,
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/core",
+        },
       },
     } as any;
     const task = createNpmPublishTask("packages/core");
@@ -82,7 +90,11 @@ describe("createNpmPublishTask — already published", () => {
     const ctx = {
       runtime: {
         promptEnabled: true,
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/core",
+        },
       },
     } as any;
     const task = createNpmPublishTask("packages/core");
@@ -104,7 +116,11 @@ describe("createNpmPublishTask — already published", () => {
     const ctx = {
       runtime: {
         promptEnabled: true,
-        versionPlan: { mode: "single", version: "1.0.0", packagePath: "packages/core" },
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: "packages/core",
+        },
       },
     } as any;
     const task = createNpmPublishTask("packages/core");

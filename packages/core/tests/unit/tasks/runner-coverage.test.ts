@@ -330,7 +330,11 @@ function createOptions(
     },
     options: overrides.options,
     runtime: {
-      version: "1.0.0",
+      versionPlan: {
+        mode: "single" as const,
+        version: "1.0.0",
+        packagePath: ".",
+      },
       pluginRunner: new PluginRunner([]),
       ...overrides.runtime,
     },
@@ -421,9 +425,9 @@ describe("runner coverage scenarios", () => {
         },
       },
     ]);
-    const versions = new Map([
-      ["@pubm/core", "1.2.0"],
-      ["pubm", "1.2.0"],
+    const pathVersions = new Map([
+      ["packages/core", "1.2.0"],
+      ["packages/pubm", "1.2.0"],
     ]);
     mockedExistsSync.mockImplementation((filePath) =>
       String(filePath)
@@ -458,7 +462,7 @@ describe("runner coverage scenarios", () => {
             },
           ],
         },
-        runtime: { versions, pluginRunner },
+        runtime: { pluginRunner },
       }),
     );
 
@@ -486,13 +490,11 @@ describe("runner coverage scenarios", () => {
         ],
       },
       runtime: {
-        version: "1.2.0",
-        versions,
         pluginRunner,
         versionPlan: {
           mode: "fixed",
           version: "1.2.0",
-          packages: versions,
+          packages: pathVersions,
         },
       },
     };
@@ -642,9 +644,9 @@ describe("runner coverage scenarios", () => {
   });
 
   it("handles independent multi-package version bumps with per-package changelogs and tags", async () => {
-    const versions = new Map([
-      ["@pubm/core", "2.0.0"],
-      ["pubm", "2.1.0"],
+    const pathVersions = new Map([
+      ["packages/core", "2.0.0"],
+      ["packages/pubm", "2.1.0"],
     ]);
     const pluginRunner = new PluginRunner([]);
     let rollbackHandler: (() => Promise<void>) | undefined;
@@ -687,8 +689,6 @@ describe("runner coverage scenarios", () => {
           ],
         },
         runtime: {
-          versions,
-          version: "2.0.0",
           changesetConsumed: true,
           pluginRunner,
         },
@@ -720,13 +720,11 @@ describe("runner coverage scenarios", () => {
         ],
       },
       runtime: {
-        version: "2.0.0",
-        versions,
         changesetConsumed: true,
         pluginRunner,
         versionPlan: {
           mode: "independent",
-          packages: versions,
+          packages: pathVersions,
         },
       },
     };
@@ -1245,13 +1243,15 @@ describe("snapshot pipeline", () => {
           },
         ],
       },
-      runtime: { version: "1.0.0" },
     });
 
     await publishTask.task(ctx, task);
 
     expect(task.title).toContain("1.0.0-snapshot-20260316");
-    expect(ctx.runtime.version).toBe("1.0.0-snapshot-20260316");
+    expect(ctx.runtime.versionPlan).toMatchObject({
+      mode: "single",
+      version: "1.0.0-snapshot-20260316",
+    });
     expect(ctx.runtime.tag).toBe("snapshot");
     // writeVersions called to set then restore
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
@@ -1407,7 +1407,13 @@ describe("snapshot pipeline", () => {
           },
         ],
       },
-      runtime: { version: "1.0.0-snapshot-20260316" },
+      runtime: {
+        versionPlan: {
+          mode: "single" as const,
+          version: "1.0.0-snapshot-20260316",
+          packagePath: ".",
+        },
+      },
     });
 
     // skip should not skip when preview is not set
@@ -2051,7 +2057,13 @@ describe("CI GitHub Release", () => {
             },
           ],
         },
-        runtime: { version: "4.0.0" },
+        runtime: {
+          versionPlan: {
+            mode: "single" as const,
+            version: "4.0.0",
+            packagePath: ".",
+          },
+        },
       }),
     );
 
@@ -2072,12 +2084,11 @@ describe("CI GitHub Release", () => {
         ],
       },
       runtime: {
-        version: "4.0.0",
         pluginRunner: new PluginRunner([]),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packageName: "pubm",
+          packagePath: ".",
         },
       },
     };
@@ -2096,9 +2107,9 @@ describe("CI GitHub Release", () => {
   });
 
   it("creates independent per-package releases in CI with per-package changelog", async () => {
-    const versions = new Map([
-      ["@pubm/core", "2.0.0"],
-      ["pubm", "2.1.0"],
+    const pathVersions = new Map([
+      ["packages/core", "2.0.0"],
+      ["packages/pubm", "2.1.0"],
     ]);
     mockedExistsSync.mockImplementation((filePath) =>
       String(filePath)
@@ -2133,7 +2144,12 @@ describe("CI GitHub Release", () => {
             },
           ],
         },
-        runtime: { versions },
+        runtime: {
+          versionPlan: {
+            mode: "independent" as const,
+            packages: pathVersions,
+          },
+        },
       }),
     );
 
@@ -2162,12 +2178,10 @@ describe("CI GitHub Release", () => {
         ],
       },
       runtime: {
-        version: "2.0.0",
-        versions,
         pluginRunner: new PluginRunner([]),
         versionPlan: {
           mode: "independent",
-          packages: versions,
+          packages: pathVersions,
         },
       },
     };
@@ -3201,9 +3215,9 @@ describe("fixed mode changeset with empty entries", () => {
 
 describe("independent changeset with empty entries for some packages", () => {
   it("only writes changelog for packages with entries", async () => {
-    const versions = new Map([
-      ["@pubm/core", "3.0.0"],
-      ["pubm", "3.1.0"],
+    const pathVersions = new Map([
+      ["packages/core", "3.0.0"],
+      ["packages/pubm", "3.1.0"],
     ]);
     mockedWriteVersionsForEcosystem.mockResolvedValue([]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-6" }] as any);
@@ -3236,7 +3250,12 @@ describe("independent changeset with empty entries for some packages", () => {
             },
           ],
         },
-        runtime: { versions, version: "3.0.0" },
+        runtime: {
+          versionPlan: {
+            mode: "independent" as const,
+            packages: pathVersions,
+          },
+        },
       }),
     );
 
@@ -3265,13 +3284,11 @@ describe("independent changeset with empty entries for some packages", () => {
         ],
       },
       runtime: {
-        version: "3.0.0",
-        versions,
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
         versionPlan: {
           mode: "independent",
-          packages: versions,
+          packages: pathVersions,
         },
       },
     };

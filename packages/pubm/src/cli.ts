@@ -167,7 +167,6 @@ export function createProgram(): Command {
         const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
 
         if (nextVersion) {
-          ctx.runtime.version = nextVersion;
           if (resolvedConfig.packages.length <= 1) {
             ctx.runtime.versionPlan = {
               mode: "single",
@@ -193,7 +192,6 @@ export function createProgram(): Command {
               ? options.snapshot
               : "snapshot";
 
-          ctx.runtime.version = "snapshot";
           ctx.runtime.versionPlan = {
             mode: "single",
             version: "snapshot",
@@ -212,7 +210,6 @@ export function createProgram(): Command {
               if (resolvedConfig.packages.length <= 1) {
                 const pkg = resolvedConfig.packages[0];
                 const version = pkg?.version ?? "";
-                ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
                   mode: "single",
                   version,
@@ -231,7 +228,6 @@ export function createProgram(): Command {
                   resolvedConfig.packages.map((p) => [p.path, p.version]),
                 );
                 const version = [...packages.values()][0];
-                ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
                   mode: "fixed",
                   version,
@@ -257,7 +253,6 @@ export function createProgram(): Command {
                     const pkg = resolvedConfig.packages.find(
                       (p) => p.name === name,
                     );
-                    ctx.runtime.version = bump.newVersion;
                     ctx.runtime.versionPlan = {
                       mode: "single",
                       version: bump.newVersion,
@@ -265,7 +260,6 @@ export function createProgram(): Command {
                     };
                   } else {
                     // Multi-package
-                    ctx.runtime.version = [...bumps.values()][0].newVersion;
                     const bumpedPackages = new Map(
                       [...bumps].map(([name, bump]) => [
                         resolvedConfig.packages.find((p) => p.name === name)

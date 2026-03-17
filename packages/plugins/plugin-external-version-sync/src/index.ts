@@ -36,9 +36,7 @@ export function externalVersionSync(
             version = plan.version;
           }
         } else {
-          throw new Error(
-            "external-version-sync: versionPlan is not set.",
-          );
+          throw new Error("external-version-sync: versionPlan is not set.");
         }
 
         const errors: string[] = [];
