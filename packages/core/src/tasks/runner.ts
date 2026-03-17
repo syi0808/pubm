@@ -156,22 +156,22 @@ function pluginPublishTasks(ctx: PubmContext) {
 // Registry key → dry-run task mapping
 const dryRunTaskMap: Record<
   string,
-  (packagePath: string, siblingNames?: string[]) => ListrTask<PubmContext>
+  (packagePath: string, siblingPaths?: string[]) => ListrTask<PubmContext>
 > = {
   npm: (p) => createNpmDryRunPublishTask(p),
   jsr: (p) => createJsrDryRunPublishTask(p),
-  crates: (p, siblingNames) => createCratesDryRunPublishTask(p, siblingNames),
+  crates: (p, siblingPaths) => createCratesDryRunPublishTask(p, siblingPaths),
 };
 
 function createDryRunTaskForPath(
   registryKey: string,
   packagePath: string,
-  siblingNames?: string[],
+  siblingPaths?: string[],
 ): ListrTask<PubmContext> {
   const factory = dryRunTaskMap[registryKey];
   if (!factory)
     return { title: `Dry-run ${registryKey}`, task: async () => {} };
-  return factory(packagePath, siblingNames);
+  return factory(packagePath, siblingPaths);
 }
 
 async function collectDryRunPublishTasks(ctx: PubmContext) {
@@ -187,19 +187,10 @@ async function collectDryRunPublishTasks(ctx: PubmContext) {
             ? await descriptor.orderPackages(packagePaths)
             : packagePaths;
 
-          // For non-concurrent registries with multiple packages, gather sibling names
-          let siblingNames: string[] | undefined;
+          // For non-concurrent registries with multiple packages, pass sibling paths
+          let siblingPaths: string[] | undefined;
           if (!descriptor?.concurrentPublish && packagePaths.length > 1) {
-            const eco = await import("../ecosystem/index.js");
-            const ecosystem = await eco.detectEcosystem(packagePaths[0]);
-            if (ecosystem) {
-              siblingNames = await Promise.all(
-                packagePaths.map(async (p) => {
-                  const e = await eco.detectEcosystem(p);
-                  return e ? await e.packageName() : p;
-                }),
-              );
-            }
+            siblingPaths = packagePaths;
           }
 
           const concurrent = descriptor?.concurrentPublish ?? true;
@@ -212,7 +203,7 @@ async function collectDryRunPublishTasks(ctx: PubmContext) {
             task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
               task.newListr(
                 paths.map((p) =>
-                  createDryRunTaskForPath(registry, p, siblingNames),
+                  createDryRunTaskForPath(registry, p, siblingPaths),
                 ),
                 { concurrent },
               ),

@@ -3,7 +3,7 @@ import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { CratesPackageRegistry } from "../registry/crates.js";
+import { cratesPackageRegistry } from "../registry/crates.js";
 import { jsrPackageRegistry } from "../registry/jsr.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 import { SecureStore } from "../utils/secure-store.js";
@@ -108,24 +108,35 @@ export function createJsrDryRunPublishTask(
   };
 }
 
-async function getCrateName(packagePath?: string): Promise<string> {
-  const eco = new RustEcosystem(packagePath ?? process.cwd());
+async function getCrateName(packagePath: string): Promise<string> {
+  const eco = new RustEcosystem(packagePath);
   return await eco.packageName();
 }
 
 const MISSING_CRATE_PATTERN = /no matching package named `([^`]+)` found/;
 
 async function findUnpublishedSiblingDeps(
-  packagePath: string | undefined,
-  siblingCrateNames: string[],
+  packagePath: string,
+  siblingPaths: string[],
 ): Promise<string[]> {
-  const eco = new RustEcosystem(packagePath ?? process.cwd());
+  const eco = new RustEcosystem(packagePath);
   const deps = await eco.dependencies();
-  const siblingDeps = deps.filter((d) => siblingCrateNames.includes(d));
+
+  const siblingNameToPath = new Map<string, string>();
+  await Promise.all(
+    siblingPaths.map(async (p) => {
+      const name = await getCrateName(p);
+      siblingNameToPath.set(name, p);
+    }),
+  );
+
+  const siblingDeps = deps.filter((d) => siblingNameToPath.has(d));
 
   const results = await Promise.all(
     siblingDeps.map(async (name) => {
-      const registry = new CratesPackageRegistry(name);
+      const registry = await cratesPackageRegistry(
+        siblingNameToPath.get(name)!,
+      );
       const published = await registry.isPublished();
       return published ? null : name;
     }),
@@ -135,32 +146,31 @@ async function findUnpublishedSiblingDeps(
 }
 
 export function createCratesDryRunPublishTask(
-  packagePath?: string,
-  siblingCrateNames?: string[],
+  packagePath: string,
+  siblingPaths?: string[],
 ): ListrTask<PubmContext> {
-  const label = packagePath ? ` (${packagePath})` : "";
   return {
-    title: `Dry-run crates.io publish${label}`,
+    title: `Dry-run crates.io publish (${packagePath})`,
     task: async (ctx, task): Promise<void> => {
       // Pre-check: skip if version already published
-      const packageName = await getCrateName(packagePath);
-      const registry = new CratesPackageRegistry(packageName);
+      const registry = await cratesPackageRegistry(packagePath);
+      const packageName = registry.packageName;
       const version = getPackageVersion(ctx, packageName);
 
       if (await registry.isVersionPublished(version)) {
-        task.title = `[SKIPPED] Dry-run crates.io publish${label}: v${version} already published`;
+        task.title = `[SKIPPED] Dry-run crates.io publish (${packagePath}): v${version} already published`;
         task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
         return task.skip();
       }
 
       // Proactive: skip if any sibling dependency is not yet on crates.io
-      if (siblingCrateNames?.length) {
+      if (siblingPaths?.length) {
         const unpublished = await findUnpublishedSiblingDeps(
           packagePath,
-          siblingCrateNames,
+          siblingPaths,
         );
         if (unpublished.length > 0) {
-          task.title = `Dry-run crates.io publish${label} [skipped: sibling crate \`${unpublished.join("`, `")}\` not yet published]`;
+          task.title = `Dry-run crates.io publish (${packagePath}) [skipped: sibling crate \`${unpublished.join("`, `")}\` not yet published]`;
           return;
         }
       }
@@ -168,23 +178,24 @@ export function createCratesDryRunPublishTask(
       task.output = "Running cargo publish --dry-run...";
       try {
         await withTokenRetry("crates", ctx, task, async () => {
-          const packageName = await getCrateName(packagePath);
-          const registry = new CratesPackageRegistry(packageName);
-          await registry.dryRunPublish(packagePath);
+          const reg = await cratesPackageRegistry(packagePath);
+          await reg.dryRunPublish();
         });
       } catch (error) {
         // Reactive fallback: catch sibling-related errors
         const message = error instanceof Error ? error.message : String(error);
         const match = message.match(MISSING_CRATE_PATTERN);
-        if (match && siblingCrateNames?.includes(match[1])) {
-          task.title = `Dry-run crates.io publish${label} [skipped: sibling crate \`${match[1]}\` not yet published]`;
-          return;
+        if (match && siblingPaths) {
+          const siblingNames = await Promise.all(
+            siblingPaths.map((p) => getCrateName(p)),
+          );
+          if (siblingNames.includes(match[1])) {
+            task.title = `Dry-run crates.io publish (${packagePath}) [skipped: sibling crate \`${match[1]}\` not yet published]`;
+            return;
+          }
         }
         throw error;
       }
     },
   };
 }
-
-export const cratesDryRunPublishTask: ListrTask<PubmContext> =
-  createCratesDryRunPublishTask();

@@ -98,7 +98,11 @@ export class CratesPackageRegistry extends PackageRegistry {
   });
   static override registryType = "crates" as const;
 
-  constructor(packageName: string, packagePath: string, registry = "https://crates.io") {
+  constructor(
+    packageName: string,
+    packagePath: string,
+    registry = "https://crates.io",
+  ) {
     super(packageName, packagePath, registry);
   }
 

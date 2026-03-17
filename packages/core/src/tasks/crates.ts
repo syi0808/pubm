@@ -2,7 +2,7 @@ import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
-import { CratesConnector, CratesPackageRegistry } from "../registry/crates.js";
+import { CratesConnector, cratesPackageRegistry } from "../registry/crates.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -13,20 +13,18 @@ class CratesError extends AbstractError {
   }
 }
 
-async function getCrateName(packagePath?: string): Promise<string> {
-  const eco = new RustEcosystem(packagePath ?? process.cwd());
+async function getCrateName(packagePath: string): Promise<string> {
+  const eco = new RustEcosystem(packagePath);
   return await eco.packageName();
 }
 
 export function createCratesAvailableCheckTask(
-  packagePath?: string,
+  packagePath: string,
 ): ListrTask<PubmContext> {
-  const label = packagePath ? ` (${packagePath})` : "";
   return {
-    title: `Checking crates.io availability${label}`,
+    title: `Checking crates.io availability (${packagePath})`,
     task: async (): Promise<void> => {
-      const packageName = await getCrateName(packagePath);
-      const registry = new CratesPackageRegistry(packageName);
+      const registry = await cratesPackageRegistry(packagePath);
       const connector = new CratesConnector();
 
       if (!(await connector.isInstalled())) {
@@ -45,34 +43,33 @@ export function createCratesAvailableCheckTask(
 }
 
 export function createCratesPublishTask(
-  packagePath?: string,
+  packagePath: string,
 ): ListrTask<PubmContext> {
-  const label = packagePath ? ` (${packagePath})` : "";
   return {
-    title: `Publishing to crates.io${label}`,
+    title: `Publishing to crates.io (${packagePath})`,
     task: async (ctx, task): Promise<void> => {
       const packageName = await getCrateName(packagePath);
-      const registry = new CratesPackageRegistry(packageName);
+      const registry = await cratesPackageRegistry(packagePath);
 
       const version = getPackageVersion(ctx, packageName);
 
       // Pre-check: skip if version already published
       if (await registry.isVersionPublished(version)) {
-        task.title = `[SKIPPED] crates.io${label}: v${version} already published`;
+        task.title = `[SKIPPED] crates.io (${packagePath}): v${version} already published`;
         task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
         return task.skip();
       }
 
       try {
         task.output = `Publishing ${packageName}@${version} on crates.io...`;
-        await registry.publish(packagePath);
+        await registry.publish();
       } catch (error) {
         // Fallback: catch "already uploaded" errors
         if (
           error instanceof Error &&
           error.message.includes("is already uploaded")
         ) {
-          task.title = `[SKIPPED] crates.io${label}: v${version} already published`;
+          task.title = `[SKIPPED] crates.io (${packagePath}): v${version} already published`;
           task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
           return task.skip();
         }
@@ -81,9 +78,3 @@ export function createCratesPublishTask(
     },
   };
 }
-
-// Backward-compatible static exports (used when no packages config)
-export const cratesAvailableCheckTasks: ListrTask<PubmContext> =
-  createCratesAvailableCheckTask();
-export const cratesPublishTasks: ListrTask<PubmContext> =
-  createCratesPublishTask();

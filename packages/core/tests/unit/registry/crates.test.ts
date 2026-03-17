@@ -170,11 +170,7 @@ describe("CratesPackageRegistry", () => {
       expect(await registry.publish()).toBe(true);
       expect(mockedExec).toHaveBeenCalledWith(
         "cargo",
-        [
-          "publish",
-          "--manifest-path",
-          path.join(FIXTURE_PATH, "Cargo.toml"),
-        ],
+        ["publish", "--manifest-path", path.join(FIXTURE_PATH, "Cargo.toml")],
         expect.objectContaining({ throwOnError: true }),
       );
     });
@@ -231,7 +227,12 @@ describe("CratesPackageRegistry", () => {
       await registry.dryRunPublish();
       expect(mockedExec).toHaveBeenCalledWith(
         "cargo",
-        ["publish", "--dry-run", "--manifest-path", path.join(FIXTURE_PATH, "Cargo.toml")],
+        [
+          "publish",
+          "--dry-run",
+          "--manifest-path",
+          path.join(FIXTURE_PATH, "Cargo.toml"),
+        ],
         expect.objectContaining({ throwOnError: true }),
       );
     });
