@@ -172,11 +172,11 @@ export function createProgram(): Command {
             ctx.runtime.versionPlan = {
               mode: "single",
               version: nextVersion,
-              packageName: resolvedConfig.packages[0]?.name ?? "",
+              packagePath: resolvedConfig.packages[0]?.path ?? ".",
             };
           } else {
             const packages = new Map(
-              resolvedConfig.packages.map((p) => [p.name, nextVersion]),
+              resolvedConfig.packages.map((p) => [p.path, nextVersion]),
             );
             ctx.runtime.versionPlan = {
               mode: "fixed",
@@ -197,7 +197,7 @@ export function createProgram(): Command {
           ctx.runtime.versionPlan = {
             mode: "single",
             version: "snapshot",
-            packageName: resolvedConfig.packages[0]?.name ?? "",
+            packagePath: resolvedConfig.packages[0]?.path ?? ".",
           };
           ctx.runtime.tag = snapshotTag;
           await pubm(ctx);
@@ -209,26 +209,27 @@ export function createProgram(): Command {
             await requiredMissingInformationTasks().run(ctx);
           } else if (isCI) {
             if (options.publishOnly || options.ci) {
-              const packages = new Map(
-                resolvedConfig.packages.map((p) => [p.name, p.version]),
-              );
-
               if (resolvedConfig.packages.length <= 1) {
-                const [name, version] = [...packages][0];
+                const pkg = resolvedConfig.packages[0];
+                const version = pkg?.version ?? "";
                 ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
                   mode: "single",
                   version,
-                  packageName: name,
+                  packagePath: pkg?.path ?? ".",
                 };
               } else if (resolvedConfig.versioning === "independent") {
-                ctx.runtime.version = [...packages.values()][0];
-                ctx.runtime.versions = packages;
+                const packages = new Map(
+                  resolvedConfig.packages.map((p) => [p.path, p.version]),
+                );
                 ctx.runtime.versionPlan = {
                   mode: "independent",
                   packages,
                 };
               } else {
+                const packages = new Map(
+                  resolvedConfig.packages.map((p) => [p.path, p.version]),
+                );
                 const version = [...packages.values()][0];
                 ctx.runtime.version = version;
                 ctx.runtime.versionPlan = {
@@ -253,26 +254,24 @@ export function createProgram(): Command {
                   if (bumps.size === 1) {
                     // Single package
                     const [name, bump] = [...bumps][0];
+                    const pkg = resolvedConfig.packages.find(
+                      (p) => p.name === name,
+                    );
                     ctx.runtime.version = bump.newVersion;
                     ctx.runtime.versionPlan = {
                       mode: "single",
                       version: bump.newVersion,
-                      packageName: name,
+                      packagePath: pkg?.path ?? ".",
                     };
                   } else {
                     // Multi-package
-                    ctx.runtime.versions = new Map(
-                      [...bumps].map(([name, bump]) => [name, bump.newVersion]),
-                    );
-                    // For fixed mode, also set ctx.runtime.version to the shared version
-                    if (resolvedConfig.versioning === "fixed") {
-                      ctx.runtime.version = [...bumps.values()][0].newVersion;
-                    } else {
-                      // Independent mode: use first version as fallback for required version field
-                      ctx.runtime.version = [...bumps.values()][0].newVersion;
-                    }
+                    ctx.runtime.version = [...bumps.values()][0].newVersion;
                     const bumpedPackages = new Map(
-                      [...bumps].map(([name, bump]) => [name, bump.newVersion]),
+                      [...bumps].map(([name, bump]) => [
+                        resolvedConfig.packages.find((p) => p.name === name)
+                          ?.path ?? name,
+                        bump.newVersion,
+                      ]),
                     );
                     const allSame = new Set(bumpedPackages.values()).size === 1;
                     const mode =
@@ -302,11 +301,7 @@ export function createProgram(): Command {
                 }
               }
 
-              if (
-                !ctx.runtime.version &&
-                !ctx.runtime.versions &&
-                !ctx.runtime.versionPlan
-              ) {
+              if (!ctx.runtime.versionPlan) {
                 throw new Error(
                   "Version must be set in the CI environment. Please define the version before proceeding.",
                 );

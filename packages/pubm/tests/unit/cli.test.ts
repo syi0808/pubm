@@ -298,7 +298,7 @@ describe("CLI action handler - non-CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.2.3",
-      packageName: "default-pkg",
+      packagePath: ".",
     });
   });
 
@@ -327,7 +327,7 @@ describe("CLI action handler - non-CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "snapshot",
-      packageName: "default-pkg",
+      packagePath: ".",
     });
   });
 
@@ -386,13 +386,12 @@ describe("CLI action handler - non-CI mode", () => {
     await run("2.0.0");
 
     const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.version).toBe("2.0.0");
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "2.0.0"],
+        ["packages/a", "2.0.0"],
+        ["packages/b", "2.0.0"],
       ]),
     });
   });
@@ -420,16 +419,11 @@ describe("CLI action handler - CI mode", () => {
 
     await run("--publish-only");
 
-    expect(mockPubm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({ version: "2.0.0" }),
-      }),
-    );
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "2.0.0",
-      packageName: "default-pkg",
+      packagePath: ".",
     });
   });
 
@@ -455,13 +449,12 @@ describe("CLI action handler - CI mode", () => {
     await run("--ci");
 
     const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.version).toBe("2.0.0");
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "2.0.0"],
+        ["packages/a", "2.0.0"],
+        ["packages/b", "2.0.0"],
       ]),
     });
   });
@@ -489,18 +482,11 @@ describe("CLI action handler - CI mode", () => {
     await run("--ci");
 
     const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.version).toBe("1.0.0");
-    expect(ctx.runtime.versions).toEqual(
-      new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "2.0.0"],
-      ]),
-    );
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "2.0.0"],
+        ["packages/a", "1.0.0"],
+        ["packages/b", "2.0.0"],
       ]),
     });
   });
@@ -558,7 +544,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.2.3",
-      packageName: "default-pkg",
+      packagePath: ".",
     });
   });
 
@@ -603,7 +589,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.1.0",
-      packageName: "pkg-a",
+      packagePath: ".",
     });
     const { ui: mockUi } = await import("@pubm/core");
     expect(mockUi.info).toHaveBeenCalledWith("Changesets detected:");
@@ -653,10 +639,6 @@ describe("CLI action handler - CI mode", () => {
         runtime: expect.objectContaining({
           version: "2.0.0",
           changesetConsumed: true,
-          versions: new Map([
-            ["pkg-a", "2.0.0"],
-            ["pkg-b", "2.0.0"],
-          ]),
         }),
       }),
     );
@@ -665,8 +647,8 @@ describe("CLI action handler - CI mode", () => {
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["pkg-a", "2.0.0"],
-        ["pkg-b", "2.0.0"],
+        ["packages/a", "2.0.0"],
+        ["packages/b", "2.0.0"],
       ]),
     });
   });
@@ -714,10 +696,6 @@ describe("CLI action handler - CI mode", () => {
         runtime: expect.objectContaining({
           version: "1.1.0",
           changesetConsumed: true,
-          versions: new Map([
-            ["pkg-a", "1.1.0"],
-            ["pkg-b", "2.3.1"],
-          ]),
         }),
       }),
     );
@@ -725,8 +703,8 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["pkg-a", "1.1.0"],
-        ["pkg-b", "2.3.1"],
+        ["packages/a", "1.1.0"],
+        ["packages/b", "2.3.1"],
       ]),
     });
   });
