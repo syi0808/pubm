@@ -1,4 +1,6 @@
-import { relative, resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
+import micromatch from "micromatch";
 import { resolveCompressFormat } from "./compressor.js";
 import { parsePlatform } from "./platform-parser.js";
 import type {
@@ -68,6 +70,31 @@ export function extractCaptureVars(
   return vars;
 }
 
+function scanGlob(baseDir: string, pattern: string): string[] {
+  const files = collectFiles(baseDir, baseDir);
+  const relativePaths = files.map((f) => relative(baseDir, f));
+  const matched = micromatch(relativePaths, pattern);
+  return matched.map((rel) => resolve(baseDir, rel));
+}
+
+function collectFiles(dir: string, root: string): string[] {
+  const results: string[] = [];
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...collectFiles(full, root));
+      } else {
+        results.push(full);
+      }
+    }
+  } catch {
+    // directory doesn't exist
+  }
+  return results;
+}
+
 export function resolveAssets(
   config: NormalizedGroup,
   globalCompress: CompressOption | undefined,
@@ -78,8 +105,7 @@ export function resolveAssets(
   for (const file of config.files) {
     const globPattern = pathPatternToGlob(file.path);
     const baseDir = resolve(cwd, config.packagePath ?? "");
-    const glob = new Bun.Glob(globPattern);
-    const matches = [...glob.scanSync({ cwd: baseDir, absolute: true })];
+    const matches = scanGlob(baseDir, globPattern);
 
     for (const matchPath of matches) {
       const relPath = relative(baseDir, matchPath);
