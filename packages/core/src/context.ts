@@ -7,7 +7,7 @@ import type { ResolvedOptions } from "./types/options.js";
 export interface SingleVersionPlan {
   mode: "single";
   version: string;
-  packageName: string;
+  packagePath: string;
 }
 
 export interface FixedVersionPlan {
@@ -43,16 +43,15 @@ export function resolveVersion(
 
 export function getPackageVersion(
   ctx: PubmContext,
-  packageName: string,
+  packagePath: string,
 ): string {
   const plan = ctx.runtime.versionPlan;
   if (plan) {
     if (plan.mode === "single") return plan.version;
     if (plan.mode === "fixed") return plan.version;
-    return plan.packages.get(packageName) ?? "";
+    return plan.packages.get(packagePath) ?? "";
   }
-  // Fallback during migration
-  return ctx.runtime.version ?? "";
+  return "";
 }
 
 export interface PubmContext {
@@ -61,8 +60,6 @@ export interface PubmContext {
   readonly cwd: string;
 
   runtime: {
-    version?: string;
-    versions?: Map<string, string>;
     changesetConsumed?: boolean;
     tag: string;
     promptEnabled: boolean;

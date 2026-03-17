@@ -69,8 +69,6 @@ describe("createContext", () => {
     expect(ctx.runtime.tag).toBe("beta");
     expect(ctx.runtime.promptEnabled).toBe(false);
     expect(ctx.runtime.cleanWorkingTree).toBe(false);
-    expect(ctx.runtime.version).toBeUndefined();
-    expect(ctx.runtime.versions).toBeUndefined();
     expect(ctx.runtime.versionPlan).toBeUndefined();
     expect(ctx.runtime.changesetConsumed).toBeUndefined();
   });
@@ -86,14 +84,12 @@ describe("createContext", () => {
 
   it("runtime is mutable", () => {
     const ctx = createContext(makeConfig(), makeOptions());
-    ctx.runtime.version = "1.0.0";
     ctx.runtime.tag = "next";
     ctx.runtime.versionPlan = {
       mode: "single",
       version: "1.0.0",
-      packageName: "test",
+      packagePath: "packages/test",
     };
-    expect(ctx.runtime.version).toBe("1.0.0");
     expect(ctx.runtime.tag).toBe("next");
     expect(ctx.runtime.versionPlan?.version).toBe("1.0.0");
   });
@@ -112,9 +108,9 @@ describe("getPackageVersion", () => {
     ctx.runtime.versionPlan = {
       mode: "single",
       version: "1.2.3",
-      packageName: "my-pkg",
+      packagePath: "packages/my-pkg",
     };
-    expect(getPackageVersion(ctx, "my-pkg")).toBe("1.2.3");
+    expect(getPackageVersion(ctx, "packages/my-pkg")).toBe("1.2.3");
   });
 
   it("returns plan.version for fixed mode", () => {
@@ -122,9 +118,9 @@ describe("getPackageVersion", () => {
     ctx.runtime.versionPlan = {
       mode: "fixed",
       version: "2.0.0",
-      packages: new Map([["pkg-a", "2.0.0"]]),
+      packages: new Map([["packages/pkg-a", "2.0.0"]]),
     };
-    expect(getPackageVersion(ctx, "pkg-a")).toBe("2.0.0");
+    expect(getPackageVersion(ctx, "packages/pkg-a")).toBe("2.0.0");
   });
 
   it("returns per-package version for independent mode", () => {
@@ -132,30 +128,24 @@ describe("getPackageVersion", () => {
     ctx.runtime.versionPlan = {
       mode: "independent",
       packages: new Map([
-        ["pkg-a", "1.0.0"],
-        ["pkg-b", "2.0.0"],
+        ["packages/pkg-a", "1.0.0"],
+        ["packages/pkg-b", "2.0.0"],
       ]),
     };
-    expect(getPackageVersion(ctx, "pkg-b")).toBe("2.0.0");
+    expect(getPackageVersion(ctx, "packages/pkg-b")).toBe("2.0.0");
   });
 
   it("returns empty string for independent mode when package is not in map", () => {
     const ctx = createContext(makeConfig(), makeOptions());
     ctx.runtime.versionPlan = {
       mode: "independent",
-      packages: new Map([["pkg-a", "1.0.0"]]),
+      packages: new Map([["packages/pkg-a", "1.0.0"]]),
     };
-    expect(getPackageVersion(ctx, "unknown-pkg")).toBe("");
+    expect(getPackageVersion(ctx, "packages/unknown-pkg")).toBe("");
   });
 
-  it("falls back to runtime.version when no versionPlan", () => {
+  it("returns empty string when no versionPlan", () => {
     const ctx = createContext(makeConfig(), makeOptions());
-    ctx.runtime.version = "3.0.0";
-    expect(getPackageVersion(ctx, "any-pkg")).toBe("3.0.0");
-  });
-
-  it("returns empty string when no versionPlan and no runtime.version", () => {
-    const ctx = createContext(makeConfig(), makeOptions());
-    expect(getPackageVersion(ctx, "any-pkg")).toBe("");
+    expect(getPackageVersion(ctx, "packages/any-pkg")).toBe("");
   });
 });
