@@ -15,7 +15,7 @@ vi.mock("node:fs", async (importOriginal) => {
     readdirSync: vi.fn(),
     statSync: vi.fn((...args: unknown[]) => {
       const p = String(args[0]);
-      if (!p.includes("/mock-workspace")) {
+      if (!p.replaceAll("\\", "/").includes("/mock-workspace")) {
         return originalStatSync(
           ...(args as Parameters<typeof originalStatSync>),
         );
@@ -104,10 +104,11 @@ describe("collectWorkspaceVersions", () => {
     ]);
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockImplementation((filePath: any) => {
-      if (String(filePath).includes("packages/core")) {
+      const normalized = String(filePath).replaceAll("\\", "/");
+      if (normalized.includes("packages/core")) {
         return JSON.stringify({ name: "@pubm/core", version: "0.4.2" });
       }
-      if (String(filePath).includes("packages/cli")) {
+      if (normalized.includes("packages/cli")) {
         return JSON.stringify({ name: "pubm", version: "0.4.2" });
       }
       return "{}";
