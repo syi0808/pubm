@@ -42,7 +42,7 @@ export default defineConfig({
           jsonPath: "plugins.0.version",
         },
       ],
-      version: (packages) => packages.get("@pubm/core") ?? "",
+      version: (packages) => packages.get("packages/core") ?? "",
     }),
   ],
 });

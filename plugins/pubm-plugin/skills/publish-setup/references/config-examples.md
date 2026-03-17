@@ -123,7 +123,7 @@ externalVersionSync({
   targets: [
     { file: 'plugin.json', jsonPath: 'version' },
   ],
-  version: (packages) => packages.get('@pubm/core') ?? '',
+  version: (packages) => packages.get('packages/core') ?? '',
 })
 ```
 

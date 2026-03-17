@@ -305,7 +305,7 @@ version 콜백 옵션 추가:
 ```ts
 externalVersionSync({
   targets: [...],
-  version: (packages) => packages.get("@pubm/core") ?? "",
+  version: (packages) => packages.get("packages/core") ?? "",
 })
 ```
 
@@ -383,7 +383,7 @@ export default defineConfig({
         { file: ".claude-plugin/marketplace.json", jsonPath: "metadata.version" },
         { file: ".claude-plugin/marketplace.json", jsonPath: "plugins.0.version" },
       ],
-      version: (packages) => packages.get("@pubm/core") ?? "",
+      version: (packages) => packages.get("packages/core") ?? "",
     }),
   ],
 });
