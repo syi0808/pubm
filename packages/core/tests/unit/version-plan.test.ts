@@ -7,7 +7,7 @@ describe("resolveVersion", () => {
     const plan: VersionPlan = {
       mode: "single",
       version: "1.0.0",
-      packageName: "my-pkg",
+      packagePath: "packages/my-pkg",
     };
     expect(resolveVersion(plan)).toBe("1.0.0");
   });
@@ -17,8 +17,8 @@ describe("resolveVersion", () => {
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["a", "2.0.0"],
-        ["b", "2.0.0"],
+        ["packages/a", "2.0.0"],
+        ["packages/b", "2.0.0"],
       ]),
     };
     expect(resolveVersion(plan)).toBe("2.0.0");
@@ -28,11 +28,11 @@ describe("resolveVersion", () => {
     const plan: VersionPlan = {
       mode: "independent",
       packages: new Map([
-        ["@pubm/core", "1.0.0"],
-        ["pubm", "2.0.0"],
+        ["packages/core", "1.0.0"],
+        ["packages/cli", "2.0.0"],
       ]),
     };
-    expect(resolveVersion(plan, (pkgs) => pkgs.get("@pubm/core")!)).toBe(
+    expect(resolveVersion(plan, (pkgs) => pkgs.get("packages/core")!)).toBe(
       "1.0.0",
     );
   });
@@ -40,7 +40,7 @@ describe("resolveVersion", () => {
   it("throws when independent mode has no picker", () => {
     const plan: VersionPlan = {
       mode: "independent",
-      packages: new Map([["a", "1.0.0"]]),
+      packages: new Map([["packages/a", "1.0.0"]]),
     };
     expect(() => resolveVersion(plan)).toThrow(
       "independent mode requires an explicit version picker",
@@ -51,7 +51,7 @@ describe("resolveVersion", () => {
     const plan: VersionPlan = {
       mode: "single",
       version: "1.0.0",
-      packageName: "my-pkg",
+      packagePath: "packages/my-pkg",
     };
     expect(resolveVersion(plan, () => "9.9.9")).toBe("1.0.0");
   });
@@ -60,7 +60,7 @@ describe("resolveVersion", () => {
     const plan: VersionPlan = {
       mode: "fixed",
       version: "2.0.0",
-      packages: new Map([["a", "2.0.0"]]),
+      packages: new Map([["packages/a", "2.0.0"]]),
     };
     expect(resolveVersion(plan, () => "9.9.9")).toBe("2.0.0");
   });
