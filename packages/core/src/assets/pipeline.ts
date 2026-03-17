@@ -1,3 +1,4 @@
+import { basename, extname } from "node:path";
 import { compressFile } from "./compressor.js";
 import { computeSha256 } from "./hasher.js";
 import { applyNameTemplate } from "./namer.js";
@@ -85,11 +86,18 @@ async function defaultCompress(
     };
   }
 
+  // Build a unique archive base name to prevent overwrites when multiple
+  // platform binaries share the same filename (e.g. all named "pubm").
+  const stem = basename(filePath, extname(filePath));
+  const platformSuffix = platform.raw ? `-${platform.raw}` : "";
+  const archiveBaseName = `${stem}${platformSuffix}`;
+
   const archivePath = await compressFile(
     filePath,
     tempDir,
     config.compress,
     asset.extraFiles,
+    archiveBaseName,
   );
 
   return {
