@@ -110,6 +110,19 @@ Summary.`;
     );
   });
 
+  it("parses changeset with CRLF line endings", () => {
+    const content =
+      '---\r\n"pkg-name": patch\r\n---\r\n\r\nWindows line endings.';
+
+    const result = parseChangeset(content, "crlf.md");
+
+    expect(result).toEqual({
+      id: "crlf",
+      summary: "Windows line endings.",
+      releases: [{ name: "pkg-name", type: "patch" }],
+    });
+  });
+
   it("throws on invalid frontmatter", () => {
     const content = "No frontmatter here, just text.";
 

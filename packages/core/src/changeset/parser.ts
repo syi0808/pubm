@@ -16,7 +16,7 @@ export interface Changeset {
 const VALID_BUMP_TYPES = new Set(["patch", "minor", "major"]);
 
 export function parseChangeset(content: string, fileName: string): Changeset {
-  const frontmatterRegex = /^---\n([\s\S]*?)---/;
+  const frontmatterRegex = /^---\r?\n([\s\S]*?)---/;
   const match = content.match(frontmatterRegex);
 
   if (!match) {
