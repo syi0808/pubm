@@ -29,15 +29,16 @@ export function externalVersionSync(
             } else {
               throw new Error(
                 "external-version-sync: 'version' callback is required in independent mode. " +
-                  "Provide a version picker, e.g. version: (pkgs) => pkgs.get('@pubm/core') ?? ''",
+                  "Provide a version picker, e.g. version: (pkgs) => pkgs.get('packages/core') ?? ''",
               );
             }
           } else {
             version = plan.version;
           }
         } else {
-          // Fallback during migration
-          version = ctx.runtime.version!;
+          throw new Error(
+            "external-version-sync: versionPlan is not set.",
+          );
         }
 
         const errors: string[] = [];

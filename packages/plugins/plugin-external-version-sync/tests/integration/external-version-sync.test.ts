@@ -15,11 +15,10 @@ function makeCtx(version: string): PubmContext {
     tag: "latest",
     saveToken: false,
   });
-  ctx.runtime.version = version;
   ctx.runtime.versionPlan = {
     mode: "single",
     version,
-    packageName: "test-pkg",
+    packagePath: "test-pkg",
   };
   return ctx;
 }
@@ -138,8 +137,8 @@ describe("externalVersionSync integration", () => {
     );
 
     const packages = new Map([
-      ["@pubm/core", "2.5.0"],
-      ["@pubm/cli", "2.5.0"],
+      ["packages/core", "2.5.0"],
+      ["packages/cli", "2.5.0"],
     ]);
 
     const ctx = createContext({ packages: [], plugins: [] } as any, {
@@ -153,7 +152,7 @@ describe("externalVersionSync integration", () => {
 
     const plugin = externalVersionSync({
       targets: [{ file: jsonFile, jsonPath: "version" }],
-      version: (pkgs) => pkgs.get("@pubm/core") ?? "",
+      version: (pkgs) => pkgs.get("packages/core") ?? "",
     });
 
     const runner = new PluginRunner([plugin]);
@@ -171,7 +170,7 @@ describe("externalVersionSync integration", () => {
       `${JSON.stringify({ version: "1.0.0" }, null, 2)}\n`,
     );
 
-    const packages = new Map([["@pubm/core", "2.5.0"]]);
+    const packages = new Map([["packages/core", "2.5.0"]]);
 
     const ctx = createContext({ packages: [], plugins: [] } as any, {
       testScript: "test",
