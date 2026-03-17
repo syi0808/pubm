@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -189,6 +189,53 @@ describe("runAssetPipeline", () => {
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe("pubm-darwin-arm64.tar.gz");
       expect(result[0].compressFormat).toBe("tar.gz");
+    });
+
+    it("produces distinct archives for multiple platforms with same binary name", async () => {
+      const darwinDir = mkdtempSync(join(tmpdir(), "darwin-"));
+      const linuxDir = mkdtempSync(join(tmpdir(), "linux-"));
+      const darwinBin = join(darwinDir, "pubm");
+      const linuxBin = join(linuxDir, "pubm");
+      writeFileSync(darwinBin, "darwin-arm64-binary-content");
+      writeFileSync(linuxBin, "linux-x64-binary-content");
+
+      const resolved: ResolvedAsset[] = [
+        {
+          filePath: darwinBin,
+          platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
+          config: {
+            path: "test",
+            compress: "tar.gz",
+            name: "{filename}-{platform}",
+          },
+        },
+        {
+          filePath: linuxBin,
+          platform: { raw: "linux-x64", os: "linux", arch: "x64" },
+          config: {
+            path: "test",
+            compress: "tar.gz",
+            name: "{filename}-{platform}",
+          },
+        },
+      ];
+
+      const tempDir = mkdtempSync(join(tmpdir(), "pipeline-temp-"));
+      const result = await runAssetPipeline(
+        resolved,
+        {},
+        { name: "pubm", version: "0.4.0", tempDir },
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("pubm-darwin-arm64.tar.gz");
+      expect(result[1].name).toBe("pubm-linux-x64.tar.gz");
+
+      // Archives must point to different files with different content
+      const content0 = readFileSync(result[0].filePath);
+      const content1 = readFileSync(result[1].filePath);
+      expect(Buffer.compare(content0, content1)).not.toBe(0);
+      expect(result[0].sha256).not.toBe(result[1].sha256);
     });
   });
 });

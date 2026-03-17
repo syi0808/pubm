@@ -56,10 +56,12 @@ export async function compressFile(
   outDir: string,
   format: CompressFormat,
   extraFiles?: string[],
+  archiveBaseName?: string,
 ): Promise<string> {
   const file = basename(filePath);
   const dir = join(filePath, "..");
-  const archiveName = `${basename(filePath, extname(filePath))}.${format}`;
+  const stem = archiveBaseName ?? basename(filePath, extname(filePath));
+  const archiveName = `${stem}.${format}`;
   const archivePath = join(outDir, archiveName);
 
   const allFiles = [file, ...(extraFiles?.map((f) => basename(f)) ?? [])];
