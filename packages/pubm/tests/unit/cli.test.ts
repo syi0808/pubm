@@ -667,6 +667,75 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
+  it("falls back to defaults when packages array is empty in --publish-only", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.packages = [];
+
+    await run("--publish-only");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "",
+      packagePath: ".",
+    });
+  });
+
+  it("falls back to package path when changeset find cannot match package name", async () => {
+    mockIsCI.isCI = true;
+    mockGetStatus.mockReturnValue({
+      hasChangesets: true,
+      changesets: ["a.md"],
+    });
+    mockCalculateVersionBumps.mockReturnValue(
+      new Map([
+        [
+          "unknown-pkg-a",
+          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
+        ],
+        [
+          "unknown-pkg-b",
+          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
+        ],
+      ]),
+    );
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run();
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.changesetConsumed).toBe(true);
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "2.0.0",
+      packages: new Map([
+        ["unknown-pkg-a", "2.0.0"],
+        ["unknown-pkg-b", "2.0.0"],
+      ]),
+    });
+  });
+
+  it("falls back to defaults when packages array is empty with snapshot", async () => {
+    sharedResolvedConfig.packages = [];
+
+    await run("--snapshot");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "snapshot",
+      packagePath: ".",
+    });
+  });
+
   it("allows explicit CI versions when pending changesets do not produce a bump", async () => {
     mockIsCI.isCI = true;
     mockGetStatus.mockReturnValue({

@@ -108,7 +108,7 @@ export function resolveAssets(
     const matches = scanGlob(baseDir, globPattern);
 
     for (const matchPath of matches) {
-      const relPath = relative(baseDir, matchPath);
+      const relPath = relative(baseDir, matchPath).replace(/\\/g, "/");
 
       // Extract capture variables or auto-parse platform
       const capturedVars = extractCaptureVars(file.path, relPath);
