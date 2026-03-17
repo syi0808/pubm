@@ -1,0 +1,208 @@
+---
+title: Platform Detection
+description: Built-in OS, architecture, ABI, and variant tables used for automatic platform parsing.
+---
+
+`pubm` ships a built-in platform detection engine that parses OS, architecture, ABI, and variant from file paths. This powers automatic asset naming, OS-aware compression defaults, and the structured `ParsedPlatform` object consumed by plugins such as `@pubm/plugin-brew`.
+
+## How parsing works
+
+When you configure a `releaseAssets` entry, `pubm` inspects each matched file path to determine its platform.
+
+There are two modes:
+
+**Capture variables in the path pattern.** If the pattern contains `{os}`, `{arch}`, `{abi}`, `{variant}`, or `{platform}`, `pubm` extracts values from those positions directly:
+
+```ts
+// Rust-style triple: captures arch, vendor, os, abi from the path
+{ path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" }
+
+// Bun-style: captures the entire platform segment
+{ path: "platforms/{platform}/bin/mytool" }
+```
+
+**Automatic segment scanning.** When no capture variables are used, `pubm` splits the path into segments on `/`, then splits each segment on `-`. Each resulting token is tested against the OS, arch, ABI, variant, and vendor tables in order. The first match per category wins.
+
+```ts
+// Path: platforms/darwin-arm64/bin/pubm
+// Segment: darwin-arm64 → tokens: [darwin, arm64]
+// darwin → os: "darwin", arm64 → arch: "arm64"
+{ path: "platforms/*/bin/pubm" }
+```
+
+Tokens that do not match any table are ignored.
+
+### `{platform}` variable
+
+The `{platform}` template variable holds the raw platform string:
+
+- If `{platform}` was a capture variable: the captured segment verbatim (`darwin-arm64`)
+- If individual capture variables were used (`{os}`, `{arch}`): assembled as `{os}-{arch}`
+- If automatic detection was used: the matched path segment (`darwin-arm64`)
+
+Vendor, ABI, and variant are intentionally excluded from `{platform}` to keep the common case short and readable. They are accessible individually via `{vendor}`, `{abi}`, and `{variant}`.
+
+## `ParsedPlatform` type
+
+```ts
+interface ParsedPlatform {
+  /** Captured raw string or matched segment */
+  raw: string;
+  os?: string;
+  arch?: string;
+  vendor?: string;
+  abi?: string;
+  variant?: string;
+}
+```
+
+This object is attached to every asset that flows through the pipeline and is exposed to plugins via `ReleaseAsset.platform` in the `afterRelease` hook.
+
+## OS table
+
+Canonical values are used in template variables and plugin comparisons. Aliases are recognized during path parsing.
+
+| Canonical | Aliases |
+|-----------|---------|
+| `darwin` | `macos`, `mac`, `osx`, `macosx` |
+| `linux` | `lin` |
+| `windows` | `win`, `win32`, `win64` |
+| `freebsd` | |
+| `openbsd` | |
+| `netbsd` | |
+| `android` | |
+| `ios` | |
+| `solaris` | `sunos` |
+| `illumos` | |
+| `aix` | |
+| `dragonfly` | `dragonflybsd` |
+| `plan9` | |
+| `fuchsia` | |
+| `haiku` | |
+| `redox` | |
+
+## Architecture table
+
+| Canonical | Aliases |
+|-----------|---------|
+| `x64` | `x86_64`, `amd64`, `x86-64` |
+| `ia32` | `i386`, `i486`, `i586`, `i686`, `x86`, `386` |
+| `arm64` | `aarch64`, `armv8`, `aarch_64` |
+| `arm` | `armv7`, `armv7l`, `armv6`, `armv6l`, `armhf`, `armel` |
+| `ppc64le` | `powerpc64le`, `ppc64el` |
+| `ppc64` | `powerpc64` |
+| `ppc` | `powerpc` |
+| `s390x` | |
+| `riscv64` | `riscv64gc` |
+| `loong64` | `loongarch64`, `la64` |
+| `mips` | `mips32` |
+| `mipsel` | `mipsle` |
+| `mips64` | |
+| `mips64el` | `mips64le` |
+| `wasm32` | `wasm` |
+| `wasm64` | |
+| `universal` | `universal2`, `fat` |
+
+## ABI table
+
+ABI tokens appear in Rust target triples and cross-compilation toolchain names.
+
+| Value | Meaning |
+|-------|---------|
+| `gnu` / `glibc` | GNU C Library |
+| `musl` | musl libc (static-friendly) |
+| `msvc` | Microsoft Visual C++ runtime |
+| `mingw` / `mingw32` / `mingw-w64` | MinGW toolchain |
+| `gnueabihf` | ARM hard-float with glibc |
+| `gnueabi` | ARM soft-float with glibc |
+| `musleabihf` | ARM hard-float with musl |
+| `musleabi` | ARM soft-float with musl |
+| `androideabi` | Android ARM EABI |
+| `uclibc` | uClibc for embedded targets |
+| `bionic` | Android's Bionic C library |
+
+## Variant table
+
+Variant tokens express microarchitecture levels or capability requirements.
+
+| Value | Meaning |
+|-------|---------|
+| `baseline` | No AVX2; SSE4.2 only |
+| `v2` | x86-64 microarchitecture level 2 |
+| `v3` | x86-64 microarchitecture level 3 (AVX2) |
+| `v4` | x86-64 microarchitecture level 4 (AVX-512) |
+| `avx2` | Explicit AVX2 requirement |
+| `avx512` | Explicit AVX-512 requirement |
+
+## Vendor table
+
+Vendor tokens are recognized during parsing but are not included in the `{platform}` variable. Access them through `{vendor}`.
+
+| Value | Meaning |
+|-------|---------|
+| `unknown` | Generic (Rust default for Linux targets) |
+| `apple` | Apple platforms (macOS, iOS) |
+| `pc` | PC/desktop (Windows, Solaris) |
+| `none` | Bare-metal targets |
+
+## Parsing examples
+
+### Bun-style directory layout
+
+```
+platforms/darwin-arm64/bin/pubm
+platforms/linux-x64/bin/pubm
+platforms/windows-x64/bin/pubm.exe
+```
+
+Config:
+
+```ts
+releaseAssets: ["platforms/*/bin/pubm"]
+```
+
+Results:
+
+| Path | `os` | `arch` | `{platform}` |
+|------|------|--------|--------------|
+| `platforms/darwin-arm64/bin/pubm` | `darwin` | `arm64` | `darwin-arm64` |
+| `platforms/linux-x64/bin/pubm` | `linux` | `x64` | `linux-x64` |
+| `platforms/windows-x64/bin/pubm.exe` | `windows` | `x64` | `windows-x64` |
+
+### Rust target triple
+
+```
+target/x86_64-unknown-linux-gnu/release/mytool
+target/aarch64-apple-darwin/release/mytool
+```
+
+Config:
+
+```ts
+releaseAssets: [
+  { path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" },
+  { path: "target/{arch}-{vendor}-{os}/release/mytool" },
+]
+```
+
+Results:
+
+| Path | `os` | `arch` | `vendor` | `abi` |
+|------|------|--------|----------|-------|
+| `x86_64-unknown-linux-gnu` | `linux` | `x64` | `unknown` | `gnu` |
+| `aarch64-apple-darwin` | `darwin` | `arm64` | `apple` | — |
+
+### Alias normalization
+
+All aliases resolve to the canonical form before template substitution:
+
+```
+bin/myapp-amd64-macos → os: "darwin", arch: "x64"
+bin/myapp-win64       → os: "windows"
+bin/myapp-armv7l      → arch: "arm"
+```
+
+## Related docs
+
+- [Release Assets](/pubm/guides/release-assets/) — configuration guide
+- [Asset Pipeline Hooks](/pubm/guides/asset-pipeline-hooks/) — plugin hook reference

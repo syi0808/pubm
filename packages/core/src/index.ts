@@ -22,6 +22,24 @@ export async function pubm(ctx: PubmContext): Promise<void> {
 // External re-exports
 export { color } from "listr2";
 export type {
+  AssetPipelineHooks,
+  CompressedAsset,
+  CompressFormat,
+  CompressOption,
+  ParsedPlatform,
+  PreparedAsset,
+  ReleaseAsset,
+  ReleaseAssetEntry,
+  ReleaseAssetFileConfig,
+  ReleaseAssetGroupConfig,
+  ReleaseContext,
+  ResolvedAsset,
+  ResolvedAssetFileConfig,
+  TransformedAsset,
+  UploadedAsset,
+} from "./assets/index.js";
+export { parsePlatform, runAssetPipeline } from "./assets/index.js";
+export type {
   BumpType,
   ChangelogEntry,
   Changeset,
@@ -112,7 +130,6 @@ export type {
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
-export type { ReleaseAsset, ReleaseContext } from "./tasks/github-release.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";

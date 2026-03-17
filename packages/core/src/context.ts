@@ -1,7 +1,7 @@
 import process from "node:process";
+import type { ReleaseContext } from "./assets/types.js";
 import type { ResolvedPubmConfig } from "./config/types.js";
 import { PluginRunner } from "./plugin/runner.js";
-import type { ReleaseContext } from "./tasks/github-release.js";
 import type { ResolvedOptions } from "./types/options.js";
 
 export interface SingleVersionPlan {
@@ -69,6 +69,7 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     scopeCreated?: boolean;
     packageCreated?: boolean;
+    tempDir?: string;
     npmOtp?: string;
     npmOtpPromise?: Promise<string>;
   };

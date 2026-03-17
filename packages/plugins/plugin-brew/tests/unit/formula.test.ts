@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  computeSha256FromUrl,
   generateFormula,
-  mapReleaseAssets,
+  matchAssetToPlatform,
+  releaseAssetsToFormulaAssets,
   updateFormula,
 } from "../../src/formula.js";
 
@@ -97,22 +96,76 @@ describe("formula helpers", () => {
     );
   });
 
-  it("maps only recognized release assets", () => {
-    const mapped = mapReleaseAssets([
+  it("matchAssetToPlatform returns the asset matching os+arch", () => {
+    const assets = [
       {
         name: "pubm-darwin-arm64.tar.gz",
         url: "https://example.com/darwin-arm64.tar.gz",
         sha256: "a",
+        platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
       },
       {
         name: "pubm-linux-x64.zip",
         url: "https://example.com/linux-x64.zip",
         sha256: "b",
+        platform: { raw: "linux-x64", os: "linux", arch: "x64" },
       },
       {
         name: "pubm-windows-x64.zip",
         url: "https://example.com/windows-x64.zip",
         sha256: "c",
+        platform: { raw: "windows-x64", os: "windows", arch: "x64" },
+      },
+    ];
+
+    const matched = matchAssetToPlatform(assets, "darwin-arm64");
+    expect(matched?.sha256).toBe("a");
+
+    const linuxMatched = matchAssetToPlatform(assets, "linux-x64");
+    expect(linuxMatched?.sha256).toBe("b");
+
+    const notFound = matchAssetToPlatform(assets, "linux-arm64");
+    expect(notFound).toBeUndefined();
+  });
+
+  it("matchAssetToPlatform uses custom matcher when provided", () => {
+    const assets = [
+      {
+        name: "pubm-darwin-arm64.tar.gz",
+        url: "https://example.com/darwin-arm64.tar.gz",
+        sha256: "a",
+        platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
+      },
+    ];
+
+    const customMatcher = (a: { sha256: string }) => a.sha256 === "a";
+    const matched = matchAssetToPlatform(
+      assets,
+      "darwin-x64",
+      customMatcher as never,
+    );
+    expect(matched?.sha256).toBe("a");
+  });
+
+  it("releaseAssetsToFormulaAssets maps only recognized platform assets", () => {
+    const mapped = releaseAssetsToFormulaAssets([
+      {
+        name: "pubm-darwin-arm64.tar.gz",
+        url: "https://example.com/darwin-arm64.tar.gz",
+        sha256: "a",
+        platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
+      },
+      {
+        name: "pubm-linux-x64.zip",
+        url: "https://example.com/linux-x64.zip",
+        sha256: "b",
+        platform: { raw: "linux-x64", os: "linux", arch: "x64" },
+      },
+      {
+        name: "pubm-windows-x64.zip",
+        url: "https://example.com/windows-x64.zip",
+        sha256: "c",
+        platform: { raw: "windows-x64", os: "windows", arch: "x64" },
       },
     ]);
 
@@ -130,28 +183,26 @@ describe("formula helpers", () => {
     ]);
   });
 
-  it("computes sha256 from a fetched asset", async () => {
-    const body = new TextEncoder().encode("pubm-release");
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(body, { status: 200 }),
-    );
+  it("releaseAssetsToFormulaAssets uses custom matchers when provided", () => {
+    const assets = [
+      {
+        name: "pubm-darwin-arm64.tar.gz",
+        url: "https://example.com/darwin-arm64.tar.gz",
+        sha256: "custom-a",
+        platform: { raw: "macos-aarch64", os: "macos", arch: "aarch64" },
+      },
+    ];
 
-    const sha = await computeSha256FromUrl("https://example.com/pubm.tgz");
+    const mapped = releaseAssetsToFormulaAssets(assets, {
+      "darwin-arm64": (a) => a.platform.raw === "macos-aarch64",
+    });
 
-    expect(sha).toBe(
-      createHash("sha256").update(Buffer.from(body)).digest("hex"),
-    );
-  });
-
-  it("throws when fetching the asset fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response("missing", { status: 404, statusText: "Not Found" }),
-    );
-
-    await expect(
-      computeSha256FromUrl("https://example.com/missing.tgz"),
-    ).rejects.toThrow(
-      "Failed to fetch https://example.com/missing.tgz: Not Found",
-    );
+    expect(mapped).toEqual([
+      {
+        platform: "darwin-arm64",
+        url: "https://example.com/darwin-arm64.tar.gz",
+        sha256: "custom-a",
+      },
+    ]);
   });
 });

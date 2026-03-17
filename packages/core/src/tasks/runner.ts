@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path, { join } from "node:path";
 import process from "node:process";
 import { stripVTControlCharacters } from "node:util";
@@ -6,6 +7,9 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
+import { runAssetPipeline } from "../assets/pipeline.js";
+import { normalizeConfig, resolveAssets } from "../assets/resolver.js";
+import type { PreparedAsset } from "../assets/types.js";
 import {
   buildChangelogEntries,
   generateChangelog,
@@ -55,6 +59,44 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
 const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
+
+async function prepareReleaseAssets(
+  ctx: PubmContext,
+  packageName: string,
+  version: string,
+  packagePath?: string,
+): Promise<{ assets: PreparedAsset[]; tempDir: string }> {
+  const assetConfig = ctx.config.releaseAssets ?? [];
+  if (assetConfig.length === 0) {
+    return { assets: [], tempDir: "" };
+  }
+
+  const assetHooks = ctx.runtime.pluginRunner.collectAssetHooks();
+  const normalizedGroups = normalizeConfig(assetConfig, ctx.config.compress);
+
+  // Find relevant group for this package
+  const relevantGroup = normalizedGroups.find(
+    (g) => !g.packagePath || g.packagePath === packagePath,
+  ) ?? { files: [] };
+
+  const tempDir = join(tmpdir(), `pubm-assets-${Date.now()}`);
+  mkdirSync(tempDir, { recursive: true });
+  ctx.runtime.tempDir = tempDir;
+
+  const resolvedAssets = resolveAssets(
+    relevantGroup,
+    ctx.config.compress,
+    ctx.cwd,
+  );
+  const preparedAssets = await runAssetPipeline(resolvedAssets, assetHooks, {
+    name: packageName.replace(/^@[^/]+\//, ""),
+    version,
+    tempDir,
+    pubmContext: ctx,
+  });
+
+  return { assets: preparedAssets, tempDir };
+}
 
 function getPackageName(ctx: PubmContext, packagePath: string): string {
   return (
@@ -640,13 +682,38 @@ export async function run(ctx: PubmContext): Promise<void> {
                       }
                     }
 
+                    const { assets: preparedAssets, tempDir } =
+                      await prepareReleaseAssets(
+                        ctx,
+                        pkgName,
+                        pkgVersion,
+                        pkgPath,
+                      );
                     const result = await createGitHubRelease(ctx, {
                       packageName: pkgName,
                       version: pkgVersion,
                       tag,
                       changelogBody,
+                      assets: preparedAssets,
                     });
                     if (result) {
+                      // Additional upload targets (plugin hooks)
+                      const assetHooks =
+                        ctx.runtime.pluginRunner.collectAssetHooks();
+                      if (assetHooks.uploadAssets) {
+                        const additional = await assetHooks.uploadAssets(
+                          preparedAssets,
+                          ctx,
+                        );
+                        result.assets.push(
+                          ...additional.map((a) => ({
+                            name: a.name,
+                            url: a.url,
+                            sha256: a.sha256,
+                            platform: a.platform,
+                          })),
+                        );
+                      }
                       task.output = `Release created: ${result.releaseUrl}`;
                       await ctx.runtime.pluginRunner.runAfterReleaseHook(
                         ctx,
@@ -655,6 +722,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                     } else {
                       task.output = `Release already exists for ${tag}, skipped.`;
                     }
+                    if (tempDir)
+                      rmSync(tempDir, { recursive: true, force: true });
                   }
                 } else {
                   // Single or fixed: one release
@@ -707,13 +776,41 @@ export async function run(ctx: PubmContext): Promise<void> {
                     plan.mode === "single"
                       ? getPackageName(ctx, plan.packagePath)
                       : (ctx.config.packages[0]?.name ?? "");
+                  const pkgPath =
+                    plan.mode === "single"
+                      ? plan.packagePath
+                      : ctx.config.packages[0]?.path;
+                  const { assets: preparedAssets, tempDir } =
+                    await prepareReleaseAssets(
+                      ctx,
+                      packageName,
+                      version,
+                      pkgPath,
+                    );
                   const result = await createGitHubRelease(ctx, {
                     packageName,
                     version,
                     tag,
                     changelogBody,
+                    assets: preparedAssets,
                   });
                   if (result) {
+                    const assetHooks =
+                      ctx.runtime.pluginRunner.collectAssetHooks();
+                    if (assetHooks.uploadAssets) {
+                      const additional = await assetHooks.uploadAssets(
+                        preparedAssets,
+                        ctx,
+                      );
+                      result.assets.push(
+                        ...additional.map((a) => ({
+                          name: a.name,
+                          url: a.url,
+                          sha256: a.sha256,
+                          platform: a.platform,
+                        })),
+                      );
+                    }
                     task.output = `Release created: ${result.releaseUrl}`;
                     await ctx.runtime.pluginRunner.runAfterReleaseHook(
                       ctx,
@@ -722,6 +819,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                   } else {
                     task.output = `Release already exists for ${tag}, skipped.`;
                   }
+                  if (tempDir)
+                    rmSync(tempDir, { recursive: true, force: true });
                 }
               },
             },

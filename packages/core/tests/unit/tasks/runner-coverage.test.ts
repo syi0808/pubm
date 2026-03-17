@@ -232,6 +232,13 @@ vi.mock("../../../src/registry/catalog.js", () => {
 vi.mock("../../../src/ecosystem/index.js", () => ({
   detectEcosystem: vi.fn(),
 }));
+vi.mock("../../../src/assets/pipeline.js", () => ({
+  runAssetPipeline: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../../../src/assets/resolver.js", () => ({
+  normalizeConfig: vi.fn().mockReturnValue([{ files: [] }]),
+  resolveAssets: vi.fn().mockReturnValue([]),
+}));
 vi.mock("../../../src/registry/jsr.js", () => ({
   JsrClient: { token: undefined },
 }));

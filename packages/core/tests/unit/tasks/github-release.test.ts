@@ -2,18 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
-  readdirSync: vi.fn(),
   readFileSync: vi.fn(),
-  rmSync: vi.fn(),
-  mkdirSync: vi.fn(),
-}));
-
-vi.mock("node:os", () => ({
-  tmpdir: vi.fn(() => "/tmp"),
-}));
-
-vi.mock("../../../src/utils/exec.js", () => ({
-  exec: vi.fn(),
 }));
 
 vi.mock("../../../src/git.js", () => ({
@@ -27,16 +16,10 @@ async function freshImport() {
 
 async function getMocks() {
   const fs = await import("node:fs");
-  const { exec } = await import("../../../src/utils/exec.js");
   const { Git } = await import("../../../src/git.js");
 
   return {
-    mockExistsSync: vi.mocked(fs.existsSync),
-    mockReaddirSync: vi.mocked(fs.readdirSync),
     mockReadFileSync: vi.mocked(fs.readFileSync),
-    mockRmSync: vi.mocked(fs.rmSync),
-    mockMkdirSync: vi.mocked(fs.mkdirSync),
-    mockExec: vi.mocked(exec),
     mockGit: vi.mocked(Git),
   };
 }
@@ -65,15 +48,15 @@ describe("createGitHubRelease", () => {
         packageName: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        assets: [],
       }),
     ).rejects.toThrow(/GITHUB_TOKEN environment variable is required/);
   });
 
   it("builds release notes from commits when no changelog body is provided", async () => {
     const { createGitHubRelease } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
+    const { mockReadFileSync, mockGit } = await getMocks();
 
-    mockExistsSync.mockReturnValue(false);
     mockReadFileSync.mockReturnValue(Buffer.from(""));
     mockGit.mockImplementation(function () {
       return {
@@ -104,6 +87,7 @@ describe("createGitHubRelease", () => {
       packageName: "pubm",
       version: "1.2.0",
       tag: "v1.2.0",
+      assets: [],
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -117,46 +101,55 @@ describe("createGitHubRelease", () => {
     expect(payload.body).toContain(
       "https://github.com/pubm/pubm/compare/first-commit...v1.2.0",
     );
-    expect(result.assets).toEqual([]);
-    expect(result.packageName).toBe("pubm");
+    expect(result?.assets).toEqual([]);
+    expect(result?.packageName).toBe("pubm");
   });
 
-  it("uses the provided changelog body, uploads platform binaries, and returns hashed assets", async () => {
+  it("uses the provided changelog body and marks pre-releases correctly", async () => {
     const { createGitHubRelease } = await freshImport();
-    const {
-      mockExistsSync,
-      mockReaddirSync,
-      mockReadFileSync,
-      mockRmSync,
-      mockMkdirSync,
-      mockExec,
-      mockGit,
-    } = await getMocks();
+    const { mockGit } = await getMocks();
 
-    mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      return (
-        normalized.endsWith("/npm/@pubm") ||
-        normalized.endsWith("/npm/@pubm/linux-x64/bin")
-      );
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi.fn().mockResolvedValue("git@github.com:pubm/pubm.git"),
+        latestTag: vi.fn().mockResolvedValue("v2.0.0-beta.1"),
+        previousTag: vi.fn().mockResolvedValue("v1.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first-commit"),
+        commits: vi.fn().mockResolvedValue([]),
+      } as any;
+    } as any);
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        html_url: "https://github.com/pubm/pubm/releases/tag/v2.0.0-beta.1",
+        upload_url:
+          "https://uploads.github.com/repos/pubm/pubm/releases/2/assets{?name,label}",
+      }),
     });
-    mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      if (normalized.endsWith("/npm/@pubm")) {
-        return [{ name: "linux-x64", isDirectory: () => true }] as any;
-      }
-      if (normalized.endsWith("/npm/@pubm/linux-x64/bin")) {
-        return ["pubm"];
-      }
-      return [];
+    global.fetch = fetchMock as any;
+
+    const result = await createGitHubRelease({} as any, {
+      packageName: "pubm",
+      version: "2.0.0-beta.1",
+      tag: "v2.0.0-beta.1",
+      changelogBody: "Release notes from CHANGELOG",
+      assets: [],
     });
-    mockReadFileSync.mockImplementation((target) => {
-      if (String(target).endsWith(".tar.gz")) {
-        return Buffer.from("archive-bytes");
-      }
-      return Buffer.from("binary");
-    });
-    mockExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+    const createPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(createPayload.name).toBe("v2.0.0-beta.1");
+    expect(createPayload.body).toBe("Release notes from CHANGELOG");
+    expect(createPayload.prerelease).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result?.assets).toEqual([]);
+  });
+
+  it("uploads PreparedAssets and returns hashed ReleaseAssets", async () => {
+    const { createGitHubRelease } = await freshImport();
+    const { mockReadFileSync, mockGit } = await getMocks();
+
+    mockReadFileSync.mockReturnValue(Buffer.from("archive-bytes"));
     mockGit.mockImplementation(function () {
       return {
         repository: vi.fn().mockResolvedValue("git@github.com:pubm/pubm.git"),
@@ -186,96 +179,42 @@ describe("createGitHubRelease", () => {
       });
     global.fetch = fetchMock as any;
 
+    const platform = { raw: "linux-x64", os: "linux", arch: "x64" };
     const result = await createGitHubRelease({} as any, {
       packageName: "pubm",
       version: "2.0.0-beta.1",
       tag: "v2.0.0-beta.1",
       changelogBody: "Release notes from CHANGELOG",
+      assets: [
+        {
+          filePath: "/tmp/pubm-linux-x64.tar.gz",
+          name: "pubm-linux-x64.tar.gz",
+          sha256:
+            "abc123def456abc123def456abc123def456abc123def456abc123def456abc1",
+          platform,
+          originalPath: "/tmp/pubm",
+          compressFormat: "tar.gz",
+          config: { path: "/tmp/pubm", compress: "tar.gz", name: "pubm" },
+        },
+      ],
     });
 
-    const createPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(createPayload.name).toBe("v2.0.0-beta.1");
-    expect(createPayload.body).toBe("Release notes from CHANGELOG");
-    expect(createPayload.prerelease).toBe(true);
-    expect(mockMkdirSync).toHaveBeenCalledWith(
-      expect.stringContaining("pubm-release-"),
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result?.assets).toEqual([
       {
-        recursive: true,
-      },
-    );
-    expect(mockExec).toHaveBeenCalledWith(
-      "tar",
-      expect.arrayContaining(["-czf"]),
-      expect.objectContaining({ throwOnError: true }),
-    );
-    expect(result.assets).toEqual([
-      expect.objectContaining({
         name: "pubm-linux-x64.tar.gz",
-        url: expect.stringContaining("pubm-linux-x64.tar.gz"),
-        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
-      }),
+        url: "https://github.com/pubm/pubm/releases/download/v2.0.0-beta.1/pubm-linux-x64.tar.gz",
+        sha256:
+          "abc123def456abc123def456abc123def456abc123def456abc123def456abc1",
+        platform,
+      },
     ]);
-    expect(mockRmSync).toHaveBeenCalledWith(
-      expect.stringContaining("pubm-release-"),
-      { recursive: true, force: true },
-    );
-  });
-
-  it("ignores non-directory entries and packages without bin folders when collecting release assets", async () => {
-    const { createGitHubRelease } = await freshImport();
-    const { mockExistsSync, mockReaddirSync, mockGit } = await getMocks();
-
-    mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      return normalized.endsWith("/npm/@pubm");
-    });
-    mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      if (normalized.endsWith("/npm/@pubm")) {
-        return [
-          { name: "README.md", isDirectory: () => false },
-          { name: "darwin-arm64", isDirectory: () => true },
-        ] as any;
-      }
-      return [];
-    });
-    mockGit.mockImplementation(function () {
-      return {
-        repository: vi
-          .fn()
-          .mockResolvedValue("https://github.com/pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
-        previousTag: vi.fn().mockResolvedValue("v1.1.0"),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([]),
-      } as any;
-    } as any);
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        html_url: "https://github.com/pubm/pubm/releases/tag/v1.2.0",
-        upload_url:
-          "https://uploads.github.com/repos/pubm/pubm/releases/1/assets{?name,label}",
-      }),
-    });
-    global.fetch = fetchMock as any;
-
-    const result = await createGitHubRelease({} as any, {
-      packageName: "pubm",
-      version: "1.2.0",
-      tag: "v1.2.0",
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.assets).toEqual([]);
   });
 
   it("skips gracefully when the release already exists (HTTP 422)", async () => {
     const { createGitHubRelease } = await freshImport();
-    const { mockExistsSync, mockGit } = await getMocks();
+    const { mockGit } = await getMocks();
 
-    mockExistsSync.mockReturnValue(false);
     mockGit.mockImplementation(function () {
       return {
         repository: vi
@@ -297,6 +236,7 @@ describe("createGitHubRelease", () => {
       packageName: "pubm",
       version: "1.0.0",
       tag: "v1.0.0",
+      assets: [],
     });
 
     expect(result).toBeNull();
@@ -304,9 +244,8 @@ describe("createGitHubRelease", () => {
 
   it("surfaces GitHub API failures when creating the release", async () => {
     const { createGitHubRelease } = await freshImport();
-    const { mockExistsSync, mockGit } = await getMocks();
+    const { mockGit } = await getMocks();
 
-    mockExistsSync.mockReturnValue(false);
     mockGit.mockImplementation(function () {
       return {
         repository: vi
@@ -330,6 +269,7 @@ describe("createGitHubRelease", () => {
         packageName: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        assets: [],
       }),
     ).rejects.toThrow(
       /Failed to create GitHub Release \(500\): internal server error/,
@@ -338,38 +278,9 @@ describe("createGitHubRelease", () => {
 
   it("surfaces GitHub API failures when uploading release assets", async () => {
     const { createGitHubRelease } = await freshImport();
-    const {
-      mockExistsSync,
-      mockReaddirSync,
-      mockReadFileSync,
-      mockExec,
-      mockGit,
-    } = await getMocks();
+    const { mockReadFileSync, mockGit } = await getMocks();
 
-    mockExistsSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      return (
-        normalized.endsWith("/npm/@pubm") ||
-        normalized.endsWith("/npm/@pubm/linux-x64/bin")
-      );
-    });
-    mockReaddirSync.mockImplementation((target) => {
-      const normalized = String(target).replace(/\\/g, "/");
-      if (normalized.endsWith("/npm/@pubm")) {
-        return [{ name: "linux-x64", isDirectory: () => true }] as any;
-      }
-      if (normalized.endsWith("/npm/@pubm/linux-x64/bin")) {
-        return ["pubm"];
-      }
-      return [];
-    });
-    mockReadFileSync.mockImplementation((target) => {
-      if (String(target).endsWith(".tar.gz")) {
-        return Buffer.from("archive-bytes");
-      }
-      return Buffer.from("binary");
-    });
-    mockExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+    mockReadFileSync.mockReturnValue(Buffer.from("archive-bytes"));
     mockGit.mockImplementation(function () {
       return {
         repository: vi
@@ -403,6 +314,17 @@ describe("createGitHubRelease", () => {
         packageName: "pubm",
         version: "1.2.0",
         tag: "v1.2.0",
+        assets: [
+          {
+            filePath: "/tmp/pubm-linux-x64.tar.gz",
+            name: "pubm-linux-x64.tar.gz",
+            sha256: "abc123",
+            platform: { raw: "linux-x64" },
+            originalPath: "/tmp/pubm",
+            compressFormat: "tar.gz",
+            config: { path: "/tmp/pubm", compress: "tar.gz", name: "pubm" },
+          },
+        ],
       }),
     ).rejects.toThrow(
       /Failed to upload asset pubm-linux-x64\.tar\.gz \(500\): upload failed/,
@@ -425,6 +347,7 @@ describe("createGitHubRelease", () => {
         packageName: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        assets: [],
       }),
     ).rejects.toThrow(/Cannot parse owner\/repo from remote URL/);
     expect(global.fetch).not.toHaveBeenCalled();

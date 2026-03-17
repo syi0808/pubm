@@ -1,3 +1,4 @@
+import type { CompressOption, ReleaseAssetEntry } from "../assets/types.js";
 import type { PubmPlugin } from "../plugin/types.js";
 import type { RegistryType } from "../types/options.js";
 
@@ -50,10 +51,19 @@ export interface PubmConfig {
   releaseNotes?: boolean;
   rollbackStrategy?: "individual" | "all";
   plugins?: PubmPlugin[];
+  compress?: CompressOption;
+  releaseAssets?: ReleaseAssetEntry[];
 }
 
 export interface ResolvedPubmConfig
-  extends Required<Omit<PubmConfig, "packages" | "validate" | "registries">> {
+  extends Required<
+    Omit<
+      PubmConfig,
+      "packages" | "validate" | "registries" | "compress" | "releaseAssets"
+    >
+  > {
+  compress?: CompressOption;
+  releaseAssets?: ReleaseAssetEntry[];
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   discoveryEmpty?: boolean;
