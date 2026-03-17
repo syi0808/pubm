@@ -1,6 +1,9 @@
+import { unlinkSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { exec } from "../utils/exec.js";
 import type { CompressFormat, CompressOption } from "./types.js";
+
+const isWin = process.platform === "win32";
 
 const KNOWN_ARCHIVE_EXTENSIONS = new Set([
   ".tar.gz",
@@ -68,19 +71,27 @@ export async function compressFile(
       });
       break;
     case "tar.xz":
-      await exec("tar", ["-cJf", archivePath, "-C", dir, ...allFiles], {
-        throwOnError: true,
-      });
+      if (isWin) {
+        await tarThenCompress(archivePath, dir, allFiles, "xz");
+      } else {
+        await exec("tar", ["-cJf", archivePath, "-C", dir, ...allFiles], {
+          throwOnError: true,
+        });
+      }
       break;
     case "tar.zst":
-      await exec(
-        "tar",
-        ["--zstd", "-cf", archivePath, "-C", dir, ...allFiles],
-        { throwOnError: true },
-      );
+      if (isWin) {
+        await tarThenCompress(archivePath, dir, allFiles, "zstd");
+      } else {
+        await exec(
+          "tar",
+          ["--zstd", "-cf", archivePath, "-C", dir, ...allFiles],
+          { throwOnError: true },
+        );
+      }
       break;
     case "zip":
-      if (process.platform === "win32") {
+      if (isWin) {
         const sources = [filePath, ...(extraFiles ?? [])].join("','");
         await exec(
           "powershell",
@@ -102,4 +113,36 @@ export async function compressFile(
   }
 
   return archivePath;
+}
+
+/**
+ * Windows fallback: create a plain .tar, then compress with a separate tool.
+ * bsdtar (shipped with Windows) doesn't support -J (xz) or --zstd flags.
+ *
+ * xz compresses in-place: `xz file.tar` → `file.tar.xz` (removes original)
+ * zstd needs explicit output: `zstd file.tar -o file.tar.zst`
+ */
+async function tarThenCompress(
+  archivePath: string,
+  dir: string,
+  files: string[],
+  compressor: "xz" | "zstd",
+): Promise<void> {
+  const tarPath = archivePath.replace(/\.(xz|zst)$/, "");
+  await exec("tar", ["-cf", tarPath, "-C", dir, ...files], {
+    throwOnError: true,
+  });
+  try {
+    const args =
+      compressor === "xz"
+        ? [tarPath] // xz replaces file.tar with file.tar.xz
+        : [tarPath, "-o", archivePath, "--rm"]; // zstd outputs to target, removes source
+    await exec(compressor, args, { throwOnError: true });
+  } finally {
+    try {
+      unlinkSync(tarPath);
+    } catch {
+      // best-effort: xz already removed it, zstd --rm may have removed it
+    }
+  }
 }
