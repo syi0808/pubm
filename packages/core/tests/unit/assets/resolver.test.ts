@@ -1,8 +1,12 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   extractCaptureVars,
   normalizeConfig,
   pathPatternToGlob,
+  resolveAssets,
 } from "../../../src/assets/resolver.js";
 import type { ReleaseAssetEntry } from "../../../src/assets/types.js";
 
@@ -89,6 +93,143 @@ describe("extractCaptureVars", () => {
       "platforms/darwin-arm64/bin/pubm",
     );
     expect(result).toEqual({});
+  });
+});
+
+describe("resolveAssets", () => {
+  function createPlatformTree(platforms: string[]): string {
+    const root = mkdtempSync(join(tmpdir(), "resolver-test-"));
+    for (const p of platforms) {
+      const binDir = join(root, "platforms", p, "bin");
+      mkdirSync(binDir, { recursive: true });
+      writeFileSync(join(binDir, "myapp"), "binary");
+    }
+    return root;
+  }
+
+  it("resolves aliases when using {os}-{arch} captures", () => {
+    const root = createPlatformTree(["win-x64", "macos-aarch64"]);
+    const group = {
+      files: [
+        {
+          path: "platforms/{os}-{arch}/bin/myapp",
+          compress: undefined,
+          name: undefined,
+        },
+      ],
+    };
+
+    const assets = resolveAssets(group, undefined, root);
+
+    const winAsset = assets.find((a) => a.filePath.includes("win-x64"));
+    expect(winAsset).toBeDefined();
+    expect(winAsset!.platform.os).toBe("windows");
+    expect(winAsset!.platform.arch).toBe("x64");
+    // compress auto-detect: windows → zip
+    expect(winAsset!.config.compress).toBe("zip");
+
+    const macAsset = assets.find((a) => a.filePath.includes("macos-aarch64"));
+    expect(macAsset).toBeDefined();
+    expect(macAsset!.platform.os).toBe("darwin");
+    expect(macAsset!.platform.arch).toBe("arm64");
+    // compress auto-detect: darwin → tar.gz
+    expect(macAsset!.config.compress).toBe("tar.gz");
+  });
+
+  it("resolves aliases when using {platform} capture", () => {
+    const root = createPlatformTree(["win-x64"]);
+    const group = {
+      files: [
+        {
+          path: "platforms/{platform}/bin/myapp",
+          compress: undefined,
+          name: undefined,
+        },
+      ],
+    };
+
+    const assets = resolveAssets(group, undefined, root);
+    expect(assets).toHaveLength(1);
+    expect(assets[0].platform.os).toBe("windows");
+    expect(assets[0].platform.arch).toBe("x64");
+    expect(assets[0].config.compress).toBe("zip");
+  });
+
+  it("auto-parses platform from path segments without capture vars", () => {
+    const root = createPlatformTree(["darwin-arm64"]);
+    const group = {
+      files: [
+        { path: "platforms/*/bin/myapp", compress: undefined, name: undefined },
+      ],
+    };
+
+    const assets = resolveAssets(group, undefined, root);
+    expect(assets).toHaveLength(1);
+    expect(assets[0].platform.os).toBe("darwin");
+    expect(assets[0].platform.arch).toBe("arm64");
+    expect(assets[0].config.compress).toBe("tar.gz");
+  });
+
+  it("applies compress cascade: file > group > global > auto", () => {
+    const root = createPlatformTree(["linux-x64"]);
+
+    // global=tar.xz, group=undefined, file=undefined → global wins
+    const assets1 = resolveAssets(
+      {
+        files: [
+          {
+            path: "platforms/*/bin/myapp",
+            compress: undefined,
+            name: undefined,
+          },
+        ],
+      },
+      "tar.xz",
+      root,
+    );
+    expect(assets1[0].config.compress).toBe("tar.xz");
+
+    // global=tar.xz, group=zip, file=undefined → group wins
+    const assets2 = resolveAssets(
+      {
+        files: [
+          {
+            path: "platforms/*/bin/myapp",
+            compress: undefined,
+            name: undefined,
+          },
+        ],
+        compress: "zip",
+      },
+      "tar.xz",
+      root,
+    );
+    expect(assets2[0].config.compress).toBe("zip");
+
+    // global=tar.xz, group=zip, file=false → file wins
+    const assets3 = resolveAssets(
+      {
+        files: [
+          { path: "platforms/*/bin/myapp", compress: false, name: undefined },
+        ],
+        compress: "zip",
+      },
+      "tar.xz",
+      root,
+    );
+    expect(assets3[0].config.compress).toBe(false);
+  });
+
+  it("sets default name template with platform when detected", () => {
+    const root = createPlatformTree(["linux-x64"]);
+    const group = {
+      files: [
+        { path: "platforms/*/bin/myapp", compress: undefined, name: undefined },
+      ],
+    };
+
+    const assets = resolveAssets(group, undefined, root);
+    expect(assets[0].config.name).toBe("{filename}-{platform}");
   });
 });
 
