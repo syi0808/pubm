@@ -1599,6 +1599,120 @@ describe("requiredMissingInformationTasks", () => {
     });
   });
 
+  describe("three-choice prompt — no choice", () => {
+    const pkgA = makePkg({
+      name: "@scope/a",
+      version: "1.0.0",
+      path: "packages/a",
+    });
+    const pkgB = makePkg({
+      name: "@scope/b",
+      version: "2.0.0",
+      path: "packages/b",
+    });
+
+    function makeTwoPkgCtx(versioning?: "fixed" | "independent") {
+      return {
+        config: { packages: [pkgA, pkgB], versioning },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      } as any;
+    }
+
+    beforeEach(() => {
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+    });
+
+    it("no → independent: excludes packages with unchanged versions from versionPlan and config", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx("independent"); // pre-set to skip mode prompt
+      const mockTask = createMockTask();
+
+      // "no" → pkgA: "1.1.0" (bump), pkgB: "2.0.0" (keep current)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("1.1.0")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan?.packages.has("packages/a")).toBe(true);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/b")).toBe(false);
+
+      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      expect(filterArg.has("packages/a")).toBe(true);
+      expect(filterArg.has("packages/b")).toBe(false);
+    });
+
+    it("no → fixed: does NOT call filterConfigPackages", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx("fixed"); // pre-set to skip mode prompt
+      const mockTask = createMockTask();
+
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("1.1.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockedFilterConfigPackages).not.toHaveBeenCalled();
+    });
+
+    it("no → independent: does not set changesetConsumed", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx("independent");
+      const mockTask = createMockTask();
+
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("1.1.0")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.changesetConsumed).toBeFalsy();
+    });
+
+    it("no → independent (mode prompt shown): applies filter after mode selection", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx(); // no pre-set versioning → mode prompt shown
+      const mockTask = createMockTask();
+
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("independent") // mode prompt
+        .mockResolvedValueOnce("1.1.0") // pkgA
+        .mockResolvedValueOnce("2.0.0"); // pkgB keep current
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockedFilterConfigPackages).toHaveBeenCalled();
+      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      expect(filterArg.has("packages/b")).toBe(false);
+    });
+  });
+
   describe("tag subtask", () => {
     it("skips when there is no version information yet", () => {
       requiredMissingInformationTasks();
