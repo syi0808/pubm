@@ -66,13 +66,19 @@
     "directory": "packages/pubm"
   },
   "keywords": [
-    "npm",
+    "publish",
+    "npm publish",
     "jsr",
     "registry",
-    "publish",
-    "np",
-    "publish manager",
-    "private registry",
-    "multiple publish"
+    "multiple registry",
+    "multi registry",
+    "release",
+    "monorepo release",
+    "version bump",
+    "changeset",
+    "cli",
+    "release automation",
+    "release cli",
+    "open source release"
   ]
 }

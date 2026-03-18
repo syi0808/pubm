@@ -7,6 +7,7 @@ import Hero from "./Hero.astro";
 import InstallSection from "./InstallSection.astro";
 import NavBar from "./NavBar.astro";
 import RegistryStrip from "./RegistryStrip.astro";
+import WhyPubm from "./WhyPubm.astro";
 import WorkflowStrip from "./WorkflowStrip.astro";
 
 interface Props {
@@ -22,6 +23,7 @@ const copy = landingCopy[locale];
   <Hero locale={locale} copy={copy} />
   <RegistryStrip copy={copy} />
   <FeatureCards copy={copy} />
+  <WhyPubm copy={copy} />
   <WorkflowStrip copy={copy} />
   <InstallSection locale={locale} copy={copy} />
 </main>

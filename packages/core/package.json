@@ -44,6 +44,20 @@
   "engines": {
     "node": ">=24"
   },
+  "keywords": [
+    "publish",
+    "npm publish",
+    "jsr",
+    "registry",
+    "multiple registry",
+    "multi registry",
+    "release",
+    "monorepo release",
+    "version bump",
+    "changeset",
+    "cli",
+    "release automation"
+  ],
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
