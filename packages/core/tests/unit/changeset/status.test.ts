@@ -20,7 +20,7 @@ describe("getStatus", () => {
     const result = getStatus();
 
     expect(result.hasChangesets).toBe(false);
-    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd());
+    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd(), undefined);
   });
 
   it("returns empty map when no changesets", () => {
@@ -38,12 +38,12 @@ describe("getStatus", () => {
       {
         id: "change-1",
         summary: "Fix bug.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
       {
         id: "change-2",
         summary: "Add feature.",
-        releases: [{ name: "pkg-a", type: "minor" }],
+        releases: [{ path: "pkg-a", type: "minor" }],
       },
     ]);
 
@@ -62,17 +62,17 @@ describe("getStatus", () => {
       {
         id: "change-1",
         summary: "Minor change.",
-        releases: [{ name: "pkg-a", type: "minor" }],
+        releases: [{ path: "pkg-a", type: "minor" }],
       },
       {
         id: "change-2",
         summary: "Patch fix.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
       {
         id: "change-3",
         summary: "Breaking change.",
-        releases: [{ name: "pkg-a", type: "major" }],
+        releases: [{ path: "pkg-a", type: "major" }],
       },
     ]);
 
@@ -89,14 +89,14 @@ describe("getStatus", () => {
         id: "change-1",
         summary: "Fix for A.",
         releases: [
-          { name: "pkg-a", type: "patch" },
-          { name: "pkg-b", type: "minor" },
+          { path: "pkg-a", type: "patch" },
+          { path: "pkg-b", type: "minor" },
         ],
       },
       {
         id: "change-2",
         summary: "Feature for A.",
-        releases: [{ name: "pkg-a", type: "minor" }],
+        releases: [{ path: "pkg-a", type: "minor" }],
       },
     ]);
 

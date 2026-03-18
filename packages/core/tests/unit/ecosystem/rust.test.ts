@@ -12,6 +12,7 @@ vi.mock("../../../src/utils/exec.js", () => ({
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RustEcosystem } from "../../../src/ecosystem/rust.js";
+import { RustEcosystemDescriptor } from "../../../src/ecosystem/rust-descriptor.js";
 import { CratesPackageRegistry } from "../../../src/registry/crates.js";
 import { exec } from "../../../src/utils/exec.js";
 
@@ -293,6 +294,34 @@ my-build = { path = "../my-build" }
       );
       await expect(eco.syncLockfile()).resolves.toBeUndefined();
       expect(mockedExec).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("createDescriptor", () => {
+    it("returns RustEcosystemDescriptor with cratesName when Cargo.toml exists", async () => {
+      mockedStat.mockResolvedValue({ isFile: () => true } as any);
+      mockedReadFile.mockResolvedValue(CARGO_TOML as any);
+
+      const eco = new RustEcosystem(pkgPath);
+      const descriptor = await eco.createDescriptor();
+
+      expect(descriptor).toBeInstanceOf(RustEcosystemDescriptor);
+      const rustDescriptor = descriptor as RustEcosystemDescriptor;
+      expect(rustDescriptor.cratesName).toBe("my-crate");
+      expect(rustDescriptor.path).toBe(pkgPath);
+    });
+
+    it("returns RustEcosystemDescriptor with undefined cratesName when Cargo.toml does not exist", async () => {
+      mockedStat.mockRejectedValue(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+      );
+
+      const eco = new RustEcosystem(pkgPath);
+      const descriptor = await eco.createDescriptor();
+
+      expect(descriptor).toBeInstanceOf(RustEcosystemDescriptor);
+      const rustDescriptor = descriptor as RustEcosystemDescriptor;
+      expect(rustDescriptor.cratesName).toBeUndefined();
     });
   });
 });

@@ -5,7 +5,9 @@ import { NpmPackageRegistry } from "../registry/npm.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
 import { getPackageManager } from "../utils/package-manager.js";
+import type { EcosystemDescriptor } from "./descriptor.js";
 import { Ecosystem } from "./ecosystem.js";
+import { JsEcosystemDescriptor } from "./js-descriptor.js";
 
 const versionRegex = /("version"\s*:\s*")[^"]*(")/;
 
@@ -54,5 +56,20 @@ export class JsEcosystem extends Ecosystem {
 
   supportedRegistries(): RegistryType[] {
     return ["npm", "jsr"];
+  }
+
+  async createDescriptor(): Promise<EcosystemDescriptor> {
+    const npmReader = NpmPackageRegistry.reader;
+    const jsrReader = JsrPackageRegistry.reader;
+
+    const npmName = (await npmReader.exists(this.packagePath))
+      ? (await npmReader.read(this.packagePath)).name
+      : undefined;
+
+    const jsrName = (await jsrReader.exists(this.packagePath))
+      ? (await jsrReader.read(this.packagePath)).name
+      : undefined;
+
+    return new JsEcosystemDescriptor(this.packagePath, npmName, jsrName);
   }
 }

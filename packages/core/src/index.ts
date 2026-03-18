@@ -59,6 +59,7 @@ export type {
 export {
   buildChangelogEntries,
   calculateVersionBumps,
+  createKeyResolver,
   deleteChangesetFiles,
   generateChangelog,
   generateChangesetContent,
@@ -90,7 +91,10 @@ export type {
 export { createContext, getPackageVersion, resolveVersion } from "./context.js";
 export { ecosystemCatalog } from "./ecosystem/catalog.js";
 // Ecosystem
+export { EcosystemDescriptor } from "./ecosystem/descriptor.js";
 export type { Ecosystem } from "./ecosystem/ecosystem.js";
+export { JsEcosystemDescriptor } from "./ecosystem/js-descriptor.js";
+export { RustEcosystemDescriptor } from "./ecosystem/rust-descriptor.js";
 // Error
 export { consoleError } from "./error.js";
 // Git

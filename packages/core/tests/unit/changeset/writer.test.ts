@@ -23,7 +23,7 @@ beforeEach(() => {
 describe("generateChangesetContent", () => {
   it("generates content with a single release", () => {
     const content = generateChangesetContent(
-      [{ name: "pkg-a", type: "minor" }],
+      [{ path: "pkg-a", type: "minor" }],
       "Added a feature.",
     );
 
@@ -35,8 +35,8 @@ describe("generateChangesetContent", () => {
   it("generates content with multiple releases", () => {
     const content = generateChangesetContent(
       [
-        { name: "pkg-a", type: "major" },
-        { name: "@scope/pkg-b", type: "patch" },
+        { path: "pkg-a", type: "major" },
+        { path: "@scope/pkg-b", type: "patch" },
       ],
       "Breaking change.",
     );
@@ -54,7 +54,7 @@ describe("generateChangesetContent", () => {
 
   it("generates content without summary when summary is empty", () => {
     const content = generateChangesetContent(
-      [{ name: "pkg-a", type: "patch" }],
+      [{ path: "pkg-a", type: "patch" }],
       "",
     );
 
@@ -82,7 +82,7 @@ describe("generateChangesetId", () => {
 
 describe("writeChangeset", () => {
   it("creates directory if missing", () => {
-    writeChangeset([{ name: "pkg", type: "patch" }], "Fix.", "/tmp/project");
+    writeChangeset([{ path: "pkg", type: "patch" }], "Fix.", "/tmp/project");
 
     expect(mockedMkdirSync).toHaveBeenCalledWith(
       expect.stringContaining(path.join(".pubm", "changesets")),
@@ -92,7 +92,7 @@ describe("writeChangeset", () => {
 
   it("writes file with correct content", () => {
     writeChangeset(
-      [{ name: "pkg", type: "minor" }],
+      [{ path: "pkg", type: "minor" }],
       "New feature.",
       "/tmp/project",
     );
@@ -109,7 +109,7 @@ describe("writeChangeset", () => {
   });
 
   it("uses process.cwd() as default when cwd is omitted", () => {
-    writeChangeset([{ name: "pkg", type: "patch" }], "Fix.");
+    writeChangeset([{ path: "pkg", type: "patch" }], "Fix.");
 
     expect(mockedMkdirSync).toHaveBeenCalledWith(
       expect.stringContaining(path.join(process.cwd(), ".pubm", "changesets")),
@@ -119,7 +119,7 @@ describe("writeChangeset", () => {
 
   it("returns the file path", () => {
     const filePath = writeChangeset(
-      [{ name: "pkg", type: "patch" }],
+      [{ path: "pkg", type: "patch" }],
       "Fix bug.",
       "/tmp/project",
     );

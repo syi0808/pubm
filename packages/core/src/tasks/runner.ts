@@ -17,6 +17,7 @@ import {
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
+import { createKeyResolver } from "../changeset/resolve.js";
 import type { PubmContext } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
@@ -730,7 +731,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                         pkgPath,
                       );
                     const result = await createGitHubRelease(ctx, {
-                      packageName: pkgName,
+                      displayLabel: pkgName,
                       version: pkgVersion,
                       tag,
                       changelogBody,
@@ -828,7 +829,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       pkgPath,
                     );
                   const result = await createGitHubRelease(ctx, {
-                    packageName,
+                    displayLabel: packageName,
                     version,
                     tag,
                     changelogBody,
@@ -1050,12 +1051,16 @@ export async function run(ctx: PubmContext): Promise<void> {
                     if (ctx.runtime.changesetConsumed) {
                       task.output =
                         "Applying changesets and generating changelog entries...";
-                      const changesets = readChangesets(process.cwd());
+                      const resolver = createKeyResolver(ctx.config.packages);
+                      const changesets = readChangesets(
+                        process.cwd(),
+                        resolver,
+                      );
                       if (changesets.length > 0) {
-                        const pkgName = ctx.config.packages[0]?.name ?? "";
+                        const pkgPath = ctx.config.packages[0]?.path ?? "";
                         const entries = buildChangelogEntries(
                           changesets,
-                          pkgName,
+                          pkgPath,
                         );
                         const changelogContent = generateChangelog(
                           plan.version,
@@ -1115,14 +1120,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                     if (ctx.runtime.changesetConsumed) {
                       task.output =
                         "Applying changesets and generating changelog entries...";
-                      const changesets = readChangesets(process.cwd());
+                      const resolver = createKeyResolver(ctx.config.packages);
+                      const changesets = readChangesets(
+                        process.cwd(),
+                        resolver,
+                      );
                       if (changesets.length > 0) {
                         const allEntries = [...plan.packages.keys()].flatMap(
                           (pkgPath) =>
-                            buildChangelogEntries(
-                              changesets,
-                              getPackageName(ctx, pkgPath),
-                            ),
+                            buildChangelogEntries(changesets, pkgPath),
                         );
                         if (allEntries.length > 0) {
                           const changelogContent = generateChangelog(
@@ -1183,13 +1189,16 @@ export async function run(ctx: PubmContext): Promise<void> {
                     if (ctx.runtime.changesetConsumed) {
                       task.output =
                         "Applying changesets and generating changelog entries...";
-                      const changesets = readChangesets(process.cwd());
+                      const resolver = createKeyResolver(ctx.config.packages);
+                      const changesets = readChangesets(
+                        process.cwd(),
+                        resolver,
+                      );
                       if (changesets.length > 0) {
                         for (const [pkgPath, pkgVersion] of plan.packages) {
-                          const pkgName = getPackageName(ctx, pkgPath);
                           const entries = buildChangelogEntries(
                             changesets,
-                            pkgName,
+                            pkgPath,
                           );
                           if (entries.length > 0) {
                             const pkgConfig = ctx.config.packages.find(

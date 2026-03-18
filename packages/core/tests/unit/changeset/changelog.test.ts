@@ -88,14 +88,14 @@ describe("generateChangelog", () => {
             id: "alpha",
             summary: "Ship feature",
             releases: [
-              { name: "pkg-a", type: "minor" },
-              { name: "pkg-b", type: "patch" },
+              { path: "pkg-a", type: "minor" },
+              { path: "pkg-b", type: "patch" },
             ],
           },
           {
             id: "beta",
             summary: "Fix bug",
-            releases: [{ name: "pkg-b", type: "patch" }],
+            releases: [{ path: "pkg-b", type: "patch" }],
           },
         ] as any,
         "pkg-b",

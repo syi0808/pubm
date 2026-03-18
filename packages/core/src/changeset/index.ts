@@ -15,6 +15,7 @@ export {
   type Release,
 } from "./parser.js";
 export { deleteChangesetFiles, readChangesets } from "./reader.js";
+export { createKeyResolver } from "./resolve.js";
 export { getStatus, type PackageStatus, type Status } from "./status.js";
 export { calculateVersionBumps, type VersionBump } from "./version.js";
 export {

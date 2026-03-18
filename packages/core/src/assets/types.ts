@@ -79,7 +79,7 @@ export interface ReleaseAsset {
 }
 
 export interface ReleaseContext {
-  packageName: string;
+  displayLabel: string;
   version: string;
   tag: string;
   releaseUrl: string;

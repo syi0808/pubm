@@ -13,19 +13,20 @@ export interface VersionBump {
 export function calculateVersionBumps(
   currentVersions: Map<string, string>,
   cwd: string = process.cwd(),
+  resolveKey?: (key: string) => string,
 ): Map<string, VersionBump> {
-  const changesets = readChangesets(cwd);
+  const changesets = readChangesets(cwd, resolveKey);
   const bumpTypes = new Map<string, BumpType>();
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      if (!currentVersions.has(release.name)) continue;
+      if (!currentVersions.has(release.path)) continue;
 
-      const existing = bumpTypes.get(release.name);
+      const existing = bumpTypes.get(release.path);
       if (existing) {
-        bumpTypes.set(release.name, maxBump(existing, release.type));
+        bumpTypes.set(release.path, maxBump(existing, release.type));
       } else {
-        bumpTypes.set(release.name, release.type);
+        bumpTypes.set(release.path, release.type);
       }
     }
   }

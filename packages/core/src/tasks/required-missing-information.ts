@@ -2,6 +2,7 @@ import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type Listr, type ListrTask } from "listr2";
 import semver from "semver";
+import { createKeyResolver } from "../changeset/resolve.js";
 import { getStatus } from "../changeset/status.js";
 import type { VersionBump } from "../changeset/version.js";
 import { calculateVersionBumps } from "../changeset/version.js";
@@ -59,15 +60,15 @@ function renderPackageVersionSummary(
   const lines = ["Packages:"];
 
   for (const pkg of packageInfos) {
-    const currentVersion = currentVersions.get(pkg.name) ?? pkg.version;
-    const selectedVersion = selectedVersions.get(pkg.name);
-    const prefix = options.activePackage === pkg.name ? "> " : "  ";
+    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
+    const selectedVersion = selectedVersions.get(pkg.path);
+    const prefix = options.activePackage === pkg.path ? "> " : "  ";
 
     lines.push(
       `${prefix}${pkg.name}  ${formatPackageVersionSummary(currentVersion, selectedVersion)}`,
     );
 
-    for (const note of options.notes?.get(pkg.name) ?? []) {
+    for (const note of options.notes?.get(pkg.path) ?? []) {
       lines.push(`    ${note}`);
     }
   }
@@ -152,15 +153,28 @@ function buildReverseDeps(graph: Map<string, string[]>): Map<string, string[]> {
 }
 
 /**
- * Build a dependency graph from ResolvedPackageConfig[] where dependencies
- * are already resolved as internal dependency names.
+ * Build a dependency graph from ResolvedPackageConfig[] where both keys and
+ * values are package paths (translating dependency names to paths).
  */
 function buildGraphFromPackages(
   packages: ResolvedPackageConfig[],
 ): Map<string, string[]> {
+  // Build a name-to-path lookup so we can translate dependency names to paths
+  const nameToPath = new Map<string, string>();
+  const pathSet = new Set<string>();
+  for (const pkg of packages) {
+    if (pkg.name) nameToPath.set(pkg.name, pkg.path);
+    pathSet.add(pkg.path);
+  }
+
   const graph = new Map<string, string[]>();
   for (const pkg of packages) {
-    graph.set(pkg.name, [...pkg.dependencies]);
+    graph.set(
+      pkg.path,
+      pkg.dependencies
+        .map((dep) => nameToPath.get(dep) ?? dep)
+        .filter((dep) => pathSet.has(dep)),
+    );
   }
   return graph;
 }
@@ -268,19 +282,21 @@ async function handleSinglePackage(
 ): Promise<void> {
   const pkg = ctx.config.packages[0];
   const currentVersion = pkg?.version ?? "0.0.0";
-  const pkgName = pkg?.name ?? "";
+  const pkgPath = pkg?.path ?? "";
   const cwd = ctx.cwd ?? process.cwd();
 
+  const resolver = createKeyResolver(ctx.config.packages);
+
   // Check for pending changesets
-  const status = getStatus(cwd);
+  const status = getStatus(cwd, resolver);
 
   if (status.hasChangesets) {
-    const currentVersions = new Map([[pkgName, currentVersion]]);
-    const bumps = calculateVersionBumps(currentVersions, cwd);
-    const bump = bumps.get(pkgName);
+    const currentVersions = new Map([[pkgPath, currentVersion]]);
+    const bumps = calculateVersionBumps(currentVersions, cwd, resolver);
+    const bump = bumps.get(pkgPath);
 
     if (bump) {
-      const pkgStatus = status.packages.get(pkgName);
+      const pkgStatus = status.packages.get(pkgPath);
       const changesetCount = pkgStatus?.changesetCount ?? 0;
       const changesetLabel = pluralize(changesetCount, "changeset");
 
@@ -342,27 +358,27 @@ function sortPackageInfosByDependency(
   // Compute depth: 0 = no internal dependencies (base packages), higher = depends on deeper packages
   const depths = new Map<string, number>();
 
-  function getDepth(name: string, visited: Set<string>): number {
-    if (depths.has(name)) return depths.get(name) as number;
-    if (visited.has(name)) return 0;
-    visited.add(name);
-    const deps = graph.get(name) ?? [];
+  function getDepth(path: string, visited: Set<string>): number {
+    if (depths.has(path)) return depths.get(path) as number;
+    if (visited.has(path)) return 0;
+    visited.add(path);
+    const deps = graph.get(path) ?? [];
     const depth =
       deps.length === 0
         ? 0
         : Math.max(...deps.map((d) => getDepth(d, visited))) + 1;
-    depths.set(name, depth);
+    depths.set(path, depth);
     return depth;
   }
 
-  for (const name of graph.keys()) {
-    getDepth(name, new Set());
+  for (const path of graph.keys()) {
+    getDepth(path, new Set());
   }
 
   // Sort by depth ascending (dependencies first). Array.sort is stable,
   // so packages at the same depth keep their original order.
   return [...packageInfos].sort(
-    (a, b) => (depths.get(a.name) ?? 0) - (depths.get(b.name) ?? 0),
+    (a, b) => (depths.get(a.path) ?? 0) - (depths.get(b.path) ?? 0),
   );
 }
 
@@ -375,8 +391,9 @@ async function handleMultiPackage(
   packageInfos: ResolvedPackageConfig[],
 ): Promise<void> {
   const cwd = ctx.cwd ?? process.cwd();
-  const currentVersions = new Map(packageInfos.map((p) => [p.name, p.version]));
-  const status = getStatus(cwd);
+  const currentVersions = new Map(packageInfos.map((p) => [p.path, p.version]));
+  const resolver = createKeyResolver(ctx.config.packages);
+  const status = getStatus(cwd, resolver);
 
   // Build dependency graph and sort packages
   const graph = buildGraphFromPackages(packageInfos);
@@ -391,7 +408,7 @@ async function handleMultiPackage(
   // Try changeset-based recommendations first
   let bumps: Map<string, VersionBump> | undefined;
   if (status.hasChangesets) {
-    bumps = calculateVersionBumps(currentVersions, cwd);
+    bumps = calculateVersionBumps(currentVersions, cwd, resolver);
 
     if (bumps.size > 0) {
       const accepted = await promptChangesetRecommendations(
@@ -430,9 +447,9 @@ async function promptChangesetRecommendations(
   const lines: string[] = ["Changesets suggest:"];
 
   for (const pkg of sortedPackageInfos) {
-    const bump = bumps.get(pkg.name);
+    const bump = bumps.get(pkg.path);
     if (!bump) continue;
-    const pkgStatus = status.packages.get(pkg.name);
+    const pkgStatus = status.packages.get(pkg.path);
     const changesetCount = pkgStatus?.changesetCount ?? 0;
     const changesetLabel = pluralize(changesetCount, "changeset");
     lines.push(
@@ -454,9 +471,8 @@ async function promptChangesetRecommendations(
 
   if (choice === "accept") {
     const versions = new Map<string, string>();
-    for (const [name, bump] of bumps) {
-      const pkg = ctx.config.packages.find((p) => p.name === name);
-      versions.set(pkg?.path ?? name, bump.newVersion);
+    for (const [path, bump] of bumps) {
+      versions.set(path, bump.newVersion);
     }
     ctx.runtime.versionPlan = {
       mode: "independent",
@@ -479,12 +495,12 @@ function buildChangesetNotes(
 ): PackageNotes {
   const notes: PackageNotes = new Map();
   for (const pkg of packageInfos) {
-    const bump = bumps.get(pkg.name);
+    const bump = bumps.get(pkg.path);
     if (!bump) continue;
-    const pkgStatus = status.packages.get(pkg.name);
+    const pkgStatus = status.packages.get(pkg.path);
     const changesetCount = pkgStatus?.changesetCount ?? 0;
     const changesetLabel = pluralize(changesetCount, "changeset");
-    notes.set(pkg.name, [
+    notes.set(pkg.path, [
       ui.formatNote(
         "suggest",
         `${changesetLabel} suggests ${bump.bumpType} -> ${bump.newVersion}`,
@@ -605,9 +621,8 @@ async function handleFixedMode(
   }
 
   const packages = new Map<string, string>();
-  for (const name of currentVersions.keys()) {
-    const pkg = ctx.config.packages.find((p) => p.name === name);
-    packages.set(pkg?.path ?? name, nextVersion);
+  for (const pkgPath of currentVersions.keys()) {
+    packages.set(pkgPath, nextVersion);
   }
   ctx.runtime.versionPlan = {
     mode: "fixed",
@@ -615,10 +630,10 @@ async function handleFixedMode(
     packages,
   };
 
-  // Display uses name-keyed map for renderPackageVersionSummary
+  // Display uses path-keyed map for renderPackageVersionSummary
   const displayVersions = new Map<string, string>();
-  for (const name of currentVersions.keys()) {
-    displayVersions.set(name, nextVersion);
+  for (const pkgPath of currentVersions.keys()) {
+    displayVersions.set(pkgPath, nextVersion);
   }
   task.output = renderPackageVersionSummary(
     packageInfos,
@@ -638,8 +653,12 @@ async function handleIndependentMode(
   graph: Map<string, string[]>,
   bumps?: Map<string, VersionBump>,
 ): Promise<void> {
-  const packageVersionByName = new Map(
-    packageInfos.map((pkg) => [pkg.name, pkg.version]),
+  const packageVersionByPath = new Map(
+    packageInfos.map((pkg) => [pkg.path, pkg.version]),
+  );
+  // Path-to-name map for display purposes (notes show names, not paths)
+  const pathToName = new Map(
+    packageInfos.map((pkg) => [pkg.path, pkg.name || pkg.path]),
   );
   const reverseDeps = buildReverseDeps(graph);
   const versions = new Map<string, string>();
@@ -647,19 +666,23 @@ async function handleIndependentMode(
   let lastBumpType: string | undefined;
 
   for (const pkg of packageInfos) {
-    const currentVersion = currentVersions.get(pkg.name) ?? pkg.version;
+    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
 
     // Check if a dependency was bumped — suggest patch bump for dependents
-    const deps = graph.get(pkg.name) as string[];
+    const deps = graph.get(pkg.path) as string[];
     const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
     const notes: PackageNotes = new Map();
     const pkgNotes: string[] = [];
 
     if (bumpedDeps.length > 0) {
-      pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDeps));
+      // Show dependency names (not paths) in the note
+      const bumpedDepNames = bumpedDeps.map(
+        (dep) => pathToName.get(dep) ?? dep,
+      );
+      pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDepNames));
     }
 
-    const bump = bumps?.get(pkg.name);
+    const bump = bumps?.get(pkg.path);
     if (bump) {
       pkgNotes.push(
         ui.formatNote(
@@ -670,7 +693,7 @@ async function handleIndependentMode(
     }
 
     if (pkgNotes.length > 0) {
-      notes.set(pkg.name, pkgNotes);
+      notes.set(pkg.path, pkgNotes);
     }
 
     task.output = renderPackageVersionSummary(
@@ -678,7 +701,7 @@ async function handleIndependentMode(
       currentVersions,
       versions,
       {
-        activePackage: pkg.name,
+        activePackage: pkg.path,
         notes,
       },
     );
@@ -690,11 +713,11 @@ async function handleIndependentMode(
       bump?.bumpType,
       lastBumpType,
     );
-    versions.set(pkg.name, result.version);
+    versions.set(pkg.path, result.version);
     lastBumpType = result.bumpType;
 
     if (result.version !== currentVersion) {
-      bumpedPackages.add(pkg.name);
+      bumpedPackages.add(pkg.path);
     }
   }
 
@@ -713,13 +736,16 @@ async function handleIndependentMode(
     const uniqueDependents = [...new Set(unbumpedDependents)];
     const notes: PackageNotes = new Map();
 
-    for (const name of uniqueDependents) {
+    for (const pkgPath of uniqueDependents) {
       const currentVersion =
-        currentVersions.get(name) ?? (packageVersionByName.get(name) as string);
-      const deps = (graph.get(name) as string[]).filter((d) =>
+        currentVersions.get(pkgPath) ??
+        (packageVersionByPath.get(pkgPath) as string);
+      const deps = (graph.get(pkgPath) as string[]).filter((d) =>
         bumpedPackages.has(d),
       );
-      notes.set(name, [buildDependencyBumpNote(currentVersion, deps)]);
+      // Show dependency names (not paths) in the note
+      const depNames = deps.map((d) => pathToName.get(d) ?? d);
+      notes.set(pkgPath, [buildDependencyBumpNote(currentVersion, depNames)]);
     }
 
     task.output = renderPackageVersionSummary(
@@ -742,12 +768,12 @@ async function handleIndependentMode(
       });
 
     if (cascadeChoice === "patch") {
-      for (const name of uniqueDependents) {
+      for (const pkgPath of uniqueDependents) {
         const currentVersion =
-          currentVersions.get(name) ??
-          (packageVersionByName.get(name) as string);
+          currentVersions.get(pkgPath) ??
+          (packageVersionByPath.get(pkgPath) as string);
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
-        versions.set(name, patchVersion);
+        versions.set(pkgPath, patchVersion);
       }
     }
   }
@@ -758,13 +784,8 @@ async function handleIndependentMode(
     versions,
   );
 
-  const pathVersions = new Map<string, string>();
-  for (const [name, ver] of versions) {
-    const pkg = ctx.config.packages.find((p) => p.name === name);
-    pathVersions.set(pkg?.path ?? name, ver);
-  }
   ctx.runtime.versionPlan = {
     mode: "independent",
-    packages: pathVersions,
+    packages: versions,
   };
 }

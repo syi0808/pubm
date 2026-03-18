@@ -59,7 +59,7 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
       afterRelease: async (_ctx, releaseCtx) => {
         if (
           options.packageName &&
-          releaseCtx.packageName !== options.packageName
+          releaseCtx.displayLabel !== options.packageName
         ) {
           return;
         }

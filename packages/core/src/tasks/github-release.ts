@@ -67,7 +67,7 @@ function formatReleaseNotes(
 export async function createGitHubRelease(
   _ctx: PubmContext,
   options: {
-    packageName: string;
+    displayLabel: string;
     version: string;
     tag: string;
     changelogBody?: string;
@@ -178,7 +178,7 @@ export async function createGitHubRelease(
   }
 
   return {
-    packageName: options.packageName,
+    displayLabel: options.displayLabel,
     version: options.version,
     tag: options.tag,
     releaseUrl,

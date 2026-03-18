@@ -90,7 +90,7 @@ export function generateChangesetContent(
   if (releases.length > 0) {
     const yamlObj: Record<string, string> = {};
     for (const release of releases) {
-      yamlObj[release.name] = release.type;
+      yamlObj[release.path] = release.type;
     }
     content += stringifyYaml(yamlObj);
   }

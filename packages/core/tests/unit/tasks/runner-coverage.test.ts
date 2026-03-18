@@ -400,7 +400,7 @@ beforeEach(() => {
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
   mockedCreateGitHubRelease.mockResolvedValue({
-    packageName: "pubm",
+    displayLabel: "pubm",
     version: "1.0.0",
     tag: "v1.0.0",
     releaseUrl: "https://github.com/pubm/pubm/releases/tag/v1.0.0",
@@ -513,7 +513,7 @@ describe("runner coverage scenarios", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       releaseCtx,
       expect.objectContaining({
-        packageName: "@pubm/core",
+        displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
         changelogBody: expect.stringContaining("## @pubm/core v1.2.0"),
@@ -522,7 +522,7 @@ describe("runner coverage scenarios", () => {
     expect(afterRelease).toHaveBeenCalledWith(
       releaseCtx,
       expect.objectContaining({
-        packageName: "pubm",
+        displayLabel: "pubm",
         releaseUrl: expect.stringContaining("github.com"),
       }),
     );
@@ -918,7 +918,7 @@ describe("runner coverage scenarios", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       releaseCtx,
       expect.objectContaining({
-        packageName: "@pubm/core",
+        displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
         changelogBody: undefined,
@@ -2105,7 +2105,7 @@ describe("CI GitHub Release", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "4.0.0",
         tag: "v4.0.0",
         changelogBody: "Single release notes",
@@ -2199,7 +2199,7 @@ describe("CI GitHub Release", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        packageName: "@pubm/core",
+        displayLabel: "@pubm/core",
         version: "2.0.0",
         tag: "@pubm/core@2.0.0",
         changelogBody: "Core release notes",
@@ -2208,7 +2208,7 @@ describe("CI GitHub Release", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "2.1.0",
         tag: "pubm@2.1.0",
         changelogBody: undefined,

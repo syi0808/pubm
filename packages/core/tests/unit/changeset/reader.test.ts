@@ -46,12 +46,12 @@ describe("readChangesets", () => {
     expect(result[0]).toEqual({
       id: "brave-ant",
       summary: "First change.",
-      releases: [{ name: "pkg-a", type: "minor" }],
+      releases: [{ path: "pkg-a", type: "minor" }],
     });
     expect(result[1]).toEqual({
       id: "calm-bear",
       summary: "Second change.",
-      releases: [{ name: "pkg-b", type: "patch" }],
+      releases: [{ path: "pkg-b", type: "patch" }],
     });
   });
 

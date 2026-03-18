@@ -12,6 +12,7 @@ import {
   applyLinkedGroup,
   buildChangelogEntries,
   calculateVersionBumps,
+  createKeyResolver,
   deleteChangesetFiles,
   ecosystemCatalog,
   Git,
@@ -37,7 +38,8 @@ export async function runVersionCommand(
   const { dryRun = false } = options;
 
   // 1. Read changesets
-  const changesets = readChangesets(cwd);
+  const resolver = createKeyResolver(config.packages);
+  const changesets = readChangesets(cwd, resolver);
   if (changesets.length === 0) {
     ui.info("No changesets found.");
     return;
@@ -45,14 +47,14 @@ export async function runVersionCommand(
 
   // 2. Get all packages and their current versions from resolved config
   const currentVersions = new Map(
-    config.packages.map((p) => [p.name, p.version]),
+    config.packages.map((p) => [p.path, p.version]),
   );
   if (currentVersions.size === 0) {
     throw new Error("No packages found.");
   }
 
   // 3. Calculate version bumps
-  const bumps = calculateVersionBumps(currentVersions, cwd);
+  const bumps = calculateVersionBumps(currentVersions, cwd, resolver);
 
   if (bumps.size === 0) {
     ui.info("No changesets found.");
@@ -61,7 +63,7 @@ export async function runVersionCommand(
 
   // 4. Apply fixed/linked groups from config
   {
-    const allPackages = [...currentVersions.keys()];
+    const allPackages = config.packages.map((p) => p.name);
 
     if (config.fixed && config.fixed.length > 0) {
       const resolvedFixed = resolveGroups(config.fixed, allPackages);
@@ -84,15 +86,17 @@ export async function runVersionCommand(
 
   // 5. Log bumps and generate changelogs
   const changelogs = new Map<string, { pkgPath: string; content: string }>();
-  for (const [name, bump] of bumps) {
+  for (const [pkgPath, bump] of bumps) {
     const newVersion = bump.newVersion;
 
+    const pkgConfig = config.packages.find((p) => p.path === pkgPath);
+    const displayName = pkgConfig?.name ?? pkgPath;
     console.log(
-      `${name}: ${bump.currentVersion} → ${newVersion} (${bump.bumpType})`,
+      `${displayName}: ${bump.currentVersion} → ${newVersion} (${bump.bumpType})`,
     );
 
     // Generate changelog entries from changesets for this package
-    const entries = buildChangelogEntries(changesets, name);
+    const entries = buildChangelogEntries(changesets, pkgPath);
     const changelogContent = generateChangelog(newVersion, entries);
 
     if (dryRun) {
@@ -101,9 +105,8 @@ export async function runVersionCommand(
       continue;
     }
 
-    const pkgConfig = config.packages.find((p) => p.name === name);
-    const pkgPath = pkgConfig ? path.resolve(cwd, pkgConfig.path) : cwd;
-    changelogs.set(name, { pkgPath, content: changelogContent });
+    const absPath = pkgConfig ? path.resolve(cwd, pkgConfig.path) : cwd;
+    changelogs.set(pkgPath, { pkgPath: absPath, content: changelogContent });
   }
 
   if (dryRun) {
@@ -113,8 +116,8 @@ export async function runVersionCommand(
   // 6. Write versions to manifest files via ecosystem
   const ecosystems = buildEcosystems(config.packages, bumps, cwd);
   const versions = new Map<string, string>();
-  for (const [name, bump] of bumps) {
-    versions.set(name, bump.newVersion);
+  for (const [pkgPath, bump] of bumps) {
+    versions.set(pkgPath, bump.newVersion);
   }
   await writeVersionsForEcosystem(ecosystems, versions);
 
@@ -129,7 +132,9 @@ export async function runVersionCommand(
   // 8. Create a git commit for the version bump
   const git = new Git();
   await git.stage(".");
-  const bumpedNames = [...bumps.keys()].join(", ");
+  const bumpedNames = [...bumps.keys()]
+    .map((p) => config.packages.find((pkg) => pkg.path === p)?.name ?? p)
+    .join(", ");
   await git.commit(`chore: version ${bumpedNames}`);
   ui.success(
     `Consumed ${changesets.length} changeset(s) and committed version bump.`,
@@ -142,8 +147,8 @@ function buildEcosystems(
   cwd: string,
 ): { eco: Ecosystem; pkg: ResolvedPackageConfig }[] {
   const result: { eco: Ecosystem; pkg: ResolvedPackageConfig }[] = [];
-  for (const [name] of bumps) {
-    const pkg = packages.find((p) => p.name === name);
+  for (const [pkgPath] of bumps) {
+    const pkg = packages.find((p) => p.path === pkgPath);
     if (!pkg) continue;
     const ecoKey = pkg.ecosystem ?? "js";
     const descriptor = ecosystemCatalog.get(ecoKey);

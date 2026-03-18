@@ -30,7 +30,7 @@ describe("calculateVersionBumps", () => {
       {
         id: "change-1",
         summary: "Fix bug.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
     ]);
 
@@ -51,12 +51,12 @@ describe("calculateVersionBumps", () => {
       {
         id: "change-1",
         summary: "Fix bug.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
       {
         id: "change-2",
         summary: "Add feature.",
-        releases: [{ name: "pkg-a", type: "minor" }],
+        releases: [{ path: "pkg-a", type: "minor" }],
       },
     ]);
 
@@ -77,8 +77,8 @@ describe("calculateVersionBumps", () => {
         id: "change-1",
         summary: "Fix bug in A.",
         releases: [
-          { name: "pkg-a", type: "patch" },
-          { name: "pkg-b", type: "major" },
+          { path: "pkg-a", type: "patch" },
+          { path: "pkg-b", type: "major" },
         ],
       },
     ]);
@@ -116,7 +116,7 @@ describe("calculateVersionBumps", () => {
 
     calculateVersionBumps(new Map([["pkg-a", "1.0.0"]]));
 
-    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd());
+    expect(mockedReadChangesets).toHaveBeenCalledWith(process.cwd(), undefined);
   });
 
   it("ignores releases for packages that are not in currentVersions", () => {
@@ -124,7 +124,7 @@ describe("calculateVersionBumps", () => {
       {
         id: "change-1",
         summary: "Unknown package.",
-        releases: [{ name: "pkg-b", type: "patch" }],
+        releases: [{ path: "pkg-b", type: "patch" }],
       },
     ]);
 
@@ -142,7 +142,7 @@ describe("calculateVersionBumps", () => {
       {
         id: "change-1",
         summary: "Broken metadata.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
     ]);
 
@@ -160,7 +160,7 @@ describe("calculateVersionBumps", () => {
       {
         id: "change-1",
         summary: "Unsupported bump.",
-        releases: [{ name: "pkg-a", type: "patch" }],
+        releases: [{ path: "pkg-a", type: "patch" }],
       },
     ]);
     mockedInc.mockReturnValueOnce(null as never);
