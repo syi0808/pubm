@@ -55,6 +55,7 @@ export function getPackageVersion(
 }
 
 export interface PubmContext {
+  /** Writable reference — must always be replaced with a frozen value via `filterConfigPackages`. */
   config: ResolvedPubmConfig;
   readonly options: ResolvedOptions;
   readonly cwd: string;
