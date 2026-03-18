@@ -344,7 +344,18 @@ export class JsrPackageRegistry extends PackageRegistry {
 }
 
 export class JsrClient {
-  static token = new SecureStore().get("jsr-token");
+  static #cachedToken: string | null | undefined = undefined;
+
+  static get token(): string | null {
+    if (JsrClient.#cachedToken === undefined) {
+      JsrClient.#cachedToken = new SecureStore().get("jsr-token");
+    }
+    return JsrClient.#cachedToken;
+  }
+
+  static set token(value: string | null) {
+    JsrClient.#cachedToken = value;
+  }
 
   constructor(public apiEndpoint: string) {}
 
