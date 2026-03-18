@@ -503,14 +503,19 @@ async function handleRemainingPackages(
   const reverseDeps = buildReverseDeps(graph);
 
   for (const pkg of remainingPackages) {
-    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
-    const deps = graph.get(pkg.path) ?? [];
+    // remainingPackages ⊆ packageInfos so currentVersions and graph always have pkg.path
+    /* istanbul ignore next */
+    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version; // unreachable fallback
+    /* istanbul ignore next */
+    const deps = graph.get(pkg.path) ?? []; // unreachable fallback
     const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
     const pkgNotes: string[] = [];
 
     if (bumpedDeps.length > 0) {
       const bumpedDepNames = bumpedDeps.map(
-        (dep) => pathToName.get(dep) ?? dep,
+        // dep ∈ graph[pkg.path] only contains config package paths in pathToName
+        /* istanbul ignore next */
+        (dep) => pathToName.get(dep) ?? dep, // unreachable fallback
       );
       pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDepNames));
     }
@@ -536,7 +541,10 @@ async function handleRemainingPackages(
   // Cascade prompt for unbumped dependents
   const unbumpedDependents: string[] = [];
   for (const bumped of bumpedPackages) {
+    // reverseDeps is built from all config package paths, so the key is always present
+    /* istanbul ignore next */
     for (const dep of reverseDeps.get(bumped) ?? []) {
+      // unreachable fallback
       if (!bumpedPackages.has(dep)) {
         unbumpedDependents.push(dep);
       }
@@ -547,11 +555,16 @@ async function handleRemainingPackages(
     const uniqueDependents = [...new Set(unbumpedDependents)];
     const notes: PackageNotes = new Map();
     for (const pkgPath of uniqueDependents) {
-      const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0";
+      // pkgPath ∈ reverseDeps = packageInfos paths, so these maps always have the key
+      /* istanbul ignore next */
+      const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0"; // unreachable fallback
+      /* istanbul ignore next */
       const deps = (graph.get(pkgPath) ?? []).filter((d) =>
         bumpedPackages.has(d),
-      );
-      const depNames = deps.map((d) => pathToName.get(d) ?? d);
+      ); // unreachable fallback
+      // d is a config package path, always present in pathToName
+      /* istanbul ignore next */
+      const depNames = deps.map((d) => pathToName.get(d) ?? d); // unreachable fallback
       notes.set(pkgPath, [buildDependencyBumpNote(currentVersion, depNames)]);
     }
 
@@ -576,7 +589,9 @@ async function handleRemainingPackages(
 
     if (cascadeChoice === "patch") {
       for (const pkgPath of uniqueDependents) {
-        const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0";
+        // pkgPath ∈ uniqueDependents ⊆ reverseDeps = packageInfos paths
+        /* istanbul ignore next */
+        const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0"; // unreachable fallback
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
         versions.set(pkgPath, patchVersion);
         publishPaths.add(pkgPath);

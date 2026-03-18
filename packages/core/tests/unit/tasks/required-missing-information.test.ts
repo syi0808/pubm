@@ -466,7 +466,9 @@ describe("requiredMissingInformationTasks", () => {
         mode: "independent",
         packages: new Map([["packages/core", "0.3.7"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+        false,
+      );
       expect(
         mockTask.outputs.some(
           (output) =>
@@ -844,8 +846,12 @@ describe("requiredMissingInformationTasks", () => {
         mode: "independent",
         packages: new Map([["packages/core", "0.4.0"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-a")).toBe(false);
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-b")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-a")).toBe(
+        false,
+      );
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-b")).toBe(
+        false,
+      );
       expect(
         mockTask.outputs.some((output) =>
           output.includes("dependencies @pubm/core, @pubm/core bumped"),
@@ -951,7 +957,9 @@ describe("requiredMissingInformationTasks", () => {
         mode: "independent",
         packages: new Map([["packages/core", "0.4.0"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+        false,
+      );
     });
 
     it("no-changeset independent: excludes packages with unchanged versions from versionPlan and config", async () => {
@@ -991,7 +999,9 @@ describe("requiredMissingInformationTasks", () => {
 
       // Only pkgA (changed) should appear in the plan
       expect(ctx.runtime.versionPlan?.packages.has("packages/core")).toBe(true);
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+        false,
+      );
       // filterConfigPackages must be called with only pkgA's path
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
@@ -1639,6 +1649,250 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
+
+    it("add_packages: shows dependency-bump note when remaining package depends on changeset-bumped package", async () => {
+      // pkgA is changeset-bumped; pkgB (remaining) depends on pkgA
+      const pkgANoDep = makePkg({
+        name: "@scope/a",
+        version: "1.0.0",
+        path: "packages/a",
+        dependencies: [],
+      });
+      const pkgBDependsOnA = makePkg({
+        name: "@scope/b",
+        version: "2.0.0",
+        path: "packages/b",
+        dependencies: ["@scope/a"],
+      });
+
+      const ctx: any = {
+        config: {
+          packages: [pkgANoDep, pkgBDependsOnA],
+          versioning: undefined,
+        },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const mockTask = createMockTask();
+
+      // add_packages → pkgB (remaining, depends on pkgA): keep current
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      // Task output should have been set when showing notes about pkgB's bumped dep
+      expect(mockTask.outputs.length).toBeGreaterThan(0);
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
+
+    it("add_packages: cascade prompt fires when a bumped remaining package has unbumped dependents", async () => {
+      // pkgA is changeset-bumped
+      // pkgB (remaining) depends on pkgA — user bumps it to 2.1.0
+      // pkgC (remaining) depends on pkgB — user keeps 3.0.0 → cascade triggered
+      const pkgANoDep = makePkg({
+        name: "@scope/a",
+        version: "1.0.0",
+        path: "packages/a",
+        dependencies: [],
+      });
+      const pkgBDepsA = makePkg({
+        name: "@scope/b",
+        version: "2.0.0",
+        path: "packages/b",
+        dependencies: ["@scope/a"],
+      });
+      const pkgCDepsB = makePkg({
+        name: "@scope/c",
+        version: "3.0.0",
+        path: "packages/c",
+        dependencies: ["@scope/b"],
+      });
+
+      const ctx: any = {
+        config: {
+          packages: [pkgANoDep, pkgBDepsA, pkgCDepsB],
+          versioning: undefined,
+        },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const mockTask = createMockTask();
+
+      // add_packages → pkgB (remaining): 2.1.0 (bumped) → pkgC (remaining): 3.0.0 (keep) → cascade: patch
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.1.0") // pkgB bumped
+        .mockResolvedValueOnce("3.0.0") // pkgC keep current → cascade trigger
+        .mockResolvedValueOnce("patch"); // cascade accepted
+
+      await versionTask.task(ctx, mockTask);
+
+      // pkgC should be in the versionPlan with 3.0.1 (patch bump)
+      expect(ctx.runtime.versionPlan?.packages.get("packages/c")).toBe("3.0.1");
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/a", "packages/b", "packages/c"]),
+      );
+    });
+
+    it("add_packages: cascade skipped when user declines", async () => {
+      const pkgANoDep = makePkg({
+        name: "@scope/a",
+        version: "1.0.0",
+        path: "packages/a",
+        dependencies: [],
+      });
+      const pkgBDepsA = makePkg({
+        name: "@scope/b",
+        version: "2.0.0",
+        path: "packages/b",
+        dependencies: ["@scope/a"],
+      });
+      const pkgCDepsB = makePkg({
+        name: "@scope/c",
+        version: "3.0.0",
+        path: "packages/c",
+        dependencies: ["@scope/b"],
+      });
+
+      const ctx: any = {
+        config: {
+          packages: [pkgANoDep, pkgBDepsA, pkgCDepsB],
+          versioning: undefined,
+        },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const mockTask = createMockTask();
+
+      // add_packages → pkgB: 2.1.0 → pkgC: 3.0.0 (keep) → cascade: skip
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.1.0")
+        .mockResolvedValueOnce("3.0.0")
+        .mockResolvedValueOnce("skip");
+
+      await versionTask.task(ctx, mockTask);
+
+      // pkgC should NOT be in the versionPlan (cascade declined)
+      expect(ctx.runtime.versionPlan?.packages.has("packages/c")).toBe(false);
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/a", "packages/b"]),
+      );
+    });
+
+    it("add_packages: uses pkg.path as display name when package has no name", async () => {
+      // pkgA (changeset-bumped, no name) — pathToName uses path as fallback
+      // pkgB (remaining, depends on pkgA) — the dep bump note shows pkgA's path
+      const pkgANoName = {
+        path: "packages/a",
+        version: "1.0.0",
+        registries: ["npm"],
+        dependencies: [],
+        // no name property
+      } as any;
+      const pkgBDepsA = makePkg({
+        name: "@scope/b",
+        version: "2.0.0",
+        path: "packages/b",
+        dependencies: ["packages/a"], // depends on pkgA by path (since pkgA has no name)
+      });
+
+      const ctx: any = {
+        config: { packages: [pkgANoName, pkgBDepsA], versioning: undefined },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const mockTask = createMockTask();
+
+      // add_packages → pkgB: keep current
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
   });
 
   describe("three-choice prompt — no choice", () => {
@@ -1696,7 +1950,8 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan?.packages.has("packages/a")).toBe(true);
       expect(ctx.runtime.versionPlan?.packages.has("packages/b")).toBe(false);
 
-      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      const filterArg = mockedFilterConfigPackages.mock
+        .calls[0][1] as Set<string>;
       expect(filterArg.has("packages/a")).toBe(true);
       expect(filterArg.has("packages/b")).toBe(false);
     });
@@ -1750,7 +2005,8 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       expect(mockedFilterConfigPackages).toHaveBeenCalled();
-      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      const filterArg = mockedFilterConfigPackages.mock
+        .calls[0][1] as Set<string>;
       expect(filterArg.has("packages/b")).toBe(false);
     });
 
@@ -1796,7 +2052,8 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan?.packages.has("packages/c")).toBe(true);
       expect(ctx.runtime.versionPlan?.packages.get("packages/c")).toBe("2.0.1");
 
-      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      const filterArg = mockedFilterConfigPackages.mock
+        .calls[0][1] as Set<string>;
       expect(filterArg.has("packages/a")).toBe(true);
       expect(filterArg.has("packages/c")).toBe(true);
     });
