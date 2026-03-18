@@ -146,7 +146,9 @@ export interface Options {
 }
 ```
 
-`prepare`와 `publish`를 독립 boolean으로 모델링하여 Commander의 플래그 처리와 자연스럽게 매핑한다.
+`prepare`와 `publish`를 독립 boolean으로 모델링하여 SDK API에서 직접 사용한다.
+
+**CLI vs SDK interface:** CLI에서는 Commander의 `--no-publish` (skipPublish)와의 네이밍 충돌을 피하기 위해 `--phase <prepare|publish>` 단일 옵션을 사용한다. `resolveCliOptions`에서 `--phase prepare` → `{ prepare: true }`, `--phase publish` → `{ publish: true }`로 변환한다.
 
 ### Runner 분기 단순화
 
