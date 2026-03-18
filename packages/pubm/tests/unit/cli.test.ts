@@ -793,6 +793,104 @@ describe("CLI action handler - CI mode", () => {
   });
 });
 
+describe("CLI action handler - local publish-only mode", () => {
+  it("reads version from manifest for single package with --phase publish", async () => {
+    sharedResolvedConfig.packages = [
+      {
+        name: "my-pkg",
+        version: "3.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "3.0.0",
+      packagePath: ".",
+    });
+  });
+
+  it("creates an independent versionPlan for independent versioning with --phase publish", async () => {
+    sharedResolvedConfig.versioning = "independent";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "2.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "independent",
+      packages: new Map([
+        ["packages/a", "1.0.0"],
+        ["packages/b", "2.0.0"],
+      ]),
+    });
+  });
+
+  it("creates a fixed versionPlan for multi-package with --phase publish", async () => {
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "4.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+      {
+        name: "pkg-b",
+        version: "4.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "4.0.0",
+      packages: new Map([
+        ["packages/a", "4.0.0"],
+        ["packages/b", "4.0.0"],
+      ]),
+    });
+  });
+
+  it("falls back to defaults when packages array is empty with --phase publish", async () => {
+    sharedResolvedConfig.packages = [];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "",
+      packagePath: ".",
+    });
+  });
+});
+
 describe("CLI action handler - error handling", () => {
   it("should call consoleError when pubm throws", async () => {
     mockIsCI.isCI = false;
