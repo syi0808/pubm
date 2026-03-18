@@ -302,13 +302,7 @@ export default defineConfig({
 
 ### 단일 라이브러리
 
-`package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다.
-
-```ts
-import { defineConfig } from "@pubm/core";
-
-export default defineConfig({});
-```
+`package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다. config 파일은 필요하지 않습니다 — `pubm.config.ts`는 선택 사항입니다. 기본값을 재정의해야 할 때(커스텀 브랜치, 플러그인, 릴리즈 에셋 등)만 생성하세요.
 
 ### 앱 모노레포
 
