@@ -127,8 +127,9 @@ Before committing, always run these checks in order and fix any failures:
 1. `bun run format` — auto-fix lint and formatting issues
 2. `bun run typecheck` — ensure no type errors
 3. `bun run test` — ensure all tests pass
+4. `bun run coverage` — ensure coverage thresholds are not decreased
 
-Only commit after all three pass.
+Only commit after all four pass.
 
 ## Coverage Maintenance
 
@@ -139,10 +140,21 @@ Coverage thresholds are enforced per-package in `vitest.config.mts`. **Never low
 - Use `/* istanbul ignore next */` sparingly — only for genuinely untestable code (compile-time constants, exhaustiveness guards). Always include a reason comment
 - When modifying a file below threshold, add tests to bring it up
 
+## Changeset Workflow
+
+After completing a bug fix or feature addition, create a changeset to document the change:
+
+```bash
+bunx pubm add --packages <package-name> --bump <patch|minor|major> --message "description of the change"
+```
+
+- `patch` — bug fixes, minor corrections
+- `minor` — new features, non-breaking additions
+- `major` — breaking changes
+
+Changesets are required for any user-facing change. Do not commit without adding a changeset when applicable.
+
 ## Code Style
 
-- **Formatter/Linter**: Biome with recommended rules
-- **Indentation**: 2 spaces, single quotes
-- **Package manager**: bun
 - **Module system**: ESM (`"type": "module"`)
 - **TypeScript**: Strict mode, target ES2020, bundler module resolution
