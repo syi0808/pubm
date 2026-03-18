@@ -119,7 +119,7 @@ interface PubmContext {
 interface SingleVersionPlan {
   mode: "single";
   version: string;
-  packageName: string;
+  packagePath: string;
 }
 
 // All packages same version
