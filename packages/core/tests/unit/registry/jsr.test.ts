@@ -39,6 +39,7 @@ import {
   isScopedPackage,
   isValidPackageName,
 } from "../../../src/utils/package-name.js";
+import { SecureStore } from "../../../src/utils/secure-store.js";
 
 const mockedExec = vi.mocked(exec);
 const mockedGetScope = vi.mocked(getScope);
@@ -1039,6 +1040,40 @@ describe("JsrClient", () => {
       await expect(client.searchPackage("my-query")).rejects.toThrow(
         "Failed to fetch `https://api.jsr.io/packages?query=my-query`",
       );
+    });
+  });
+
+  describe("token (lazy initialization)", () => {
+    beforeEach(() => {
+      // Reset #cachedToken to undefined so each test starts with a cold cache
+      JsrClient.token = undefined as unknown as null;
+    });
+
+    it("does not call SecureStore.get before first token access", () => {
+      const getSpy = vi.spyOn(SecureStore.prototype, "get");
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it("calls SecureStore.get on first token access", () => {
+      const getSpy = vi.spyOn(SecureStore.prototype, "get");
+      JsrClient.token;
+      expect(getSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("caches the result — SecureStore.get called only once across multiple accesses", () => {
+      const getSpy = vi.spyOn(SecureStore.prototype, "get");
+      JsrClient.token;
+      JsrClient.token;
+      JsrClient.token;
+      expect(getSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("setter overrides cached token without calling SecureStore.get", () => {
+      JsrClient.token = "override-token";
+      const getSpy = vi.spyOn(SecureStore.prototype, "get");
+      const value = JsrClient.token;
+      expect(value).toBe("override-token");
+      expect(getSpy).not.toHaveBeenCalled();
     });
   });
 });
