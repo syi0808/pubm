@@ -5,7 +5,9 @@ import { CratesPackageRegistry } from "../registry/crates.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
 import { exec } from "../utils/exec.js";
+import type { EcosystemDescriptor } from "./descriptor.js";
 import { Ecosystem } from "./ecosystem.js";
+import { RustEcosystemDescriptor } from "./rust-descriptor.js";
 
 export class RustEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
@@ -106,5 +108,15 @@ export class RustEcosystem extends Ecosystem {
 
   supportedRegistries(): RegistryType[] {
     return ["crates"];
+  }
+
+  async createDescriptor(): Promise<EcosystemDescriptor> {
+    const reader = CratesPackageRegistry.reader;
+
+    const cratesName = (await reader.exists(this.packagePath))
+      ? (await reader.read(this.packagePath)).name
+      : undefined;
+
+    return new RustEcosystemDescriptor(this.packagePath, cratesName);
   }
 }

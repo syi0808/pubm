@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { EcosystemDescriptor } from "../../../src/ecosystem/descriptor.js";
 import { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../../../src/registry/package-registry.js";
 import type { RegistryType } from "../../../src/types/options.js";
@@ -19,6 +20,9 @@ class TestEcosystem extends Ecosystem {
   }
   supportedRegistries(): RegistryType[] {
     return ["npm"];
+  }
+  async createDescriptor(): Promise<EcosystemDescriptor> {
+    throw new Error("not implemented");
   }
 }
 
@@ -72,6 +76,9 @@ describe("Ecosystem", () => {
       }
       supportedRegistries(): RegistryType[] {
         return ["npm"];
+      }
+      async createDescriptor(): Promise<EcosystemDescriptor> {
+        throw new Error("not implemented");
       }
     }
 

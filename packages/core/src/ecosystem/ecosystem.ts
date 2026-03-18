@@ -4,6 +4,7 @@ import type {
 } from "../manifest/manifest-reader.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
+import type { EcosystemDescriptor } from "./descriptor.js";
 
 export abstract class Ecosystem {
   constructor(public packagePath: string) {}
@@ -14,6 +15,7 @@ export abstract class Ecosystem {
   abstract defaultTestCommand(): Promise<string> | string;
   abstract defaultBuildCommand(): Promise<string> | string;
   abstract supportedRegistries(): RegistryType[];
+  abstract createDescriptor(): Promise<EcosystemDescriptor>;
 
   async readManifest(): Promise<PackageManifest> {
     for (const RegClass of this.registryClasses()) {

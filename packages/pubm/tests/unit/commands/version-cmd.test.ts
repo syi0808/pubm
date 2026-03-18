@@ -7,6 +7,7 @@ const mockGitInstance = {
 };
 
 vi.mock("@pubm/core", () => ({
+  createKeyResolver: vi.fn(() => (name: string) => name),
   readChangesets: vi.fn(),
   deleteChangesetFiles: vi.fn(),
   calculateVersionBumps: vi.fn(),
@@ -105,7 +106,7 @@ describe("runVersionCommand", () => {
 
     const bumps = new Map([
       [
-        "my-pkg",
+        ".",
         {
           currentVersion: "1.0.0",
           newVersion: "1.1.0",
@@ -125,17 +126,15 @@ describe("runVersionCommand", () => {
     await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(mockedCalculateVersionBumps).toHaveBeenCalledWith(
-      new Map([["my-pkg", "1.0.0"]]),
+      new Map([[".", "1.0.0"]]),
       "/tmp/project",
+      expect.any(Function),
     );
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
-      new Map([["my-pkg", "1.1.0"]]),
+      new Map([[".", "1.1.0"]]),
     );
-    expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(
-      changesets,
-      "my-pkg",
-    );
+    expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(changesets, ".");
     expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", entries);
     // Changelog written via shared utility
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
@@ -183,7 +182,7 @@ describe("runVersionCommand", () => {
 
     const bumps = new Map([
       [
-        "my-pkg",
+        ".",
         {
           currentVersion: "2.0.0",
           newVersion: "2.1.0",
@@ -219,7 +218,7 @@ describe("runVersionCommand", () => {
     mockedCalculateVersionBumps.mockReturnValue(
       new Map([
         [
-          "my-pkg",
+          ".",
           {
             currentVersion: "1.0.0",
             newVersion: "1.0.1",
@@ -269,7 +268,7 @@ describe("runVersionCommand", () => {
 
     const bumps = new Map([
       [
-        "my-pkg",
+        ".",
         {
           currentVersion: "1.0.0",
           newVersion: "1.0.1",
@@ -312,7 +311,7 @@ describe("runVersionCommand", () => {
     mockedCalculateVersionBumps.mockReturnValue(
       new Map([
         [
-          "pkg-a",
+          "packages/pkg-a",
           {
             currentVersion: "1.0.0",
             newVersion: "1.1.0",
@@ -340,8 +339,15 @@ describe("runVersionCommand", () => {
     });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
     mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
+      // The implementation passes path-keyed bumpTypes and name-based groups.
+      // Simulate applyFixedGroup by translating group names to paths and setting minor.
+      const nameToPaths: Record<string, string> = {
+        "pkg-a": "packages/pkg-a",
+        "pkg-b": "packages/pkg-b",
+      };
       for (const name of group) {
-        bumpTypes.set(name, "minor");
+        const p = nameToPaths[name] ?? name;
+        bumpTypes.set(p, "minor");
       }
     });
     mockedGenerateChangelog.mockReturnValue("## 1.1.0\n");
@@ -355,8 +361,8 @@ describe("runVersionCommand", () => {
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([
-        ["pkg-a", "1.1.0"],
-        ["pkg-b", "1.1.0"],
+        ["packages/pkg-a", "1.1.0"],
+        ["packages/pkg-b", "1.1.0"],
       ]),
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(

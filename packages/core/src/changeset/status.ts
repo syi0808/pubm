@@ -15,20 +15,23 @@ export interface Status {
   hasChangesets: boolean;
 }
 
-export function getStatus(cwd: string = process.cwd()): Status {
-  const changesets = readChangesets(cwd);
+export function getStatus(
+  cwd: string = process.cwd(),
+  resolveKey?: (key: string) => string,
+): Status {
+  const changesets = readChangesets(cwd, resolveKey);
   const packages = new Map<string, PackageStatus>();
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      const existing = packages.get(release.name);
+      const existing = packages.get(release.path);
 
       if (existing) {
         existing.bumpType = maxBump(existing.bumpType, release.type);
         existing.changesetCount += 1;
         existing.summaries.push(changeset.summary);
       } else {
-        packages.set(release.name, {
+        packages.set(release.path, {
           bumpType: release.type,
           changesetCount: 1,
           summaries: [changeset.summary],

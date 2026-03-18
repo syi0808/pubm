@@ -3,7 +3,7 @@ import { parse as parseYaml } from "yaml";
 export type BumpType = "patch" | "minor" | "major";
 
 export interface Release {
-  name: string;
+  path: string;
   type: BumpType;
 }
 
@@ -15,7 +15,11 @@ export interface Changeset {
 
 const VALID_BUMP_TYPES = new Set(["patch", "minor", "major"]);
 
-export function parseChangeset(content: string, fileName: string): Changeset {
+export function parseChangeset(
+  content: string,
+  fileName: string,
+  resolveKey?: (key: string) => string,
+): Changeset {
   const frontmatterRegex = /^---\r?\n([\s\S]*?)---/;
   const match = content.match(frontmatterRegex);
 
@@ -33,13 +37,14 @@ export function parseChangeset(content: string, fileName: string): Changeset {
   const releases: Release[] = [];
 
   if (parsed) {
-    for (const [name, type] of Object.entries(parsed)) {
+    for (const [key, type] of Object.entries(parsed)) {
       if (!VALID_BUMP_TYPES.has(type)) {
         throw new Error(
-          `Invalid bump type "${type}" for package "${name}" in "${fileName}". Expected: patch, minor, or major.`,
+          `Invalid bump type "${type}" for package "${key}" in "${fileName}". Expected: patch, minor, or major.`,
         );
       }
-      releases.push({ name, type: type as BumpType });
+      const path = resolveKey ? resolveKey(key) : key;
+      releases.push({ path, type: type as BumpType });
     }
   }
 

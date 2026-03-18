@@ -267,13 +267,13 @@ describe("requiredMissingInformationTasks", () => {
     it("accepts a single-package changeset recommendation and marks it consumed", async () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
-        packages: new Map([["my-pkg", { changesetCount: 2 }]]),
+        packages: new Map([[".", { changesetCount: 2 }]]),
         changesets: [{ id: "major-release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "my-pkg",
+            ".",
             {
               currentVersion: "1.0.0",
               newVersion: "1.1.0",
@@ -314,7 +314,7 @@ describe("requiredMissingInformationTasks", () => {
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "",
+            ".",
             {
               currentVersion: "1.0.0",
               newVersion: "1.0.1",
@@ -353,13 +353,13 @@ describe("requiredMissingInformationTasks", () => {
     it("falls back to manual selection when a changeset recommendation is customized", async () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
-        packages: new Map([["my-pkg", { changesetCount: 1 }]]),
+        packages: new Map([[".", { changesetCount: 1 }]]),
         changesets: [{ id: "manual-override" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "my-pkg",
+            ".",
             {
               currentVersion: "1.0.0",
               newVersion: "1.0.1",
@@ -502,15 +502,15 @@ describe("requiredMissingInformationTasks", () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
         packages: new Map([
-          ["@pubm/core", { changesetCount: 1 }],
-          ["pubm", { changesetCount: 2 }],
+          ["packages/core", { changesetCount: 1 }],
+          ["packages/pubm", { changesetCount: 2 }],
         ]),
         changesets: [{ id: "workspace-release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "0.3.6",
               newVersion: "0.3.7",
@@ -518,7 +518,7 @@ describe("requiredMissingInformationTasks", () => {
             },
           ],
           [
-            "pubm",
+            "packages/pubm",
             {
               currentVersion: "0.3.6",
               newVersion: "0.4.0",
@@ -570,13 +570,13 @@ describe("requiredMissingInformationTasks", () => {
       ];
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
-        packages: new Map([["@pubm/core", { changesetCount: 1 }]]),
+        packages: new Map([["packages/core", { changesetCount: 1 }]]),
         changesets: [{ id: "workspace-release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "0.3.6",
               newVersion: "0.3.7",
@@ -584,7 +584,7 @@ describe("requiredMissingInformationTasks", () => {
             },
           ],
           [
-            "pubm",
+            "packages/pubm",
             {
               currentVersion: "0.3.6",
               newVersion: "0.4.0",
@@ -1067,15 +1067,15 @@ describe("requiredMissingInformationTasks", () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
         packages: new Map([
-          ["@pubm/core", { changesetCount: 3 }],
-          ["pubm", { changesetCount: 1 }],
+          ["packages/core", { changesetCount: 3 }],
+          ["packages/pubm", { changesetCount: 1 }],
         ]),
         changesets: [{ id: "release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "1.0.0",
               newVersion: "1.1.0",
@@ -1083,7 +1083,7 @@ describe("requiredMissingInformationTasks", () => {
             },
           ],
           [
-            "pubm",
+            "packages/pubm",
             {
               currentVersion: "1.0.0",
               newVersion: "1.0.1",
@@ -1147,13 +1147,13 @@ describe("requiredMissingInformationTasks", () => {
       ];
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
-        packages: new Map([["@pubm/core", { changesetCount: 2 }]]),
+        packages: new Map([["packages/core", { changesetCount: 2 }]]),
         changesets: [{ id: "release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "1.0.0",
               newVersion: "1.1.0",
@@ -1208,13 +1208,13 @@ describe("requiredMissingInformationTasks", () => {
       ];
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
-        packages: new Map([["@pubm/core", { changesetCount: 1 }]]),
+        packages: new Map([["packages/core", { changesetCount: 1 }]]),
         changesets: [{ id: "release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "1.0.0",
               newVersion: "2.0.0",
@@ -1276,15 +1276,15 @@ describe("requiredMissingInformationTasks", () => {
       mockedGetStatus.mockReturnValue({
         hasChangesets: true,
         packages: new Map([
-          ["@pubm/core", { changesetCount: 1 }],
-          ["pubm", { changesetCount: 1 }],
+          ["packages/core", { changesetCount: 1 }],
+          ["packages/pubm", { changesetCount: 1 }],
         ]),
         changesets: [{ id: "release" }],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
         new Map([
           [
-            "pubm",
+            "packages/pubm",
             {
               currentVersion: "1.0.0",
               newVersion: "1.0.1",
@@ -1292,7 +1292,7 @@ describe("requiredMissingInformationTasks", () => {
             },
           ],
           [
-            "@pubm/core",
+            "packages/core",
             {
               currentVersion: "1.0.0",
               newVersion: "1.1.0",

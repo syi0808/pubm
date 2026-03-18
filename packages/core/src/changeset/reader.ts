@@ -4,7 +4,10 @@ import process from "node:process";
 import type { Changeset } from "./parser.js";
 import { parseChangeset } from "./parser.js";
 
-export function readChangesets(cwd: string = process.cwd()): Changeset[] {
+export function readChangesets(
+  cwd: string = process.cwd(),
+  resolveKey?: (key: string) => string,
+): Changeset[] {
   const changesetsDir = path.join(cwd, ".pubm", "changesets");
 
   if (!existsSync(changesetsDir)) {
@@ -22,7 +25,7 @@ export function readChangesets(cwd: string = process.cwd()): Changeset[] {
 
     const filePath = path.join(changesetsDir, file);
     const content = readFileSync(filePath, "utf-8");
-    changesets.push(parseChangeset(content, file));
+    changesets.push(parseChangeset(content, file, resolveKey));
   }
 
   return changesets;

@@ -14,7 +14,7 @@ Summary text here.`;
     expect(result).toEqual({
       id: "cool-change",
       summary: "Summary text here.",
-      releases: [{ name: "pkg-name", type: "minor" }],
+      releases: [{ path: "pkg-name", type: "minor" }],
     });
   });
 
@@ -33,9 +33,9 @@ Added a new feature.`;
       id: "multi-pkg",
       summary: "Added a new feature.",
       releases: [
-        { name: "pkg-a", type: "major" },
-        { name: "@scope/pkg-b", type: "patch" },
-        { name: "pkg-c", type: "minor" },
+        { path: "pkg-a", type: "major" },
+        { path: "@scope/pkg-b", type: "patch" },
+        { path: "pkg-c", type: "minor" },
       ],
     });
   });
@@ -119,7 +119,7 @@ Summary.`;
     expect(result).toEqual({
       id: "crlf",
       summary: "Windows line endings.",
-      releases: [{ name: "pkg-name", type: "patch" }],
+      releases: [{ path: "pkg-name", type: "patch" }],
     });
   });
 
@@ -129,5 +129,19 @@ Summary.`;
     expect(() => parseChangeset(content, "bad-file.md")).toThrow(
       'Invalid changeset format in "bad-file.md": missing frontmatter',
     );
+  });
+
+  it("resolves name to path via resolveKey", () => {
+    const content = '---\n"@pubm/core": minor\n---\n\nsome change\n';
+    const resolver = (key: string) =>
+      key === "@pubm/core" ? "packages/core" : key;
+    const result = parseChangeset(content, "test.md", resolver);
+    expect(result.releases[0].path).toBe("packages/core");
+  });
+
+  it("passes key through when resolveKey is not provided", () => {
+    const content = '---\n"packages/core": minor\n---\n\nsome change\n';
+    const result = parseChangeset(content, "test.md");
+    expect(result.releases[0].path).toBe("packages/core");
   });
 });

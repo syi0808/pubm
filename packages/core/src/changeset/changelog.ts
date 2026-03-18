@@ -52,13 +52,13 @@ export function generateChangelog(
 
 export function buildChangelogEntries(
   changesets: Changeset[],
-  packageName: string,
+  packagePath: string,
 ): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      if (release.name === packageName) {
+      if (release.path === packagePath) {
         entries.push({
           summary: changeset.summary,
           type: release.type,

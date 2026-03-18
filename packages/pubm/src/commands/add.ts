@@ -1,6 +1,6 @@
 import process from "node:process";
 import type { BumpType, Release, ResolvedPubmConfig } from "@pubm/core";
-import { ui, writeChangeset } from "@pubm/core";
+import { createKeyResolver, ui, writeChangeset } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
@@ -38,8 +38,10 @@ export function registerAddCommand(
           const packages = options.packages
             .split(",")
             .map((p: string) => p.trim());
-          const releases = packages.map((name: string) => ({
-            name,
+          const config = getConfig();
+          const resolver = createKeyResolver(config.packages);
+          const releases = packages.map((input: string) => ({
+            path: resolver(input),
             type: options.bump as BumpType,
           }));
           const filePath = writeChangeset(releases, options.message);
@@ -53,11 +55,13 @@ export function registerAddCommand(
 
         interface PackageInfo {
           name: string;
+          path: string;
           version: string;
         }
 
         const availablePackages: PackageInfo[] = config.packages.map((p) => ({
           name: p.name,
+          path: p.path,
           version: p.version,
         }));
 
@@ -116,7 +120,7 @@ export function registerAddCommand(
             choices: bumpChoices,
           });
 
-          releases.push({ name: pkg.name, type: bumpType as BumpType });
+          releases.push({ path: pkg.path, type: bumpType as BumpType });
         }
 
         // Step 3: Summary input

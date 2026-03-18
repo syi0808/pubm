@@ -83,12 +83,15 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease({} as any, {
-      packageName: "pubm",
-      version: "1.2.0",
-      tag: "v1.2.0",
-      assets: [],
-    });
+    const result = await createGitHubRelease(
+      {} as any,
+      {
+        displayLabel: "pubm",
+        version: "1.2.0",
+        tag: "v1.2.0",
+        assets: [],
+      } as any,
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -102,7 +105,7 @@ describe("createGitHubRelease", () => {
       "https://github.com/pubm/pubm/compare/first-commit...v1.2.0",
     );
     expect(result?.assets).toEqual([]);
-    expect(result?.packageName).toBe("pubm");
+    expect(result?.displayLabel).toBe("pubm");
   });
 
   it("uses the provided changelog body and marks pre-releases correctly", async () => {
