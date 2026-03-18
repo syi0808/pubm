@@ -213,7 +213,7 @@ Add to `package.json`. The `release` script depends on whether CI was set up:
 {
   "scripts": {
     "release": "pubm --no-publish",
-    "ci:release": "pubm --ci"
+    "ci:release": "pubm --mode ci --phase publish"
   }
 }
 ```
@@ -245,8 +245,8 @@ Remind the user they can run `pubm inspect packages` at any time to verify their
 - Config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
 - Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init --changesets`).
 - If unsure which registries the user wants, ask. Do not assume.
-- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --ci"` for CI.
-- In CI, use `--ci` mode (publish + GitHub Release) or `--publish-only` mode (publish only).
+- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --mode ci --phase publish"` for CI.
+- In CI, use `--mode ci --phase publish` (publish + GitHub Release) or `--phase publish` (publish only).
 - When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init --changesets` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
 
 ## References

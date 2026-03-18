@@ -40,7 +40,8 @@ describe("BinaryRunner", () => {
     const runner = new BinaryRunner(tmpDir);
     const { stderr } = await runner.runWithEnv(
       { ...process.env, CI: "true" } as Record<string, string>,
-      "--publish-only",
+      "--phase",
+      "publish",
     );
 
     expect(stderr.length).toBeGreaterThan(0);

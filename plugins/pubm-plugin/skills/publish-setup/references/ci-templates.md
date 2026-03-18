@@ -5,12 +5,12 @@
 pubm detects CI environments using the `std-env` package (`isCI` flag). When running in CI:
 
 - Interactive prompts are disabled (`promptEnabled` is set to `false`).
-- **Use `--ci` mode** for the full CI pipeline: publish + GitHub Release with assets. Alternatively, use `--publish-only` if you only need the publish step.
+- **Use `--mode ci --phase publish`** for the full CI pipeline: publish + GitHub Release with assets. Alternatively, use `--phase publish` if you only need the publish step.
 - Both modes read each package's version from its local manifest (`package.json`, `jsr.json`, `Cargo.toml`). Packages whose version is already published on the registry are automatically skipped.
 - In monorepo independent versioning mode, each package's version is read independently. Fixed mode uses a single shared version.
 - Authentication is handled entirely through environment variables (no interactive login).
 
-### What `--ci` Does
+### What `--mode ci --phase publish` Does
 
 - Skips prerequisites check (branch validation, remote status, working tree).
 - Skips required conditions check (registry ping, login validation).
@@ -19,9 +19,9 @@ pubm detects CI environments using the `std-env` package (`isCI` flag). When run
 - Creates a GitHub Release with release notes and uploads platform binary assets.
 - Requires `GITHUB_TOKEN` environment variable.
 
-### What `--publish-only` Does
+### What `--phase publish` Does
 
-- Same as `--ci` but **without** GitHub Release creation.
+- Same as `--mode ci --phase publish` but **without** GitHub Release creation.
 - Runs **only** the publish step for all configured registries, concurrently.
 
 For tag-based workflows, the git tag must already exist before running. For commit-based monorepo workflows, tags are created locally and pushed alongside the commit.
@@ -74,7 +74,7 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to registries
-        run: pubm --ci
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
 1. Develop and merge to main.
 2. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
 3. The pushed `v*` tag triggers this workflow.
-4. `pubm --ci` reads the tag, publishes, and creates a GitHub Release.
+4. `pubm --mode ci --phase publish` reads the tag, publishes, and creates a GitHub Release.
 
 ## Template: GitHub Actions -- Monorepo Auto Publish (Commit-Based)
 
@@ -126,7 +126,7 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to registries
-        run: pubm --ci
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -138,7 +138,7 @@ jobs:
 1. Develop and merge to main.
 2. When ready to release, merge the "Version Packages" PR (created by pubm's changeset workflow).
 3. The merged commit message starts with "Version Packages", triggering this workflow.
-4. `pubm --ci` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
+4. `pubm --mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
 
 **Important:** This template requires merge commit or fast-forward merge strategy. Squash merges may alter the commit message and break the trigger condition.
 
@@ -194,7 +194,7 @@ jobs:
           git tag "v${{ inputs.version }}"
 
       - name: Publish to registries
-        run: pubm --ci
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -204,7 +204,7 @@ jobs:
         run: git push --follow-tags
 ```
 
-**Important:** Since `pubm --ci` requires an existing git tag, the workflow creates the tag before running pubm. The `--ci` flag then reads that tag as the version.
+**Important:** Since `pubm --mode ci --phase publish` requires an existing git tag, the workflow creates the tag before running pubm. The `--mode ci --phase publish` flags then read that tag as the version.
 
 ## Template: Multi-Registry (npm + jsr + crates.io)
 
@@ -246,7 +246,7 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to all registries
-        run: pubm --ci --registry npm,jsr,crates
+        run: pubm --mode ci --phase publish --registry npm,jsr,crates
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -310,7 +310,7 @@ jobs:
         run: npm install -g pubm
 
       - name: Publish to registries
-        run: pubm --ci
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -319,7 +319,7 @@ jobs:
 
 ## Notes
 
-- **`--ci` is the recommended CI mode.** It publishes to all configured registries and creates a GitHub Release with assets. Use `--publish-only` if you only want the publish step without GitHub Release creation.
+- **`--mode ci --phase publish` is the recommended CI mode.** It publishes to all configured registries and creates a GitHub Release with assets. Use `--phase publish` if you only want the publish step without GitHub Release creation.
 - **`id-token: write` permission** is needed for npm provenance. pubm automatically uses `npm publish --provenance --access public` in CI.
 - **`fetch-depth: 0`** is recommended on `actions/checkout` for GitHub Release note generation, which uses git history to build commit-based release notes. For single-package tag-based workflows, it's also needed for tag lookup.
 - **`registry-url` on `actions/setup-node`** configures the npm registry URL. This is required for `NODE_AUTH_TOKEN` to be picked up by npm.

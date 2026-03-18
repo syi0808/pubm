@@ -91,8 +91,9 @@ interface PubmContext {
 | `ctx.options.buildScript` | `string` | npm build script name |
 | `ctx.options.branch` | `string` | Git branch |
 | `ctx.options.tag` | `string` | Release dist-tag |
-| `ctx.options.preview` | `boolean` | Dry-run mode |
-| `ctx.options.ci` | `boolean` | CI mode |
+| `ctx.options.dryRun` | `boolean` | Dry-run mode |
+| `ctx.options.mode` | `string` | Mode (`"interactive"` or `"ci"`) |
+| `ctx.options.phase` | `string \| undefined` | Phase (`"prepare"`, `"publish"`, or undefined for full) |
 | `ctx.options.skipTests` | `boolean` | Tests skipped |
 | `ctx.options.skipBuild` | `boolean` | Build skipped |
 

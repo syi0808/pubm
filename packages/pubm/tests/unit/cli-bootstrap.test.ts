@@ -85,6 +85,8 @@ describe("CLI bootstrap", () => {
         saveToken: true,
         ...opts,
       })),
+      resolvePhases: vi.fn(() => ["prepare", "publish"]),
+      validateOptions: vi.fn(),
     }));
 
     vi.doMock("../../src/commands/changesets.js", () => ({

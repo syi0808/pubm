@@ -9,6 +9,7 @@ describe("defaultOptions", () => {
       buildScript: "build",
       branch: "main",
       tag: "latest",
+      mode: "local",
     });
   });
 
@@ -51,7 +52,7 @@ describe("resolveOptions", () => {
 
   it("should preserve user options that are not in defaultOptions", () => {
     const result = resolveOptions({
-      preview: true,
+      dryRun: true,
       anyBranch: true,
       skipTests: true,
       skipBuild: true,
@@ -59,7 +60,7 @@ describe("resolveOptions", () => {
     });
 
     // These are not overwritten because they are not in defaultOptions.
-    expect(result.preview).toBe(true);
+    expect(result.dryRun).toBe(true);
     expect(result.anyBranch).toBe(true);
     expect(result.skipTests).toBe(true);
     expect(result.skipBuild).toBe(true);

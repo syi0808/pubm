@@ -20,7 +20,7 @@ export function createNpmPublishTask(
 ): ListrTask<PubmContext> {
   return {
     title: packagePath,
-    skip: (ctx) => !!ctx.options.preview,
+    skip: (ctx) => !!ctx.options.dryRun,
     task: async (ctx, task): Promise<void> => {
       const npm = await npmPackageRegistry(packagePath);
       task.title = npm.packageName;

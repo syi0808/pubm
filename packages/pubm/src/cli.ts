@@ -11,7 +11,9 @@ import {
   requiredMissingInformationTasks,
   resolveConfig,
   resolveOptions,
+  resolvePhases,
   ui,
+  validateOptions,
 } from "@pubm/core";
 import { Command } from "commander";
 import semver from "semver";
@@ -30,7 +32,11 @@ const { RELEASE_TYPES } = semver;
 interface CliOptions {
   version: string;
   testScript: string;
-  preview?: boolean;
+  buildScript: string;
+  mode?: string;
+  phase?: string;
+  dryRun?: boolean;
+  releaseDraft?: boolean;
   branch: string;
   anyBranch?: boolean;
   preCheck: boolean;
@@ -38,11 +44,8 @@ interface CliOptions {
   tests: boolean;
   build: boolean;
   publish: boolean;
-  publishOnly: boolean;
-  ci?: boolean;
-  preflight?: boolean;
   snapshot?: string | boolean;
-  releaseDraft: boolean;
+  skipRelease?: boolean;
   tag: string;
   contents?: string;
   registry?: string;
@@ -55,22 +58,23 @@ export function resolveCliOptions(
   return {
     testScript: (options as any).testScript,
     buildScript: (options as any).buildScript,
-    preview: options.preview,
+    mode: options.mode as any,
+    prepare: options.phase === "prepare" ? true : undefined,
+    publish: options.phase === "publish" ? true : undefined,
+    dryRun: options.dryRun,
+    releaseDraft: options.releaseDraft,
     branch: options.branch,
     anyBranch: options.anyBranch,
     skipPublish: !options.publish,
-    skipReleaseDraft: !options.releaseDraft,
+    skipReleaseDraft: !!options.skipRelease,
     skipTests: !options.tests,
     skipBuild: !options.build,
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
-    preflight: options.preflight,
-    ci: options.ci,
     snapshot: options.snapshot,
     tag: options.tag,
     contents: options.contents,
     saveToken: options.saveToken,
-    publishOnly: options.publishOnly,
   };
 }
 
@@ -81,6 +85,7 @@ export function createProgram(): Command {
 
   program.description("Publish packages to registries");
   program.version(PUBM_VERSION);
+  program.enablePositionalOptions();
   program.option("--no-color", "Disable colored output");
   program.hook("preAction", (thisCommand) => {
     if (!thisCommand.opts().color) {
@@ -111,7 +116,16 @@ export function createProgram(): Command {
       "The npm script to run build before publishing",
       "build",
     )
-    .option("-p, --preview", "Show tasks without actually executing publish")
+    .option("--mode <mode>", "Release mode: local (default) or ci")
+    .option(
+      "--phase <phase>",
+      "Pipeline phase: prepare or publish (local mode runs both by default)",
+    )
+    .option(
+      "-d, --dry-run",
+      "Validate without side effects (version bump rolls back, publish uses registry dry-run)",
+    )
+    .option("--release-draft", "Create GitHub Release as draft (not published)")
     .option("-b, --branch <name>", "Name of the release branch", "main")
     .option("-a, --any-branch", "Allow publishing from any branch")
     .option("--no-pre-check", "Skip prerequisites check task")
@@ -119,16 +133,7 @@ export function createProgram(): Command {
     .option("--no-tests", "Skip running tests before publishing")
     .option("--no-build", "Skip build before publishing")
     .option("--no-publish", "Skip publishing task")
-    .option("--no-release-draft", "Skip creating a GitHub release draft")
-    .option("--publish-only", "Run only publish task for latest tag")
-    .option(
-      "--ci",
-      "CI mode: publish from latest tag and create GitHub Release with assets",
-    )
-    .option(
-      "--preflight",
-      "Simulate CI publish locally (dry-run with token-based auth)",
-    )
+    .option("--skip-release", "Skip GitHub Release creation")
     .option(
       "--snapshot [tag]",
       "Publish a temporary snapshot version (default tag: snapshot)",
@@ -151,9 +156,8 @@ export function createProgram(): Command {
       ): Promise<void> => {
         console.clear();
 
-        if (options.snapshot && options.preflight) {
-          throw new Error("Cannot use --snapshot and --preflight together.");
-        }
+        const cliOptions = resolveOptions(resolveCliOptions(options));
+        validateOptions(cliOptions);
 
         if (!isCI && process.stderr.isTTY) {
           showSplash(PUBM_VERSION);
@@ -163,7 +167,6 @@ export function createProgram(): Command {
           await notifyNewVersion();
         }
 
-        const cliOptions = resolveOptions(resolveCliOptions(options));
         const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
 
         if (nextVersion) {
@@ -203,105 +206,139 @@ export function createProgram(): Command {
         }
 
         try {
-          if (options.preflight) {
-            await requiredMissingInformationTasks().run(ctx);
-          } else if (isCI) {
-            if (options.publishOnly || options.ci) {
-              if (resolvedConfig.packages.length <= 1) {
-                const pkg = resolvedConfig.packages[0];
-                const version = pkg?.version ?? "";
-                ctx.runtime.versionPlan = {
-                  mode: "single",
-                  version,
-                  packagePath: pkg?.path ?? ".",
-                };
-              } else if (resolvedConfig.versioning === "independent") {
-                const packages = new Map(
-                  resolvedConfig.packages.map((p) => [p.path, p.version]),
-                );
-                ctx.runtime.versionPlan = {
-                  mode: "independent",
-                  packages,
-                };
-              } else {
-                const packages = new Map(
-                  resolvedConfig.packages.map((p) => [p.path, p.version]),
-                );
-                const version = [...packages.values()][0];
-                ctx.runtime.versionPlan = {
-                  mode: "fixed",
-                  version,
-                  packages,
-                };
-              }
-            } else {
-              // Check for pending changesets in CI
-              const status = getStatus(process.cwd());
-              if (status.hasChangesets) {
-                const currentVersions = new Map(
-                  resolvedConfig.packages.map((p) => [p.name, p.version]),
-                );
-                const bumps = calculateVersionBumps(
-                  currentVersions,
-                  process.cwd(),
-                );
+          const mode = cliOptions.mode ?? "local";
+          const phases = resolvePhases(cliOptions);
 
-                if (bumps.size > 0) {
-                  if (bumps.size === 1) {
-                    // Single package
-                    const [name, bump] = [...bumps][0];
-                    const pkg = resolvedConfig.packages.find(
-                      (p) => p.name === name,
-                    );
+          if (mode === "ci" && phases.includes("prepare")) {
+            // CI prepare: collect tokens interactively, then run pipeline
+            await requiredMissingInformationTasks().run(ctx);
+          } else if (mode === "ci" && phases.includes("publish")) {
+            // CI publish: read version from package.json
+            if (resolvedConfig.packages.length <= 1) {
+              const pkg = resolvedConfig.packages[0];
+              const version = pkg?.version ?? "";
+              ctx.runtime.versionPlan = {
+                mode: "single",
+                version,
+                packagePath: pkg?.path ?? ".",
+              };
+            } else if (resolvedConfig.versioning === "independent") {
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [p.path, p.version]),
+              );
+              ctx.runtime.versionPlan = {
+                mode: "independent",
+                packages,
+              };
+            } else {
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [p.path, p.version]),
+              );
+              const version = [...packages.values()][0];
+              ctx.runtime.versionPlan = {
+                mode: "fixed",
+                version,
+                packages,
+              };
+            }
+          } else if (
+            mode === "local" &&
+            phases.includes("publish") &&
+            !phases.includes("prepare")
+          ) {
+            // Local publish-only: read version from package.json (same as old --publish-only)
+            if (resolvedConfig.packages.length <= 1) {
+              const pkg = resolvedConfig.packages[0];
+              const version = pkg?.version ?? "";
+              ctx.runtime.versionPlan = {
+                mode: "single",
+                version,
+                packagePath: pkg?.path ?? ".",
+              };
+            } else if (resolvedConfig.versioning === "independent") {
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [p.path, p.version]),
+              );
+              ctx.runtime.versionPlan = {
+                mode: "independent",
+                packages,
+              };
+            } else {
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [p.path, p.version]),
+              );
+              const version = [...packages.values()][0];
+              ctx.runtime.versionPlan = {
+                mode: "fixed",
+                version,
+                packages,
+              };
+            }
+          } else if (isCI && mode === "local") {
+            // Backward compatibility: isCI detected but --mode not set
+            const status = getStatus(process.cwd());
+            if (status.hasChangesets) {
+              const currentVersions = new Map(
+                resolvedConfig.packages.map((p) => [p.name, p.version]),
+              );
+              const bumps = calculateVersionBumps(
+                currentVersions,
+                process.cwd(),
+              );
+
+              if (bumps.size > 0) {
+                if (bumps.size === 1) {
+                  const [name, bump] = [...bumps][0];
+                  const pkg = resolvedConfig.packages.find(
+                    (p) => p.name === name,
+                  );
+                  ctx.runtime.versionPlan = {
+                    mode: "single",
+                    version: bump.newVersion,
+                    packagePath: pkg?.path ?? ".",
+                  };
+                } else {
+                  const bumpedPackages = new Map(
+                    [...bumps].map(([name, bump]) => [
+                      resolvedConfig.packages.find((p) => p.name === name)
+                        ?.path ?? name,
+                      bump.newVersion,
+                    ]),
+                  );
+                  const allSame = new Set(bumpedPackages.values()).size === 1;
+                  const versioningMode =
+                    resolvedConfig.versioning ??
+                    (allSame ? "fixed" : "independent");
+                  if (versioningMode === "fixed") {
                     ctx.runtime.versionPlan = {
-                      mode: "single",
-                      version: bump.newVersion,
-                      packagePath: pkg?.path ?? ".",
+                      mode: "fixed",
+                      version: [...bumpedPackages.values()][0],
+                      packages: bumpedPackages,
                     };
                   } else {
-                    // Multi-package
-                    const bumpedPackages = new Map(
-                      [...bumps].map(([name, bump]) => [
-                        resolvedConfig.packages.find((p) => p.name === name)
-                          ?.path ?? name,
-                        bump.newVersion,
-                      ]),
-                    );
-                    const allSame = new Set(bumpedPackages.values()).size === 1;
-                    const mode =
-                      resolvedConfig.versioning ??
-                      (allSame ? "fixed" : "independent");
-                    if (mode === "fixed") {
-                      ctx.runtime.versionPlan = {
-                        mode: "fixed",
-                        version: [...bumpedPackages.values()][0],
-                        packages: bumpedPackages,
-                      };
-                    } else {
-                      ctx.runtime.versionPlan = {
-                        mode: "independent",
-                        packages: bumpedPackages,
-                      };
-                    }
-                  }
-                  ctx.runtime.changesetConsumed = true;
-
-                  ui.info("Changesets detected:");
-                  for (const [name, bump] of bumps) {
-                    console.log(
-                      `  ${name}: ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType})`,
-                    );
+                    ctx.runtime.versionPlan = {
+                      mode: "independent",
+                      packages: bumpedPackages,
+                    };
                   }
                 }
-              }
-
-              if (!ctx.runtime.versionPlan) {
-                throw new Error(
-                  "Version must be set in the CI environment. Please define the version before proceeding.",
-                );
+                ctx.runtime.changesetConsumed = true;
+                ui.info("Changesets detected:");
+                for (const [name, bump] of bumps) {
+                  console.log(
+                    `  ${name}: ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType})`,
+                  );
+                }
               }
             }
+
+            if (!ctx.runtime.versionPlan) {
+              throw new Error(
+                "Version must be set in the CI environment. Please define the version before proceeding.",
+              );
+            }
           } else {
+            // Local mode: interactive prompts
             await requiredMissingInformationTasks().run(ctx);
           }
 

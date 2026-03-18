@@ -30,7 +30,7 @@ import { pubm } from "@pubm/core";
 
 await pubm({
   version: "patch",
-  preview: true,
+  dryRun: true,
   tag: "next",
 });
 ```
@@ -40,15 +40,16 @@ await pubm({
 | Field | Type | Purpose |
 |------|------|---------|
 | `version` | `string` | Required release target such as `patch`, `minor`, `major`, or an explicit semver. |
-| `preview` | `boolean` | Show the task plan without mutating Git state or publishing. |
+| `dryRun` | `boolean` | Show the task plan without mutating Git state or publishing. |
+| `mode` | `"local" \| "ci"` | Execution mode: `local` (interactive) or `ci` (non-interactive, tag-based). |
+| `prepare` | `boolean` | Run the preparation phase only (validate and dry-run publish checks). |
+| `publish` | `boolean` | Run the publish phase only (publish from the latest tag). |
+| `releaseDraft` | `boolean` | Create a draft GitHub Release instead of a published one. |
 | `branch` | `string` | Require a specific branch before publishing. |
 | `anyBranch` | `boolean` | Disable branch enforcement for one run. |
 | `tag` | `string` | Publish under a dist-tag like `latest`, `next`, or `beta`. |
 | `snapshot` | `string \| boolean` | Build a snapshot version using the configured template. |
 | `packages` | `PackageConfig[]` | Override auto-discovered packages. |
-| `preflight` | `boolean` | Simulate CI locally and dry-run publish checks. |
-| `ci` | `boolean` | Publish from the latest tag and create a GitHub Release. |
-| `publishOnly` | `boolean` | Publish artifacts without rerunning the full preparation pipeline. |
 
 For config-driven releases, `pubm()` automatically loads `pubm.config.*`, resolves package discovery, and wires plugins before running the task graph.
 

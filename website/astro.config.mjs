@@ -239,15 +239,20 @@ export default defineConfig({
           tag: "meta",
           attrs: {
             property: "og:image",
-            content: "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
+            content:
+              "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
           },
         },
-        { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:card", content: "summary_large_image" },
+        },
         {
           tag: "meta",
           attrs: {
             name: "twitter:image",
-            content: "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
+            content:
+              "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
           },
         },
       ],

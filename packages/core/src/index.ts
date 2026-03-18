@@ -142,12 +142,16 @@ export { PluginRunner } from "./plugin/index.js";
 export { syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
-export type { Options, ResolvedOptions } from "./types/options.js";
+export type { Options, ReleaseMode, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
+export type { GitHubTokenResult } from "./utils/github-token.js";
+export { resolveGitHubToken, saveGitHubToken } from "./utils/github-token.js";
 export { notifyNewVersion } from "./utils/notify-new-version.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
+export type { ReleasePhase } from "./utils/resolve-phases.js";
+export { resolvePhases, validateOptions } from "./utils/resolve-phases.js";
 export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
 export type { SnapshotOptions } from "./utils/snapshot.js";

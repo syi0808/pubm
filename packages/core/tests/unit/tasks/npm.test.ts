@@ -92,9 +92,9 @@ describe("createNpmPublishTask", () => {
   });
 
   describe("skip", () => {
-    it("returns true when preview is true", () => {
+    it("returns true when dryRun is true", () => {
       const task = createNpmPublishTask("packages/core");
-      const ctx = createCtx({ options: { preview: true } });
+      const ctx = createCtx({ options: { dryRun: true } });
       const result = (task.skip as (ctx: PubmContext) => boolean)(ctx);
 
       expect(result).toBe(true);
