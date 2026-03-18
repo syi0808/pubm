@@ -1753,6 +1753,53 @@ describe("requiredMissingInformationTasks", () => {
       const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
       expect(filterArg.has("packages/b")).toBe(false);
     });
+
+    it("no → independent: cascade-accepted packages are included in versionPlan and filterConfigPackages", async () => {
+      // pkgA has no deps; pkgC depends on pkgA
+      const pkgAWithNoDeps = makePkg({
+        name: "@scope/a",
+        version: "1.0.0",
+        path: "packages/a",
+        dependencies: [],
+      });
+      const pkgC = makePkg({
+        name: "@scope/c",
+        version: "2.0.0",
+        path: "packages/c",
+        dependencies: ["@scope/a"],
+      });
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        config: { packages: [pkgAWithNoDeps, pkgC], versioning: "independent" },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+      const mockTask = createMockTask();
+
+      // "no" → pkgA: "1.1.0" (bump), pkgC: "2.0.0" (keep current → cascade prompt)
+      // cascade prompt: user accepts with "patch" → pkgC gets 2.0.1
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("1.1.0") // pkgA version
+        .mockResolvedValueOnce("2.0.0") // pkgC keep current → triggers cascade
+        .mockResolvedValueOnce("patch"); // cascade accepted
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan?.packages.has("packages/a")).toBe(true);
+      expect(ctx.runtime.versionPlan?.packages.get("packages/a")).toBe("1.1.0");
+      expect(ctx.runtime.versionPlan?.packages.has("packages/c")).toBe(true);
+      expect(ctx.runtime.versionPlan?.packages.get("packages/c")).toBe("2.0.1");
+
+      const filterArg = mockedFilterConfigPackages.mock.calls[0][1] as Set<string>;
+      expect(filterArg.has("packages/a")).toBe(true);
+      expect(filterArg.has("packages/c")).toBe(true);
+    });
   });
 
   describe("tag subtask", () => {
