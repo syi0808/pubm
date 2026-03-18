@@ -420,7 +420,18 @@ async function handleMultiPackage(
         sortedPackageInfos,
       );
       if (result === "accepted") return;
-      // "add_packages" and "no" both fall through to manual flow for now
+      if (result === "add_packages") {
+        await handleAddPackages(
+          ctx,
+          task,
+          sortedPackageInfos,
+          currentVersions,
+          graph,
+          bumps!,
+        );
+        return;
+      }
+      // "no" — fall through to manual
     }
   }
 
@@ -434,6 +445,144 @@ async function handleMultiPackage(
     bumps,
     status,
   );
+}
+
+/**
+ * add_packages branch: auto-bump changeset packages, then prompt for remaining.
+ */
+async function handleAddPackages(
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  packageInfos: ResolvedPackageConfig[],
+  currentVersions: Map<string, string>,
+  graph: Map<string, string[]>,
+  bumps: Map<string, VersionBump>,
+): Promise<void> {
+  const remainingPackages = packageInfos.filter((p) => !bumps.has(p.path));
+  const { versions, publishPaths } = await handleRemainingPackages(
+    ctx,
+    task,
+    remainingPackages,
+    currentVersions,
+    graph,
+    bumps,
+  );
+
+  ctx.runtime.versionPlan = {
+    mode: "independent",
+    packages: new Map([...versions].filter(([p]) => publishPaths.has(p))),
+  };
+  ctx.runtime.changesetConsumed = true;
+  filterConfigPackages(ctx, publishPaths);
+}
+
+/**
+ * Prompts version selection for non-changeset packages.
+ * Returns merged versions map (superset of publishPaths) and publishPaths set.
+ */
+async function handleRemainingPackages(
+  ctx: PubmContext,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  remainingPackages: ResolvedPackageConfig[],
+  currentVersions: Map<string, string>,
+  graph: Map<string, string[]>,
+  bumps: Map<string, VersionBump>,
+): Promise<{ versions: Map<string, string>; publishPaths: Set<string> }> {
+  const pathToName = new Map(
+    ctx.config.packages.map((p) => [p.path, p.name || p.path]),
+  );
+
+  // Initialize with changeset-bumped packages (considered already bumped for cascade)
+  const bumpedPackages = new Set<string>(bumps.keys());
+  const versions = new Map<string, string>(
+    [...bumps].map(([p, b]) => [p, b.newVersion]),
+  );
+  const publishPaths = new Set<string>(bumps.keys());
+  const reverseDeps = buildReverseDeps(graph);
+
+  for (const pkg of remainingPackages) {
+    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
+    const deps = graph.get(pkg.path) ?? [];
+    const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
+    const pkgNotes: string[] = [];
+
+    if (bumpedDeps.length > 0) {
+      const bumpedDepNames = bumpedDeps.map(
+        (dep) => pathToName.get(dep) ?? dep,
+      );
+      pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDepNames));
+    }
+
+    if (pkgNotes.length > 0) {
+      task.output = renderPackageVersionSummary(
+        remainingPackages,
+        currentVersions,
+        versions,
+        { activePackage: pkg.path, notes: new Map([[pkg.path, pkgNotes]]) },
+      );
+    }
+
+    const result = await promptVersion(task, currentVersion, pkg.name);
+    versions.set(pkg.path, result.version);
+
+    if (result.version !== currentVersion) {
+      bumpedPackages.add(pkg.path);
+      publishPaths.add(pkg.path);
+    }
+  }
+
+  // Cascade prompt for unbumped dependents
+  const unbumpedDependents: string[] = [];
+  for (const bumped of bumpedPackages) {
+    for (const dep of reverseDeps.get(bumped) ?? []) {
+      if (!bumpedPackages.has(dep)) {
+        unbumpedDependents.push(dep);
+      }
+    }
+  }
+
+  if (unbumpedDependents.length > 0) {
+    const uniqueDependents = [...new Set(unbumpedDependents)];
+    const notes: PackageNotes = new Map();
+    for (const pkgPath of uniqueDependents) {
+      const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0";
+      const deps = (graph.get(pkgPath) ?? []).filter((d) =>
+        bumpedPackages.has(d),
+      );
+      const depNames = deps.map((d) => pathToName.get(d) ?? d);
+      notes.set(pkgPath, [buildDependencyBumpNote(currentVersion, depNames)]);
+    }
+
+    task.output = renderPackageVersionSummary(
+      remainingPackages,
+      currentVersions,
+      versions,
+      { notes },
+    );
+
+    const cascadeChoice = await task
+      .prompt(ListrEnquirerPromptAdapter)
+      .run<string>({
+        type: "select",
+        message: "Bump these dependent packages too?",
+        choices: [
+          { message: "Yes, apply patch bump", name: "patch" },
+          { message: "No, keep current versions", name: "skip" },
+        ],
+        name: "cascade",
+      });
+
+    if (cascadeChoice === "patch") {
+      for (const pkgPath of uniqueDependents) {
+        const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0";
+        const patchVersion = new SemVer(currentVersion).inc("patch").toString();
+        versions.set(pkgPath, patchVersion);
+        publishPaths.add(pkgPath);
+      }
+    }
+  }
+
+  return { versions, publishPaths };
 }
 
 /**
@@ -465,8 +614,14 @@ async function promptChangesetRecommendations(
     type: "select",
     message: "Accept changeset recommendations?",
     choices: [
-      { message: "Only changesets (auto bump affected packages)", name: "only_changesets" },
-      { message: "Also select versions for other packages", name: "add_packages" },
+      {
+        message: "Only changesets (auto bump affected packages)",
+        name: "only_changesets",
+      },
+      {
+        message: "Also select versions for other packages",
+        name: "add_packages",
+      },
       { message: "No, select versions manually", name: "no" },
     ],
     name: "version",

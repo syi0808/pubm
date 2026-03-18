@@ -33,8 +33,8 @@ import { loadConfig } from "../../../src/config/loader.js";
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import { registryCatalog } from "../../../src/registry/catalog.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
-import { createListr } from "../../../src/utils/listr.js";
 import { filterConfigPackages } from "../../../src/utils/filter-config.js";
+import { createListr } from "../../../src/utils/listr.js";
 
 const mockedGetStatus = vi.mocked(getStatus);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
@@ -1410,8 +1410,16 @@ describe("requiredMissingInformationTasks", () => {
   });
 
   describe("three-choice prompt — only_changesets", () => {
-    const pkgA = makePkg({ name: "@scope/a", version: "1.0.0", path: "packages/a" });
-    const pkgB = makePkg({ name: "@scope/b", version: "2.0.0", path: "packages/b" });
+    const pkgA = makePkg({
+      name: "@scope/a",
+      version: "1.0.0",
+      path: "packages/a",
+    });
+    const pkgB = makePkg({
+      name: "@scope/b",
+      version: "2.0.0",
+      path: "packages/b",
+    });
     const twoPackages = [pkgA, pkgB];
 
     function makeTwoPkgCtx() {
@@ -1430,7 +1438,12 @@ describe("requiredMissingInformationTasks", () => {
         changesets: [],
       } as any);
       mockedCalculateVersionBumps.mockReturnValue(
-        new Map([["packages/a", { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" }]])
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
       );
     });
 
@@ -1480,6 +1493,105 @@ describe("requiredMissingInformationTasks", () => {
         ctx,
         new Set(["packages/a"]),
       );
+    });
+  });
+
+  describe("three-choice prompt — add_packages", () => {
+    const pkgA = makePkg({
+      name: "@scope/a",
+      version: "1.0.0",
+      path: "packages/a",
+    });
+    const pkgB = makePkg({
+      name: "@scope/b",
+      version: "2.0.0",
+      path: "packages/b",
+    });
+    const twoPackages = [pkgA, pkgB];
+
+    function makeTwoPkgCtx() {
+      return {
+        config: { packages: twoPackages, versioning: undefined },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      } as any;
+    }
+
+    beforeEach(() => {
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+    });
+
+    it("add_packages: auto-bumps changeset packages and prompts for remaining", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+
+      // Three-choice → add_packages; pkgB (remaining) → "2.1.0" (bumped)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.1.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan).toEqual({
+        mode: "independent",
+        packages: new Map([
+          ["packages/a", "1.1.0"], // auto-bumped from changeset
+          ["packages/b", "2.1.0"], // user-selected
+        ]),
+      });
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
+
+    it("add_packages: excludes remaining package when 'keep current' selected", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+
+      // pkgB → keep current version "2.0.0"
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan?.packages.has("packages/b")).toBe(false);
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/a"]),
+      );
+    });
+
+    it("add_packages: sets changesetConsumed to true", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.changesetConsumed).toBe(true);
     });
   });
 
