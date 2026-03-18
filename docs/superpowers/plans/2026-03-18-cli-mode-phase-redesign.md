@@ -622,7 +622,7 @@ await createListr<PubmContext>(
       title: "Restoring workspace protocols",
       task: (ctx) => { /* existing restore task */ },
     },
-    // === PUSH & RELEASE DRAFT ===
+    // === PUSH & RELEASE ===
     {
       title: "Pushing tags to GitHub",
       skip: !hasPrepare || dryRun,
@@ -633,10 +633,11 @@ await createListr<PubmContext>(
         !hasPublish ||
         !!ctx.options.skipReleaseDraft ||
         dryRun,
-      title: "Creating release draft on GitHub",
+      title: "Creating GitHub Release",
       task: async (ctx, task) => {
-        // For local mode: existing release draft (opens URL)
-        // For ci mode with publish: existing GitHub Release creation (with assets)
+        // Unified: use createGitHubRelease() for both local and ci
+        // Pass draft: !!ctx.options.releaseDraft
+        // Token resolution: see Task 4b for details
       },
     },
   ],
@@ -644,30 +645,7 @@ await createListr<PubmContext>(
 ).run(ctx);
 ```
 
-**Key behavioral differences by mode:**
-
-For the release draft task, the `ci + publish` path creates a full GitHub Release (with assets), while the `local` path opens a draft URL. This distinction needs to be preserved inside the task body using `mode === "ci"`.
-
-For the "CI GitHub Release" (current `ctx.options.ci` branch, lines 694-867), merge it into the release draft task with a mode check:
-
-```typescript
-{
-  skip: (ctx) => {
-    if (dryRun) return true;
-    if (mode === "ci" && hasPublish) return !!ctx.options.skipReleaseDraft;
-    if (mode === "local" && hasPublish) return !!ctx.options.skipReleaseDraft;
-    return true; // skip for prepare-only
-  },
-  title: mode === "ci" ? "Creating GitHub Release" : "Creating release draft on GitHub",
-  task: async (ctx, task) => {
-    if (mode === "ci") {
-      // Full GitHub Release with assets (existing ci branch logic)
-    } else {
-      // Open release draft URL (existing local branch logic)
-    }
-  },
-}
-```
+**GitHub Release 통합:** Local과 CI 모두 `createGitHubRelease()` API를 사용한다. 기존 local 모드의 `openUrl()` (브라우저에서 draft URL 열기) 로직은 제거하고, 토큰이 없을 때의 interactive fallback으로만 남긴다. 자세한 내용은 Task 4b 참조.
 
 - [ ] **Step 5: Add dry-run rollback logic to version bump task**
 
@@ -751,6 +729,264 @@ Expected: PASS (or errors only in test files)
 ```bash
 git add packages/core/src/tasks/runner.ts
 git commit -m "refactor: rewrite runner with mode/phase/dryRun branching"
+```
+
+---
+
+### Task 4b: Unify GitHub Release creation
+
+Currently, local mode opens a browser URL for release drafts, while CI mode creates a GitHub Release via API. Unify both paths to use the API, with interactive token prompt for local mode.
+
+**Files:**
+- Modify: `packages/core/src/tasks/github-release.ts` — add `draft` parameter
+- Create: `packages/core/src/utils/github-token.ts` — GitHub token resolution (env → SecureStore → prompt)
+- Create: `packages/core/tests/unit/utils/github-token.test.ts`
+- Modify: `packages/core/src/tasks/runner.ts` — update release task to use unified flow
+- Modify: `packages/core/src/types/options.ts` — add `releaseDraft` option
+- Modify: `packages/pubm/src/cli.ts` — add `--release-draft` flag
+
+- [ ] **Step 1: Add `draft` parameter to createGitHubRelease**
+
+In `packages/core/src/tasks/github-release.ts`, add `draft?: boolean` to the options parameter:
+
+```typescript
+export async function createGitHubRelease(
+  _ctx: PubmContext,
+  options: {
+    displayLabel: string;
+    version: string;
+    tag: string;
+    changelogBody?: string;
+    assets: PreparedAsset[];
+    draft?: boolean;  // NEW
+  },
+): Promise<ReleaseContext | null> {
+```
+
+And in the API body:
+
+```typescript
+body: JSON.stringify({
+  tag_name: options.tag,
+  name: options.tag,
+  body,
+  prerelease: !!prerelease(options.version),
+  draft: !!options.draft,  // NEW
+}),
+```
+
+- [ ] **Step 2: Write failing tests for GitHub token resolution**
+
+Create `packages/core/tests/unit/utils/github-token.test.ts`:
+
+```typescript
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveGitHubToken } from "../../../src/utils/github-token.js";
+
+// Mock SecureStore
+vi.mock("../../../src/utils/secure-store.js", () => ({
+  SecureStore: vi.fn().mockImplementation(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+  })),
+}));
+
+describe("resolveGitHubToken", () => {
+  beforeEach(() => {
+    delete process.env.GITHUB_TOKEN;
+  });
+
+  it("returns env token when GITHUB_TOKEN is set", async () => {
+    process.env.GITHUB_TOKEN = "ghp_env_token";
+    const result = await resolveGitHubToken({ promptEnabled: false });
+    expect(result).toEqual({ token: "ghp_env_token", source: "env" });
+  });
+
+  it("returns stored token from SecureStore", async () => {
+    const { SecureStore } = await import("../../../src/utils/secure-store.js");
+    vi.mocked(SecureStore).mockImplementation(() => ({
+      get: vi.fn(() => "ghp_stored_token"),
+      set: vi.fn(),
+      delete: vi.fn(),
+    }) as any);
+
+    const result = await resolveGitHubToken({ promptEnabled: false });
+    expect(result).toEqual({ token: "ghp_stored_token", source: "store" });
+  });
+
+  it("returns null when no token available and prompts disabled", async () => {
+    const result = await resolveGitHubToken({ promptEnabled: false });
+    expect(result).toBeNull();
+  });
+});
+```
+
+- [ ] **Step 3: Run test to verify it fails**
+
+Run: `cd packages/core && bun vitest --run tests/unit/utils/github-token.test.ts`
+Expected: FAIL (module not found)
+
+- [ ] **Step 4: Implement GitHub token resolution**
+
+Create `packages/core/src/utils/github-token.ts`:
+
+```typescript
+import { SecureStore } from "./secure-store.js";
+
+const GITHUB_TOKEN_KEY = "github-token";
+
+export type GitHubTokenResult = {
+  token: string;
+  source: "env" | "store" | "prompt";
+} | null;
+
+export async function resolveGitHubToken(options: {
+  promptEnabled: boolean;
+}): Promise<GitHubTokenResult> {
+  // 1. Environment variable
+  const envToken = process.env.GITHUB_TOKEN;
+  if (envToken) {
+    return { token: envToken, source: "env" };
+  }
+
+  // 2. SecureStore (OS keyring → encrypted Db)
+  const store = new SecureStore();
+  const storedToken = store.get(GITHUB_TOKEN_KEY);
+  if (storedToken) {
+    return { token: storedToken, source: "store" };
+  }
+
+  // 3. No token found — caller handles the prompt
+  return null;
+}
+
+export function saveGitHubToken(token: string): void {
+  const store = new SecureStore();
+  store.set(GITHUB_TOKEN_KEY, token);
+}
+```
+
+Note: The interactive prompt logic (choose between enter token / open browser / skip) lives in the runner task, not in this utility. This keeps the utility testable and framework-agnostic.
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `cd packages/core && bun vitest --run tests/unit/utils/github-token.test.ts`
+Expected: PASS
+
+- [ ] **Step 6: Add `releaseDraft` to Options type**
+
+In `packages/core/src/types/options.ts`, add:
+
+```typescript
+/**
+ * @description Create GitHub Release as draft (not published)
+ * @default false
+ */
+releaseDraft?: boolean;
+```
+
+- [ ] **Step 7: Add `--release-draft` CLI flag**
+
+In `packages/pubm/src/cli.ts`, add after the `--dry-run` option:
+
+```typescript
+.option("--release-draft", "Create GitHub Release as draft (not published)")
+```
+
+And in `resolveCliOptions`:
+
+```typescript
+releaseDraft: options.releaseDraft,
+```
+
+- [ ] **Step 8: Update runner's release task to use unified flow**
+
+In the "Creating GitHub Release" task in the flat pipeline (from Task 4), replace the mode-branching with:
+
+```typescript
+{
+  skip: (ctx) =>
+    !hasPublish ||
+    !!ctx.options.skipReleaseDraft ||
+    dryRun,
+  title: ctx.options.releaseDraft ? "Creating GitHub Release (draft)" : "Creating GitHub Release",
+  task: async (ctx, task) => {
+    // 1. Resolve GitHub token
+    const tokenResult = await resolveGitHubToken({
+      promptEnabled: ctx.runtime.promptEnabled,
+    });
+
+    if (!tokenResult && ctx.runtime.promptEnabled) {
+      // Interactive prompt: enter token / open browser / skip
+      const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+        type: "select",
+        message: "GitHub token not found. How would you like to create the release?",
+        choices: [
+          { name: "Enter GitHub Token", value: "enter" },
+          { name: "Open release draft in browser", value: "browser" },
+          { name: "Skip", value: "skip" },
+        ],
+      });
+
+      if (choice === "enter") {
+        const token = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+          type: "password",
+          message: "GitHub Token (needs repo scope):",
+        });
+        saveGitHubToken(token);
+        process.env.GITHUB_TOKEN = token;
+        // Fall through to API release creation below
+      } else if (choice === "browser") {
+        // Fallback: open release draft URL in browser (existing openUrl logic)
+        await openReleaseDraftInBrowser(ctx, task);
+        return;
+      } else {
+        task.skip("Skipped by user");
+        return;
+      }
+    } else if (!tokenResult) {
+      // Non-interactive (CI) without token
+      throw new AbstractError(
+        "GITHUB_TOKEN is required to create a GitHub Release. Set it as an environment variable.",
+      );
+    } else {
+      process.env.GITHUB_TOKEN = tokenResult.token;
+    }
+
+    // 2. Create GitHub Release via API (unified for local and CI)
+    //    Uses existing createGitHubRelease() with draft parameter
+    //    Handles both single and independent (multi-package) releases
+    //    Includes asset pipeline
+    const plan = ctx.runtime.versionPlan!;
+    const draft = !!ctx.options.releaseDraft;
+
+    if (plan.mode === "independent") {
+      // Per-package releases (existing logic from CI branch)
+      for (const [pkgPath, pkgVersion] of plan.packages) {
+        // ... existing per-package release logic with { draft } added
+      }
+    } else {
+      // Single/fixed release (existing logic from CI branch)
+      // ... existing release logic with { draft } added
+    }
+  },
+}
+```
+
+Extract the existing browser fallback into a helper:
+
+```typescript
+async function openReleaseDraftInBrowser(ctx: PubmContext, task: ListrTaskWrapper<...>) {
+  // Move existing local release draft URL logic here
+  // (the openUrl + releaseDraftUrl.searchParams logic from current runner)
+}
+```
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add packages/core/src/tasks/github-release.ts packages/core/src/utils/github-token.ts packages/core/tests/unit/utils/github-token.test.ts packages/core/src/types/options.ts packages/pubm/src/cli.ts packages/core/src/tasks/runner.ts
+git commit -m "feat: unify GitHub Release creation with token prompt and --release-draft"
 ```
 
 ---

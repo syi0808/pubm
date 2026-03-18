@@ -92,9 +92,46 @@ pubm --mode ci                              # 에러: --prepare 또는 --publish
 |------|-------|----|
 | Publish to registries | ✅ (interactive auth) | ✅ (token auth, from latest tag) |
 | Post-publish hooks | ✅ | ✅ |
-| Release draft | ✅ | ✅ (with asset pipeline) |
+| GitHub Release 생성 | ✅ (API, asset pipeline 포함) | ✅ (API, asset pipeline 포함) |
 
 `--mode local --publish`는 현재 `package.json`의 버전과 HEAD의 tag를 기반으로 publish 대상을 결정한다 (기존 `--publish-only` 동작과 동일).
+
+### GitHub Release 통합
+
+기존에는 local 모드에서 브라우저로 draft URL을 여는 방식이었으나, **모든 모드에서 GitHub API를 사용하여 Release를 직접 생성**하는 것으로 통합한다.
+
+#### 인증 흐름 (GITHUB_TOKEN)
+
+**CI 모드:** `GITHUB_TOKEN` 환경변수 필수. 없으면 에러.
+
+**Local 모드:** 다음 순서로 토큰 확인:
+1. `GITHUB_TOKEN` 환경변수
+2. `SecureStore`에서 조회 (OS keyring → encrypted `Db` fallback)
+3. 위 두 곳에 없으면 interactive 프롬프트:
+   - "GitHub Token 입력" → `SecureStore`에 저장 후 API로 Release 생성
+   - "브라우저에서 draft 열기" → 기존 `openUrl()` fallback
+   - "건너뛰기" → Release 생성 skip
+
+#### `--release-draft` 옵션
+
+GitHub Release를 **draft 상태**로 생성한다. API body에 `draft: true`를 전달.
+
+```bash
+pubm --release-draft                          # local: draft 상태로 Release 생성
+pubm --mode ci --phase publish --release-draft # CI: draft 상태로 Release 생성
+```
+
+#### 기존 `--no-release-draft` (= `skipReleaseDraft`)
+
+Release 생성 자체를 **skip**한다. 이름이 혼란스럽지만 기존 동작 유지:
+- `--no-release-draft` → Release 생성 안 함 (skip)
+- `--release-draft` → Release를 draft 상태로 생성
+
+**TODO:** `--no-release-draft`를 `--skip-release`로 rename 고려 (추후)
+
+#### Multi-package (independent versioning)
+
+독립 버전 관리 시 패키지별로 개별 GitHub Release 생성. 현재 CI 모드의 per-package release 로직을 local에서도 동일하게 사용.
 
 #### dry-run modifier
 
@@ -119,7 +156,7 @@ version bump task 내부의 세부 동작:
 | Git push | **skip** |
 | Publish | registry `--dry-run` 플래그로 대체 |
 | Dry-run publish (ci prepare) | 실행 (검증 목적) |
-| Release draft | **skip** |
+| GitHub Release | **skip** |
 | Token collection (ci mode) | 실행 (검증 목적) |
 
 ### Types 변경
@@ -142,6 +179,7 @@ export interface Options {
   prepare?: boolean;
   publish?: boolean;
   dryRun?: boolean;
+  releaseDraft?: boolean;
   // ...
 }
 ```
@@ -224,8 +262,10 @@ function validateOptions(options: Options): void {
 ## Affected Files
 
 ### Core changes
-- `packages/core/src/types/options.ts` — `ReleaseMode` 타입 추가, `prepare`/`publish`/`dryRun` boolean 추가, 기존 플래그 제거
-- `packages/core/src/tasks/runner.ts` — 분기 로직 전면 재작성
+- `packages/core/src/types/options.ts` — `ReleaseMode` 타입 추가, `prepare`/`publish`/`dryRun`/`releaseDraft` boolean 추가, 기존 플래그 제거
+- `packages/core/src/tasks/runner.ts` — 분기 로직 전면 재작성, GitHub Release 생성 로직 통합
+- `packages/core/src/tasks/github-release.ts` — `draft` 파라미터 추가
+- `packages/core/src/tasks/preflight.ts` — GitHub 토큰 수집 로직을 공용화 (local 모드에서도 사용)
 - `packages/core/src/options.ts` — 옵션 resolve 로직 변경
 
 ### CLI changes
