@@ -463,6 +463,7 @@ async function handleAddPackages(
     ctx,
     task,
     remainingPackages,
+    packageInfos,
     currentVersions,
     graph,
     bumps,
@@ -484,6 +485,7 @@ async function handleRemainingPackages(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
   remainingPackages: ResolvedPackageConfig[],
+  packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
   bumps: Map<string, VersionBump>,
@@ -554,7 +556,7 @@ async function handleRemainingPackages(
     }
 
     task.output = renderPackageVersionSummary(
-      remainingPackages,
+      packageInfos,
       currentVersions,
       versions,
       { notes },
