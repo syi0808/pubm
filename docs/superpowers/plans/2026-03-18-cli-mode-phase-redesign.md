@@ -1112,6 +1112,7 @@ git commit -m "fix: address test failures and coverage gaps from mode/phase refa
 
 Flag table changes:
 - Line 84: `| -p, --preview | false | Show the task graph... |` → `| -d, --dry-run | false | Validate without side effects (version bump rolls back, publish uses registry dry-run). |`
+- Line 104: `| --no-release-draft | Skip opening the GitHub release draft step. |` → `| --no-release-draft | Skip GitHub Release creation. |`
 - Line 105: `| --publish-only | ... |` → remove
 - Line 106: `| --ci | ... |` → remove
 - Line 107: `| --preflight | ... |` → remove
@@ -1132,8 +1133,15 @@ Section rewrites:
 - Line 332: "Sync stored tokens after preflight" → "Sync stored tokens after CI preparation"
 
 GitHub Release changes:
-- Any mention of "release draft page" or "opens a draft URL" → "creates a GitHub Release via API"
-- Document new `--release-draft` flag in the flag table and sections
+- Line 124: `release-draft steps run in order` → `GitHub Release steps run in order`
+- Line 154: "CI mode publishes from the latest Git tag and creates a GitHub Release." — keep, wording is accurate
+- Any mention of "opens a release draft page" or "opens a draft URL" → "creates a GitHub Release via API"
+- Add new section "## GitHub Release" documenting:
+  - Default behavior: creates a GitHub Release via API (both local and CI)
+  - `--release-draft`: creates as draft
+  - `--no-release-draft`: skips entirely
+  - Token flow in local mode: env → SecureStore → interactive prompt (enter token / open browser / skip)
+  - Token flow in CI: `GITHUB_TOKEN` env required
 
 - [ ] **Step 2: Update sdk.mdx**
 
@@ -1142,7 +1150,10 @@ GitHub Release changes:
 - Line 49: `| preflight | boolean | ... |` → `| prepare | boolean | Run only the prepare phase. |`
 - Line 50: `| ci | boolean | ... |` → `| mode | "local" \| "ci" | Release mode. Default: "local". |`
 - Line 51: `| publishOnly | boolean | ... |` → `| publish | boolean | Run only the publish phase. |`
-- Add new rows: `| releaseDraft | boolean | Create GitHub Release as draft. |`
+- Add new rows:
+  - `| dryRun | boolean | Validate without side effects. |`
+  - `| releaseDraft | boolean | Create GitHub Release as draft (not published). |`
+- Update description of `skipReleaseDraft` if present: "Skip opening the GitHub release draft step" → "Skip GitHub Release creation"
 
 - [ ] **Step 3: Update plugins.mdx**
 
@@ -1188,7 +1199,18 @@ This is the most heavily affected guide. Line-by-line:
 - Line 116: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
 - Line 152: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
 
-Also update any mentions of "release draft" behavior to reflect unified GitHub Release creation.
+GitHub Release section updates:
+- Lines 107-126: "## GitHub Release assets" section — this section currently describes GITHUB_TOKEN as only needed for asset upload. Rewrite to explain:
+  - GitHub Release is now created via API in all modes (not just CI)
+  - `GITHUB_TOKEN` is required for all GitHub Release creation, not just asset upload
+  - In local mode without token: interactive prompt (enter token / open browser / skip)
+  - In CI: `GITHUB_TOKEN` env required (same as before)
+  - `--release-draft` creates draft release
+- Line 109: `pubm --ci runs the asset pipeline...` → `pubm --mode ci --phase publish runs the asset pipeline...`
+- Line 113: "Asset upload uses the GitHub API" → "GitHub Release creation and asset upload use the GitHub API"
+- Line 116: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 126: `pubm --ci` → `pubm --mode ci --phase publish`
+- Line 152: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
 
 - [ ] **Step 2: Update troubleshooting.mdx**
 
@@ -1210,8 +1232,10 @@ Also update any mentions of "release draft" behavior to reflect unified GitHub R
 
 - [ ] **Step 4: Update configuration.mdx**
 
+- Line 40: `releaseDraft: true,` — config 필드명은 유지하되 설명 변경
+- Lines 140-145: `### releaseDraft` 섹션:
+  - "Whether the normal publish flow should open the GitHub release draft step." → "Whether the publish flow should create a GitHub Release. When disabled, the release step is skipped entirely."
 - Line 284: "Snapshots are good for preview releases..." — "preview releases"는 pre-release 개념을 의미하므로 변경 불필요
-- Check for any `releaseDraft` config references and update descriptions if they mention "opening a draft URL"
 
 - [ ] **Step 5: Update coding-agents.mdx**
 
@@ -1290,6 +1314,7 @@ git commit -m "docs: update plugin documentation for mode/phase/dryRun CLI"
 - Line 60: `The --preflight flag goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.` → `The --mode ci --phase prepare mode goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.`
 - Line 63: `pubm --preflight` → `pubm --mode ci --phase prepare`
 - Line 101: `pushes tags, creates GitHub release draft` → `pushes tags, creates GitHub Release`
+- Any other mentions of "release draft" as the default behavior → "GitHub Release"
 
 - [ ] **Step 2: Update package.json scripts**
 
