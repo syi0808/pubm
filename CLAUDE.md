@@ -145,7 +145,7 @@ Coverage thresholds are enforced per-package in `vitest.config.mts`. **Never low
 After completing a bug fix or feature addition, create a changeset to document the change:
 
 ```bash
-bunx pubm add --packages <package-name> --bump <patch|minor|major> --message "description of the change"
+bunx pubm add --packages <package-path> --bump <patch|minor|major> --message "description of the change"
 ```
 
 - `patch` — bug fixes, minor corrections
@@ -153,6 +153,12 @@ bunx pubm add --packages <package-name> --bump <patch|minor|major> --message "de
 - `major` — breaking changes
 
 Changesets are required for any user-facing change. Do not commit without adding a changeset when applicable.
+
+### Changeset rules
+
+- **Identifier**: Use the package's filesystem path (e.g., `packages/core`), not the registry name. Package names are also accepted and auto-resolved to paths.
+- **Message**: Write in English, from the user's perspective. Describe what changed, not how it was implemented internally.
+- **Scope**: Only document user-facing changes. Internal refactors without behavioral impact do not need a changeset.
 
 ## Code Style
 
