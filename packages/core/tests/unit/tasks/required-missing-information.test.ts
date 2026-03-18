@@ -1556,6 +1556,10 @@ describe("requiredMissingInformationTasks", () => {
         ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/a", "packages/b"]),
+      );
     });
 
     it("add_packages: excludes remaining package when 'keep current' selected", async () => {
