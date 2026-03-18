@@ -461,13 +461,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
+      // pubm selected "keep current" (0.3.6), so it must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([
-          ["packages/core", "0.3.7"],
-          ["packages/pubm", "0.3.6"],
-        ]),
+        packages: new Map([["packages/core", "0.3.7"]]),
       });
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
       expect(
         mockTask.outputs.some(
           (output) =>
@@ -840,14 +839,13 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
+      // pkg-a and pkg-b selected "keep current" (0.3.6), so they must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([
-          ["packages/core", "0.4.0"],
-          ["packages/pkg-a", "0.3.6"],
-          ["packages/pkg-b", "0.3.6"],
-        ]),
+        packages: new Map([["packages/core", "0.4.0"]]),
       });
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-a")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-b")).toBe(false);
       expect(
         mockTask.outputs.some((output) =>
           output.includes("dependencies @pubm/core, @pubm/core bumped"),
@@ -948,13 +946,57 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
+      // pubm selected "keep current" (0.3.6), so it must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([
-          ["packages/core", "0.4.0"],
-          ["packages/pubm", "0.3.6"],
-        ]),
+        packages: new Map([["packages/core", "0.4.0"]]),
       });
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
+    });
+
+    it("no-changeset independent: excludes packages with unchanged versions from versionPlan and config", async () => {
+      // No changesets — pure manual path goes straight to mode selection
+      // (default beforeEach has hasChangesets: false)
+      const packages: ResolvedPackageConfig[] = [
+        makePkg({
+          name: "@pubm/core",
+          version: "1.0.0",
+          path: "packages/core",
+          dependencies: [],
+        }),
+        makePkg({
+          name: "pubm",
+          version: "2.0.0",
+          path: "packages/pubm",
+          dependencies: [],
+        }),
+      ];
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { versionPlan: undefined },
+        config: { versioning: "independent", packages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+      // pkgA: bump to 1.1.0; pkgB: keep at 2.0.0 (keep current)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.1.0")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      // Only pkgA (changed) should appear in the plan
+      expect(ctx.runtime.versionPlan?.packages.has("packages/core")).toBe(true);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(false);
+      // filterConfigPackages must be called with only pkgA's path
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/core"]),
+      );
     });
 
     it("sorts packages by dependency order (dependencies first)", async () => {
