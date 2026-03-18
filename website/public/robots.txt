@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://syi0808.github.io/pubm/sitemap-index.xml

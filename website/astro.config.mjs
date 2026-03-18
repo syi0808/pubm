@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import { googleSiteVerification } from "./src/consts/site-verification.js";
@@ -208,6 +209,9 @@ export default defineConfig({
   site: "https://syi0808.github.io",
   base: "/pubm",
   integrations: [
+    sitemap({
+      filter: (page) => !page.includes("/plugins/"),
+    }),
     pubmPluginStaticSync(),
     starlight({
       title: "pubm",
@@ -228,6 +232,22 @@ export default defineConfig({
           attrs: {
             name: "google-site-verification",
             content: googleSiteVerification,
+          },
+        },
+        { tag: "meta", attrs: { property: "og:site_name", content: "pubm" } },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image",
+            content: "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
+          },
+        },
+        { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
+        {
+          tag: "meta",
+          attrs: {
+            name: "twitter:image",
+            content: "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
           },
         },
       ],

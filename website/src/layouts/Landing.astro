@@ -3,6 +3,8 @@ import { googleSiteVerification } from "../consts/site-verification.js";
 import "../styles/landing.css";
 import type { SiteLocale } from "../i18n/site";
 
+const SITE_URL = "https://syi0808.github.io/pubm";
+
 interface Props {
   title: string;
   description: string;
@@ -10,6 +12,46 @@ interface Props {
 }
 
 const { title, description, locale } = Astro.props;
+
+const localePrefix = locale === "en" ? "" : `/${locale}`;
+const canonicalUrl = `${SITE_URL}${localePrefix}/`;
+const ogImage = `${SITE_URL}/logo_typo_with_transparent.png`;
+
+const hreflangs = [
+  { hreflang: "x-default", href: `${SITE_URL}/` },
+  { hreflang: "en", href: `${SITE_URL}/` },
+  { hreflang: "ko", href: `${SITE_URL}/ko/` },
+  { hreflang: "zh-Hans", href: `${SITE_URL}/zh-cn/` },
+  { hreflang: "fr", href: `${SITE_URL}/fr/` },
+  { hreflang: "de", href: `${SITE_URL}/de/` },
+  { hreflang: "es", href: `${SITE_URL}/es/` },
+];
+
+const jsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: `${SITE_URL}/`,
+      name: "pubm",
+      description:
+        "One command to publish across npm, jsr, crates.io, and private registries with automatic rollback.",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${SITE_URL}/#software`,
+      name: "pubm",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "macOS, Linux, Windows",
+      url: `${SITE_URL}/`,
+      description:
+        "CLI tool for publishing packages to npm, jsr, crates.io, and private registries simultaneously with automatic rollback.",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      codeRepository: "https://github.com/syi0808/pubm",
+    },
+  ],
+});
 ---
 
 <!doctype html>
@@ -21,7 +63,34 @@ const { title, description, locale } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="google-site-verification" content={googleSiteVerification} />
+
+    <!-- Canonical & hreflang -->
+    <link rel="canonical" href={canonicalUrl} />
+    {hreflangs.map(({ hreflang, href }) => (
+      <link rel="alternate" hreflang={hreflang} href={href} />
+    ))}
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content="pubm" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content={locale === "zh-cn" ? "zh_CN" : locale} />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href={`${import.meta.env.BASE_URL}logo_typo_with_transparent.png`} />
+
+    <!-- JSON-LD structured data -->
+    <script type="application/ld+json" set:html={jsonLd} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
