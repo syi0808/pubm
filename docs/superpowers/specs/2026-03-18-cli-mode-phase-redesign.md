@@ -230,14 +230,42 @@ function validateOptions(options: Options): void {
 - `packages/pubm/src/cli.ts` — Commander 플래그 재정의, validation 추가
 
 ### Test changes
-- 기존 `preview`, `preflight`, `ci`, `publishOnly` 관련 테스트 전부 업데이트
+- `packages/core/tests/unit/tasks/runner.test.ts` — runner 옵션 테스트 전면 업데이트
+- `packages/core/tests/unit/tasks/runner-coverage.test.ts` — runner coverage 테스트 업데이트
+- `packages/pubm/tests/unit/cli.test.ts` — CLI 옵션 파싱 테스트 업데이트
+- `packages/pubm/tests/unit/utils/binary-runner.test.ts` — binary runner 테스트 업데이트
+- `packages/pubm/tests/e2e/ci-mode.test.ts` — CI 모드 e2e 테스트 업데이트
+- `packages/pubm/tests/e2e/cross-registry-name.test.ts` — cross-registry e2e 테스트 업데이트
+- `packages/pubm/tests/e2e/error-handling.test.ts` — error handling e2e 테스트 업데이트
+- `packages/pubm/tests/e2e/help.test.ts` — help 텍스트 테스트 업데이트
 - 새로운 mode/phase 조합에 대한 테스트 추가
 
-### Documentation changes
-- `website/src/content/docs/reference/cli.mdx` — CLI 레퍼런스 재작성
-- `website/src/content/docs/guides/ci-cd.mdx` — CI/CD 가이드 재작성
-- `website/src/content/docs/guides/quick-start.mdx` — Quick start 업데이트
-- `website/src/content/docs/guides/troubleshooting.mdx` — Troubleshooting 업데이트
+### Website documentation (English)
+- `website/src/content/docs/reference/cli.mdx` — CLI 레퍼런스 재작성 (플래그 테이블, execution modes 섹션)
+- `website/src/content/docs/reference/sdk.mdx` — SDK API 문서에서 `preview`/`preflight`/`ci`/`publishOnly` 옵션 업데이트
+- `website/src/content/docs/reference/plugins.mdx` — 플러그인 API context 업데이트
+- `website/src/content/docs/reference/official-plugins.mdx` — 공식 플러그인 문서 업데이트
+- `website/src/content/docs/guides/ci-cd.mdx` — CI/CD 가이드 재작성 (워크플로우 예시 포함)
+- `website/src/content/docs/guides/quick-start.mdx` — Quick start에서 preflight 참조 업데이트
+- `website/src/content/docs/guides/troubleshooting.mdx` — Troubleshooting에서 preview/preflight 참조 업데이트
+- `website/src/content/docs/guides/configuration.mdx` — preview 참조 업데이트
+- `website/src/content/docs/guides/coding-agents.mdx` — publish-preview skill 참조 업데이트
+
+### Website documentation (Localized — 동일 변경 적용)
+- `website/src/content/docs/ko/reference/cli.mdx`, `ko/guides/ci-cd.mdx`, `ko/reference/sdk.mdx`
+- `website/src/content/docs/zh-cn/reference/cli.mdx`, `zh-cn/guides/ci-cd.mdx`, `zh-cn/reference/sdk.mdx`
+- `website/src/content/docs/fr/reference/cli.mdx`, `fr/guides/ci-cd.mdx`, `fr/reference/sdk.mdx`
+- `website/src/content/docs/de/reference/cli.mdx`, `de/guides/ci-cd.mdx`, `de/reference/sdk.mdx`
+- `website/src/content/docs/es/reference/cli.mdx`, `es/guides/ci-cd.mdx`
 
 ### Plugin changes
-- `plugins/pubm-plugin/` — pubm plugin skills에서 preflight/preview 참조 업데이트
+- `plugins/pubm-plugin/skills/publish-setup/SKILL.md` — `--ci`, `--publish-only` 참조 업데이트
+- `plugins/pubm-plugin/skills/publish-setup/references/ci-templates.md` — CI 템플릿 예시 전면 재작성
+- `plugins/pubm-plugin/skills/create-plugin/references/plugin-api.md` — 플러그인 API context 업데이트
+- `plugins/pubm-plugin/INSTALLATION.md` — preview/preflight 참조 업데이트
+- `plugins/pubm-plugin/PLUGIN_INSTALLATION.md` — preview/preflight 참조 업데이트
+
+### Other
+- `README.md` — `--preflight` 참조 업데이트
+- `package.json` — scripts에서 `--ci`, `--preflight` 플래그 업데이트
+- `.github/workflows/release.yml` — `pubm --ci` → `pubm --mode ci --publish` 변경
