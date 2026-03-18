@@ -74,6 +74,7 @@ export interface PubmContext {
     npmOtp?: string;
     npmOtpPromise?: Promise<string>;
     workspaceBackups?: Map<string, string>;
+    dryRunVersionBackup?: Map<string, string>;
   };
 }
 

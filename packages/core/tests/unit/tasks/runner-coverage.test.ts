@@ -485,7 +485,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat task list
+    const releaseTask = tasks[10]; // "Creating GitHub Release" in flat task list
     const releaseCtx: any = {
       config: {
         packages: [
@@ -903,7 +903,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
+    const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const releaseCtx: any = {
       config: {
         packages: [
@@ -2096,7 +2096,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
+    const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
       config: {
@@ -2183,7 +2183,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
+    const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
       config: {
@@ -3047,7 +3047,7 @@ describe("version plan formatting fallbacks", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
+    const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     // No versionPlan but versions has > 1 entries
     const ctx: any = {
@@ -3333,7 +3333,7 @@ describe("independent changeset with empty entries for some packages", () => {
 });
 
 describe("dry-run version bump early return", () => {
-  it("restores original versions and returns early in single mode dry-run", async () => {
+  it("returns early without writing versions in single mode dry-run", async () => {
     mockedWriteVersionsForEcosystem.mockResolvedValue([]);
 
     await run(
@@ -3372,14 +3372,15 @@ describe("dry-run version bump early return", () => {
 
     await versionTask.task(ctx, task);
 
-    // writeVersionsForEcosystem called twice: once to set, once to restore
-    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    // writeVersionsForEcosystem should NOT be called in version bump task during dry-run
+    // (version writing is deferred to the dry-run publish validation task via applyVersionsForDryRun)
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
     // Git commit should NOT have been called (early return before commit)
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
     expect(gitInstance.commit).not.toHaveBeenCalled();
   });
 
-  it("restores original versions and returns early in fixed mode dry-run", async () => {
+  it("returns early without writing versions in fixed mode dry-run", async () => {
     const versions = new Map([
       ["packages/core", "3.0.0"],
       ["packages/pubm", "3.0.0"],
@@ -3449,12 +3450,14 @@ describe("dry-run version bump early return", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    // writeVersionsForEcosystem should NOT be called in version bump task during dry-run
+    // (version writing is deferred to the dry-run publish validation task via applyVersionsForDryRun)
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
     expect(gitInstance.commit).not.toHaveBeenCalled();
   });
 
-  it("restores original versions and returns early in independent mode dry-run", async () => {
+  it("returns early without writing versions in independent mode dry-run", async () => {
     const versions = new Map([
       ["packages/core", "2.0.0"],
       ["packages/pubm", "2.1.0"],
@@ -3522,7 +3525,9 @@ describe("dry-run version bump early return", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    // writeVersionsForEcosystem should NOT be called in version bump task during dry-run
+    // (version writing is deferred to the dry-run publish validation task via applyVersionsForDryRun)
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
     expect(gitInstance.commit).not.toHaveBeenCalled();
   });

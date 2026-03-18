@@ -181,6 +181,29 @@ function resolveWorkspaceProtocols(ctx: PubmContext): void {
   }
 }
 
+async function applyVersionsForDryRun(ctx: PubmContext): Promise<void> {
+  const plan = ctx.runtime.versionPlan;
+  if (!plan) return;
+
+  // Backup original versions from config (safe: writeVersions not yet called in dry-run)
+  ctx.runtime.dryRunVersionBackup = new Map(
+    ctx.config.packages.map((pkg) => [pkg.path, pkg.version ?? "0.0.0"]),
+  );
+
+  // Build new versions map from versionPlan
+  let newVersions: Map<string, string>;
+  if (plan.mode === "single") {
+    newVersions = new Map(
+      ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
+    );
+  } else {
+    // fixed and independent both use plan.packages
+    newVersions = plan.packages;
+  }
+
+  await writeVersions(ctx, newVersions);
+}
+
 async function collectPublishTasks(ctx: PubmContext) {
   const groups = collectEcosystemRegistryGroups(ctx.config);
 
@@ -748,14 +771,6 @@ export async function run(ctx: PubmContext): Promise<void> {
 
             task.output = formatVersionPlan(ctx);
 
-            // Capture original versions for dry-run rollback
-            const originalVersions = new Map(
-              ctx.config.packages.map((pkg) => [
-                pkg.path,
-                pkg.version ?? "0.0.0",
-              ]),
-            );
-
             addRollback(async () => {
               if (tagCreated) {
                 try {
@@ -817,14 +832,11 @@ export async function run(ctx: PubmContext): Promise<void> {
               const singleVersions = new Map(
                 ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
               );
-              const replaced = await writeVersions(ctx, singleVersions);
-
               if (dryRun) {
-                task.output =
-                  "Dry-run: restoring original manifest versions...";
-                await writeVersions(ctx, originalVersions);
                 return;
               }
+
+              const replaced = await writeVersions(ctx, singleVersions);
 
               for (const replacedFile of replaced) {
                 await git.stage(replacedFile);
@@ -887,14 +899,12 @@ export async function run(ctx: PubmContext): Promise<void> {
             } else if (plan.mode === "fixed") {
               // Fixed monorepo: same version for all packages
               task.output = "Updating package versions across the workspace...";
-              const replaced = await writeVersions(ctx, plan.packages);
 
               if (dryRun) {
-                task.output =
-                  "Dry-run: restoring original manifest versions...";
-                await writeVersions(ctx, originalVersions);
                 return;
               }
+
+              const replaced = await writeVersions(ctx, plan.packages);
 
               for (const f of replaced) {
                 await git.stage(f);
@@ -959,14 +969,12 @@ export async function run(ctx: PubmContext): Promise<void> {
             } else {
               // Independent monorepo
               task.output = "Updating package versions across the workspace...";
-              const replaced = await writeVersions(ctx, plan.packages);
 
               if (dryRun) {
-                task.output =
-                  "Dry-run: restoring original manifest versions...";
-                await writeVersions(ctx, originalVersions);
                 return;
               }
+
+              const replaced = await writeVersions(ctx, plan.packages);
 
               for (const f of replaced) {
                 await git.stage(f);
@@ -1103,6 +1111,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           title: "Validating publish (dry-run)",
           task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
             resolveWorkspaceProtocols(ctx);
+            await applyVersionsForDryRun(ctx);
 
             const dryRunTasks = await collectDryRunPublishTasks(ctx);
             parentTask.title = `Validating publish (${countRegistryTargets(
@@ -1126,6 +1135,14 @@ export async function run(ctx: PubmContext): Promise<void> {
           task: (ctx) => {
             restoreManifests(ctx.runtime.workspaceBackups!);
             ctx.runtime.workspaceBackups = undefined;
+          },
+        },
+        {
+          skip: (ctx) => !dryRun || !ctx.runtime.dryRunVersionBackup?.size,
+          title: "Restoring original versions (dry-run)",
+          task: async (ctx): Promise<void> => {
+            await writeVersions(ctx, ctx.runtime.dryRunVersionBackup!);
+            ctx.runtime.dryRunVersionBackup = undefined;
           },
         },
 
