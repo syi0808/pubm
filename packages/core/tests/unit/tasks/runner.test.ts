@@ -454,6 +454,112 @@ beforeEach(() => {
   setupCreateListrMock();
 });
 
+describe("dry-run version application", () => {
+  it("writes new version to disk before dry-run publish validation (single mode)", async () => {
+    const ctx = createOptions({
+      options: { dryRun: true },
+      runtime: {
+        versionPlan: {
+          mode: "single" as const,
+          version: "2.0.0",
+          packagePath: ".",
+        },
+      },
+    });
+    const writeCallArgs: Array<Map<string, string>> = [];
+    mockedWriteVersionsForEcosystem.mockImplementation(
+      async (_ecosystems, versions) => {
+        writeCallArgs.push(new Map(versions));
+        return [];
+      },
+    );
+
+    await run(ctx);
+
+    // dry-run publish validation 직전에 새 버전(2.0.0)으로 쓴 call이 있어야 함
+    const wroteNewVersion = writeCallArgs.some((m) =>
+      [...m.values()].includes("2.0.0"),
+    );
+    expect(wroteNewVersion).toBe(true);
+  });
+
+  it("restores original version after dry-run publish validation (single mode)", async () => {
+    const ctx = createOptions({
+      options: { dryRun: true },
+      runtime: {
+        versionPlan: {
+          mode: "single" as const,
+          version: "2.0.0",
+          packagePath: ".",
+        },
+      },
+    });
+    const writeCallArgs: Array<Map<string, string>> = [];
+    mockedWriteVersionsForEcosystem.mockImplementation(
+      async (_ecosystems, versions) => {
+        writeCallArgs.push(new Map(versions));
+        return [];
+      },
+    );
+
+    await run(ctx);
+
+    // 마지막 write call은 원래 버전(1.0.0)으로 복원해야 함
+    const lastWrite = writeCallArgs[writeCallArgs.length - 1];
+    expect(lastWrite && [...lastWrite.values()][0]).toBe("1.0.0");
+  });
+
+  it("writes new version to disk for fixed mode dry-run", async () => {
+    const ctx = createOptions({
+      config: {
+        packages: [
+          {
+            path: "packages/a",
+            name: "pkg-a",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            path: "packages/b",
+            name: "pkg-b",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      options: { dryRun: true },
+      runtime: {
+        versionPlan: {
+          mode: "fixed" as const,
+          version: "2.0.0",
+          packages: new Map([
+            ["packages/a", "2.0.0"],
+            ["packages/b", "2.0.0"],
+          ]),
+        },
+      },
+    });
+    const writeCallArgs: Array<Map<string, string>> = [];
+    mockedWriteVersionsForEcosystem.mockImplementation(
+      async (_ecosystems, versions) => {
+        writeCallArgs.push(new Map(versions));
+        return [];
+      },
+    );
+
+    await run(ctx);
+
+    const wroteNewVersion = writeCallArgs.some((m) =>
+      [...m.values()].every((v) => v === "2.0.0"),
+    );
+    expect(wroteNewVersion).toBe(true);
+  });
+});
+
 describe("run", () => {
   describe("context creation", () => {
     it("sets promptEnabled to true when not CI and stdin is TTY", async () => {
@@ -579,7 +685,7 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(10);
+      expect(tasks).toHaveLength(11);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
@@ -588,8 +694,9 @@ describe("run", () => {
       expect(tasks[5].title).toBe("Running post-publish hooks");
       expect(tasks[6].title).toBe("Validating publish (dry-run)");
       expect(tasks[7].title).toBe("Restoring workspace protocols");
-      expect(tasks[8].title).toBe("Pushing tags to GitHub");
-      expect(tasks[9].title).toBe("Creating GitHub Release");
+      expect(tasks[8].title).toBe("Restoring original versions (dry-run)");
+      expect(tasks[9].title).toBe("Pushing tags to GitHub");
+      expect(tasks[10].title).toBe("Creating GitHub Release");
     });
   });
 
@@ -666,7 +773,7 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
 
       // Push tags skip is static: `!hasPrepare || dryRun`
-      expect(tasks[8].skip).toBe(true);
+      expect(tasks[9].skip).toBe(true);
     });
 
     it("skips release draft when skipReleaseDraft is true", async () => {
@@ -675,7 +782,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[9].skip as (ctx: any) => boolean;
+      const skipFn = tasks[10].skip as (ctx: any) => boolean;
 
       expect(skipFn({ options: { skipReleaseDraft: true } })).toBe(true);
     });
@@ -686,7 +793,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[9].skip as (ctx: any) => boolean;
+      const skipFn = tasks[10].skip as (ctx: any) => boolean;
 
       // dryRun causes release draft to be skipped
       expect(skipFn({ options: { skipReleaseDraft: false } })).toBe(true);
@@ -1761,7 +1868,7 @@ describe("run", () => {
       const tasks = pipelineCall![0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks).toHaveLength(10);
+      expect(tasks).toHaveLength(11);
       expect(tasks[0].title).toBe("Running tests");
       expect(tasks[1].title).toBe("Building the project");
       expect(tasks[2].title).toBe("Bumping version");
@@ -1770,8 +1877,9 @@ describe("run", () => {
       expect(tasks[5].title).toBe("Running post-publish hooks");
       expect(tasks[6].title).toBe("Validating publish (dry-run)");
       expect(tasks[7].title).toBe("Restoring workspace protocols");
-      expect(tasks[8].title).toBe("Pushing tags to GitHub");
-      expect(tasks[9].title).toBe("Creating GitHub Release");
+      expect(tasks[8].title).toBe("Restoring original versions (dry-run)");
+      expect(tasks[9].title).toBe("Pushing tags to GitHub");
+      expect(tasks[10].title).toBe("Creating GitHub Release");
     });
 
     it("injects tokens into env and cleans up after pipeline", async () => {
