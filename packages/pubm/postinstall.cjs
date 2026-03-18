@@ -28,7 +28,25 @@ function main() {
       process.exit(0);
     }
 
-    console.log(`pubm: platform binary verified (${packageName})`);
+    if (platform !== "windows") {
+      const binDir = path.join(__dirname, "bin");
+      const target = path.join(binDir, ".pubm");
+
+      if (!fs.existsSync(binDir)) {
+        fs.mkdirSync(binDir, { recursive: true });
+      }
+      if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+      }
+      try {
+        fs.linkSync(binaryPath, target);
+      } catch {
+        fs.copyFileSync(binaryPath, target);
+      }
+      fs.chmodSync(target, 0o755);
+    }
+
+    console.log(`pubm: platform binary cached (${packageName})`);
   } catch {
     console.error(
       `pubm: could not find platform binary package. You may need to install it manually for your platform (${os.platform()}-${os.arch()}).`,
