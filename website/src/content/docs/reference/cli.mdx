@@ -70,11 +70,10 @@ Typical flow:
 
 ```bash
 pubm
-pubm patch
-pubm minor --dry-run
+pubm --dry-run
 pubm 1.8.0
-pubm patch --registry npm,jsr
-pubm patch --tag beta
+pubm --registry npm,jsr
+pubm --tag beta
 ```
 
 ## Publish flags
@@ -126,7 +125,7 @@ Behavior:
 ## Dry-run mode
 
 ```bash
-pubm patch --dry-run
+pubm --dry-run
 ```
 
 Use dry-run mode when you need to inspect the task plan without side effects.
@@ -313,8 +312,8 @@ pubm init --changesets
 pubm changesets add
 pubm changesets version
 pubm --mode ci --phase prepare
-pubm patch --dry-run
-pubm patch
+pubm --dry-run
+pubm
 ```
 
 ### Local CI rehearsal
