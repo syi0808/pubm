@@ -10,6 +10,7 @@ import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
 import { defaultOptions } from "../options.js";
 import { registryCatalog } from "../registry/catalog.js";
+import { filterConfigPackages } from "../utils/filter-config.js";
 import { createListr } from "../utils/listr.js";
 import { ui } from "../utils/ui.js";
 
@@ -411,14 +412,15 @@ async function handleMultiPackage(
     bumps = calculateVersionBumps(currentVersions, cwd, resolver);
 
     if (bumps.size > 0) {
-      const accepted = await promptChangesetRecommendations(
+      const result = await promptChangesetRecommendations(
         ctx,
         task,
         status,
         bumps,
         sortedPackageInfos,
       );
-      if (accepted) return;
+      if (result === "accepted") return;
+      // "add_packages" and "no" both fall through to manual flow for now
     }
   }
 
@@ -435,7 +437,7 @@ async function handleMultiPackage(
 }
 
 /**
- * Show changeset recommendations for all affected packages and prompt accept/customize.
+ * Show changeset recommendations for all affected packages and prompt with three choices.
  */
 async function promptChangesetRecommendations(
   ctx: PubmContext,
@@ -443,7 +445,7 @@ async function promptChangesetRecommendations(
   status: ReturnType<typeof getStatus>,
   bumps: Map<string, VersionBump>,
   sortedPackageInfos: ResolvedPackageConfig[],
-): Promise<boolean> {
+): Promise<"accepted" | "add_packages" | "no"> {
   const lines: string[] = ["Changesets suggest:"];
 
   for (const pkg of sortedPackageInfos) {
@@ -463,13 +465,14 @@ async function promptChangesetRecommendations(
     type: "select",
     message: "Accept changeset recommendations?",
     choices: [
-      { message: "Accept all", name: "accept" },
-      { message: "Customize versions", name: "customize" },
+      { message: "Only changesets (auto bump affected packages)", name: "only_changesets" },
+      { message: "Also select versions for other packages", name: "add_packages" },
+      { message: "No, select versions manually", name: "no" },
     ],
     name: "version",
   });
 
-  if (choice === "accept") {
+  if (choice === "only_changesets") {
     const versions = new Map<string, string>();
     for (const [path, bump] of bumps) {
       versions.set(path, bump.newVersion);
@@ -479,10 +482,15 @@ async function promptChangesetRecommendations(
       packages: versions,
     };
     ctx.runtime.changesetConsumed = true;
-    return true;
+    filterConfigPackages(ctx, new Set(bumps.keys()));
+    return "accepted";
   }
 
-  return false;
+  if (choice === "add_packages") {
+    return "add_packages";
+  }
+
+  return "no";
 }
 
 /**

@@ -23,6 +23,9 @@ vi.mock("../../../src/utils/listr.js", () => ({
     };
   }),
 }));
+vi.mock("../../../src/utils/filter-config.js", () => ({
+  filterConfigPackages: vi.fn(),
+}));
 
 import { getStatus } from "../../../src/changeset/status.js";
 import { calculateVersionBumps } from "../../../src/changeset/version.js";
@@ -31,12 +34,14 @@ import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import { registryCatalog } from "../../../src/registry/catalog.js";
 import { requiredMissingInformationTasks } from "../../../src/tasks/required-missing-information.js";
 import { createListr } from "../../../src/utils/listr.js";
+import { filterConfigPackages } from "../../../src/utils/filter-config.js";
 
 const mockedGetStatus = vi.mocked(getStatus);
 const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedLoadConfig = vi.mocked(loadConfig);
 const mockedRegistryCatalogGet = vi.mocked(registryCatalog.get);
 const mockedCreateListr = vi.mocked(createListr);
+const mockedFilterConfigPackages = vi.mocked(filterConfigPackages);
 
 function createMockPromptAdapter() {
   const runFn = vi.fn();
@@ -92,6 +97,7 @@ const defaultPackages: ResolvedPackageConfig[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockedFilterConfigPackages.mockClear();
   mockedGetStatus.mockReturnValue({
     hasChangesets: false,
     packages: new Map(),
@@ -538,7 +544,7 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
 
       await versionTask.task(ctx, mockTask);
 
@@ -604,7 +610,7 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
 
       await versionTask.task(ctx, mockTask);
 
@@ -1103,9 +1109,9 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "customize" from changeset recommendation, then "fixed" mode, then version
+      // "no" from changeset recommendation, then "fixed" mode, then version
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("no")
         .mockResolvedValueOnce("fixed")
         .mockResolvedValueOnce("1.1.0");
 
@@ -1173,9 +1179,9 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "customize" from changeset recommendation, then per-package versions
+      // "no" from changeset recommendation, then per-package versions
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("no")
         .mockResolvedValueOnce("1.1.0") // @pubm/core
         .mockResolvedValueOnce("1.0.0"); // pubm
 
@@ -1235,7 +1241,7 @@ describe("requiredMissingInformationTasks", () => {
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("no")
         .mockResolvedValueOnce("2.0.0") // @pubm/core
         .mockResolvedValueOnce("1.0.0"); // pubm
 
@@ -1312,7 +1318,7 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
 
       await versionTask.task(ctx, mockTask);
 
@@ -1380,9 +1386,9 @@ describe("requiredMissingInformationTasks", () => {
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "customize" from changeset recommendation, then version in fixed mode
+      // "no" from changeset recommendation, then version in fixed mode
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("customize")
+        .mockResolvedValueOnce("no")
         .mockResolvedValueOnce("1.1.0");
 
       await versionTask.task(ctx, mockTask);
@@ -1400,6 +1406,80 @@ describe("requiredMissingInformationTasks", () => {
         c.message.startsWith("patch"),
       );
       expect(patchChoice.message).not.toContain("recommended by changesets");
+    });
+  });
+
+  describe("three-choice prompt — only_changesets", () => {
+    const pkgA = makePkg({ name: "@scope/a", version: "1.0.0", path: "packages/a" });
+    const pkgB = makePkg({ name: "@scope/b", version: "2.0.0", path: "packages/b" });
+    const twoPackages = [pkgA, pkgB];
+
+    function makeTwoPkgCtx() {
+      return {
+        config: { packages: twoPackages, versioning: undefined },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      } as any;
+    }
+
+    beforeEach(() => {
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([["packages/a", { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" }]])
+      );
+    });
+
+    it("shows three choices: only_changesets, add_packages, no", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+
+      await versionTask.task(ctx, mockTask);
+
+      const promptCall = mockTask._promptAdapter.run.mock.calls[0];
+      const choiceNames = promptCall[0].choices.map((c: any) => c.name);
+      expect(choiceNames).toEqual(["only_changesets", "add_packages", "no"]);
+    });
+
+    it("only_changesets: sets versionPlan with changeset packages only", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan).toEqual({
+        mode: "independent",
+        packages: new Map([["packages/a", "1.1.0"]]),
+      });
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
+
+    it("only_changesets: calls filterConfigPackages with changeset package paths", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
+        ctx,
+        new Set(["packages/a"]),
+      );
     });
   });
 
