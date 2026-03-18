@@ -94,10 +94,22 @@ describe("createContext", () => {
     expect(ctx.runtime.versionPlan?.version).toBe("1.0.0");
   });
 
-  it("config is immutable (top-level reassignment throws)", () => {
+  it("ctx.config is replaceable (writable reference)", () => {
     const ctx = createContext(makeConfig(), makeOptions());
+    const newConfig = makeConfig({ packages: [] });
     expect(() => {
-      (ctx as any).config = makeConfig();
+      (ctx as { config: typeof ctx.config }).config = Object.freeze(newConfig);
+    }).not.toThrow();
+    expect(ctx.config).toBe(newConfig);
+  });
+
+  it("replaced ctx.config is frozen (internal properties immutable)", () => {
+    const ctx = createContext(makeConfig(), makeOptions());
+    const newConfig = makeConfig({ packages: [] });
+    (ctx as { config: typeof ctx.config }).config = Object.freeze(newConfig);
+    expect(Object.isFrozen(ctx.config)).toBe(true);
+    expect(() => {
+      (ctx.config as any).branch = "other";
     }).toThrow();
   });
 });

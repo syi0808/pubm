@@ -55,7 +55,7 @@ export function getPackageVersion(
 }
 
 export interface PubmContext {
-  readonly config: ResolvedPubmConfig;
+  config: ResolvedPubmConfig;
   readonly options: ResolvedOptions;
   readonly cwd: string;
 
@@ -91,7 +91,7 @@ export function createContext(
   const ctx = Object.defineProperties(Object.create(null), {
     config: {
       value: Object.freeze(config),
-      writable: false,
+      writable: true,
       enumerable: true,
       configurable: false,
     },
