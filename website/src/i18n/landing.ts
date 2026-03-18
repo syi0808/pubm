@@ -54,6 +54,12 @@ export interface LandingDictionary {
     tagline: string;
     docs: string;
   };
+  why?: {
+    badge: string;
+    title: string;
+    description: string;
+    items: Array<{ heading: string; body: string }>;
+  };
 }
 
 export const landingCopy: Record<SiteLocale, LandingDictionary> = {
@@ -111,6 +117,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
           description:
             "Interactive prompts at the terminal, fully headless in CI. Same command and same guarantees.",
         },
+        {
+          title: "Set up once, scale forever",
+          description:
+            "Start a new project with pubm and never revisit your release setup. Add registries, packages, or ecosystems without changing your workflow.",
+        },
       ],
     },
     workflow: {
@@ -145,13 +156,33 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "Install once. Then just run `pubm`.",
       description:
-        "The default path is interactive: choose patch, minor, or major in the terminal, then let pubm handle the release pipeline.",
+        "Start fresh or drop into an existing project. pubm wires npm, jsr, and private registries from day one — no migration needed later.",
       readDocs: "Read the Docs",
       viewGithub: "View on GitHub",
       copyLabel: "Copy commands",
       terminalTitle: "bash - install",
     },
     footer: { tagline: "One command, every registry", docs: "Docs" },
+    why: {
+      badge: "Why pubm?",
+      title: "The right foundation for new projects",
+      description:
+        "Most release tools assume you already know what you need. pubm gives new projects a complete, multi-registry setup from day one.",
+      items: [
+        {
+          heading: "No migration later",
+          body: "Start with npm only and add jsr or crates.io when you're ready — no workflow changes required.",
+        },
+        {
+          heading: "JS + Rust in one pipeline",
+          body: "Shipping a Rust crate alongside an npm package? pubm reads both package.json and Cargo.toml — one command publishes to npm, jsr, and crates.io together.",
+        },
+        {
+          heading: "Grows with your monorepo",
+          body: "One package today, ten tomorrow. pubm's dependency-aware ordering means you never publish in the wrong order.",
+        },
+      ],
+    },
   },
   ko: {
     meta: {
@@ -207,6 +238,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
           description:
             "터미널에서는 대화형으로, CI에서는 완전 무인으로 동작합니다. 명령과 보장은 동일합니다.",
         },
+        {
+          title: "한 번 설정, 영구적으로 확장",
+          description:
+            "pubm으로 새 프로젝트를 시작하면 릴리즈 설정을 다시 손볼 필요가 없습니다. 레지스트리, 패키지, 생태계를 추가해도 워크플로우는 그대로입니다.",
+        },
       ],
     },
     workflow: {
@@ -241,13 +277,33 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "한 번 설치하고, 이후엔 `pubm`만 실행하세요.",
       description:
-        "기본 흐름은 대화형입니다. 터미널에서 patch, minor, major를 선택하면 이후 릴리스 파이프라인은 pubm이 처리합니다.",
+        "새 프로젝트든 기존 프로젝트든 바로 시작하세요. pubm은 처음부터 npm, jsr, private registry를 모두 지원합니다.",
       readDocs: "문서 읽기",
       viewGithub: "GitHub 보기",
       copyLabel: "명령 복사",
       terminalTitle: "bash - 설치",
     },
     footer: { tagline: "하나의 명령, 모든 레지스트리", docs: "문서" },
+    why: {
+      badge: "왜 pubm인가?",
+      title: "새 프로젝트를 위한 올바른 기반",
+      description:
+        "대부분의 릴리즈 도구는 이미 무엇이 필요한지 알고 있다고 가정합니다. pubm은 새 프로젝트에 처음부터 완전한 멀티 레지스트리 셋업을 제공합니다.",
+      items: [
+        {
+          heading: "나중에 마이그레이션 없음",
+          body: "지금은 npm만으로 시작하고, 준비되면 jsr이나 crates.io를 추가하세요 — 워크플로우 변경이 없습니다.",
+        },
+        {
+          heading: "JS + Rust 하나의 파이프라인",
+          body: "npm 패키지와 함께 Rust crate도 배포하나요? pubm은 package.json과 Cargo.toml을 모두 읽어 npm, jsr, crates.io를 한 번에 배포합니다.",
+        },
+        {
+          heading: "모노레포와 함께 성장",
+          body: "오늘은 패키지 1개, 내일은 10개. pubm의 의존성 순서 정렬로 항상 올바른 순서로 배포됩니다.",
+        },
+      ],
+    },
   },
   "zh-cn": {
     meta: {

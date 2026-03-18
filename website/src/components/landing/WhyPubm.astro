@@ -1,0 +1,77 @@
+---
+import type { LandingDictionary } from "../../i18n/landing";
+
+interface Props {
+  copy: LandingDictionary;
+}
+
+const { copy } = Astro.props;
+const { why } = copy;
+---
+
+{why && (
+  <section class="why-section">
+    <span class="badge">{why.badge}</span>
+    <h2>{why.title}</h2>
+    <p class="description">{why.description}</p>
+    <ul class="why-items">
+      {why.items.map((item) => (
+        <li>
+          <strong>{item.heading}</strong>
+          <span>{item.body}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<style>
+  .why-section {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+  }
+  h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .description {
+    opacity: 0.7;
+    max-width: 600px;
+    margin: 0 auto 2.5rem;
+  }
+  .why-items {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    text-align: left;
+  }
+  .why-items li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+  }
+  strong {
+    font-size: 1rem;
+  }
+  span {
+    opacity: 0.65;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+</style>

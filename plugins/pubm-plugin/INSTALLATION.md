@@ -1,5 +1,7 @@
 # pubm Plugin Installation
 
+> **Note:** This file is for coding agents that do **not** support a plugin marketplace (e.g., Codex, custom agents). If you use **Claude Code**, install the pubm plugin directly from the Claude Code marketplace instead.
+
 This file explains how to obtain the `pubm plugin` bundle when your coding agent does not support a plugin marketplace.
 
 ## Give this link to the agent

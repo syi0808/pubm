@@ -23,7 +23,17 @@ If anything fails, pubm rolls everything back automatically.
 <img src="https://github.com/syi0808/pubm/blob/main/docs/demo.gif" width="100%">
 </p>
 
-## Why pubm exists
+## Why pubm?
+
+Most release tools assume a single registry. pubm is built for projects that publish to more than one:
+
+- **npm + jsr** — ship to both JavaScript registries in one command
+- **JS + Rust** — publish `package.json` and `Cargo.toml` in a single pipeline; no two-step release scripts
+- **Monorepos** — publishes packages in dependency order, no manual sequencing
+- **Start right** — set up once when you create the project, never revisit the release config
+
+If you only ever publish to npm and have one package, `np` or `release-it` will serve you fine.
+If you publish to multiple registries, mix ecosystems, manage a monorepo, or want to grow without changing your setup, pubm is the better foundation.
 
 Publishing a package to multiple registries shouldn't require shell scripts or plugins bolted onto tools designed for one registry. pubm treats multi-registry publishing as a single transaction — it either succeeds everywhere or rolls back cleanly.
 
