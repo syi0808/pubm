@@ -251,12 +251,8 @@ function validateOptions(options: Options): void {
 - `website/src/content/docs/guides/configuration.mdx` — preview 참조 업데이트
 - `website/src/content/docs/guides/coding-agents.mdx` — publish-preview skill 참조 업데이트
 
-### Website documentation (Localized — 동일 변경 적용)
-- `website/src/content/docs/ko/reference/cli.mdx`, `ko/guides/ci-cd.mdx`, `ko/reference/sdk.mdx`
-- `website/src/content/docs/zh-cn/reference/cli.mdx`, `zh-cn/guides/ci-cd.mdx`, `zh-cn/reference/sdk.mdx`
-- `website/src/content/docs/fr/reference/cli.mdx`, `fr/guides/ci-cd.mdx`, `fr/reference/sdk.mdx`
-- `website/src/content/docs/de/reference/cli.mdx`, `de/guides/ci-cd.mdx`, `de/reference/sdk.mdx`
-- `website/src/content/docs/es/reference/cli.mdx`, `es/guides/ci-cd.mdx`
+### Website documentation (Localized)
+- 영어 문서만 수정. 번역본(ko, zh-cn, fr, de, es)은 이번 범위에서 제외
 
 ### Plugin changes
 - `plugins/pubm-plugin/skills/publish-setup/SKILL.md` — `--ci`, `--publish-only` 참조 업데이트
