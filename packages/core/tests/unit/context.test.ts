@@ -98,7 +98,7 @@ describe("createContext", () => {
     const ctx = createContext(makeConfig(), makeOptions());
     const newConfig = makeConfig({ packages: [] });
     expect(() => {
-      (ctx as { config: typeof ctx.config }).config = Object.freeze(newConfig);
+      ctx.config = Object.freeze(newConfig);
     }).not.toThrow();
     expect(ctx.config).toBe(newConfig);
   });
@@ -106,7 +106,7 @@ describe("createContext", () => {
   it("replaced ctx.config is frozen (internal properties immutable)", () => {
     const ctx = createContext(makeConfig(), makeOptions());
     const newConfig = makeConfig({ packages: [] });
-    (ctx as { config: typeof ctx.config }).config = Object.freeze(newConfig);
+    ctx.config = Object.freeze(newConfig);
     expect(Object.isFrozen(ctx.config)).toBe(true);
     expect(() => {
       (ctx.config as any).branch = "other";
