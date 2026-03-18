@@ -25,7 +25,7 @@ The current CLI options (`--preview`, `--preflight`, `--ci`, `--publish-only`) a
 - `publish`: publish → post-publish hooks → release draft
 
 **Dry-Run** — side-effect 없이 검증:
-- version bump 실행 후 자동 rollback
+- version bump: manifest 파일에 버전 쓰기 실행 → git commit/tag **skip** → manifest 원본 복원
 - git push 안 함
 - publish는 registry dry-run으로 대체 (`npm publish --dry-run` 등)
 
@@ -41,8 +41,8 @@ pubm --mode local --prepare --dry-run       # version bump 검증 후 rollback
 pubm --mode local --publish --dry-run       # dry-run publish
 
 # CI mode
-pubm --mode ci --prepare                    # 토큰 수집 + test/build + version bump + tag push (CI 트리거)
-pubm --mode ci --prepare --dry-run          # 토큰 수집 + 검증, tag push 안 함
+pubm --mode ci --prepare                    # 토큰 수집 + test/build + version bump + tag push + dry-run publish (CI 트리거)
+pubm --mode ci --prepare --dry-run          # 토큰 수집 + 검증, version bump/tag push 안 함, dry-run publish
 pubm --mode ci --publish                    # CI에서 실제 publish
 pubm --mode ci --publish --dry-run          # CI에서 dry-run publish
 pubm --mode ci                              # 에러: --prepare 또는 --publish를 명시하세요
@@ -53,7 +53,7 @@ pubm --mode ci                              # 에러: --prepare 또는 --publish
 | 현재 옵션 | 새 체계 | 비고 |
 |-----------|---------|------|
 | `pubm` (기본) | `pubm --mode local` | 기본값이므로 생략 가능 |
-| `--preview` | `--dry-run` | **제거 (breaking)** |
+| `--preview` | `--dry-run` | **제거 (breaking)** — 동작 변경: 기존 preview는 version bump을 skip했지만 dry-run은 실행 후 rollback |
 | `--preflight` | `--mode ci --prepare` | **제거 (breaking)** |
 | `--ci` | `--mode ci --publish` | **제거 (breaking)** |
 | `--publish-only` | `--mode local --publish` | **제거 (breaking)** |
@@ -63,11 +63,12 @@ pubm --mode ci                              # 에러: --prepare 또는 --publish
 - `--mode` 미지정 → `local`
 - `--mode local` + phase 미지정 → `prepare + publish` (전체 실행)
 - `--mode ci` + phase 미지정 → **에러**
+- `isCI` (std-env 자동감지)는 `--mode`를 자동 설정하지 않음. mode는 항상 명시적
 
 ### Constraints
 
 - `--snapshot`은 `--mode ci`와 함께 사용 불가
-- `--prepare`와 `--publish`는 동시 지정 불가 (= 기본 동작이므로 불필요)
+- `--prepare`와 `--publish`는 동시 지정 불가 (= 기본 동작이므로 불필요, 에러 처리)
 
 ### Mode별 Phase 동작 차이
 
@@ -83,6 +84,7 @@ pubm --mode ci                              # 에러: --prepare 또는 --publish
 | Test & Build | ✅ | ✅ |
 | Version bump + git commit + tag | ✅ | ✅ |
 | Git push (--follow-tags) | ✅ | ✅ (CI 트리거) |
+| Dry-run publish validation | ❌ | ✅ (토큰/패키지 유효성 검증) |
 
 #### publish phase
 
@@ -92,17 +94,33 @@ pubm --mode ci                              # 에러: --prepare 또는 --publish
 | Post-publish hooks | ✅ | ✅ |
 | Release draft | ✅ | ✅ (with asset pipeline) |
 
+`--mode local --publish`는 현재 `package.json`의 버전과 HEAD의 tag를 기반으로 publish 대상을 결정한다 (기존 `--publish-only` 동작과 동일).
+
 #### dry-run modifier
+
+version bump task 내부의 세부 동작:
+
+| 단계 | 정상 실행 | dry-run |
+|------|----------|---------|
+| manifest에 버전 쓰기 | ✅ | ✅ |
+| changeset 소비 | ✅ | ✅ |
+| changelog 생성 | ✅ | ✅ |
+| git add + commit | ✅ | **skip** |
+| git tag | ✅ | **skip** |
+| manifest 원본 복원 | ❌ | ✅ (자동 rollback) |
+
+전체 파이프라인 수준:
 
 | 동작 | dry-run 적용 시 |
 |------|----------------|
-| Version bump | 실행 후 **자동 rollback** (manifest 복원) |
-| Git commit + tag | **skip** |
+| Prerequisites/conditions check | 실행 |
+| Test & Build | 실행 |
+| Version bump | 실행 후 rollback (위 표 참조) |
 | Git push | **skip** |
 | Publish | registry `--dry-run` 플래그로 대체 |
+| Dry-run publish (ci prepare) | 실행 (검증 목적) |
 | Release draft | **skip** |
 | Token collection (ci mode) | 실행 (검증 목적) |
-| Test & Build | 실행 |
 
 ### Types 변경
 
@@ -118,15 +136,17 @@ export interface Options {
 
 // 변경 후
 export type ReleaseMode = "local" | "ci";
-export type ReleasePhase = "prepare" | "publish";
 
 export interface Options {
   mode?: ReleaseMode;
-  phase?: ReleasePhase;
+  prepare?: boolean;
+  publish?: boolean;
   dryRun?: boolean;
   // ...
 }
 ```
+
+`prepare`와 `publish`를 독립 boolean으로 모델링하여 Commander의 플래그 처리와 자연스럽게 매핑한다.
 
 ### Runner 분기 단순화
 
@@ -148,9 +168,10 @@ const phases = resolvePhases(ctx.options); // ["prepare"] | ["publish"] | ["prep
 const dryRun = !!ctx.options.dryRun;
 
 // Task skip 조건이 단순해짐
-skip: () => !phases.includes("prepare")           // prepare phase tasks
-skip: () => !phases.includes("publish") || dryRun // publish tasks (dry-run시 registry dry-run으로 대체)
-skip: () => dryRun                                // git push, release draft 등 side-effects
+skip: () => !phases.includes("prepare")              // prepare phase tasks
+skip: () => !phases.includes("publish") || dryRun    // real publish (dry-run시 registry dry-run task로 대체)
+skip: () => dryRun                                   // git push, release draft 등 side-effects
+skip: () => mode !== "ci" || !phases.includes("prepare") // ci prepare 전용 (dry-run publish validation)
 ```
 
 ### Phase Resolution Logic
@@ -159,11 +180,16 @@ skip: () => dryRun                                // git push, release draft 등
 function resolvePhases(options: Options): ReleasePhase[] {
   const mode = options.mode ?? "local";
 
-  if (mode === "ci" && !options.phase) {
-    throw new Error("CI mode requires --prepare or --publish flag.");
+  if (options.prepare && options.publish) {
+    throw new Error("Cannot specify both --prepare and --publish. Omit both to run the full pipeline.");
   }
 
-  if (options.phase) return [options.phase];
+  if (mode === "ci" && !options.prepare && !options.publish) {
+    throw new Error("CI mode requires --prepare or --publish. Example: pubm --mode ci --prepare");
+  }
+
+  if (options.prepare) return ["prepare"];
+  if (options.publish) return ["publish"];
 
   // local mode without explicit phase → both
   return ["prepare", "publish"];
@@ -177,8 +203,13 @@ function validateOptions(options: Options): void {
   const mode = options.mode ?? "local";
 
   // CI mode requires explicit phase
-  if (mode === "ci" && !options.phase) {
+  if (mode === "ci" && !options.prepare && !options.publish) {
     throw new Error("CI mode requires --prepare or --publish. Example: pubm --mode ci --prepare");
+  }
+
+  // --prepare and --publish are mutually exclusive
+  if (options.prepare && options.publish) {
+    throw new Error("Cannot specify both --prepare and --publish. Omit both to run the full pipeline.");
   }
 
   // snapshot은 CI mode와 함께 사용 불가
@@ -191,12 +222,12 @@ function validateOptions(options: Options): void {
 ## Affected Files
 
 ### Core changes
-- `packages/core/src/types/options.ts` — `ReleaseMode`, `ReleasePhase` 타입 추가, 기존 플래그 제거
+- `packages/core/src/types/options.ts` — `ReleaseMode` 타입 추가, `prepare`/`publish`/`dryRun` boolean 추가, 기존 플래그 제거
 - `packages/core/src/tasks/runner.ts` — 분기 로직 전면 재작성
 - `packages/core/src/options.ts` — 옵션 resolve 로직 변경
 
 ### CLI changes
-- `packages/cli/src/cli.ts` — Commander 플래그 재정의, validation 추가
+- `packages/pubm/src/cli.ts` — Commander 플래그 재정의, validation 추가
 
 ### Test changes
 - 기존 `preview`, `preflight`, `ci`, `publishOnly` 관련 테스트 전부 업데이트
