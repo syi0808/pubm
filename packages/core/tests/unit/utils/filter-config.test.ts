@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
+import type {
+  ResolvedPackageConfig,
+  ResolvedPubmConfig,
+} from "../../../src/config/types.js";
 import { createContext } from "../../../src/context.js";
-import type { ResolvedPackageConfig, ResolvedPubmConfig } from "../../../src/config/types.js";
 import type { ResolvedOptions } from "../../../src/types/options.js";
 import { filterConfigPackages } from "../../../src/utils/filter-config.js";
 
 function makePkg(path: string, name: string): ResolvedPackageConfig {
-  return { path, name, version: "1.0.0", dependencies: [], registries: ["npm"] };
+  return {
+    path,
+    name,
+    version: "1.0.0",
+    dependencies: [],
+    registries: ["npm"],
+  };
 }
 
 function makeConfig(packages: ResolvedPackageConfig[]): ResolvedPubmConfig {
@@ -53,7 +62,10 @@ describe("filterConfigPackages", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB, pkgC]), makeOptions());
     filterConfigPackages(ctx, new Set(["packages/a", "packages/c"]));
     expect(ctx.config.packages).toHaveLength(2);
-    expect(ctx.config.packages.map((p) => p.path)).toEqual(["packages/a", "packages/c"]);
+    expect(ctx.config.packages.map((p) => p.path)).toEqual([
+      "packages/a",
+      "packages/c",
+    ]);
   });
 
   it("freezes the new config object", () => {

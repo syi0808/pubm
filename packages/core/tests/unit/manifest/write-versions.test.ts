@@ -145,6 +145,29 @@ describe("writeVersionsForEcosystem", () => {
 
       expect(eco.updateSiblingDependencyVersions).not.toHaveBeenCalled();
     });
+
+    it("excludes packages with no version from the name-keyed map in Phase 2", async () => {
+      const ecoA = createMockEcosystem("pkg-a");
+      const ecoB = createMockEcosystem("pkg-b");
+
+      const ecosystems = [
+        { eco: ecoA, pkg: createMockPkg("pkg-a") },
+        { eco: ecoB, pkg: createMockPkg("pkg-b") },
+      ];
+      // pkg-b has no entry in versions map
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
+
+      await writeVersionsForEcosystem(ecosystems, versions);
+
+      // The name-keyed map should only contain pkg-a (pkg-b is excluded)
+      const expectedNameKeyedVersions = new Map([["pkg-a", "2.0.0"]]);
+      expect(ecoA.updateSiblingDependencyVersions).toHaveBeenCalledWith(
+        expectedNameKeyedVersions,
+      );
+      expect(ecoB.updateSiblingDependencyVersions).toHaveBeenCalledWith(
+        expectedNameKeyedVersions,
+      );
+    });
   });
 
   describe("Phase 3: syncLockfile", () => {
