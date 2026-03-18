@@ -730,6 +730,25 @@ async function handleManualMultiPackage(
       graph,
       bumps,
     );
+
+    // Filter out packages where the selected version equals the current version.
+    // This only applies when coming from the "no" branch (changesets were present
+    // but declined). handleIndependentMode stores ALL packages in versionPlan.packages,
+    // including "keep current" ones. Exclude them from the publish pipeline here.
+    // When bumps is undefined/empty, this is a pure manual flow — no filtering needed.
+    const plan = ctx.runtime.versionPlan;
+    if (plan && plan.mode === "independent" && bumps && bumps.size > 0) {
+      const publishPaths = new Set<string>();
+      for (const [pkgPath, selectedVersion] of plan.packages) {
+        if (selectedVersion !== (currentVersions.get(pkgPath) ?? "")) {
+          publishPaths.add(pkgPath);
+        }
+      }
+      plan.packages = new Map(
+        [...plan.packages].filter(([p]) => publishPaths.has(p)),
+      );
+      filterConfigPackages(ctx, publishPaths);
+    }
   }
 }
 
