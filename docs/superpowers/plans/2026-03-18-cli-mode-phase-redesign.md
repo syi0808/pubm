@@ -1100,13 +1100,70 @@ git commit -m "fix: address test failures and coverage gaps from mode/phase refa
 
 ---
 
-### Task 8: Update website documentation (English only)
+### Task 8: Update website documentation — reference pages
 
 **Files:**
 - Modify: `website/src/content/docs/reference/cli.mdx`
 - Modify: `website/src/content/docs/reference/sdk.mdx`
 - Modify: `website/src/content/docs/reference/plugins.mdx`
 - Modify: `website/src/content/docs/reference/official-plugins.mdx`
+
+- [ ] **Step 1: Rewrite cli.mdx**
+
+Flag table changes:
+- Line 84: `| -p, --preview | false | Show the task graph... |` → `| -d, --dry-run | false | Validate without side effects (version bump rolls back, publish uses registry dry-run). |`
+- Line 105: `| --publish-only | ... |` → remove
+- Line 106: `| --ci | ... |` → remove
+- Line 107: `| --preflight | ... |` → remove
+- Add new rows:
+  - `| --mode <mode> | local | Release mode: local or ci. |`
+  - `| --phase <phase> | | Pipeline phase: prepare or publish (local runs both by default). |`
+  - `| --release-draft | false | Create GitHub Release as draft (not published). |`
+
+Section rewrites:
+- Line 74: `pubm minor --preview` → `pubm minor --dry-run`
+- Lines 126-132: "## Preview mode" section → "## Dry-run mode" with `pubm patch --dry-run` and description update
+- Lines 134-147: "## Preflight mode" → "## CI Preparation mode" with `pubm --mode ci --phase prepare`
+- Lines 149-154: "## CI mode" → "## CI Publish mode" with `pubm --mode ci --phase publish`
+- Line 204: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Lines 315-316: `pubm --preflight` / `pubm patch --preview` → `pubm --mode ci --phase prepare` / `pubm patch --dry-run`
+- Lines 322-323: "Local CI rehearsal" example: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Line 329: `pubm --ci` → `pubm --mode ci --phase publish`
+- Line 332: "Sync stored tokens after preflight" → "Sync stored tokens after CI preparation"
+
+GitHub Release changes:
+- Any mention of "release draft page" or "opens a draft URL" → "creates a GitHub Release via API"
+- Document new `--release-draft` flag in the flag table and sections
+
+- [ ] **Step 2: Update sdk.mdx**
+
+- Line 33: `preview: true,` → `dryRun: true,`
+- Line 43: `| preview | boolean | Show the task plan... |` → `| dryRun | boolean | Validate without side effects... |`
+- Line 49: `| preflight | boolean | ... |` → `| prepare | boolean | Run only the prepare phase. |`
+- Line 50: `| ci | boolean | ... |` → `| mode | "local" \| "ci" | Release mode. Default: "local". |`
+- Line 51: `| publishOnly | boolean | ... |` → `| publish | boolean | Run only the publish phase. |`
+- Add new rows: `| releaseDraft | boolean | Create GitHub Release as draft. |`
+
+- [ ] **Step 3: Update plugins.mdx**
+
+- Line 102: `ctx.options` description: `(version, tag, preview, ci, etc.)` → `(version, tag, mode, dryRun, etc.)`
+
+- [ ] **Step 4: Update official-plugins.mdx**
+
+- Line 217: "preview-first publish assistance" — this is conceptual wording about the plugin's behavior, likely fine to keep. Only change if it explicitly references the `--preview` flag.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add website/src/content/docs/reference/
+git commit -m "docs: update reference pages for mode/phase/dryRun CLI"
+```
+
+---
+
+### Task 9: Update website documentation — guides
+
+**Files:**
 - Modify: `website/src/content/docs/guides/ci-cd.mdx`
 - Modify: `website/src/content/docs/guides/quick-start.mdx`
 - Modify: `website/src/content/docs/guides/troubleshooting.mdx`
@@ -1114,61 +1171,68 @@ git commit -m "fix: address test failures and coverage gaps from mode/phase refa
 - Modify: `website/src/content/docs/guides/coding-agents.mdx`
 - Modify: `website/src/content/docs/guides/changesets.mdx`
 
-- [ ] **Step 1: Rewrite cli.mdx**
+- [ ] **Step 1: Rewrite ci-cd.mdx**
 
-Key changes:
-- Flag table: remove `--preview`, `--publish-only`, `--ci`, `--preflight`; add `--mode`, `--phase`, `--dry-run`
-- "Preview mode" section → "Dry-run mode" section
-- "Preflight mode" section → "CI prepare" section
-- CI mode section → rewrite with `--mode ci --phase publish`
-- Update all example commands
-- Update the "Execution modes" section
+This is the most heavily affected guide. Line-by-line:
+- Line 3: `description: Set up preflight checks...` → `description: Set up CI preparation, token handling, and release automation for pubm.`
+- Line 12: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Line 13: `pubm --ci` → `pubm --mode ci --phase publish`
+- Lines 16-21: both code blocks updated to new flags
+- Line 23: `## What preflight does` → `## What CI preparation does`
+- Line 25: `pubm --preflight is not just a token check...` → `pubm --mode ci --phase prepare is not just a token check...`
+- Line 35: `pubm patch --preview` → `pubm patch --dry-run`, "after preflight" → "after CI preparation"
+- Line 49: "through a preflight run" → "through a CI preparation run"
+- Line 82: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 105: `pubm --ci` → `pubm --mode ci --phase publish`
+- Line 109: `pubm --ci runs the asset pipeline...` → `pubm --mode ci --phase publish runs the asset pipeline...`
+- Line 116: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 152: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
 
-Specific line updates:
-- Line 74: `pubm minor --preview` → `pubm minor --dry-run`
-- Line 84: flag table row for `--preview` → `--dry-run`
-- Lines 105-107: remove old rows, add new rows
-- Lines 129-151: rewrite mode sections
-- Lines 204, 315-332: update examples
+Also update any mentions of "release draft" behavior to reflect unified GitHub Release creation.
 
-- [ ] **Step 2: Rewrite ci-cd.mdx**
+- [ ] **Step 2: Update troubleshooting.mdx**
 
-Key changes:
-- Title/description: keep "CI/CD"
-- "Recommended release model": `pubm --preflight` → `pubm --mode ci --phase prepare`, `pubm --ci` → `pubm --mode ci --phase publish`
-- "What preflight does" → "What CI prepare does"
-- All GitHub Actions examples: `pubm --ci` → `pubm --mode ci --phase publish`
-- Line 35: remove reference to `pubm patch --preview`
+- Lines 15-16: `pubm patch --preview` / `pubm --preflight` → `pubm patch --dry-run` / `pubm --mode ci --phase prepare`
+- Line 110: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Line 186: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Lines 190-203: "Release draft or GitHub release issues" section:
+  - Title: → "GitHub Release issues"
+  - "draft creation fails" → "release creation fails"
+  - "Normal publish opens a release draft page." → "pubm creates a GitHub Release via API. Without GITHUB_TOKEN in local mode, you can choose to enter a token, open a draft in the browser, or skip."
+  - "`--ci` creates a GitHub Release object..." → "`--mode ci --phase publish` creates a GitHub Release via API..."
+  - "distinguish between normal publish flow and `--ci`" → "check GITHUB_TOKEN availability and release creation mode"
+- Lines 246-247: `pubm patch --preview` / `pubm --preflight` → `pubm patch --dry-run` / `pubm --mode ci --phase prepare`
+- Line 250: "preview and preflight" → "dry-run and CI preparation"
 
-- [ ] **Step 3: Update sdk.mdx**
+- [ ] **Step 3: Update quick-start.mdx**
 
-Replace option names in the Options table:
-- `preview` → `dryRun`
-- `preflight` → `prepare` (with mode context)
-- `ci` → `mode: "ci"` + `publish: true`
-- `publishOnly` → `publish: true`
-- Update code examples
+- Line 56: "For CI, tokens, and preflight behavior" → "For CI, tokens, and CI preparation behavior"
 
-- [ ] **Step 4: Update remaining guides**
+- [ ] **Step 4: Update configuration.mdx**
 
-- `quick-start.mdx` line 56: update "preflight" reference
-- `troubleshooting.mdx`: replace `pubm patch --preview` with `pubm --dry-run`, `pubm --preflight` with `pubm --mode ci --phase prepare`
-- `configuration.mdx` line 284: "preview releases" wording is fine (refers to pre-release concept, not the flag)
-- `coding-agents.mdx`: update `publish-preview` skill references
-- `changesets.mdx` line 93: `pubm --ci` → `pubm --mode ci --phase publish`
-- `plugins.mdx` line 102: update option list
-- `official-plugins.mdx` line 217: "preview-first" is conceptual, may not need change
+- Line 284: "Snapshots are good for preview releases..." — "preview releases"는 pre-release 개념을 의미하므로 변경 불필요
+- Check for any `releaseDraft` config references and update descriptions if they mention "opening a draft URL"
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Update coding-agents.mdx**
+
+- Line 37: `### publish-preview` — this is a skill name, not a CLI flag. Check if the skill behavior description references `--preview` flag specifically. If so, update to mention `--dry-run`.
+- Line 43: "preview-first and requires confirmation" — conceptual, likely fine
+- Line 86: "preview before publish" — conceptual, likely fine
+
+- [ ] **Step 6: Update changesets.mdx**
+
+- Line 93: `pubm --ci` → `pubm --mode ci --phase publish`
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add website/src/content/docs/
-git commit -m "docs: update website documentation for mode/phase/dryRun CLI"
+git add website/src/content/docs/guides/
+git commit -m "docs: update guide pages for mode/phase/dryRun CLI and unified GitHub Release"
 ```
 
 ---
 
-### Task 9: Update plugin documentation
+### Task 10: Update plugin documentation
 
 **Files:**
 - Modify: `plugins/pubm-plugin/skills/publish-setup/SKILL.md`
@@ -1180,21 +1244,30 @@ git commit -m "docs: update website documentation for mode/phase/dryRun CLI"
 - [ ] **Step 1: Update SKILL.md**
 
 - Line 216: `"ci:release": "pubm --ci"` → `"ci:release": "pubm --mode ci --phase publish"`
-- Lines 248-249: update guidance text
+- Line 248: `"release": "pubm --no-publish"` → check context, may need `"release": "pubm --phase prepare"`
+- Line 249: `In CI, use --ci mode (publish + GitHub Release) or --publish-only mode (publish only).` → `In CI, use --mode ci --phase publish (publish + GitHub Release) or --phase publish (publish only).`
 
 - [ ] **Step 2: Rewrite ci-templates.md**
 
-This file has extensive CI template examples. All instances of:
-- `pubm --ci` → `pubm --mode ci --phase publish`
-- `--publish-only` → `--phase publish`
-- "What `--ci` Does" → "What `--mode ci --phase publish` does"
-- "What `--publish-only` Does" → "What `--phase publish` does"
+Extensive changes across 300+ lines:
+- Line 8: `Use --ci mode` → `Use --mode ci --phase publish`; `--publish-only` → `--phase publish`
+- Lines 13-20: "### What `--ci` Does" → "### What `--mode ci --phase publish` Does"; update bullet about GitHub Release to mention API
+- Lines 22-25: "### What `--publish-only` Does" → "### What `--phase publish` Does"; `Same as --ci but` → `Same as --mode ci --phase publish but`
+- Line 77: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 89: `pubm --ci reads the tag...` → `pubm --mode ci --phase publish reads the tag...`
+- Line 129: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 141: `pubm --ci reads each package's manifest version...` → `pubm --mode ci --phase publish reads each package's manifest version...`
+- Line 197: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 207: `Since pubm --ci requires...` → `Since pubm --mode ci --phase publish requires...`
+- Line 249: `run: pubm --ci --registry npm,jsr,crates` → `run: pubm --mode ci --phase publish --registry npm,jsr,crates`
+- Line 313: `run: pubm --ci` → `run: pubm --mode ci --phase publish`
+- Line 322: `--ci is the recommended CI mode...` → `--mode ci --phase publish is the recommended CI mode...`; `Use --publish-only if` → `Use --phase publish if`
 
 - [ ] **Step 3: Update plugin-api.md, INSTALLATION.md, PLUGIN_INSTALLATION.md**
 
-In `plugins/pubm-plugin/skills/create-plugin/references/plugin-api.md`: update any references to `preview`, `ci`, `preflight` in the plugin API context documentation.
+In `plugins/pubm-plugin/skills/create-plugin/references/plugin-api.md`: check for `preview`, `ci`, `preflight` references in plugin API context and update option names.
 
-In `plugins/pubm-plugin/INSTALLATION.md` and `plugins/pubm-plugin/PLUGIN_INSTALLATION.md`: update any references to `preview`/`preflight` options.
+In `plugins/pubm-plugin/INSTALLATION.md` and `PLUGIN_INSTALLATION.md`: search for `preview`/`preflight` references and update. (Exploration found no matches in these files, but verify during implementation.)
 
 - [ ] **Step 4: Commit**
 
@@ -1205,7 +1278,7 @@ git commit -m "docs: update plugin documentation for mode/phase/dryRun CLI"
 
 ---
 
-### Task 10: Update remaining files
+### Task 11: Update remaining files
 
 **Files:**
 - Modify: `README.md`
@@ -1214,11 +1287,13 @@ git commit -m "docs: update plugin documentation for mode/phase/dryRun CLI"
 
 - [ ] **Step 1: Update README.md**
 
-- Line 60: update preflight description
+- Line 60: `The --preflight flag goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.` → `The --mode ci --phase prepare mode goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.`
 - Line 63: `pubm --preflight` → `pubm --mode ci --phase prepare`
+- Line 101: `pushes tags, creates GitHub release draft` → `pushes tags, creates GitHub Release`
 
 - [ ] **Step 2: Update package.json scripts**
 
+Line 27-28:
 ```json
 "release": "pubm --mode ci --phase prepare",
 "release:ci": "pubm --mode ci --phase publish"
@@ -1226,7 +1301,7 @@ git commit -m "docs: update plugin documentation for mode/phase/dryRun CLI"
 
 - [ ] **Step 3: Update release.yml**
 
-Line 41: `bunx pubm --ci` → `bunx pubm --mode ci --phase publish`
+Line 41: `run: bunx pubm --ci` → `run: bunx pubm --mode ci --phase publish`
 
 - [ ] **Step 4: Commit**
 
@@ -1237,7 +1312,7 @@ git commit -m "chore: update README, scripts, and CI workflow for mode/phase CLI
 
 ---
 
-### Task 11: Final verification
+### Task 12: Final verification
 
 - [ ] **Step 1: Run full pre-commit checklist**
 
