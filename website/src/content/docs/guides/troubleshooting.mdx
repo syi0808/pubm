@@ -12,7 +12,7 @@ Use these before retrying a failed publish:
 ```bash
 pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm patch --dry-run
+pubm --dry-run
 pubm --mode ci --phase prepare
 ```
 
@@ -150,7 +150,7 @@ pnpm run build
 If your scripts use different names, align them with config or CLI flags:
 
 ```bash
-pubm patch --test-script test:ci --build-script build:release
+pubm --test-script test:ci --build-script build:release
 ```
 
 ## `contents` publishing does not work
@@ -243,7 +243,7 @@ git status
 git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm patch --dry-run
+pubm --dry-run
 pubm --mode ci --phase prepare
 ```
 
