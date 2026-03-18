@@ -18,7 +18,7 @@ export function registerSecretsCommand(parent: Command): void {
 
         if (Object.keys(tokens).length === 0) {
           ui.info(
-            "No stored tokens found. Run `pubm --preflight` first to save tokens.",
+            "No stored tokens found. Run `pubm --mode ci --phase prepare` first to save tokens.",
           );
           return;
         }

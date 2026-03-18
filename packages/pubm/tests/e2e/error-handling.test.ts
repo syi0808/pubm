@@ -22,7 +22,8 @@ describe("error handling", () => {
   it("should contain package.json related error in stderr when run from empty directory", async () => {
     const { stderr } = await ctx.runWithEnv(
       { ...process.env, CI: "true" } as Record<string, string>,
-      "--publish-only",
+      "--phase",
+      "publish",
     );
     expect(stderr.length).toBeGreaterThan(0);
     expect(stderr).toContain("Error");
@@ -31,7 +32,8 @@ describe("error handling", () => {
   it("should exit without crashing when errors occur", async () => {
     const { exitCode } = await ctx.runWithEnv(
       { ...process.env, CI: "true" } as Record<string, string>,
-      "--publish-only",
+      "--phase",
+      "publish",
     );
     expect(exitCode).toBeDefined();
   });

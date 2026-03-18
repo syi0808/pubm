@@ -90,6 +90,13 @@ vi.mock("../../../src/utils/package-manager.js", () => ({
 vi.mock("../../../src/utils/open-url.js", () => ({
   openUrl: vi.fn(),
 }));
+vi.mock("../../../src/utils/github-token.js", () => ({
+  resolveGitHubToken: vi.fn(() => ({
+    token: "mock-gh-token",
+    source: "env",
+  })),
+  saveGitHubToken: vi.fn(),
+}));
 vi.mock("../../../src/utils/token.js", () => ({
   injectTokensToEnv: vi.fn(() => vi.fn()),
 }));
@@ -272,6 +279,7 @@ import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.j
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
 import { exec } from "../../../src/utils/exec.js";
+import { resolveGitHubToken } from "../../../src/utils/github-token.js";
 import { createListr } from "../../../src/utils/listr.js";
 import { openUrl } from "../../../src/utils/open-url.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
@@ -280,6 +288,7 @@ import { generateSnapshotVersion } from "../../../src/utils/snapshot.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 import { makeTestContext } from "../../helpers/make-context.js";
 
+const mockedResolveGitHubToken = vi.mocked(resolveGitHubToken);
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedGit = vi.mocked(Git);
@@ -362,6 +371,8 @@ function createTask() {
   return {
     output: "",
     title: "",
+    prompt: vi.fn(() => ({ run: vi.fn() })),
+    skip: vi.fn(),
   };
 }
 
@@ -448,7 +459,7 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [
             {
@@ -474,7 +485,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[2];
+    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat task list
     const releaseCtx: any = {
       config: {
         packages: [
@@ -496,6 +507,7 @@ describe("runner coverage scenarios", () => {
           },
         ],
       },
+      options: { skipReleaseDraft: false },
       runtime: {
         pluginRunner,
         versionPlan: {
@@ -541,7 +553,7 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [{ path: ".", registries: ["custom-registry"] as any }],
         },
@@ -550,7 +562,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const publishTask = tasks[0];
+    const publishTask = tasks[3]; // "Publishing" in flat task list
     const parentTask = createParentTask();
     const ctx: any = {
       config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
@@ -578,7 +590,7 @@ describe("runner coverage scenarios", () => {
     expect(pluginPublish).toHaveBeenCalledOnce();
   });
 
-  it("builds dry-run crates tasks sequentially during preflight validation", async () => {
+  it("builds dry-run crates tasks sequentially during CI prepare validation", async () => {
     mockedCratesDescriptor.orderPackages.mockResolvedValue([
       "rust/crates/lib-b",
       "rust/crates/lib-a",
@@ -597,7 +609,7 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        options: { preflight: true },
+        options: { mode: "ci" as const, prepare: true },
         config: {
           packages: [
             { path: ".", registries: ["npm"] },
@@ -608,7 +620,11 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    const pipelineTasks = mockedCreateListr.mock.calls[1][0] as any[];
+    // First createListr call is token collection, second is the pipeline
+    const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+      Array.isArray(call[0]),
+    );
+    const pipelineTasks = pipelineCall![0] as any[];
     const validateTask = pipelineTasks[6];
     const parentTask = createParentTask();
     const ctx: any = {
@@ -869,7 +885,7 @@ describe("runner coverage scenarios", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [
             {
@@ -887,7 +903,7 @@ describe("runner coverage scenarios", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[2];
+    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
     const releaseCtx: any = {
       config: {
         packages: [
@@ -901,6 +917,7 @@ describe("runner coverage scenarios", () => {
           },
         ],
       },
+      options: { skipReleaseDraft: false },
       runtime: {
         version: "1.2.0",
         versions,
@@ -1375,7 +1392,7 @@ describe("snapshot pipeline", () => {
     );
   });
 
-  it("creates and pushes snapshot tag when preview is not set", async () => {
+  it("creates and pushes snapshot tag when dryRun is not set", async () => {
     mockedGenerateSnapshotVersion.mockReturnValue("1.0.0-snapshot-20260316");
     mockedWriteVersionsForEcosystem.mockResolvedValue([]);
 
@@ -1423,7 +1440,7 @@ describe("snapshot pipeline", () => {
       },
     });
 
-    // skip should not skip when preview is not set
+    // skip should not skip when dryRun is not set
     expect(tagTask.skip(ctx)).toBe(false);
 
     // The tag task creates its own Git instance internally
@@ -1445,10 +1462,10 @@ describe("snapshot pipeline", () => {
     expect(tagGitInstance.push).toHaveBeenCalledWith("--tags");
   });
 
-  it("skips tag creation when preview is set", async () => {
+  it("skips tag creation when dryRun is set", async () => {
     await run(
       createOptions({
-        options: { snapshot: true, preview: true },
+        options: { snapshot: true, dryRun: true },
         config: {
           packages: [
             {
@@ -1467,7 +1484,7 @@ describe("snapshot pipeline", () => {
     const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
     const tagTask = snapshotTasks[3];
     const ctx = createOptions({
-      options: { snapshot: true, preview: true },
+      options: { snapshot: true, dryRun: true },
     });
 
     expect(tagTask.skip(ctx)).toBe(true);
@@ -1838,6 +1855,8 @@ describe("tag existence check", () => {
 
 describe("independent release draft", () => {
   it("creates per-package release URLs and opens only the first one", async () => {
+    // No GH token → browser fallback path
+    mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
     const versions = new Map([
       ["@pubm/core", "2.0.0"],
       ["pubm", "2.1.0"],
@@ -1873,8 +1892,8 @@ describe("independent release draft", () => {
     // Find the release draft task (last task in the pipeline)
     const releaseDraftTask = tasks.find(
       (t: any) =>
-        t.title === "Creating release draft on GitHub" ||
-        (typeof t.title === "string" && t.title.includes("release draft")),
+        t.title === "Creating GitHub Release" ||
+        (typeof t.title === "string" && t.title.includes("GitHub Release")),
     );
 
     expect(releaseDraftTask).toBeDefined();
@@ -1923,6 +1942,8 @@ describe("independent release draft", () => {
   });
 
   it("creates release draft for single/fixed mode and opens URL", async () => {
+    // No GH token → browser fallback path
+    mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
     await run(
       createOptions({
         config: {
@@ -1944,7 +1965,7 @@ describe("independent release draft", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseDraftTask = tasks.find(
       (t: any) =>
-        typeof t.title === "string" && t.title.includes("release draft"),
+        typeof t.title === "string" && t.title.includes("GitHub Release"),
     );
     expect(releaseDraftTask).toBeDefined();
 
@@ -1983,7 +2004,7 @@ describe("independent release draft", () => {
   });
 });
 
-describe("preflight pipeline", () => {
+describe("CI prepare pipeline", () => {
   it("collects tokens and injects them, then runs prerequisites and conditions", async () => {
     const tokens = { npm: "tok-npm", jsr: "tok-jsr" };
     mockedCollectTokens.mockResolvedValue(tokens);
@@ -1995,7 +2016,7 @@ describe("preflight pipeline", () => {
     // We need to exercise it.
     await run(
       createOptions({
-        options: { preflight: true },
+        options: { mode: "ci" as const, prepare: true },
         config: {
           packages: [
             {
@@ -2015,7 +2036,7 @@ describe("preflight pipeline", () => {
     const tokenTask = mockedCreateListr.mock.calls[0][0] as any;
     const task = createTask();
     const ctx = createOptions({
-      options: { preflight: true },
+      options: { mode: "ci" as const, prepare: true },
       config: {
         packages: [
           {
@@ -2051,7 +2072,7 @@ describe("CI GitHub Release", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [
             {
@@ -2075,7 +2096,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[2];
+    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
       config: {
@@ -2090,6 +2111,7 @@ describe("CI GitHub Release", () => {
           },
         ],
       },
+      options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
         versionPlan: {
@@ -2130,7 +2152,7 @@ describe("CI GitHub Release", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [
             {
@@ -2161,7 +2183,7 @@ describe("CI GitHub Release", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[2];
+    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
       config: {
@@ -2184,6 +2206,7 @@ describe("CI GitHub Release", () => {
           },
         ],
       },
+      options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
         versionPlan: {
@@ -2309,6 +2332,8 @@ describe("post-publish", () => {
   });
 
   it("creates a release draft for non-independent mode with a root changelog", async () => {
+    // No GH token → browser fallback path
+    mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
     mockedExistsSync.mockReturnValue(true);
     mockedReadFileSync.mockReturnValue("# Changelog");
     mockedParseChangelogSection.mockReturnValue("release notes");
@@ -2318,7 +2343,7 @@ describe("post-publish", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseDraftTask = tasks.find(
       (t: any) =>
-        typeof t.title === "string" && t.title.includes("release draft"),
+        typeof t.title === "string" && t.title.includes("GitHub Release"),
     );
     expect(releaseDraftTask).toBeDefined();
 
@@ -2337,6 +2362,7 @@ describe("post-publish", () => {
           },
         ],
       },
+      options: { releaseDraft: true, skipReleaseDraft: false },
       runtime: {
         version: "6.0.0",
         pluginRunner: new PluginRunner([]),
@@ -2395,11 +2421,11 @@ describe("error/catch path", () => {
   });
 });
 
-describe("publishOnly mode", () => {
+describe("publish-only mode", () => {
   it("runs only the publish task without test, build, or version bump", async () => {
     await run(
       createOptions({
-        options: { publishOnly: true },
+        options: { publish: true },
         config: {
           packages: [
             {
@@ -2416,9 +2442,9 @@ describe("publishOnly mode", () => {
       }),
     );
 
-    // publishOnly passes an array with Publishing + restore task to createListr
+    // Flat list always has 10 tasks; publish is at index 3
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    expect(tasks[0].title).toBe("Publishing");
+    expect(tasks[3].title).toBe("Publishing");
 
     const parentTask = createParentTask();
     const ctx: any = {
@@ -2441,7 +2467,7 @@ describe("publishOnly mode", () => {
       },
     };
 
-    await tasks[0].task(ctx, parentTask);
+    await tasks[3].task(ctx, parentTask);
 
     expect(parentTask.title).toContain("Publishing");
     expect(parentTask.newListr).toHaveBeenCalled();
@@ -2467,7 +2493,7 @@ describe("normal pipeline test and build tasks", () => {
     const testTask = tasks[0];
     const task = createTask();
     const ctx: any = {
-      options: { testScript: "test", ci: false },
+      options: { testScript: "test", mode: "local" as const },
       runtime: { pluginRunner },
     };
 
@@ -2495,7 +2521,7 @@ describe("normal pipeline test and build tasks", () => {
     const buildTask = tasks[1];
     const task = createTask();
     const ctx: any = {
-      options: { buildScript: "build", ci: false },
+      options: { buildScript: "build", mode: "local" as const },
       runtime: { pluginRunner },
     };
 
@@ -2524,7 +2550,11 @@ describe("normal pipeline test and build tasks", () => {
     const testTask = tasks[0];
     const buildTask = tasks[1];
     const ctx: any = {
-      options: { testScript: "test", buildScript: "build", ci: false },
+      options: {
+        testScript: "test",
+        buildScript: "build",
+        mode: "local" as const,
+      },
       runtime: { pluginRunner },
     };
 
@@ -2999,7 +3029,7 @@ describe("version plan formatting fallbacks", () => {
 
     await run(
       createOptions({
-        options: { ci: true },
+        options: { mode: "ci" as const, publish: true },
         config: {
           packages: [
             {
@@ -3017,7 +3047,7 @@ describe("version plan formatting fallbacks", () => {
     );
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const releaseTask = tasks[2];
+    const releaseTask = tasks[9]; // "Creating GitHub Release" in flat list
     const task = createTask();
     // No versionPlan but versions has > 1 entries
     const ctx: any = {
@@ -3033,6 +3063,7 @@ describe("version plan formatting fallbacks", () => {
           },
         ],
       },
+      options: { skipReleaseDraft: false, releaseDraft: false },
       runtime: {
         version: "2.0.0",
         versions,
@@ -3053,10 +3084,10 @@ describe("version plan formatting fallbacks", () => {
 });
 
 describe("skip conditions", () => {
-  it("skips version bump task when preview is set", async () => {
+  it("does not skip version bump task when dryRun is set (dry-run handled internally)", async () => {
     await run(
       createOptions({
-        options: { preview: true },
+        options: { dryRun: true },
         runtime: { version: "1.0.0" },
       }),
     );
@@ -3064,16 +3095,8 @@ describe("skip conditions", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
 
-    const ctx: any = {
-      options: { preview: true },
-      runtime: {
-        version: "1.0.0",
-        versionPlan: { mode: "single", version: "1.0.0", packageName: "pubm" },
-      },
-    };
-
-    // The skip function should return true for preview mode
-    expect(versionTask.skip(ctx)).toBe(true);
+    // In the new design, dryRun does not skip version bump — the task handles it internally
+    expect(versionTask.skip).toBe(false);
   });
 
   it("skips publish task when skipPublish is set", async () => {
@@ -3107,7 +3130,7 @@ describe("skip conditions", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseDraftTask = tasks.find(
       (t: any) =>
-        typeof t.title === "string" && t.title.includes("release draft"),
+        typeof t.title === "string" && t.title.includes("GitHub Release"),
     );
     expect(releaseDraftTask).toBeDefined();
 
@@ -3117,10 +3140,10 @@ describe("skip conditions", () => {
     expect(releaseDraftTask.skip(ctx)).toBe(true);
   });
 
-  it("skips push tags task when preview is set", async () => {
+  it("skips push tags task when dryRun is set", async () => {
     await run(
       createOptions({
-        options: { preview: true },
+        options: { dryRun: true },
         runtime: { version: "1.0.0" },
       }),
     );
@@ -3132,10 +3155,8 @@ describe("skip conditions", () => {
     );
     expect(pushTask).toBeDefined();
 
-    const ctx: any = {
-      options: { preview: true },
-    };
-    expect(pushTask.skip(ctx)).toBe(true);
+    // Push tags skip is a static boolean: !hasPrepare || dryRun
+    expect(pushTask.skip).toBe(true);
   });
 });
 
@@ -3308,5 +3329,296 @@ describe("independent changeset with empty entries for some packages", () => {
       expect.stringContaining(path.join("packages", "core")),
       "core only changelog",
     );
+  });
+});
+
+describe("dry-run version bump early return", () => {
+  it("restores original versions and returns early in single mode dry-run", async () => {
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { dryRun: true },
+        runtime: { version: "2.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2]; // "Bumping version"
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm", "jsr"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "single",
+          version: "2.0.0",
+          packagePath: ".",
+        },
+      },
+    };
+    const task = createTask();
+
+    await versionTask.task(ctx, task);
+
+    // writeVersionsForEcosystem called twice: once to set, once to restore
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    // Git commit should NOT have been called (early return before commit)
+    const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+    expect(gitInstance.commit).not.toHaveBeenCalled();
+  });
+
+  it("restores original versions and returns early in fixed mode dry-run", async () => {
+    const versions = new Map([
+      ["packages/core", "3.0.0"],
+      ["packages/pubm", "3.0.0"],
+    ]);
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { dryRun: true },
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: { version: "3.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "fixed",
+          version: "3.0.0",
+          packages: versions,
+        },
+      },
+    };
+
+    await versionTask.task(ctx, createTask());
+
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+    expect(gitInstance.commit).not.toHaveBeenCalled();
+  });
+
+  it("restores original versions and returns early in independent mode dry-run", async () => {
+    const versions = new Map([
+      ["packages/core", "2.0.0"],
+      ["packages/pubm", "2.1.0"],
+    ]);
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+
+    await run(
+      createOptions({
+        options: { dryRun: true },
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "independent",
+          packages: versions,
+        },
+      },
+    };
+
+    await versionTask.task(ctx, createTask());
+
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledTimes(2);
+    const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+    expect(gitInstance.commit).not.toHaveBeenCalled();
+  });
+});
+
+describe("success messages", () => {
+  it("logs dry-run success message when dryRun is set", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await run(
+      createOptions({
+        options: { dryRun: true },
+        runtime: { version: "1.0.0" },
+      }),
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Dry-run completed"),
+    );
+  });
+
+  it("logs CI prepare success message for ci + prepare-only mode", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await run(
+      createOptions({
+        options: { mode: "ci" as const, prepare: true },
+        runtime: { version: "1.0.0" },
+      }),
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("CI prepare completed"),
+    );
+  });
+});
+
+describe("independent mode GitHub release with null result", () => {
+  it("skips release when createGitHubRelease returns null for independent plan", async () => {
+    mockedCreateGitHubRelease.mockResolvedValue(null as any);
+    mockedResolveGitHubToken.mockReturnValue({
+      token: "mock-gh-token",
+      source: "env",
+    } as any);
+
+    const pathVersions = new Map([["packages/core", "2.0.0"]]);
+
+    await run(
+      createOptions({
+        options: { mode: "ci" as const, publish: true },
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "2.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const releaseTask = tasks.find(
+      (t: any) =>
+        typeof t.title === "string" && t.title.includes("GitHub Release"),
+    );
+    const task = createTask();
+    const ctx: any = {
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "2.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      options: { skipReleaseDraft: false },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        versionPlan: {
+          mode: "independent",
+          packages: pathVersions,
+        },
+      },
+    };
+
+    await releaseTask.task(ctx, task);
+
+    expect(task.output).toContain("already exists");
   });
 });

@@ -14,7 +14,7 @@ describe("CI mode", () => {
     // Note: Original test ran from project root without cwd override.
     // Now runs against "basic" fixture — semantically equivalent since
     // the test only verifies the CI error message when no version flag is given.
-    it("should show error when version is not provided and --publish-only is not set", async () => {
+    it("should show error when version is not provided and no phase is set", async () => {
       const { stderr } = await ctx.runWithEnv({
         ...process.env,
         CI: "true",
@@ -32,7 +32,7 @@ describe("CI mode", () => {
     });
   });
 
-  describe("publish-only in non-git dir", () => {
+  describe("phase publish in non-git dir", () => {
     let ctx: E2EContext;
 
     beforeAll(async () => {
@@ -41,17 +41,18 @@ describe("CI mode", () => {
 
     afterAll(() => ctx.cleanup());
 
-    it("should show error when --publish-only is used in a non-git directory", async () => {
+    it("should show error when --phase publish is used in a non-git directory", async () => {
       const { stderr } = await ctx.runWithEnv(
         { ...process.env, CI: "true" } as Record<string, string>,
-        "--publish-only",
+        "--phase",
+        "publish",
       );
       expect(stderr.length).toBeGreaterThan(0);
       expect(stderr).toContain("Error");
     });
   });
 
-  describe("publish-only with manifest", () => {
+  describe("phase publish with manifest", () => {
     let ctx: E2EContext;
 
     beforeAll(async () => {
@@ -61,10 +62,11 @@ describe("CI mode", () => {
 
     afterAll(() => ctx.cleanup());
 
-    it("should read version from manifest in --publish-only mode", async () => {
+    it("should read version from manifest in --phase publish mode", async () => {
       const { stderr } = await ctx.runWithEnv(
         { ...process.env, CI: "true" } as Record<string, string>,
-        "--publish-only",
+        "--phase",
+        "publish",
       );
       expect(stderr).not.toContain("Cannot find the latest tag");
       expect(stderr).not.toContain("Cannot parse the latest tag");
@@ -81,10 +83,13 @@ describe("CI mode", () => {
 
     afterAll(() => ctx.cleanup());
 
-    it("should support independent versioning in --ci mode", async () => {
+    it("should support independent versioning in --mode ci --phase publish", async () => {
       const { stderr } = await ctx.runWithEnv(
         { ...process.env, CI: "true" } as Record<string, string>,
-        "--ci",
+        "--mode",
+        "ci",
+        "--phase",
+        "publish",
       );
       expect(stderr).not.toContain("Cannot find the latest tag");
       expect(stderr).not.toContain("Cannot parse the latest tag");

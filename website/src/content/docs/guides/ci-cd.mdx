@@ -1,6 +1,6 @@
 ---
 title: CI/CD
-description: Set up preflight checks, token handling, and release automation for pubm.
+description: Set up CI preparation, token handling, and release automation for pubm.
 ---
 
 `pubm` is designed to behave well in both local terminals and CI runners. The key point is that the normal `pubm` pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
@@ -9,20 +9,20 @@ description: Set up preflight checks, token handling, and release automation for
 
 Use two phases:
 
-1. run `pubm --preflight` locally or in a controlled release job
-2. publish from CI with `pubm --ci`
+1. run `pubm --mode ci --phase prepare` locally or in a controlled release job
+2. publish from CI with `pubm --mode ci --phase publish`
 
 ```bash
-pubm --preflight
+pubm --mode ci --phase prepare
 ```
 
 ```bash
-pubm --ci
+pubm --mode ci --phase publish
 ```
 
-## What preflight does
+## What CI preparation does
 
-`pubm --preflight` is not just a token check. It runs the release pipeline up to the point right before real publish:
+`pubm --mode ci --phase prepare` is not just a token check. It runs the release pipeline up to the point right before real publish:
 
 - collects registry tokens
 - optionally syncs them to GitHub Secrets
@@ -32,7 +32,7 @@ pubm --ci
 - creates the release commit and pushes tags and branch updates
 - dry-runs publish tasks instead of performing the real publish
 
-Because of that, you do not need to run `pubm patch --preview` after preflight.
+Because of that, you do not need to run `pubm patch --dry-run` after CI preparation.
 
 ## Required environment variables
 
@@ -46,7 +46,7 @@ In CI, provide registry tokens with environment variables:
 
 ## Syncing GitHub secrets
 
-If you already stored tokens locally through a preflight run, push them into GitHub Secrets with:
+If you already stored tokens locally through a CI preparation run, push them into GitHub Secrets with:
 
 ```bash
 pubm secrets sync
@@ -79,7 +79,7 @@ jobs:
           node-version: 24
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --ci
+      - run: pubm --mode ci --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -102,18 +102,18 @@ Use automation-compatible tokens for CI publish.
 
 ### Build output is not present in `contents`
 
-If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --ci`.
+If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --mode ci --phase publish`.
 
 ## GitHub Release assets
 
-If your project uses `releaseAssets` in `pubm.config.ts`, `pubm --ci` runs the asset pipeline and uploads the artifacts to the GitHub Release automatically.
+If your project uses `releaseAssets` in `pubm.config.ts`, `pubm --mode ci --phase publish` runs the asset pipeline and uploads the artifacts to the GitHub Release automatically.
 
 ### `GITHUB_TOKEN` requirement
 
-Asset upload uses the GitHub API. Provide `GITHUB_TOKEN` (or a fine-grained token with `contents: write` permission) when release assets are configured:
+GitHub Release creation and asset upload use the GitHub API. Provide `GITHUB_TOKEN` (or a fine-grained token with `contents: write` permission). The token is needed for all GitHub Release creation, not just asset uploads:
 
 ```yaml
-- run: pubm --ci
+- run: pubm --mode ci --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -123,7 +123,7 @@ GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run
 
 ### Build outputs must exist before upload
 
-The asset pipeline runs after the build step. Make sure your workflow produces the binary artifacts (e.g., compiled binaries in `platforms/*/bin/`) before `pubm --ci` executes. If a configured glob pattern matches zero files at upload time, `pubm` treats it as an error.
+The asset pipeline runs after the build step. Make sure your workflow produces the binary artifacts (e.g., compiled binaries in `platforms/*/bin/`) before `pubm --mode ci --phase publish` executes. If a configured glob pattern matches zero files at upload time, `pubm` treats it as an error.
 
 ### Example with release assets
 
@@ -149,7 +149,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build       # Must produce platforms/*/bin/mytool
-      - run: pubm --ci
+      - run: pubm --mode ci --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

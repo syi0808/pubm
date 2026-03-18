@@ -31,10 +31,12 @@ import {
 import { registryCatalog } from "../registry/catalog.js";
 import { JsrClient } from "../registry/jsr.js";
 import { exec } from "../utils/exec.js";
+import { resolveGitHubToken, saveGitHubToken } from "../utils/github-token.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
+import { resolvePhases } from "../utils/resolve-phases.js";
 import {
   addRollback,
   rollback,
@@ -177,17 +179,6 @@ function resolveWorkspaceProtocols(ctx: PubmContext): void {
     ctx.runtime.workspaceBackups = backups;
     addRollback(async () => restoreManifests(backups), ctx);
   }
-}
-
-function createRestoreWorkspaceProtocolsTask(): ListrTask<PubmContext> {
-  return {
-    title: "Restoring workspace protocols",
-    skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
-    task: (ctx) => {
-      restoreManifests(ctx.runtime.workspaceBackups!);
-      ctx.runtime.workspaceBackups = undefined;
-    },
-  };
 }
 
 async function collectPublishTasks(ctx: PubmContext) {
@@ -366,7 +357,7 @@ function formatVersionPlan(ctx: PubmContext): string {
 }
 
 function shouldRenderLiveCommandOutput(ctx: PubmContext): boolean {
-  return !ctx.options.ci && !isCI && Boolean(process.stdout.isTTY);
+  return ctx.options.mode !== "ci" && !isCI && Boolean(process.stdout.isTTY);
 }
 
 function normalizeLiveCommandOutputLine(line: string): string {
@@ -449,6 +440,12 @@ function createLiveCommandOutput(
 export async function run(ctx: PubmContext): Promise<void> {
   ctx.runtime.promptEnabled = !isCI && process.stdin.isTTY;
 
+  const mode = ctx.options.mode ?? "local";
+  const phases = resolvePhases(ctx.options);
+  const dryRun = !!ctx.options.dryRun;
+  const hasPrepare = phases.includes("prepare");
+  const hasPublish = phases.includes("publish");
+
   let cleanupEnv: (() => void) | undefined;
 
   const onSigint = async () => {
@@ -472,9 +469,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       }).run(ctx);
 
       const pipelineListrOptions =
-        ctx.options.ci || isCI
-          ? createCiListrOptions<PubmContext>()
-          : undefined;
+        mode === "ci" || isCI ? createCiListrOptions<PubmContext>() : undefined;
 
       await createListr<PubmContext>(
         [
@@ -580,7 +575,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
           {
             title: "Creating and pushing snapshot tag",
-            skip: (ctx) => !!ctx.options.preview,
+            skip: () => dryRun,
             task: async (ctx, task): Promise<void> => {
               const git = new Git();
               const snapshotPlan = ctx.runtime.versionPlan!;
@@ -617,8 +612,8 @@ export async function run(ctx: PubmContext): Promise<void> {
       return;
     }
 
-    if (ctx.options.preflight) {
-      // Phase 1: Collect tokens (interactive)
+    if (mode === "ci" && hasPrepare) {
+      // CI prepare: Collect tokens (interactive)
       await createListr<PubmContext>({
         title: "Collecting registry tokens",
         task: async (ctx, task): Promise<void> => {
@@ -626,7 +621,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           const tokens = await collectTokens(registries, task);
           await promptGhSecretsSync(tokens, task);
 
-          // Phase 2: Inject tokens and switch to non-interactive mode
+          // Inject tokens and switch to non-interactive mode
           cleanupEnv = injectTokensToEnv(tokens);
           ctx.runtime.promptEnabled = false;
         },
@@ -641,7 +636,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       }).run(ctx);
     }
 
-    if (!ctx.options.publishOnly && !ctx.options.ci && !ctx.options.preflight) {
+    if (mode === "local" && hasPrepare) {
       await prerequisitesCheckTask({
         skip: ctx.options.skipPrerequisitesCheck,
       }).run(ctx);
@@ -667,175 +662,595 @@ export async function run(ctx: PubmContext): Promise<void> {
     }
 
     const pipelineListrOptions =
-      ctx.options.ci || isCI ? createCiListrOptions<PubmContext>() : undefined;
+      mode === "ci" || isCI ? createCiListrOptions<PubmContext>() : undefined;
 
     await createListr<PubmContext>(
-      ctx.options.ci
-        ? [
-            {
-              title: "Publishing",
-              task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-                resolveWorkspaceProtocols(ctx);
+      [
+        // === PREPARE PHASE ===
+        {
+          skip: !hasPrepare || ctx.options.skipTests,
+          title: "Running tests",
+          task: async (ctx, task): Promise<void> => {
+            task.output = "Running plugin beforeTest hooks...";
+            await ctx.runtime.pluginRunner.runHook("beforeTest", ctx);
+            const packageManager = await getPackageManager();
+            const command = `${packageManager} run ${ctx.options.testScript}`;
+            task.title = `Running tests (${command})`;
+            const liveOutput = shouldRenderLiveCommandOutput(ctx)
+              ? createLiveCommandOutput(task, command)
+              : undefined;
+            task.output = `Executing \`${command}\``;
 
-                const publishTasks = await collectPublishTasks(ctx);
-                parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
-                parentTask.output = formatRegistryGroupSummary(
-                  "Concurrent publish tasks",
-                  ctx,
-                  true,
-                );
+            try {
+              await exec(packageManager, ["run", ctx.options.testScript], {
+                onStdout: liveOutput?.onStdout,
+                onStderr: liveOutput?.onStderr,
+                throwOnError: true,
+              });
+            } catch (error) {
+              liveOutput?.finish();
+              throw new AbstractError(
+                `Test script '${ctx.options.testScript}' failed. Run \`${command}\` locally to see full output.`,
+                { cause: error },
+              );
+            }
+            liveOutput?.finish();
+            task.output = "Running plugin afterTest hooks...";
+            await ctx.runtime.pluginRunner.runHook("afterTest", ctx);
+            task.output = `Completed \`${command}\``;
+          },
+        },
+        {
+          skip: !hasPrepare || ctx.options.skipBuild,
+          title: "Building the project",
+          task: async (ctx, task): Promise<void> => {
+            task.output = "Running plugin beforeBuild hooks...";
+            await ctx.runtime.pluginRunner.runHook("beforeBuild", ctx);
+            const packageManager = await getPackageManager();
+            const command = `${packageManager} run ${ctx.options.buildScript}`;
+            task.title = `Building the project (${command})`;
+            const liveOutput = shouldRenderLiveCommandOutput(ctx)
+              ? createLiveCommandOutput(task, command)
+              : undefined;
+            task.output = `Executing \`${command}\``;
 
-                return parentTask.newListr(publishTasks, {
-                  concurrent: true,
-                });
-              },
-            },
-            createRestoreWorkspaceProtocolsTask(),
-            {
-              title: "Creating GitHub Release",
-              task: async (ctx, task): Promise<void> => {
-                const plan = ctx.runtime.versionPlan!;
-                task.title = `Creating GitHub Release (${formatVersionSummary(ctx)})`;
+            try {
+              await exec(packageManager, ["run", ctx.options.buildScript], {
+                onStdout: liveOutput?.onStdout,
+                onStderr: liveOutput?.onStderr,
+                throwOnError: true,
+              });
+            } catch (error) {
+              liveOutput?.finish();
+              throw new AbstractError(
+                `Build script '${ctx.options.buildScript}' failed. Run \`${command}\` locally to see full output.`,
+                { cause: error },
+              );
+            }
+            liveOutput?.finish();
+            task.output = "Running plugin afterBuild hooks...";
+            await ctx.runtime.pluginRunner.runHook("afterBuild", ctx);
+            task.output = `Completed \`${command}\``;
+          },
+        },
+        {
+          title: "Bumping version",
+          skip: !hasPrepare,
+          task: async (ctx, task): Promise<void> => {
+            task.title = `Bumping version (${formatVersionSummary(ctx)})`;
+            task.output = "Running plugin beforeVersion hooks...";
+            await ctx.runtime.pluginRunner.runHook("beforeVersion", ctx);
+            const git = new Git();
+            let tagCreated = false;
+            let commited = false;
 
-                if (plan.mode === "independent") {
-                  // Per-package releases
-                  for (const [pkgPath, pkgVersion] of plan.packages) {
-                    const pkgName = getPackageName(ctx, pkgPath);
-                    const tag = `${pkgName}@${pkgVersion}`;
-                    task.output = `Creating release for ${tag}...`;
+            const plan = ctx.runtime.versionPlan!;
 
-                    let changelogBody: string | undefined;
-                    const pkgConfig = ctx.config.packages.find(
-                      (p) => p.path === pkgPath,
-                    );
-                    if (pkgConfig) {
-                      const changelogPath = join(
-                        process.cwd(),
-                        pkgConfig.path,
-                        "CHANGELOG.md",
-                      );
-                      if (existsSync(changelogPath)) {
-                        const section = parseChangelogSection(
-                          readFileSync(changelogPath, "utf-8"),
-                          pkgVersion,
-                        );
-                        if (section) changelogBody = section;
-                      }
-                    }
+            task.output = formatVersionPlan(ctx);
 
-                    const { assets: preparedAssets, tempDir } =
-                      await prepareReleaseAssets(
-                        ctx,
-                        pkgName,
-                        pkgVersion,
-                        pkgPath,
-                      );
-                    const result = await createGitHubRelease(ctx, {
-                      displayLabel: pkgName,
-                      version: pkgVersion,
-                      tag,
-                      changelogBody,
-                      assets: preparedAssets,
-                    });
-                    if (result) {
-                      // Additional upload targets (plugin hooks)
-                      const assetHooks =
-                        ctx.runtime.pluginRunner.collectAssetHooks();
-                      if (assetHooks.uploadAssets) {
-                        const additional = await assetHooks.uploadAssets(
-                          preparedAssets,
-                          ctx,
-                        );
-                        result.assets.push(
-                          ...additional.map((a) => ({
-                            name: a.name,
-                            url: a.url,
-                            sha256: a.sha256,
-                            platform: a.platform,
-                          })),
-                        );
-                      }
-                      task.output = `Release created: ${result.releaseUrl}`;
-                      await ctx.runtime.pluginRunner.runAfterReleaseHook(
-                        ctx,
-                        result,
-                      );
-                    } else {
-                      task.output = `Release already exists for ${tag}, skipped.`;
-                    }
-                    if (tempDir)
-                      rmSync(tempDir, { recursive: true, force: true });
-                  }
-                } else {
-                  // Single or fixed: one release
-                  const version =
-                    plan.mode === "single" ? plan.version : plan.version;
-                  const tag = `v${version}`;
-                  task.output = `Creating release for ${tag}...`;
+            // Capture original versions for dry-run rollback
+            const originalVersions = new Map(
+              ctx.config.packages.map((pkg) => [
+                pkg.path,
+                pkg.version ?? "0.0.0",
+              ]),
+            );
 
-                  let changelogBody: string | undefined;
-                  if (plan.mode === "fixed") {
-                    const sections: string[] = [];
+            addRollback(async () => {
+              if (tagCreated) {
+                try {
+                  rollbackLog("Deleting tag(s)");
+                  if (plan.mode === "independent") {
                     for (const [pkgPath, pkgVersion] of plan.packages) {
                       const pkgName = getPackageName(ctx, pkgPath);
+                      try {
+                        await git.deleteTag(`${pkgName}@${pkgVersion}`);
+                      } catch (tagError) {
+                        rollbackError(
+                          `Failed to delete tag ${pkgName}@${pkgVersion}: ${tagError instanceof Error ? tagError.message : tagError}`,
+                        );
+                      }
+                    }
+                  } else {
+                    const tagName = `v${plan.version}`;
+                    try {
+                      await git.deleteTag(tagName);
+                    } catch (e) {
+                      rollbackError(
+                        `Failed to delete tag: ${e instanceof Error ? e.message : e}`,
+                      );
+                    }
+                  }
+                } catch (error) {
+                  rollbackError(
+                    `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
+                  );
+                }
+              }
+
+              if (commited) {
+                try {
+                  rollbackLog("Resetting commits");
+                  await git.reset();
+                  const dirty = (await git.status()) !== "";
+                  if (dirty) {
+                    await git.stash();
+                  }
+                  await git.reset("HEAD^", "--hard");
+                  if (dirty) {
+                    await git.popStash();
+                  }
+                } catch (error) {
+                  rollbackError(
+                    `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
+                  );
+                }
+              }
+            }, ctx);
+
+            task.output = "Refreshing git index before version updates...";
+            await git.reset();
+
+            if (plan.mode === "single") {
+              // Single package: write version for all config packages
+              task.output = "Updating package manifest versions...";
+              const singleVersions = new Map(
+                ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
+              );
+              const replaced = await writeVersions(ctx, singleVersions);
+
+              if (dryRun) {
+                task.output =
+                  "Dry-run: restoring original manifest versions...";
+                await writeVersions(ctx, originalVersions);
+                return;
+              }
+
+              for (const replacedFile of replaced) {
+                await git.stage(replacedFile);
+              }
+
+              if (ctx.runtime.changesetConsumed) {
+                task.output =
+                  "Applying changesets and generating changelog entries...";
+                const resolver = createKeyResolver(ctx.config.packages);
+                const changesets = readChangesets(process.cwd(), resolver);
+                if (changesets.length > 0) {
+                  const pkgPath = ctx.config.packages[0]?.path ?? "";
+                  const entries = buildChangelogEntries(changesets, pkgPath);
+                  const changelogContent = generateChangelog(
+                    plan.version,
+                    entries,
+                  );
+                  writeChangelogToFile(process.cwd(), changelogContent);
+                  deleteChangesetFiles(process.cwd(), changesets);
+                }
+              }
+
+              task.output = "Running plugin afterVersion hooks...";
+              await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
+              task.output = "Staging version updates...";
+              await git.stage(".");
+
+              // Tag existence check
+              const tagName = `v${plan.version}`;
+              if (await git.checkTagExist(tagName)) {
+                if (ctx.runtime.promptEnabled) {
+                  const deleteTag = await task
+                    .prompt(ListrEnquirerPromptAdapter)
+                    .run<boolean>({
+                      type: "toggle",
+                      message: `The Git tag '${tagName}' already exists. Delete it?`,
+                      enabled: "Yes",
+                      disabled: "No",
+                    });
+                  if (deleteTag) {
+                    await git.deleteTag(tagName);
+                  } else {
+                    throw new AbstractError(
+                      `Git tag '${tagName}' already exists.`,
+                    );
+                  }
+                } else {
+                  throw new AbstractError(
+                    `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                  );
+                }
+              }
+
+              task.output = `Creating release commit ${tagName}...`;
+              const commit = await git.commit(tagName);
+              commited = true;
+              task.output = "Creating tag...";
+              await git.createTag(tagName, commit);
+              tagCreated = true;
+            } else if (plan.mode === "fixed") {
+              // Fixed monorepo: same version for all packages
+              task.output = "Updating package versions across the workspace...";
+              const replaced = await writeVersions(ctx, plan.packages);
+
+              if (dryRun) {
+                task.output =
+                  "Dry-run: restoring original manifest versions...";
+                await writeVersions(ctx, originalVersions);
+                return;
+              }
+
+              for (const f of replaced) {
+                await git.stage(f);
+              }
+
+              if (ctx.runtime.changesetConsumed) {
+                task.output =
+                  "Applying changesets and generating changelog entries...";
+                const resolver = createKeyResolver(ctx.config.packages);
+                const changesets = readChangesets(process.cwd(), resolver);
+                if (changesets.length > 0) {
+                  const allEntries = [...plan.packages.keys()].flatMap(
+                    (pkgPath) => buildChangelogEntries(changesets, pkgPath),
+                  );
+                  if (allEntries.length > 0) {
+                    const changelogContent = generateChangelog(
+                      plan.version,
+                      allEntries,
+                    );
+                    writeChangelogToFile(process.cwd(), changelogContent);
+                  }
+                  deleteChangesetFiles(process.cwd(), changesets);
+                }
+              }
+
+              task.output = "Running plugin afterVersion hooks...";
+              await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
+              task.output = "Staging version updates...";
+              await git.stage(".");
+
+              const tagName = `v${plan.version}`;
+              if (await git.checkTagExist(tagName)) {
+                if (ctx.runtime.promptEnabled) {
+                  const deleteTag = await task
+                    .prompt(ListrEnquirerPromptAdapter)
+                    .run<boolean>({
+                      type: "toggle",
+                      message: `The Git tag '${tagName}' already exists. Delete it?`,
+                      enabled: "Yes",
+                      disabled: "No",
+                    });
+                  if (deleteTag) {
+                    await git.deleteTag(tagName);
+                  } else {
+                    throw new AbstractError(
+                      `Git tag '${tagName}' already exists.`,
+                    );
+                  }
+                } else {
+                  throw new AbstractError(
+                    `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                  );
+                }
+              }
+
+              task.output = `Creating release commit ${tagName}...`;
+              const commit = await git.commit(tagName);
+              commited = true;
+              task.output = "Creating tag...";
+              await git.createTag(tagName, commit);
+              tagCreated = true;
+            } else {
+              // Independent monorepo
+              task.output = "Updating package versions across the workspace...";
+              const replaced = await writeVersions(ctx, plan.packages);
+
+              if (dryRun) {
+                task.output =
+                  "Dry-run: restoring original manifest versions...";
+                await writeVersions(ctx, originalVersions);
+                return;
+              }
+
+              for (const f of replaced) {
+                await git.stage(f);
+              }
+
+              if (ctx.runtime.changesetConsumed) {
+                task.output =
+                  "Applying changesets and generating changelog entries...";
+                const resolver = createKeyResolver(ctx.config.packages);
+                const changesets = readChangesets(process.cwd(), resolver);
+                if (changesets.length > 0) {
+                  for (const [pkgPath, pkgVersion] of plan.packages) {
+                    const entries = buildChangelogEntries(changesets, pkgPath);
+                    if (entries.length > 0) {
                       const pkgConfig = ctx.config.packages.find(
                         (p) => p.path === pkgPath,
                       );
-                      if (!pkgConfig) continue;
-                      const changelogPath = join(
-                        process.cwd(),
-                        pkgConfig.path,
-                        "CHANGELOG.md",
+                      const changelogDir = pkgConfig
+                        ? path.resolve(process.cwd(), pkgConfig.path)
+                        : process.cwd();
+                      writeChangelogToFile(
+                        changelogDir,
+                        generateChangelog(pkgVersion, entries),
                       );
-                      if (existsSync(changelogPath)) {
-                        const section = parseChangelogSection(
-                          readFileSync(changelogPath, "utf-8"),
-                          pkgVersion,
-                        );
-                        if (section) {
-                          sections.push(
-                            `## ${pkgName} v${pkgVersion}\n\n${section}`,
-                          );
-                        }
-                      }
                     }
-                    if (sections.length > 0) {
-                      changelogBody = sections.join("\n\n---\n\n");
+                  }
+                  deleteChangesetFiles(process.cwd(), changesets);
+                }
+              }
+
+              task.output = "Running plugin afterVersion hooks...";
+              await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
+              task.output = "Staging version updates...";
+              await git.stage(".");
+
+              // Tag existence checks for all packages
+              for (const [pkgPath, pkgVersion] of plan.packages) {
+                const pkgName = getPackageName(ctx, pkgPath);
+                const tagName = `${pkgName}@${pkgVersion}`;
+                if (await git.checkTagExist(tagName)) {
+                  if (ctx.runtime.promptEnabled) {
+                    const deleteTag = await task
+                      .prompt(ListrEnquirerPromptAdapter)
+                      .run<boolean>({
+                        type: "toggle",
+                        message: `The Git tag '${tagName}' already exists. Delete it?`,
+                        enabled: "Yes",
+                        disabled: "No",
+                      });
+                    if (deleteTag) {
+                      await git.deleteTag(tagName);
+                    } else {
+                      throw new AbstractError(
+                        `Git tag '${tagName}' already exists.`,
+                      );
                     }
                   } else {
-                    const changelogPath = join(process.cwd(), "CHANGELOG.md");
+                    throw new AbstractError(
+                      `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                    );
+                  }
+                }
+              }
+
+              // Commit with "Version Packages" message
+              const commitMsg = `Version Packages\n\n${[...plan.packages]
+                .map(
+                  ([pkgPath, ver]) =>
+                    `- ${getPackageName(ctx, pkgPath)}: ${ver}`,
+                )
+                .join("\n")}`;
+              task.output = "Creating release commit...";
+              const commit = await git.commit(commitMsg);
+              commited = true;
+
+              // Create per-package tags
+              task.output = "Creating tags...";
+              for (const [pkgPath, pkgVersion] of plan.packages) {
+                const pkgName = getPackageName(ctx, pkgPath);
+                await git.createTag(`${pkgName}@${pkgVersion}`, commit);
+              }
+              tagCreated = true;
+            }
+          },
+        },
+
+        // === PUBLISH PHASE ===
+        {
+          skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
+          title: "Publishing",
+          task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+            parentTask.output = "Running plugin beforePublish hooks...";
+            await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
+            resolveWorkspaceProtocols(ctx);
+
+            const publishTasks = await collectPublishTasks(ctx);
+            parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+            parentTask.output = formatRegistryGroupSummary(
+              "Concurrent publish tasks",
+              ctx,
+              true,
+            );
+
+            return parentTask.newListr(publishTasks, {
+              concurrent: true,
+            });
+          },
+        },
+        {
+          skip: (ctx) =>
+            !hasPublish ||
+            !!ctx.options.skipPublish ||
+            dryRun ||
+            !ctx.runtime.workspaceBackups?.size,
+          title: "Restoring workspace protocols",
+          task: (ctx) => {
+            restoreManifests(ctx.runtime.workspaceBackups!);
+            ctx.runtime.workspaceBackups = undefined;
+          },
+        },
+        {
+          skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
+          title: "Running post-publish hooks",
+          task: async (ctx, task): Promise<void> => {
+            task.output = "Running plugin afterPublish hooks...";
+            await ctx.runtime.pluginRunner.runHook("afterPublish", ctx);
+            task.output = "Completed plugin afterPublish hooks.";
+          },
+        },
+
+        // === DRY-RUN PUBLISH VALIDATION (for --dry-run OR ci prepare) ===
+        {
+          skip: !dryRun && !(mode === "ci" && hasPrepare),
+          title: "Validating publish (dry-run)",
+          task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+            resolveWorkspaceProtocols(ctx);
+
+            const dryRunTasks = await collectDryRunPublishTasks(ctx);
+            parentTask.title = `Validating publish (${countRegistryTargets(
+              collectEcosystemRegistryGroups(ctx.config),
+            )} targets)`;
+            parentTask.output = formatRegistryGroupSummary(
+              "Dry-run publish tasks",
+              ctx,
+            );
+
+            return parentTask.newListr(dryRunTasks, {
+              concurrent: true,
+            });
+          },
+        },
+        {
+          skip: (ctx) =>
+            (!dryRun && !(mode === "ci" && hasPrepare)) ||
+            !ctx.runtime.workspaceBackups?.size,
+          title: "Restoring workspace protocols",
+          task: (ctx) => {
+            restoreManifests(ctx.runtime.workspaceBackups!);
+            ctx.runtime.workspaceBackups = undefined;
+          },
+        },
+
+        // === PUSH & RELEASE ===
+        {
+          title: "Pushing tags to GitHub",
+          skip: !hasPrepare || dryRun,
+          task: async (ctx, task): Promise<void> => {
+            task.output = "Running plugin beforePush hooks...";
+            await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
+            const git = new Git();
+            task.output = "Executing `git push --follow-tags`...";
+
+            const result = await git.push("--follow-tags");
+
+            if (!result) {
+              task.title +=
+                " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
+              task.output =
+                "Protected branch detected. Falling back to `git push --tags`.";
+
+              await git.push("--tags");
+            }
+            task.output = "Running plugin afterPush hooks...";
+            await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
+            task.output = "Push step completed.";
+          },
+        },
+        {
+          skip: (ctx) =>
+            !hasPublish || !!ctx.options.skipReleaseDraft || dryRun,
+          title: "Creating GitHub Release",
+          task: async (ctx, task): Promise<void> => {
+            const plan = ctx.runtime.versionPlan!;
+
+            // Resolve GitHub token from env or secure store
+            const tokenResult = resolveGitHubToken();
+            let hasToken = !!tokenResult;
+
+            if (tokenResult) {
+              process.env.GITHUB_TOKEN = tokenResult.token;
+            } else if (mode !== "ci") {
+              // Local/interactive mode: prompt for token or fall back to browser
+              const answer = await task
+                .prompt(ListrEnquirerPromptAdapter)
+                .run<string>({
+                  type: "select",
+                  message:
+                    "No GitHub token found. How would you like to create the release?",
+                  choices: [
+                    { name: "enter", message: "Enter a GitHub token" },
+                    {
+                      name: "browser",
+                      message: "Open release draft in browser",
+                    },
+                    { name: "skip", message: "Skip release creation" },
+                  ],
+                });
+
+              if (answer === "enter") {
+                const token = await task
+                  .prompt(ListrEnquirerPromptAdapter)
+                  .run<string>({
+                    type: "password",
+                    message: "GitHub personal access token:",
+                  });
+                if (token) {
+                  process.env.GITHUB_TOKEN = token;
+                  saveGitHubToken(token);
+                  hasToken = true;
+                }
+              } else if (answer === "skip") {
+                task.skip("Skipped by user.");
+                return;
+              }
+              // "browser" falls through to browser fallback below
+            }
+
+            if (hasToken) {
+              // Create GitHub Release via API
+              task.title = `Creating GitHub Release (${formatVersionSummary(ctx)})`;
+
+              if (plan.mode === "independent") {
+                // Per-package releases
+                for (const [pkgPath, pkgVersion] of plan.packages) {
+                  const pkgName = getPackageName(ctx, pkgPath);
+                  const tag = `${pkgName}@${pkgVersion}`;
+                  task.output = `Creating release for ${tag}...`;
+
+                  let changelogBody: string | undefined;
+                  const pkgConfig = ctx.config.packages.find(
+                    (p) => p.path === pkgPath,
+                  );
+                  if (pkgConfig) {
+                    const changelogPath = join(
+                      process.cwd(),
+                      pkgConfig.path,
+                      "CHANGELOG.md",
+                    );
                     if (existsSync(changelogPath)) {
                       const section = parseChangelogSection(
                         readFileSync(changelogPath, "utf-8"),
-                        version,
+                        pkgVersion,
                       );
                       if (section) changelogBody = section;
                     }
                   }
 
-                  const packageName =
-                    plan.mode === "single"
-                      ? getPackageName(ctx, plan.packagePath)
-                      : (ctx.config.packages[0]?.name ?? "");
-                  const pkgPath =
-                    plan.mode === "single"
-                      ? plan.packagePath
-                      : ctx.config.packages[0]?.path;
                   const { assets: preparedAssets, tempDir } =
                     await prepareReleaseAssets(
                       ctx,
-                      packageName,
-                      version,
+                      pkgName,
+                      pkgVersion,
                       pkgPath,
                     );
                   const result = await createGitHubRelease(ctx, {
-                    displayLabel: packageName,
-                    version,
+                    displayLabel: pkgName,
+                    version: pkgVersion,
                     tag,
                     changelogBody,
                     assets: preparedAssets,
+                    draft: !!ctx.options.releaseDraft,
                   });
                   if (result) {
+                    // Additional upload targets (plugin hooks)
                     const assetHooks =
                       ctx.runtime.pluginRunner.collectAssetHooks();
                     if (assetHooks.uploadAssets) {
@@ -863,604 +1278,182 @@ export async function run(ctx: PubmContext): Promise<void> {
                   if (tempDir)
                     rmSync(tempDir, { recursive: true, force: true });
                 }
-              },
-            },
-          ]
-        : ctx.options.publishOnly
-          ? [
-              {
-                title: "Publishing",
-                task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-                  resolveWorkspaceProtocols(ctx);
+              } else {
+                // Single or fixed: one release
+                const version = plan.version;
+                const tag = `v${version}`;
+                task.output = `Creating release for ${tag}...`;
 
-                  const publishTasks = await collectPublishTasks(ctx);
-                  parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
-                  parentTask.output = formatRegistryGroupSummary(
-                    "Concurrent publish tasks",
+                let changelogBody: string | undefined;
+                if (plan.mode === "fixed") {
+                  const sections: string[] = [];
+                  for (const [pkgPath, pkgVersion] of plan.packages) {
+                    const pkgName = getPackageName(ctx, pkgPath);
+                    const pkgConfig = ctx.config.packages.find(
+                      (p) => p.path === pkgPath,
+                    );
+                    if (!pkgConfig) continue;
+                    const changelogPath = join(
+                      process.cwd(),
+                      pkgConfig.path,
+                      "CHANGELOG.md",
+                    );
+                    if (existsSync(changelogPath)) {
+                      const section = parseChangelogSection(
+                        readFileSync(changelogPath, "utf-8"),
+                        pkgVersion,
+                      );
+                      if (section) {
+                        sections.push(
+                          `## ${pkgName} v${pkgVersion}\n\n${section}`,
+                        );
+                      }
+                    }
+                  }
+                  if (sections.length > 0) {
+                    changelogBody = sections.join("\n\n---\n\n");
+                  }
+                } else {
+                  const changelogPath = join(process.cwd(), "CHANGELOG.md");
+                  if (existsSync(changelogPath)) {
+                    const section = parseChangelogSection(
+                      readFileSync(changelogPath, "utf-8"),
+                      version,
+                    );
+                    if (section) changelogBody = section;
+                  }
+                }
+
+                const packageName =
+                  plan.mode === "single"
+                    ? getPackageName(ctx, plan.packagePath)
+                    : (ctx.config.packages[0]?.name ?? "");
+                const pkgPath =
+                  plan.mode === "single"
+                    ? plan.packagePath
+                    : ctx.config.packages[0]?.path;
+                const { assets: preparedAssets, tempDir } =
+                  await prepareReleaseAssets(
                     ctx,
-                    true,
+                    packageName,
+                    version,
+                    pkgPath,
+                  );
+                const result = await createGitHubRelease(ctx, {
+                  displayLabel: packageName,
+                  version,
+                  tag,
+                  changelogBody,
+                  assets: preparedAssets,
+                  draft: !!ctx.options.releaseDraft,
+                });
+                if (result) {
+                  const assetHooks =
+                    ctx.runtime.pluginRunner.collectAssetHooks();
+                  if (assetHooks.uploadAssets) {
+                    const additional = await assetHooks.uploadAssets(
+                      preparedAssets,
+                      ctx,
+                    );
+                    result.assets.push(
+                      ...additional.map((a) => ({
+                        name: a.name,
+                        url: a.url,
+                        sha256: a.sha256,
+                        platform: a.platform,
+                      })),
+                    );
+                  }
+                  task.output = `Release created: ${result.releaseUrl}`;
+                  await ctx.runtime.pluginRunner.runAfterReleaseHook(
+                    ctx,
+                    result,
+                  );
+                } else {
+                  task.output = `Release already exists for ${tag}, skipped.`;
+                }
+                if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+              }
+            } else {
+              // No token available: open release draft URL in the browser
+              const git = new Git();
+              task.title = `Creating release draft on GitHub (${formatVersionSummary(ctx)})`;
+              task.output =
+                "Resolving repository metadata for the release draft...";
+
+              const repositoryUrl = await git.repository();
+
+              if (plan.mode === "independent") {
+                let first = true;
+                for (const [pkgPath, pkgVersion] of plan.packages) {
+                  const pkgName = getPackageName(ctx, pkgPath);
+                  const tag = `${pkgName}@${pkgVersion}`;
+                  const lastRev =
+                    (await git.previousTag(tag)) || (await git.firstCommit());
+                  const commits = (await git.commits(lastRev, tag)).slice(1);
+
+                  let body = commits
+                    .map(
+                      ({ id, message }) =>
+                        `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                    )
+                    .join("\n");
+                  body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
+
+                  const releaseDraftUrl = new URL(
+                    `${repositoryUrl}/releases/new`,
+                  );
+                  releaseDraftUrl.searchParams.set("tag", tag);
+                  releaseDraftUrl.searchParams.set("body", body);
+                  releaseDraftUrl.searchParams.set(
+                    "prerelease",
+                    `${!!prerelease(pkgVersion)}`,
                   );
 
-                  return parentTask.newListr(publishTasks, {
-                    concurrent: true,
-                  });
-                },
-              },
-              createRestoreWorkspaceProtocolsTask(),
-            ]
-          : [
-              {
-                skip: ctx.options.skipTests,
-                title: "Running tests",
-                task: async (ctx, task): Promise<void> => {
-                  task.output = "Running plugin beforeTest hooks...";
-                  await ctx.runtime.pluginRunner.runHook("beforeTest", ctx);
-                  const packageManager = await getPackageManager();
-                  const command = `${packageManager} run ${ctx.options.testScript}`;
-                  task.title = `Running tests (${command})`;
-                  const liveOutput = shouldRenderLiveCommandOutput(ctx)
-                    ? createLiveCommandOutput(task, command)
-                    : undefined;
-                  task.output = `Executing \`${command}\``;
+                  const linkUrl = ui.link(tag, releaseDraftUrl.toString());
+                  task.title += ` ${linkUrl}`;
 
-                  try {
-                    await exec(
-                      packageManager,
-                      ["run", ctx.options.testScript],
-                      {
-                        onStdout: liveOutput?.onStdout,
-                        onStderr: liveOutput?.onStderr,
-                        throwOnError: true,
-                      },
-                    );
-                  } catch (error) {
-                    liveOutput?.finish();
-                    throw new AbstractError(
-                      `Test script '${ctx.options.testScript}' failed. Run \`${command}\` locally to see full output.`,
-                      { cause: error },
-                    );
-                  }
-                  liveOutput?.finish();
-                  task.output = "Running plugin afterTest hooks...";
-                  await ctx.runtime.pluginRunner.runHook("afterTest", ctx);
-                  task.output = `Completed \`${command}\``;
-                },
-              },
-              {
-                skip: ctx.options.skipBuild,
-                title: "Building the project",
-                task: async (ctx, task): Promise<void> => {
-                  task.output = "Running plugin beforeBuild hooks...";
-                  await ctx.runtime.pluginRunner.runHook("beforeBuild", ctx);
-                  const packageManager = await getPackageManager();
-                  const command = `${packageManager} run ${ctx.options.buildScript}`;
-                  task.title = `Building the project (${command})`;
-                  const liveOutput = shouldRenderLiveCommandOutput(ctx)
-                    ? createLiveCommandOutput(task, command)
-                    : undefined;
-                  task.output = `Executing \`${command}\``;
-
-                  try {
-                    await exec(
-                      packageManager,
-                      ["run", ctx.options.buildScript],
-                      {
-                        onStdout: liveOutput?.onStdout,
-                        onStderr: liveOutput?.onStderr,
-                        throwOnError: true,
-                      },
-                    );
-                  } catch (error) {
-                    liveOutput?.finish();
-                    throw new AbstractError(
-                      `Build script '${ctx.options.buildScript}' failed. Run \`${command}\` locally to see full output.`,
-                      { cause: error },
-                    );
-                  }
-                  liveOutput?.finish();
-                  task.output = "Running plugin afterBuild hooks...";
-                  await ctx.runtime.pluginRunner.runHook("afterBuild", ctx);
-                  task.output = `Completed \`${command}\``;
-                },
-              },
-              {
-                title: "Bumping version",
-                skip: (ctx) => !!ctx.options.preview,
-                task: async (ctx, task): Promise<void> => {
-                  task.title = `Bumping version (${formatVersionSummary(ctx)})`;
-                  task.output = "Running plugin beforeVersion hooks...";
-                  await ctx.runtime.pluginRunner.runHook("beforeVersion", ctx);
-                  const git = new Git();
-                  let tagCreated = false;
-                  let commited = false;
-
-                  const plan = ctx.runtime.versionPlan!;
-
-                  task.output = formatVersionPlan(ctx);
-
-                  addRollback(async () => {
-                    if (tagCreated) {
-                      try {
-                        rollbackLog("Deleting tag(s)");
-                        if (plan.mode === "independent") {
-                          for (const [pkgPath, pkgVersion] of plan.packages) {
-                            const pkgName = getPackageName(ctx, pkgPath);
-                            try {
-                              await git.deleteTag(`${pkgName}@${pkgVersion}`);
-                            } catch (tagError) {
-                              rollbackError(
-                                `Failed to delete tag ${pkgName}@${pkgVersion}: ${tagError instanceof Error ? tagError.message : tagError}`,
-                              );
-                            }
-                          }
-                        } else {
-                          const tagName = `v${plan.version}`;
-                          try {
-                            await git.deleteTag(tagName);
-                          } catch (e) {
-                            rollbackError(
-                              `Failed to delete tag: ${e instanceof Error ? e.message : e}`,
-                            );
-                          }
-                        }
-                      } catch (error) {
-                        rollbackError(
-                          `Failed to delete tag: ${error instanceof Error ? error.message : error}`,
-                        );
-                      }
-                    }
-
-                    if (commited) {
-                      try {
-                        rollbackLog("Resetting commits");
-                        await git.reset();
-                        const dirty = (await git.status()) !== "";
-                        if (dirty) {
-                          await git.stash();
-                        }
-                        await git.reset("HEAD^", "--hard");
-                        if (dirty) {
-                          await git.popStash();
-                        }
-                      } catch (error) {
-                        rollbackError(
-                          `Failed to reset commits: ${error instanceof Error ? error.message : error}`,
-                        );
-                      }
-                    }
-                  }, ctx);
-
-                  task.output =
-                    "Refreshing git index before version updates...";
-                  await git.reset();
-
-                  if (plan.mode === "single") {
-                    // Single package: write version for all config packages
-                    task.output = "Updating package manifest versions...";
-                    const singleVersions = new Map(
-                      ctx.config.packages.map((pkg) => [
-                        pkg.path,
-                        plan.version,
-                      ]),
-                    );
-                    const replaced = await writeVersions(ctx, singleVersions);
-                    for (const replacedFile of replaced) {
-                      await git.stage(replacedFile);
-                    }
-
-                    if (ctx.runtime.changesetConsumed) {
-                      task.output =
-                        "Applying changesets and generating changelog entries...";
-                      const resolver = createKeyResolver(ctx.config.packages);
-                      const changesets = readChangesets(
-                        process.cwd(),
-                        resolver,
-                      );
-                      if (changesets.length > 0) {
-                        const pkgPath = ctx.config.packages[0]?.path ?? "";
-                        const entries = buildChangelogEntries(
-                          changesets,
-                          pkgPath,
-                        );
-                        const changelogContent = generateChangelog(
-                          plan.version,
-                          entries,
-                        );
-                        writeChangelogToFile(process.cwd(), changelogContent);
-                        deleteChangesetFiles(process.cwd(), changesets);
-                      }
-                    }
-
-                    task.output = "Running plugin afterVersion hooks...";
-                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
-                    task.output = "Staging version updates...";
-                    await git.stage(".");
-
-                    // Tag existence check
-                    const tagName = `v${plan.version}`;
-                    if (await git.checkTagExist(tagName)) {
-                      if (ctx.runtime.promptEnabled) {
-                        const deleteTag = await task
-                          .prompt(ListrEnquirerPromptAdapter)
-                          .run<boolean>({
-                            type: "toggle",
-                            message: `The Git tag '${tagName}' already exists. Delete it?`,
-                            enabled: "Yes",
-                            disabled: "No",
-                          });
-                        if (deleteTag) {
-                          await git.deleteTag(tagName);
-                        } else {
-                          throw new AbstractError(
-                            `Git tag '${tagName}' already exists.`,
-                          );
-                        }
-                      } else {
-                        throw new AbstractError(
-                          `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
-                        );
-                      }
-                    }
-
-                    task.output = `Creating release commit ${tagName}...`;
-                    const commit = await git.commit(tagName);
-                    commited = true;
-                    task.output = "Creating tag...";
-                    await git.createTag(tagName, commit);
-                    tagCreated = true;
-                  } else if (plan.mode === "fixed") {
-                    // Fixed monorepo: same version for all packages
-                    task.output =
-                      "Updating package versions across the workspace...";
-                    const replaced = await writeVersions(ctx, plan.packages);
-                    for (const f of replaced) {
-                      await git.stage(f);
-                    }
-
-                    if (ctx.runtime.changesetConsumed) {
-                      task.output =
-                        "Applying changesets and generating changelog entries...";
-                      const resolver = createKeyResolver(ctx.config.packages);
-                      const changesets = readChangesets(
-                        process.cwd(),
-                        resolver,
-                      );
-                      if (changesets.length > 0) {
-                        const allEntries = [...plan.packages.keys()].flatMap(
-                          (pkgPath) =>
-                            buildChangelogEntries(changesets, pkgPath),
-                        );
-                        if (allEntries.length > 0) {
-                          const changelogContent = generateChangelog(
-                            plan.version,
-                            allEntries,
-                          );
-                          writeChangelogToFile(process.cwd(), changelogContent);
-                        }
-                        deleteChangesetFiles(process.cwd(), changesets);
-                      }
-                    }
-
-                    task.output = "Running plugin afterVersion hooks...";
-                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
-                    task.output = "Staging version updates...";
-                    await git.stage(".");
-
-                    const tagName = `v${plan.version}`;
-                    if (await git.checkTagExist(tagName)) {
-                      if (ctx.runtime.promptEnabled) {
-                        const deleteTag = await task
-                          .prompt(ListrEnquirerPromptAdapter)
-                          .run<boolean>({
-                            type: "toggle",
-                            message: `The Git tag '${tagName}' already exists. Delete it?`,
-                            enabled: "Yes",
-                            disabled: "No",
-                          });
-                        if (deleteTag) {
-                          await git.deleteTag(tagName);
-                        } else {
-                          throw new AbstractError(
-                            `Git tag '${tagName}' already exists.`,
-                          );
-                        }
-                      } else {
-                        throw new AbstractError(
-                          `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
-                        );
-                      }
-                    }
-
-                    task.output = `Creating release commit ${tagName}...`;
-                    const commit = await git.commit(tagName);
-                    commited = true;
-                    task.output = "Creating tag...";
-                    await git.createTag(tagName, commit);
-                    tagCreated = true;
-                  } else {
-                    // Independent monorepo
-                    task.output =
-                      "Updating package versions across the workspace...";
-                    const replaced = await writeVersions(ctx, plan.packages);
-                    for (const f of replaced) {
-                      await git.stage(f);
-                    }
-
-                    if (ctx.runtime.changesetConsumed) {
-                      task.output =
-                        "Applying changesets and generating changelog entries...";
-                      const resolver = createKeyResolver(ctx.config.packages);
-                      const changesets = readChangesets(
-                        process.cwd(),
-                        resolver,
-                      );
-                      if (changesets.length > 0) {
-                        for (const [pkgPath, pkgVersion] of plan.packages) {
-                          const entries = buildChangelogEntries(
-                            changesets,
-                            pkgPath,
-                          );
-                          if (entries.length > 0) {
-                            const pkgConfig = ctx.config.packages.find(
-                              (p) => p.path === pkgPath,
-                            );
-                            const changelogDir = pkgConfig
-                              ? path.resolve(process.cwd(), pkgConfig.path)
-                              : process.cwd();
-                            writeChangelogToFile(
-                              changelogDir,
-                              generateChangelog(pkgVersion, entries),
-                            );
-                          }
-                        }
-                        deleteChangesetFiles(process.cwd(), changesets);
-                      }
-                    }
-
-                    task.output = "Running plugin afterVersion hooks...";
-                    await ctx.runtime.pluginRunner.runHook("afterVersion", ctx);
-                    task.output = "Staging version updates...";
-                    await git.stage(".");
-
-                    // Tag existence checks for all packages
-                    for (const [pkgPath, pkgVersion] of plan.packages) {
-                      const pkgName = getPackageName(ctx, pkgPath);
-                      const tagName = `${pkgName}@${pkgVersion}`;
-                      if (await git.checkTagExist(tagName)) {
-                        if (ctx.runtime.promptEnabled) {
-                          const deleteTag = await task
-                            .prompt(ListrEnquirerPromptAdapter)
-                            .run<boolean>({
-                              type: "toggle",
-                              message: `The Git tag '${tagName}' already exists. Delete it?`,
-                              enabled: "Yes",
-                              disabled: "No",
-                            });
-                          if (deleteTag) {
-                            await git.deleteTag(tagName);
-                          } else {
-                            throw new AbstractError(
-                              `Git tag '${tagName}' already exists.`,
-                            );
-                          }
-                        } else {
-                          throw new AbstractError(
-                            `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
-                          );
-                        }
-                      }
-                    }
-
-                    // Commit with "Version Packages" message
-                    const commitMsg = `Version Packages\n\n${[...plan.packages]
-                      .map(
-                        ([pkgPath, ver]) =>
-                          `- ${getPackageName(ctx, pkgPath)}: ${ver}`,
-                      )
-                      .join("\n")}`;
-                    task.output = "Creating release commit...";
-                    const commit = await git.commit(commitMsg);
-                    commited = true;
-
-                    // Create per-package tags
-                    task.output = "Creating tags...";
-                    for (const [pkgPath, pkgVersion] of plan.packages) {
-                      const pkgName = getPackageName(ctx, pkgPath);
-                      await git.createTag(`${pkgName}@${pkgVersion}`, commit);
-                    }
-                    tagCreated = true;
-                  }
-                },
-              },
-              {
-                skip: (ctx) =>
-                  !!ctx.options.skipPublish ||
-                  !!ctx.options.preview ||
-                  !!ctx.options.preflight,
-                title: "Publishing",
-                task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-                  parentTask.output = "Running plugin beforePublish hooks...";
-                  await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
-                  resolveWorkspaceProtocols(ctx);
-
-                  const publishTasks = await collectPublishTasks(ctx);
-                  parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
-                  parentTask.output = formatRegistryGroupSummary(
-                    "Concurrent publish tasks",
-                    ctx,
-                    true,
-                  );
-
-                  return parentTask.newListr(publishTasks, {
-                    concurrent: true,
-                  });
-                },
-              },
-              {
-                skip: (ctx) =>
-                  !!ctx.options.skipPublish ||
-                  !!ctx.options.preview ||
-                  !!ctx.options.preflight ||
-                  !ctx.runtime.workspaceBackups?.size,
-                title: "Restoring workspace protocols",
-                task: (ctx) => {
-                  restoreManifests(ctx.runtime.workspaceBackups!);
-                  ctx.runtime.workspaceBackups = undefined;
-                },
-              },
-              {
-                skip: (ctx) =>
-                  !!ctx.options.skipPublish ||
-                  !!ctx.options.preview ||
-                  !!ctx.options.preflight,
-                title: "Running post-publish hooks",
-                task: async (ctx, task): Promise<void> => {
-                  task.output = "Running plugin afterPublish hooks...";
-                  await ctx.runtime.pluginRunner.runHook("afterPublish", ctx);
-                  task.output = "Completed plugin afterPublish hooks.";
-                },
-              },
-              {
-                skip: !ctx.options.preflight,
-                title: "Validating publish (dry-run)",
-                task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-                  resolveWorkspaceProtocols(ctx);
-
-                  const dryRunTasks = await collectDryRunPublishTasks(ctx);
-                  parentTask.title = `Validating publish (${countRegistryTargets(
-                    collectEcosystemRegistryGroups(ctx.config),
-                  )} targets)`;
-                  parentTask.output = formatRegistryGroupSummary(
-                    "Dry-run publish tasks",
-                    ctx,
-                  );
-
-                  return parentTask.newListr(dryRunTasks, {
-                    concurrent: true,
-                  });
-                },
-              },
-              {
-                skip: (ctx) =>
-                  !ctx.options.preflight || !ctx.runtime.workspaceBackups?.size,
-                title: "Restoring workspace protocols",
-                task: (ctx) => {
-                  restoreManifests(ctx.runtime.workspaceBackups!);
-                  ctx.runtime.workspaceBackups = undefined;
-                },
-              },
-              {
-                title: "Pushing tags to GitHub",
-                skip: (ctx) => !!ctx.options.preview,
-                task: async (ctx, task): Promise<void> => {
-                  task.output = "Running plugin beforePush hooks...";
-                  await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
-                  const git = new Git();
-                  task.output = "Executing `git push --follow-tags`...";
-
-                  const result = await git.push("--follow-tags");
-
-                  if (!result) {
-                    task.title +=
-                      " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
-                    task.output =
-                      "Protected branch detected. Falling back to `git push --tags`.";
-
-                    await git.push("--tags");
-                  }
-                  task.output = "Running plugin afterPush hooks...";
-                  await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
-                  task.output = "Push step completed.";
-                },
-              },
-              {
-                skip: (ctx) =>
-                  !!ctx.options.skipReleaseDraft ||
-                  !!ctx.options.preview ||
-                  !!ctx.options.preflight,
-                title: "Creating release draft on GitHub",
-                task: async (ctx, task): Promise<void> => {
-                  const git = new Git();
-                  const plan = ctx.runtime.versionPlan!;
-                  task.title = `Creating release draft on GitHub (${formatVersionSummary(ctx)})`;
-                  task.output =
-                    "Resolving repository metadata for the release draft...";
-
-                  const repositoryUrl = await git.repository();
-
-                  if (plan.mode === "independent") {
-                    let first = true;
-                    for (const [pkgPath, pkgVersion] of plan.packages) {
-                      const pkgName = getPackageName(ctx, pkgPath);
-                      const tag = `${pkgName}@${pkgVersion}`;
-                      const lastRev =
-                        (await git.previousTag(tag)) ||
-                        (await git.firstCommit());
-                      const commits = (await git.commits(lastRev, tag)).slice(
-                        1,
-                      );
-
-                      let body = commits
-                        .map(
-                          ({ id, message }) =>
-                            `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-                        )
-                        .join("\n");
-                      body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
-
-                      const releaseDraftUrl = new URL(
-                        `${repositoryUrl}/releases/new`,
-                      );
-                      releaseDraftUrl.searchParams.set("tag", tag);
-                      releaseDraftUrl.searchParams.set("body", body);
-                      releaseDraftUrl.searchParams.set(
-                        "prerelease",
-                        `${!!prerelease(pkgVersion)}`,
-                      );
-
-                      const linkUrl = ui.link(tag, releaseDraftUrl.toString());
-                      task.title += ` ${linkUrl}`;
-
-                      if (first) {
-                        task.output = `Opening release draft for ${tag}...`;
-                        await openUrl(releaseDraftUrl.toString());
-                        first = false;
-                      }
-                    }
-                  } else {
-                    const version = plan.version;
-                    const tag = `v${version}`;
-                    const lastRev =
-                      (await git.previousTag(tag)) || (await git.firstCommit());
-                    const commits = (await git.commits(lastRev, tag)).slice(1);
-                    task.output = `Collected ${commits.length} commits for ${tag}.`;
-
-                    let body = commits
-                      .map(
-                        ({ id, message }) =>
-                          `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-                      )
-                      .join("\n");
-                    body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
-
-                    const releaseDraftUrl = new URL(
-                      `${repositoryUrl}/releases/new`,
-                    );
-                    releaseDraftUrl.searchParams.set("tag", tag);
-                    releaseDraftUrl.searchParams.set("body", body);
-                    releaseDraftUrl.searchParams.set(
-                      "prerelease",
-                      `${!!prerelease(version)}`,
-                    );
-
-                    const linkUrl = ui.link("Link", releaseDraftUrl.toString());
-                    task.title += ` ${linkUrl}`;
+                  if (first) {
                     task.output = `Opening release draft for ${tag}...`;
                     await openUrl(releaseDraftUrl.toString());
+                    first = false;
                   }
-                },
-              },
-            ],
+                }
+              } else {
+                const version = plan.version;
+                const tag = `v${version}`;
+                const lastRev =
+                  (await git.previousTag(tag)) || (await git.firstCommit());
+                const commits = (await git.commits(lastRev, tag)).slice(1);
+                task.output = `Collected ${commits.length} commits for ${tag}.`;
+
+                let body = commits
+                  .map(
+                    ({ id, message }) =>
+                      `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                  )
+                  .join("\n");
+                body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
+
+                const releaseDraftUrl = new URL(
+                  `${repositoryUrl}/releases/new`,
+                );
+                releaseDraftUrl.searchParams.set("tag", tag);
+                releaseDraftUrl.searchParams.set("body", body);
+                releaseDraftUrl.searchParams.set(
+                  "prerelease",
+                  `${!!prerelease(version)}`,
+                );
+
+                const linkUrl = ui.link("Link", releaseDraftUrl.toString());
+                task.title += ` ${linkUrl}`;
+                task.output = `Opening release draft for ${tag}...`;
+                await openUrl(releaseDraftUrl.toString());
+              }
+            }
+          },
+        },
+      ],
       pipelineListrOptions,
     ).run(ctx);
 
@@ -1478,11 +1471,13 @@ export async function run(ctx: PubmContext): Promise<void> {
 
     process.removeListener("SIGINT", onSigint);
 
-    if (ctx.options.preflight) {
+    if (mode === "ci" && hasPrepare && !hasPublish) {
       cleanupEnv?.();
       console.log(
-        `\n\n✅ Preflight check passed. CI publish should succeed for ${parts.join(", ")}.\n`,
+        `\n\n✅ CI prepare completed. Release tags pushed — CI should pick up the publish.\n`,
       );
+    } else if (dryRun) {
+      console.log(`\n\n✅ Dry-run completed. No side effects were applied.\n`);
     } else {
       console.log(
         `\n\n🚀 Successfully published ${parts.join(", ")} ${ui.chalk.blueBright(formatVersionSummary(ctx))} 🚀\n`,

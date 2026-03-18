@@ -2,6 +2,9 @@ import type { PackageConfig } from "../config/types.js";
 
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
+/** Determines how the release pipeline behaves (interactive vs automated). */
+export type ReleaseMode = "local" | "ci";
+
 /**
  * Options for configuring the {@linkcode pubm} function.
  */
@@ -17,10 +20,25 @@ export interface Options {
    */
   buildScript?: string;
   /**
-   * @description Run tasks without actually publishing
+   * @description Release mode — "local" for interactive TTY, "ci" for automated pipelines
+   * @default "local"
+   */
+  mode?: ReleaseMode;
+  /**
+   * @description Run only the prepare phase (version bump, git tag, build) without publishing
    * @default false
    */
-  preview?: boolean;
+  prepare?: boolean;
+  /**
+   * @description Run only the publish phase (publish from latest tag, create release draft)
+   * @default false
+   */
+  publish?: boolean;
+  /**
+   * @description Simulate the full pipeline without side-effects (no publish, no git push)
+   * @default false
+   */
+  dryRun?: boolean;
   /**
    * @description Target branch for the release
    * @default "main"
@@ -47,10 +65,15 @@ export interface Options {
    */
   skipPublish?: boolean;
   /**
-   * @description Skip creating a GitHub release draft
+   * @description Skip creating a GitHub release
    * @default false
    */
   skipReleaseDraft?: boolean;
+  /**
+   * @description Create GitHub Release as draft (not published)
+   * @default false
+   */
+  releaseDraft?: boolean;
   /**
    * @description Skip prerequisites check task
    * @default false
@@ -61,21 +84,6 @@ export interface Options {
    * @default false
    */
   skipConditionsCheck?: boolean;
-  /**
-   * @description Run only publish task for latest tag
-   * @default false
-   */
-  publishOnly?: boolean;
-  /**
-   * @description CI mode: publish from latest tag and create GitHub Release with assets
-   * @default false
-   */
-  ci?: boolean;
-  /**
-   * @description Simulate CI publish locally (dry-run with token-based auth)
-   * @default false
-   */
-  preflight?: boolean;
   /**
    * @description Snapshot mode: publish a temporary snapshot version
    */
@@ -103,6 +111,7 @@ export interface Options {
 export interface ResolvedOptions extends Options {
   testScript: string;
   buildScript: string;
+  mode: ReleaseMode;
   branch: string;
   tag: string;
   saveToken: boolean;

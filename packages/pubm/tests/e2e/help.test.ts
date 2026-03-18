@@ -26,19 +26,24 @@ describe("pubm --help", () => {
     expect(stdout).toContain("--build-script");
   });
 
-  it("should list the -p, --preview option", async () => {
+  it("should list the -d, --dry-run option", async () => {
     const { stdout } = await ctx.run("--help");
-    expect(stdout).toContain("-p, --preview");
+    expect(stdout).toContain("-d, --dry-run");
+  });
+
+  it("should list the --mode option", async () => {
+    const { stdout } = await ctx.run("--help");
+    expect(stdout).toContain("--mode");
+  });
+
+  it("should list the --phase option", async () => {
+    const { stdout } = await ctx.run("--help");
+    expect(stdout).toContain("--phase");
   });
 
   it("should list the -b, --branch option", async () => {
     const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("-b, --branch");
-  });
-
-  it("should list the --publish-only option", async () => {
-    const { stdout } = await ctx.run("--help");
-    expect(stdout).toContain("--publish-only");
   });
 
   it("should list the --registry option", async () => {

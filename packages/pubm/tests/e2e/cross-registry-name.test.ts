@@ -14,7 +14,8 @@ describe("cross-registry name mismatch", () => {
   it("should create path-keyed versionPlan for package with different jsr.json name", async () => {
     const { stderr } = await ctx.runWithEnv(
       { ...process.env, CI: "true" } as Record<string, string>,
-      "--publish-only",
+      "--phase",
+      "publish",
       "--no-pre-check",
       "--no-condition-check",
     );

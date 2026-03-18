@@ -57,10 +57,10 @@ If any registry rejects your package, pubm undoes the version bump, git tag, and
 
 ### Catch problems before publishing
 
-Branch guards, clean working tree, remote sync, registry availability, login status, and publish permissions — all verified **before** any side effects happen. The `--preflight` flag goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.
+Branch guards, clean working tree, remote sync, registry availability, login status, and publish permissions — all verified **before** any side effects happen. The `--mode ci --phase prepare` mode goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.
 
 ```bash
-pubm --preflight
+pubm --mode ci --phase prepare
 ```
 
 ### Works locally and in CI
@@ -98,7 +98,7 @@ No version argument needed. pubm launches an **interactive pipeline** that walks
     ├─ Test & Build          ── runs your npm scripts
     ├─ Version bump          ── updates manifests, creates git commit + tag
     ├─ Publish               ── all registries concurrently
-    ├─ Post-publish          ── pushes tags, creates GitHub release draft
+    ├─ Post-publish          ── pushes tags, creates GitHub Release
     │
     └─ On failure → automatic rollback of all changes
 ```

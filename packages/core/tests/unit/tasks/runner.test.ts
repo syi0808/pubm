@@ -143,6 +143,99 @@ vi.mock("../../../src/utils/token.js", () => ({
 vi.mock("../../../src/utils/open-url.js", () => ({
   openUrl: vi.fn(),
 }));
+vi.mock("../../../src/utils/github-token.js", () => ({
+  resolveGitHubToken: vi.fn(() => ({
+    token: "mock-gh-token",
+    source: "env",
+  })),
+  saveGitHubToken: vi.fn(),
+}));
+vi.mock("../../../src/tasks/github-release.js", () => ({
+  createGitHubRelease: vi.fn().mockResolvedValue({
+    displayLabel: "my-package",
+    version: "1.0.0",
+    tag: "v1.0.0",
+    releaseUrl: "https://github.com/user/repo/releases/tag/v1.0.0",
+    assets: [],
+  }),
+}));
+vi.mock("../../../src/assets/pipeline.js", () => ({
+  runAssetPipeline: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../../../src/assets/resolver.js", () => ({
+  normalizeConfig: vi.fn().mockReturnValue([{ files: [] }]),
+  resolveAssets: vi.fn().mockReturnValue([]),
+}));
+vi.mock("../../../src/changeset/changelog-parser.js", () => ({
+  parseChangelogSection: vi.fn(),
+}));
+vi.mock("../../../src/monorepo/resolve-workspace.js", () => ({
+  collectWorkspaceVersions: vi.fn(() => new Map()),
+  resolveWorkspaceProtocolsInManifests: vi.fn(() => new Map()),
+  restoreManifests: vi.fn(),
+}));
+vi.mock("../../../src/changeset/reader.js", () => ({
+  readChangesets: vi.fn().mockReturnValue([]),
+  deleteChangesetFiles: vi.fn(),
+}));
+vi.mock("../../../src/changeset/changelog.js", () => ({
+  buildChangelogEntries: vi.fn().mockReturnValue([]),
+  generateChangelog: vi.fn().mockReturnValue("generated"),
+  writeChangelogToFile: vi.fn(),
+}));
+vi.mock("../../../src/changeset/resolve.js", () => ({
+  createKeyResolver: vi.fn().mockReturnValue(vi.fn()),
+}));
+vi.mock("../../../src/registry/catalog.js", () => {
+  const descriptors: Record<string, any> = {
+    npm: {
+      key: "npm",
+      ecosystem: "js",
+      label: "npm",
+      needsPackageScripts: true,
+      concurrentPublish: true,
+      resolveDisplayName: vi.fn(async () => ["my-package"]),
+    },
+    jsr: {
+      key: "jsr",
+      ecosystem: "js",
+      label: "jsr",
+      needsPackageScripts: false,
+      concurrentPublish: true,
+      resolveDisplayName: vi.fn(async () => ["@scope/my-package"]),
+    },
+    crates: {
+      key: "crates",
+      ecosystem: "rust",
+      label: "crates.io",
+      needsPackageScripts: false,
+      concurrentPublish: false,
+      orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
+      resolveDisplayName: vi.fn(
+        async (config: any) =>
+          config.packages
+            ?.filter((pkg: any) => pkg.registries.includes("crates"))
+            .map((pkg: any) => pkg.path) ?? ["crate"],
+      ),
+    },
+  };
+  return {
+    registryCatalog: {
+      get: vi.fn((key: string) => descriptors[key]),
+      all: vi.fn(() => Object.values(descriptors)),
+    },
+  };
+});
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: vi.fn().mockReturnValue(false),
+    readFileSync: vi.fn().mockReturnValue(""),
+    mkdirSync: vi.fn(),
+    rmSync: vi.fn(),
+  };
+});
 vi.mock("../../../src/utils/crate-graph.js", () => ({
   sortCratesByDependencyOrder: vi.fn(),
 }));
@@ -271,6 +364,8 @@ function setupCreateListrMock() {
               newListr: vi.fn((_subtasks: any[]) => ({
                 run: vi.fn(),
               })),
+              prompt: vi.fn(() => ({ run: vi.fn() })),
+              skip: vi.fn(),
             };
             await task.task(ctx, mockTask);
           }
@@ -396,44 +491,48 @@ describe("run", () => {
     });
   });
 
-  describe("publishOnly mode", () => {
-    it("skips prerequisites and conditions checks when publishOnly is true", async () => {
-      const options = createOptions({ options: { publishOnly: true } });
+  describe("publish-only mode", () => {
+    it("skips prerequisites and conditions checks when publish is true (local mode)", async () => {
+      const options = createOptions({ options: { publish: true } });
       await run(options);
 
       expect(mockedPrerequisitesCheckTask).not.toHaveBeenCalled();
       expect(mockedRequiredConditionsCheckTask).not.toHaveBeenCalled();
     });
 
-    it("passes publishing task array with restore task in publishOnly mode", async () => {
-      const options = createOptions({ options: { publishOnly: true } });
+    it("creates flat task array with publish tasks in publish-only mode", async () => {
+      const options = createOptions({ options: { publish: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      // publishOnly passes an array with Publishing + restore task
       expect(Array.isArray(callArgs[0])).toBe(true);
-      expect(callArgs[0][0]).toHaveProperty("title", "Publishing");
-      expect(callArgs[0][1]).toHaveProperty(
-        "title",
-        "Restoring workspace protocols",
-      );
+      // The flat list always has 10 tasks; prepare-phase tasks are skipped
+      const tasks = callArgs[0] as any[];
+      expect(tasks[3]).toHaveProperty("title", "Publishing");
+      expect(tasks[4]).toHaveProperty("title", "Restoring workspace protocols");
     });
   });
 
   describe("CI logging", () => {
-    it("passes CI renderer options to the pipeline when --ci is enabled", async () => {
+    it("passes CI renderer options to the pipeline when mode is ci", async () => {
       const ciListrOptions = { renderer: "ci-renderer" } as any;
       mockedCreateCiListrOptions.mockReturnValue(ciListrOptions);
 
-      const options = createOptions({ options: { ci: true } });
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
       expect(mockedCreateCiListrOptions).toHaveBeenCalled();
-      expect(mockedCreateListr.mock.calls[0][1]).toBe(ciListrOptions);
+      // First createListr call is token collection, second is the pipeline
+      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+        Array.isArray(call[0]),
+      );
+      expect(pipelineCall?.[1]).toBe(ciListrOptions);
     });
   });
 
-  describe("normal mode (publishOnly=false)", () => {
+  describe("normal mode (full pipeline)", () => {
     it("runs prerequisites check task", async () => {
       const options = createOptions();
       await run(options);
@@ -490,7 +589,7 @@ describe("run", () => {
       expect(tasks[6].title).toBe("Validating publish (dry-run)");
       expect(tasks[7].title).toBe("Restoring workspace protocols");
       expect(tasks[8].title).toBe("Pushing tags to GitHub");
-      expect(tasks[9].title).toBe("Creating release draft on GitHub");
+      expect(tasks[9].title).toBe("Creating GitHub Release");
     });
   });
 
@@ -515,26 +614,25 @@ describe("run", () => {
       expect(tasks[1].skip).toBe(true);
     });
 
-    it("skips version bump when preview is set", async () => {
-      const options = createOptions({ options: { preview: true } });
+    it("does not skip version bump in dryRun mode (dry-run logic is internal)", async () => {
+      const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[2].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: true } })).toBe(true);
+      // Version bump skip is `!hasPrepare`, which is false for full pipeline
+      expect(tasks[2].skip).toBe(false);
     });
 
-    it("does not skip version bump when preview is falsy", async () => {
+    it("does not skip version bump in normal mode", async () => {
       const options = createOptions();
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[2].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: undefined } })).toBe(false);
+      expect(tasks[2].skip).toBe(false);
     });
 
     it("skips publish when skipPublish is true", async () => {
@@ -545,31 +643,30 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[3].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: false, skipPublish: true } })).toBe(
-        true,
-      );
+      expect(skipFn({ options: { skipPublish: true } })).toBe(true);
     });
 
-    it("skips publish when preview is set", async () => {
-      const options = createOptions({ options: { preview: true } });
+    it("skips publish when dryRun is set", async () => {
+      const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[3].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: true } })).toBe(true);
+      // dryRun causes publish to be skipped via the static `dryRun` closure
+      expect(skipFn({ options: { skipPublish: false } })).toBe(true);
     });
 
-    it("skips pushing tags when preview is set", async () => {
-      const options = createOptions({ options: { preview: true } });
+    it("skips pushing tags when dryRun is set", async () => {
+      const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[8].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: true } })).toBe(true);
+      // Push tags skip is static: `!hasPrepare || dryRun`
+      expect(tasks[8].skip).toBe(true);
     });
 
     it("skips release draft when skipReleaseDraft is true", async () => {
@@ -580,20 +677,19 @@ describe("run", () => {
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[9].skip as (ctx: any) => boolean;
 
-      expect(
-        skipFn({ options: { preview: false, skipReleaseDraft: true } }),
-      ).toBe(true);
+      expect(skipFn({ options: { skipReleaseDraft: true } })).toBe(true);
     });
 
-    it("skips release draft when preview is set", async () => {
-      const options = createOptions({ options: { preview: true } });
+    it("skips release draft when dryRun is set", async () => {
+      const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
       const skipFn = tasks[9].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { preview: true } })).toBe(true);
+      // dryRun causes release draft to be skipped
+      expect(skipFn({ options: { skipReleaseDraft: false } })).toBe(true);
     });
   });
 
@@ -708,9 +804,8 @@ describe("run", () => {
         await testTask.task(
           {
             ...options,
-            ci: false,
-            promptEnabled: true,
-            pluginRunner: new PluginRunner([]),
+            options: { ...options.options, mode: "local" as const },
+            runtime: { ...options.runtime, promptEnabled: true },
           },
           mockTask,
         );
@@ -758,9 +853,8 @@ describe("run", () => {
         await testTask.task(
           {
             ...options,
-            ci: false,
-            promptEnabled: true,
-            pluginRunner: new PluginRunner([]),
+            options: { ...options.options, mode: "local" as const },
+            runtime: { ...options.runtime, promptEnabled: true },
           },
           mockTask,
         );
@@ -797,7 +891,7 @@ describe("run", () => {
         await testTask.task(
           {
             ...options,
-            options: { ...options.options, ci: true },
+            options: { ...options.options, mode: "ci" as const },
             runtime: { ...options.runtime, promptEnabled: false },
           },
           mockTask,
@@ -975,8 +1069,12 @@ describe("run", () => {
       expect(mockedConsoleError).not.toHaveBeenCalled();
     });
 
-    it("release draft generates body with commits and opens browser", async () => {
+    it("release draft generates body with commits and opens browser when no GH token", async () => {
       const { openUrl } = await import("../../../src/utils/open-url.js");
+      const { resolveGitHubToken } = await import(
+        "../../../src/utils/github-token.js"
+      );
+      vi.mocked(resolveGitHubToken).mockReturnValueOnce(undefined as any);
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
       mockedGit.mockImplementation(function () {
@@ -1009,9 +1107,9 @@ describe("run", () => {
       expect(openUrl).toHaveBeenCalled();
     });
 
-    it("publishOnly maps default registry to npmPublishTasks", async () => {
+    it("publish-only maps default registry to publish tasks", async () => {
       const options = createOptions({
-        options: { publishOnly: true },
+        options: { publish: true },
         config: {
           packages: [
             pkg({ path: ".", registries: ["custom-registry"] as any }),
@@ -1022,7 +1120,7 @@ describe("run", () => {
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      expect(tasks[0].title).toBe("Publishing");
+      expect(tasks[3].title).toBe("Publishing");
     });
 
     it("normal mode maps default registry to npmPublishTasks", async () => {
@@ -1099,9 +1197,9 @@ describe("run", () => {
       expect(allSubtasks[1].title).toBe("Rust ecosystem");
     });
 
-    it("uses per-package registries in publishOnly mode", async () => {
+    it("uses per-package registries in publish-only mode", async () => {
       const options = createOptions({
-        options: { publishOnly: true },
+        options: { publish: true },
         config: {
           packages: [
             pkg({ path: ".", registries: ["npm", "jsr"] }),
@@ -1112,13 +1210,14 @@ describe("run", () => {
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      const taskDef = (callArgs[0] as any[])[0];
+      const tasks = callArgs[0] as any[];
+      const publishTask = tasks[3]; // Publishing task
 
       const mockParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
 
-      await taskDef.task(
+      await publishTask.task(
         { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
@@ -1231,9 +1330,9 @@ describe("run", () => {
       expect(rustRegistrySubtasks[0].title).toBe("Running crates.io publish");
     });
 
-    it("creates per-package crate publish tasks in publishOnly mode", async () => {
+    it("creates per-package crate publish tasks in publish-only mode", async () => {
       const options = createOptions({
-        options: { publishOnly: true },
+        options: { publish: true },
         config: {
           packages: [
             pkg({ path: ".", registries: ["npm"] }),
@@ -1244,13 +1343,14 @@ describe("run", () => {
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
-      const taskDef = (callArgs[0] as any[])[0];
+      const tasks = callArgs[0] as any[];
+      const publishTask = tasks[3]; // Publishing task
 
       const mockParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
 
-      await taskDef.task(
+      await publishTask.task(
         { ...options, runtime: { ...options.runtime, promptEnabled: true } },
         mockParentTask,
       );
@@ -1261,12 +1361,16 @@ describe("run", () => {
       expect(allSubtasks[1].title).toBe("Rust ecosystem");
     });
 
-    it("calls sortCratesByDependencyOrder for crate packages", async () => {
+    it("calls orderPackages on crates registry descriptor for crate packages", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
-      mockedSortCrates.mockResolvedValue([
-        "rust/crates/update-kit",
-        "rust/crates/update-kit-cli",
-      ]);
+
+      const { registryCatalog } = await import(
+        "../../../src/registry/catalog.js"
+      );
+      const cratesDescriptor = registryCatalog.get("crates") as any;
+      cratesDescriptor.orderPackages.mockImplementation((paths: string[]) =>
+        Promise.resolve(paths),
+      );
 
       const options = createOptions({
         config: {
@@ -1279,29 +1383,14 @@ describe("run", () => {
       });
       await run(options);
 
-      expect(mockedSortCrates).toHaveBeenCalledWith([
+      expect(cratesDescriptor.orderPackages).toHaveBeenCalledWith([
         "rust/crates/update-kit",
         "rust/crates/update-kit-cli",
       ]);
     });
 
-    it("does not call sortCratesByDependencyOrder when no crates packages", async () => {
-      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
-
-      const options = createOptions({
-        config: { packages: [pkg({ path: ".", registries: ["npm", "jsr"] })] },
-      });
-      await run(options);
-
-      expect(mockedSortCrates).not.toHaveBeenCalled();
-    });
-
     it("wraps crates in a sequential task with concurrent: false", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
-      mockedSortCrates.mockResolvedValue([
-        "rust/crates/lib-a",
-        "rust/crates/lib-b",
-      ]);
 
       const options = createOptions({
         config: {
@@ -1648,9 +1737,11 @@ describe("run", () => {
     });
   });
 
-  describe("preflight mode", () => {
-    it("runs prerequisites and conditions checks in preflight mode", async () => {
-      const options = createOptions({ options: { preflight: true } });
+  describe("CI prepare mode", () => {
+    it("runs prerequisites and conditions checks in CI prepare mode", async () => {
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
       expect(mockedPrerequisitesCheckTask).toHaveBeenCalled();
@@ -1658,12 +1749,16 @@ describe("run", () => {
     });
 
     it("creates task list with dry-run publish instead of real publish", async () => {
-      const options = createOptions({ options: { preflight: true } });
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
       // First createListr call is token collection, second is pipeline
-      const pipelineCall = mockedCreateListr.mock.calls[1];
-      const tasks = pipelineCall[0] as any[];
+      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+        Array.isArray(call[0]),
+      );
+      const tasks = pipelineCall![0] as any[];
 
       expect(Array.isArray(tasks)).toBe(true);
       expect(tasks).toHaveLength(10);
@@ -1676,14 +1771,16 @@ describe("run", () => {
       expect(tasks[6].title).toBe("Validating publish (dry-run)");
       expect(tasks[7].title).toBe("Restoring workspace protocols");
       expect(tasks[8].title).toBe("Pushing tags to GitHub");
-      expect(tasks[9].title).toBe("Creating release draft on GitHub");
+      expect(tasks[9].title).toBe("Creating GitHub Release");
     });
 
     it("injects tokens into env and cleans up after pipeline", async () => {
       const cleanupFn = vi.fn();
       mockedInjectTokensToEnv.mockReturnValue(cleanupFn);
 
-      const options = createOptions({ options: { preflight: true } });
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
       expect(mockedInjectTokensToEnv).toHaveBeenCalledWith({
@@ -1692,35 +1789,39 @@ describe("run", () => {
       expect(cleanupFn).toHaveBeenCalled();
     });
 
-    it("skips real publish and uses dry-run in preflight", async () => {
-      const options = createOptions({ options: { preflight: true } });
+    it("skips real publish and uses dry-run in CI prepare", async () => {
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
-      const pipelineCall = mockedCreateListr.mock.calls[1];
-      const tasks = pipelineCall[0] as any[];
+      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+        Array.isArray(call[0]),
+      );
+      const tasks = pipelineCall![0] as any[];
 
-      // Publishing should be skipped in preflight
+      // Publishing should be skipped (hasPublish=false)
       const publishSkipFn = tasks[3].skip as (ctx: any) => boolean;
-      expect(
-        publishSkipFn({ options: { preview: false, preflight: true } }),
-      ).toBe(true);
+      expect(publishSkipFn({ options: { skipPublish: false } })).toBe(true);
 
-      // Dry-run should not be skipped in preflight
+      // Dry-run validation should NOT be skipped in CI prepare
       expect(tasks[6].skip).toBe(false);
     });
 
-    it("shows preflight success message", async () => {
-      const options = createOptions({ options: { preflight: true } });
+    it("shows CI prepare success message", async () => {
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+      });
       await run(options);
 
       const logMessage = consoleSpy.mock.calls[0][0] as string;
-      expect(logMessage).toContain("Preflight check passed");
+      expect(logMessage).toContain("CI prepare completed");
     });
 
-    it("creates no-op dry-run task for unknown registries in preflight mode", async () => {
+    it("creates no-op dry-run task for unknown registries in CI prepare mode", async () => {
       await run(
         createOptions({
-          options: { preflight: true },
+          options: { mode: "ci", prepare: true },
           config: {
             packages: [
               pkg({ path: ".", registries: ["custom-registry"] as any }),
@@ -1729,8 +1830,10 @@ describe("run", () => {
         }),
       );
 
-      const pipelineCall = mockedCreateListr.mock.calls[1];
-      const tasks = pipelineCall[0] as any[];
+      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+        Array.isArray(call[0]),
+      );
+      const tasks = pipelineCall![0] as any[];
       const validateTask = tasks[6];
       const parentTask = {
         output: "",

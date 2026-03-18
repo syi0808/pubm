@@ -72,6 +72,7 @@ export async function createGitHubRelease(
     tag: string;
     changelogBody?: string;
     assets: PreparedAsset[];
+    draft?: boolean;
   },
 ): Promise<ReleaseContext | null> {
   const token = process.env.GITHUB_TOKEN;
@@ -116,6 +117,7 @@ export async function createGitHubRelease(
         tag_name: options.tag,
         name: options.tag,
         body,
+        draft: !!options.draft,
         prerelease: !!prerelease(options.version),
       }),
     },

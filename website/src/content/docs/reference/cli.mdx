@@ -71,7 +71,7 @@ Typical flow:
 ```bash
 pubm
 pubm patch
-pubm minor --preview
+pubm minor --dry-run
 pubm 1.8.0
 pubm patch --registry npm,jsr
 pubm patch --tag beta
@@ -81,7 +81,10 @@ pubm patch --tag beta
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-p, --preview` | `false` | Show the task graph without mutating Git state or publishing. |
+| `-d, --dry-run` | `false` | Show the task graph without mutating Git state or publishing. |
+| `--mode <mode>` | `local` | Execution mode: `local` (interactive) or `ci` (non-interactive, tag-based). |
+| `--phase <phase>` | — | Pipeline phase: `prepare` (validate and dry-run) or `publish` (publish from latest tag). |
+| `--release-draft` | `false` | Create a draft GitHub Release instead of a published one. |
 | `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
 | `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
 | `-t, --tag <name>` | `latest` | Use a specific dist-tag such as `beta` or `next`. |
@@ -101,10 +104,7 @@ pubm patch --tag beta
 | `--no-tests` | Skip the test step. |
 | `--no-build` | Skip the build step. |
 | `--no-publish` | Run the pipeline up to publish, but do not actually publish artifacts. |
-| `--no-release-draft` | Skip opening the GitHub release draft step. |
-| `--publish-only` | Publish from the latest tag without running the full preparation pipeline. |
-| `--ci` | Publish from the latest tag and create a GitHub Release with assets. |
-| `--preflight` | Simulate CI publish locally and dry-run the publish targets. |
+| `--skip-release` | Skip GitHub Release creation. |
 
 ## Execution modes
 
@@ -121,23 +121,23 @@ Behavior:
 - starts with interactive version selection when no version argument is provided
 - prompts can be shown when required information is missing
 - tests and build run unless skipped
-- versioning, publish, push, and release-draft steps run in order
+- versioning, publish, push, and GitHub Release steps run in order
 
-## Preview mode
-
-```bash
-pubm patch --preview
-```
-
-Use preview mode when you need to inspect the task plan without side effects.
-
-## Preflight mode
+## Dry-run mode
 
 ```bash
-pubm --preflight
+pubm patch --dry-run
 ```
 
-Preflight:
+Use dry-run mode when you need to inspect the task plan without side effects.
+
+## CI Preparation mode
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+CI Preparation:
 
 - collects missing tokens interactively
 - can sync them to GitHub Secrets
@@ -145,13 +145,13 @@ Preflight:
 - runs prerequisite and condition checks
 - dry-runs publish for configured registries
 
-## CI mode
+## CI Publish mode
 
 ```bash
-pubm --ci
+pubm --mode ci --phase publish
 ```
 
-CI mode publishes from the latest Git tag and creates a GitHub Release. Use it when the version bump and tagging already happened earlier in the pipeline.
+CI Publish mode publishes from the latest Git tag and creates a GitHub Release via API. Use it when the version bump and tagging already happened earlier in the pipeline. Pass `--release-draft` to create a draft release instead of a published one.
 
 ## Environment variables
 
@@ -201,7 +201,7 @@ pubm secrets sync --registry npm,jsr
 Notes:
 
 - requires `gh` to be installed and authenticated
-- uses locally stored tokens, so run `pubm --preflight` first if nothing has been saved yet
+- uses locally stored tokens, so run `pubm --mode ci --phase prepare` first if nothing has been saved yet
 
 ## `pubm sync --discover`
 
@@ -312,24 +312,24 @@ In normal publish mode, failures also trigger rollback behavior where possible.
 pubm init --changesets
 pubm changesets add
 pubm changesets version
-pubm --preflight
-pubm patch --preview
+pubm --mode ci --phase prepare
+pubm patch --dry-run
 pubm patch
 ```
 
 ### Local CI rehearsal
 
 ```bash
-pubm --preflight
+pubm --mode ci --phase prepare
 ```
 
 ### Publish only the current tagged release in CI
 
 ```bash
-pubm --ci
+pubm --mode ci --phase publish
 ```
 
-### Sync stored tokens after preflight
+### Sync stored tokens after preparation
 
 ```bash
 pubm secrets sync
