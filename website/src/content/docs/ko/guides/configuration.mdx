@@ -144,6 +144,27 @@ publish 실행의 기본 dist-tag입니다.
 
 publish 흐름이 GitHub Release를 만들지 여부입니다. 비활성화하면 release 단계는 완전히 건너뜁니다.
 
+### `excludeRelease`
+
+- 타입: `string[]`
+- 기본값: `[]`
+
+버전이 올라가고 배포는 되지만 git 태그 생성과 GitHub Release 초안에서는 제외할 패키지를 지정하는 glob 패턴입니다. `versioning`이 `"independent"`일 때만 적용됩니다.
+
+레지스트리에는 배포하지만 단독 릴리스로 노출되지 않아야 하는 내부 빌드 산출물(예: 플랫폼별 바이너리)에 사용합니다.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
 ### `validate`
 
 - 타입: `ValidateConfig`

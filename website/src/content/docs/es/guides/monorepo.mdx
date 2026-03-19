@@ -12,3 +12,19 @@ pubm init --changesets
 pubm changesets add
 pubm
 ```
+
+## Excluir paquetes de los tags de git
+
+En modo `independent`, cada paquete normalmente obtiene su propio tag de git y borrador de GitHub Release. Usa `excludeRelease` para que ciertos paquetes se versionen y publiquen sin crear tags ni releases.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```

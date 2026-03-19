@@ -12,3 +12,19 @@ pubm init --changesets
 pubm changesets add
 pubm
 ```
+
+## 从 git tag 中排除包
+
+在 `independent` 模式下，每个包通常会生成独立的 git tag 和 GitHub Release 草稿。使用 `excludeRelease` 可以让特定包在正常版本化和发布的同时，跳过 tag 创建和 release 草稿。
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```

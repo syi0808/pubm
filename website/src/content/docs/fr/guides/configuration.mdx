@@ -144,6 +144,27 @@ Indique si les tokens de registry pris en charge doivent être stockés pour ré
 
 Indique si le flux de publication doit créer une GitHub Release. Lorsqu'il est désactivé, l'étape de release est entièrement ignorée.
 
+### `excludeRelease`
+
+- Type : `string[]`
+- Par défaut : `[]`
+
+Motifs glob pour les packages qui doivent être versionnés et publiés, mais exclus de la création de tags git et des brouillons de GitHub Release. S'applique uniquement quand `versioning` est `"independent"`.
+
+Utilisez cette option pour les artefacts de build internes — comme les binaires spécifiques à une plateforme — qui sont publiés dans un registre mais ne doivent pas apparaître comme des releases autonomes.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
 ### `validate`
 
 - Type : `ValidateConfig`

@@ -144,6 +144,27 @@ Whether supported registry tokens should be stored for reuse on local machines.
 
 Whether the publish flow should create a GitHub Release. When disabled, the release step is skipped entirely.
 
+### `excludeRelease`
+
+- Type: `string[]`
+- Default: `[]`
+
+Glob patterns for packages that should be versioned and published but excluded from git tag creation and GitHub Release drafts. Applies only when `versioning` is `"independent"`.
+
+Use this for internal build artifacts — such as platform-specific binaries — that are published to a registry but should not appear as standalone releases.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
 ### `validate`
 
 - Type: `ValidateConfig`

@@ -124,6 +124,24 @@ v1.4.0
 @acme/react@1.2.0
 ```
 
+## Excluding packages from git tags
+
+In `independent` mode, every package normally receives its own git tag and GitHub Release draft. Use `excludeRelease` to opt specific packages out of that behavior while still versioning and publishing them.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
+Packages matched by `excludeRelease` are still bumped and published to their registries — they are only skipped for git tag creation and GitHub Release drafts.
+
 ## Next steps
 
 - Read the [Changesets](/pubm/guides/changesets/) guide to understand how version decisions are recorded.
