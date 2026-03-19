@@ -144,6 +144,27 @@ npm 还适用两条额外规则：
 
 发布流程是否应该创建 GitHub Release。禁用后会完全跳过 release 步骤。
 
+### `excludeRelease`
+
+- 类型：`string[]`
+- 默认值：`[]`
+
+用于指定包的 glob 模式，这些包会被版本化和发布，但会被排除在 git tag 创建和 GitHub Release 草稿之外。仅在 `versioning` 为 `"independent"` 时生效。
+
+适用于内部构建产物——例如平台特定的二进制文件——它们需要发布到注册表，但不应以独立 release 的形式出现。
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
 ### `validate`
 
 - 类型：`ValidateConfig`

@@ -144,6 +144,27 @@ Ob unterstuetzte Registry-Tokens fuer spaetere lokale Laeufe gespeichert werden 
 
 Ob der Publish-Flow einen GitHub Release erstellen soll. Wenn deaktiviert, wird der Release-Schritt komplett uebersprungen.
 
+### `excludeRelease`
+
+- Typ: `string[]`
+- Standard: `[]`
+
+Glob-Muster fuer Pakete, die versioniert und veroeffentlicht, aber von der Git-Tag-Erstellung und GitHub-Release-Entwuerfen ausgeschlossen werden sollen. Gilt nur bei `versioning: "independent"`.
+
+Verwende dies fuer interne Build-Artefakte — z.B. plattformspezifische Binaerdateien — die in eine Registry veroeffentlicht werden, aber nicht als eigenstaendige Releases erscheinen sollen.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
+
 ### `validate`
 
 - Typ: `ValidateConfig`

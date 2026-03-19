@@ -30,3 +30,19 @@ pubm
 ```
 
 Dans un monorepo, le plus important est le plan de release calcule a partir des changesets, des groupes `fixed` ou `linked` et de l'ordre des dependances.
+
+## Exclure des packages des tags git
+
+En mode `independent`, chaque package reçoit normalement son propre tag git et un brouillon de GitHub Release. Utilisez `excludeRelease` pour versionner et publier certains packages sans creer de tags ni de releases.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  excludeRelease: ["packages/cli/platforms/*"],
+  packages: [
+    { path: "packages/core" },
+    { path: "packages/cli" },
+    { path: "packages/cli/platforms/*" },
+  ],
+});
+```
