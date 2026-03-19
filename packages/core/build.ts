@@ -46,7 +46,7 @@ await Bun.build({
   format: "esm",
   target: "node",
   splitting: false,
-  external: nodeBuiltins,
+  external: [...nodeBuiltins, "@napi-rs/keyring"],
   naming: "index.js",
   define,
 });
@@ -58,7 +58,7 @@ await Bun.build({
   format: "cjs",
   target: "node",
   splitting: false,
-  external: nodeBuiltins,
+  external: [...nodeBuiltins, "@napi-rs/keyring"],
   naming: "index.cjs",
   define,
 });

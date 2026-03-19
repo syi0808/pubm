@@ -7,7 +7,7 @@ const ROOT = import.meta.dir;
 const CLI_ENTRY = join(ROOT, "..", "..", "src", "cli.ts");
 const TSCONFIG = join(ROOT, "..", "..", "tsconfig.build.json");
 const BIN_DIR = join(ROOT, "bin");
-const OUT_FILE = join(BIN_DIR, "pubm");
+const OUT_FILE = join(BIN_DIR, "pubm.exe");
 const define = {
   __PUBM_VERSION__: JSON.stringify(pubmPackageJson.version),
   __PUBM_NODE_ENGINE__: JSON.stringify(pubmPackageJson.engines?.node ?? ">=18"),
@@ -24,7 +24,7 @@ const define = {
 
 mkdirSync(BIN_DIR, { recursive: true });
 
-console.log("[@pubm/linux-x64] Compiling...");
+console.log("[@pubm/windows-x64-baseline] Compiling...");
 
 const result = await Bun.build({
   tsconfig: TSCONFIG,
@@ -36,10 +36,11 @@ const result = await Bun.build({
     autoloadDotenv: false,
     autoloadTsconfig: false,
     autoloadPackageJson: true,
-    target: "bun-linux-x64",
+    target: "bun-windows-x64-baseline",
     outfile: OUT_FILE,
+    windows: {},
   },
-  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-linux-x64-gnu/keyring.linux-x64-gnu.node")],
+  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-win32-x64-msvc/keyring.win32-x64-msvc.node")],
   define,
 });
 
@@ -47,8 +48,8 @@ if (!result.success) {
   for (const log of result.logs) {
     console.error(log);
   }
-  console.error("[@pubm/linux-x64] Build failed");
+  console.error("[@pubm/windows-x64-baseline] Build failed");
   process.exit(1);
 }
 
-console.log(`[@pubm/linux-x64] Done → ${OUT_FILE}`);
+console.log(`[@pubm/windows-x64-baseline] Done → ${OUT_FILE}`);

@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Platform resolution adapted from opencode
+// (https://github.com/anomalyco/opencode) — MIT License
+
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");

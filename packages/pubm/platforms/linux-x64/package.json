@@ -15,11 +15,15 @@
   "cpu": [
     "x64"
   ],
+  "libc": [
+    "glibc"
+  ],
   "scripts": {
     "build": "bun run build.ts"
   },
   "devDependencies": {
-    "@pubm/core": "workspace:^"
+    "@pubm/core": "workspace:*",
+    "@napi-rs/keyring-linux-x64-gnu": "1.2.0"
   },
   "publishConfig": {
     "access": "public"
