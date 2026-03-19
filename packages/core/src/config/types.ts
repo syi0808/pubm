@@ -53,17 +53,24 @@ export interface PubmConfig {
   plugins?: PubmPlugin[];
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
+  excludeRelease?: string[];
 }
 
 export interface ResolvedPubmConfig
   extends Required<
     Omit<
       PubmConfig,
-      "packages" | "validate" | "registries" | "compress" | "releaseAssets"
+      | "packages"
+      | "validate"
+      | "registries"
+      | "compress"
+      | "releaseAssets"
+      | "excludeRelease"
     >
   > {
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
+  excludeRelease?: string[];
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   discoveryEmpty?: boolean;
