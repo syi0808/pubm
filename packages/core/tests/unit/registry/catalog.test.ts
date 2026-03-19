@@ -303,43 +303,23 @@ describe("validateToken", () => {
     vi.unstubAllGlobals();
   });
 
-  it("crates validateToken returns true for valid token", async () => {
+  it("crates validateToken returns true for token with 32+ chars", async () => {
     const crates = registryCatalog.get("crates")!;
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", mockFetch);
-
-    const result = await crates.validateToken!("valid-cargo-token");
-
-    expect(result).toBe(true);
-    expect(mockFetch).toHaveBeenCalledWith("https://crates.io/api/v1/me", {
-      headers: {
-        Authorization: "valid-cargo-token",
-        "User-Agent": "pubm (https://github.com/syi0808/pubm)",
-      },
-    });
-    vi.unstubAllGlobals();
+    expect(await crates.validateToken!("abcdefghijklmnopqrstuvwxyz123456")).toBe(true);
+    expect(await crates.validateToken!("cio_abcdefghijklmnopqrstuvwxyz12")).toBe(true);
+    expect(await crates.validateToken!("cioAbcdefghijklmnopqrstuvwxyz123456")).toBe(true);
   });
 
-  it("crates validateToken returns false for invalid token", async () => {
+  it("crates validateToken trims whitespace before validating", async () => {
     const crates = registryCatalog.get("crates")!;
-    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 403 });
-    vi.stubGlobal("fetch", mockFetch);
-
-    const result = await crates.validateToken!("bad-cargo-token");
-
-    expect(result).toBe(false);
-    vi.unstubAllGlobals();
+    expect(await crates.validateToken!("  abcdefghijklmnopqrstuvwxyz123456  ")).toBe(true);
   });
 
-  it("crates validateToken throws on network error", async () => {
+  it("crates validateToken returns false for short or empty token", async () => {
     const crates = registryCatalog.get("crates")!;
-    const mockFetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
-    vi.stubGlobal("fetch", mockFetch);
-
-    await expect(crates.validateToken!("any-token")).rejects.toThrow(
-      "ECONNREFUSED",
-    );
-    vi.unstubAllGlobals();
+    expect(await crates.validateToken!("")).toBe(false);
+    expect(await crates.validateToken!("tooshort")).toBe(false);
+    expect(await crates.validateToken!("   ")).toBe(false);
   });
 });
 

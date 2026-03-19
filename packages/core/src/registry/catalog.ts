@@ -151,13 +151,7 @@ registryCatalog.register({
   },
   needsPackageScripts: false,
   validateToken: async (token) => {
-    const res = await fetch("https://crates.io/api/v1/me", {
-      headers: {
-        Authorization: token,
-        "User-Agent": "pubm (https://github.com/syi0808/pubm)",
-      },
-    });
-    return res.ok;
+    return token.trim().length >= 32;
   },
   resolveDisplayName: async (ctx) => {
     return (
