@@ -24,7 +24,7 @@ const define = {
 
 mkdirSync(BIN_DIR, { recursive: true });
 
-console.log("[@pubm/linux-x64] Compiling...");
+console.log("[@pubm/darwin-x64-baseline] Compiling...");
 
 const result = await Bun.build({
   tsconfig: TSCONFIG,
@@ -36,10 +36,10 @@ const result = await Bun.build({
     autoloadDotenv: false,
     autoloadTsconfig: false,
     autoloadPackageJson: true,
-    target: "bun-linux-x64",
+    target: "bun-darwin-x64-baseline",
     outfile: OUT_FILE,
   },
-  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-linux-x64-gnu/keyring.linux-x64-gnu.node")],
+  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-darwin-x64/keyring.darwin-x64.node")],
   define,
 });
 
@@ -47,8 +47,8 @@ if (!result.success) {
   for (const log of result.logs) {
     console.error(log);
   }
-  console.error("[@pubm/linux-x64] Build failed");
+  console.error("[@pubm/darwin-x64-baseline] Build failed");
   process.exit(1);
 }
 
-console.log(`[@pubm/linux-x64] Done → ${OUT_FILE}`);
+console.log(`[@pubm/darwin-x64-baseline] Done → ${OUT_FILE}`);

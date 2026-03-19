@@ -19,7 +19,8 @@
     "build": "bun run build.ts"
   },
   "devDependencies": {
-    "@pubm/core": "workspace:^"
+    "@pubm/core": "workspace:*",
+    "@napi-rs/keyring-darwin-arm64": "1.2.0"
   },
   "publishConfig": {
     "access": "public"

@@ -1,7 +1,7 @@
 {
-  "name": "@pubm/darwin-x64",
+  "name": "@pubm/windows-x64-baseline",
   "version": "0.4.3",
-  "description": "pubm binary for darwin-x64",
+  "description": "pubm binary for windows-x64-baseline",
   "license": "Apache-2.0",
   "author": "Yein Sung",
   "repository": {
@@ -10,7 +10,7 @@
   },
   "homepage": "https://github.com/syi0808/pubm#readme",
   "os": [
-    "darwin"
+    "win32"
   ],
   "cpu": [
     "x64"
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@pubm/core": "workspace:*",
-    "@napi-rs/keyring-darwin-x64": "1.2.0"
+    "@napi-rs/keyring-win32-x64-msvc": "1.2.0"
   },
   "publishConfig": {
     "access": "public"

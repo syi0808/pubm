@@ -1,40 +1,19 @@
-import { createRequire } from "node:module";
+// import { createRequire } from "node:module";
+import Keyring from "@napi-rs/keyring";
 import { Db } from "./db.js";
 
-const require = createRequire(import.meta.url);
+// const require = createRequire(import.meta.url);
+
+// let Keyring: typeof import("@napi-rs/keyring") | null = null;
+
+// try {
+//   Keyring = require("@napi-rs/keyring");
+// } catch {}
+
 const KEYRING_SERVICE = "pubm";
-
-interface KeyringEntry {
-  getPassword(): string | null;
-  setPassword(password: string): void;
-  deletePassword(): void;
-}
-
-type KeyringEntryConstructor = new (
-  service: string,
-  username: string,
-) => KeyringEntry;
-
-let keyringEntryConstructor: KeyringEntryConstructor | null | undefined;
 
 function usesKeyring(field: string): boolean {
   return field.endsWith("-token");
-}
-
-function loadKeyringEntryConstructor(): KeyringEntryConstructor | null {
-  if (keyringEntryConstructor !== undefined) return keyringEntryConstructor;
-
-  try {
-    const mod = require("@napi-rs/keyring") as {
-      Entry?: KeyringEntryConstructor;
-    };
-    keyringEntryConstructor =
-      typeof mod.Entry === "function" ? mod.Entry : null;
-  } catch {
-    keyringEntryConstructor = null;
-  }
-
-  return keyringEntryConstructor;
 }
 
 export class SecureStore {
@@ -45,10 +24,10 @@ export class SecureStore {
     return this.db;
   }
 
-  private getKeyringEntry(field: string): KeyringEntry | null {
+  private getKeyringEntry(field: string): Keyring.Entry | null {
     if (!usesKeyring(field)) return null;
 
-    const Entry = loadKeyringEntryConstructor();
+    const Entry = Keyring?.Entry;
     if (!Entry) return null;
 
     try {

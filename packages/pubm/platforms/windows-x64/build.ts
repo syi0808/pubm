@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import pubmPackageJson from "../../package.json" with { type: "json" };
+import { createKeyringPlugin } from "../keyring-plugin.ts";
 
 const ROOT = import.meta.dir;
 const CLI_ENTRY = join(ROOT, "..", "..", "src", "cli.ts");
@@ -39,6 +40,7 @@ const result = await Bun.build({
     outfile: OUT_FILE,
     windows: {},
   },
+  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-win32-x64-msvc/keyring.win32-x64-msvc.node")],
   define,
 });
 

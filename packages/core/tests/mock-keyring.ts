@@ -48,27 +48,18 @@ const { keyringControl, keyringStore, loadMockKeyringModule } = vi.hoisted(
   },
 );
 
-vi.mock("@napi-rs/keyring", () => loadMockKeyringModule());
-
-vi.mock("node:module", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:module")>();
-
-  return {
-    ...actual,
-    createRequire(filename: Parameters<typeof actual.createRequire>[0]) {
-      const actualRequire = actual.createRequire(filename);
-      const wrappedRequire = ((specifier: string) => {
-        if (specifier === "@napi-rs/keyring") {
-          return loadMockKeyringModule();
-        }
-
-        return actualRequire(specifier);
-      }) as typeof actualRequire;
-
-      return Object.assign(wrappedRequire, actualRequire);
+vi.mock("@napi-rs/keyring", () => ({
+  default: new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (!keyringControl.installed) return undefined;
+        const mod = loadMockKeyringModule();
+        return mod[prop as keyof typeof mod];
+      },
     },
-  };
-});
+  ),
+}));
 
 export { keyringControl, keyringStore };
 

@@ -6,6 +6,14 @@
       "name": "pubm",
       "devDependencies": {
         "@biomejs/biome": "2.4.6",
+        "@napi-rs/keyring-darwin-arm64": "1.2.0",
+        "@napi-rs/keyring-darwin-x64": "1.2.0",
+        "@napi-rs/keyring-linux-arm64-gnu": "1.2.0",
+        "@napi-rs/keyring-linux-arm64-musl": "1.2.0",
+        "@napi-rs/keyring-linux-x64-gnu": "1.2.0",
+        "@napi-rs/keyring-linux-x64-musl": "1.2.0",
+        "@napi-rs/keyring-win32-arm64-msvc": "1.2.0",
+        "@napi-rs/keyring-win32-x64-msvc": "1.2.0",
         "@pubm/core": "workspace:^",
         "@pubm/darwin-arm64": "workspace:^",
         "@pubm/darwin-x64": "workspace:^",
@@ -67,7 +75,7 @@
         "pubm": "./bin/cli.cjs",
       },
       "dependencies": {
-        "@pubm/core": "workspace:^",
+        "@pubm/core": "workspace:*",
         "commander": "^14.0.3",
         "enquirer": "^2.4.1",
         "semver": "^7.6.3",
@@ -78,46 +86,114 @@
         "@types/semver": "^7.7.1",
       },
       "optionalDependencies": {
-        "@pubm/darwin-arm64": "workspace:^",
-        "@pubm/darwin-x64": "workspace:^",
-        "@pubm/linux-arm64": "workspace:^",
-        "@pubm/linux-x64": "workspace:^",
-        "@pubm/windows-x64": "workspace:^",
+        "@pubm/darwin-arm64": "workspace:*",
+        "@pubm/darwin-x64": "workspace:*",
+        "@pubm/darwin-x64-baseline": "workspace:*",
+        "@pubm/linux-arm64": "workspace:*",
+        "@pubm/linux-arm64-musl": "workspace:*",
+        "@pubm/linux-x64": "workspace:*",
+        "@pubm/linux-x64-baseline": "workspace:*",
+        "@pubm/linux-x64-musl": "workspace:*",
+        "@pubm/linux-x64-musl-baseline": "workspace:*",
+        "@pubm/windows-arm64": "workspace:*",
+        "@pubm/windows-x64": "workspace:*",
+        "@pubm/windows-x64-baseline": "workspace:*",
       },
     },
     "packages/pubm/platforms/darwin-arm64": {
       "name": "@pubm/darwin-arm64",
       "version": "0.4.3",
       "devDependencies": {
-        "@pubm/core": "workspace:^",
+        "@napi-rs/keyring-darwin-arm64": "1.2.0",
+        "@pubm/core": "workspace:*",
       },
     },
     "packages/pubm/platforms/darwin-x64": {
       "name": "@pubm/darwin-x64",
       "version": "0.4.3",
       "devDependencies": {
-        "@pubm/core": "workspace:^",
+        "@napi-rs/keyring-darwin-x64": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/darwin-x64-baseline": {
+      "name": "@pubm/darwin-x64-baseline",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-darwin-x64": "1.2.0",
+        "@pubm/core": "workspace:*",
       },
     },
     "packages/pubm/platforms/linux-arm64": {
       "name": "@pubm/linux-arm64",
       "version": "0.4.3",
       "devDependencies": {
-        "@pubm/core": "workspace:^",
+        "@napi-rs/keyring-linux-arm64-gnu": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-arm64-musl": {
+      "name": "@pubm/linux-arm64-musl",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-linux-arm64-musl": "1.2.0",
+        "@pubm/core": "workspace:*",
       },
     },
     "packages/pubm/platforms/linux-x64": {
       "name": "@pubm/linux-x64",
       "version": "0.4.3",
       "devDependencies": {
-        "@pubm/core": "workspace:^",
+        "@napi-rs/keyring-linux-x64-gnu": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-x64-baseline": {
+      "name": "@pubm/linux-x64-baseline",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-linux-x64-gnu": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-x64-musl": {
+      "name": "@pubm/linux-x64-musl",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-linux-x64-musl": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/linux-x64-musl-baseline": {
+      "name": "@pubm/linux-x64-musl-baseline",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-linux-x64-musl": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/windows-arm64": {
+      "name": "@pubm/windows-arm64",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-win32-arm64-msvc": "1.2.0",
+        "@pubm/core": "workspace:*",
       },
     },
     "packages/pubm/platforms/windows-x64": {
       "name": "@pubm/windows-x64",
       "version": "0.4.3",
       "devDependencies": {
-        "@pubm/core": "workspace:^",
+        "@napi-rs/keyring-win32-x64-msvc": "1.2.0",
+        "@pubm/core": "workspace:*",
+      },
+    },
+    "packages/pubm/platforms/windows-x64-baseline": {
+      "name": "@pubm/windows-x64-baseline",
+      "version": "0.4.3",
+      "devDependencies": {
+        "@napi-rs/keyring-win32-x64-msvc": "1.2.0",
+        "@pubm/core": "workspace:*",
       },
     },
   },
@@ -273,15 +349,29 @@
 
     "@pubm/darwin-x64": ["@pubm/darwin-x64@workspace:packages/pubm/platforms/darwin-x64"],
 
+    "@pubm/darwin-x64-baseline": ["@pubm/darwin-x64-baseline@workspace:packages/pubm/platforms/darwin-x64-baseline"],
+
     "@pubm/linux-arm64": ["@pubm/linux-arm64@workspace:packages/pubm/platforms/linux-arm64"],
 
+    "@pubm/linux-arm64-musl": ["@pubm/linux-arm64-musl@workspace:packages/pubm/platforms/linux-arm64-musl"],
+
     "@pubm/linux-x64": ["@pubm/linux-x64@workspace:packages/pubm/platforms/linux-x64"],
+
+    "@pubm/linux-x64-baseline": ["@pubm/linux-x64-baseline@workspace:packages/pubm/platforms/linux-x64-baseline"],
+
+    "@pubm/linux-x64-musl": ["@pubm/linux-x64-musl@workspace:packages/pubm/platforms/linux-x64-musl"],
+
+    "@pubm/linux-x64-musl-baseline": ["@pubm/linux-x64-musl-baseline@workspace:packages/pubm/platforms/linux-x64-musl-baseline"],
 
     "@pubm/plugin-brew": ["@pubm/plugin-brew@workspace:packages/plugins/plugin-brew"],
 
     "@pubm/plugin-external-version-sync": ["@pubm/plugin-external-version-sync@workspace:packages/plugins/plugin-external-version-sync"],
 
+    "@pubm/windows-arm64": ["@pubm/windows-arm64@workspace:packages/pubm/platforms/windows-arm64"],
+
     "@pubm/windows-x64": ["@pubm/windows-x64@workspace:packages/pubm/platforms/windows-x64"],
+
+    "@pubm/windows-x64-baseline": ["@pubm/windows-x64-baseline@workspace:packages/pubm/platforms/windows-x64-baseline"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.59.0", "", { "os": "android", "cpu": "arm" }, "sha512-upnNBkA6ZH2VKGcBj9Fyl9IGNPULcjXRlg0LLeaioQWueH30p6IXtJEbKAgvyv+mJaMxSm1l6xwDXYjpEMiLMg=="],
 

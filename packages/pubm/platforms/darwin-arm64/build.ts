@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import pubmPackageJson from "../../package.json" with { type: "json" };
+import { createKeyringPlugin } from "../keyring-plugin.ts";
 
 const ROOT = import.meta.dir;
 const CLI_ENTRY = join(ROOT, "..", "..", "src", "cli.ts");
@@ -38,6 +39,7 @@ const result = await Bun.build({
     target: "bun-darwin-arm64",
     outfile: OUT_FILE,
   },
+  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-darwin-arm64/keyring.darwin-arm64.node")],
   define,
 });
 
