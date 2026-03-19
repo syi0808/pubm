@@ -1,31 +1,335 @@
 ---
-title: CLI Reference
-description: Befehle, Flags und Ausfuhrungsmodi der pubm CLI.
+title: CLI-Referenz
+description: "Befehle, Flags und Ausfuehrungsmodi fuer die `pubm`-CLI."
 ---
 
-Wichtigster Befehl:
+Diese Referenz ist nach Befehlsform gegliedert:
+
+- der top-level Publish-Befehl: `pubm [version]`
+- Verwaltungsbefehle wie `init`, `secrets` und `sync`
+- Changeset-Workflows unter `pubm changesets ...`
+
+Fuer den taeglichen Gebrauch ist der wichtigste Befehl einfach:
 
 ```bash
 pubm
 ```
 
-Beispiele:
+Wenn du `pubm` ohne Versionsargument aufrufst, landest du im interaktiven Standardpfad. Dort kannst du im Terminal die naechste Version waehlen, bevor die Release-Pipeline weiterlaeuft.
+
+## Befehlsuebersicht
+
+| Befehl | Zweck |
+|---------|-------|
+| `pubm [version]` | Fuehrt die Publish-Pipeline mit einem Release-Typ oder einer expliziten SemVer aus. |
+| `pubm init` | Erstellt `pubm.config.ts` und `.pubm/changesets/`. |
+| `pubm init --changesets` | Richtet zusaetzlich den Pull-Request-Workflow fuer Changeset-Pruefungen ein. |
+| `pubm secrets sync` | Schiebt lokal gespeicherte Tokens ueber `gh` in GitHub Secrets. |
+| `pubm sync --discover` | Durchsucht das Repository nach Versionsverweisen ausserhalb von Manifest-Dateien. |
+| `pubm update` | Aktualisiert die CLI selbst auf die neueste veroeffentlichte Version. |
+| `pubm changesets add` | Erstellt ein neues Changeset. |
+| `pubm changesets status` | Zeigt ausstehende Changesets und ihre Versionssprung-Auswirkung. |
+| `pubm changesets version` | Verbraucht Changesets und schreibt neue Versionen. |
+| `pubm changesets changelog` | Rendert Changelog-Text aus ausstehenden Changesets. |
+| `pubm changesets migrate` | Migriert von `.changeset/` nach `.pubm/`. |
+
+## Top-level Publish-Befehl
+
+### Syntax
 
 ```bash
-pubm patch
-pubm minor --preview
-pubm 1.8.0
-pubm --preflight
-pubm --ci
+pubm [version] [flags]
 ```
 
-Wichtige Flags:
+`[version]` kann sein:
 
-- `--preview`
-- `--branch <name>`
-- `--tag <name>`
-- `--contents <path>`
-- `--registry <registries>`
-- `--test-script <script>`
-- `--build-script <script>`
-- `--snapshot [tag]` — Veröffentlicht eine temporäre Snapshot-Version (Standard-Tag: snapshot)
+- ein SemVer-Versionssprungtyp: `patch`, `minor`, `major`
+- ein Pre-Release-Versionssprungtyp: `prepatch`, `preminor`, `premajor`, `prerelease`
+- eine explizite Version wie `1.8.0`
+
+Wenn du die Version weglässt:
+
+- interaktive Terminals koennen nach der naechsten Version fragen
+- CI-Laeufe verlangen, dass die Version nicht interaktiv aufgeloest wird
+
+Wenn du die Version weglässt, kann `pubm` in einem interaktiven Terminal nach der naechsten Version fragen.
+
+### Interaktive Nutzung
+
+```bash
+pubm
+```
+
+Typischer Ablauf:
+
+1. `pubm` ausfuehren
+2. `patch`, `minor` oder `major` waehlen
+3. `pubm` durch Checks, Build, Tagging und Publish weiterlaufen lassen
+
+### Haeufige Beispiele
+
+```bash
+pubm
+pubm --dry-run
+pubm 1.8.0
+pubm --registry npm,jsr
+pubm --tag beta
+```
+
+## Publish-Flags
+
+| Flag | Standard | Beschreibung |
+|------|----------|--------------|
+| `-d, --dry-run` | `false` | Zeigt den Task-Graphen an, ohne den Git-Zustand zu aendern oder zu veroeffentlichen. |
+| `--mode <mode>` | `local` | Ausfuehrungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
+| `--phase <phase>` | — | Pipeline-Phase: `prepare` (validieren und Dry-Run) oder `publish` (vom neuesten Tag veroeffentlichen). |
+| `--release-draft` | `false` | Erstellt einen Draft-GitHub-Release statt eines veroeffentlichten Releases. |
+| `-b, --branch <name>` | `main` | Verlangt, dass der aktuelle Branch vor dem Release uebereinstimmt. |
+| `-a, --any-branch` | `false` | Deaktiviert den Branch-Schutz fuer den aktuellen Lauf. |
+| `-t, --tag <name>` | `latest` | Verwendet einen bestimmten Dist-Tag wie `beta` oder `next`. |
+| `--snapshot [tag]` | — | Veroeffentlicht eine temporaere Snapshot-Version (Standard-Tag: `snapshot`). |
+| `-c, --contents <path>` | none | Wechselt vor dem Release-Flow in ein Unterverzeichnis. |
+| `--registry <registries>` | `npm,jsr` | Kommagetrennte Ziel-Registries. Unterstuetzt `npm`, `jsr`, `crates` oder benutzerdefinierte Registry-URLs. |
+| `--test-script <script>` | `test` | Script-Name fuer den Test-Schritt. |
+| `--build-script <script>` | `build` | Script-Name fuer den Build-Schritt. |
+| `--no-save-token` | `false` | Speichert unterstuetzte Tokens nicht fuer spaetere Laeufe. |
+
+## Flags zur Pipeline-Steuerung
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--no-pre-check` | Ueberspringt Voraussetzungen wie Branch- und Working-Tree-Pruefung. |
+| `--no-condition-check` | Ueberspringt Pflichtpruefungen wie Token- und Registry-Validierung. |
+| `--no-tests` | Ueberspringt den Test-Schritt. |
+| `--no-build` | Ueberspringt den Build-Schritt. |
+| `--no-publish` | Laeuft bis zum Publish, veroeffentlicht Artefakte aber nicht wirklich. |
+| `--skip-release` | Ueberspringt die GitHub-Release-Erstellung. |
+
+## Ausfuehrungsmodi
+
+## Interaktiver lokaler Lauf
+
+Der normale Modus fuer lokale Releases:
+
+```bash
+pubm
+```
+
+Verhalten:
+
+- startet mit interaktiver Versionsauswahl, wenn kein Versionsargument angegeben ist
+- Prompts koennen erscheinen, wenn erforderliche Informationen fehlen
+- Tests und Build laufen, sofern sie nicht uebersprungen werden
+- Versionierung, Publish, Push und GitHub-Release-Schritte laufen in dieser Reihenfolge
+
+## Dry-Run-Modus
+
+```bash
+pubm --dry-run
+```
+
+Verwende den Dry-Run-Modus, wenn du den Task-Plan ohne Nebenwirkungen ansehen willst.
+
+## CI-Vorbereitungsmodus
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+CI-Vorbereitung:
+
+- sammelt fehlende Tokens interaktiv ein
+- kann sie mit GitHub Secrets synchronisieren
+- schaltet auf nicht interaktives Verhalten um, um CI nachzubilden
+- fuehrt Pruefungen fuer Voraussetzungen und Bedingungen aus
+- fuehrt Publish fuer konfigurierte Registries als Dry-Run aus
+
+## CI-Publish-Modus
+
+```bash
+pubm --mode ci --phase publish
+```
+
+Der CI-Publish-Modus veroeffentlicht vom neuesten Git-Tag und erstellt einen GitHub Release ueber die API. Verwende ihn, wenn Versionssprung und Tagging vorher schon in der Pipeline passiert sind. Mit `--release-draft` erstellst du statt eines veroeffentlichten Releases einen Draft.
+
+## Umgebungsvariablen
+
+| Variable | Zweck |
+|----------|-------|
+| `NODE_AUTH_TOKEN` | npm-Authentifizierung in CI |
+| `JSR_TOKEN` | jsr-Authentifizierung |
+| `CARGO_REGISTRY_TOKEN` | Authentifizierung fuer crates.io |
+
+Prompts werden automatisch deaktiviert, wenn:
+
+- `stdin` kein TTY ist
+- der Prozess auf einer erkannten CI-Plattform laeuft
+
+## `pubm init`
+
+Initialisiert das Repository fuer `pubm`.
+
+```bash
+pubm init
+pubm init --changesets
+```
+
+### `--changesets`
+
+Fuegt hinzu:
+
+- `.github/workflows/changeset-check.yml`
+- `.gitignore`-Anpassungen fuer `.pubm/changesets/`
+
+Verwende das in Repositories, in denen jede Produktaenderung eine gepruefte Changeset-Datei enthalten soll.
+
+## `pubm secrets sync`
+
+Schiebt lokal gespeicherte Tokens mit der `gh`-CLI in GitHub Secrets.
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm
+pubm secrets sync --registry npm,jsr
+```
+
+| Flag | Standard | Beschreibung |
+|------|----------|--------------|
+| `--registry <registries>` | `npm,jsr,crates` | Beschraenkt die Secret-Synchronisierung auf bestimmte Registries. |
+
+Hinweise:
+
+- erfordert, dass `gh` installiert und authentifiziert ist
+- nutzt lokal gespeicherte Tokens, daher solltest du `pubm --mode ci --phase prepare` zuerst ausfuehren, wenn noch nichts gespeichert wurde
+
+## `pubm sync --discover`
+
+Durchsucht das Repository nach Versionsverweisen ausserhalb von Manifest-Dateien.
+
+```bash
+pubm sync --discover
+```
+
+Der Befehl ist dazu gedacht, Version-Sync-Plugins einzurichten. Er ueberspringt haeufige generierte Verzeichnisse und Lockfiles und gibt dann Kandidaten-Dateien sowie JSON-Pfade oder passende Zeilen aus, die du in Plugin-Config uebernehmen kannst.
+
+## `pubm update`
+
+Aktualisiert die installierte `pubm`-CLI auf die neueste veroeffentlichte Version.
+
+```bash
+pubm update
+```
+
+## Changeset-Befehle
+
+Alle Befehle fuer den Changeset-Lebenszyklus liegen unter `pubm changesets`.
+
+## `pubm changesets add`
+
+Erstellt ein neues Changeset.
+
+```bash
+pubm changesets add
+pubm changesets add --empty
+pubm changesets add --packages @acme/core,@acme/react --bump minor --message "Add public metrics API."
+```
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--empty` | Erstellt eine leere Changeset-Datei. |
+| `--packages <list>` | Kommagetrennte Paketnamen fuer die nicht interaktive Erstellung. |
+| `--bump <type>` | Einer von `patch`, `minor`, `major`. |
+| `--message <text>` | Zusammenfassung fuer den Changeset-Body und das Changelog. |
+
+## `pubm changesets status`
+
+Prueft ausstehende Changesets.
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+pubm changesets status --since origin/main
+```
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--verbose` | Gibt die Zusammenfassung jedes erfassten Changesets aus. |
+| `--since <ref>` | Prueft ab einem Git-Ref. |
+
+## `pubm changesets version`
+
+Verbraucht Changesets, aktualisiert Manifest-Versionen, schreibt Changelogs und committet das Ergebnis.
+
+```bash
+pubm changesets version
+pubm changesets version --dry-run
+```
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--dry-run` | Gibt den Plan fuer Version und Changelog aus, ohne Dateien zu schreiben. |
+
+## `pubm changesets changelog`
+
+Erzeugt Changelog-Text aus ausstehenden Changesets.
+
+```bash
+pubm changesets changelog
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+| Flag | Beschreibung |
+|------|--------------|
+| `--dry-run` | Zeigt den Changelog-Ausgang an, ohne `CHANGELOG.md` zu schreiben. |
+| `--version <ver>` | Verwendet eine bestimmte Abschnittsueberschrift statt `Unreleased`. |
+
+## `pubm changesets migrate`
+
+Verschiebt ausstehende Dateien vom alten `.changeset/`-Layout nach `.pubm/`.
+
+```bash
+pubm changesets migrate
+```
+
+## Exitcodes
+
+`pubm` gibt einen von null verschiedenen Exitcode zurueck, wenn:
+
+- eine Voraussetzung oder Pflichtpruefung fehlschlaegt
+- die Versionsauflösung nicht abgeschlossen werden kann
+- ein Publish auf einem Ziel fehlschlaegt
+- ein Subcommand ungueltige Eingaben erhaelt
+
+Im normalen Publish-Modus fuehren Fehler nach Moeglichkeit auch zu einem Rollback.
+
+## Beispielhafte Befehlsmuster
+
+### Erstes lokales Release in einem neuen Repository
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets version
+pubm --mode ci --phase prepare
+pubm --dry-run
+pubm
+```
+
+### Lokale CI-Probe
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+### Nur den aktuell getaggten Release in CI veroeffentlichen
+
+```bash
+pubm --mode ci --phase publish
+```
+
+### Gespeicherte Tokens nach der Vorbereitung synchronisieren
+
+```bash
+pubm secrets sync
+```

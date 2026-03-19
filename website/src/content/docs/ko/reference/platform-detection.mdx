@@ -1,0 +1,208 @@
+---
+title: 플랫폼 감지
+description: 자동 플랫폼 파싱에 사용하는 내장 OS, 아키텍처, ABI, variant 테이블입니다.
+---
+
+`pubm`은 파일 경로에서 OS, 아키텍처, ABI, variant를 파싱하는 내장 플랫폼 감지 엔진을 제공합니다. 이것은 자동 asset 이름 지정, OS-aware 압축 기본값, 그리고 `@pubm/plugin-brew` 같은 플러그인이 소비하는 구조화된 `ParsedPlatform` 객체를 뒷받침합니다.
+
+## 파싱 방식
+
+`releaseAssets` 항목을 설정하면, `pubm`은 매칭된 각 파일 경로를 검사해 플랫폼을 판별합니다.
+
+두 가지 모드가 있습니다.
+
+**경로 패턴에 capture 변수 사용.** 패턴에 `{os}`, `{arch}`, `{abi}`, `{variant}`, 또는 `{platform}`가 있으면 `pubm`은 그 위치에서 값을 직접 추출합니다.
+
+```ts
+// Rust 스타일 triple: 경로에서 arch, vendor, os, abi를 캡처
+{ path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" }
+
+// Bun 스타일: 전체 platform segment를 캡처
+{ path: "platforms/{platform}/bin/mytool" }
+```
+
+**자동 segment 스캔.** capture 변수를 쓰지 않으면 `pubm`은 경로를 `/`로 분할하고, 각 segment를 다시 `-`로 나눕니다. 나온 토큰은 순서대로 OS, arch, ABI, variant, vendor 테이블과 비교됩니다. 각 범주에서 가장 먼저 매칭된 값이 사용됩니다.
+
+```ts
+// 경로: platforms/darwin-arm64/bin/pubm
+// segment: darwin-arm64 → 토큰: [darwin, arm64]
+// darwin → os: "darwin", arm64 → arch: "arm64"
+{ path: "platforms/*/bin/pubm" }
+```
+
+어느 테이블과도 일치하지 않는 토큰은 무시됩니다.
+
+### `{platform}` 변수
+
+`{platform}` 템플릿 변수는 원시 플랫폼 문자열을 담습니다.
+
+- `{platform}`이 capture 변수였던 경우: 캡처된 segment 그대로(`darwin-arm64`)
+- 개별 capture 변수를 쓴 경우(`{os}`, `{arch}`): `{os}-{arch}`로 조합
+- 자동 감지를 쓴 경우: 매칭된 경로 segment(`darwin-arm64`)
+
+Vendor, ABI, variant는 공통 케이스를 짧고 읽기 쉽게 유지하려고 `{platform}`에서 제외됩니다. 대신 `{vendor}`, `{abi}`, `{variant}`로 개별 접근할 수 있습니다.
+
+## `ParsedPlatform` 타입
+
+```ts
+interface ParsedPlatform {
+  /** 캡처된 원시 문자열 또는 매칭된 segment */
+  raw: string;
+  os?: string;
+  arch?: string;
+  vendor?: string;
+  abi?: string;
+  variant?: string;
+}
+```
+
+이 객체는 파이프라인을 통과하는 모든 asset에 붙으며, `afterRelease` 훅에서 `ReleaseAsset.platform`으로 플러그인에 노출됩니다.
+
+## OS 테이블
+
+템플릿 변수와 플러그인 비교에는 canonical 값이 사용됩니다. 파싱 중에는 alias도 인식합니다.
+
+| Canonical | Aliases |
+|-----------|---------|
+| `darwin` | `macos`, `mac`, `osx`, `macosx` |
+| `linux` | `lin` |
+| `windows` | `win`, `win32`, `win64` |
+| `freebsd` | |
+| `openbsd` | |
+| `netbsd` | |
+| `android` | |
+| `ios` | |
+| `solaris` | `sunos` |
+| `illumos` | |
+| `aix` | |
+| `dragonfly` | `dragonflybsd` |
+| `plan9` | |
+| `fuchsia` | |
+| `haiku` | |
+| `redox` | |
+
+## 아키텍처 테이블
+
+| Canonical | Aliases |
+|-----------|---------|
+| `x64` | `x86_64`, `amd64`, `x86-64` |
+| `ia32` | `i386`, `i486`, `i586`, `i686`, `x86`, `386` |
+| `arm64` | `aarch64`, `armv8`, `aarch_64` |
+| `arm` | `armv7`, `armv7l`, `armv6`, `armv6l`, `armhf`, `armel` |
+| `ppc64le` | `powerpc64le`, `ppc64el` |
+| `ppc64` | `powerpc64` |
+| `ppc` | `powerpc` |
+| `s390x` | |
+| `riscv64` | `riscv64gc` |
+| `loong64` | `loongarch64`, `la64` |
+| `mips` | `mips32` |
+| `mipsel` | `mipsle` |
+| `mips64` | |
+| `mips64el` | `mips64le` |
+| `wasm32` | `wasm` |
+| `wasm64` | |
+| `universal` | `universal2`, `fat` |
+
+## ABI 테이블
+
+ABI 토큰은 Rust target triple과 cross-compilation toolchain 이름에 나타납니다.
+
+| Value | Meaning |
+|-------|---------|
+| `gnu` / `glibc` | GNU C Library |
+| `musl` | musl libc (정적 링크 친화적) |
+| `msvc` | Microsoft Visual C++ runtime |
+| `mingw` / `mingw32` / `mingw-w64` | MinGW toolchain |
+| `gnueabihf` | glibc를 사용하는 ARM hard-float |
+| `gnueabi` | glibc를 사용하는 ARM soft-float |
+| `musleabihf` | musl을 사용하는 ARM hard-float |
+| `musleabi` | musl을 사용하는 ARM soft-float |
+| `androideabi` | Android ARM EABI |
+| `uclibc` | 임베디드 대상용 uClibc |
+| `bionic` | Android의 Bionic C library |
+
+## Variant 테이블
+
+Variant 토큰은 마이크로아키텍처 수준이나 기능 요구사항을 나타냅니다.
+
+| Value | Meaning |
+|-------|---------|
+| `baseline` | AVX2 없음, SSE4.2만 사용 |
+| `v2` | x86-64 microarchitecture level 2 |
+| `v3` | x86-64 microarchitecture level 3 (AVX2) |
+| `v4` | x86-64 microarchitecture level 4 (AVX-512) |
+| `avx2` | 명시적 AVX2 요구 |
+| `avx512` | 명시적 AVX-512 요구 |
+
+## Vendor 테이블
+
+Vendor 토큰은 파싱 중 인식되지만 `{platform}` 변수에는 포함되지 않습니다. `{vendor}`로 접근합니다.
+
+| Value | Meaning |
+|-------|---------|
+| `unknown` | 일반형(리눅스 대상 Rust의 기본값) |
+| `apple` | Apple 플랫폼(macOS, iOS) |
+| `pc` | PC/desktop(Windows, Solaris) |
+| `none` | bare-metal 대상 |
+
+## 파싱 예시
+
+### Bun 스타일 디렉터리 레이아웃
+
+```
+platforms/darwin-arm64/bin/pubm
+platforms/linux-x64/bin/pubm
+platforms/windows-x64/bin/pubm.exe
+```
+
+설정:
+
+```ts
+releaseAssets: ["platforms/*/bin/pubm"]
+```
+
+결과:
+
+| Path | `os` | `arch` | `{platform}` |
+|------|------|--------|--------------|
+| `platforms/darwin-arm64/bin/pubm` | `darwin` | `arm64` | `darwin-arm64` |
+| `platforms/linux-x64/bin/pubm` | `linux` | `x64` | `linux-x64` |
+| `platforms/windows-x64/bin/pubm.exe` | `windows` | `x64` | `windows-x64` |
+
+### Rust target triple
+
+```
+target/x86_64-unknown-linux-gnu/release/mytool
+target/aarch64-apple-darwin/release/mytool
+```
+
+설정:
+
+```ts
+releaseAssets: [
+  { path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" },
+  { path: "target/{arch}-{vendor}-{os}/release/mytool" },
+]
+```
+
+결과:
+
+| Path | `os` | `arch` | `vendor` | `abi` |
+|------|------|--------|----------|-------|
+| `x86_64-unknown-linux-gnu` | `linux` | `x64` | `unknown` | `gnu` |
+| `aarch64-apple-darwin` | `darwin` | `arm64` | `apple` | — |
+
+### alias 정규화
+
+모든 alias는 템플릿 치환 전에 canonical 형태로 정규화됩니다.
+
+```
+bin/myapp-amd64-macos → os: "darwin", arch: "x64"
+bin/myapp-win64       → os: "windows"
+bin/myapp-armv7l      → arch: "arm"
+```
+
+## 관련 문서
+
+- [Release Assets](/pubm/ko/guides/release-assets/) - 설정 가이드
+- [Asset Pipeline Hooks](/pubm/ko/guides/asset-pipeline-hooks/) - 플러그인 훅 레퍼런스

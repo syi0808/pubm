@@ -1,0 +1,208 @@
+---
+title: 平台检测
+description: 供自动平台解析使用的内建 OS、architecture、ABI 和 variant 表。
+---
+
+`pubm` 内置了一个平台检测引擎，用来从文件路径中解析 OS、architecture、ABI 和 variant。这为自动资产命名、按 OS 决定的压缩默认值，以及插件（例如 `@pubm/plugin-brew`）使用的结构化 `ParsedPlatform` 对象提供支持。
+
+## 解析方式
+
+当你配置一个 `releaseAssets` 条目时，`pubm` 会检查每个匹配到的文件路径来判断它的平台。
+
+这里有两种模式：
+
+**在路径模式中捕获变量。** 如果模式包含 `{os}`、`{arch}`、`{abi}`、`{variant}` 或 `{platform}`，`pubm` 会直接从这些位置提取值：
+
+```ts
+// Rust 风格 triple：从路径中捕获 arch、vendor、os、abi
+{ path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" }
+
+// Bun 风格：捕获整个 platform 段
+{ path: "platforms/{platform}/bin/mytool" }
+```
+
+**自动 segment 扫描。** 当没有使用 capture 变量时，`pubm` 会先按 `/` 把路径拆成 segments，再按 `-` 拆分每个 segment。然后每个 token 会按顺序在 OS、arch、ABI、variant 和 vendor 表中测试。每个类别第一个匹配项获胜。
+
+```ts
+// Path: platforms/darwin-arm64/bin/pubm
+// Segment: darwin-arm64 → tokens: [darwin, arm64]
+// darwin → os: "darwin", arm64 → arch: "arm64"
+{ path: "platforms/*/bin/pubm" }
+```
+
+不匹配任何表的 token 会被忽略。
+
+### `{platform}` 变量
+
+`{platform}` 模板变量保存原始的平台字符串：
+
+- 如果 `{platform}` 本身就是 capture 变量：则为捕获到的 segment 原样值（`darwin-arm64`）
+- 如果使用了单独的 capture 变量（`{os}`、`{arch}`）：则组合为 `{os}-{arch}`
+- 如果使用了自动检测：则为匹配到的路径 segment（`darwin-arm64`）
+
+vendor、ABI 和 variant 会刻意排除在 `{platform}` 之外，以保持常见情况简短且易读。它们可以通过 `{vendor}`、`{abi}` 和 `{variant}` 单独访问。
+
+## `ParsedPlatform` 类型
+
+```ts
+interface ParsedPlatform {
+  /** 捕获到的原始字符串或匹配到的 segment */
+  raw: string;
+  os?: string;
+  arch?: string;
+  vendor?: string;
+  abi?: string;
+  variant?: string;
+}
+```
+
+这个对象会附加到流经流水线的每个资产上，并在 `afterRelease` hook 中通过 `ReleaseAsset.platform` 暴露给插件。
+
+## OS 表
+
+canonical 值会用于模板变量和插件比较。解析路径时会识别别名。
+
+| Canonical | Aliases |
+|-----------|---------|
+| `darwin` | `macos`, `mac`, `osx`, `macosx` |
+| `linux` | `lin` |
+| `windows` | `win`, `win32`, `win64` |
+| `freebsd` | |
+| `openbsd` | |
+| `netbsd` | |
+| `android` | |
+| `ios` | |
+| `solaris` | `sunos` |
+| `illumos` | |
+| `aix` | |
+| `dragonfly` | `dragonflybsd` |
+| `plan9` | |
+| `fuchsia` | |
+| `haiku` | |
+| `redox` | |
+
+## Architecture 表
+
+| Canonical | Aliases |
+|-----------|---------|
+| `x64` | `x86_64`, `amd64`, `x86-64` |
+| `ia32` | `i386`, `i486`, `i586`, `i686`, `x86`, `386` |
+| `arm64` | `aarch64`, `armv8`, `aarch_64` |
+| `arm` | `armv7`, `armv7l`, `armv6`, `armv6l`, `armhf`, `armel` |
+| `ppc64le` | `powerpc64le`, `ppc64el` |
+| `ppc64` | `powerpc64` |
+| `ppc` | `powerpc` |
+| `s390x` | |
+| `riscv64` | `riscv64gc` |
+| `loong64` | `loongarch64`, `la64` |
+| `mips` | `mips32` |
+| `mipsel` | `mipsle` |
+| `mips64` | |
+| `mips64el` | `mips64le` |
+| `wasm32` | `wasm` |
+| `wasm64` | |
+| `universal` | `universal2`, `fat` |
+
+## ABI 表
+
+ABI token 会出现在 Rust target triple 和跨编译 toolchain 名称中。
+
+| Value | Meaning |
+|-------|---------|
+| `gnu` / `glibc` | GNU C Library |
+| `musl` | musl libc（更适合静态链接） |
+| `msvc` | Microsoft Visual C++ runtime |
+| `mingw` / `mingw32` / `mingw-w64` | MinGW toolchain |
+| `gnueabihf` | 带 glibc 的 ARM hard-float |
+| `gnueabi` | 带 glibc 的 ARM soft-float |
+| `musleabihf` | 带 musl 的 ARM hard-float |
+| `musleabi` | 带 musl 的 ARM soft-float |
+| `androideabi` | Android ARM EABI |
+| `uclibc` | 面向嵌入式目标的 uClibc |
+| `bionic` | Android 的 Bionic C library |
+
+## Variant 表
+
+variant token 表示微架构级别或能力要求。
+
+| Value | Meaning |
+|-------|---------|
+| `baseline` | 不支持 AVX2；仅 SSE4.2 |
+| `v2` | x86-64 microarchitecture level 2 |
+| `v3` | x86-64 microarchitecture level 3（AVX2） |
+| `v4` | x86-64 microarchitecture level 4（AVX-512） |
+| `avx2` | 显式要求 AVX2 |
+| `avx512` | 显式要求 AVX-512 |
+
+## Vendor 表
+
+vendor token 在解析时会被识别，但不会包含在 `{platform}` 变量中。可通过 `{vendor}` 访问。
+
+| Value | Meaning |
+|-------|---------|
+| `unknown` | 通用（Rust 在 Linux target 上的默认值） |
+| `apple` | Apple 平台（macOS、iOS） |
+| `pc` | PC/desktop（Windows、Solaris） |
+| `none` | 裸机目标 |
+
+## 解析示例
+
+### Bun 风格目录布局
+
+```
+platforms/darwin-arm64/bin/pubm
+platforms/linux-x64/bin/pubm
+platforms/windows-x64/bin/pubm.exe
+```
+
+配置：
+
+```ts
+releaseAssets: ["platforms/*/bin/pubm"]
+```
+
+结果：
+
+| Path | `os` | `arch` | `{platform}` |
+|------|------|--------|--------------|
+| `platforms/darwin-arm64/bin/pubm` | `darwin` | `arm64` | `darwin-arm64` |
+| `platforms/linux-x64/bin/pubm` | `linux` | `x64` | `linux-x64` |
+| `platforms/windows-x64/bin/pubm.exe` | `windows` | `x64` | `windows-x64` |
+
+### Rust target triple
+
+```
+target/x86_64-unknown-linux-gnu/release/mytool
+target/aarch64-apple-darwin/release/mytool
+```
+
+配置：
+
+```ts
+releaseAssets: [
+  { path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" },
+  { path: "target/{arch}-{vendor}-{os}/release/mytool" },
+]
+```
+
+结果：
+
+| Path | `os` | `arch` | `vendor` | `abi` |
+|------|------|--------|----------|-------|
+| `x86_64-unknown-linux-gnu` | `linux` | `x64` | `unknown` | `gnu` |
+| `aarch64-apple-darwin` | `darwin` | `arm64` | `apple` | — |
+
+### 别名归一化
+
+所有别名都会在模板替换之前解析为 canonical 形式：
+
+```
+bin/myapp-amd64-macos → os: "darwin", arch: "x64"
+bin/myapp-win64       → os: "windows"
+bin/myapp-armv7l      → arch: "arm"
+```
+
+## 相关文档
+
+- [Release Assets](/pubm/zh-cn/guides/release-assets/) - 配置指南
+- [Asset Pipeline Hooks](/pubm/zh-cn/guides/asset-pipeline-hooks/) - 插件 hook 参考

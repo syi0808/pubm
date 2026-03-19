@@ -1,28 +1,96 @@
 ---
-title: Integration avec les agents de code
-description: Integrer le plugin pubm dans Claude Code, Codex et d'autres agents de code.
+title: Intégration des agents de code
+description: Intégrer le bundle de plugin pubm dans les agents de code que vous utilisez déjà, en commençant par l'automatisation de la configuration.
 ---
 
-Ce guide s'adresse aux equipes qui utilisent deja des agents de code et veulent brancher les workflows de release `pubm` dans cet environnement existant.
+Ce guide s'adresse aux équipes qui utilisent déjà des agents de code comme Claude Code ou Codex et qui veulent ajouter les workflows de release `pubm` à cet environnement existant.
 
-## Commencer par le setup
+## Commencer par l'automatisation de la configuration
 
-Si le depot n'est pas encore cable, l'action la plus importante n'est pas publish mais setup.
+Si un dépôt n'est pas encore câblé, l'action d'agent la plus importante n'est pas la publication. C'est la configuration.
 
-Utilisez d'abord `publish-setup`. Ce skill gere :
+Utilisez d'abord `publish-setup`. Ce skill gère :
 
 - l'installation du bundle `pubm plugin`
-- la generation ou mise a jour de la config `pubm`
-- le branchement de la CI
+- la génération ou la mise à jour de la config `pubm`
+- le câblage de la CI
 - l'activation des changesets
+- et, en option, le câblage des cibles de synchronisation de version
 
-Donnez a l'agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il recupere le bundle et suive le setup versionne dans le depot.
+Donnez à l'agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il puisse récupérer le bundle et suivre le flux de configuration versionné.
+
+## Ce que le `pubm plugin` apporte à votre agent
+
+Le dépôt fournit un bundle destiné aux agents sous `plugins/pubm-plugin/`.
+
+Aujourd'hui, ce bundle contient :
+
+- un manifest de plugin Claude Code dans `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- un bundle de skills versionné sous `plugins/pubm-plugin/skills/`
+
+## Skills inclus
+
+### `publish-setup`
+
+Utilisez-le d'abord lorsque vous raccordez `pubm` à un dépôt via un agent.
+
+### `publish-preview`
+
+Utilisez-le lorsque l'agent doit expliquer le plan de release avant de modifier l'état Git ou de publier quoi que ce soit.
+
+### `publish`
+
+C'est le chemin de publication protégé. Il commence par un aperçu et demande une confirmation avant la vraie commande de publication.
+
+### `version-sync`
+
+Utilisez-le pour trouver et raccorder les références de version en dehors des manifests de package, comme les extraits de documentation, les fichiers de métadonnées et les configs annexes.
+
+### `create-plugin`
+
+Utilisez-le lorsque l'agent doit scaffolder un nouveau package de plugin `pubm` avec des hooks, des commandes et des tests.
 
 ## Installation Claude Code
+
+Claude Code utilise un modèle de plugins basé sur une marketplace.
+
+Flux typique :
+
+1. ajouter la marketplace
+2. installer le plugin depuis cette marketplace
+3. choisir le périmètre d'installation dans Claude Code
 
 ```text
 /plugin marketplace add your-org/claude-plugins
 /plugin install plugin-name@marketplace-name
 ```
 
-Si vous n'utilisez pas de marketplace, fournissez a l'agent le lien `INSTALLATION.md`.
+Si vous n'utilisez pas de marketplace, fournissez plutôt à l'agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md).
+
+## Modèle d'intégration
+
+- garder le comportement de release à l'exécution dans `pubm` lui-même ou dans un plugin `pubm`
+- garder le workflow de l'agent et la politique d'approbation dans des skills versionnés
+- garder l'automatisation de configuration comme source de vérité pour l'onboarding du dépôt
+
+## Skills et surface de commande
+
+Les skills doivent orchestrer la CLI, pas la remplacer.
+
+- utiliser les commandes `pubm` pour les opérations de release déterministes
+- utiliser les skills pour l'enchaînement de la configuration, l'inspection du projet, les vérifications de sécurité et les approbations
+
+## Règles de sécurité à encoder
+
+- configuration avant publication dans les nouveaux dépôts
+- aperçu avant publication dans les dépôts existants
+- approbation explicite avant les actions irréversibles
+- résumés en langage clair des versions, registries et effets de bord
+- arrêt quand l'état Git, l'authentification ou les hypothèses CI ne sont pas prêts
+
+## Conseils pratiques
+
+- considérez `publish-setup` comme la surface d'intégration principale
+- gardez l'automatisation de configuration et l'automatisation de publication dans le même bundle versionné
+- exposez directement les commandes `pubm` au lieu de les traduire en actions floues en langage naturel
+- traitez `pubm` comme la dernière étape, pas comme l'étape par défaut

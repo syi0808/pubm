@@ -1,0 +1,320 @@
+---
+title: Asset Pipeline Hooks
+description: Jede Stufe der Release-Asset-Pipeline mit Plugin-Hooks abfangen.
+---
+
+Die Asset-Pipeline laeuft nach dem Build-Schritt und vor dem Upload in den GitHub Release. Plugins koennen jede Stufe ueber sechs Hooks abfangen, die die interne Struktur der Pipeline spiegeln.
+
+## Pipeline-Stufen
+
+```
+releaseAssets config
+  → Glob-Matching → ResolvedAsset[]
+  → [resolveAssets]  — Asset-Liste filtern, ergaenzen oder ersetzen
+  → [transformAsset] — jedes Asset signieren, strippen oder aufteilen (1 → N)
+  → [compressAsset]  — die Standard-Komprimierung tar.gz / zip ersetzen
+  → [nameAsset]      — die Name-Vorlage mit dynamischer Logik ueberschreiben
+  → sha256 hash
+  → [generateChecksums] — Pruefsummen-Dateien an die Asset-Liste anhaengen
+  → GitHub-Release-Upload (integriert)
+  → [uploadAssets]   — an zusaetzliche Ziele hochladen (S3, R2, CDN usw.)
+  → ReleaseContext zusammengebaut
+  → [afterRelease]   — finale Asset-Liste konsumieren (brew, notify usw.)
+```
+
+## Hooks-Schnittstelle
+
+```ts
+interface AssetPipelineHooks {
+  resolveAssets?(
+    resolved: ResolvedAsset[],
+    ctx: PubmContext,
+  ): Promise<ResolvedAsset[]> | ResolvedAsset[];
+
+  transformAsset?(
+    asset: ResolvedAsset,
+    ctx: PubmContext,
+  ): Promise<TransformedAsset | TransformedAsset[]>
+    | TransformedAsset
+    | TransformedAsset[];
+
+  compressAsset?(
+    asset: TransformedAsset,
+    ctx: PubmContext,
+  ): Promise<CompressedAsset> | CompressedAsset;
+
+  nameAsset?(
+    asset: CompressedAsset,
+    ctx: PubmContext,
+  ): string;
+
+  generateChecksums?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<PreparedAsset[]> | PreparedAsset[];
+
+  uploadAssets?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<UploadedAsset[]> | UploadedAsset[];
+}
+```
+
+Alle Hooks werden zu `PluginHooks` hinzugefuegt und ueber das normale `plugins`-Array in `pubm.config.ts` registriert.
+
+:::note
+Der Parameter `ctx` ist in den aktuellen TypeScript-Typdefinitionen als `any` typisiert, um zirkulaere Imports zu vermeiden. Zur Laufzeit ist er immer eine `PubmContext`-Instanz - die Signaturen oben spiegeln den Laufzeitvertrag wider.
+:::
+
+## Hook-Referenz
+
+### `resolveAssets`
+
+Wird einmal mit der vollstaendigen Liste der per Glob gefundenen Assets aufgerufen. Verwende diesen Hook, um Assets zu filtern, programmgesteuert gefundene Dateien hinzuzufuegen oder Metadaten anzuhängen.
+
+**Input:** `ResolvedAsset[]` - Assets aus dem Glob-Matching mit geparsten Plattforminformationen
+**Output:** `ResolvedAsset[]` - die neue Asset-Liste (ersetzt die vorherige Liste)
+
+```ts
+const filterPlugin: PubmPlugin = {
+  name: "filter-assets",
+  hooks: {
+    resolveAssets(resolved, ctx) {
+      // Nur Assets fuer unterstuetzte Plattformen aufnehmen
+      return resolved.filter(
+        (a) =>
+          (a.platform.os === "darwin" || a.platform.os === "linux") &&
+          a.platform.arch === "arm64",
+      );
+    },
+  },
+};
+```
+
+### `transformAsset`
+
+Wird vor der Komprimierung einmal pro Asset aufgerufen. Verwende diesen Hook, um Binaries zu signieren, `strip` auszufuehren, Nebendateien in ein Archiv aufzunehmen oder ein Eingabe-Asset in mehrere Ausgaben aufzuteilen.
+
+**Input:** `ResolvedAsset` - ein Asset
+**Output:** `TransformedAsset | TransformedAsset[]` - ein oder mehrere transformierte Assets
+
+`TransformedAsset` erweitert `ResolvedAsset` um das optionale Feld `extraFiles?: string[]`. Dateien aus `extraFiles` werden waehrend der Komprimierung zusammen mit der Hauptdatei ins Archiv gepackt.
+
+```ts
+const codeSignPlugin: PubmPlugin = {
+  name: "code-sign",
+  hooks: {
+    async transformAsset(asset, ctx) {
+      if (asset.platform.os === "darwin") {
+        await exec("codesign", [
+          "--sign", process.env.SIGNING_IDENTITY,
+          "--options", "runtime",
+          asset.filePath,
+        ]);
+      }
+      return asset;
+    },
+  },
+};
+```
+
+#### Ein Asset in mehrere Ausgaben aufteilen
+
+Gib ein Array zurueck, um aus einem Eingang mehrere Assets zu erzeugen. Jedes Element durchlaeuft den Rest der Pipeline unabhaengig.
+
+```ts
+hooks: {
+  async transformAsset(asset, ctx) {
+    if (asset.platform.os === "windows") {
+      // Sowohl ein normales Binary als auch ein Debug-Build erzeugen
+      return [
+        asset,
+        { ...asset, filePath: asset.filePath.replace(".exe", "-debug.exe") },
+      ];
+    }
+    return asset;
+  },
+},
+```
+
+### `compressAsset`
+
+Ersetzt die eingebaute Komprimierungslogik vollstaendig. Wenn gesetzt, ist der Hook dafuer verantwortlich, ein `CompressedAsset` mit dem richtigen `filePath` und `compressFormat` zu erzeugen.
+
+**Input:** `TransformedAsset`
+**Output:** `CompressedAsset`
+
+Verwende das, wenn du ein Format brauchst, das `pubm` nicht nativ unterstuetzt, oder wenn du zusaetzliche Dateien in das Archiv packen willst.
+
+```ts
+const customArchivePlugin: PubmPlugin = {
+  name: "deb-package",
+  hooks: {
+    async compressAsset(asset, ctx) {
+      if (asset.platform.os === "linux") {
+        const debPath = await buildDebPackage(asset.filePath, ctx.version);
+        return {
+          ...asset,
+          filePath: debPath,
+          originalPath: asset.filePath,
+          compressFormat: false,
+        };
+      }
+      // Fuer andere Plattformen auf den Standard zurueckfallen
+      return defaultCompress(asset);
+    },
+  },
+};
+```
+
+### `nameAsset`
+
+Gibt den finalen Upload-Dateinamen zurueck, ohne Erweiterung. Die Erweiterung wird aus `compressFormat` angehaengt. Verwende diesen Hook, wenn das Name-Vorlagensystem nicht ausdrucksstark genug ist.
+
+**Input:** `CompressedAsset`
+**Output:** `string` - der Dateiname ohne Erweiterung
+
+```ts
+const dateStampPlugin: PubmPlugin = {
+  name: "date-stamp",
+  hooks: {
+    nameAsset(asset, ctx) {
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      return `${ctx.packageName}-${ctx.version}-${date}-${asset.platform.raw}`;
+    },
+  },
+};
+```
+
+### `generateChecksums`
+
+Wird mit der vollstaendigen Liste vorbereiteter Assets aufgerufen. Verwende diesen Hook, um eine Pruefsummen-Manifestdatei anzuhaengen.
+
+**Input:** `PreparedAsset[]` - alle Assets inklusive ihrer `sha256`-Werte
+**Output:** `PreparedAsset[]` - urspruengliche Assets plus zusaetzliche Pruefsummen-Dateien
+
+```ts
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const checksumsPlugin: PubmPlugin = {
+  name: "checksums",
+  hooks: {
+    async generateChecksums(assets, ctx) {
+      const lines = assets
+        .map((a) => `${a.sha256}  ${a.name}`)
+        .join("\n");
+
+      const checksumPath = join(ctx.runtime.tempDir, "SHA256SUMS.txt");
+      writeFileSync(checksumPath, lines + "\n");
+
+      const sha256 = await computeSha256(checksumPath);
+
+      return [
+        ...assets,
+        {
+          filePath: checksumPath,
+          originalPath: checksumPath,
+          name: "SHA256SUMS.txt",
+          sha256,
+          platform: { raw: "" },
+          compressFormat: false,
+          config: { path: "", compress: false, name: "SHA256SUMS.txt" },
+        },
+      ];
+    },
+  },
+};
+```
+
+### `uploadAssets`
+
+Wird nach dem Upload in den GitHub Release mit derselben `PreparedAsset[]`-Liste aufgerufen. Verwende diesen Hook, um Artefakte an weitere Ziele zu spiegeln. Die Ergebnisse jedes Plugins werden gesammelt und zusammengefuehrt - alle Plugins erhalten dieselbe Eingabeliste.
+
+**Input:** `PreparedAsset[]`
+**Output:** `UploadedAsset[]` - hochgeladene Assets mit den Feldern `url` und `target`
+
+```ts
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readFileSync } from "node:fs";
+
+const s3Plugin: PubmPlugin = {
+  name: "s3-mirror",
+  hooks: {
+    async uploadAssets(assets, ctx) {
+      const s3 = new S3Client({ region: "us-east-1" });
+      const bucket = process.env.RELEASE_BUCKET;
+
+      return Promise.all(
+        assets.map(async (asset) => {
+          const key = `releases/${ctx.version}/${asset.name}`;
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: readFileSync(asset.filePath),
+            }),
+          );
+          return {
+            ...asset,
+            url: `https://${bucket}.s3.amazonaws.com/${key}`,
+            target: "s3",
+          };
+        }),
+      );
+    },
+  },
+};
+```
+
+## Multi-Plugin-Komposition
+
+Wenn mehrere Plugins denselben Hook registrieren, werden sie in Registrierungsreihenfolge zusammengesetzt:
+
+| Hook | Zusammensetzungsregel |
+|------|----------------------|
+| `resolveAssets` | Kette - die Ausgabe von Plugin N ist der Input von Plugin N+1 |
+| `transformAsset` | Kette - die Ausgabe von Plugin N ist der Input von Plugin N+1 |
+| `compressAsset` | Kette - die Ausgabe von Plugin N ist der Input von Plugin N+1 |
+| `nameAsset` | Letzter gewinnt - jedes Plugin erhaelt dieselben `(asset, ctx)`-Argumente; der Rueckgabewert des zuletzt registrierten Plugins wird verwendet |
+| `generateChecksums` | Kette - die Ausgabe von Plugin N ist der Input von Plugin N+1 |
+| `uploadAssets` | Additiv - jedes Plugin erhaelt die urspruengliche `PreparedAsset[]`-Liste unabhaengig; alle Ergebnisse werden zusammengefuehrt |
+
+Jeder nicht abgefangene Fehler in einer Hook-Kette bricht die Pipeline ab und leitet an den `onError`-Hook weiter.
+
+## Vollstaendiges Beispiel: Code-Signing + Pruefsummen + S3
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: ["platforms/*/bin/mytool"],
+
+  plugins: [
+    // macOS-Binaries signieren
+    {
+      name: "code-sign",
+      hooks: {
+        async transformAsset(asset, ctx) {
+          if (asset.platform.os === "darwin") {
+            await exec("codesign", ["--sign", process.env.SIGNING_IDENTITY, asset.filePath]);
+          }
+          return asset;
+        },
+      },
+    },
+
+    // SHA256SUMS.txt anhaengen
+    checksumsPlugin,
+
+    // Nach S3 spiegeln
+    s3Plugin,
+  ],
+});
+```
+
+## Verwandte Doku
+
+- [Release Assets](/pubm/de/de/guides/release-assets/) - deklarative Konfigurationsreferenz
+- [Platform Detection](/pubm/de/de/reference/platform-detection/) - OS- und Architektur-Tabellen
+- [Plugins API Reference](/pubm/de/de/reference/plugins/) - vollstaendige Plugin-Schnittstelle

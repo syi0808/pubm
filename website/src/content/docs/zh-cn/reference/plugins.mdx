@@ -1,40 +1,149 @@
 ---
-title: Plugins API Reference
+title: Plugins API 参考
 description: 为 pubm 添加 hooks、commands、registries 和 ecosystems。
 ---
 
-插件系统允许你在不 fork 核心 publish 流水线的前提下扩展 `pubm`。
+插件系统可以让你在不 fork 核心发布流程的情况下扩展 `pubm`。
 
 ## `PubmPlugin`
 
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: Registry[];
+  registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
 }
 ```
 
-## `Ctx`
+## Hooks
 
 ```ts
-export interface Ctx extends ResolvedOptions {
-  promptEnabled: boolean;
-  cleanWorkingTree: boolean;
-  pluginRunner: PluginRunner;
-  releaseContext?: ReleaseContext;
+export interface PluginHooks {
+  // 生命周期 hooks
+  beforeTest?: HookFn;
+  afterTest?: HookFn;
+  beforeBuild?: HookFn;
+  afterBuild?: HookFn;
+  beforeVersion?: HookFn;
+  afterVersion?: HookFn;
+  beforePublish?: HookFn;
+  afterPublish?: HookFn;
+  beforePush?: HookFn;
+  afterPush?: HookFn;
+  afterRelease?: AfterReleaseHookFn;
+  onError?: ErrorHookFn;
+  onRollback?: HookFn;
+  onSuccess?: HookFn;
+
+  // 资产流水线 hooks
+  resolveAssets?: AssetPipelineHooks["resolveAssets"];
+  transformAsset?: AssetPipelineHooks["transformAsset"];
+  compressAsset?: AssetPipelineHooks["compressAsset"];
+  nameAsset?: AssetPipelineHooks["nameAsset"];
+  generateChecksums?: AssetPipelineHooks["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks["uploadAssets"];
 }
 ```
 
-常用字段：
+### 资产流水线 hooks
 
-- `version`
-- `versions`
-- `packages`
-- `tag`
-- `preview`
-- `preflight`
-- `ci`
-- `changesetConsumed`
+六个 hooks 让插件可以拦截发布资产流水线的每个阶段。它们运行在 build 步骤和 GitHub Release 上传之间。
+
+| Hook | 运行时机 | 输入 → 输出 |
+|------|----------|-------------|
+| `resolveAssets` | glob 匹配之后 | `ResolvedAsset[]` → `ResolvedAsset[]` |
+| `transformAsset` | 每个资产、压缩之前 | `ResolvedAsset` → `TransformedAsset \| TransformedAsset[]` |
+| `compressAsset` | 每个资产，替换内建压缩 | `TransformedAsset` → `CompressedAsset` |
+| `nameAsset` | 每个资产，压缩之后 | `CompressedAsset` → `string` |
+| `generateChecksums` | 所有资产完成命名和哈希之后 | `PreparedAsset[]` → `PreparedAsset[]` |
+| `uploadAssets` | GitHub Release 上传之后 | `PreparedAsset[]` → `UploadedAsset[]` |
+
+当多个插件注册同一个资产流水线 hook 时，它们会按注册顺序串联。`uploadAssets` 是例外：每个插件都会独立接收同一份输入，所有结果会被拼接起来。
+
+阅读 [Asset Pipeline Hooks](/pubm/zh-cn/guides/asset-pipeline-hooks/) 了解完整签名、示例和组合规则。
+
+## Hook 签名
+
+```ts
+type HookFn = (ctx: PubmContext) => Promise<void> | void;
+type ErrorHookFn = (ctx: PubmContext, error: Error) => Promise<void> | void;
+type AfterReleaseHookFn = (
+  ctx: PubmContext,
+  releaseCtx: ReleaseContext,
+) => Promise<void> | void;
+```
+
+## `PubmContext`
+
+Hooks 会接收当前的流程上下文：
+
+```ts
+export interface PubmContext {
+  readonly config: ResolvedPubmConfig;
+  readonly options: ResolvedOptions;
+  readonly cwd: string;
+  runtime: {
+    tag: string;
+    promptEnabled: boolean;
+    cleanWorkingTree: boolean;
+    pluginRunner: PluginRunner;
+    versionPlan?: VersionPlan;
+    releaseContext?: ReleaseContext;
+    tempDir?: string;
+  };
+}
+```
+
+关键字段：
+
+- `ctx.config`：解析后的 pubm 配置（packages、registries、plugins、releaseAssets 等）
+- `ctx.options`：解析后的 CLI 选项（version、tag、mode、dryRun 等）
+- `ctx.cwd`：工作目录
+- `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
+
+## 示例
+
+```ts
+const notifyPlugin = {
+  name: "notify-plugin",
+  hooks: {
+    async afterPublish(ctx) {
+      const label =
+        ctx.versions && ctx.versions.size > 0
+          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
+          : `v${ctx.version}`;
+
+      console.log(`Published ${label}`);
+    },
+  },
+};
+```
+
+## 自定义命令
+
+```ts
+export interface PluginCommand {
+  name: string;
+  description: string;
+  subcommands?: PluginSubcommand[];
+}
+
+export interface PluginSubcommand {
+  name: string;
+  description: string;
+  options?: PluginCommandOption[];
+  action: (args: Record<string, unknown>) => Promise<void>;
+}
+```
+
+## 自定义 registries 和 ecosystems
+
+当你需要额外的发布目标时，使用自定义 registry。 当你需要让 `pubm` 学会读写另一种 package 类型的版本时，使用自定义 ecosystem。
+
+## 相关文档
+
+- [Configuration](/pubm/zh-cn/guides/configuration/)
+- [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/)
+- [Official Plugins](/pubm/zh-cn/reference/official-plugins/)

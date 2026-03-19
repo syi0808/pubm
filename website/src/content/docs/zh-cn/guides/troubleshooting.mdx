@@ -1,122 +1,250 @@
 ---
-title: Troubleshooting
+title: 故障排查
 description: 诊断 pubm 中最常见的发布、配置和 registry 问题。
 ---
 
-本页聚焦最常见的失败模式：配置加载、版本规划、registry 认证、Git 状态和 CI 行为。
+本指南聚焦于实践中最常见、最值得优先排查的失败模式：配置加载、版本管理、registry 认证、Git 状态和 CI 行为。
 
-## 先运行最安全的诊断命令
+## 先从最安全的诊断命令开始
+
+在重试失败的发布之前，先运行这些命令：
 
 ```bash
 pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm patch --preview
-pubm --preflight
+pubm --dry-run
+pubm --mode ci --phase prepare
 ```
 
-它们可以回答：
+这些命令合起来可以回答：
 
 - `pubm` 认为应该发布哪个版本
-- 哪些包受到影响
-- changelog 文案是否合理
-- 凭证和 registry 检查是否就绪
+- 哪些包会受到影响
+- changelog 文本是否正常
+- 凭据和 registry 检查是否已经就绪
 
-## 因 Git 状态阻塞 publish
+## 发布被 Git 状态阻塞
 
-检查：
+症状：
 
-- 提交或暂存本地修改
-- 确认当前分支正确
-- 只有明确接受风险时才用 `--any-branch`
+- release stops before publish
+- errors mention a dirty working tree
+- errors mention the wrong branch
 
-## `No changesets found.`
+需要检查：
 
-检查：
+- commit or stash local changes
+- confirm you are on the expected branch
+- 如果这是有意的例外，判断是否可以接受 `--any-branch`
 
-- `.pubm/changesets/` 中是否有文件
-- 是否在仓库根目录
-- 若从 `.changeset/` 迁移，执行 `pubm changesets migrate`
+除非你真的想降低发布安全性，否则不要把绕过类 flags 变成标准工作流的一部分。
 
-## bump 到了错误的包
+## version 命令提示找不到 changeset
 
-检查：
+Symptoms:
 
-- `pubm changesets status --verbose`
-- `pubm.config.*` 里的 `fixed`、`linked`
-- 当前使用的是 `independent` 还是 `fixed`
+- `pubm changesets version` prints `No changesets found.`
 
-## config 加载失败
+需要检查：
 
-检查：
+- confirm files exist in `.pubm/changesets/`
+- make sure you are in the repository root
+- 如果你是从 `.changeset/` 迁移过来，请运行 `pubm changesets migrate`
 
-- 文件名是否受支持
-- 是否从 `@pubm/core` 导入 `defineConfig`
-- config 顶层是否做了太重的运行时工作
-- 可选依赖是否已经安装
+## bump 了错误的包
 
-## npm 权限错误
+症状：
 
-检查：
+- packages you did not expect appear in `changesets status`
+- fixed or linked packages move together unexpectedly
 
-- `NODE_AUTH_TOKEN`
-- token 是否有发布权限
-- CI 中使用 automation token
-- scoped public package 的 access 是否正确
+需要检查：
+
+- run `pubm changesets status --verbose`
+- inspect `fixed` and `linked` groups in `pubm.config.*`
+- verify whether the repository is using `independent` or `fixed` versioning
+
+如果 workspace 结构很复杂，建议改用显式的 `packages` 配置，而不要只依赖自动发现。
+
+## 配置文件加载失败
+
+症状：
+
+- startup fails before the release pipeline begins
+- errors mention config imports or bundling
+
+需要检查：
+
+- ensure the config file is one of the supported names
+- import `defineConfig` from `@pubm/core`
+- remove heavy runtime work from the top level of the config module
+- verify optional dependencies are installed where needed
+
+好的配置文件应该主要是声明式的。如果它开始像应用代码，把辅助逻辑拆到更小的模块里，并保持求值过程可预测。
+
+## npm publish 因认证或权限错误失败
+
+症状：
+
+- 401 or 403 responses
+- messages about OTP, 2FA, or publish permission
+
+需要检查：
+
+- verify `NODE_AUTH_TOKEN`
+- confirm the token has publish access to the package
+- prefer automation-compatible tokens in CI
+- confirm the package access level matches registry expectations
+
+如果仓库发布的是带 scope 的公开包，也要确认它在 npm 上确实应该是 public。
 
 ## jsr publish 失败
 
-检查：
+症状：
 
-- `JSR_TOKEN`
-- `pubm --preflight`
-- jsr 所需元数据是否有效
+- jsr target fails while npm succeeds
+
+需要检查：
+
+- verify `JSR_TOKEN`
+- run `pubm --mode ci --phase prepare`
+- confirm the package metadata is valid for jsr
+
+由于 `pubm` 会发布到多个 target，应先修复失败的 registry，而不是盲目重试，以免造成部分发布的混乱。
 
 ## crates.io publish 失败
 
-检查：
+症状：
 
-- `CARGO_REGISTRY_TOKEN`
-- crate 依赖顺序与版本
-- `pubm.config.*` 中该包的 `registries` 覆盖（或检查清单文件推断结果）
+- Rust package publish fails
+- one crate succeeds but another blocks later in the sequence
 
-## build 或 test 失败
+需要检查：
 
-1. 直接重跑原始脚本
-2. 修复底层问题
-3. 再次执行 `pubm`
+- verify `CARGO_REGISTRY_TOKEN`
+- confirm crate dependency ordering and versions are valid
+- inspect package-specific `registries` override in `pubm.config.*` (or check manifest files if using inference)
+
+在需要考虑顺序时，Rust 发布会按顺序执行。这是正常现象，通常也说明 `pubm` 正在保护依赖正确性。
+
+## pubm 内部的 build 或 test 步骤失败
+
+症状：
+
+- release stops during test or build
+- error message suggests rerunning the underlying script
+
+应该怎么做：
+
+1. rerun the script directly
+2. fix the underlying build or test failure
+3. retry `pubm`
+
+Examples:
 
 ```bash
 pnpm run test
 pnpm run build
 ```
 
-必要时：
+如果你的脚本名称不同，请让它们与配置或 CLI flags 对齐：
 
 ```bash
-pubm patch --test-script test:ci --build-script build:release
+pubm --test-script test:ci --build-script build:release
 ```
 
-## `contents` publish 不工作
+## `contents` 发布不工作
 
-确认：
+症状：
 
-- `contents` 指向最终发布目录
-- build 在 publish 前生成该目录
-- 目标目录中包含 registry 需要的 manifest
+- publish command cannot find expected files
+- release works from root but fails from `dist/`
 
-## 本地与 CI 表现不一致
+需要检查：
 
-常见原因：
+- confirm `contents` points to the final publish directory
+- ensure the build step creates that directory before publish starts
+- verify the target directory contains the manifest files expected by the selected registry
 
-- CI 禁用交互提示
-- token 必须来自环境变量或 secret sync
-- shallow checkout 会破坏基于 tag 的流程
+`contents` 会改变运行时流程的工作目录。应把它视为发布根目录，而不只是输出目录。
 
-## rollback 后状态看起来混乱
+## CI 与本地运行行为不同
 
-先检查：
+症状：
 
-- `git tag`
-- `git status`
+- local publish succeeds
+- CI publish fails or hangs
 
-关键是找出最初失败的步骤，而不是只看 rollback 后续消息。
+原因：
+
+- CI disables prompts
+- tokens must come from environment variables or prior secret sync
+- shallow checkouts often break tag-aware flows
+
+需要检查：
+
+- run `pubm --mode ci --phase prepare` locally
+- use full Git history in CI
+- confirm every required token is present in the job environment
+
+## GitHub Release 问题
+
+症状：
+
+- release creation fails
+- release metadata looks incomplete
+
+需要检查：
+
+- confirm repository remote metadata is valid
+- ensure Git tags exist and are pushed
+- distinguish between normal publish flow and `--mode ci --phase publish`
+
+`pubm` 会通过 API 创建 GitHub Release。在本地模式下如果没有 `GITHUB_TOKEN`，你可以输入 token、在浏览器中打开草稿，或者跳过。`--mode ci --phase publish` 会作为流程的一部分通过 API 创建 GitHub Release。
+
+## 已发生 rollback，仓库状态看起来很混乱
+
+症状：
+
+- publish failed mid-run
+- tags or commits were created and then removed
+
+应该怎么做：
+
+- inspect current tags with `git tag`
+- inspect working tree status with `git status`
+- rerun only after you understand which step failed first
+
+关键是诊断最初原因，而不是只看随后出现的 rollback 消息。
+
+## 何时提交 issue
+
+当你能用以下内容复现问题时，再提交 issue：
+
+- the exact command
+- relevant config
+- target registries
+- expected behavior
+- actual behavior and error output
+
+高质量 bug 报告对以下情况尤其有价值：
+
+- 混合 JS 和 Rust 的仓库
+- 由 plugin 提供的 registries
+- config loader 的边缘情况
+- 部分失败后的 rollback 行为
+
+## 有用的恢复流程
+
+如果发布失败，而你希望保守地恢复：
+
+```bash
+git status
+git tag --sort=-creatordate | head
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm --dry-run
+pubm --mode ci --phase prepare
+```
+
+只有在 dry-run 和 CI preparation 的输出重新变得合理之后，才重跑真正的发布。

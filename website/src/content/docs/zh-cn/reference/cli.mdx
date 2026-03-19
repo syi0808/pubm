@@ -1,37 +1,41 @@
 ---
-title: CLI Reference
-description: pubm CLI 的命令、flags 与执行模式。
+title: CLI 参考
+description: pubm CLI 的命令、flags 和执行模式。
 ---
 
-本参考分为三类：
+本参考按命令形态组织：
 
-- 顶层 publish 命令：`pubm [version]`
-- `init`、`secrets`、`sync` 等管理命令
-- `pubm changesets ...` 下的 changeset 命令
+- 顶层发布命令：`pubm [version]`
+- `init`、`secrets` 和 `sync` 等管理命令
+- `pubm changesets ...` 下的 changeset 工作流命令
 
-最常用的命令是：
+对于日常手工使用，最重要的命令其实就是：
 
 ```bash
 pubm
 ```
 
-## 命令总览
+在不带版本参数的情况下运行 `pubm`，就是交互式的理想路径。它会让你先在终端里选择下一个版本，然后发布流程才继续执行。
 
-| 命令 | 作用 |
-|------|------|
-| `pubm [version]` | 用 release 类型或显式 semver 执行 publish 流水线 |
-| `pubm init` | 创建 `pubm.config.ts` 与 `.pubm/changesets/` |
-| `pubm init --changesets` | 同时设置 PR changeset 检查工作流 |
-| `pubm secrets sync` | 用 `gh` 将本地 token 推送到 GitHub Secrets |
-| `pubm sync --discover` | 扫描 manifest 外的版本引用 |
-| `pubm update` | 更新 CLI |
-| `pubm changesets add` | 创建新 changeset |
-| `pubm changesets status` | 查看 pending changeset 与 bump 影响 |
-| `pubm changesets version` | 消费 changeset 并写入新版本 |
-| `pubm changesets changelog` | 从 pending changeset 渲染 changelog |
-| `pubm changesets migrate` | 从 `.changeset/` 迁移 |
+## 命令概览
 
-## 顶层 publish 命令
+| Command | Purpose |
+|---------|---------|
+| `pubm [version]` | 使用 release type 或明确的 semver 运行发布流程。 |
+| `pubm init` | 创建 `pubm.config.ts` 和 `.pubm/changesets/`。 |
+| `pubm init --changesets` | 同时设置 PR 的 changeset 检查工作流。 |
+| `pubm secrets sync` | 通过 `gh` 把本地保存的 token 推送到 GitHub Secrets。 |
+| `pubm sync --discover` | 扫描仓库中 manifest 文件之外的版本引用。 |
+| `pubm update` | 将 CLI 自更新到最新发布版本。 |
+| `pubm changesets add` | 创建新的 changeset。 |
+| `pubm changesets status` | 显示待处理 changeset 及其 bump 影响。 |
+| `pubm changesets version` | 消耗 changeset 并写入新版本。 |
+| `pubm changesets changelog` | 从待处理 changeset 渲染 changelog 文本。 |
+| `pubm changesets migrate` | 从 `.changeset/` 迁移到 `.pubm/`。 |
+
+## 顶层发布命令
+
+### 语法
 
 ```bash
 pubm [version] [flags]
@@ -39,89 +43,293 @@ pubm [version] [flags]
 
 `[version]` 可以是：
 
-- `patch` / `minor` / `major`
-- `prepatch` / `preminor` / `premajor` / `prerelease`
-- `1.8.0` 这样的显式版本
+- semver bump type：`patch`、`minor`、`major`
+- pre-release bump type：`prepatch`、`preminor`、`premajor`、`prerelease`
+- 明确的版本号，例如 `1.8.0`
 
-例子：
+如果你省略版本：
+
+- 交互式终端可以提示你选择下一个版本
+- CI 运行则要求版本已经以非交互方式解析完成
+
+如果你省略版本，`pubm` 可以在交互式终端里提示你选择下一个版本。
+
+### 交互式用法
 
 ```bash
 pubm
-pubm patch
-pubm minor --preview
-pubm 1.8.0
-pubm patch --registry npm,jsr
-pubm patch --tag beta
 ```
 
-## 常用 flags
+典型流程：
 
-| Flag | 说明 |
-|------|------|
-| `--preview` | 只展示任务图，不修改 Git 或 publish |
-| `--branch <name>` | 发布前要求当前分支匹配 |
-| `--any-branch` | 为当前执行关闭分支保护 |
-| `--tag <name>` | 指定 `beta`、`next` 等 dist-tag |
-| `--contents <path>` | 切换到子目录后执行流水线 |
-| `--registry <registries>` | `npm`、`jsr`、`crates` 或自定义 registry |
-| `--test-script <script>` | 测试步骤脚本名 |
-| `--build-script <script>` | 构建步骤脚本名 |
-| `--no-save-token` | 不保存 token |
-| `--snapshot [tag]` | 发布临时快照版本（默认标签：snapshot） |
+1. 运行 `pubm`
+2. 选择 `patch`、`minor` 或 `major`
+3. 让 `pubm` 继续执行检查、构建、打 tag 和发布
 
-## 流水线控制
+### 常见示例
 
-| Flag | 说明 |
-|------|------|
-| `--no-pre-check` | 跳过 branch / working tree 等检查 |
-| `--no-condition-check` | 跳过 token / registry 条件检查 |
-| `--no-tests` | 跳过测试 |
-| `--no-build` | 跳过构建 |
-| `--no-publish` | 执行到 publish 前但不真正发布 |
-| `--skip-release` | 跳过 GitHub Release 创建 |
-| `--publish-only` | 不跑完整准备流程，只从最新 tag 发布 |
-| `--ci` | 从最新 tag 发布并创建 GitHub Release |
-| `--preflight` | 在本地模拟 CI publish |
+```bash
+pubm
+pubm --dry-run
+pubm 1.8.0
+pubm --registry npm,jsr
+pubm --tag beta
+```
+
+## 发布 flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-d, --dry-run` | `false` | 在不修改 Git 状态或不发布的情况下显示任务图。 |
+| `--mode <mode>` | `local` | 执行模式：`local`（交互式）或 `ci`（非交互式，基于 tag）。 |
+| `--phase <phase>` | — | 流程阶段：`prepare`（验证和 dry-run）或 `publish`（从最新 tag 发布）。 |
+| `--release-draft` | `false` | 创建 GitHub Release 草稿，而不是已发布的 release。 |
+| `-b, --branch <name>` | `main` | 在发布前要求当前分支匹配指定分支。 |
+| `-a, --any-branch` | `false` | 禁用当前运行的分支保护。 |
+| `-t, --tag <name>` | `latest` | 使用特定的 dist-tag，例如 `beta` 或 `next`。 |
+| `--snapshot [tag]` | — | 发布临时 snapshot 版本（默认 tag：`snapshot`） |
+| `-c, --contents <path>` | none | 在运行发布流程之前切换到子目录。 |
+| `--registry <registries>` | `npm,jsr` | 以逗号分隔的目标 registries。支持 `npm`、`jsr`、`crates` 或自定义 registry URL。 |
+| `--test-script <script>` | `test` | 测试步骤使用的脚本名。 |
+| `--build-script <script>` | `build` | 构建步骤使用的脚本名。 |
+| `--no-save-token` | `false` | 不保存受支持的 token 供后续运行使用。 |
+
+## 流程控制 flags
+
+| Flag | Description |
+|------|-------------|
+| `--no-pre-check` | 跳过前置检查，例如分支和工作区校验。 |
+| `--no-condition-check` | 跳过必要条件检查，例如 token 和 registry 校验。 |
+| `--no-tests` | 跳过测试步骤。 |
+| `--no-build` | 跳过构建步骤。 |
+| `--no-publish` | 运行到 publish 之前，但不真正发布构件。 |
+| `--skip-release` | 跳过 GitHub Release 创建。 |
 
 ## 执行模式
 
+## 交互式本地运行
+
+本地发布的正常模式：
+
 ```bash
 pubm
-pubm patch --preview
-pubm --preflight
-pubm --ci
 ```
+
+行为：
+
+- 在未提供版本参数时，会先交互式选择版本
+- 当缺少必要信息时，可以显示提示
+- 除非被跳过，测试和构建都会运行
+- versioning、publish、push 和 GitHub Release 步骤会按顺序执行
+
+## Dry-run 模式
+
+```bash
+pubm --dry-run
+```
+
+当你只想查看任务计划而不产生副作用时，使用 dry-run 模式。
+
+## CI Preparation 模式
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+CI Preparation：
+
+- 交互式收集缺失的 token
+- 可以同步到 GitHub Secrets
+- 切换到非交互行为，以模拟 CI
+- 运行前置条件和必要条件检查
+- 对配置好的 registries 进行 publish dry-run
+
+## CI Publish 模式
+
+```bash
+pubm --mode ci --phase publish
+```
+
+CI Publish 模式会从最新的 Git tag 发布，并通过 API 创建 GitHub Release。适合版本 bump 和打 tag 已经在流水线更早阶段完成的场景。传入 `--release-draft` 可以创建草稿 release，而不是正式发布。
 
 ## 环境变量
 
-| 变量 | 用途 |
-|------|------|
-| `NODE_AUTH_TOKEN` | npm CI 认证 |
+| Variable | Used for |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | CI 中的 npm 认证 |
 | `JSR_TOKEN` | jsr 认证 |
 | `CARGO_REGISTRY_TOKEN` | crates.io 认证 |
 
+当以下情况成立时，提示会自动禁用：
+
+- `stdin` 不是 TTY
+- 进程运行在已识别的 CI 平台上
+
 ## `pubm init`
+
+为 `pubm` 初始化仓库。
 
 ```bash
 pubm init
 pubm init --changesets
 ```
 
+### `--changesets`
+
+会添加：
+
+- `.github/workflows/changeset-check.yml`
+- 针对 `.pubm/changesets/` 的 `.gitignore` 更新
+
+当仓库中的每个产品变更都应该包含一个经过审阅的 changeset 文件时，使用这个选项。
+
 ## `pubm secrets sync`
+
+使用 `gh` CLI 把本地保存的 token 推送到 GitHub Secrets。
 
 ```bash
 pubm secrets sync
+pubm secrets sync --registry npm
 pubm secrets sync --registry npm,jsr
 ```
 
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--registry <registries>` | `npm,jsr,crates` | 将 secret 同步限制到特定 registries。 |
+
+注意：
+
+- 需要安装并完成认证的 `gh`
+- 使用本地保存的 token，因此如果还没有保存过，请先运行 `pubm --mode ci --phase prepare`
+
 ## `pubm sync --discover`
+
+扫描仓库中 manifest 文件之外的版本引用。
 
 ```bash
 pubm sync --discover
 ```
 
+这个命令是为了帮助你设置 version-sync plugin。它会跳过常见的生成目录和 lockfile，然后打印候选文件以及 JSON path 或匹配行，供你改写为 plugin 配置。
+
 ## `pubm update`
+
+将已安装的 `pubm` CLI 更新到最新发布版本。
 
 ```bash
 pubm update
+```
+
+## Changesets 命令
+
+所有 changeset 生命周期命令都在 `pubm changesets` 下。
+
+## `pubm changesets add`
+
+创建新的 changeset。
+
+```bash
+pubm changesets add
+pubm changesets add --empty
+pubm changesets add --packages @acme/core,@acme/react --bump minor --message "Add public metrics API."
+```
+
+| Flag | Description |
+|------|-------------|
+| `--empty` | 创建空的 changeset 文件。 |
+| `--packages <list>` | 用于非交互创建的、以逗号分隔的 package 名称。 |
+| `--bump <type>` | `patch`、`minor`、`major` 之一。 |
+| `--message <text>` | 用作 changeset 正文和 changelog 的摘要。 |
+
+## `pubm changesets status`
+
+检查待处理的 changeset。
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+pubm changesets status --since origin/main
+```
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | 打印每条记录的 changeset 摘要。 |
+| `--since <ref>` | 检查自某个 Git ref 以来的变更。 |
+
+## `pubm changesets version`
+
+消耗 changeset、更新 manifest 版本、写入 changelog，并提交结果。
+
+```bash
+pubm changesets version
+pubm changesets version --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | 在不写文件的情况下打印版本和 changelog 计划。 |
+
+## `pubm changesets changelog`
+
+从待处理 changeset 生成 changelog 文本。
+
+```bash
+pubm changesets changelog
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | 预览 changelog 输出，而不写入 `CHANGELOG.md`。 |
+| `--version <ver>` | 使用特定的 section header，而不是 `Unreleased`。 |
+
+## `pubm changesets migrate`
+
+将旧的 `.changeset/` 布局中的待处理文件移动到 `.pubm/`。
+
+```bash
+pubm changesets migrate
+```
+
+## 退出码
+
+`pubm` 在以下情况下会返回非零退出码：
+
+- 前置检查或必要条件检查失败
+- 无法完成版本解析
+- 任一 target 的发布失败
+- 子命令遇到无效输入
+
+在正常发布模式下，失败还会在可能的情况下触发 rollback 行为。
+
+## 示例命令模式
+
+### 新仓库的首次本地发布
+
+```bash
+pubm init --changesets
+pubm changesets add
+pubm changesets version
+pubm --mode ci --phase prepare
+pubm --dry-run
+pubm
+```
+
+### 本地 CI 演练
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+### 在 CI 中只发布当前已打 tag 的版本
+
+```bash
+pubm --mode ci --phase publish
+```
+
+### 在 preparation 之后同步已保存的 token
+
+```bash
+pubm secrets sync
 ```

@@ -1,15 +1,15 @@
 ---
-title: "Core SDK 参考"
-description: "@pubm/core 根入口导出的公共函数、类与类型概览。"
+title: Core SDK 参考
+description: '`@pubm/core` 对外公开的函数、类和类型。'
 ---
 
-`@pubm/core` 是 `pubm` CLI 的程序化 API。本文档只覆盖可以直接从包根入口导入的公开标识符。
+`@pubm/core` 是 `pubm` CLI 背后的程序化 API。本页覆盖从 package root 导出的公开标识符：
 
 ```ts
 import { ... } from "@pubm/core";
 ```
 
-该包同时提供类型声明以及 ESM/CJS 入口。当前包元数据声明的运行时要求是 `node >= 24`。
+这个 package 同时提供类型声明，以及 ESM/CJS 两种入口。当前的 package metadata 声明了 `node >= 24`。
 
 ## 安装
 
@@ -19,47 +19,52 @@ pnpm add @pubm/core
 bun add @pubm/core
 ```
 
-## 核心 API
+## 发布流程
 
 ### `pubm(options)`
 
-在代码中运行与 CLI 相同的发布流水线。
+运行和 CLI 相同的发布流程。
 
 ```ts
 import { pubm } from "@pubm/core";
 
 await pubm({
   version: "patch",
-  preview: true,
+  dryRun: true,
   tag: "next",
 });
 ```
 
-最常用的 `Options` 字段如下：
+`pubm()` 接受一个 `Options` 对象。最重要的字段如下：
 
 | Field | Type | Purpose |
 |------|------|---------|
-| `version` | `string` | `patch`、`minor`、`major`，或显式 semver。 |
-| `preview` | `boolean` | 仅预览任务计划，不修改 Git 状态也不发布。 |
-| `branch` | `string` | 只允许在指定分支上发布。 |
-| `anyBranch` | `boolean` | 为单次执行关闭分支限制。 |
-| `tag` | `string` | 指定 `latest`、`next`、`beta` 等 dist-tag。 |
-| `snapshot` | `string \| boolean` | 生成 snapshot 版本。 |
-| `packages` | `PackageConfig[]` | 覆盖自动发现的包列表。 |
-| `preflight` | `boolean` | 在本地模拟 CI 并执行 dry-run 检查。 |
-| `ci` | `boolean` | 基于最新 tag 发布并创建 GitHub Release。 |
-| `publishOnly` | `boolean` | 跳过准备阶段，仅执行发布。 |
+| `version` | `string` | 必需的发布目标，例如 `patch`、`minor`、`major`，或者明确的 semver。 |
+| `dryRun` | `boolean` | 在不修改 Git 状态或不发布的情况下显示任务计划。 |
+| `mode` | `"local" \| "ci"` | 执行模式：`local`（交互式）或 `ci`（非交互式，基于 tag）。 |
+| `prepare` | `boolean` | 只运行 preparation 阶段（验证和发布 dry-run 检查）。 |
+| `publish` | `boolean` | 只运行 publish 阶段（从最新 tag 发布）。 |
+| `releaseDraft` | `boolean` | 创建 GitHub Release 草稿，而不是正式发布。 |
+| `branch` | `string` | 发布前要求的特定分支。 |
+| `anyBranch` | `boolean` | 对单次运行禁用分支约束。 |
+| `tag` | `string` | 以某个 dist-tag 发布，例如 `latest`、`next` 或 `beta`。 |
+| `snapshot` | `string \| boolean` | 使用配置好的模板构建 snapshot 版本。 |
+| `packages` | `PackageConfig[]` | 覆盖自动发现的 package。 |
 
-## 配置 API
+对于由 config 驱动的发布，`pubm()` 会自动加载 `pubm.config.*`、解析 package 发现，并在运行任务图之前接入插件。
+
+## 配置辅助函数
+
+这些辅助函数是读取或验证 `pubm.config.*` 的主要入口。
 
 | Export | Kind | Purpose |
 |------|------|---------|
-| `defineConfig` | function | 编写 `pubm.config.ts` 的类型辅助函数。 |
-| `loadConfig` | function | 从磁盘读取 `pubm.config.*`，返回 `PubmConfig \| null`。 |
-| `resolveConfig` | function | 应用默认值、自动发现包并规范化 private registry。 |
-| `PubmConfig` | type | 用户编写的配置类型。 |
-| `ResolvedPubmConfig` | type | `resolveConfig()` 解析后的完整配置类型。 |
-| `PackageConfig` | type | 每个包的 registry、ecosystem、build、test 覆盖配置。 |
+| `defineConfig` | function | 用于编写 `pubm.config.ts` 的类型化辅助函数。 |
+| `loadConfig` | function | 从磁盘加载 `pubm.config.*` 并返回 `PubmConfig \| null`。 |
+| `resolveConfig` | function | 应用默认值、自动发现 package，并规范化私有 registry。 |
+| `PubmConfig` | type | 用户编写的配置形状。 |
+| `ResolvedPubmConfig` | type | `resolveConfig()` 返回的完整解析后配置。 |
+| `PackageConfig` | type | 用于发现和发布规划的按 package 配置项。 |
 
 ```ts
 import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
@@ -72,16 +77,37 @@ const config = await loadConfig(process.cwd());
 const resolved = config ? await resolveConfig(config, process.cwd()) : null;
 ```
 
+`PackageConfig` 可以用来覆盖每个 package 的 registry、ecosystem、build command 或 test command：
+
+```ts
+type PackageConfig = {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | string | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+};
+```
+
 ## 插件 API
+
+当你想用自定义 registry、ecosystem、生命周期 hooks 或 CLI 命令扩展发布流程时，可以使用这些插件导出。
 
 | Export | Kind | Purpose |
 |------|------|---------|
-| `PubmPlugin` | type | 插件顶层契约。 |
-| `PluginHooks` | type | `beforeBuild`、`afterPublish`、`onError`、`afterRelease` 等生命周期钩子。 |
-| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | 钩子签名。 |
-| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 插件命令模型。 |
-| `PluginRunner` | class | 负责执行已加载插件的钩子并收集 registry/ecosystem。 |
-| `ReleaseContext` / `ReleaseAsset` | types | 传给 `afterRelease` 钩子的元数据。 |
+| `PubmPlugin` | type | 插件的顶层契约。 |
+| `PluginHooks` | type | 生命周期 hooks，例如 `beforeBuild`、`afterPublish`、`onError`、`afterRelease` 以及资产流水线 hooks。 |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook 签名。 |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 插件的自定义 CLI 命令模型。 |
+| `PluginRunner` | class | 执行 hooks 并收集已加载插件中的 registries/ecosystems 的工具。 |
+| `ReleaseContext` | type | 传给 `afterRelease` hooks 的 release 元数据。包含 `packageName`、`version`、`tag`、`releaseUrl` 和 `assets`。 |
+| `ReleaseAsset` | type | 一个已上传资产：`name`、`url`、`sha256` 以及结构化的 `platform`。 |
+| `ParsedPlatform` | type | 结构化的平台信息：`raw`、`os`、`arch`、`vendor`、`abi`、`variant`。 |
+| `PreparedAsset` | type | 已完成压缩和哈希、可直接上传的资产。 |
+| `TransformedAsset` | type | 经过 `transformAsset` hook 处理、尚未压缩的资产。 |
+| `CompressedAsset` | type | 已完成 `compressAsset` 步骤、尚未命名的资产。 |
+| `UploadedAsset` | type | 上传后带有 `url` 和 `target` 的资产。 |
+| `ResolvedAsset` | type | glob 匹配后、带解析平台信息的资产。 |
 
 ```ts
 import { defineConfig, type PubmPlugin } from "@pubm/core";
@@ -100,46 +126,189 @@ export default defineConfig({
 });
 ```
 
-## Changeset / Monorepo / Utils
+## 资产流水线
 
-根入口还会导出以下类别的辅助函数。
+这些导出用于 release asset 流水线，对 plugin 作者和自定义工具都很有用。
 
-- Changeset: `readChangesets`, `parseChangeset`, `getStatus`, `discoverCurrentVersions`, `discoverPackageInfos`, `calculateVersionBumps`, `generateChangesetId`, `generateChangesetContent`, `writeChangeset`, `buildChangelogEntries`, `generateChangelog`, `writeChangelogToFile`, `migrateFromChangesets`, `deleteChangesetFiles`, `parseChangelogSection`
-- Monorepo: `detectWorkspace`, `discoverPackages`, `buildDependencyGraph`, `topologicalSort`, `resolveGroups`, `applyFixedGroup`, `applyLinkedGroup`, `Git`
-- Validation/Utils: `validateEntryPoints`, `detectExtraneousFiles`, `getPackageJson`, `replaceVersion`, `replaceVersionAtPath`, `version`, `generateSnapshotVersion`, `loadTokensFromDb`, `syncGhSecrets`, `exec`, `getPackageManager`, `detectRuntime`, `isBun`, `notifyNewVersion`, `consoleError`, `PUBM_VERSION`, `PUBM_ENGINES`
+| Export | Kind | Purpose |
+|------|------|---------|
+| `parsePlatform` | function | 使用内建表，从路径段字符串中解析 OS、arch、ABI、variant 和 vendor。 |
+| `runAssetPipeline` | function | 在给定已解析配置和 hook 集合的情况下，运行完整的资产流水线（resolve、transform、compress、name、hash、checksums）。 |
 
-同时还公开了一批重要类型。
+```ts
+import { parsePlatform, runAssetPipeline } from "@pubm/core";
 
-- Changeset 相关: `BumpType`, `Changeset`, `Release`, `Status`, `PackageStatus`, `VersionBump`, `ChangelogEntry`, `DependencyUpdate`, `PackageVersionInfo`, `MigrationResult`
-- Monorepo 相关: `WorkspaceInfo`, `DiscoverOptions`, `DiscoveredPackage`, `PackageNode`
-- 其他: `Options`, `SnapshotOptions`, `Runtime`, `EntryPointError`, `ExtraneousFile`
+// 解析路径段或 capture 字符串
+const platform = parsePlatform("darwin-arm64");
+// { raw: "darwin-arm64", os: "darwin", arch: "arm64" }
+
+const platform2 = parsePlatform("x86_64-unknown-linux-gnu");
+// { raw: "x86_64-unknown-linux-gnu", os: "linux", arch: "x64", vendor: "unknown", abi: "gnu" }
+```
+
+资产流水线类型：
+
+```ts
+import type {
+  ParsedPlatform,
+  ReleaseContext,
+  ReleaseAsset,
+  ResolvedAsset,
+  TransformedAsset,
+  CompressedAsset,
+  PreparedAsset,
+  UploadedAsset,
+} from "@pubm/core";
+```
+
+参见 [Release Assets](/pubm/zh-cn/guides/release-assets/) 和 [Asset Pipeline Hooks](/pubm/zh-cn/guides/asset-pipeline-hooks/) 了解使用指南。
+
+## Changeset 和版本规划辅助函数
+
+changeset 导出可以让你围绕 `.pubm/changesets` 构建自定义工具。
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `readChangesets` / `parseChangeset` | functions | 读取并解析 `.pubm/changesets/*.md`。 |
+| `getStatus` | function | 按 package 汇总待处理 changeset。 |
+| `discoverCurrentVersions` / `discoverPackageInfos` | functions | 从 workspace 中读取当前 package 名称和版本。 |
+| `calculateVersionBumps` | function | 根据当前版本和待处理 changeset 计算下一版版本。 |
+| `generateChangesetId` / `generateChangesetContent` / `writeChangeset` | functions | 创建新的 changeset 文件。 |
+| `buildChangelogEntries` / `generateChangelog` / `writeChangelogToFile` | functions | 从 changeset 生成 changelog 输出。 |
+| `migrateFromChangesets` | function | 将旧的 `.changeset/` 数据复制到 `.pubm/`。 |
+| `deleteChangesetFiles` | function | 删除已消耗的 changeset 文件。 |
+| `parseChangelogSection` | function | 将 changelog section 重新解析成结构化数据。 |
+
+重要的相关类型：
+
+| Type | Purpose |
+|------|---------|
+| `Changeset` | 解析后的 `.md` 文件，包含 `id`、`summary` 和 package release。 |
+| `Release` | changeset 内部的一个 package bump 条目。 |
+| `BumpType` | `patch` \| `minor` \| `major`。 |
+| `Status` / `PackageStatus` | 来自 `getStatus()` 的汇总待处理状态。 |
+| `VersionBump` | `calculateVersionBumps()` 的版本规划结果。 |
+| `ChangelogEntry` / `DependencyUpdate` | changelog 渲染输入。 |
+| `PackageVersionInfo` | 发现辅助函数返回的 package 名称、版本和路径。 |
+| `MigrationResult` | `migrateFromChangesets()` 返回的结果对象。 |
 
 ```ts
 import {
   calculateVersionBumps,
   discoverCurrentVersions,
-  generateSnapshotVersion,
-  validateEntryPoints,
+  getStatus,
 } from "@pubm/core";
 
 const currentVersions = await discoverCurrentVersions(process.cwd());
+const status = getStatus(process.cwd());
 const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+```
 
-const snapshot = generateSnapshotVersion({
+## Monorepo 和 workspace 辅助函数
+
+当你需要和 `pubm` 内部使用的 workspace 发现逻辑一致时，这些导出会很有用。
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `detectWorkspace` | function | 从仓库文件中检测 pnpm、npm、Yarn、Bun、Cargo 或 Deno workspace。 |
+| `discoverPackages` | function | 自动发现可发布 package，并推断 registries/ecosystems。 |
+| `buildDependencyGraph` | function | 从 package metadata 构建内部依赖图。 |
+| `topologicalSort` | function | 按依赖优先顺序对 graph 节点排序。 |
+| `resolveGroups` | function | 针对已发现的 package 列表解析 fixed/linked 分组。 |
+| `applyFixedGroup` / `applyLinkedGroup` | functions | 将分组语义应用到版本规划中。 |
+| `Git` | class | 用于发布自动化的 Git 命令轻量包装。 |
+
+重要的相关类型：
+
+| Type | Purpose |
+|------|---------|
+| `WorkspaceInfo` | workspace 类型以及 include/exclude 模式。 |
+| `DiscoverOptions` | `discoverPackages()` 的输入。 |
+| `DiscoveredPackage` | 自动检测到的 package 路径、registries 和 ecosystem。 |
+| `PackageNode` | 用于构建依赖图的输入节点。 |
+
+```ts
+import {
+  buildDependencyGraph,
+  discoverPackages,
+  topologicalSort,
+} from "@pubm/core";
+
+const discovered = await discoverPackages({ cwd: process.cwd() });
+
+const graph = buildDependencyGraph([
+  {
+    name: "@acme/core",
+    version: "1.0.0",
+    path: "packages/core",
+    dependencies: { "@acme/utils": "^1.0.0" },
+  },
+  {
+    name: "@acme/utils",
+    version: "1.0.0",
+    path: "packages/utils",
+    dependencies: {},
+  },
+]);
+
+const ordered = topologicalSort(graph);
+```
+
+## 校验与工具辅助函数
+
+package root 还导出了下面这些辅助函数，供工具集成使用。
+
+| Export | Kind | Purpose |
+|------|------|---------|
+| `validateEntryPoints` | function | 检查 package manifest 中的 `main`、`module`、`types`、`exports` 和 `bin` 路径。 |
+| `detectExtraneousFiles` | function | 标记通常不应出现在发布构件中的文件。 |
+| `getPackageJson` | function | 读取最近的 `package.json`，并可选回退到 `jsr.json`。 |
+| `replaceVersion` / `replaceVersionAtPath` | functions | 重写 manifest 中的 package 版本。 |
+| `version` | function | 从 `package.json` 或 `jsr.json` 读取当前 package 版本。 |
+| `generateSnapshotVersion` | function | 基于 `base`、`tag`、`timestamp` 和可选 `commit` 构建 snapshot 版本。 |
+| `loadTokensFromDb` | function | 读取已保存的 registry token，同时也会考虑匹配的环境变量。 |
+| `syncGhSecrets` | function | 通过 `gh secret set` 把 registry token 推送到 GitHub Secrets。 |
+| `exec` | function | 启动子进程并捕获 stdout/stderr。 |
+| `getPackageManager` | function | 通过 lockfile 检测 workspace 使用的包管理器。 |
+| `detectRuntime` / `isBun` | functions | 检测当前运行时。 |
+| `notifyNewVersion` | function | 检查是否有更新的 `pubm` 已发布版本，并打印更新提示。 |
+| `consoleError` | function | 格式化并打印 pubm 错误。 |
+| `PUBM_VERSION` / `PUBM_ENGINES` | constants | 运行时暴露的 package metadata。 |
+
+重要的相关类型：
+
+| Type | Purpose |
+|------|---------|
+| `EntryPointError` | 破损 manifest 路径的校验结果条目。 |
+| `ExtraneousFile` | 不应被发布的文件的校验结果条目。 |
+| `SnapshotOptions` | `generateSnapshotVersion()` 的输入。 |
+| `Runtime` | `node` \| `bun`。 |
+
+```ts
+import {
+  generateSnapshotVersion,
+  loadTokensFromDb,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const nextSnapshot = generateSnapshotVersion({
   baseVersion: "1.4.0",
   tag: "snapshot",
-  template: "{base}-{tag}-{timestamp}",
+  commit: "abc1234",
+  template: "{base}-{tag}-{timestamp}-{commit}",
 });
 
-const errors = validateEntryPoints(
+const entryPointErrors = validateEntryPoints(
   {
     main: "./dist/index.js",
     types: "./dist/index.d.ts",
   },
   process.cwd(),
 );
+
+const tokens = loadTokensFromDb(["npm", "jsr"]);
 ```
 
-## 范围
+## 导出策略
 
-本文档以当前 `@pubm/core` 包根入口 re-export 的公共 API 为准。即使 `packages/core/src/**` 下存在内部文件，只要没有从包根导出，就应视为私有实现细节。
+本页记录的是当前 package root 对外稳定导出的 surface。`packages/core/src/**` 下可能存在内部文件，但如果它们没有从 `@pubm/core` 重新导出，就应被视为私有实现细节。

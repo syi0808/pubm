@@ -1,11 +1,13 @@
 ---
-title: Configuration
-description: 配置发布流水线默认值、包结构和插件。
+title: 配置
+description: 为你的发布流程、包布局、插件和版本规划设置默认值。
 ---
 
-`pubm` 是 CLI-first 工具，但真实项目很快就会超出纯 flag 配置。`pubm.config.*` 用来放仓库级 publish 目标、包布局、插件和 changeset 版本规则。
+`pubm` 有意保持 CLI-first，但真实项目很快就会超出只靠 flags 配置的范围。`pubm.config.*` 用来保存仓库级的发布目标、包布局、插件和与 changeset 相关的版本规则。
 
 ## 支持的配置文件
+
+`pubm` 支持这些文件名：
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -14,20 +16,404 @@ description: 配置发布流水线默认值、包结构和插件。
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
 
-## registry 推断规则
+TypeScript 配置文件可直接使用。loader 会在执行前先打包该文件，因此不需要单独的运行时转译步骤。
 
-| 清单 | 推断的 registry |
+## 默认配置
+
+配置层解析出的默认值如下：
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  rollbackStrategy: "individual",
+  packages: [{ path: "." }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshotTemplate: "{tag}-{timestamp}",
+});
+```
+
+## registry 是如何推断的
+
+`pubm` 会检查每个 package 目录中的 manifest 文件，并将它们映射到对应的 registry：
+
+| Manifest | 推断出的 registry |
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-## 常用字段
+npm 还适用两条额外规则：
 
-- `packages`
-- `plugins`
-- `versioning`
-- `fixed`
-- `linked`
-- `ignore`
-- `snapshotTemplate`
+- `package.json` 中的 `publishConfig.registry` 会把 `npm` 替换成自定义 URL
+- 当没有 `publishConfig` 时，`.npmrc` 中的 registry 会替换 `npm`
+
+## 顶层选项
+
+### `versioning`
+
+- 类型：`"independent" | "fixed"`
+- 默认值：`"independent"`
+
+控制多包仓库中的版本分配方式。
+
+### `branch`
+
+- 类型：`string`
+- 默认值：`"main"`
+
+受保护的发布运行中，`HEAD` 必须匹配的分支。
+
+### `packages`
+
+- 类型：`PackageConfig[]`
+- 默认值：`[{ path: "." }]`
+
+显式声明可发布的包。除非在单个包上覆盖，否则 registry 会从 manifest 文件中推断。
+
+### `plugins`
+
+- 类型：`PubmPlugin[]`
+- 默认值：`[]`
+
+注册插件，这些插件可以添加 hooks、commands、registries 或 ecosystems。
+
+### `fixed`
+
+- 类型：`string[][]`
+- 默认值：`[]`
+
+必须始终使用相同版本的包分组。
+
+### `linked`
+
+- 类型：`string[][]`
+- 默认值：`[]`
+
+应该共享最高 bump 类型的包分组。
+
+### `ignore`
+
+- 类型：`string[]`
+- 默认值：`[]`
+
+从 workspace 发现中排除的包名或路径。
+
+### `tag`
+
+- 类型：`string`
+- 默认值：`"latest"`
+
+发布运行使用的默认 dist-tag。
+
+### `contents`
+
+- 类型：`string`
+- 默认值：`"."`
+
+在运行发布流程之前切换到的目录。
+
+### `saveToken`
+
+- 类型：`boolean`
+- 默认值：`true`
+
+是否将受支持 registry 的 token 保存起来，供本地机器后续复用。
+
+### `releaseDraft`
+
+- 类型：`boolean`
+- 默认值：`true`
+
+发布流程是否应该创建 GitHub Release。禁用后会完全跳过 release 步骤。
+
+### `validate`
+
+- 类型：`ValidateConfig`
+
+这些字段属于公开 schema，但目前还不是所有 publish 路径上的活动开关。应把它们视为带类型的配置面，而不是保证在运行时生效的切换项。
+
+### `snapshotTemplate`
+
+- 类型：`string`
+- 默认值：`"{tag}-{timestamp}"`
+
+当 `pubm --snapshot` 生成临时版本字符串时使用的模板。
+
+可用的模板变量：
+
+- `{base}`：来自 manifest 的当前包版本
+- `{tag}`：snapshot tag，默认是 `snapshot`
+- `{timestamp}`：格式为 `YYYYMMDDTHHmmss` 的 UTC 时间戳
+- `{commit}`：当前 git commit SHA
+
+## 配置和 CLI flags 如何交互
+
+当前的运行时行为是：
+
+- config 提供 `packages` 和 `plugins` 的仓库默认值
+- 与版本规划相关的 config，例如 `versioning`、`fixed` 和 `linked`，会被 changeset 流程使用
+- CLI flags 仍然控制每次运行的发布行为
+- registry 会从 manifest 推断；`packages[].registries` 可以覆盖该推断
+
+如果要针对某个 registry 做一次性发布：
+
+```bash
+pubm --registry npm --tag beta
+```
+
+## 多包配置
+
+对于 workspace 或混合语言仓库，请显式声明 package。registry 会从每个 package 的 manifest 文件中推断：
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    {
+      path: "packages/core",
+    },
+    {
+      path: "packages/cli",
+      registries: ["npm"],
+    },
+    {
+      path: "crates/pubm-rs",
+    },
+  ],
+});
+```
+
+在以下情况下建议使用显式 package 条目：
+
+- 你只想让 `pubm` 发布发现到的 workspace 包中的一部分
+- JavaScript 和 Rust 包共存于同一个仓库
+- 你需要覆盖推断出的 registry，或者添加私有 registry
+
+### `PackageConfig`
+
+package 级条目长这样：
+
+```ts
+interface PackageConfig {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+}
+
+interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string };
+}
+```
+
+只有在推断不够用，或者你需要在内建 registry 之外再加私有 registry 时，才使用 `registries`：
+
+```ts
+packages: [
+  {
+    path: "packages/a",
+    registries: [
+      "npm",
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+    ],
+  },
+];
+```
+
+## 版本策略
+
+### 独立版本
+
+每个包都有自己的版本和 tag。
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+});
+```
+
+### 固定版本
+
+所有受影响的包共享一个版本。
+
+```ts
+export default defineConfig({
+  versioning: "fixed",
+});
+```
+
+### fixed 和 linked 分组
+
+你可以让大多数包保持独立，同时强制选定的包一起移动：
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  fixed: [["@acme/core", "@acme/react"]],
+  linked: [["@acme/cli", "@acme/config"]],
+});
+```
+
+- `fixed`：分组内所有包最终会使用完全相同的版本
+- `linked`：最高的 bump 类型会在整个分组中传播
+
+## Snapshot 设置
+
+Snapshot 适合预览发布和按分支验证。
+
+```ts
+export default defineConfig({
+  snapshotTemplate: "{tag}-{timestamp}",
+});
+```
+
+示例输出：
+
+- `0.4.1-snapshot-20260312T102233`
+
+## 插件
+
+通过 `plugins` 数组添加插件：
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/) 了解 hooks 顺序、命令注册和自定义 registry 支持。
+
+## 示例模式
+
+### 简单库
+
+如果包里有 `package.json` 和 `jsr.json`，registry 会自动推断。不需要配置文件，`pubm.config.ts` 是可选的。只有在你需要覆盖默认值时才创建它，例如自定义 branch、plugins、release assets 等。
+
+### App monorepo
+
+只有 `package.json` 的包会被解析为 `npm`。除非你想覆盖，否则不需要显式 `registries`。
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "fixed",
+  packages: [
+    { path: "packages/web" },
+    { path: "packages/server" },
+  ],
+});
+```
+
+### 混合 JS + Rust workspace
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
+  ],
+});
+```
+
+## Release 资产
+
+`releaseAssets` 用来声明每个 GitHub Release 要附带的二进制构件。大多数情况下，一个简单的 glob 字符串就足够了：
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `compress`
+
+- 类型：`"tar.gz" | "zip" | "tar.xz" | "tar.zst" | false | Record<string, CompressFormat>`
+- 默认值：按 OS 自动检测（windows → `zip`，其他 → `tar.gz`）
+
+全局默认压缩格式。可以在 `releaseAssets` 内的 group 或 file 级别覆盖。
+
+```ts
+export default defineConfig({
+  // Windows 使用 zip，其他平台使用 tar.gz
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `releaseAssets`
+
+- 类型：`(string | ReleaseAssetGroupConfig)[]`
+- 默认值：`undefined`（不附加任何资产）
+
+每一项要么是 glob 字符串，要么是带显式控制的对象：
+
+```ts
+releaseAssets: [
+  // 字符串：glob，全自动
+  "platforms/*/bin/mytool",
+
+  // 对象：按 group 显式配置
+  {
+    packagePath: "packages/cli",    // monorepo：把资产关联到这个 package 的 Release
+    files: [
+      "platforms/*/bin/mytool",
+      { path: "dist/*.dmg", compress: false, name: "MyTool-{version}-{os}" },
+    ],
+    compress: "tar.gz",             // group 默认值
+    name: "{name}-{platform}",      // group 名称模板
+  },
+]
+```
+
+阅读 [Release Assets](/pubm/zh-cn/guides/release-assets/) 了解完整的 compress cascade 规则、name 模板变量和使用场景示例。
+
+## 下一步
+
+- 如果你需要 package 分组或混合 registry，请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/) 指南。
+- 如果配置中注册了自定义插件，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
+- 如果你想把二进制和 archive 附加到 GitHub Releases，请阅读 [Release Assets](/pubm/zh-cn/guides/release-assets/) 指南。

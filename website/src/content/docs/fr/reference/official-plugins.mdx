@@ -1,16 +1,223 @@
 ---
 title: Plugins officiels
-description: Plugins supportes et maintenus par le projet pubm.
+description: Plugins pris en charge maintenus par le projet pubm.
 ---
 
-Les plugins officiels sont maintenus avec `pubm` et conviennent quand vous voulez une integration standardisee.
+Les plugins officiels sont maintenus aux côtés de `pubm` et suivent les mêmes attentes de release et de compatibilité que le projet central. Utilisez-les quand vous voulez une intégration bien prise en charge sans avoir à construire votre propre plugin de zéro.
 
 ## `@pubm/plugin-brew`
 
-Synchronise une formule Homebrew avec chaque release.
+`@pubm/plugin-brew` aide les projets CLI à maintenir les formules Homebrew synchronisées avec chaque release.
+
+### Ce pour quoi il est utile
+
+- distribuer un binaire CLI via Homebrew
+- mettre à jour automatiquement un dépôt tap dédié
+- garder les checksums des formules alignés avec les artefacts de release
+
+### Configuration typique
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { brewTap } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewTap({
+      formula: "Formula/my-tool.rb",
+      repo: "https://github.com/my-org/homebrew-tap",
+    }),
+  ],
+});
+```
+
+### Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | Chemin de la formula relatif à la racine du dépôt. |
+| `repo` | `string` | URL facultative du dépôt tap distant. Si elle est omise, le dépôt courant est utilisé. |
+| `packageName` | `string` | Filtre de nom de package facultatif. Quand il est défini, le plugin ne s'exécute que pour les releases correspondant à ce nom de package. Utile dans les monorepos. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Matchers de plateforme personnalisés facultatifs. Remplace la logique de correspondance par défaut `os + arch`. |
+
+### Correspondance des plateformes
+
+Le plugin utilise les données structurées `ParsedPlatform` de chaque `ReleaseAsset` pour associer les artefacts aux entrées de plateforme de la formula. La logique de correspondance par défaut couvre quatre plateformes :
+
+| Clé de formula | Correspond quand |
+|----------------|------------------|
+| `darwin-arm64` | `asset.platform.os === "darwin" && asset.platform.arch === "arm64"` |
+| `darwin-x64` | `asset.platform.os === "darwin" && asset.platform.arch === "x64"` |
+| `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
+| `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
+
+Cela remplace l'ancienne approche consistant à faire du matching sur des chaînes dans le nom des artefacts, par exemple `asset.name.includes("darwin-arm64")`, qui était fragile quand les noms changeaient.
+
+### Matchers de plateforme personnalisés
+
+Utilisez `assetPlatforms` lorsque la correspondance par défaut `os + arch` ne suffit pas, par exemple si vous voulez uniquement les builds musl pour Linux :
+
+```ts
+brewTap({
+  formula: "Formula/mytool.rb",
+  assetPlatforms: {
+    "darwin-arm64": (asset) =>
+      asset.platform.os === "darwin" && asset.platform.arch === "arm64",
+    "linux-x64": (asset) =>
+      asset.platform.os === "linux" &&
+      asset.platform.arch === "x64" &&
+      asset.platform.abi === "musl",
+  },
+})
+```
+
+Chaque prédicat reçoit un `ReleaseAsset` et renvoie `true` si l'artefact doit être utilisé pour cette entrée de formula.
+
+### Comportement
+
+Le plugin peut :
+
+- créer un squelette de formula lorsqu'il n'en existe pas
+- mettre à jour les valeurs `url` et `sha256` des artefacts de release en utilisant les informations de plateforme structurées
+- commit et pousser les changements de formula
+- retomber sur un workflow de pull request lorsque le push direct n'est pas approprié
+
+### Commande associée
+
+```bash
+pubm brew init
+```
+
+Utilisez-la pour scaffolder une formula de départ à partir des métadonnées du package.
+
+### `brewCore`
+
+Pour contribuer à `homebrew/homebrew-core` (le dépôt Homebrew par défaut), utilisez `brewCore` au lieu de `brewTap` :
+
+```ts
+import { brewCore } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewCore({
+      formula: "Formula/my-tool.rb",
+    }),
+  ],
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | Chemin de la formula relatif à la racine du dépôt. |
+| `packageName` | `string` | Filtre de nom de package facultatif pour les monorepos. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Matchers de plateforme personnalisés facultatifs. |
+
+`brewCore` fork `homebrew/homebrew-core`, met à jour la formula et ouvre automatiquement une PR.
 
 ## `@pubm/plugin-external-version-sync`
 
-Garde les fichiers hors manifest alignes avec la version du package.
+Ce plugin garde les fichiers hors manifest alignés sur la version de votre package.
 
-Pour les details d'extension, lire [Plugins API Reference](/pubm/fr/reference/plugins/).
+Utilisez-le lorsqu'une release doit aussi mettre à jour :
+
+- les extraits d'installation dans `README.md`
+- les exemples de documentation
+- les manifests d'application
+- les constantes source
+- les fichiers JSON de métadonnées
+
+### Configuration typique
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "src/constants.ts",
+          pattern: /export const VERSION = "([^"]+)";/,
+        },
+        {
+          file: "manifest.json",
+          jsonPath: "metadata.version",
+        },
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+### Types de cibles
+
+#### `regex`
+
+À utiliser pour les fichiers texte arbitraires :
+
+```ts
+{
+  file: "README.md",
+  pattern: /pubm@([\\w.-]+)/,
+}
+```
+
+Exigences :
+
+- le motif doit isoler la version dans exactement un groupe de capture
+- le fichier doit avoir un format stable pour que l'automatisation de release puisse le mettre à jour sans risque
+
+#### `json`
+
+À utiliser pour les manifests lisibles par machine :
+
+```ts
+{
+  file: "manifest.json",
+  jsonPath: "metadata.version",
+}
+```
+
+### Quand utiliser `pubm sync --discover`
+
+Si vous ne savez pas où les versions apparaissent dans votre dépôt, exécutez :
+
+```bash
+pubm sync --discover
+```
+
+Cette commande analyse les références de version probables et affiche les fichiers et chemins candidats que vous pouvez adapter dans la config du plugin.
+
+## Choisir entre plugins officiels et plugins personnalisés
+
+Utilisez un plugin officiel lorsque :
+
+- votre besoin correspond à une intégration existante
+- vous voulez une configuration moins coûteuse à maintenir
+- le chemin de release est assez courant pour bénéficier d'une standardisation
+
+Construisez un plugin personnalisé lorsque :
+
+- votre registry ou votre workflow post-release est spécifique à l'organisation
+- vous avez besoin d'une politique ou d'une logique de déploiement personnalisée
+- vous voulez des commandes CLI supplémentaires pour les opérateurs
+
+Lisez la [Référence de l'API des plugins](/pubm/fr/reference/plugins/) si vous devez aller au-delà de l'ensemble officiel.
+
+## Automatisation de configuration pour agents de code
+
+Les plugins runtime ne sont qu'une partie de l'histoire. Ce dépôt fournit aussi un bundle `pubm plugin` sous `plugins/pubm-plugin/skills/*` pour les workflows d'agents de code tels que :
+
+- la configuration de la release
+- l'aide à la publication en mode aperçu d'abord
+- la découverte de synchronisation de version
+- le scaffolding de plugins
+
+Si vous intégrez `pubm` dans un environnement d'agent, associez les plugins runtime à ces assets de type skill pour que les flux de configuration et de publication restent explicites et reproductibles.
+
+Lisez le guide [Intégration des agents de code](/pubm/fr/guides/coding-agents/) pour le schéma d'intégration.

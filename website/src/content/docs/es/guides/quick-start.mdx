@@ -1,40 +1,30 @@
 ---
-title: Inicio rapido
-description: Instala pubm, inicializa el proyecto y publica tu primer release.
+title: Inicio rápido
+description: Configura pubm en minutos y publica tu primer release.
 ---
 
-`pubm` es un orquestador de releases para repositorios que publican en varios registros, varios paquetes o varios ecosistemas.
+`pubm` está pensado para empezar rápido. Si ya tienes un monorepo o un paquete con manifest, normalmente basta con instalarlo y ejecutar el flujo interactivo.
 
-## Antes de empezar
-
-- Git `2.11+`
-- Un manifiesto como `package.json`
-- Un working tree limpio antes de publicar
-
-Instalacion:
+## Instalar
 
 ```bash
-npm i -g pubm
+npm install -D pubm
+pnpm add -D pubm
+bun add -d pubm
 ```
 
-## Para agentes de codigo
-
-Si conectas `pubm` mediante Claude Code, Codex u otro agente, empieza por la automatizacion de setup.
-
-- Usa el skill `publish-setup`.
-- Dale al agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que obtenga el bundle y empiece con `publish-setup`.
-- Lee [Integracion con agentes de codigo](/pubm/es/guides/coding-agents/).
-
-## 1. Inicializar el repositorio
+## Inicializar
 
 ```bash
 pubm init
 ```
 
-## 2. Publicar
+Esto crea la configuración mínima y los directorios necesarios para empezar.
+
+## Publicar
 
 ```bash
 pubm
 ```
 
-Si hay changesets pendientes, `pubm` los consume durante la etapa de version del pipeline.
+Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para configuración, lee [Configuration](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).

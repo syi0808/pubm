@@ -1,15 +1,15 @@
 ---
-title: "Core SDK 레퍼런스"
-description: "@pubm/core에서 루트 엔트리로 공개하는 함수, 클래스, 타입 요약."
+title: Core SDK 레퍼런스
+description: "@pubm/core에서 사용할 수 있는 공개 함수, 클래스, export된 타입입니다."
 ---
 
-`@pubm/core`는 `pubm` CLI의 프로그램용 API입니다. 이 문서는 패키지 루트에서 바로 import 가능한 공개 식별자만 다룹니다.
+`@pubm/core`는 `pubm` CLI 뒤에 있는 프로그래밍 API입니다. 이 페이지는 패키지 루트에서 export되는 공개 식별자를 다룹니다.
 
 ```ts
 import { ... } from "@pubm/core";
 ```
 
-패키지는 타입 선언과 ESM/CJS 엔트리를 함께 제공합니다. 현재 패키지 메타데이터의 런타임 요구사항은 `node >= 24`입니다.
+이 패키지는 타입 선언과 ESM/CJS 엔트리 포인트를 모두 제공합니다. 현재 패키지 메타데이터는 `node >= 24`를 선언합니다.
 
 ## 설치
 
@@ -19,47 +19,52 @@ pnpm add @pubm/core
 bun add @pubm/core
 ```
 
-## 핵심 API
+## 릴리스 파이프라인
 
 ### `pubm(options)`
 
-CLI와 같은 릴리스 파이프라인을 코드에서 실행합니다.
+CLI를 구동하는 것과 같은 릴리스 파이프라인을 실행합니다.
 
 ```ts
 import { pubm } from "@pubm/core";
 
 await pubm({
   version: "patch",
-  preview: true,
+  dryRun: true,
   tag: "next",
 });
 ```
 
-가장 많이 쓰는 `Options` 필드는 아래와 같습니다.
+`pubm()`은 `Options` 객체를 받습니다. 가장 중요한 필드는 다음과 같습니다.
 
-| Field | Type | Purpose |
-|------|------|---------|
-| `version` | `string` | `patch`, `minor`, `major` 또는 명시적 semver. |
-| `preview` | `boolean` | Git 변경이나 publish 없이 task plan만 확인. |
-| `branch` | `string` | 특정 브랜치에서만 릴리스 허용. |
-| `anyBranch` | `boolean` | 이번 실행에서만 브랜치 제한 해제. |
-| `tag` | `string` | `latest`, `next`, `beta` 같은 dist-tag 지정. |
-| `snapshot` | `string \| boolean` | snapshot 버전 생성. |
-| `packages` | `PackageConfig[]` | 자동 탐지 대신 패키지 목록 지정. |
-| `preflight` | `boolean` | CI와 비슷한 조건으로 로컬 dry-run 수행. |
-| `ci` | `boolean` | 최신 태그 기준 publish와 GitHub Release 생성. |
-| `publishOnly` | `boolean` | 준비 단계 없이 publish만 수행. |
+| 필드 | 타입 | 용도 |
+|------|------|------|
+| `version` | `string` | `patch`, `minor`, `major` 또는 명시적 semver 같은 릴리스 대상입니다. |
+| `dryRun` | `boolean` | Git 상태를 바꾸거나 publish하지 않고 작업 계획만 보여줍니다. |
+| `mode` | `"local" \| "ci"` | 실행 모드입니다. `local`은 대화형, `ci`는 비대화형 tag 기반입니다. |
+| `prepare` | `boolean` | 준비 단계만 실행합니다(검증과 publish dry-run 확인). |
+| `publish` | `boolean` | publish 단계만 실행합니다(최신 태그에서 publish). |
+| `releaseDraft` | `boolean` | publish된 release 대신 draft GitHub Release를 만듭니다. |
+| `branch` | `string` | publish 전에 특정 브랜치를 요구합니다. |
+| `anyBranch` | `boolean` | 한 번의 실행에 한해 브랜치 강제를 비활성화합니다. |
+| `tag` | `string` | `latest`, `next`, `beta` 같은 dist-tag로 publish합니다. |
+| `snapshot` | `string \| boolean` | 설정된 템플릿으로 snapshot 버전을 만듭니다. |
+| `packages` | `PackageConfig[]` | 자동 탐지된 패키지를 덮어씁니다. |
 
-## 설정 API
+설정 기반 릴리스에서는 `pubm()`이 자동으로 `pubm.config.*`를 로드하고, 패키지 탐지를 해석하며, 작업 그래프를 실행하기 전에 플러그인을 연결합니다.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `defineConfig` | function | `pubm.config.ts` 작성을 위한 타입 헬퍼. |
-| `loadConfig` | function | 디스크에서 `pubm.config.*`를 읽어 `PubmConfig \| null` 반환. |
-| `resolveConfig` | function | 기본값 적용, 패키지 자동 탐지, private registry 정규화 수행. |
-| `PubmConfig` | type | 사용자가 작성하는 설정 타입. |
-| `ResolvedPubmConfig` | type | `resolveConfig()` 이후의 확정된 설정 타입. |
-| `PackageConfig` | type | 패키지별 registry/ecosystem/build/test 오버라이드 타입. |
+## 설정 헬퍼
+
+이 헬퍼들은 `pubm.config.*`를 읽거나 검증하는 코드의 주 진입점입니다.
+
+| Export | Kind | 용도 |
+|------|------|------|
+| `defineConfig` | function | `pubm.config.ts` 작성을 위한 타입이 있는 헬퍼입니다. |
+| `loadConfig` | function | 디스크에서 `pubm.config.*`를 읽어 `PubmConfig \| null`을 반환합니다. |
+| `resolveConfig` | function | 기본값을 적용하고, 패키지를 자동 탐지하며, private registry를 정규화합니다. |
+| `PubmConfig` | type | 사용자가 작성하는 config 형태입니다. |
+| `ResolvedPubmConfig` | type | `resolveConfig()`가 반환하는 완전히 해석된 config입니다. |
+| `PackageConfig` | type | 탐지와 publish 계획에 쓰이는 패키지별 config 항목입니다. |
 
 ```ts
 import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
@@ -72,16 +77,37 @@ const config = await loadConfig(process.cwd());
 const resolved = config ? await resolveConfig(config, process.cwd()) : null;
 ```
 
+`PackageConfig`는 패키지별 registry, ecosystem, build command, test command를 덮어쓰는 곳입니다.
+
+```ts
+type PackageConfig = {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | string | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+};
+```
+
 ## 플러그인 API
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `PubmPlugin` | type | 플러그인 최상위 계약. |
-| `PluginHooks` | type | `beforeBuild`, `afterPublish`, `onError`, `afterRelease` 같은 라이프사이클 훅. |
-| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | 훅 시그니처. |
-| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 플러그인 커맨드 모델. |
-| `PluginRunner` | class | 로드된 플러그인의 훅 실행과 registry/ecosystem 수집 담당. |
-| `ReleaseContext` / `ReleaseAsset` | types | `afterRelease` 훅으로 전달되는 메타데이터. |
+커스텀 registry, ecosystem, 라이프사이클 훅, CLI 명령으로 publish 파이프라인을 확장하고 싶을 때 플러그인 export를 사용합니다.
+
+| Export | Kind | 용도 |
+|------|------|------|
+| `PubmPlugin` | type | 최상위 플러그인 계약입니다. |
+| `PluginHooks` | type | `beforeBuild`, `afterPublish`, `onError`, `afterRelease`, asset pipeline 훅 같은 라이프사이클 훅입니다. |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | 훅 시그니처입니다. |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 플러그인을 위한 커스텀 CLI 명령 모델입니다. |
+| `PluginRunner` | class | 로드된 플러그인의 훅을 실행하고 registry/ecosystem을 수집하는 유틸리티입니다. |
+| `ReleaseContext` | type | `afterRelease` 훅에 전달되는 release 메타데이터입니다. `packageName`, `version`, `tag`, `releaseUrl`, `assets`를 포함합니다. |
+| `ReleaseAsset` | type | 업로드된 asset 하나입니다. `name`, `url`, `sha256`, 구조화된 `platform`을 가집니다. |
+| `ParsedPlatform` | type | 구조화된 플랫폼 정보입니다. `raw`, `os`, `arch`, `vendor`, `abi`, `variant`를 가집니다. |
+| `PreparedAsset` | type | 압축과 해시가 끝나 업로드 준비가 된 asset입니다. |
+| `TransformedAsset` | type | `transformAsset` 훅 이후, 압축 전의 asset입니다. |
+| `CompressedAsset` | type | `compressAsset` 단계 이후, 이름 지정 전의 asset입니다. |
+| `UploadedAsset` | type | 업로드 후 `url`과 `target`을 가진 asset입니다. |
+| `ResolvedAsset` | type | glob 매칭과 플랫폼 파싱이 끝난 asset입니다. |
 
 ```ts
 import { defineConfig, type PubmPlugin } from "@pubm/core";
@@ -100,46 +126,189 @@ export default defineConfig({
 });
 ```
 
-## Changeset / Monorepo / Utils
+## Asset pipeline
 
-루트 엔트리에는 아래 범주의 헬퍼도 함께 export됩니다.
+이 export들은 release asset 파이프라인을 구성하며, 플러그인 작성자나 커스텀 도구에 유용합니다.
 
-- Changeset: `readChangesets`, `parseChangeset`, `getStatus`, `discoverCurrentVersions`, `discoverPackageInfos`, `calculateVersionBumps`, `generateChangesetId`, `generateChangesetContent`, `writeChangeset`, `buildChangelogEntries`, `generateChangelog`, `writeChangelogToFile`, `migrateFromChangesets`, `deleteChangesetFiles`, `parseChangelogSection`
-- Monorepo: `detectWorkspace`, `discoverPackages`, `buildDependencyGraph`, `topologicalSort`, `resolveGroups`, `applyFixedGroup`, `applyLinkedGroup`, `Git`
-- Validation/Utils: `validateEntryPoints`, `detectExtraneousFiles`, `getPackageJson`, `replaceVersion`, `replaceVersionAtPath`, `version`, `generateSnapshotVersion`, `loadTokensFromDb`, `syncGhSecrets`, `exec`, `getPackageManager`, `detectRuntime`, `isBun`, `notifyNewVersion`, `consoleError`, `PUBM_VERSION`, `PUBM_ENGINES`
+| Export | Kind | 용도 |
+|------|------|------|
+| `parsePlatform` | function | 내장 테이블을 사용해 경로 segment 문자열에서 OS, arch, ABI, variant, vendor를 파싱합니다. |
+| `runAssetPipeline` | function | 해석된 config와 훅 세트를 받아 resolve, transform, compress, name, hash, checksums를 포함한 전체 asset pipeline을 실행합니다. |
 
-주요 타입도 함께 공개됩니다.
+```ts
+import { parsePlatform, runAssetPipeline } from "@pubm/core";
 
-- Changeset 계열: `BumpType`, `Changeset`, `Release`, `Status`, `PackageStatus`, `VersionBump`, `ChangelogEntry`, `DependencyUpdate`, `PackageVersionInfo`, `MigrationResult`
-- Monorepo 계열: `WorkspaceInfo`, `DiscoverOptions`, `DiscoveredPackage`, `PackageNode`
-- 기타: `Options`, `SnapshotOptions`, `Runtime`, `EntryPointError`, `ExtraneousFile`
+// 경로 segment 또는 capture 문자열을 파싱
+const platform = parsePlatform("darwin-arm64");
+// { raw: "darwin-arm64", os: "darwin", arch: "arm64" }
+
+const platform2 = parsePlatform("x86_64-unknown-linux-gnu");
+// { raw: "x86_64-unknown-linux-gnu", os: "linux", arch: "x64", vendor: "unknown", abi: "gnu" }
+```
+
+Asset pipeline 타입:
+
+```ts
+import type {
+  ParsedPlatform,
+  ReleaseContext,
+  ReleaseAsset,
+  ResolvedAsset,
+  TransformedAsset,
+  CompressedAsset,
+  PreparedAsset,
+  UploadedAsset,
+} from "@pubm/core";
+```
+
+사용법 가이드는 [Release Assets](/pubm/ko/guides/release-assets/)와 [Asset Pipeline Hooks](/pubm/ko/guides/asset-pipeline-hooks/)에서 확인합니다.
+
+## Changeset 및 버전 관리 헬퍼
+
+changeset export를 사용하면 `.pubm/changesets` 주변의 커스텀 도구를 만들 수 있습니다.
+
+| Export | Kind | 용도 |
+|------|------|------|
+| `readChangesets` / `parseChangeset` | functions | `.pubm/changesets/*.md`를 읽고 파싱합니다. |
+| `getStatus` | function | 패키지별 보류 중 changeset을 집계합니다. |
+| `discoverCurrentVersions` / `discoverPackageInfos` | functions | 워크스페이스에서 현재 패키지 이름과 버전을 읽습니다. |
+| `calculateVersionBumps` | function | 현재 버전과 보류 중 changeset으로 다음 버전을 계산합니다. |
+| `generateChangesetId` / `generateChangesetContent` / `writeChangeset` | functions | 새 changeset 파일을 만듭니다. |
+| `buildChangelogEntries` / `generateChangelog` / `writeChangelogToFile` | functions | changeset에서 changelog 출력을 만듭니다. |
+| `migrateFromChangesets` | function | 레거시 `.changeset/` 데이터를 `.pubm/`으로 복사합니다. |
+| `deleteChangesetFiles` | function | 소비된 changeset 파일을 삭제합니다. |
+| `parseChangelogSection` | function | changelog 섹션을 다시 구조화된 데이터로 파싱합니다. |
+
+중요한 관련 타입:
+
+| Type | 용도 |
+|------|------|
+| `Changeset` | `id`, `summary`, package release가 있는 파싱된 `.md` 파일입니다. |
+| `Release` | changeset 안의 패키지 bump 항목 하나입니다. |
+| `BumpType` | `"patch" \| "minor" \| "major"`입니다. |
+| `Status` / `PackageStatus` | `getStatus()`가 집계한 보류 상태입니다. |
+| `VersionBump` | `calculateVersionBumps()`의 version planning 결과입니다. |
+| `ChangelogEntry` / `DependencyUpdate` | changelog 렌더링 입력입니다. |
+| `PackageVersionInfo` | 탐지 헬퍼가 반환하는 package name, version, path입니다. |
+| `MigrationResult` | `migrateFromChangesets()`가 반환하는 결과 객체입니다. |
 
 ```ts
 import {
   calculateVersionBumps,
   discoverCurrentVersions,
-  generateSnapshotVersion,
-  validateEntryPoints,
+  getStatus,
 } from "@pubm/core";
 
 const currentVersions = await discoverCurrentVersions(process.cwd());
+const status = getStatus(process.cwd());
 const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
+```
 
-const snapshot = generateSnapshotVersion({
+## 모노레포 및 워크스페이스 헬퍼
+
+이 export들은 `pubm`이 내부적으로 사용하는 것과 같은 워크스페이스 탐지 로직이 필요할 때 유용합니다.
+
+| Export | Kind | 용도 |
+|------|------|------|
+| `detectWorkspace` | function | 저장소 파일에서 pnpm, npm, Yarn, Bun, Cargo, Deno 워크스페이스를 감지합니다. |
+| `discoverPackages` | function | publish 가능한 패키지를 자동 탐지하고 registry/ecosystem을 추론합니다. |
+| `buildDependencyGraph` | function | 패키지 메타데이터로 내부 의존성 그래프를 만듭니다. |
+| `topologicalSort` | function | 의존성이 먼저 오도록 그래프 노드를 정렬합니다. |
+| `resolveGroups` | function | 탐지된 패키지 목록에 대해 fixed/linked 그룹을 해석합니다. |
+| `applyFixedGroup` / `applyLinkedGroup` | functions | 버전 계획에 그룹 의미를 적용합니다. |
+| `Git` | class | 릴리스 자동화에 쓰이는 Git 명령의 얇은 래퍼입니다. |
+
+중요한 관련 타입:
+
+| Type | 용도 |
+|------|------|
+| `WorkspaceInfo` | 워크스페이스 타입과 include/exclude 패턴입니다. |
+| `DiscoverOptions` | `discoverPackages()`의 입력입니다. |
+| `DiscoveredPackage` | 자동 탐지된 패키지 경로, registry, ecosystem입니다. |
+| `PackageNode` | 의존성 그래프 작성에 쓰이는 입력 노드입니다. |
+
+```ts
+import {
+  buildDependencyGraph,
+  discoverPackages,
+  topologicalSort,
+} from "@pubm/core";
+
+const discovered = await discoverPackages({ cwd: process.cwd() });
+
+const graph = buildDependencyGraph([
+  {
+    name: "@acme/core",
+    version: "1.0.0",
+    path: "packages/core",
+    dependencies: { "@acme/utils": "^1.0.0" },
+  },
+  {
+    name: "@acme/utils",
+    version: "1.0.0",
+    path: "packages/utils",
+    dependencies: {},
+  },
+]);
+
+const ordered = topologicalSort(graph);
+```
+
+## 검증 및 유틸리티 헬퍼
+
+패키지 루트는 도구 통합에 쓸 수 있는 아래 헬퍼도 export합니다.
+
+| Export | Kind | 용도 |
+|------|------|------|
+| `validateEntryPoints` | function | 패키지 매니페스트의 `main`, `module`, `types`, `exports`, `bin` 경로를 검사합니다. |
+| `detectExtraneousFiles` | function | 보통 publish 산출물에 포함되면 안 되는 파일을 찾아냅니다. |
+| `getPackageJson` | function | 가장 가까운 `package.json`을 읽고, 필요하면 `jsr.json`으로 fallback합니다. |
+| `replaceVersion` / `replaceVersionAtPath` | functions | 매니페스트의 패키지 버전을 다시 씁니다. |
+| `version` | function | `package.json` 또는 `jsr.json`에서 현재 패키지 버전을 읽습니다. |
+| `generateSnapshotVersion` | function | `base`, `tag`, `timestamp`, 선택적 `commit`으로 snapshot 버전을 만듭니다. |
+| `loadTokensFromDb` | function | 저장된 registry 토큰을 읽고, 일치하는 env var도 함께 반영합니다. |
+| `syncGhSecrets` | function | `gh secret set`을 통해 registry 토큰을 GitHub Secrets에 밀어 넣습니다. |
+| `exec` | function | subprocess를 실행하고 stdout/stderr를 캡처합니다. |
+| `getPackageManager` | function | lockfile로 워크스페이스 패키지 매니저를 감지합니다. |
+| `detectRuntime` / `isBun` | functions | 현재 runtime을 감지합니다. |
+| `notifyNewVersion` | function | 더 최신의 pubm 버전이 있는지 확인하고 업데이트 배너를 출력합니다. |
+| `consoleError` | function | pubm 에러를 서식화해서 출력합니다. |
+| `PUBM_VERSION` / `PUBM_ENGINES` | constants | 런타임에 노출되는 패키지 메타데이터입니다. |
+
+중요한 관련 타입:
+
+| Type | 용도 |
+|------|------|
+| `EntryPointError` | 깨진 매니페스트 경로에 대한 검증 결과 항목입니다. |
+| `ExtraneousFile` | publish되면 안 되는 파일에 대한 검증 결과 항목입니다. |
+| `SnapshotOptions` | `generateSnapshotVersion()`의 입력입니다. |
+| `Runtime` | `"node" \| "bun"`입니다. |
+
+```ts
+import {
+  generateSnapshotVersion,
+  loadTokensFromDb,
+  validateEntryPoints,
+} from "@pubm/core";
+
+const nextSnapshot = generateSnapshotVersion({
   baseVersion: "1.4.0",
   tag: "snapshot",
-  template: "{base}-{tag}-{timestamp}",
+  commit: "abc1234",
+  template: "{base}-{tag}-{timestamp}-{commit}",
 });
 
-const errors = validateEntryPoints(
+const entryPointErrors = validateEntryPoints(
   {
     main: "./dist/index.js",
     types: "./dist/index.d.ts",
   },
   process.cwd(),
 );
+
+const tokens = loadTokensFromDb(["npm", "jsr"]);
 ```
 
-## 범위
+## Export 정책
 
-이 문서는 현재 `@pubm/core` 패키지 루트에서 re-export하는 공개 API를 기준으로 작성되었습니다. `packages/core/src/**` 내부 파일이 존재하더라도 루트에서 export되지 않는 항목은 내부 구현으로 보는 편이 안전합니다.
+이 페이지는 현재 패키지 루트가 export하는 안정적인 표면을 문서화합니다. `packages/core/src/**` 아래에 내부 파일이 있더라도, `@pubm/core`에서 다시 export되지 않는 항목은 private implementation detail로 취급해야 합니다.

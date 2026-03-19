@@ -1,29 +1,149 @@
 ---
-title: Plugins API Reference
-description: Hooks, Commands, Registries und Ecosystems zu pubm hinzufugen.
+title: Plugin-API-Referenz
+description: Hooks, Befehle, Registries und Ecosystems zu pubm hinzufuegen.
 ---
 
-Plugins erweitern `pubm`, ohne die Kernpipeline zu forken.
+Das Plugin-System erlaubt es dir, `pubm` zu erweitern, ohne die Kern-Publish-Pipeline zu forken.
 
 ## `PubmPlugin`
 
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: Registry[];
+  registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
 }
 ```
 
-## `Ctx`
+## Hooks
 
 ```ts
-export interface Ctx extends ResolvedOptions {
-  promptEnabled: boolean;
-  cleanWorkingTree: boolean;
-  pluginRunner: PluginRunner;
-  releaseContext?: ReleaseContext;
+export interface PluginHooks {
+  // Lifecycle-Hooks
+  beforeTest?: HookFn;
+  afterTest?: HookFn;
+  beforeBuild?: HookFn;
+  afterBuild?: HookFn;
+  beforeVersion?: HookFn;
+  afterVersion?: HookFn;
+  beforePublish?: HookFn;
+  afterPublish?: HookFn;
+  beforePush?: HookFn;
+  afterPush?: HookFn;
+  afterRelease?: AfterReleaseHookFn;
+  onError?: ErrorHookFn;
+  onRollback?: HookFn;
+  onSuccess?: HookFn;
+
+  // Asset-Pipeline-Hooks
+  resolveAssets?: AssetPipelineHooks["resolveAssets"];
+  transformAsset?: AssetPipelineHooks["transformAsset"];
+  compressAsset?: AssetPipelineHooks["compressAsset"];
+  nameAsset?: AssetPipelineHooks["nameAsset"];
+  generateChecksums?: AssetPipelineHooks["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks["uploadAssets"];
 }
 ```
+
+### Asset-Pipeline-Hooks
+
+Sechs Hooks erlauben es Plugins, jede Stufe der Release-Asset-Pipeline abzufangen. Sie laufen zwischen dem Build-Schritt und dem Upload in den GitHub Release.
+
+| Hook | Wann er laeuft | Input -> Output |
+|------|----------------|-----------------|
+| `resolveAssets` | Nach dem Glob-Matching | `ResolvedAsset[]` -> `ResolvedAsset[]` |
+| `transformAsset` | Pro Asset, vor der Komprimierung | `ResolvedAsset` -> `TransformedAsset \| TransformedAsset[]` |
+| `compressAsset` | Pro Asset, ersetzt die eingebaute Komprimierung | `TransformedAsset` -> `CompressedAsset` |
+| `nameAsset` | Pro Asset, nach der Komprimierung | `CompressedAsset` -> `string` |
+| `generateChecksums` | Nachdem alle Assets benannt und gehasht wurden | `PreparedAsset[]` -> `PreparedAsset[]` |
+| `uploadAssets` | Nach dem GitHub-Release-Upload | `PreparedAsset[]` -> `UploadedAsset[]` |
+
+Wenn mehrere Plugins denselben Asset-Pipeline-Hook registrieren, werden sie in Registrierungsreihenfolge verkettet. `uploadAssets` ist die Ausnahme: Jedes Plugin erhaelt dieselbe Eingabe unabhaengig, und alle Ergebnisse werden zusammengefuehrt.
+
+Lies [Asset Pipeline Hooks](/pubm/de/de/guides/asset-pipeline-hooks/) fuer vollstaendige Signaturen, Beispiele und Kompositionsregeln.
+
+## Hook-Signaturen
+
+```ts
+type HookFn = (ctx: PubmContext) => Promise<void> | void;
+type ErrorHookFn = (ctx: PubmContext, error: Error) => Promise<void> | void;
+type AfterReleaseHookFn = (
+  ctx: PubmContext,
+  releaseCtx: ReleaseContext,
+) => Promise<void> | void;
+```
+
+## `PubmContext`
+
+Hooks erhalten den aktuellen Pipeline-Kontext:
+
+```ts
+export interface PubmContext {
+  readonly config: ResolvedPubmConfig;
+  readonly options: ResolvedOptions;
+  readonly cwd: string;
+  runtime: {
+    tag: string;
+    promptEnabled: boolean;
+    cleanWorkingTree: boolean;
+    pluginRunner: PluginRunner;
+    versionPlan?: VersionPlan;
+    releaseContext?: ReleaseContext;
+    tempDir?: string;
+  };
+}
+```
+
+Wichtige Felder:
+
+- `ctx.config` - aufgeloeste pubm-Config (Pakete, Registries, Plugins, releaseAssets usw.)
+- `ctx.options` - aufgeloeste CLI-Optionen (Version, Tag, Mode, dryRun usw.)
+- `ctx.cwd` - Arbeitsverzeichnis
+- `ctx.runtime` - veraenderbarer Runtime-Zustand (Version-Plan, temporäres Verzeichnis usw.)
+
+## Beispiel
+
+```ts
+const notifyPlugin = {
+  name: "notify-plugin",
+  hooks: {
+    async afterPublish(ctx) {
+      const label =
+        ctx.versions && ctx.versions.size > 0
+          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
+          : `v${ctx.version}`;
+
+      console.log(`Published ${label}`);
+    },
+  },
+};
+```
+
+## Benutzerdefinierte Befehle
+
+```ts
+export interface PluginCommand {
+  name: string;
+  description: string;
+  subcommands?: PluginSubcommand[];
+}
+
+export interface PluginSubcommand {
+  name: string;
+  description: string;
+  options?: PluginCommandOption[];
+  action: (args: Record<string, unknown>) => Promise<void>;
+}
+```
+
+## Benutzerdefinierte Registries und Ecosystems
+
+Verwende benutzerdefinierte Registries, wenn du ein weiteres Publish-Ziel brauchst. Verwende benutzerdefinierte Ecosystems, wenn du `pubm` beibringen willst, wie Versionsdaten fuer einen anderen Pakettyp gelesen und geschrieben werden.
+
+## Verwandte Doku
+
+- [Konfiguration](/pubm/de/de/guides/configuration/)
+- [Coding Agent Integration](/pubm/de/de/guides/coding-agents/)
+- [Offizielle Plugins](/pubm/de/de/reference/official-plugins/)
