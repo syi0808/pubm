@@ -39,7 +39,12 @@ const result = await Bun.build({
     target: "bun-linux-x64-baseline-musl",
     outfile: OUT_FILE,
   },
-  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-linux-x64-musl/keyring.linux-x64-musl.node")],
+  plugins: [
+    createKeyringPlugin(
+      ROOT,
+      "./node_modules/@napi-rs/keyring-linux-x64-musl/keyring.linux-x64-musl.node",
+    ),
+  ],
   define,
 });
 

@@ -39,7 +39,12 @@ const result = await Bun.build({
     target: "bun-darwin-x64",
     outfile: OUT_FILE,
   },
-  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-darwin-x64/keyring.darwin-x64.node")],
+  plugins: [
+    createKeyringPlugin(
+      ROOT,
+      "./node_modules/@napi-rs/keyring-darwin-x64/keyring.darwin-x64.node",
+    ),
+  ],
   define,
 });
 

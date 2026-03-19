@@ -40,7 +40,12 @@ const result = await Bun.build({
     outfile: OUT_FILE,
     windows: {},
   },
-  plugins: [createKeyringPlugin(ROOT, "./node_modules/@napi-rs/keyring-win32-x64-msvc/keyring.win32-x64-msvc.node")],
+  plugins: [
+    createKeyringPlugin(
+      ROOT,
+      "./node_modules/@napi-rs/keyring-win32-x64-msvc/keyring.win32-x64-msvc.node",
+    ),
+  ],
   define,
 });
 

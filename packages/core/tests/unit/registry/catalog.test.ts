@@ -305,14 +305,22 @@ describe("validateToken", () => {
 
   it("crates validateToken returns true for token with 32+ chars", async () => {
     const crates = registryCatalog.get("crates")!;
-    expect(await crates.validateToken!("abcdefghijklmnopqrstuvwxyz123456")).toBe(true);
-    expect(await crates.validateToken!("cio_abcdefghijklmnopqrstuvwxyz12")).toBe(true);
-    expect(await crates.validateToken!("cioAbcdefghijklmnopqrstuvwxyz123456")).toBe(true);
+    expect(
+      await crates.validateToken!("abcdefghijklmnopqrstuvwxyz123456"),
+    ).toBe(true);
+    expect(
+      await crates.validateToken!("cio_abcdefghijklmnopqrstuvwxyz12"),
+    ).toBe(true);
+    expect(
+      await crates.validateToken!("cioAbcdefghijklmnopqrstuvwxyz123456"),
+    ).toBe(true);
   });
 
   it("crates validateToken trims whitespace before validating", async () => {
     const crates = registryCatalog.get("crates")!;
-    expect(await crates.validateToken!("  abcdefghijklmnopqrstuvwxyz123456  ")).toBe(true);
+    expect(
+      await crates.validateToken!("  abcdefghijklmnopqrstuvwxyz123456  "),
+    ).toBe(true);
   });
 
   it("crates validateToken returns false for short or empty token", async () => {
