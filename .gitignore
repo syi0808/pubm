@@ -35,3 +35,5 @@ packages/cli/platforms/*/bin/
 
 # Turbo
 .turbo/
+
+.pubm
