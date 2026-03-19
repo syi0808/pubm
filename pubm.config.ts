@@ -14,8 +14,8 @@ export default defineConfig({
   releaseAssets: [
     {
       packagePath: "packages/pubm",
-      files: ["platforms/{os}-{arch}/bin/pubm"],
-      name: "pubm-{os}-{arch}",
+      files: ["platforms/{platform}/bin/pubm"],
+      name: "pubm-{platform}",
     },
   ],
   plugins: [
