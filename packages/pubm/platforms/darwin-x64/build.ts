@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { $ } from "bun";
 import pubmPackageJson from "../../package.json" with { type: "json" };
 import { createKeyringPlugin } from "../keyring-plugin.ts";
 
@@ -25,6 +26,8 @@ const define = {
 mkdirSync(BIN_DIR, { recursive: true });
 
 console.log("[@pubm/darwin-x64] Compiling...");
+
+await $`bun install @napi-rs/keyring-darwin-x64@1.2.0 --os='darwin' --cpu='x64'`;
 
 const result = await Bun.build({
   tsconfig: TSCONFIG,

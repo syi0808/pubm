@@ -1,10 +1,10 @@
-import { join } from "node:path";
+import { resolve } from "node:path";
 
 export function createKeyringPlugin(
   root: string,
   addonPath: string,
 ): Bun.BunPlugin {
-  const resolvedPath = join(root, addonPath);
+  const resolvedPath = resolve(root, addonPath);
 
   return {
     name: "keyring-loader",
@@ -18,7 +18,7 @@ export function createKeyringPlugin(
         () => {
           return {
             loader: "js",
-            contents: `module.exports = require("${resolvedPath}");`,
+            contents: `module.exports = require(${JSON.stringify(resolvedPath)});`,
           };
         },
       );

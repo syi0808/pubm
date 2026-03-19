@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { $ } from "bun";
 import pubmPackageJson from "../../package.json" with { type: "json" };
 import { createKeyringPlugin } from "../keyring-plugin.ts";
 
@@ -25,6 +26,8 @@ const define = {
 mkdirSync(BIN_DIR, { recursive: true });
 
 console.log("[@pubm/linux-arm64] Compiling...");
+
+await $`bun install @napi-rs/keyring-linux-arm64-gnu@1.2.0 --os='linux' --cpu='arm64'`;
 
 const result = await Bun.build({
   tsconfig: TSCONFIG,
