@@ -1,11 +1,11 @@
 ---
-title: Configuration
-description: 릴리스 파이프라인 기본값, 패키지 구조, 플러그인, 버전 계획을 설정합니다.
+title: 설정
+description: 릴리스 파이프라인, 패키지 구조, 플러그인, 버전 계획의 기본값을 설정합니다.
 ---
 
-`pubm`은 CLI 우선 도구이지만, 실제 프로젝트는 곧 플래그만으로는 부족해집니다. `pubm.config.*`에는 저장소 수준의 publish 대상, 패키지 구조, 플러그인, changeset 버전 규칙을 넣습니다.
+`pubm`은 의도적으로 CLI 우선 도구지만, 실제 프로젝트는 금방 플래그만으로는 부족해집니다. `pubm.config.*`는 저장소 수준의 publish 대상, 패키지 레이아웃, 플러그인, changeset 기반 버전 규칙을 두는 곳입니다.
 
-## 지원하는 설정 파일
+## 지원되는 설정 파일
 
 `pubm`은 다음 파일 이름을 지원합니다.
 
@@ -16,9 +16,11 @@ description: 릴리스 파이프라인 기본값, 패키지 구조, 플러그인
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
 
-TypeScript 설정 파일도 직접 지원합니다.
+TypeScript 설정 파일도 직접 지원합니다. 로더가 평가 전에 파일을 번들링하므로, 별도의 런타임 트랜스파일 단계는 필요하지 않습니다.
 
 ## 기본 설정
+
+설정 레이어에서 해석되는 기본값은 다음과 같습니다.
 
 ```ts
 export default defineConfig({
@@ -50,7 +52,7 @@ export default defineConfig({
 
 ## 레지스트리 추론 방식
 
-매니페스트 파일과 추론 결과:
+`pubm`은 각 패키지 디렉터리의 매니페스트 파일을 검사해 레지스트리를 매핑합니다.
 
 | 매니페스트 | 추론되는 레지스트리 |
 |---|---|
@@ -58,147 +60,158 @@ export default defineConfig({
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-npm 추가 규칙:
+npm에는 추가 규칙이 두 개 있습니다.
 
-- `package.json`의 `publishConfig.registry`가 있으면 `npm` 대신 해당 URL을 사용합니다.
-- `.npmrc` 레지스트리는 `publishConfig`가 없을 때 `npm`을 대체합니다.
+- `package.json`의 `publishConfig.registry`가 있으면 `npm` 대신 해당 커스텀 URL을 사용합니다.
+- `publishConfig`가 없을 때는 `.npmrc` 레지스트리가 `npm`을 대체합니다.
 
-## 주요 top-level 옵션
+## 최상위 옵션
 
 ### `versioning`
 
 - 타입: `"independent" | "fixed"`
 - 기본값: `"independent"`
 
-멀티 패키지 저장소에서 버전 전략을 제어합니다.
+멀티 패키지 저장소에서 버전이 어떻게 배정되는지 제어합니다.
 
 ### `branch`
 
 - 타입: `string`
 - 기본값: `"main"`
 
-가드된 릴리스에서 `HEAD`가 일치해야 하는 브랜치입니다.
+가드된 릴리스 실행 동안 `HEAD`가 일치해야 하는 브랜치입니다.
 
 ### `packages`
 
 - 타입: `PackageConfig[]`
 - 기본값: `[{ path: "." }]`
 
-배포 대상 패키지를 명시합니다. 각 패키지의 레지스트리는 매니페스트에서 자동 추론되며, 필요하면 패키지별로 재정의할 수 있습니다.
+배포 가능한 패키지를 명시합니다. 레지스트리는 패키지별로 덮어쓰지 않는 한 매니페스트 파일에서 추론됩니다.
 
 ### `plugins`
 
 - 타입: `PubmPlugin[]`
 - 기본값: `[]`
 
-훅, 명령, 레지스트리, 생태계를 확장합니다.
+훅, 명령, 레지스트리, 생태계를 추가할 수 있는 플러그인을 등록합니다.
 
 ### `fixed`
 
 - 타입: `string[][]`
 - 기본값: `[]`
 
-항상 같은 버전으로 움직여야 하는 그룹입니다.
+항상 같은 버전으로 맞춰야 하는 패키지 그룹입니다.
 
 ### `linked`
 
 - 타입: `string[][]`
 - 기본값: `[]`
 
-최고 bump 타입을 공유해야 하는 그룹입니다.
+가장 높은 bump type을 공유해야 하는 패키지 그룹입니다.
 
 ### `ignore`
 
 - 타입: `string[]`
 - 기본값: `[]`
 
-워크스페이스 자동 탐지에서 제외할 패키지 이름 또는 경로입니다.
+워크스페이스 탐지에서 제외할 패키지 이름 또는 경로입니다.
 
 ### `tag`
 
 - 타입: `string`
 - 기본값: `"latest"`
 
-기본 dist-tag입니다.
+publish 실행의 기본 dist-tag입니다.
 
 ### `contents`
 
 - 타입: `string`
 - 기본값: `"."`
 
-릴리스 파이프라인 전에 `chdir`할 디렉터리입니다.
+릴리스 파이프라인을 실행하기 전에 `chdir`할 디렉터리입니다.
 
 ### `saveToken`
 
 - 타입: `boolean`
 - 기본값: `true`
 
-지원되는 레지스트리 토큰을 로컬에 저장할지 결정합니다.
+지원되는 레지스트리 토큰을 로컬 머신에서 재사용하도록 저장할지 여부입니다.
 
 ### `releaseDraft`
 
 - 타입: `boolean`
 - 기본값: `true`
 
-일반 publish 흐름에서 GitHub release draft 단계를 열지 여부입니다.
+publish 흐름이 GitHub Release를 만들지 여부입니다. 비활성화하면 release 단계는 완전히 건너뜁니다.
 
 ### `validate`
 
 - 타입: `ValidateConfig`
 
-공개 스키마에는 포함되지만, 현재 모든 publish 경로에서 활성 스위치로 동작하는 것은 아닙니다.
+이 필드들은 공개 스키마의 일부지만, 아직 모든 publish 경로에서 활성 토글로 동작하지는 않습니다. 런타임 스위치가 아니라 타입이 있는 설정 표면으로 보아야 합니다.
 
 ### `snapshotTemplate`
 
 - 타입: `string`
 - 기본값: `"{tag}-{timestamp}"`
 
-`pubm --snapshot` 사용 시 임시 버전 문자열을 만드는 템플릿입니다.
+`pubm --snapshot`이 임시 버전 문자열을 만들 때 사용하는 템플릿입니다.
 
-사용 가능한 변수:
+사용 가능한 템플릿 변수는 다음과 같습니다.
 
-- `{base}`: 매니페스트의 현재 버전
-- `{tag}`: snapshot 태그, 기본값 `snapshot`
+- `{base}`: 매니페스트에 있는 현재 패키지 버전
+- `{tag}`: snapshot 태그, 기본값은 `snapshot`
 - `{timestamp}`: `YYYYMMDDTHHmmss` 형식의 UTC 타임스탬프
-- `{commit}`: 현재 Git 커밋 SHA
+- `{commit}`: 현재 git 커밋 SHA
 
-## config와 CLI 플래그의 관계
+## config와 CLI 플래그의 상호작용
 
-- config는 `packages`, `plugins` 기본값을 제공합니다.
-- `versioning`, `fixed`, `linked`는 changeset 흐름에 쓰입니다.
-- CLI 플래그는 실행별 publish 동작을 제어합니다.
-- 레지스트리는 매니페스트에서 추론되며, `packages[].registries`로 재정의할 수 있습니다.
+현재 런타임 동작은 다음과 같습니다.
 
-예:
+- config는 `packages`와 `plugins`의 저장소 기본값을 제공합니다.
+- `versioning`, `fixed`, `linked` 같은 버전 관련 config는 changeset 흐름에서 사용됩니다.
+- CLI 플래그는 실행별 publish 동작을 계속 제어합니다.
+- 레지스트리는 매니페스트에서 추론되며, `packages[].registries`가 그 추론을 덮어씁니다.
+
+특정 레지스트리로 한 번만 publish하려면:
 
 ```bash
-pubm patch --registry npm --tag beta
+pubm --registry npm --tag beta
 ```
 
 ## 멀티 패키지 설정
 
-레지스트리는 각 패키지의 매니페스트 파일에서 자동 추론됩니다:
+워크스페이스나 혼합 언어 저장소에서는 패키지를 명시적으로 선언합니다. 레지스트리는 각 패키지의 매니페스트 파일에서 추론됩니다.
 
 ```ts
+import { defineConfig } from "@pubm/core";
+
 export default defineConfig({
   versioning: "independent",
   packages: [
-    { path: "packages/core" },
-    { path: "packages/cli", registries: ["npm"] },
-    { path: "crates/pubm-rs" },
+    {
+      path: "packages/core",
+    },
+    {
+      path: "packages/cli",
+      registries: ["npm"],
+    },
+    {
+      path: "crates/pubm-rs",
+    },
   ],
 });
 ```
 
-다음 경우 명시적 `packages` 설정이 좋습니다.
+다음 경우에는 명시적 패키지 설정이 좋습니다.
 
-- 자동 탐지된 워크스페이스 중 일부만 배포하고 싶을 때
-- JS와 Rust가 함께 있을 때
-- 추론된 레지스트리를 재정의하거나 프라이빗 레지스트리를 추가할 때
+- 자동 탐지된 워크스페이스 중 일부만 publish하고 싶을 때
+- JavaScript와 Rust 패키지가 같은 저장소에 함께 있을 때
+- 추론된 레지스트리를 덮어쓰거나 private registry를 추가해야 할 때
 
 ### `PackageConfig`
 
-패키지 수준 설정의 형태는 다음과 같습니다.
+패키지 수준 항목의 구조는 다음과 같습니다.
 
 ```ts
 interface PackageConfig {
@@ -215,7 +228,7 @@ interface PrivateRegistryConfig {
 }
 ```
 
-프라이빗 레지스트리를 함께 추가하려면:
+`registries`는 추론이 충분하지 않거나, 기본 제공 레지스트리와 함께 private registry를 추가해야 할 때만 사용합니다.
 
 ```ts
 packages: [
@@ -231,9 +244,9 @@ packages: [
 
 ## 버전 전략
 
-### `independent`
+### 독립 버전 관리
 
-각 패키지가 독립적으로 버전과 태그를 가집니다.
+각 패키지는 자체 버전과 태그를 가집니다.
 
 ```ts
 export default defineConfig({
@@ -241,9 +254,9 @@ export default defineConfig({
 });
 ```
 
-### `fixed`
+### 고정 버전 관리
 
-영향 받은 패키지가 하나의 버전을 공유합니다.
+영향받는 모든 패키지가 하나의 버전을 공유합니다.
 
 ```ts
 export default defineConfig({
@@ -251,7 +264,9 @@ export default defineConfig({
 });
 ```
 
-### `fixed` / `linked` 그룹
+### fixed와 linked 그룹
+
+대부분의 패키지는 독립적으로 유지하면서, 선택한 패키지만 함께 움직이게 할 수도 있습니다.
 
 ```ts
 export default defineConfig({
@@ -261,10 +276,12 @@ export default defineConfig({
 });
 ```
 
-- `fixed`: 그룹 내 패키지가 항상 정확히 같은 버전을 가집니다.
-- `linked`: 그룹 내 최고 bump 타입이 전파됩니다.
+- `fixed`: 그룹 안의 모든 패키지가 정확히 같은 버전이 됩니다.
+- `linked`: 가장 높은 bump type이 그룹 전체에 전파됩니다.
 
-## snapshot 설정
+## 스냅샷 설정
+
+스냅샷은 preview 릴리스나 브랜치별 검증에 적합합니다.
 
 ```ts
 export default defineConfig({
@@ -277,6 +294,8 @@ export default defineConfig({
 - `0.4.1-snapshot-20260312T102233`
 
 ## 플러그인
+
+`plugins` 배열을 통해 플러그인을 추가합니다.
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -296,15 +315,17 @@ export default defineConfig({
 });
 ```
 
-훅 순서와 커스텀 레지스트리는 [Plugins API Reference](/pubm/ko/reference/plugins/)를 참고하세요.
+훅 순서, 명령 등록, 커스텀 레지스트리 지원은 [Plugins API Reference](/pubm/ko/reference/plugins/)에서 확인합니다.
 
 ## 예시 패턴
 
-### 단일 라이브러리
+### 단순 라이브러리
 
-`package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다. config 파일은 필요하지 않습니다 — `pubm.config.ts`는 선택 사항입니다. 기본값을 재정의해야 할 때(커스텀 브랜치, 플러그인, 릴리즈 에셋 등)만 생성하세요.
+패키지에 `package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다. 설정 파일은 필요하지 않습니다. `pubm.config.ts`는 선택 사항입니다. 기본값을 덮어써야 할 때만 만듭니다. 예를 들면 커스텀 브랜치, 플러그인, release assets 등이 있습니다.
 
 ### 앱 모노레포
+
+`package.json`만 있는 패키지는 `npm`으로 해석됩니다. 덮어쓰려는 경우가 아니라면 `registries`를 명시할 필요가 없습니다.
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -331,3 +352,68 @@ export default defineConfig({
   ],
 });
 ```
+
+## Release assets
+
+`releaseAssets`는 각 GitHub Release에 첨부할 바이너리 산출물을 선언합니다. 대부분의 경우 단순한 glob 문자열만으로 충분합니다.
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `compress`
+
+- 타입: `"tar.gz" | "zip" | "tar.xz" | "tar.zst" | false | Record<string, CompressFormat>`
+- 기본값: OS-aware 자동 감지 (`windows`는 `zip`, 그 외는 `tar.gz`)
+
+전역 기본 압축 형식입니다. `releaseAssets` 안의 그룹이나 파일 수준에서 덮어쓸 수 있습니다.
+
+```ts
+export default defineConfig({
+  // Windows는 zip, 그 외는 tar.gz 사용
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `releaseAssets`
+
+- 타입: `(string | ReleaseAssetGroupConfig)[]`
+- 기본값: `undefined` (첨부할 자산 없음)
+
+각 항목은 glob 문자열이거나, 파일·압축·이름을 명시적으로 제어하는 객체입니다.
+
+```ts
+releaseAssets: [
+  // 문자열: glob, 완전 자동
+  "platforms/*/bin/mytool",
+
+  // 객체: 그룹별 설정을 명시
+  {
+    packagePath: "packages/cli",    // 모노레포: 이 패키지의 release에 연결
+    files: [
+      "platforms/*/bin/mytool",
+      { path: "dist/*.dmg", compress: false, name: "MyTool-{version}-{os}" },
+    ],
+    compress: "tar.gz",             // 그룹 기본값
+    name: "{name}-{platform}",      // 그룹 이름 템플릿
+  },
+]
+```
+
+압축 cascade 규칙, 이름 템플릿 변수, 사용 사례 예시는 [Release Assets](/pubm/ko/guides/release-assets/)에서 확인합니다.
+
+## 다음 단계
+
+- 패키지 그룹이나 혼합 레지스트리가 필요하면 [Monorepo](/pubm/ko/guides/monorepo/) 가이드를 사용합니다.
+- 설정이 커스텀 플러그인을 등록한다면 [Plugins API Reference](/pubm/ko/reference/plugins/)를 사용합니다.
+- 바이너리와 아카이브를 GitHub Releases에 첨부하려면 [Release Assets](/pubm/ko/guides/release-assets/) 가이드를 사용합니다.

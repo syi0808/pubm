@@ -1,21 +1,21 @@
 ---
-title: Official Plugins
-description: pubm 프로젝트가 직접 유지보수하는 공식 플러그인입니다.
+title: 공식 플러그인
+description: pubm 프로젝트가 직접 유지보수하는 지원 플러그인입니다.
 ---
 
-공식 플러그인은 `pubm`와 함께 유지되며, 핵심 프로젝트와 같은 수준의 릴리스/호환성 기대치를 가집니다.
+공식 플러그인은 `pubm`와 함께 유지보수되며, 핵심 프로젝트와 같은 릴리스 및 호환성 기대치를 따릅니다. 직접 플러그인을 처음부터 만들지 않고도 잘 지원되는 통합이 필요할 때 사용합니다.
 
 ## `@pubm/plugin-brew`
 
-CLI 프로젝트의 Homebrew formula를 릴리스와 함께 동기화합니다.
+`@pubm/plugin-brew`는 CLI 프로젝트가 각 릴리스와 함께 Homebrew formula를 동기화하는 데 도움을 줍니다.
 
-### 적합한 경우
+### 잘 맞는 경우
 
-- Homebrew로 CLI 바이너리 배포
-- 별도 tap 저장소 자동 업데이트
-- 릴리스 자산 체크섬과 formula 정합성 유지
+- Homebrew를 통해 CLI 바이너리를 배포할 때
+- 전용 tap 저장소를 자동으로 업데이트할 때
+- release asset과 formula checksum을 맞춰 둘 때
 
-### 예시 설정
+### 일반적인 설정
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -36,34 +36,97 @@ export default defineConfig({
 | 옵션 | 타입 | 설명 |
 |------|------|------|
 | `formula` | `string` | 저장소 루트 기준 formula 경로 |
-| `repo` | `string` | 선택적 tap 저장소 URL. 없으면 현재 저장소 사용 |
+| `repo` | `string` | 선택적 remote tap 저장소 URL. 생략하면 현재 저장소를 사용합니다. |
+| `packageName` | `string` | 선택적 package name 필터. 지정하면 이 package name과 일치하는 릴리스에서만 플러그인이 실행됩니다. 모노레포에 유용합니다. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 선택적 커스텀 플랫폼 매처. 기본 `os + arch` 매칭 로직을 덮어씁니다. |
+
+### 플랫폼 매칭
+
+플러그인은 각 `ReleaseAsset`의 구조화된 `ParsedPlatform` 데이터를 사용해 asset을 formula platform 항목과 매칭합니다. 기본 매칭 로직은 네 가지 플랫폼을 지원합니다.
+
+| Formula key | 매칭 조건 |
+|-------------|-----------|
+| `darwin-arm64` | `asset.platform.os === "darwin" && asset.platform.arch === "arm64"` |
+| `darwin-x64` | `asset.platform.os === "darwin" && asset.platform.arch === "x64"` |
+| `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
+| `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
+
+이 방식은 asset 이름을 문자열로 매칭하던 이전 방식(예: `asset.name.includes("darwin-arm64")`)을 대체합니다. 이름이 바뀌어도 덜 깨집니다.
+
+### 커스텀 플랫폼 매처
+
+기본 `os + arch` 매칭이 충분하지 않을 때, 예를 들어 Linux에서 musl 빌드만 원할 때 `assetPlatforms`를 사용합니다.
+
+```ts
+brewTap({
+  formula: "Formula/mytool.rb",
+  assetPlatforms: {
+    "darwin-arm64": (asset) =>
+      asset.platform.os === "darwin" && asset.platform.arch === "arm64",
+    "linux-x64": (asset) =>
+      asset.platform.os === "linux" &&
+      asset.platform.arch === "x64" &&
+      asset.platform.abi === "musl",
+  },
+})
+```
+
+각 predicate는 `ReleaseAsset`를 받아, 해당 asset을 formula 항목에 사용해야 하면 `true`를 반환합니다.
 
 ### 동작
 
-- formula가 없으면 스캐폴딩
-- 릴리스 자산의 `url` / `sha256` 갱신
-- formula 변경 커밋/푸시
-- 직접 push가 부적절하면 PR 흐름으로 폴백
+플러그인은 다음을 수행할 수 있습니다.
 
-관련 명령:
+- 존재하지 않으면 formula 스캐폴드를 생성합니다.
+- 구조화된 플랫폼 정보를 사용해 release asset의 `url`과 `sha256`을 갱신합니다.
+- formula 변경을 commit하고 push합니다.
+- 직접 push가 적절하지 않으면 pull request 흐름으로 폴백합니다.
+
+### 관련 명령
 
 ```bash
 pubm brew init
 ```
 
+패키지 메타데이터로 시작 formula를 스캐폴딩할 때 사용합니다.
+
+### `brewCore`
+
+기본 Homebrew 저장소인 homebrew-core에 기여할 때는 `brewTap` 대신 `brewCore`를 사용합니다.
+
+```ts
+import { brewCore } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewCore({
+      formula: "Formula/my-tool.rb",
+    }),
+  ],
+});
+```
+
+| 옵션 | 타입 | 설명 |
+|------|------|------|
+| `formula` | `string` | 저장소 루트 기준 formula 경로 |
+| `packageName` | `string` | 모노레포용 선택적 package name 필터 |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 선택적 커스텀 플랫폼 매처 |
+
+`brewCore`는 `homebrew/homebrew-core`를 포크하고, formula를 업데이트한 뒤, PR을 자동으로 엽니다.
+
 ## `@pubm/plugin-external-version-sync`
 
-패키지 버전과 비매니페스트 파일을 동기화합니다.
+이 플러그인은 매니페스트가 아닌 파일을 패키지 버전에 맞춰 유지합니다.
 
-적용 예:
+다음과 같은 파일을 릴리스와 함께 업데이트해야 할 때 사용합니다.
 
-- `README.md` 설치 스니펫
+- `README.md`의 설치 스니펫
 - docs 예제
-- 앱 manifest
+- 앱 매니페스트
 - 소스 상수
-- 메타데이터 JSON
+- 메타데이터 JSON 파일
 
-### 예시 설정
+### 일반적인 설정
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -95,6 +158,8 @@ export default defineConfig({
 
 #### `regex`
 
+임의의 텍스트 파일에 사용합니다.
+
 ```ts
 {
   file: "README.md",
@@ -102,9 +167,14 @@ export default defineConfig({
 }
 ```
 
-버전은 정확히 하나의 캡처 그룹으로 분리되어야 합니다.
+요구사항:
+
+- 패턴은 정확히 하나의 capturing group으로 버전을 분리해야 합니다.
+- 파일 형식은 안정적이어야 하며, 그래야 릴리스 자동화가 안전하게 업데이트할 수 있습니다.
 
 #### `json`
+
+기계가 읽을 수 있는 manifest에 사용합니다.
 
 ```ts
 {
@@ -115,14 +185,39 @@ export default defineConfig({
 
 ## `pubm sync --discover`를 써야 할 때
 
+저장소 어디에 version 문자열이 있는지 잘 모르겠다면 다음을 실행합니다.
+
 ```bash
 pubm sync --discover
 ```
 
-저장소 어디에 버전 문자열이 있는지 확신이 없을 때 후보 파일과 경로를 찾아줍니다.
+이 명령은 version 참조 후보를 스캔해, plugin config로 옮길 수 있는 후보 파일과 경로를 출력합니다.
 
-## 공식 플러그인 vs 커스텀 플러그인
+## 공식 플러그인과 커스텀 플러그인 선택
 
-공식 플러그인은 일반적인 통합에, 커스텀 플러그인은 조직 특화 레지스트리나 후처리 로직에 적합합니다.
+다음 경우에는 공식 플러그인을 사용합니다.
 
-더 확장해야 한다면 [Plugins API Reference](/pubm/ko/reference/plugins/)를 참고하세요.
+- 필요한 통합이 이미 존재할 때
+- 유지보수 비용이 낮은 구성을 원할 때
+- 표준화의 이점을 받을 만큼 일반적인 릴리스 경로일 때
+
+다음 경우에는 커스텀 플러그인을 만듭니다.
+
+- 레지스트리나 릴리스 후 워크플로가 조직 전용일 때
+- 커스텀 정책이나 배포 로직이 필요할 때
+- 운영자를 위한 추가 CLI 명령이 필요할 때
+
+공식 세트를 넘어 확장하려면 [Plugins API Reference](/pubm/ko/reference/plugins/)를 읽습니다.
+
+## 코딩 에이전트 설정 자동화
+
+런타임 플러그인만으로는 이야기가 끝나지 않습니다. 이 저장소는 `plugins/pubm-plugin/skills/*` 아래에 코딩 에이전트 워크플로용 `pubm plugin` 번들도 함께 제공합니다. 예를 들면 다음과 같습니다.
+
+- 릴리스 설정
+- preview 우선 publish 지원
+- version-sync 탐색
+- 플러그인 스캐폴딩
+
+`pubm`을 에이전트 환경에 통합한다면, 런타임 플러그인과 이 스킬형 자산을 함께 사용해 설정과 publish 흐름이 명시적이고 반복 가능하게 유지되도록 합니다.
+
+통합 레이아웃은 [코딩 에이전트 통합](/pubm/ko/guides/coding-agents/) 가이드에서 확인합니다.

@@ -1,40 +1,50 @@
 ---
 title: 快速开始
-description: 安装 pubm、初始化项目并完成第一次发布。
+description: 安装 pubm、初始化项目，并发布你的第一个版本。
 ---
 
-`pubm` 是面向多 registry、多包、多生态发布场景的 release orchestration 工具。
+`pubm` 是面向会发布到多个 registry、多个包或多个生态的项目的发布编排工具。
 
-## 开始前
+## 开始之前
+
+`pubm` 适用于已经使用 Git 且拥有有效 package manifest 的仓库。
 
 - Git `2.11+`
-- `package.json` 之类的包清单
-- 发布前保持干净的 working tree
+- 一个 package manifest，例如 `package.json`
+- 发布前保持干净的工作区
 
-安装 CLI：
+`pubm` 本身以 Bun 构建的单文件二进制分发。仅为了运行 CLI 并不需要单独的 Node.js runtime，不过通过 npm 安装时仍会使用你的包管理器工具链。
+
+全局安装 CLI：
 
 ```bash
 npm i -g pubm
 ```
 
-## 面向编码代理
+## 面向 coding agent
 
-如果你通过 Claude Code、Codex 或其他编码代理接入 `pubm`，优先从 setup 自动化开始，而不是手写 release prompt。
+如果你要通过 Claude Code、Codex 或其他 coding agent 接入 `pubm`，请先从 setup automation 开始，而不是手写发布提示词。
 
-- 使用 `publish-setup` skill。
-- 把 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 链接提供给代理，让它获取 bundle 并从 `publish-setup` 开始。
-- 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/)。
+- 使用 `pubm plugin` bundle 中的 `publish-setup` skill 来安装发布工作流、生成配置、接入 CI 并启用 changesets。
+- 把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接交给你的 agent，这样它就能获取 bundle 并从 `publish-setup` 开始。
+- 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 了解集成模型和各 skill 的职责。
 
 ## 1. 初始化仓库
+
+创建基础的 `pubm` 结构：
 
 ```bash
 pubm init
 ```
 
+这会创建 `pubm.config.ts` 和 `.pubm/changesets/`。
+
 ## 2. 发布
+
+启动发布流程：
 
 ```bash
 pubm
 ```
 
-如果存在待处理 changeset，`pubm` 会在 release pipeline 的 version 阶段自动消费它们。
+如果存在待处理的 changeset，`pubm` 会在发布流程的版本步骤中消耗它们。配置细节请阅读 [Configuration](/pubm/zh-cn/guides/configuration/)。CI、token 和 CI preparation 行为请阅读 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。monorepo 请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/)。精确的 flags 和子命令请阅读 [CLI Reference](/pubm/zh-cn/reference/cli/)。

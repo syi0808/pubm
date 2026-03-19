@@ -1,24 +1,162 @@
 ---
 title: CI/CD
-description: Configurar preflight, manejo de tokens y automatizacion de releases para pubm.
+description: Configura la preparación de CI, el manejo de tokens y la automatización de releases para pubm.
 ---
 
-`pubm` funciona bien tanto en terminal local como en CI. El pipeline normal ya puede consumir los changesets pendientes durante la version.
+`pubm` está diseñado para comportarse bien tanto en terminales locales como en runners de CI. El punto clave es que el pipeline normal de `pubm` ya sabe cómo consumir los changesets pendientes durante el versionado, así que no necesitas un paso separado de `pubm changesets version` solo para preparar CI.
 
-## Flujo recomendado
+## Modelo de release recomendado
+
+Usa dos fases:
+
+1. ejecuta `pubm --mode ci --phase prepare` localmente o en un job de release controlado
+2. publica desde CI con `pubm --mode ci --phase publish`
 
 ```bash
-pubm --preflight
-pubm --ci
+pubm --mode ci --phase prepare
 ```
 
-## Que hace preflight
+```bash
+pubm --mode ci --phase publish
+```
 
-- recopila tokens de registry
-- puede sincronizarlos a GitHub Secrets
-- ejecuta checks, tests y build
-- consume changesets pendientes durante versionado
-- crea el commit de release y hace push de rama y tags
-- hace dry-run del publish real
+## Qué hace la preparación de CI
 
-Por eso no hace falta ejecutar `pubm patch --preview` despues de preflight.
+`pubm --mode ci --phase prepare` no es solo una verificación de tokens. Ejecuta el pipeline de release hasta justo antes de la publicación real:
+
+- recopila los tokens de registry
+- sincroniza opcionalmente con GitHub Secrets
+- ejecuta las comprobaciones de prerrequisitos y condiciones requeridas
+- ejecuta tests y build salvo que se omitan
+- consume los changesets pendientes durante el versionado cuando existen
+- crea el commit de release y hace push de los tags y los cambios de rama
+- simula la publicación en lugar de realizarla realmente
+
+Por eso no necesitas ejecutar `pubm patch --dry-run` después de la preparación de CI.
+
+## Variables de entorno requeridas
+
+En CI, proporciona los tokens de registry mediante variables de entorno:
+
+| Variable | Registry |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm |
+| `JSR_TOKEN` | jsr |
+| `CARGO_REGISTRY_TOKEN` | crates.io |
+
+## Sincronizar GitHub Secrets
+
+Si ya guardaste tokens localmente mediante una ejecución de preparación de CI, súbelos a GitHub Secrets con:
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm,jsr
+```
+
+## Estructura de ejemplo en GitHub Actions
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "@*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: pnpm install --frozen-lockfile
+      - run: pubm --mode ci --phase publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+```
+
+## Problemas habituales en CI
+
+### Checkout superficial
+
+Las operaciones que dependen de tags e historial necesitan información completa de Git. Usa `fetch-depth: 0` para los jobs de release.
+
+### Faltan tokens de registry
+
+`pubm` no puede pedir datos interactivos en CI. Si falta un token, la ejecución falla.
+
+### Desajuste del token de 2FA de npm
+
+Usa tokens compatibles con automatización para publicar en CI.
+
+### La salida de build no está presente en `contents`
+
+Si publicas desde `dist/`, asegúrate de que el workflow realmente cree `dist/` antes de `pubm --mode ci --phase publish`.
+
+## Assets de GitHub Release
+
+Si tu proyecto usa `releaseAssets` en `pubm.config.ts`, `pubm --mode ci --phase publish` ejecuta el asset pipeline y sube los artefactos a GitHub Release automáticamente.
+
+### Requisito de `GITHUB_TOKEN`
+
+La creación del GitHub Release y la subida de assets usan la API de GitHub. Proporciona `GITHUB_TOKEN` o un token de grano fino con permiso `contents: write`. El token es necesario para toda creación de GitHub Release, no solo para subir assets:
+
+```yaml
+- run: pubm --mode ci --phase publish
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+GitHub Actions inyecta `GITHUB_TOKEN` como secreto integrado en cada ejecución del workflow. No necesitas crearlo manualmente, solo pasarlo por el entorno.
+
+### Los outputs de build deben existir antes de subir
+
+El asset pipeline se ejecuta después del build step. Asegúrate de que tu workflow produzca los binarios o artefactos necesarios, por ejemplo en `platforms/*/bin/`, antes de que se ejecute `pubm --mode ci --phase publish`. Si un patrón glob configurado no coincide con ningún archivo al subir, `pubm` lo trata como error.
+
+### Ejemplo con assets de release
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build       # Debe producir platforms/*/bin/mytool
+      - run: pubm --mode ci --phase publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Siguientes pasos
+
+- Lee la guía [Troubleshooting](/pubm/es/guides/troubleshooting/) para diagnosticar fallos.
+- Lee la [CLI Reference](/pubm/es/reference/cli/) para ver todos los flags de ejecución usados en CI.
+- Lee la guía [Release Assets](/pubm/es/guides/release-assets/) para configurar `releaseAssets` en tu proyecto.

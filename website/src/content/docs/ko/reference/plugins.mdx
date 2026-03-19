@@ -1,5 +1,5 @@
 ---
-title: Plugins API Reference
+title: 플러그인 API 레퍼런스
 description: pubm에 훅, 명령, 레지스트리, 생태계를 추가합니다.
 ---
 
@@ -10,7 +10,7 @@ description: pubm에 훅, 명령, 레지스트리, 생태계를 추가합니다.
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: Registry[];
+  registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
@@ -21,6 +21,7 @@ export interface PubmPlugin {
 
 ```ts
 export interface PluginHooks {
+  // 라이프사이클 훅
   beforeTest?: HookFn;
   afterTest?: HookFn;
   beforeBuild?: HookFn;
@@ -35,45 +36,72 @@ export interface PluginHooks {
   onError?: ErrorHookFn;
   onRollback?: HookFn;
   onSuccess?: HookFn;
+
+  // asset pipeline 훅
+  resolveAssets?: AssetPipelineHooks["resolveAssets"];
+  transformAsset?: AssetPipelineHooks["transformAsset"];
+  compressAsset?: AssetPipelineHooks["compressAsset"];
+  nameAsset?: AssetPipelineHooks["nameAsset"];
+  generateChecksums?: AssetPipelineHooks["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks["uploadAssets"];
 }
 ```
+
+### Asset pipeline 훅
+
+여섯 개의 훅으로 플러그인이 release asset 파이프라인의 각 단계를 가로챌 수 있습니다. 이 훅들은 build 단계와 GitHub Release 업로드 사이에서 실행됩니다.
+
+| Hook | 실행 시점 | 입력 → 출력 |
+|------|-----------|-------------|
+| `resolveAssets` | glob 매칭 직후 | `ResolvedAsset[]` → `ResolvedAsset[]` |
+| `transformAsset` | asset별, 압축 전 | `ResolvedAsset` → `TransformedAsset \| TransformedAsset[]` |
+| `compressAsset` | asset별, 내장 압축 대체 | `TransformedAsset` → `CompressedAsset` |
+| `nameAsset` | asset별, 압축 후 | `CompressedAsset` → `string` |
+| `generateChecksums` | 모든 asset이 이름과 해시를 가진 뒤 | `PreparedAsset[]` → `PreparedAsset[]` |
+| `uploadAssets` | GitHub Release 업로드 후 | `PreparedAsset[]` → `UploadedAsset[]` |
+
+여러 플러그인이 같은 asset pipeline 훅을 등록하면 등록 순서대로 체인됩니다. `uploadAssets`는 예외입니다. 각 플러그인은 같은 입력을 독립적으로 받고, 결과는 모두 이어 붙입니다.
+
+전체 시그니처, 예제, 조합 규칙은 [Asset Pipeline Hooks](/pubm/ko/guides/asset-pipeline-hooks/)에서 확인합니다.
 
 ## Hook 시그니처
 
 ```ts
-type HookFn = (ctx: Ctx) => Promise<void> | void;
-type ErrorHookFn = (ctx: Ctx, error: Error) => Promise<void> | void;
+type HookFn = (ctx: PubmContext) => Promise<void> | void;
+type ErrorHookFn = (ctx: PubmContext, error: Error) => Promise<void> | void;
 type AfterReleaseHookFn = (
-  ctx: Ctx,
+  ctx: PubmContext,
   releaseCtx: ReleaseContext,
 ) => Promise<void> | void;
 ```
 
-## `Ctx`
+## `PubmContext`
 
-훅은 현재 파이프라인 컨텍스트를 받습니다. 런타임 타입은 해석된 CLI 옵션에 내부 상태 몇 가지가 추가된 형태입니다.
+훅은 현재 파이프라인 컨텍스트를 받습니다.
 
 ```ts
-export interface Ctx extends ResolvedOptions {
-  promptEnabled: boolean;
-  cleanWorkingTree: boolean;
-  pluginRunner: PluginRunner;
-  releaseContext?: ReleaseContext;
+export interface PubmContext {
+  readonly config: ResolvedPubmConfig;
+  readonly options: ResolvedOptions;
+  readonly cwd: string;
+  runtime: {
+    tag: string;
+    promptEnabled: boolean;
+    cleanWorkingTree: boolean;
+    pluginRunner: PluginRunner;
+    versionPlan?: VersionPlan;
+    releaseContext?: ReleaseContext;
+    tempDir?: string;
+  };
 }
 ```
 
-실제로 자주 보게 되는 필드:
+주요 필드는 다음과 같습니다.
 
-- `version`
-- `versions`
-- `packages`
-- `tag`
-- `preview`
-- `preflight`
-- `ci`
-- `changesetConsumed`
-
-`Ctx`는 현재 실행의 런타임 상태로 취급하고, 영속 저장소처럼 사용하지 않는 편이 좋습니다.
+- `ctx.config` - 해석된 pubm 설정(packages, registries, plugins, releaseAssets 등)
+- `ctx.options` - 해석된 CLI 옵션(version, tag, mode, dryRun 등)
+- `ctx.cwd` - 작업 디렉터리
+- `ctx.runtime` - 가변 런타임 상태(version plan, temp directory 등)
 
 ## 예시
 
@@ -112,10 +140,10 @@ export interface PluginSubcommand {
 
 ## 커스텀 레지스트리와 생태계
 
-커스텀 레지스트리는 추가 publish 대상이 필요할 때 사용합니다. 커스텀 생태계는 새로운 패키지 타입의 버전 읽기/쓰기를 `pubm`에 가르칠 때 사용합니다.
+추가 publish 대상을 넣어야 할 때는 커스텀 레지스트리를 사용합니다. 다른 패키지 타입의 version 읽기/쓰기를 `pubm`에 가르쳐야 할 때는 커스텀 생태계를 사용합니다.
 
 ## 관련 문서
 
 - [Configuration](/pubm/ko/guides/configuration/)
-- [코딩 에이전트](/pubm/ko/guides/coding-agents/)
-- [공식 플러그인](/pubm/ko/reference/official-plugins/)
+- [코딩 에이전트 통합](/pubm/ko/guides/coding-agents/)
+- [Official Plugins](/pubm/ko/reference/official-plugins/)

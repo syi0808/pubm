@@ -1,21 +1,250 @@
 ---
-title: Troubleshooting
-description: Diagnosticar los problemas mas comunes de release, configuracion y registros en pubm.
+title: Solución de problemas
+description: Diagnostica los problemas más comunes de release, configuración y registry en pubm.
 ---
 
-Comandos seguros de diagnostico:
+Esta guía se centra en los modos de fallo que más importan en la práctica: carga de configuración, versionado, autenticación con registry, estado de Git y comportamiento en CI.
+
+## Empieza por los comandos de diagnóstico más seguros
+
+Usa estos antes de reintentar una publicación fallida:
 
 ```bash
 pubm changesets status --verbose
 pubm changesets version --dry-run
-pubm patch --preview
-pubm --preflight
+pubm --dry-run
+pubm --mode ci --phase prepare
 ```
 
-Problemas comunes:
+Juntos, estos comandos responden:
 
-- working tree sucio o rama incorrecta
-- `No changesets found.`
-- paquetes incorrectos afectados
-- fallo al cargar config
-- errores de auth en npm / jsr / crates
+- qué versión cree `pubm` que debe publicar
+- qué paquetes están afectados
+- si el texto del changelog tiene sentido
+- si las credenciales y las comprobaciones de registry están listas
+
+## La publicación está bloqueada por el estado de Git
+
+Síntomas:
+
+- la release se detiene antes de publicar
+- los errores mencionan un working tree sucio
+- los errores mencionan el branch incorrecto
+
+Qué comprobar:
+
+- confirma o guarda los cambios locales
+- verifica que estás en el branch esperado
+- si se trata de una excepción intencional, decide si `--any-branch` es aceptable
+
+No conviertas los flags de bypass en parte de tu flujo normal salvo que realmente quieras una seguridad de release más débil.
+
+## El comando de versionado dice que no encontró changesets
+
+Síntomas:
+
+- `pubm changesets version` imprime `No changesets found.`
+
+Qué comprobar:
+
+- confirma que existen archivos en `.pubm/changesets/`
+- asegúrate de estar en la raíz del repositorio
+- si estás migrando desde `.changeset/`, ejecuta `pubm changesets migrate`
+
+## Se están bumping los paquetes equivocados
+
+Síntomas:
+
+- aparecen en `changesets status` paquetes que no esperabas
+- paquetes fijos o vinculados avanzan juntos sin que lo esperes
+
+Qué comprobar:
+
+- ejecuta `pubm changesets status --verbose`
+- inspecciona los grupos `fixed` y `linked` en `pubm.config.*`
+- verifica si el repositorio usa versionado `independent` o `fixed`
+
+Si la estructura del workspace es compleja, pasa a una configuración explícita de `packages` en lugar de depender solo del descubrimiento.
+
+## El archivo de configuración no se carga
+
+Síntomas:
+
+- el arranque falla antes de que empiece el pipeline de release
+- los errores mencionan imports de configuración o bundling
+
+Qué comprobar:
+
+- asegúrate de que el archivo de configuración tenga uno de los nombres compatibles
+- importa `defineConfig` desde `@pubm/core`
+- elimina trabajo de runtime pesado del nivel superior del módulo de configuración
+- verifica que las dependencias opcionales estén instaladas donde haga falta
+
+Los buenos archivos de configuración son sobre todo declarativos. Si el archivo empieza a parecerse a código de aplicación, separa los helpers en módulos más pequeños y mantén la evaluación predecible.
+
+## `npm publish` falla con errores de auth o permisos
+
+Síntomas:
+
+- respuestas 401 o 403
+- mensajes sobre OTP, 2FA o permisos de publicación
+
+Qué comprobar:
+
+- verifica `NODE_AUTH_TOKEN`
+- confirma que el token tiene permisos de publicación para el paquete
+- prefiere tokens compatibles con automatización en CI
+- confirma que el nivel de acceso del paquete coincide con las expectativas del registry
+
+Si el repositorio publica paquetes públicos con scope, confirma también que el paquete deba ser público en npm.
+
+## La publicación en jsr falla
+
+Síntomas:
+
+- el target de jsr falla mientras npm funciona
+
+Qué comprobar:
+
+- verifica `JSR_TOKEN`
+- ejecuta `pubm --mode ci --phase prepare`
+- confirma que los metadatos del paquete son válidos para jsr
+
+Como `pubm` publica en varios targets, corrige el registry que falla en lugar de reintentar a ciegas y acabar con confusión por una release parcial.
+
+## La publicación en crates.io falla
+
+Síntomas:
+
+- falla la publicación del paquete Rust
+- un crate se publica pero otro bloquea la secuencia después
+
+Qué comprobar:
+
+- verifica `CARGO_REGISTRY_TOKEN`
+- confirma que el orden de dependencias y las versiones del crate sean válidos
+- revisa el override específico de `registries` en `pubm.config.*` o comprueba los manifest files si usas inferencia
+
+Las publicaciones de Rust se hacen secuencialmente cuando el orden importa. Eso es normal y suele ser una señal de que `pubm` está protegiendo la corrección de dependencias.
+
+## Falla el paso de build o test dentro de pubm
+
+Síntomas:
+
+- la release se detiene durante test o build
+- el mensaje de error sugiere volver a ejecutar el script subyacente
+
+Qué hacer:
+
+1. vuelve a ejecutar el script directamente
+2. corrige el fallo subyacente de build o test
+3. reintenta `pubm`
+
+Ejemplos:
+
+```bash
+pnpm run test
+pnpm run build
+```
+
+Si tus scripts usan otros nombres, alinéalo con la configuración o los flags de CLI:
+
+```bash
+pubm --test-script test:ci --build-script build:release
+```
+
+## La publicación de `contents` no funciona
+
+Síntomas:
+
+- el comando de publicación no encuentra los archivos esperados
+- la release funciona desde la raíz pero falla desde `dist/`
+
+Qué comprobar:
+
+- confirma que `contents` apunta al directorio final de publicación
+- asegúrate de que el paso de build cree ese directorio antes de que empiece la publicación
+- verifica que el directorio objetivo contenga los manifest files esperados por el registry seleccionado
+
+`contents` cambia el directorio de trabajo del pipeline en runtime. Trátalo como la raíz de publicación, no solo como una carpeta de salida.
+
+## CI se comporta distinto que las ejecuciones locales
+
+Síntomas:
+
+- la publicación local funciona
+- la publicación en CI falla o se queda colgada
+
+Por qué pasa:
+
+- CI desactiva los prompts
+- los tokens deben venir de variables de entorno o de una sincronización previa con secrets
+- los checkouts superficiales suelen romper los flujos que dependen de tags
+
+Qué comprobar:
+
+- ejecuta `pubm --mode ci --phase prepare` localmente
+- usa historial completo de Git en CI
+- confirma que cada token requerido esté presente en el entorno del job
+
+## Problemas con GitHub Release
+
+Síntomas:
+
+- falla la creación del release
+- los metadatos del release parecen incompletos
+
+Qué comprobar:
+
+- confirma que los metadatos del remote del repositorio sean válidos
+- asegúrate de que los tags de Git existan y estén pushados
+- distingue entre el flujo normal de publicación y `--mode ci --phase publish`
+
+`pubm` crea un GitHub Release mediante la API. Sin `GITHUB_TOKEN` en modo local, puedes introducir un token, abrir un draft en el navegador o saltártelo. `--mode ci --phase publish` crea un GitHub Release como parte del pipeline.
+
+## Hubo rollback y ahora el estado del repositorio parece confuso
+
+Síntomas:
+
+- la publicación falló a mitad de ejecución
+- se crearon tags o commits y luego se eliminaron
+
+Qué hacer:
+
+- inspecciona los tags actuales con `git tag`
+- inspecciona el estado del working tree con `git status`
+- reintenta solo después de entender qué paso falló primero
+
+Lo importante es diagnosticar la causa original, no los mensajes de rollback que llegan después.
+
+## Cuándo abrir un issue
+
+Abre un issue cuando puedas reproducir el problema con:
+
+- el comando exacto
+- la configuración relevante
+- los registries destino
+- el comportamiento esperado
+- el comportamiento real y la salida de error
+
+Los reportes de bugs de alta calidad son especialmente valiosos para:
+
+- repositorios mixtos de JS y Rust
+- registries proporcionados por plugins
+- casos límite del loader de configuración
+- comportamiento de rollback tras fallos parciales
+
+## Flujo útil de recuperación
+
+Si una release falló y quieres recuperarla con cautela:
+
+```bash
+git status
+git tag --sort=-creatordate | head
+pubm changesets status --verbose
+pubm changesets version --dry-run
+pubm --dry-run
+pubm --mode ci --phase prepare
+```
+
+Vuelve a ejecutar una publicación real solo cuando la salida del dry-run y de la preparación de CI vuelva a tener sentido.

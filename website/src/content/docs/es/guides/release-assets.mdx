@@ -1,0 +1,240 @@
+---
+title: Assets de release
+description: Adjunta binarios, archivos comprimidos e instaladores a GitHub Releases con detección automática de plataforma y compresión.
+---
+
+Cuando publicas una herramienta CLI, una aplicación de escritorio o una librería nativa, a menudo necesitas adjuntar artefactos compilados a un GitHub Release: binarios específicos de plataforma, instaladores, módulos WASM o bindings nativos. `pubm` lo gestiona mediante el campo de configuración `releaseAssets`.
+
+## Cuándo necesitas release assets
+
+Configura `releaseAssets` cuando:
+
+- distribuyes un binario CLI y quieres que se pueda descargar desde GitHub Releases
+- compilas una aplicación de escritorio (`dmg`, `msi`) y quieres instaladores en cada release
+- compilas módulos WASM que los consumidores descargan en tiempo de ejecución
+- produces bindings nativos para varias plataformas
+- quieres checksums junto a tus artefactos
+
+Si solo publicas en registries (npm, jsr, crates.io), no necesitas `releaseAssets`.
+
+## Configuración básica
+
+La forma más simple es una cadena glob. `pubm` descubre los archivos que coinciden, detecta su plataforma a partir de la ruta, los comprime con valores por defecto según el sistema operativo y los sube al GitHub Release.
+
+```ts
+// pubm.config.ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/pubm",
+  ],
+});
+```
+
+Para una ruta como `platforms/darwin-arm64/bin/pubm`, `pubm` detecta `os: "darwin"`, `arch: "arm64"`, comprime el binario como `pubm-darwin-arm64.tar.gz` y lo adjunta al release.
+
+## Configuración completa
+
+Cada entrada de `releaseAssets` también puede ser un objeto con control explícito sobre archivos, compresión y nombres:
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  // Valor global por defecto: zip para Windows, tar.gz para todo lo demás
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    {
+      // Monorepo: asocia los assets al GitHub Release de un paquete concreto
+      packagePath: "packages/cli",
+
+      files: [
+        // String: glob, hereda la configuración del grupo y la global
+        "platforms/*/bin/pubm",
+
+        // Object: ajustes explícitos por archivo o patrón
+        {
+          path: "dist/*.dmg",
+          compress: false,                    // No comprimir archivos .dmg
+          name: "myapp-{version}-{arch}",
+        },
+        {
+          path: "target/{arch}-{vendor}-{os}/release/myapp",
+          compress: { linux: "tar.xz" },      // Sobrescribe solo para linux
+          name: "myapp-{version}-{arch}-{os}",
+        },
+      ],
+
+      // Valor por defecto del grupo (sobrescribe el global, pero puede ser sobrescrito por archivo)
+      compress: "tar.gz",
+      name: "{name}-{platform}",
+    },
+  ],
+});
+```
+
+## Cascada de compresión
+
+El formato de compresión se resuelve en cuatro niveles, de mayor a menor prioridad:
+
+| Nivel | Ejemplo |
+|-------|---------|
+| `compress` a nivel de archivo | `compress: false` |
+| `compress` a nivel de grupo | `compress: "tar.gz"` |
+| `compress` global (`PubmConfig.compress` en la raíz) | `compress: { windows: "zip" }` |
+| Detección automática según OS | `windows` → `zip`, otros → `tar.gz` |
+
+Gana el primer nivel que tenga un valor definido (`file ?? group ?? global`). Si el valor ganador es un `Record<string, CompressFormat>` (un mapa indexado por OS), `pubm` busca el OS detectado. Si el OS no está en el mapa, cae en la detección automática, no en el siguiente nivel de la cascada.
+
+**Los formatos conocidos nunca se recomprimen.** Cuando no aplica una configuración explícita de compresión, `pubm` comprueba la extensión del archivo. Si coincide con un formato conocido de archivo comprimido o instalador (`.tar.gz`, `.tgz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`, `.zip`, `.7z`, `.dmg`, `.msi`, `.exe`, `.deb`, `.rpm`, `.AppImage`, `.pkg`, `.snap`, `.flatpak`, `.wasm`), `compress` se establece automáticamente en `false`.
+
+## Valores por defecto según OS
+
+Cuando no aplica una configuración explícita de compresión:
+
+| OS detectado | Formato por defecto |
+|--------------|---------------------|
+| `windows` | `zip` |
+| Todo lo demás | `tar.gz` |
+
+## Variables de la plantilla de nombre
+
+El campo `name` o el nombre por defecto generado es una plantilla sin extensión. La extensión se añade automáticamente según el valor resuelto de `compress`.
+
+| Variable | Origen | Ejemplo |
+|----------|--------|---------|
+| `{name}` | nombre de `package.json` sin scope | `pubm` |
+| `{version}` | versión del release | `0.4.0` |
+| `{platform}` | cadena capturada en bruto o `{os}-{arch}` | `darwin-arm64` |
+| `{os}` | analizado desde la ruta | `darwin` |
+| `{arch}` | analizado desde la ruta | `arm64` |
+| `{vendor}` | analizado desde la ruta, si existe | `apple` |
+| `{abi}` | analizado desde la ruta, si existe | `musl` |
+| `{variant}` | analizado desde la ruta, si existe | `baseline` |
+| `{filename}` | nombre original sin extensión | `pubm` |
+
+Cuando no se especifica `name`, `pubm` usa:
+- `{filename}-{platform}` si se detectó información de plataforma
+- `{filename}` en caso contrario
+
+### Reglas de extensión
+
+No pongas una extensión en la plantilla `name`. `pubm` la añade según `compress`:
+
+| `compress` | Extensión añadida |
+|------------|-------------------|
+| `"tar.gz"` | `.tar.gz` |
+| `"zip"` | `.zip` |
+| `"tar.xz"` | `.tar.xz` |
+| `"tar.zst"` | `.tar.zst` |
+| `false` | se conserva la extensión original del archivo |
+
+## Variables de captura en las rutas
+
+En lugar de depender de la detección automática desde segmentos de ruta, puedes colocar variables de captura directamente en el patrón `path`:
+
+```ts
+// Captura explícita: extrae arch y os directamente
+{ path: "target/{arch}-{vendor}-{os}/release/mytool" }
+
+// Captura {platform} como un solo token
+{ path: "releases/{platform}/mytool" }
+```
+
+Cuando hay variables de captura, `pubm` las usa directamente en lugar de escanear cada segmento de la ruta contra las tablas de plataforma. Consulta [Platform Detection](/pubm/es/reference/platform-detection/) para ver el algoritmo completo de análisis.
+
+## Ejemplos
+
+### Binario CLI publicado en Homebrew
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { brewTap } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+  plugins: [
+    brewTap({ formula: "Formula/mytool.rb" }),
+  ],
+});
+```
+
+El plugin brew lee `ParsedPlatform` estructurado de cada asset y los empareja automáticamente con las entradas de plataforma de la fórmula.
+
+### App de escritorio con instaladores
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        { path: "dist/MyApp-*.dmg", compress: false },
+        { path: "dist/MyApp-*.msi", compress: false },
+        { path: "dist/MyApp-*-linux.AppImage", compress: false },
+      ],
+      name: "MyApp-{version}-{os}",
+    },
+  ],
+});
+```
+
+### Binarios Rust compilados para cross-compilation
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        {
+          path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool",
+          name: "mytool-{version}-{os}-{arch}-{abi}",
+        },
+      ],
+    },
+  ],
+});
+```
+
+### Módulo WASM
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        { path: "dist/mytool.wasm", compress: false },
+      ],
+    },
+  ],
+});
+```
+
+Los archivos WASM están en la lista de formatos conocidos, así que `compress: false` también se aplica automáticamente incluso sin la sobrescritura explícita.
+
+### Monorepo con varios paquetes
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      packagePath: "packages/cli",
+      files: ["platforms/*/bin/pubm"],
+    },
+    {
+      packagePath: "packages/native",
+      files: ["build/Release/*.node"],
+      compress: false,
+    },
+  ],
+});
+```
+
+## Siguientes pasos
+
+- Lee [Platform Detection](/pubm/es/reference/platform-detection/) para ver todas las tablas de OS, arquitectura, ABI y variant.
+- Lee [Asset Pipeline Hooks](/pubm/es/guides/asset-pipeline-hooks/) para interceptar y personalizar cada etapa del pipeline.
+- Lee [Official Plugins](/pubm/es/reference/official-plugins/) para ver cómo el plugin brew usa `ParsedPlatform` para emparejar fórmulas.

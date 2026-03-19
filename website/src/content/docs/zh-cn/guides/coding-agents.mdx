@@ -1,21 +1,103 @@
 ---
-title: Coding Agent Integration
-description: 将 pubm 插件接入 Claude Code、Codex 等编码代理。
+title: Coding Agent 集成
+description: 从 setup automation 开始，把 pubm plugin 集成到你已经在用的 coding agent 中。
 ---
 
-本指南面向已经在使用编码代理的团队。
+本指南面向已经在使用 Claude Code 或 Codex 等 coding agent，并希望把 `pubm` 发布工作流接入现有环境的团队。
 
-## 先做 setup
+## 从 setup automation 开始
 
-如果仓库还没有接好，最重要的动作不是 publish，而是 setup。
+如果仓库还没有接好，agent 最重要的动作不是发布，而是 setup。
 
-先使用 `publish-setup`。把 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 链接提供给代理，让它获取 bundle 并遵循仓库里版本化的 setup 流程。
+先使用 `publish-setup`。这个 skill 负责：
+
+- installing the `pubm plugin` bundle
+- generating or updating `pubm` config
+- wiring CI
+- enabling changesets
+- 可选地接入 version-sync 目标
+
+把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接给 agent，这样它就能获取 bundle，并按照仓库内提交的 setup 流程执行。
+
+## `pubm plugin` 为你的 agent 提供什么
+
+仓库在 `plugins/pubm-plugin/` 下提供了一个面向 agent 的 bundle。
+
+目前这个 bundle 包含：
+
+- a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- 位于 `plugins/pubm-plugin/skills/` 下的已提交 skill bundle
+
+## 包含的 skills
+
+### `publish-setup`
+
+当你通过 agent 把 `pubm` 接入仓库时，先用它。
+
+### `publish-preview`
+
+当 agent 需要先解释发布计划，再修改 git 状态或发布任何内容时使用它。
+
+### `publish`
+
+这是受保护的发布路径。它遵循 preview-first 策略，并且在真正执行发布命令前需要确认。
+
+### `version-sync`
+
+当你需要查找并接入 package manifest 之外的版本引用时使用它，例如 docs 片段、metadata 文件和 sidecar 配置。
+
+### `create-plugin`
+
+当 agent 需要搭建一个新的 `pubm` plugin 包，并包含 hooks、commands 和 tests 时使用它。
 
 ## Claude Code 安装
+
+Claude Code 使用基于 marketplace 的 plugin 模型。
+
+典型流程：
+
+1. add the marketplace
+2. install the plugin from that marketplace
+3. choose the installation scope in Claude Code
 
 ```text
 /plugin marketplace add your-org/claude-plugins
 /plugin install plugin-name@marketplace-name
 ```
 
-如果不使用 marketplace，就把 `INSTALLATION.md` 链接提供给代理。
+如果你不使用 marketplace，就把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接提供给 agent。
+
+## 集成模型
+
+- 将运行时发布行为保留在 `pubm` 本身或 `pubm` plugin 中
+- 将 agent 工作流和审批策略保留在已提交的 skills 中
+- 让 setup automation 成为仓库 onboarding 的权威来源
+
+## Skills 与命令面
+
+Skills 应该编排 CLI，而不是替代 CLI。
+
+- use `pubm` commands for deterministic release operations
+- 使用 skills 处理 setup 顺序、项目检查、安全检查和审批
+
+## 需要编码的安全规则
+
+- 新仓库先 setup，再 publish
+- 现有仓库先 preview，再 publish
+- 不可逆操作前必须明确审批
+- 用自然语言总结版本、registries 和副作用
+- 当 git 状态、认证或 CI 假设尚未就绪时停止
+
+## 实用建议
+
+- 把 `publish-setup` 视为主要集成入口
+- 将 setup automation 和 publish automation 保持在同一个已提交 bundle 中
+- 直接暴露 `pubm` 命令，不要把它们翻译成模糊的自然语言动作
+- 把 `pubm` 视为最后一步，而不是默认步骤
+
+## 实用建议
+
+- treat `publish-setup` as the primary integration surface
+- keep setup automation and publish automation in the same checked-in bundle
+- expose `pubm` commands directly rather than translating them into vague natural-language actions
+- treat `pubm` as the last step, not the default step

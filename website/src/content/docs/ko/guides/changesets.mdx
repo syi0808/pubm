@@ -1,45 +1,54 @@
 ---
-title: Changesets
-description: 릴리스 의도를 기록하고, changelog를 만들고, 버전 상승을 제어합니다.
+title: 변경 세트
+description: 릴리스 의도를 기록하고, changelog를 생성하며, 버전 상승을 제어합니다.
 ---
 
-`pubm`은 다음에 무엇을 릴리스해야 하는지 `.pubm/changesets/`의 파일로 기록합니다. 커밋 메시지나 브랜치 이름을 추론하지 않고, 체크인된 changeset 파일을 기준으로 버전과 changelog를 계산합니다.
+`pubm`은 changeset을 "다음에 무엇을 릴리스해야 하는지"를 남기는 영속적인 기록으로 사용합니다. 커밋 메시지나 브랜치 이름에서 버전을 추론하는 대신, 체크인된 `.pubm/changesets/` 파일을 읽어 버전 상승과 changelog 항목으로 바꿉니다.
 
-## 왜 중요한가
+## Changeset이 중요한 이유
 
-- PR 안에서 검토 가능한 릴리스 계획을 남길 수 있습니다.
-- 패키지별 버전 계산이 결정적입니다.
-- changelog 문구를 릴리스 당일이 아니라 미리 작성할 수 있습니다.
+- 각 pull request 안에서 검토 가능한 릴리스 계획을 남길 수 있습니다.
+- 패키지 간 버전 상승 계산을 결정적으로 수행할 수 있습니다.
+- changelog 내용을 릴리스 이후가 아니라 릴리스 전에 작성할 수 있습니다.
 
-## 위치와 초기화
+## 파일 위치
+
+보류 중인 changeset은 다음 위치에 있습니다.
 
 ```text
 .pubm/changesets/
 ```
 
+이 디렉터리를 초기화하려면 다음을 실행합니다.
+
 ```bash
 pubm init
+```
+
+changeset을 강제하는 pull request 검사도 함께 설정하려면 다음을 실행합니다.
+
+```bash
 pubm init --changesets
 ```
 
-## changeset 만들기
+## Changeset 만들기
 
 ```bash
 pubm changesets add
 ```
 
-모노레포에서는 어떤 패키지가 영향을 받는지와 각 패키지의 bump 타입도 함께 묻습니다.
+모노레포에서는 `pubm`이 어떤 패키지가 영향을 받는지와 각 패키지가 어떤 bump type을 받아야 하는지도 묻습니다.
 
-비대화형 예시:
+비대화형으로 사용하려면:
 
 ```bash
 pubm changesets add \
   --packages @acme/core,@acme/react \
   --bump minor \
-  --message "공개 클라이언트에 토큰 인증 추가"
+  --message "Add token-based auth to the public client."
 ```
 
-## 파일 형식
+## Changeset 파일의 내용
 
 ```md
 ---
@@ -47,12 +56,14 @@ pubm changesets add \
 "@acme/react": patch
 ---
 
-공개 클라이언트에 토큰 인증 추가
+Add token-based auth to the public client.
 ```
 
-frontmatter는 버전 계산에 쓰이고, 본문은 changelog 요약이 됩니다.
+메타데이터는 버전 계산을 제어합니다. 본문은 changelog 요약이 됩니다.
 
-## 대기 중 changeset 확인
+## 보류 중인 변경 확인
+
+changeset을 소비하기 전에 먼저 확인합니다.
 
 ```bash
 pubm changesets status
@@ -60,28 +71,30 @@ pubm changesets status --verbose
 pubm changesets version --dry-run
 ```
 
-## changeset이 소비되는 방식
+## Changeset이 소비되는 방식
 
-일반 릴리스 파이프라인에서 `pubm`을 실행하면 pending changeset은 버전 단계에서 자동으로 소비됩니다.
+`pubm`으로 일반 릴리스 파이프라인을 실행하면 보류 중인 changeset은 버전 단계에서 소비됩니다.
 
-그 과정에서 `pubm`은:
+그 흐름은 다음과 같습니다.
 
-1. `.pubm/changesets/*.md`를 읽고
-2. 최종 패키지 버전을 계산하고
-3. 매니페스트 버전을 갱신하고
-4. changelog를 생성하고
-5. 소비한 changeset 파일을 지우고
-6. 릴리스 커밋과 태그를 만듭니다
+1. 보류 중인 `.pubm/changesets/*.md` 파일을 읽습니다.
+2. 결과 패키지 버전을 계산합니다.
+3. 매니페스트 버전을 업데이트합니다.
+4. changelog 항목을 생성합니다.
+5. 소비된 changeset 파일을 삭제합니다.
+6. 릴리스 커밋과 태그를 생성합니다.
 
-버전 반영만 먼저 따로 하고 싶다면 다음 명령을 사용할 수 있습니다.
+버전 작업만 미리 수행하고 싶다면 다음을 실행할 수 있습니다.
 
 ```bash
 pubm changesets version
 ```
 
-하지만 일반적인 `pubm` 또는 `pubm --ci` 흐름 전에 반드시 실행해야 하는 것은 아닙니다.
+이 명령은 편집용 또는 통제된 워크플로에 유용하지만, `pubm`이나 `pubm --mode ci --phase publish` 전에 반드시 실행할 필요는 없습니다.
 
-## changelog만 생성
+## Changelog 생성
+
+아직 버전을 소비하지 않고 changelog 텍스트만 만들고 싶다면:
 
 ```bash
 pubm changesets changelog --dry-run
@@ -93,3 +106,5 @@ pubm changesets changelog --version 1.8.0
 ```bash
 pubm changesets migrate
 ```
+
+이 명령은 보류 중인 파일을 `.changeset/`에서 `.pubm/`으로 옮깁니다.

@@ -1,20 +1,110 @@
 ---
 title: Changesets
-description: 记录发布意图、生成 changelog，并控制版本提升。
+description: 记录发布意图、生成 changelog，并控制版本变更。
 ---
 
-`pubm` 使用 `.pubm/changesets/` 中的文件作为“下一次要发布什么”的持久记录。
+`pubm` 将 changeset 作为“下一次应该发布什么”的持久记录。它不会根据提交信息或分支名推断版本，而是读取 `.pubm/changesets/` 中已提交的文件，并将它们转换为版本变更和 changelog 条目。
 
-## 基本命令
+## 为什么 changesets 重要
+
+- 每个 pull request 中都能保留可审阅的发布计划
+- 跨包的版本 bump 计算是确定性的
+- changelog 内容在发布日前就能写好，而不是发布后补写
+
+## 文件位置
+
+待处理的 changeset 位于：
+
+```text
+.pubm/changesets/
+```
+
+使用以下命令初始化该目录：
 
 ```bash
 pubm init
+```
+
+如果你还想添加一个强制检查 changeset 的 pull request 检查，运行：
+
+```bash
 pubm init --changesets
+```
+
+## 创建 changeset
+
+```bash
 pubm changesets add
+```
+
+在 monorepo 中，`pubm` 还会询问受影响的包，以及每个包应该获得什么 bump 类型。
+
+非交互式用法：
+
+```bash
+pubm changesets add \
+  --packages @acme/core,@acme/react \
+  --bump minor \
+  --message "Add token-based auth to the public client."
+```
+
+## changeset 文件包含什么
+
+```md
+---
+"@acme/core": minor
+"@acme/react": patch
+---
+
+Add token-based auth to the public client.
+```
+
+元数据控制版本计算，正文会成为 changelog 摘要。
+
+## 查看待处理变更
+
+在消耗 changeset 之前，先检查它们：
+
+```bash
+pubm changesets status
 pubm changesets status --verbose
 pubm changesets version --dry-run
 ```
 
-## 在 release 流程中消费 changeset
+## changeset 如何被消耗
 
-执行 `pubm` 时，待处理 changeset 会在 version 阶段被自动消费。`pubm changesets version` 仍然适用于受控流程，但在 `pubm` 或 `pubm --ci` 之前并不是必需步骤。
+当你用 `pubm` 运行正常发布流程时，待处理的 changeset 会在版本步骤中被消耗。
+
+该流程会：
+
+1. 读取待处理的 `.pubm/changesets/*.md` 文件
+2. 计算最终的包版本
+3. 更新 manifest 版本
+4. 生成 changelog 条目
+5. 删除已消耗的 changeset 文件
+6. 创建发布提交和 tags
+
+如果你只想提前执行版本计算部分，也可以运行：
+
+```bash
+pubm changesets version
+```
+
+这个命令适合编辑流程或受控流程，但在 `pubm` 或 `pubm --mode ci --phase publish` 之前并不是必需的。
+
+## 生成 changelog
+
+如果你想先生成 changelog 文本，而不消耗版本：
+
+```bash
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+## 从 `.changeset/` 迁移
+
+```bash
+pubm changesets migrate
+```
+
+这会把 `.changeset/` 中的待处理文件迁移到 `.pubm/`。

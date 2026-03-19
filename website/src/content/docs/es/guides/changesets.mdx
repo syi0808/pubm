@@ -1,20 +1,73 @@
 ---
 title: Changesets
-description: Registrar la intencion de release, generar changelogs y controlar los bumps de version.
+description: Gestiona cambios pendientes, versiones y generación de changelog con pubm.
 ---
 
-`pubm` usa `.pubm/changesets/` como el registro durable de lo que debe liberarse despues.
+`pubm` usa changesets como entrada para el versionado y el changelog. Cada changeset describe qué paquetes cambian y en qué nivel: patch, minor o major.
 
-## Comandos basicos
+## Flujo básico
 
 ```bash
-pubm init
-pubm init --changesets
 pubm changesets add
-pubm changesets status --verbose
-pubm changesets version --dry-run
+pubm changesets status
+pubm changesets version
+pubm changesets changelog
 ```
 
-## Consumo en el flujo de release
+## Añadir un changeset
 
-Cuando ejecutas `pubm`, los changesets pendientes se consumen durante la etapa de version. `pubm changesets version` sigue disponible para flujos controlados, pero no es obligatorio antes de `pubm` o `pubm --ci`.
+```bash
+pubm changesets add
+```
+
+Ese comando guía el proceso y crea un archivo en `.pubm/changesets/`.
+
+## Ver estado
+
+```bash
+pubm changesets status
+pubm changesets status --verbose
+```
+
+`status` muestra qué changesets siguen pendientes y qué bumps producirán.
+
+## Consumir changesets
+
+```bash
+pubm changesets version
+```
+
+`version` aplica los changesets pendientes a los paquetes afectados y escribe las nuevas versiones.
+
+## Generar changelog
+
+```bash
+pubm changesets changelog
+```
+
+`changelog` genera texto de changelog a partir de los changesets pendientes.
+
+## Uso en CI
+
+Si tu release se ejecuta en CI, no necesitas un paso separado de `pubm changesets version` para preparar la publicación. El pipeline normal de `pubm` ya consume los changesets durante la fase de versionado.
+
+```bash
+pubm
+pubm --mode ci --phase publish
+```
+
+Ese comando es útil para flujos editoriales o controlados, pero no es necesario antes de `pubm` ni de `pubm --mode ci --phase publish`.
+
+## Migrar desde changesets
+
+```bash
+pubm changesets migrate
+```
+
+`migrate` ayuda a mover archivos desde `.changeset/` a `.pubm/`.
+
+## Siguientes pasos
+
+- Lee la [Configuration](/pubm/es/guides/configuration/) para ver cómo afecta el versionado a nivel de repositorio.
+- Lee la [CI/CD](/pubm/es/guides/ci-cd/) para entender cómo encajan changesets y release automation.
+- Lee la [CLI Reference](/pubm/es/reference/cli/) para ver todos los comandos disponibles.

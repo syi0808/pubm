@@ -1,11 +1,13 @@
 ---
-title: Configuration
-description: Definir valores por defecto del pipeline de release, estructura de paquetes y plugins.
+title: Configuración
+description: Define valores por defecto para tu pipeline de release, la estructura de paquetes, los plugins y la planificación de versiones.
 ---
 
-`pubm` es CLI-first, pero los proyectos reales necesitan rapido una configuracion a nivel de repositorio con `pubm.config.*`.
+`pubm` está pensado para ser CLI-first, pero los proyectos reales pronto superan la configuración basada solo en flags. `pubm.config.*` es el lugar donde mantienes los objetivos de publicación a nivel de repositorio, la distribución de paquetes, los plugins y las reglas de versionado relacionadas con changesets.
 
-## Archivos soportados
+## Archivos de configuración compatibles
+
+`pubm` admite estos nombres de archivo:
 
 1. `pubm.config.ts`
 2. `pubm.config.mts`
@@ -14,20 +16,404 @@ description: Definir valores por defecto del pipeline de release, estructura de 
 5. `pubm.config.mjs`
 6. `pubm.config.cjs`
 
-## Reglas de inferencia
+Los archivos de configuración TypeScript se admiten directamente. El loader empaqueta el archivo antes de evaluarlo, así que no necesitas un paso separado de transpile en tiempo de ejecución.
 
-| Manifiesto | Registro inferido |
+## Configuración por defecto
+
+Estos son los valores por defecto resueltos por la capa de configuración:
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  branch: "main",
+  changelog: true,
+  changelogFormat: "default",
+  commit: false,
+  access: "public",
+  fixed: [],
+  linked: [],
+  updateInternalDependencies: "patch",
+  ignore: [],
+  tag: "latest",
+  contents: ".",
+  saveToken: true,
+  releaseDraft: true,
+  releaseNotes: true,
+  rollbackStrategy: "individual",
+  packages: [{ path: "." }],
+  validate: {
+    cleanInstall: true,
+    entryPoints: true,
+    extraneousFiles: true,
+  },
+  snapshotTemplate: "{tag}-{timestamp}",
+});
+```
+
+## Cómo se infieren los registries
+
+`pubm` inspecciona los archivos manifest de cada directorio de paquete y los mapea a registries:
+
+| Manifest | Registry inferido |
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
 | `Cargo.toml` | `crates` |
 
-## Campos comunes
+Para npm se aplican dos reglas adicionales:
 
-- `packages`
-- `plugins`
-- `versioning`
-- `fixed`
-- `linked`
-- `ignore`
-- `snapshotTemplate`
+- `publishConfig.registry` en `package.json` reemplaza `npm` por esa URL personalizada
+- `.npmrc` reemplaza `npm` cuando `publishConfig` no existe
+
+## Opciones de nivel superior
+
+### `versioning`
+
+- Tipo: `"independent" | "fixed"`
+- Por defecto: `"independent"`
+
+Controla cómo se asignan las versiones en repositorios con múltiples paquetes.
+
+### `branch`
+
+- Tipo: `string`
+- Por defecto: `"main"`
+
+Branch que debe coincidir con `HEAD` durante las ejecuciones de release protegidas.
+
+### `packages`
+
+- Tipo: `PackageConfig[]`
+- Por defecto: `[{ path: "." }]`
+
+Declara explícitamente los paquetes que se pueden publicar. Los registries se infieren a partir de los archivos manifest salvo que se sobrescriban por paquete.
+
+### `plugins`
+
+- Tipo: `PubmPlugin[]`
+- Por defecto: `[]`
+
+Registra plugins que pueden añadir hooks, comandos, registries o ecosistemas.
+
+### `fixed`
+
+- Tipo: `string[][]`
+- Por defecto: `[]`
+
+Grupos de paquetes que siempre deben resolver a la misma versión.
+
+### `linked`
+
+- Tipo: `string[][]`
+- Por defecto: `[]`
+
+Grupos de paquetes que deben compartir el bump más alto.
+
+### `ignore`
+
+- Tipo: `string[]`
+- Por defecto: `[]`
+
+Nombres o rutas de paquetes que se excluyen del descubrimiento del workspace.
+
+### `tag`
+
+- Tipo: `string`
+- Por defecto: `"latest"`
+
+Dist-tag por defecto para las ejecuciones de publicación.
+
+### `contents`
+
+- Tipo: `string`
+- Por defecto: `"."`
+
+Directorio al que se hace `chdir` antes de ejecutar el pipeline de release.
+
+### `saveToken`
+
+- Tipo: `boolean`
+- Por defecto: `true`
+
+Indica si los tokens de registry compatibles deben guardarse para reutilizarlos en máquinas locales.
+
+### `releaseDraft`
+
+- Tipo: `boolean`
+- Por defecto: `true`
+
+Indica si el flujo de publicación debe crear un GitHub Release. Cuando se desactiva, el paso de release se omite por completo.
+
+### `validate`
+
+- Tipo: `ValidateConfig`
+
+Estos campos forman parte del esquema público, pero todavía no están activos como toggles en todos los caminos de publicación. Considéralos superficie de configuración tipada, no switches de runtime garantizados.
+
+### `snapshotTemplate`
+
+- Tipo: `string`
+- Por defecto: `"{tag}-{timestamp}"`
+
+Plantilla que se usa cuando `pubm --snapshot` genera una cadena de versión temporal.
+
+Variables disponibles en la plantilla:
+
+- `{base}`: versión actual del paquete desde el manifest
+- `{tag}`: snapshot tag, por defecto `snapshot`
+- `{timestamp}`: timestamp UTC en formato `YYYYMMDDTHHmmss`
+- `{commit}`: SHA del commit Git actual
+
+## Cómo interactúan la configuración y los flags de CLI
+
+El comportamiento actual en runtime es:
+
+- la configuración aporta valores por defecto del repositorio para `packages` y `plugins`
+- la configuración relacionada con versionado, como `versioning`, `fixed` y `linked`, la usan los flujos de changesets
+- los flags de CLI siguen controlando el comportamiento de publicación por ejecución
+- los registries se infieren a partir de los manifests; `packages[].registries` sobrescribe esa inferencia
+
+Para una publicación puntual a un registry específico:
+
+```bash
+pubm --registry npm --tag beta
+```
+
+## Configuración multi-paquete
+
+Para workspaces o repositorios con lenguajes mixtos, declara los paquetes explícitamente. Los registries se infieren a partir de los manifests de cada paquete:
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    {
+      path: "packages/core",
+    },
+    {
+      path: "packages/cli",
+      registries: ["npm"],
+    },
+    {
+      path: "crates/pubm-rs",
+    },
+  ],
+});
+```
+
+Usa entradas de paquete explícitas cuando:
+
+- quieres que `pubm` publique solo un subconjunto de los paquetes descubiertos del workspace
+- JavaScript y Rust viven en el mismo repositorio
+- necesitas sobrescribir registries inferidos o añadir registries privados
+
+### `PackageConfig`
+
+Las entradas a nivel de paquete tienen esta forma:
+
+```ts
+interface PackageConfig {
+  path: string;
+  registries?: Array<"npm" | "jsr" | "crates" | PrivateRegistryConfig>;
+  ecosystem?: "js" | "rust";
+  buildCommand?: string;
+  testCommand?: string;
+}
+
+interface PrivateRegistryConfig {
+  url: string;
+  token: { envVar: string };
+}
+```
+
+Usa `registries` solo cuando la inferencia no sea suficiente o cuando necesites añadir registries privados junto con los integrados:
+
+```ts
+packages: [
+  {
+    path: "packages/a",
+    registries: [
+      "npm",
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
+    ],
+  },
+];
+```
+
+## Estrategias de versionado
+
+### Versionado independiente
+
+Cada paquete obtiene su propia versión y su propio tag.
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+});
+```
+
+### Versionado fijo
+
+Todos los paquetes afectados comparten una única versión.
+
+```ts
+export default defineConfig({
+  versioning: "fixed",
+});
+```
+
+### Grupos fijos y vinculados
+
+Puedes mantener la mayoría de los paquetes en modo independiente y forzar que algunos paquetes avancen juntos:
+
+```ts
+export default defineConfig({
+  versioning: "independent",
+  fixed: [["@acme/core", "@acme/react"]],
+  linked: [["@acme/cli", "@acme/config"]],
+});
+```
+
+- `fixed`: todos los paquetes del grupo terminan exactamente en la misma versión
+- `linked`: el bump más alto se propaga por todo el grupo
+
+## Ajustes de snapshot
+
+Los snapshots son útiles para releases de previsualización y validación específica por branch.
+
+```ts
+export default defineConfig({
+  snapshotTemplate: "{tag}-{timestamp}",
+});
+```
+
+Resultado de ejemplo:
+
+- `0.4.1-snapshot-20260312T102233`
+
+## Plugins
+
+Añade plugins mediante el array `plugins`:
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { externalVersionSync } from "@pubm/plugin-external-version-sync";
+
+export default defineConfig({
+  plugins: [
+    externalVersionSync({
+      targets: [
+        {
+          file: "README.md",
+          pattern: /pubm@([\\w.-]+)/,
+        },
+      ],
+    }),
+  ],
+});
+```
+
+Lee la [Plugins API Reference](/pubm/es/reference/plugins/) para conocer el orden de hooks, el registro de comandos y el soporte de registries personalizados.
+
+## Patrones de ejemplo
+
+### Biblioteca simple
+
+Si el paquete tiene `package.json` y `jsr.json`, los registries se infieren automáticamente. No hace falta un archivo de configuración: `pubm.config.ts` es opcional. Créalo solo cuando necesites sobrescribir un valor por defecto, como un branch personalizado, plugins o assets de release.
+
+### Monorepo de app
+
+Los paquetes que solo tienen `package.json` resuelven a `npm`. No necesitas `registries` explícitos salvo que quieras sobrescribirlos.
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "fixed",
+  packages: [
+    { path: "packages/web" },
+    { path: "packages/server" },
+  ],
+});
+```
+
+### Workspace mixto de JS + Rust
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  versioning: "independent",
+  packages: [
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
+  ],
+});
+```
+
+## Release assets
+
+`releaseAssets` declara los artefactos binarios que se adjuntan a cada GitHub Release. Para la mayoría de los casos basta con una cadena glob simple:
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `compress`
+
+- Tipo: `"tar.gz" | "zip" | "tar.xz" | "tar.zst" | false | Record<string, CompressFormat>`
+- Por defecto: detección automática según OS (`windows` → `zip`, otros → `tar.gz`)
+
+Formato de compresión global por defecto. Puede sobrescribirse a nivel de grupo o de archivo dentro de `releaseAssets`.
+
+```ts
+export default defineConfig({
+  // Usa zip para Windows y tar.gz para todo lo demás
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+});
+```
+
+### `releaseAssets`
+
+- Tipo: `(string | ReleaseAssetGroupConfig)[]`
+- Por defecto: `undefined` (sin assets adjuntos)
+
+Cada entrada puede ser una glob string o un objeto con control explícito:
+
+```ts
+releaseAssets: [
+  // String: glob, totalmente automático
+  "platforms/*/bin/mytool",
+
+  // Object: ajustes explícitos por grupo
+  {
+    packagePath: "packages/cli",    // Monorepo: vincula los assets al release de este paquete
+    files: [
+      "platforms/*/bin/mytool",
+      { path: "dist/*.dmg", compress: false, name: "MyTool-{version}-{os}" },
+    ],
+    compress: "tar.gz",             // Valor por defecto del grupo
+    name: "{name}-{platform}",      // Plantilla de nombre del grupo
+  },
+]
+```
+
+Lee la guía [Release Assets](/pubm/es/guides/release-assets/) para ver todas las reglas de cascada de `compress`, las variables de la plantilla de nombre y ejemplos de uso.
+
+## Siguientes pasos
+
+- Usa la guía [Monorepo](/pubm/es/guides/monorepo/) si necesitas agrupar paquetes o mezclar registries.
+- Usa la [Plugins API Reference](/pubm/es/reference/plugins/) si tu configuración registra plugins personalizados.
+- Usa la guía [Release Assets](/pubm/es/guides/release-assets/) para adjuntar binarios y archivos comprimidos a GitHub Releases.

@@ -1,17 +1,21 @@
 ---
-title: Demarrage rapide
-description: Installer pubm, initialiser le projet et lancer une premiere release.
+title: Démarrage rapide
+description: Installer pubm, initialiser un projet et publier votre première release.
 ---
 
-`pubm` est un orchestrateur de release pour les depots qui publient vers plusieurs registres, plusieurs paquets ou plusieurs ecosystemes.
+`pubm` est un orchestrateur de release pour les projets qui publient vers plus d'un registry, plus d'un package ou plus d'un écosystème.
 
 ## Avant de commencer
 
-- Git `2.11+`
-- Un manifeste comme `package.json`
-- Un working tree propre avant publication
+`pubm` est conçu pour les dépôts qui utilisent déjà Git et disposent d'un manifest de package valide.
 
-Installation :
+- Git `2.11+`
+- Un manifest de package comme `package.json`
+- Un arbre de travail propre avant de publier
+
+`pubm` est distribué sous la forme d'un binaire unique compilé avec Bun. Vous n'avez pas besoin d'un runtime Node.js séparé juste pour exécuter la CLI, même si l'installation via npm utilise toujours la chaîne d'outils de votre gestionnaire de paquets.
+
+Installez la CLI globalement :
 
 ```bash
 npm i -g pubm
@@ -19,22 +23,28 @@ npm i -g pubm
 
 ## Pour les agents de code
 
-Si vous branchez `pubm` via Claude Code, Codex ou un autre agent, commencez par l'automatisation de setup plutot que par des prompts de release ecrits a la main.
+Si vous raccordez `pubm` via Claude Code, Codex ou un autre agent de code, commencez par l'automatisation de configuration au lieu d'écrire les invites de release à la main.
 
-- Utilisez le skill `publish-setup` du bundle `pubm plugin`.
-- Donnez a l'agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il recupere le bundle et commence par `publish-setup`.
-- Lisez [Integration avec les agents de code](/pubm/fr/guides/coding-agents/).
+- Utilisez le skill `publish-setup` du bundle `pubm plugin` pour installer le workflow de release, générer la config, raccorder la CI et activer les changesets.
+- Donnez à votre agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il puisse récupérer le bundle et commencer par `publish-setup`.
+- Lisez [Intégration des agents de code](/pubm/fr/guides/coding-agents/) pour le modèle d'intégration et les rôles des skills.
 
-## 1. Initialiser le depot
+## 1. Initialiser le dépôt
+
+Créez la structure de base de `pubm` :
 
 ```bash
 pubm init
 ```
 
+Cela crée `pubm.config.ts` et `.pubm/changesets/`.
+
 ## 2. Publier
+
+Lancez le flux de release :
 
 ```bash
 pubm
 ```
 
-Si des changesets sont en attente, `pubm` les consomme pendant l'etape de version du pipeline de release. Pour la configuration, lisez [Configuration](/pubm/fr/guides/configuration/). Pour la CI, lisez [CI/CD](/pubm/fr/guides/ci-cd/).
+Si des changesets en attente existent, `pubm` les consomme pendant l'étape de version du pipeline de release. Pour les détails de configuration, lisez [Configuration](/pubm/fr/guides/configuration/). Pour la CI, les tokens et le comportement de préparation CI, lisez [CI/CD](/pubm/fr/guides/ci-cd/). Pour les monorepos, lisez [Monorepo](/pubm/fr/guides/monorepo/). Pour les flags et sous-commandes exacts, lisez la [Référence CLI](/pubm/fr/reference/cli/).

@@ -1,0 +1,320 @@
+---
+title: 자산 파이프라인 훅
+description: 플러그인 훅으로 release asset 파이프라인의 각 단계를 가로챕니다.
+---
+
+자산 파이프라인은 build 단계 이후, GitHub Release 업로드 이전에 실행됩니다. 플러그인은 내부 구조를 그대로 반영한 여섯 개의 훅을 통해 각 단계를 가로챌 수 있습니다.
+
+## 파이프라인 단계
+
+```
+releaseAssets config
+  → glob 매칭 → ResolvedAsset[]
+  → [resolveAssets]  — asset 목록을 필터링, 추가, 또는 교체
+  → [transformAsset] — 각 asset을 서명, strip, 또는 분할 (1 → N)
+  → [compressAsset]  — 기본 tar.gz / zip 압축을 교체
+  → [nameAsset]      — 동적 로직으로 이름 템플릿을 덮어씀
+  → sha256 해시
+  → [generateChecksums] — checksum 파일을 asset 목록에 추가
+  → GitHub Release 업로드 (기본 내장)
+  → [uploadAssets]   — 추가 대상(S3, R2, CDN 등)에 업로드
+  → ReleaseContext 조립
+  → [afterRelease]   — 최종 asset 목록을 소비(brew, notify 등)
+```
+
+## 훅 인터페이스
+
+```ts
+interface AssetPipelineHooks {
+  resolveAssets?(
+    resolved: ResolvedAsset[],
+    ctx: PubmContext,
+  ): Promise<ResolvedAsset[]> | ResolvedAsset[];
+
+  transformAsset?(
+    asset: ResolvedAsset,
+    ctx: PubmContext,
+  ): Promise<TransformedAsset | TransformedAsset[]>
+    | TransformedAsset
+    | TransformedAsset[];
+
+  compressAsset?(
+    asset: TransformedAsset,
+    ctx: PubmContext,
+  ): Promise<CompressedAsset> | CompressedAsset;
+
+  nameAsset?(
+    asset: CompressedAsset,
+    ctx: PubmContext,
+  ): string;
+
+  generateChecksums?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<PreparedAsset[]> | PreparedAsset[];
+
+  uploadAssets?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<UploadedAsset[]> | UploadedAsset[];
+}
+```
+
+모든 훅은 `PluginHooks`에 추가되며, 표준 `pubm.config.ts`의 `plugins` 배열을 통해 등록합니다.
+
+:::note
+현재 TypeScript 정의에서는 순환 import를 피하기 위해 `ctx` 파라미터가 `any`로 지정되어 있습니다. 런타임에서는 항상 `PubmContext` 인스턴스이며, 위 시그니처가 실제 계약을 반영합니다.
+:::
+
+## 훅 레퍼런스
+
+### `resolveAssets`
+
+glob으로 매칭된 전체 asset 목록과 함께 한 번 호출됩니다. 이 훅을 사용해 asset을 필터링하거나, 프로그램적으로 찾은 파일을 추가하거나, 메타데이터를 붙입니다.
+
+**입력:** `ResolvedAsset[]` - glob 매칭 결과와 파싱된 플랫폼 정보를 가진 asset
+**출력:** `ResolvedAsset[]` - 새 asset 목록(이전 목록을 대체)
+
+```ts
+const filterPlugin: PubmPlugin = {
+  name: "filter-assets",
+  hooks: {
+    resolveAssets(resolved, ctx) {
+      // 지원되는 플랫폼의 asset만 포함
+      return resolved.filter(
+        (a) =>
+          (a.platform.os === "darwin" || a.platform.os === "linux") &&
+          a.platform.arch === "arm64",
+      );
+    },
+  },
+};
+```
+
+### `transformAsset`
+
+압축 전에 각 asset마다 한 번 호출됩니다. 이 훅은 바이너리 서명, `strip` 실행, archive에 sidecar 파일 추가, 또는 하나의 입력을 여러 출력으로 분할할 때 사용합니다.
+
+**입력:** `ResolvedAsset` - asset 하나
+**출력:** `TransformedAsset | TransformedAsset[]` - 하나 이상의 변환된 asset
+
+`TransformedAsset`는 선택적 `extraFiles?: string[]` 필드를 가진 `ResolvedAsset` 확장입니다. `extraFiles`에 나열된 파일은 압축 시 primary 파일과 함께 archive에 포함됩니다.
+
+```ts
+const codeSignPlugin: PubmPlugin = {
+  name: "code-sign",
+  hooks: {
+    async transformAsset(asset, ctx) {
+      if (asset.platform.os === "darwin") {
+        await exec("codesign", [
+          "--sign", process.env.SIGNING_IDENTITY,
+          "--options", "runtime",
+          asset.filePath,
+        ]);
+      }
+      return asset;
+    },
+  },
+};
+```
+
+#### asset을 여러 출력으로 분할하기
+
+배열을 반환하면 하나의 입력에서 여러 asset을 만들 수 있습니다. 각 요소는 파이프라인의 나머지 단계를 독립적으로 진행합니다.
+
+```ts
+hooks: {
+  async transformAsset(asset, ctx) {
+    if (asset.platform.os === "windows") {
+      // 일반 바이너리와 디버그 빌드 둘 다 생성
+      return [
+        asset,
+        { ...asset, filePath: asset.filePath.replace(".exe", "-debug.exe") },
+      ];
+    }
+    return asset;
+  },
+},
+```
+
+### `compressAsset`
+
+기본 압축 로직을 완전히 대체합니다. 이 훅을 설정하면, 올바른 `filePath`와 `compressFormat`을 가진 `CompressedAsset`을 만들어야 합니다.
+
+**입력:** `TransformedAsset`
+**출력:** `CompressedAsset`
+
+`pubm`이 네이티브로 지원하지 않는 형식이 필요하거나, archive 안에 추가 파일을 묶고 싶을 때 사용합니다.
+
+```ts
+const customArchivePlugin: PubmPlugin = {
+  name: "deb-package",
+  hooks: {
+    async compressAsset(asset, ctx) {
+      if (asset.platform.os === "linux") {
+        const debPath = await buildDebPackage(asset.filePath, ctx.version);
+        return {
+          ...asset,
+          filePath: debPath,
+          originalPath: asset.filePath,
+          compressFormat: false,
+        };
+      }
+      // 다른 플랫폼은 기본 동작으로 되돌림
+      return defaultCompress(asset);
+    },
+  },
+};
+```
+
+### `nameAsset`
+
+최종 업로드 파일명을 반환합니다(`compressFormat`에서 확장자가 붙으므로, 여기서는 확장자를 포함하지 않습니다). 이름 템플릿 시스템이 충분히 표현력이 없을 때 사용합니다.
+
+**입력:** `CompressedAsset`
+**출력:** `string` - 확장자가 없는 파일명
+
+```ts
+const dateStampPlugin: PubmPlugin = {
+  name: "date-stamp",
+  hooks: {
+    nameAsset(asset, ctx) {
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      return `${ctx.packageName}-${ctx.version}-${date}-${asset.platform.raw}`;
+    },
+  },
+};
+```
+
+### `generateChecksums`
+
+준비된 전체 asset 목록과 함께 호출됩니다. 이 훅을 사용해 checksum manifest 파일을 추가합니다.
+
+**입력:** `PreparedAsset[]` - `sha256` 값을 포함한 모든 asset
+**출력:** `PreparedAsset[]` - 원본 asset과 새 checksum 파일들
+
+```ts
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const checksumsPlugin: PubmPlugin = {
+  name: "checksums",
+  hooks: {
+    async generateChecksums(assets, ctx) {
+      const lines = assets
+        .map((a) => `${a.sha256}  ${a.name}`)
+        .join("\n");
+
+      const checksumPath = join(ctx.runtime.tempDir, "SHA256SUMS.txt");
+      writeFileSync(checksumPath, lines + "\n");
+
+      const sha256 = await computeSha256(checksumPath);
+
+      return [
+        ...assets,
+        {
+          filePath: checksumPath,
+          originalPath: checksumPath,
+          name: "SHA256SUMS.txt",
+          sha256,
+          platform: { raw: "" },
+          compressFormat: false,
+          config: { path: "", compress: false, name: "SHA256SUMS.txt" },
+        },
+      ];
+    },
+  },
+};
+```
+
+### `uploadAssets`
+
+GitHub Release 업로드 이후, 같은 `PreparedAsset[]`와 함께 호출됩니다. 이 훅은 artifact를 추가 대상에 미러링할 때 사용합니다. 각 plugin의 결과는 모아서 이어 붙이며, 모든 plugin은 같은 입력 목록을 받습니다.
+
+**입력:** `PreparedAsset[]`
+**출력:** `UploadedAsset[]` - `url`과 `target` 필드를 가진 업로드된 asset
+
+```ts
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readFileSync } from "node:fs";
+
+const s3Plugin: PubmPlugin = {
+  name: "s3-mirror",
+  hooks: {
+    async uploadAssets(assets, ctx) {
+      const s3 = new S3Client({ region: "us-east-1" });
+      const bucket = process.env.RELEASE_BUCKET;
+
+      return Promise.all(
+        assets.map(async (asset) => {
+          const key = `releases/${ctx.version}/${asset.name}`;
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: readFileSync(asset.filePath),
+            }),
+          );
+          return {
+            ...asset,
+            url: `https://${bucket}.s3.amazonaws.com/${key}`,
+            target: "s3",
+          };
+        }),
+      );
+    },
+  },
+};
+```
+
+## 다중 플러그인 조합
+
+여러 플러그인이 같은 훅을 등록하면, 등록 순서대로 조합됩니다.
+
+| Hook | 조합 규칙 |
+|------|----------|
+| `resolveAssets` | 체인 방식 - plugin N의 출력이 plugin N+1의 입력 |
+| `transformAsset` | 체인 방식 - plugin N의 출력이 plugin N+1의 입력 |
+| `compressAsset` | 체인 방식 - plugin N의 출력이 plugin N+1의 입력 |
+| `nameAsset` | 마지막 값 우선 - 각 plugin은 같은 `(asset, ctx)`를 받으며 마지막 등록 plugin의 반환값이 사용됨 |
+| `generateChecksums` | 체인 방식 - plugin N의 출력이 plugin N+1의 입력 |
+| `uploadAssets` | 추가 방식 - 각 plugin은 같은 `PreparedAsset[]`를 독립적으로 받으며, 결과는 모두 이어 붙임 |
+
+훅 체인에서 처리되지 않은 에러가 발생하면 파이프라인은 중단되고 `onError` 훅으로 전달됩니다.
+
+## 전체 예시: 코드 서명 + checksum + S3
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: ["platforms/*/bin/mytool"],
+
+  plugins: [
+    // macOS 바이너리 서명
+    {
+      name: "code-sign",
+      hooks: {
+        async transformAsset(asset, ctx) {
+          if (asset.platform.os === "darwin") {
+            await exec("codesign", ["--sign", process.env.SIGNING_IDENTITY, asset.filePath]);
+          }
+          return asset;
+        },
+      },
+    },
+
+    // SHA256SUMS.txt 추가
+    checksumsPlugin,
+
+    // S3로 미러링
+    s3Plugin,
+  ],
+});
+```
+
+## 관련 문서
+
+- [Release Assets](/pubm/ko/guides/release-assets/) - 선언형 설정 레퍼런스
+- [Platform Detection](/pubm/ko/reference/platform-detection/) - OS 및 arch 테이블
+- [Plugins API Reference](/pubm/ko/reference/plugins/) - 전체 플러그인 인터페이스

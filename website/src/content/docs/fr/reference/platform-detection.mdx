@@ -1,0 +1,208 @@
+---
+title: Détection de plateforme
+description: Tables intégrées d'OS, d'architecture, d'ABI et de variante utilisées pour le parsing automatique des plateformes.
+---
+
+`pubm` embarque un moteur intégré de détection de plateforme qui analyse l'OS, l'architecture, l'ABI et la variante à partir des chemins de fichiers. Cela alimente le nommage automatique des artefacts, les valeurs par défaut de compression tenant compte de l'OS et l'objet structuré `ParsedPlatform` consommé par des plugins comme `@pubm/plugin-brew`.
+
+## Comment le parsing fonctionne
+
+Quand vous configurez une entrée `releaseAssets`, `pubm` inspecte chaque chemin de fichier correspondant pour déterminer sa plateforme.
+
+Il existe deux modes :
+
+**Variables de capture dans le motif de chemin.** Si le motif contient `{os}`, `{arch}`, `{abi}`, `{variant}` ou `{platform}`, `pubm` extrait directement les valeurs à ces emplacements :
+
+```ts
+// Triplet à la Rust : capture arch, vendor, os, abi depuis le chemin
+{ path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" }
+
+// Style Bun : capture tout le segment de plateforme
+{ path: "platforms/{platform}/bin/mytool" }
+```
+
+**Analyse automatique des segments.** Lorsqu'aucune variable de capture n'est utilisée, `pubm` découpe le chemin en segments sur `/`, puis découpe chaque segment sur `-`. Chaque jeton obtenu est testé contre les tables OS, arch, ABI, variante et vendor, dans cet ordre. La première correspondance par catégorie l'emporte.
+
+```ts
+// Chemin : platforms/darwin-arm64/bin/pubm
+// Segment : darwin-arm64 → jetons : [darwin, arm64]
+// darwin → os: "darwin", arm64 → arch: "arm64"
+{ path: "platforms/*/bin/pubm" }
+```
+
+Les jetons qui ne correspondent à aucune table sont ignorés.
+
+### Variable `{platform}`
+
+La variable de modèle `{platform}` contient la chaîne brute de plateforme :
+
+- si `{platform}` était une variable de capture : le segment capturé tel quel (`darwin-arm64`)
+- si des variables de capture individuelles étaient utilisées (`{os}`, `{arch}`) : assemblée comme `{os}-{arch}`
+- si la détection automatique a été utilisée : le segment de chemin correspondant (`darwin-arm64`)
+
+Vendor, ABI et variante sont volontairement exclus de `{platform}` pour garder le cas courant court et lisible. Ils sont accessibles individuellement via `{vendor}`, `{abi}` et `{variant}`.
+
+## Type `ParsedPlatform`
+
+```ts
+interface ParsedPlatform {
+  /** Chaîne brute capturée ou segment correspondant */
+  raw: string;
+  os?: string;
+  arch?: string;
+  vendor?: string;
+  abi?: string;
+  variant?: string;
+}
+```
+
+Cet objet est attaché à chaque artefact qui traverse le pipeline et est exposé aux plugins via `ReleaseAsset.platform` dans le hook `afterRelease`.
+
+## Table OS
+
+Les valeurs canoniques sont utilisées dans les variables de modèle et les comparaisons des plugins. Les alias sont reconnus pendant le parsing des chemins.
+
+| Canonical | Alias |
+|-----------|-------|
+| `darwin` | `macos`, `mac`, `osx`, `macosx` |
+| `linux` | `lin` |
+| `windows` | `win`, `win32`, `win64` |
+| `freebsd` | |
+| `openbsd` | |
+| `netbsd` | |
+| `android` | |
+| `ios` | |
+| `solaris` | `sunos` |
+| `illumos` | |
+| `aix` | |
+| `dragonfly` | `dragonflybsd` |
+| `plan9` | |
+| `fuchsia` | |
+| `haiku` | |
+| `redox` | |
+
+## Table d'architecture
+
+| Canonical | Alias |
+|-----------|-------|
+| `x64` | `x86_64`, `amd64`, `x86-64` |
+| `ia32` | `i386`, `i486`, `i586`, `i686`, `x86`, `386` |
+| `arm64` | `aarch64`, `armv8`, `aarch_64` |
+| `arm` | `armv7`, `armv7l`, `armv6`, `armv6l`, `armhf`, `armel` |
+| `ppc64le` | `powerpc64le`, `ppc64el` |
+| `ppc64` | `powerpc64` |
+| `ppc` | `powerpc` |
+| `s390x` | |
+| `riscv64` | `riscv64gc` |
+| `loong64` | `loongarch64`, `la64` |
+| `mips` | `mips32` |
+| `mipsel` | `mipsle` |
+| `mips64` | |
+| `mips64el` | `mips64le` |
+| `wasm32` | `wasm` |
+| `wasm64` | |
+| `universal` | `universal2`, `fat` |
+
+## Table ABI
+
+Les jetons ABI apparaissent dans les triplets de cible Rust et les noms de toolchains de cross-compilation.
+
+| Valeur | Signification |
+|--------|---------------|
+| `gnu` / `glibc` | GNU C Library |
+| `musl` | libc musl (adaptée au statique) |
+| `msvc` | runtime Microsoft Visual C++ |
+| `mingw` / `mingw32` / `mingw-w64` | toolchain MinGW |
+| `gnueabihf` | ARM hard-float avec glibc |
+| `gnueabi` | ARM soft-float avec glibc |
+| `musleabihf` | ARM hard-float avec musl |
+| `musleabi` | ARM soft-float avec musl |
+| `androideabi` | ARM EABI Android |
+| `uclibc` | uClibc pour cibles embarquées |
+| `bionic` | Bionic C library d'Android |
+
+## Table de variante
+
+Les jetons de variante expriment des niveaux de microarchitecture ou des exigences de capacités.
+
+| Valeur | Signification |
+|--------|---------------|
+| `baseline` | Pas d'AVX2 ; SSE4.2 uniquement |
+| `v2` | Niveau 2 de microarchitecture x86-64 |
+| `v3` | Niveau 3 de microarchitecture x86-64 (AVX2) |
+| `v4` | Niveau 4 de microarchitecture x86-64 (AVX-512) |
+| `avx2` | Exigence explicite AVX2 |
+| `avx512` | Exigence explicite AVX-512 |
+
+## Table vendor
+
+Les jetons vendor sont reconnus pendant le parsing mais ne sont pas inclus dans la variable `{platform}`. Accédez-y via `{vendor}`.
+
+| Valeur | Signification |
+|--------|---------------|
+| `unknown` | Générique (valeur Rust par défaut pour les cibles Linux) |
+| `apple` | Plateformes Apple (macOS, iOS) |
+| `pc` | PC/desktop (Windows, Solaris) |
+| `none` | Cibles bare-metal |
+
+## Exemples de parsing
+
+### Layout de répertoire de style Bun
+
+```text
+platforms/darwin-arm64/bin/pubm
+platforms/linux-x64/bin/pubm
+platforms/windows-x64/bin/pubm.exe
+```
+
+Configuration :
+
+```ts
+releaseAssets: ["platforms/*/bin/pubm"]
+```
+
+Résultats :
+
+| Chemin | `os` | `arch` | `{platform}` |
+|------|------|--------|--------------|
+| `platforms/darwin-arm64/bin/pubm` | `darwin` | `arm64` | `darwin-arm64` |
+| `platforms/linux-x64/bin/pubm` | `linux` | `x64` | `linux-x64` |
+| `platforms/windows-x64/bin/pubm.exe` | `windows` | `x64` | `windows-x64` |
+
+### Triplet de cible Rust
+
+```text
+target/x86_64-unknown-linux-gnu/release/mytool
+target/aarch64-apple-darwin/release/mytool
+```
+
+Configuration :
+
+```ts
+releaseAssets: [
+  { path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool" },
+  { path: "target/{arch}-{vendor}-{os}/release/mytool" },
+]
+```
+
+Résultats :
+
+| Chemin | `os` | `arch` | `vendor` | `abi` |
+|------|------|--------|----------|-------|
+| `x86_64-unknown-linux-gnu` | `linux` | `x64` | `unknown` | `gnu` |
+| `aarch64-apple-darwin` | `darwin` | `arm64` | `apple` | — |
+
+### Normalisation des alias
+
+Tous les alias sont résolus vers la forme canonique avant la substitution dans les modèles :
+
+```text
+bin/myapp-amd64-macos → os: "darwin", arch: "x64"
+bin/myapp-win64       → os: "windows"
+bin/myapp-armv7l      → arch: "arm"
+```
+
+## Documents liés
+
+- [Artefacts de release](/pubm/fr/guides/release-assets/) - guide de configuration
+- [Hooks du pipeline d'artefacts](/pubm/fr/guides/asset-pipeline-hooks/) - référence des hooks de plugin

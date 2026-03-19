@@ -1,0 +1,320 @@
+---
+title: 资产流水线 Hooks
+description: 通过 plugin hooks 拦截发布资产流水线的每个阶段。
+---
+
+资产流水线会在 build 步骤之后、GitHub Release 上传之前运行。插件可以通过六个 hooks 来拦截每个阶段，这些 hooks 与流水线内部结构一一对应。
+
+## 流水线阶段
+
+```text
+releaseAssets config
+  → glob matching → ResolvedAsset[]
+  → [resolveAssets]  — filter, add, or replace the asset list
+  → [transformAsset] — sign, strip, or split each asset (1 → N)
+  → [compressAsset]  — replace default tar.gz / zip compression
+  → [nameAsset]      — override the name template with dynamic logic
+  → sha256 hash
+  → [generateChecksums] — append checksum files to the asset list
+  → GitHub Release upload (built-in)
+  → [uploadAssets]   — upload to additional targets (S3, R2, CDN, etc.)
+  → ReleaseContext assembled
+  → [afterRelease]   — consume final asset list (brew, notify, etc.)
+```
+
+## Hooks 接口
+
+```ts
+interface AssetPipelineHooks {
+  resolveAssets?(
+    resolved: ResolvedAsset[],
+    ctx: PubmContext,
+  ): Promise<ResolvedAsset[]> | ResolvedAsset[];
+
+  transformAsset?(
+    asset: ResolvedAsset,
+    ctx: PubmContext,
+  ): Promise<TransformedAsset | TransformedAsset[]>
+    | TransformedAsset
+    | TransformedAsset[];
+
+  compressAsset?(
+    asset: TransformedAsset,
+    ctx: PubmContext,
+  ): Promise<CompressedAsset> | CompressedAsset;
+
+  nameAsset?(
+    asset: CompressedAsset,
+    ctx: PubmContext,
+  ): string;
+
+  generateChecksums?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<PreparedAsset[]> | PreparedAsset[];
+
+  uploadAssets?(
+    assets: PreparedAsset[],
+    ctx: PubmContext,
+  ): Promise<UploadedAsset[]> | UploadedAsset[];
+}
+```
+
+所有 hooks 都会加入到 `PluginHooks`，并通过 `pubm.config.ts` 中标准的 `plugins` 数组注册。
+
+:::note
+当前 TypeScript 定义里，`ctx` 参数为了避免循环导入被标成了 `any`。在运行时它始终是一个 `PubmContext` 实例，上面的签名反映的是运行时契约。
+:::
+
+## Hook 参考
+
+### `resolveAssets`
+
+调用一次，传入完整的 glob 匹配资产列表。可用它来过滤资产、添加程序化发现的文件，或附加元数据。
+
+**输入：** `ResolvedAsset[]` - 来自 glob 匹配、带解析平台信息的资产
+**输出：** `ResolvedAsset[]` - 新的资产列表（替换之前的列表）
+
+```ts
+const filterPlugin: PubmPlugin = {
+  name: "filter-assets",
+  hooks: {
+    resolveAssets(resolved, ctx) {
+      // 只保留受支持平台的资产
+      return resolved.filter(
+        (a) =>
+          (a.platform.os === "darwin" || a.platform.os === "linux") &&
+          a.platform.arch === "arm64",
+      );
+    },
+  },
+};
+```
+
+### `transformAsset`
+
+在每个资产进入压缩之前调用。可用它来签名二进制、运行 `strip`、为 archive 添加 sidecar 文件，或者把一个输入拆成多个输出。
+
+**输入：** `ResolvedAsset` - 单个资产
+**输出：** `TransformedAsset | TransformedAsset[]` - 一个或多个已转换资产
+
+`TransformedAsset` 在 `ResolvedAsset` 的基础上增加了一个可选的 `extraFiles?: string[]` 字段。`extraFiles` 中列出的文件会在压缩时和主文件一起打包进 archive。
+
+```ts
+const codeSignPlugin: PubmPlugin = {
+  name: "code-sign",
+  hooks: {
+    async transformAsset(asset, ctx) {
+      if (asset.platform.os === "darwin") {
+        await exec("codesign", [
+          "--sign", process.env.SIGNING_IDENTITY,
+          "--options", "runtime",
+          asset.filePath,
+        ]);
+      }
+      return asset;
+    },
+  },
+};
+```
+
+#### 将一个资产拆成多个输出
+
+返回数组即可从一个输入生成多个资产。数组中的每个元素都会独立继续后续流水线。
+
+```ts
+hooks: {
+  async transformAsset(asset, ctx) {
+    if (asset.platform.os === "windows") {
+      // 同时产出普通二进制和 debug 构建
+      return [
+        asset,
+        { ...asset, filePath: asset.filePath.replace(".exe", "-debug.exe") },
+      ];
+    }
+    return asset;
+  },
+},
+```
+
+### `compressAsset`
+
+完全替换内建压缩逻辑。启用后，这个 hook 负责产出带有正确 `filePath` 和 `compressFormat` 的 `CompressedAsset`。
+
+**输入：** `TransformedAsset`
+**输出：** `CompressedAsset`
+
+当你需要 `pubm` 原生不支持的格式，或者想把额外文件打包进 archive 时，可以用它。
+
+```ts
+const customArchivePlugin: PubmPlugin = {
+  name: "deb-package",
+  hooks: {
+    async compressAsset(asset, ctx) {
+      if (asset.platform.os === "linux") {
+        const debPath = await buildDebPackage(asset.filePath, ctx.version);
+        return {
+          ...asset,
+          filePath: debPath,
+          originalPath: asset.filePath,
+          compressFormat: false,
+        };
+      }
+      // 其他平台回退到默认实现
+      return defaultCompress(asset);
+    },
+  },
+};
+```
+
+### `nameAsset`
+
+返回最终上传文件名（不含扩展名，扩展名会从 `compressFormat` 追加）。当名称模板系统不够表达你的需求时使用它。
+
+**输入：** `CompressedAsset`
+**输出：** `string` - 不含扩展名的文件名
+
+```ts
+const dateStampPlugin: PubmPlugin = {
+  name: "date-stamp",
+  hooks: {
+    nameAsset(asset, ctx) {
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      return `${ctx.packageName}-${ctx.version}-${date}-${asset.platform.raw}`;
+    },
+  },
+};
+```
+
+### `generateChecksums`
+
+传入完整的准备好上传的资产列表时调用。可用它来追加一个 checksum manifest 文件。
+
+**输入：** `PreparedAsset[]` - 包含 `sha256` 值的所有资产
+**输出：** `PreparedAsset[]` - 原始资产加上任何新的 checksum 文件
+
+```ts
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const checksumsPlugin: PubmPlugin = {
+  name: "checksums",
+  hooks: {
+    async generateChecksums(assets, ctx) {
+      const lines = assets
+        .map((a) => `${a.sha256}  ${a.name}`)
+        .join("\n");
+
+      const checksumPath = join(ctx.runtime.tempDir, "SHA256SUMS.txt");
+      writeFileSync(checksumPath, lines + "\n");
+
+      const sha256 = await computeSha256(checksumPath);
+
+      return [
+        ...assets,
+        {
+          filePath: checksumPath,
+          originalPath: checksumPath,
+          name: "SHA256SUMS.txt",
+          sha256,
+          platform: { raw: "" },
+          compressFormat: false,
+          config: { path: "", compress: false, name: "SHA256SUMS.txt" },
+        },
+      ];
+    },
+  },
+};
+```
+
+### `uploadAssets`
+
+在 GitHub Release 上传之后，以同一份 `PreparedAsset[]` 调用。可用它把构件镜像到额外目标。每个插件的结果都会被收集并拼接起来，也就是说所有插件接收的是相同的输入列表。
+
+**输入：** `PreparedAsset[]`
+**输出：** `UploadedAsset[]` - 带有 `url` 和 `target` 字段的已上传资产
+
+```ts
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readFileSync } from "node:fs";
+
+const s3Plugin: PubmPlugin = {
+  name: "s3-mirror",
+  hooks: {
+    async uploadAssets(assets, ctx) {
+      const s3 = new S3Client({ region: "us-east-1" });
+      const bucket = process.env.RELEASE_BUCKET;
+
+      return Promise.all(
+        assets.map(async (asset) => {
+          const key = `releases/${ctx.version}/${asset.name}`;
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: readFileSync(asset.filePath),
+            }),
+          );
+          return {
+            ...asset,
+            url: `https://${bucket}.s3.amazonaws.com/${key}`,
+            target: "s3",
+          };
+        }),
+      );
+    },
+  },
+};
+```
+
+## 多插件组合
+
+当多个插件注册同一个 hook 时，它们会按注册顺序组合：
+
+| Hook | 组合规则 |
+|------|----------|
+| `resolveAssets` | 串联 - 插件 N 的输出是插件 N+1 的输入 |
+| `transformAsset` | 串联 - 插件 N 的输出是插件 N+1 的输入 |
+| `compressAsset` | 串联 - 插件 N 的输出是插件 N+1 的输入 |
+| `nameAsset` | 最后生效 - 每个插件都会接收相同的 `(asset, ctx)` 参数；最终使用最后注册插件的返回值 |
+| `generateChecksums` | 串联 - 插件 N 的输出是插件 N+1 的输入 |
+| `uploadAssets` | 叠加 - 每个插件都会独立接收原始 `PreparedAsset[]`；所有结果都会拼接起来 |
+
+任何未捕获的 hook 链错误都会中止流水线，并路由到 `onError` hook。
+
+## 完整示例：代码签名 + checksums + S3
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: ["platforms/*/bin/mytool"],
+
+  plugins: [
+    // 给 macOS 二进制签名
+    {
+      name: "code-sign",
+      hooks: {
+        async transformAsset(asset, ctx) {
+          if (asset.platform.os === "darwin") {
+            await exec("codesign", ["--sign", process.env.SIGNING_IDENTITY, asset.filePath]);
+          }
+          return asset;
+        },
+      },
+    },
+
+    // 追加 SHA256SUMS.txt
+    checksumsPlugin,
+
+    // 镜像到 S3
+    s3Plugin,
+  ],
+});
+```
+
+## 相关文档
+
+- [Release Assets](/pubm/zh-cn/guides/release-assets/) - 声明式配置参考
+- [Platform Detection](/pubm/zh-cn/reference/platform-detection/) - OS 和 arch 表
+- [Plugins API Reference](/pubm/zh-cn/reference/plugins/) - 完整的 plugin 接口

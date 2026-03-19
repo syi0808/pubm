@@ -1,92 +1,96 @@
 ---
 title: 코딩 에이전트 통합
-description: Claude Code와 Codex 같은 코딩 에이전트에 pubm 플러그인을 연결합니다.
+description: 이미 쓰고 있는 코딩 에이전트에 pubm 플러그인을 연결하고, 설정 자동화부터 시작합니다.
 ---
 
-이 문서는 이미 코딩 에이전트를 사용하는 팀이 기존 워크플로에 `pubm` 릴리스 흐름을 붙이는 방법을 설명합니다.
+이 문서는 Claude Code나 Codex 같은 코딩 에이전트를 이미 사용하고 있고, 그 기존 설정 안에 `pubm` 릴리스 워크플로를 추가하고 싶은 팀을 위한 것입니다.
 
-## 가장 먼저 setup 자동화
+## 설정 자동화부터 시작하기
 
-저장소가 아직 연결되지 않았다면, 가장 중요한 에이전트 작업은 publish가 아니라 setup입니다.
+저장소가 아직 연결되지 않았다면, 에이전트가 가장 먼저 해야 할 일은 publish가 아니라 설정입니다.
 
-먼저 `publish-setup`을 사용하세요. 이 스킬은 다음을 담당합니다.
+먼저 `publish-setup` 스킬을 사용합니다. 이 스킬은 다음을 처리합니다.
 
 - `pubm plugin` 번들 설치
-- `pubm` 설정 생성 또는 갱신
+- `pubm` 설정 생성 또는 업데이트
 - CI 연결
-- changesets 활성화
+- changeset 활성화
 - 필요하면 version-sync 대상 연결
 
-에이전트가 번들을 가져오고 체크인된 setup 흐름을 따를 수 있도록 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 링크를 제공하세요.
+에이전트가 번들을 가져와 체크인된 설정 흐름을 따를 수 있도록 [INSTALLATION.md](/pubm/ko/plugins/pubm-plugin/INSTALLATION.md) 링크를 전달합니다.
 
-## `pubm plugin`이 제공하는 것
+## 에이전트에게 `pubm plugin`이 제공하는 것
 
-저장소에는 `plugins/pubm-plugin/` 아래 에이전트용 번들이 있습니다.
+이 저장소는 `plugins/pubm-plugin/` 아래에 에이전트용 번들을 제공합니다.
 
-- `plugins/pubm-plugin/.claude-plugin/plugin.json`
-- `plugins/pubm-plugin/skills/`
+현재 그 번들에는 다음이 들어 있습니다.
+
+- `plugins/pubm-plugin/.claude-plugin/plugin.json`의 Claude Code 플러그인 매니페스트
+- `plugins/pubm-plugin/skills/` 아래의 체크인된 스킬 번들
 
 ## 포함된 스킬
 
 ### `publish-setup`
 
-에이전트로 저장소에 `pubm`을 처음 연결할 때 가장 먼저 사용합니다.
+에이전트를 통해 저장소에 `pubm`을 연결할 때 가장 먼저 사용합니다.
 
 ### `publish-preview`
 
-git 상태를 바꾸거나 publish하기 전에 릴리스 계획을 설명해야 할 때 사용합니다.
+에이전트가 git 상태를 바꾸거나 아무것도 publish하기 전에 릴리스 계획을 설명해야 할 때 사용합니다.
 
 ### `publish`
 
-실제 publish 경로입니다. preview를 먼저 수행하고, 실제 publish 전에 확인을 요구합니다.
+이것은 보호된 publish 경로입니다. preview를 먼저 수행하고, 실제 publish 명령 전에 확인이 필요합니다.
 
 ### `version-sync`
 
-문서 스니펫이나 메타데이터 파일처럼 패키지 매니페스트 밖의 버전 참조를 찾고 연결할 때 사용합니다.
+docs 스니펫, 메타데이터 파일, sidecar 설정처럼 패키지 매니페스트 바깥의 버전 참조를 찾고 연결할 때 사용합니다.
 
 ### `create-plugin`
 
-새로운 `pubm` 플러그인 패키지와 훅, 명령, 테스트를 스캐폴딩합니다.
+에이전트가 훅, 명령, 테스트를 갖춘 새로운 `pubm` 플러그인 패키지를 스캐폴딩해야 할 때 사용합니다.
 
 ## Claude Code 설치
 
-Claude Code는 marketplace 기반 플러그인 설치 모델을 사용합니다.
+Claude Code는 마켓플레이스 기반 플러그인 모델을 사용합니다.
 
-일반적인 흐름:
+일반적인 흐름은 다음과 같습니다.
 
-1. marketplace 추가
-2. 해당 marketplace에서 plugin 설치
-3. Claude Code에서 설치 범위 선택
+1. 마켓플레이스를 추가합니다.
+2. 그 마켓플레이스에서 플러그인을 설치합니다.
+3. Claude Code에서 설치 범위를 선택합니다.
 
 ```text
 /plugin marketplace add your-org/claude-plugins
 /plugin install plugin-name@marketplace-name
 ```
 
-marketplace를 사용하지 않는다면 대신 [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 링크를 에이전트에 제공하세요.
+마켓플레이스를 사용하지 않는다면, 대신 에이전트에 [INSTALLATION.md](/pubm/ko/plugins/pubm-plugin/INSTALLATION.md) 링크를 제공합니다.
 
-## 통합 원칙
+## 통합 모델
 
-- 실제 릴리스 동작은 `pubm` 본체나 `pubm` 플러그인에 둡니다.
-- 에이전트 승인 정책과 작업 순서는 체크인된 skill에 둡니다.
-- setup 자동화를 저장소 온보딩의 기준으로 둡니다.
+- 런타임 릴리스 동작은 `pubm` 자체나 `pubm` 플러그인에 둡니다.
+- 에이전트 워크플로와 승인 정책은 체크인된 스킬에 둡니다.
+- 저장소 온보딩은 설정 자동화가 주도하도록 둡니다.
 
-## 스킬과 CLI의 역할 분리
+## 스킬과 명령 표면
 
-- 결정적인 릴리스 작업은 `pubm` 명령으로 수행
-- 스킬은 설정 순서, 프로젝트 점검, 안전 장치, 승인 흐름을 오케스트레이션
+스킬은 CLI를 대체하는 것이 아니라 CLI를 조율해야 합니다.
 
-## 에이전트에 반드시 넣어야 할 안전 규칙
+- 결정적인 릴리스 작업에는 `pubm` 명령을 사용합니다.
+- 설정 순서, 프로젝트 점검, 안전 검사, 승인은 스킬이 담당합니다.
 
-- 새 저장소는 publish보다 setup 우선
-- 기존 저장소도 publish 전에 preview 우선
-- 되돌릴 수 없는 작업 전에는 명시적 승인
-- 버전, 레지스트리, 부작용을 평문으로 설명
-- git 상태, 인증, CI 가정이 준비되지 않았으면 중단
+## 넣어야 할 안전 규칙
+
+- 새 저장소에서는 publish 전에 설정합니다.
+- 기존 저장소에서는 publish 전에 preview합니다.
+- 되돌릴 수 없는 작업 전에는 명시적 승인을 받습니다.
+- 버전, 레지스트리, 부작용은 사람이 읽기 쉬운 말로 요약합니다.
+- git 상태, 인증, CI 가정이 준비되지 않았다면 중단합니다.
 
 ## 실무 팁
 
-- `publish-setup`을 가장 중요한 통합 표면으로 취급하세요.
-- setup 자동화와 publish 자동화를 같은 체크인 번들 안에 두세요.
-- `pubm` 명령을 직접 노출하고, 모호한 자연어 액션으로 감추지 마세요.
-- `pubm patch`는 기본 단계가 아니라 마지막 단계로 취급하세요.
+- `publish-setup`을 주요 통합 표면으로 취급합니다.
+- 설정 자동화와 publish 자동화를 같은 체크인 번들에 둡니다.
+- 모호한 자연어 동작으로 바꾸지 말고 `pubm` 명령을 직접 드러냅니다.
+- `pubm`은 기본 단계가 아니라 마지막 단계로 취급합니다.

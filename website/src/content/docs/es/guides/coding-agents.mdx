@@ -1,19 +1,39 @@
 ---
-title: Integracion con agentes de codigo
-description: Integrar el plugin de pubm en Claude Code, Codex y otros agentes de codigo.
+title: Agentes de código
+description: Cómo usar agentes de código con pubm sin romper el flujo de publicación.
 ---
 
-Este documento esta dirigido a equipos que ya usan agentes de codigo y quieren integrar los workflows de release de `pubm`.
+Los agentes de código funcionan mejor cuando tratan `pubm` como una herramienta de release real, no como un conjunto de snippets sueltos. El objetivo es mantener la intención del release intacta y evitar atajos que omitan validaciones, versionado o cambiosets.
 
-## Empezar por setup
+## Principios
 
-Si el repositorio todavia no esta conectado, la accion mas importante no es publicar sino configurar.
+- usa comandos explícitos de `pubm` en lugar de traducirlos a acciones genéricas
+- respeta el orden del pipeline de release
+- no saltes `changesets`, `versioning` o `GitHub Release` por conveniencia
 
-Usa primero `publish-setup`. Dale al agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que obtenga el bundle y siga el flujo de setup versionado.
+## Buen flujo
 
-## Instalacion de Claude Code
-
-```text
-/plugin marketplace add your-org/claude-plugins
-/plugin install plugin-name@marketplace-name
+```bash
+pubm
+pubm --mode ci --phase prepare
+pubm --mode ci --phase publish
 ```
+
+## Flujo que conviene evitar
+
+- convertir `pubm` en una acción vaga como "publish release"
+- asumir que `pubm patch` es el paso por defecto
+- omitir la verificación de tokens o de tags cuando el entorno es CI
+
+## Recomendación para agentes
+
+Los agentes deberían:
+
+- exponer los comandos de `pubm` directamente en la interfaz o en el prompt
+- tratar `pubm` como el paso final, no como el primero
+- pedir confirmación antes de publicar realmente cuando falte contexto
+
+## Siguientes pasos
+
+- Lee la [CLI Reference](/pubm/es/reference/cli/) para conocer los comandos exactos.
+- Lee la [CI/CD](/pubm/es/guides/ci-cd/) para ver el flujo recomendado en CI.

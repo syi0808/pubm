@@ -1,0 +1,241 @@
+---
+title: 发布资产
+description: 通过自动平台检测和压缩，把二进制、archive 和安装包附加到 GitHub Releases。
+---
+
+当你发布 CLI 工具、桌面应用或原生库时，通常需要把编译后的构件附加到 GitHub Release 上，例如平台专属二进制、安装包、WASM 模块或原生绑定。`pubm` 通过 `releaseAssets` 配置字段来处理这件事。
+
+## 什么时候需要 release assets
+
+在以下情况配置 `releaseAssets`：
+
+- 你发布 CLI 二进制，并希望它能从 GitHub Releases 下载
+- 你构建桌面应用（`dmg`、`msi`），并希望每次发布都带上安装包
+- 你编译 WASM 模块，并希望消费者在运行时下载它们
+- 你为多个平台产出原生绑定
+- 你希望在构件旁边附带 checksum
+
+如果你只发布到 registries（npm、jsr、crates.io），就不需要 `releaseAssets`。
+
+## 基础配置
+
+最简单的形式是一个 glob 字符串。`pubm` 会发现匹配到的文件，从路径中检测平台，使用按 OS 的默认值进行压缩，然后上传到 GitHub Release。
+
+```ts
+// pubm.config.ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/pubm",
+  ],
+});
+```
+
+对于像 `platforms/darwin-arm64/bin/pubm` 这样的路径，`pubm` 会检测到 `os: "darwin"`、`arch: "arm64"`，把二进制压缩成 `pubm-darwin-arm64.tar.gz`，然后附加到 release 上。
+
+## 完整配置
+
+`releaseAssets` 中的每一项也可以是对象，用来显式控制文件、压缩和命名：
+
+```ts
+import { defineConfig } from "@pubm/core";
+
+export default defineConfig({
+  // 全局默认值：Windows 使用 zip，其他平台使用 tar.gz
+  compress: { windows: "zip" },
+
+  releaseAssets: [
+    {
+      // Monorepo：把资产关联到某个 package 的 GitHub Release
+      packagePath: "packages/cli",
+
+      files: [
+        // 字符串：glob，继承 group 和全局设置
+        "platforms/*/bin/pubm",
+
+        // 对象：按文件或模式显式配置
+        {
+          path: "dist/*.dmg",
+          compress: false,                    // 不压缩 .dmg 文件
+          name: "myapp-{version}-{arch}",
+        },
+        {
+          path: "target/{arch}-{vendor}-{os}/release/myapp",
+          compress: { linux: "tar.xz" },      // 只覆盖 linux
+          name: "myapp-{version}-{arch}-{os}",
+        },
+      ],
+
+      // group 默认值（会覆盖全局值，同时会被 file 级别覆盖）
+      compress: "tar.gz",
+      name: "{name}-{platform}",
+    },
+  ],
+});
+```
+
+## 压缩级联
+
+压缩格式会经过四层优先级解析，从高到低：
+
+| Level | Example |
+|-------|---------|
+| 文件级 `compress` | `compress: false` |
+| group 级 `compress` | `compress: "tar.gz"` |
+| 全局 `compress`（顶层 `PubmConfig.compress`） | `compress: { windows: "zip" }` |
+| 按 OS 自动检测 | windows → `zip`，其他 → `tar.gz` |
+
+第一个被定义的层级会获胜（通过 `file ?? group ?? global`）。如果获胜值是一个 `Record<string, CompressFormat>`（按 OS 的映射表），`pubm` 会按检测到的 OS 进行查找。如果该 OS 不在映射表中，就会回退到自动检测，而不是继续往下一层级走。
+
+**已知格式不会被重新压缩。** 当没有显式的 compress 设置时，`pubm` 会检查文件扩展名。如果它匹配已知的 archive 或安装包格式（`.tar.gz`、`.tgz`、`.tar.xz`、`.tar.zst`、`.tar.bz2`、`.zip`、`.7z`、`.dmg`、`.msi`、`.exe`、`.deb`、`.rpm`、`.AppImage`、`.pkg`、`.snap`、`.flatpak`、`.wasm`），`compress` 会自动设为 `false`。
+
+## 按 OS 的默认值
+
+当没有显式的 compress 设置时：
+
+| Detected OS | Default format |
+|-------------|----------------|
+| `windows` | `zip` |
+| 其他所有平台 | `tar.gz` |
+
+## 名称模板变量
+
+`name` 字段（或生成的默认名称）是一个不带扩展名的模板字符串。扩展名会根据解析出来的 `compress` 值自动附加。
+
+| Variable | Source | Example |
+|----------|--------|---------|
+| `{name}` | `package.json` 名称，去掉 scope | `pubm` |
+| `{version}` | 发布版本 | `0.4.0` |
+| `{platform}` | 捕获到的原始字符串或 `{os}-{arch}` | `darwin-arm64` |
+| `{os}` | 从路径解析 | `darwin` |
+| `{arch}` | 从路径解析 | `arm64` |
+| `{vendor}` | 从路径解析，如果存在 | `apple` |
+| `{abi}` | 从路径解析，如果存在 | `musl` |
+| `{variant}` | 从路径解析，如果存在 | `baseline` |
+| `{filename}` | 原始文件名，不含扩展名 | `pubm` |
+
+如果没有指定 `name`，`pubm` 会使用：
+
+- 如果检测到了平台信息，则使用 `{filename}-{platform}`
+- 否则使用 `{filename}`
+
+### 扩展名规则
+
+不要在 `name` 模板里放扩展名。`pubm` 会根据 `compress` 自动追加：
+
+| `compress` | Added extension |
+|------------|-----------------|
+| `"tar.gz"` | `.tar.gz` |
+| `"zip"` | `.zip` |
+| `"tar.xz"` | `.tar.xz` |
+| `"tar.zst"` | `.tar.zst` |
+| `false` | 保留原始文件扩展名 |
+
+## 路径中的 capture 变量
+
+除了依赖从路径 segment 自动检测之外，你还可以直接在 `path` 模式中放入 capture 变量：
+
+```ts
+// 显式捕获 - 直接提取 arch 和 os
+{ path: "target/{arch}-{vendor}-{os}/release/mytool" }
+
+// 将 {platform} 作为一个整体 token 捕获
+{ path: "releases/{platform}/mytool" }
+```
+
+当存在 capture 变量时，`pubm` 会直接使用它们，而不是对每个路径 segment 扫描平台表。完整解析算法请参见 [Platform Detection](/pubm/zh-cn/reference/platform-detection/)。
+
+## 示例
+
+### 发布到 Homebrew 的 CLI 二进制
+
+```ts
+import { defineConfig } from "@pubm/core";
+import { brewTap } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
+  plugins: [
+    brewTap({ formula: "Formula/mytool.rb" }),
+  ],
+});
+```
+
+brew plugin 会读取每个资产中的结构化 `ParsedPlatform`，并自动将它们匹配到 formula 的平台条目。
+
+### 带安装包的桌面应用
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        { path: "dist/MyApp-*.dmg", compress: false },
+        { path: "dist/MyApp-*.msi", compress: false },
+        { path: "dist/MyApp-*-linux.AppImage", compress: false },
+      ],
+      name: "MyApp-{version}-{os}",
+    },
+  ],
+});
+```
+
+### Rust 跨编译二进制
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        {
+          path: "target/{arch}-{vendor}-{os}-{abi}/release/mytool",
+          name: "mytool-{version}-{os}-{arch}-{abi}",
+        },
+      ],
+    },
+  ],
+});
+```
+
+### WASM 模块
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      files: [
+        { path: "dist/mytool.wasm", compress: false },
+      ],
+    },
+  ],
+});
+```
+
+WASM 文件已经在已知格式列表中，所以即使没有显式覆盖，`compress: false` 也会自动应用。
+
+### 多包 monorepo
+
+```ts
+export default defineConfig({
+  releaseAssets: [
+    {
+      packagePath: "packages/cli",
+      files: ["platforms/*/bin/pubm"],
+    },
+    {
+      packagePath: "packages/native",
+      files: ["build/Release/*.node"],
+      compress: false,
+    },
+  ],
+});
+```
+
+## 下一步
+
+- 阅读 [Platform Detection](/pubm/zh-cn/reference/platform-detection/) 了解完整的 OS、architecture、ABI 和 variant 表。
+- 阅读 [Asset Pipeline Hooks](/pubm/zh-cn/guides/asset-pipeline-hooks/) 了解如何拦截并自定义流水线的每个阶段。
+- 阅读 [Official Plugins](/pubm/zh-cn/reference/official-plugins/) 了解 brew plugin 如何使用 `ParsedPlatform` 做 formula 匹配。

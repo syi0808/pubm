@@ -1,19 +1,96 @@
 ---
-title: Integration mit Coding Agents
-description: Das pubm-Plugin in Claude Code, Codex und ahnliche Coding Agents integrieren.
+title: Coding Agent Integration
+description: Das pubm-Plugin in vorhandene Coding Agents integrieren, beginnend mit Setup-Automatisierung.
 ---
 
-Dieses Dokument richtet sich an Teams, die bereits Coding Agents einsetzen und `pubm` in diese bestehende Umgebung integrieren wollen.
+Dieser Leitfaden ist fuer Teams gedacht, die bereits Coding Agents wie Claude Code oder Codex nutzen und `pubm`-Release-Workflows in dieses Setup einbinden wollen.
 
-## Mit Setup beginnen
+## Start with setup automation
 
-Wenn das Repository noch nicht verkabelt ist, ist die wichtigste Aktion nicht Publish, sondern Setup.
+Wenn ein Repository noch nicht angebunden ist, ist die wichtigste Agenten-Aktion nicht das Veröffentlichen, sondern das Setup.
 
-Nutze zuerst `publish-setup`. Gib dem Agent den Link [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle holen und den eingecheckten Setup-Flow befolgen kann.
+Use `publish-setup` first. That skill handles:
 
-## Claude Code Installation
+- Installation des `pubm plugin`-Bundles
+- Erzeugung oder Aktualisierung der `pubm`-Konfiguration
+- Anbindung von CI
+- Aktivierung von Changesets
+- optional die Anbindung von Version-Sync-Zielen
+
+Gib dem Agenten den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle abrufen und dem eingecheckten Setup-Flow folgen kann.
+
+## What the `pubm plugin` gives your agent
+
+Das Repository liefert unter `plugins/pubm-plugin/` ein Bundle fuer Agenten aus.
+
+Today that bundle contains:
+
+- a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- a checked-in skill bundle under `plugins/pubm-plugin/skills/`
+
+## Included skills
+
+### `publish-setup`
+
+Nutze dies zuerst, wenn du `pubm` ueber einen Agenten in ein Repository einbindest.
+
+### `publish-preview`
+
+Nutze dies, wenn der Agent den Release-Plan erklaeren soll, bevor er den Git-Zustand aendert oder etwas veroeffentlicht.
+
+### `publish`
+
+Dies ist der abgesicherte Veroeffentlichungspfad. Er ist zuerst ein Preview und verlangt eine Bestaetigung, bevor der eigentliche Publish-Befehl ausgefuehrt wird.
+
+### `version-sync`
+
+Nutze dies, um Versionsverweise ausserhalb von Paket-Manifests zu finden und anzubinden, etwa in Doku-Snippets, Metadaten-Dateien und Nebenkonfigurationen.
+
+### `create-plugin`
+
+Nutze dies, wenn der Agent ein neues `pubm`-Plugin-Paket mit Hooks, Befehlen und Tests anlegen soll.
+
+## Claude Code installation
+
+Claude Code nutzt ein Marketplace-basiertes Plugin-Modell.
+
+Typischer Ablauf:
+
+1. add the marketplace
+2. install the plugin from that marketplace
+3. choose the installation scope in Claude Code
 
 ```text
 /plugin marketplace add your-org/claude-plugins
 /plugin install plugin-name@marketplace-name
 ```
+
+Wenn du keinen Marketplace nutzt, gib dem Agenten stattdessen den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md).
+
+## Integration model
+
+- halte das Laufzeitverhalten der Releases in `pubm` selbst oder in einem `pubm`-Plugin
+- halte Agent-Workflows und Freigaberichtlinien in eingecheckten Skills
+- halte die Setup-Automatisierung fuer das Onboarding des Repositories massgeblich
+
+## Skills and command surface
+
+Skills sollen die CLI orchestrieren, nicht ersetzen.
+
+- verwende `pubm`-Befehle fuer deterministische Release-Operationen
+- verwende Skills fuer Setup-Reihenfolge, Projektinspektion, Sicherheitspruefungen und Freigaben
+
+## Safety rules to encode
+
+- Setup vor dem Veröffentlichen in neuen Repositories
+- Preview vor dem Veröffentlichen in bestehenden Repositories
+- ausdrueckliche Freigabe vor irreversiblen Aktionen
+- Zusammenfassungen in Klartext fuer Versionen, Registries und Nebenwirkungen
+- Stoppen, wenn Git-Zustand, Authentifizierung oder CI-Annahmen noch nicht bereit sind
+
+## Practical advice
+
+- behandle `publish-setup` als die primaere Integrationsflaeche
+- halte Setup- und Publish-Automatisierung im selben eingecheckten Bundle
+- stelle `pubm`-Befehle direkt bereit, statt sie in vage Natursprache zu uebersetzen
+- behandle `pubm` als letzten Schritt, nicht als Standard-Schritt

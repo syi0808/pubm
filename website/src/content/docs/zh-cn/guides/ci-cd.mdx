@@ -1,24 +1,162 @@
 ---
 title: CI/CD
-description: 为 pubm 配置 preflight、token 处理和发布自动化。
+description: 为 pubm 配置 CI preparation、token 处理和发布自动化。
 ---
 
-`pubm` 同时适用于本地终端和 CI runner。关键点是常规 pipeline 已经会在 version 阶段消费待处理 changeset。
+`pubm` 旨在同时适配本地终端和 CI runner。关键点在于，正常的 `pubm` 流程已经知道如何在版本步骤中消耗待处理的 changeset，因此你不需要为了准备 CI 而额外增加一个 `pubm changesets version` 步骤。
 
-## 推荐流程
+## 推荐的发布模型
+
+使用两个阶段：
+
+1. 在本地或受控的 release job 中运行 `pubm --mode ci --phase prepare`
+2. 在 CI 中使用 `pubm --mode ci --phase publish` 发布
 
 ```bash
-pubm --preflight
-pubm --ci
+pubm --mode ci --phase prepare
 ```
 
-## preflight 会做什么
+```bash
+pubm --mode ci --phase publish
+```
 
-- 收集 registry token
-- 可选同步到 GitHub Secrets
-- 执行 checks、tests 和 build
-- 在 version 阶段消费待处理 changeset
-- 创建 release commit，并 push branch 和 tags
-- 对 publish 做 dry-run，而不是真正发布
+## CI preparation 会做什么
 
-因此 preflight 之后不需要再执行 `pubm patch --preview`。
+`pubm --mode ci --phase prepare` 不只是检查 token。它会把发布流程运行到真正发布之前的那一步：
+
+- collects registry tokens
+- optionally syncs them to GitHub Secrets
+- runs prerequisite and required-condition checks
+- runs tests and build unless skipped
+- consumes pending changesets during versioning when present
+- creates the release commit and pushes tags and branch updates
+- 对发布任务进行 dry-run，而不执行真正发布
+
+因此，在完成 CI preparation 之后，你不需要再运行 `pubm patch --dry-run`。
+
+## 必需的环境变量
+
+在 CI 中，请通过环境变量提供 registry token：
+
+| Variable | Registry |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm |
+| `JSR_TOKEN` | jsr |
+| `CARGO_REGISTRY_TOKEN` | crates.io |
+
+## 同步 GitHub secrets
+
+如果你已经通过 CI preparation 在本地保存了 token，可以使用以下命令推送到 GitHub Secrets：
+
+```bash
+pubm secrets sync
+pubm secrets sync --registry npm,jsr
+```
+
+## GitHub Actions 示例结构
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "@*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: pnpm install --frozen-lockfile
+      - run: pubm --mode ci --phase publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+```
+
+## 常见 CI 陷阱
+
+### 浅克隆
+
+基于 tag 且依赖历史记录的操作需要完整的 Git 信息。发布 job 请使用 `fetch-depth: 0`。
+
+### 缺少 registry token
+
+`pubm` 在 CI 中无法交互式提示。如果缺少 token，运行会失败。
+
+### npm 2FA token 不匹配
+
+CI 发布请使用兼容 automation 的 token。
+
+### `contents` 中没有构建产物
+
+如果你从 `dist/` 发布，请确保 workflow 在 `pubm --mode ci --phase publish` 之前确实创建了 `dist/`。
+
+## GitHub Release 资产
+
+如果你的项目在 `pubm.config.ts` 中使用了 `releaseAssets`，那么 `pubm --mode ci --phase publish` 会运行资产流水线，并自动将构件上传到 GitHub Release。
+
+### `GITHUB_TOKEN` 要求
+
+GitHub Release 创建和资产上传都会使用 GitHub API。请提供 `GITHUB_TOKEN`（或具备 `contents: write` 权限的 fine-grained token）。这个 token 不仅用于上传资产，也用于所有 GitHub Release 创建：
+
+```yaml
+- run: pubm --mode ci --phase publish
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run. You do not need to create it manually — just pass it through the environment.
+
+### 上传前必须存在构建产物
+
+资产流水线在构建步骤之后运行。请确保你的 workflow 在 `pubm --mode ci --phase publish` 执行之前生成了二进制产物（例如 `platforms/*/bin/` 中的编译产物）。如果配置的 glob 模式在上传时匹配到 0 个文件，`pubm` 会将其视为错误。
+
+### 带 release assets 的示例
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build       # Must produce platforms/*/bin/mytool
+      - run: pubm --mode ci --phase publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## 下一步
+
+- 阅读 [Troubleshooting](/pubm/zh-cn/guides/troubleshooting/) 了解故障诊断。
+- 阅读 [CLI Reference](/pubm/zh-cn/reference/cli/) 了解 CI 中使用到的所有执行 flags。
+- 阅读 [Release Assets](/pubm/zh-cn/guides/release-assets/) 为项目配置 `releaseAssets`。

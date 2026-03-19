@@ -1,28 +1,69 @@
 ---
 title: Changesets
-description: Enregistrer l'intention de release, generer le changelog et controler les bumps de version.
+description: Enregistrer l'intention de release, générer les changelogs et contrôler les changements de version.
 ---
 
-`pubm` utilise les fichiers dans `.pubm/changesets/` comme source durable de ce qui doit etre publie ensuite.
+`pubm` utilise les changesets comme l'enregistrement durable de ce qui doit être publié ensuite. Au lieu de déduire les versions à partir des messages de commit ou des noms de branche, il lit les fichiers versionnés dans `.pubm/changesets/` et les transforme en changements de version et en entrées de changelog.
 
-## Emplacement
+## Pourquoi les changesets sont utiles
+
+- un plan de release relisible dans chaque pull request
+- un calcul déterministe des changements de version sur plusieurs packages
+- un contenu de changelog écrit avant le jour de la release, pas après
+
+## Emplacement des fichiers
+
+Les changesets en attente se trouvent dans :
 
 ```text
 .pubm/changesets/
 ```
 
+Initialisez ce répertoire avec :
+
 ```bash
 pubm init
+```
+
+Si vous voulez aussi une vérification de pull request qui impose les changesets, exécutez :
+
+```bash
 pubm init --changesets
 ```
 
-## Creer un changeset
+## Créer un changeset
 
 ```bash
 pubm changesets add
 ```
 
+Dans un monorepo, `pubm` demande aussi quels packages sont concernés et quel type de changement chacun doit recevoir.
+
+Pour un usage non interactif :
+
+```bash
+pubm changesets add \
+  --packages @acme/core,@acme/react \
+  --bump minor \
+  --message "Add token-based auth to the public client."
+```
+
+## Contenu d'un fichier changeset
+
+```md
+---
+"@acme/core": minor
+"@acme/react": patch
+---
+
+Add token-based auth to the public client.
+```
+
+Les métadonnées contrôlent le calcul de version. Le corps devient le résumé du changelog.
+
 ## Inspecter les changements en attente
+
+Avant de consommer les changesets, inspectez-les :
 
 ```bash
 pubm changesets status
@@ -30,19 +71,40 @@ pubm changesets status --verbose
 pubm changesets version --dry-run
 ```
 
-## Consommation des changesets
+## Comment les changesets sont consommés
 
-Quand vous lancez `pubm`, les changesets en attente sont consommes pendant l'etape de version :
+Quand vous lancez le pipeline de release normal avec `pubm`, les changesets en attente sont consommés pendant l'étape de version.
 
-1. lecture des fichiers `.pubm/changesets/*.md`
-2. calcul des versions finales
-3. mise a jour des manifestes
-4. generation du changelog
-5. suppression des fichiers consommes
-6. creation du commit et des tags de release
+Ce flux :
 
-Si vous voulez n'executer que la partie versioning a l'avance, vous pouvez toujours lancer :
+1. lit les fichiers `.pubm/changesets/*.md` en attente
+2. calcule les versions finales des packages
+3. met à jour les versions dans les manifests
+4. génère les entrées de changelog
+5. supprime les fichiers changeset consommés
+6. crée le commit de release et les tags
+
+Si vous voulez effectuer uniquement la partie versioning à l'avance, vous pouvez toujours exécuter :
 
 ```bash
 pubm changesets version
 ```
+
+Cette commande est utile pour les workflows éditoriaux ou contrôlés, mais elle n'est pas nécessaire avant `pubm` ou `pubm --mode ci --phase publish`.
+
+## Génération du changelog
+
+Si vous voulez générer le texte du changelog sans encore consommer les versions :
+
+```bash
+pubm changesets changelog --dry-run
+pubm changesets changelog --version 1.8.0
+```
+
+## Migration depuis `.changeset/`
+
+```bash
+pubm changesets migrate
+```
+
+Cela migre les fichiers en attente de `.changeset/` vers `.pubm/`.

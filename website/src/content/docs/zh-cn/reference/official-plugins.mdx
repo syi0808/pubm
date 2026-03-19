@@ -1,21 +1,21 @@
 ---
-title: Official Plugins
-description: 由 pubm 项目维护的官方插件。
+title: 官方插件
+description: 由 pubm 项目维护的受支持插件。
 ---
 
-官方插件与 `pubm` 一起维护，适合需要稳定、标准化集成而不想自己编写插件的场景。
+官方插件与 `pubm` 一起维护，并且遵循和核心项目相同的发布与兼容性预期。当你想要一个有良好支持的集成，但又不想从零编写自己的 plugin 时，就使用它们。
 
 ## `@pubm/plugin-brew`
 
-帮助 CLI 项目在每次 release 时同步 Homebrew formula。
+`@pubm/plugin-brew` 帮助 CLI 项目在每次发布时同步 Homebrew formula。
 
 ### 适用场景
 
-- 通过 Homebrew 分发 CLI
-- 自动更新独立 tap 仓库
-- 同步 release 资源的 checksum
+- 通过 Homebrew 分发 CLI 二进制
+- 自动更新独立的 tap 仓库
+- 保持 formula 的 checksum 与 release assets 对齐
 
-### 配置示例
+### 典型配置
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -31,19 +31,102 @@ export default defineConfig({
 });
 ```
 
+### 选项
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | 相对于仓库根目录的 formula 路径。 |
+| `repo` | `string` | 可选的远程 tap 仓库 URL。省略时使用当前仓库。 |
+| `packageName` | `string` | 可选的 package 名称过滤器。设置后，插件只会作用于与该 package 名称匹配的发布。适合 monorepo。 |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 可选的自定义平台匹配器。会覆盖默认的 `os + arch` 匹配逻辑。 |
+
+### 平台匹配
+
+插件会使用每个 `ReleaseAsset` 中结构化的 `ParsedPlatform` 数据，将资产匹配到 formula 的平台条目。默认匹配逻辑覆盖四个平台：
+
+| Formula key | 匹配条件 |
+|-------------|----------|
+| `darwin-arm64` | `asset.platform.os === "darwin" && asset.platform.arch === "arm64"` |
+| `darwin-x64` | `asset.platform.os === "darwin" && asset.platform.arch === "x64"` |
+| `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
+| `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
+
+这取代了之前基于字符串匹配资产名称的做法，例如 `asset.name.includes("darwin-arm64")`。旧方式在名称变化时很脆弱。
+
+### 自定义平台匹配器
+
+当默认的 `os + arch` 匹配不够用时，可以使用 `assetPlatforms`。例如，你只想让 Linux 使用 musl 构建：
+
+```ts
+brewTap({
+  formula: "Formula/mytool.rb",
+  assetPlatforms: {
+    "darwin-arm64": (asset) =>
+      asset.platform.os === "darwin" && asset.platform.arch === "arm64",
+    "linux-x64": (asset) =>
+      asset.platform.os === "linux" &&
+      asset.platform.arch === "x64" &&
+      asset.platform.abi === "musl",
+  },
+})
+```
+
+每个谓词都会接收一个 `ReleaseAsset`，并在该 formula 条目应该使用该资产时返回 `true`。
+
+### 行为
+
+这个插件可以：
+
+- 在 formula 不存在时创建骨架
+- 使用结构化平台信息更新 release assets 的 `url` 和 `sha256`
+- 提交并推送 formula 更改
+- 当不适合直接 push 时，回退到 pull request 工作流
+
+### 相关命令
+
+```bash
+pubm brew init
+```
+
+可用它从 package metadata 生成一个起始 formula 骨架。
+
+### `brewCore`
+
+如果你要贡献到 homebrew-core（默认的 Homebrew 仓库），请使用 `brewCore` 而不是 `brewTap`：
+
+```ts
+import { brewCore } from "@pubm/plugin-brew";
+
+export default defineConfig({
+  plugins: [
+    brewCore({
+      formula: "Formula/my-tool.rb",
+    }),
+  ],
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `formula` | `string` | 相对于仓库根目录的 formula 路径。 |
+| `packageName` | `string` | monorepo 的可选 package 名称过滤器。 |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 可选的自定义平台匹配器。 |
+
+`brewCore` 会 fork `homebrew/homebrew-core`，更新 formula，并自动打开 PR。
+
 ## `@pubm/plugin-external-version-sync`
 
-让非 manifest 文件中的版本与包版本保持同步。
+这个插件用于让非 manifest 文件和你的 package 版本保持一致。
 
-适用文件：
+当发布还需要同时更新以下内容时，就使用它：
 
-- `README.md` 安装片段
+- `README.md` 中的安装片段
 - 文档示例
-- app manifest
+- 应用 manifest
 - 源码常量
-- 元数据 JSON
+- 元数据 JSON 文件
 
-### 配置示例
+### 典型配置
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -71,9 +154,11 @@ export default defineConfig({
 });
 ```
 
-## target 类型
+### 目标类型
 
-### `regex`
+#### `regex`
+
+适用于任意文本文件：
 
 ```ts
 {
@@ -82,7 +167,14 @@ export default defineConfig({
 }
 ```
 
-### `json`
+要求：
+
+- 模式必须通过恰好一个 capturing group 把版本隔离出来
+- 文件格式应当稳定，这样发布自动化才能安全更新它
+
+#### `json`
+
+适用于可机器读取的 manifest：
 
 ```ts
 {
@@ -91,12 +183,41 @@ export default defineConfig({
 }
 ```
 
-## 何时运行 `pubm sync --discover`
+### 何时使用 `pubm sync --discover`
+
+如果你不确定仓库里版本字符串出现在哪里，可以运行：
 
 ```bash
 pubm sync --discover
 ```
 
-当你不确定仓库里哪些地方包含版本字符串时，它会给出候选文件和路径。
+这个命令会扫描可能的版本引用，并打印候选文件和路径，供你改写成 plugin 配置。
 
-更复杂的扩展方式请见 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
+## 何时选择官方插件，何时选择自定义插件
+
+在以下情况下使用官方插件：
+
+- 你的需求已经有现成的集成
+- 你希望维护成本更低
+- 发布路径足够常见，值得标准化
+
+在以下情况下编写自定义插件：
+
+- 你的 registry 或发布后工作流是组织特定的
+- 你需要自定义 policy 或部署逻辑
+- 你想为操作人员提供额外的 CLI 命令
+
+如果你需要超出官方集合的扩展，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
+
+## 面向 coding agent 的 setup automation
+
+运行时插件只是一部分。这个仓库还在 `plugins/pubm-plugin/skills/*` 下提供了一个 `pubm plugin` bundle，供 coding-agent 工作流使用，例如：
+
+- 发布 setup
+- preview-first 的发布辅助
+- version-sync 发现
+- plugin 搭建
+
+如果你正在把 `pubm` 集成到 agent 环境中，可以把运行时插件和这些 skill 风格的资产配合使用，这样 setup 和 publish 流程会保持明确且可重复。
+
+阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 指南了解集成布局。
