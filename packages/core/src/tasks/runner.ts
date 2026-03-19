@@ -5,6 +5,7 @@ import process from "node:process";
 import { stripVTControlCharacters } from "node:util";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
+import micromatch from "micromatch";
 import SemVer from "semver";
 import { isCI } from "std-env";
 import { runAssetPipeline } from "../assets/pipeline.js";
@@ -104,6 +105,15 @@ async function prepareReleaseAssets(
   });
 
   return { assets: preparedAssets, tempDir };
+}
+
+function isReleaseExcluded(
+  config: { excludeRelease?: string[] },
+  pkgPath: string,
+): boolean {
+  const patterns = config.excludeRelease;
+  if (!patterns?.length) return false;
+  return micromatch.isMatch(pkgPath, patterns);
 }
 
 function getPackageName(ctx: PubmContext, packagePath: string): string {
@@ -777,6 +787,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   rollbackLog("Deleting tag(s)");
                   if (plan.mode === "independent") {
                     for (const [pkgPath, pkgVersion] of plan.packages) {
+                      if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                       const pkgName = getPackageName(ctx, pkgPath);
                       try {
                         await git.deleteTag(`${pkgName}@${pkgVersion}`);
@@ -1012,6 +1023,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
               // Tag existence checks for all packages
               for (const [pkgPath, pkgVersion] of plan.packages) {
+                if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                 const pkgName = getPackageName(ctx, pkgPath);
                 const tagName = `${pkgName}@${pkgVersion}`;
                 if (await git.checkTagExist(tagName)) {
@@ -1053,6 +1065,7 @@ export async function run(ctx: PubmContext): Promise<void> {
               // Create per-package tags
               task.output = "Creating tags...";
               for (const [pkgPath, pkgVersion] of plan.packages) {
+                if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                 const pkgName = getPackageName(ctx, pkgPath);
                 await git.createTag(`${pkgName}@${pkgVersion}`, commit);
               }
@@ -1228,6 +1241,7 @@ export async function run(ctx: PubmContext): Promise<void> {
               if (plan.mode === "independent") {
                 // Per-package releases
                 for (const [pkgPath, pkgVersion] of plan.packages) {
+                  if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                   const pkgName = getPackageName(ctx, pkgPath);
                   const tag = `${pkgName}@${pkgVersion}`;
                   task.output = `Creating release for ${tag}...`;
@@ -1403,6 +1417,7 @@ export async function run(ctx: PubmContext): Promise<void> {
               if (plan.mode === "independent") {
                 let first = true;
                 for (const [pkgPath, pkgVersion] of plan.packages) {
+                  if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                   const pkgName = getPackageName(ctx, pkgPath);
                   const tag = `${pkgName}@${pkgVersion}`;
                   const lastRev =
