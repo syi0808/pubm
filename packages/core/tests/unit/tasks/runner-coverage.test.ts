@@ -3626,4 +3626,365 @@ describe("independent mode GitHub release with null result", () => {
 
     expect(task.output).toContain("already exists");
   });
+
+  describe("excludeRelease", () => {
+    it("skips tag creation for packages matching excludeRelease patterns", async () => {
+      const pathVersions = new Map([
+        ["packages/core", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+      ]);
+
+      await run(
+        createOptions({
+          config: {
+            excludeRelease: ["packages/pubm/platforms/*"],
+            packages: [
+              {
+                name: "@pubm/core",
+                version: "1.0.0",
+                path: "packages/core",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+              {
+                name: "@pubm/darwin-arm64",
+                version: "1.0.0",
+                path: "packages/pubm/platforms/darwin-arm64",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+          runtime: {
+            versionPlan: {
+              mode: "independent" as const,
+              packages: pathVersions,
+            },
+            pluginRunner: new PluginRunner([]),
+          },
+        }),
+      );
+
+      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const versionTask = tasks[2];
+      const ctx: any = {
+        cwd: process.cwd(),
+        config: {
+          excludeRelease: ["packages/pubm/platforms/*"],
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "@pubm/darwin-arm64",
+              version: "1.0.0",
+              path: "packages/pubm/platforms/darwin-arm64",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: {
+          changesetConsumed: false,
+          pluginRunner: new PluginRunner([]),
+          versionPlan: {
+            mode: "independent",
+            packages: pathVersions,
+          },
+        },
+      };
+      const task = createTask();
+
+      await versionTask.task(ctx, task);
+
+      const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+      expect(gitInstance.createTag).toHaveBeenCalledWith(
+        "@pubm/core@2.0.0",
+        "commit-sha",
+      );
+      expect(gitInstance.createTag).not.toHaveBeenCalledWith(
+        "@pubm/darwin-arm64@2.0.0",
+        "commit-sha",
+      );
+    });
+
+    it("skips GitHub release for packages matching excludeRelease patterns", async () => {
+      const pathVersions = new Map([
+        ["packages/core", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+      ]);
+      mockedResolveGitHubToken.mockReturnValue({
+        token: "gh-token",
+        source: "env",
+      });
+
+      await run(
+        createOptions({
+          config: {
+            excludeRelease: ["packages/pubm/platforms/*"],
+            packages: [
+              {
+                name: "@pubm/core",
+                version: "1.0.0",
+                path: "packages/core",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+              {
+                name: "@pubm/darwin-arm64",
+                version: "1.0.0",
+                path: "packages/pubm/platforms/darwin-arm64",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+          runtime: {
+            versionPlan: {
+              mode: "independent" as const,
+              packages: pathVersions,
+            },
+            pluginRunner: new PluginRunner([]),
+          },
+        }),
+      );
+
+      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const releaseTask = tasks.find(
+        (t: any) => t.title === "Creating GitHub Release",
+      );
+      const ctx: any = {
+        cwd: process.cwd(),
+        options: { releaseDraft: false },
+        config: {
+          excludeRelease: ["packages/pubm/platforms/*"],
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "@pubm/darwin-arm64",
+              version: "1.0.0",
+              path: "packages/pubm/platforms/darwin-arm64",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: {
+          pluginRunner: new PluginRunner([]),
+          versionPlan: {
+            mode: "independent",
+            packages: pathVersions,
+          },
+        },
+      };
+      const task = createTask();
+
+      await releaseTask.task(ctx, task);
+
+      expect(mockedCreateGitHubRelease).toHaveBeenCalledTimes(1);
+      expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tag: "@pubm/core@2.0.0" }),
+      );
+      expect(mockedCreateGitHubRelease).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tag: "@pubm/darwin-arm64@2.0.0" }),
+      );
+    });
+
+    it("creates tags for all packages when excludeRelease is undefined", async () => {
+      const pathVersions = new Map([
+        ["packages/core", "2.0.0"],
+        ["packages/pubm", "2.1.0"],
+      ]);
+
+      await run(
+        createOptions({
+          config: {
+            packages: [
+              {
+                name: "@pubm/core",
+                version: "1.0.0",
+                path: "packages/core",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+              {
+                name: "pubm",
+                version: "1.0.0",
+                path: "packages/pubm",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+          runtime: {
+            versionPlan: {
+              mode: "independent" as const,
+              packages: pathVersions,
+            },
+            pluginRunner: new PluginRunner([]),
+          },
+        }),
+      );
+
+      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const versionTask = tasks[2];
+      const ctx: any = {
+        cwd: process.cwd(),
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: {
+          changesetConsumed: false,
+          pluginRunner: new PluginRunner([]),
+          versionPlan: {
+            mode: "independent",
+            packages: pathVersions,
+          },
+        },
+      };
+      const task = createTask();
+
+      await versionTask.task(ctx, task);
+
+      const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+      expect(gitInstance.createTag).toHaveBeenCalledWith(
+        "@pubm/core@2.0.0",
+        "commit-sha",
+      );
+      expect(gitInstance.createTag).toHaveBeenCalledWith(
+        "pubm@2.1.0",
+        "commit-sha",
+      );
+    });
+
+    it("skips rollback tag deletion for excluded packages", async () => {
+      const pathVersions = new Map([
+        ["packages/core", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+      ]);
+      let rollbackHandler: (() => Promise<void>) | undefined;
+      mockedAddRollback.mockImplementation((fn: any) => {
+        rollbackHandler = fn;
+      });
+
+      await run(
+        createOptions({
+          config: {
+            excludeRelease: ["packages/pubm/platforms/*"],
+            packages: [
+              {
+                name: "@pubm/core",
+                version: "1.0.0",
+                path: "packages/core",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+              {
+                name: "@pubm/darwin-arm64",
+                version: "1.0.0",
+                path: "packages/pubm/platforms/darwin-arm64",
+                ecosystem: "js",
+                dependencies: [],
+                registries: ["npm"],
+              },
+            ],
+          },
+          runtime: {
+            versionPlan: {
+              mode: "independent" as const,
+              packages: pathVersions,
+            },
+            pluginRunner: new PluginRunner([]),
+          },
+        }),
+      );
+
+      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const versionTask = tasks[2];
+      const ctx: any = {
+        cwd: process.cwd(),
+        config: {
+          excludeRelease: ["packages/pubm/platforms/*"],
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "@pubm/darwin-arm64",
+              version: "1.0.0",
+              path: "packages/pubm/platforms/darwin-arm64",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: {
+          changesetConsumed: false,
+          pluginRunner: new PluginRunner([]),
+          versionPlan: {
+            mode: "independent",
+            packages: pathVersions,
+          },
+        },
+      };
+      const task = createTask();
+
+      await versionTask.task(ctx, task);
+
+      expect(rollbackHandler).toBeDefined();
+      await rollbackHandler?.();
+
+      const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
+      expect(gitInstance.deleteTag).toHaveBeenCalledWith("@pubm/core@2.0.0");
+      expect(gitInstance.deleteTag).not.toHaveBeenCalledWith(
+        "@pubm/darwin-arm64@2.0.0",
+      );
+    });
+  });
 });
