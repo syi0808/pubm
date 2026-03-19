@@ -67,10 +67,14 @@ function supportsAvx2() {
 
   if (platform === "darwin") {
     try {
-      const result = childProcess.spawnSync("sysctl", ["-n", "hw.optional.avx2_0"], {
-        encoding: "utf8",
-        timeout: 1500,
-      });
+      const result = childProcess.spawnSync(
+        "sysctl",
+        ["-n", "hw.optional.avx2_0"],
+        {
+          encoding: "utf8",
+          timeout: 1500,
+        },
+      );
       if (result.status !== 0) return false;
       return (result.stdout || "").trim() === "1";
     } catch {
@@ -84,18 +88,20 @@ function supportsAvx2() {
 
     for (const exe of ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]) {
       try {
-        const result = childProcess.spawnSync(exe, ["-NoProfile", "-NonInteractive", "-Command", cmd], {
-          encoding: "utf8",
-          timeout: 3000,
-          windowsHide: true,
-        });
+        const result = childProcess.spawnSync(
+          exe,
+          ["-NoProfile", "-NonInteractive", "-Command", cmd],
+          {
+            encoding: "utf8",
+            timeout: 3000,
+            windowsHide: true,
+          },
+        );
         if (result.status !== 0) continue;
         const out = (result.stdout || "").trim().toLowerCase();
         if (out === "true" || out === "1") return true;
         if (out === "false" || out === "0") return false;
-      } catch {
-        continue;
-      }
+      } catch {}
     }
 
     return false;
@@ -117,8 +123,12 @@ const names = (() => {
       }
 
       try {
-        const result = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" });
-        const text = ((result.stdout || "") + (result.stderr || "")).toLowerCase();
+        const result = childProcess.spawnSync("ldd", ["--version"], {
+          encoding: "utf8",
+        });
+        const text = (
+          (result.stdout || "") + (result.stderr || "")
+        ).toLowerCase();
         if (text.includes("musl")) return true;
       } catch {
         // ignore
@@ -129,15 +139,37 @@ const names = (() => {
 
     if (musl) {
       if (arch === "x64") {
-        if (baseline) return [`${base}-baseline-musl`, `${base}-musl`, `${base}-baseline`, base];
-        return [`${base}-musl`, `${base}-baseline-musl`, base, `${base}-baseline`];
+        if (baseline)
+          return [
+            `${base}-baseline-musl`,
+            `${base}-musl`,
+            `${base}-baseline`,
+            base,
+          ];
+        return [
+          `${base}-musl`,
+          `${base}-baseline-musl`,
+          base,
+          `${base}-baseline`,
+        ];
       }
       return [`${base}-musl`, base];
     }
 
     if (arch === "x64") {
-      if (baseline) return [`${base}-baseline`, base, `${base}-baseline-musl`, `${base}-musl`];
-      return [base, `${base}-baseline`, `${base}-musl`, `${base}-baseline-musl`];
+      if (baseline)
+        return [
+          `${base}-baseline`,
+          base,
+          `${base}-baseline-musl`,
+          `${base}-musl`,
+        ];
+      return [
+        base,
+        `${base}-baseline`,
+        `${base}-musl`,
+        `${base}-baseline-musl`,
+      ];
     }
     return [base, `${base}-musl`];
   }

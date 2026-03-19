@@ -28,7 +28,7 @@ packages/*/dist/
 packages/plugins/*/dist/
 
 # Platform binary outputs
-packages/cli/platforms/*/bin/
+packages/pubm/platforms/*/bin/
 
 # TypeScript build info
 *.tsbuildinfo
