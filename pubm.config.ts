@@ -4,6 +4,7 @@ import { externalVersionSync } from "@pubm/plugin-external-version-sync";
 
 export default defineConfig({
   versioning: "independent",
+  excludeRelease: ["packages/pubm/platforms/*"],
   packages: [
     { path: "packages/core" },
     { path: "packages/pubm" },
