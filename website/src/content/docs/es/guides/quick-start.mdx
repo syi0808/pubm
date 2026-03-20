@@ -1,30 +1,51 @@
 ---
 title: Inicio rápido
-description: Configura pubm en minutos y publica tu primer release.
+description: Instala pubm, inicializa un proyecto y publica tu primer release.
 ---
 
-`pubm` está pensado para empezar rápido. Si ya tienes un monorepo o un paquete con manifest, normalmente basta con instalarlo y ejecutar el flujo interactivo.
+`pubm` es un orquestador de releases para proyectos que publican en más de un registry, más de un paquete o más de un ecosistema.
 
-## Instalar
+## Antes de empezar
+
+`pubm` está diseñado para repositorios que ya usan Git y tienen un manifest de paquete válido.
+
+- Git `2.11+`
+- Un manifest de paquete como `package.json`
+- Un working tree limpio antes de publicar
+
+`pubm` se distribuye como un binario único compilado con Bun. No necesitas un runtime de Node.js separado solo para ejecutar el CLI, aunque la instalación mediante npm sigue usando tu cadena de herramientas del gestor de paquetes.
+
+Instala el CLI de forma global:
 
 ```bash
-npm install -D pubm
-pnpm add -D pubm
-bun add -d pubm
+npm i -g pubm
 ```
 
-## Inicializar
+## Para agentes de código
+
+Si estás integrando `pubm` con Claude Code, Codex u otro agente de código, empieza con la automatización de setup en lugar de escribir prompts de release a mano.
+
+- Ejecuta `pubm setup-skills` para descargar e instalar skills de agentes de código directamente, o deja que `pubm init` ofrezca la instalación de skills como su paso final.
+- Alternativamente, usa la skill `publish-setup` del bundle `pubm plugin` para instalar el workflow de release, generar la configuración, conectar CI y activar changesets.
+- Dale a tu agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que pueda descargar el bundle y empezar con `publish-setup`.
+- Lee [Agentes de código](/pubm/es/guides/coding-agents/) para conocer el modelo de integración y los roles de cada skill.
+
+## 1. Inicializar el repositorio
+
+Ejecuta el asistente de configuración interactivo:
 
 ```bash
 pubm init
 ```
 
-Esto crea la configuración mínima y los directorios necesarios para empezar.
+El asistente detecta tus paquetes y registries, y te guía a través de la configuración del branch, la estrategia de versionado, el changelog, los changesets, la generación de workflows de CI y las skills de agentes de código. El archivo de configuración solo se crea cuando tus elecciones difieren de los valores por defecto.
 
-## Publicar
+## 2. Publicar
+
+Inicia el flujo de release:
 
 ```bash
 pubm
 ```
 
-Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para configuración, lee [Configuration](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).
+Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para configuración, lee [Configuración](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).
