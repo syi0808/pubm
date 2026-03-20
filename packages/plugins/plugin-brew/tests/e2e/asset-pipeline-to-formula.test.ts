@@ -58,7 +58,9 @@ describe("asset pipeline → brew formula E2E", () => {
       "darwin-arm64",
       "darwin-x64",
       "linux-arm64",
+      "linux-arm64-musl",
       "linux-x64",
+      "linux-x64-musl",
     ];
     for (const platform of platforms) {
       const binDir = join(tmpRoot, "platforms", platform, "bin");
@@ -66,7 +68,7 @@ describe("asset pipeline → brew formula E2E", () => {
       writeFileSync(join(binDir, "myapp"), `binary-${platform}`);
     }
 
-    // 2. Create initial formula with PLACEHOLDER sha256
+    // 2. Create initial formula with PLACEHOLDER sha256 (including musl branches)
     mkdirSync(join(tmpRoot, "Formula"), { recursive: true });
     writeFileSync(
       join(tmpRoot, "Formula/myapp.rb"),
@@ -86,11 +88,21 @@ describe("asset pipeline → brew formula E2E", () => {
         "",
         "  on_linux do",
         "    if Hardware::CPU.arm?",
-        '      url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-arm64.tar.gz"',
-        '      sha256 "PLACEHOLDER"',
+        "      if OS::Linux.libc_is_musl?",
+        '        url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-arm64-musl.tar.gz"',
+        '        sha256 "PLACEHOLDER"',
+        "      else",
+        '        url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-arm64.tar.gz"',
+        '        sha256 "PLACEHOLDER"',
+        "      end",
         "    elsif Hardware::CPU.intel?",
-        '      url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-x64.tar.gz"',
-        '      sha256 "PLACEHOLDER"',
+        "      if OS::Linux.libc_is_musl?",
+        '        url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-x64-musl.tar.gz"',
+        '        sha256 "PLACEHOLDER"',
+        "      else",
+        '        url "https://github.com/example/myapp/releases/download/v0.3.0/myapp-linux-x64.tar.gz"',
+        '        sha256 "PLACEHOLDER"',
+        "      end",
         "    end",
         "  end",
         "end",
@@ -103,9 +115,9 @@ describe("asset pipeline → brew formula E2E", () => {
       {
         files: [
           {
-            path: "platforms/{os}-{arch}/bin/myapp",
+            path: "platforms/{platform}/bin/myapp",
             compress: false as const,
-            name: "myapp-{os}-{arch}",
+            name: "myapp-{platform}",
           },
         ],
       },
@@ -114,7 +126,7 @@ describe("asset pipeline → brew formula E2E", () => {
     const resolved = resolveAssets(normalized[0], undefined, tmpRoot);
 
     // Verify platform was correctly parsed for all assets
-    expect(resolved).toHaveLength(4);
+    expect(resolved).toHaveLength(6);
     for (const asset of resolved) {
       expect(asset.platform.os).toBeDefined();
       expect(asset.platform.arch).toBeDefined();
@@ -131,8 +143,8 @@ describe("asset pipeline → brew formula E2E", () => {
       },
     );
 
-    // Verify all 4 assets were prepared with real sha256
-    expect(prepared).toHaveLength(4);
+    // Verify all 6 assets were prepared with real sha256
+    expect(prepared).toHaveLength(6);
     for (const asset of prepared) {
       expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(asset.sha256).not.toBe("PLACEHOLDER");
@@ -169,9 +181,7 @@ describe("asset pipeline → brew formula E2E", () => {
 
     // Verify each platform has a real sha256
     for (const platform of platforms) {
-      const asset = releaseAssets.find((a) =>
-        a.name.includes(platform.replace("-", "-")),
-      );
+      const asset = releaseAssets.find((a) => a.name === `myapp-${platform}`);
       expect(asset).toBeDefined();
       expect(formula).toContain(`sha256 "${asset!.sha256}"`);
       expect(formula).toContain(
