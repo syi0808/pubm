@@ -1,0 +1,17 @@
+{
+  "name": "pubm",
+  "version": "1.0.0",
+  "description": "CLI for pubm",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "pubm": "src/index.ts"
+  },
+  "dependencies": {
+    "@pubm/core": "workspace:*"
+  },
+  "scripts": {
+    "test": "echo 'pubm: All tests passed!'",
+    "build": "echo 'pubm: Build complete!'"
+  }
+}

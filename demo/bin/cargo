@@ -1,0 +1,43 @@
+#!/bin/bash
+# Mock cargo CLI for pubm demo environment
+
+rand_delay() {
+  local min=$1 max=$2
+  local range=$(echo "$max - $min" | bc)
+  local r=$(echo "scale=3; $min + $range * $RANDOM / 32767" | bc)
+  sleep "$r"
+}
+
+case "$1" in
+  --version)
+    echo "cargo 1.82.0 (8f40fc59f 2024-08-21)"
+    exit 0
+    ;;
+  publish)
+    manifest_path=""
+    for arg in "$@"; do
+      if [ "$prev" = "--manifest-path" ]; then
+        manifest_path="$arg"
+      fi
+      prev="$arg"
+    done
+
+    if [ -n "$manifest_path" ] && [ -f "$manifest_path" ]; then
+      name=$(grep -m1 '^name' "$manifest_path" | sed 's/.*= *"//;s/".*//')
+      version=$(grep -m1 '^version' "$manifest_path" | sed 's/.*= *"//;s/".*//')
+    fi
+
+    rand_delay 0.3 0.8
+    echo "    Updating crates.io index"
+    rand_delay 0.5 1.2
+    echo "   Packaging ${name:-demo-crate} v${version:-1.0.0}"
+    rand_delay 0.8 2.0
+    echo "   Uploading ${name:-demo-crate} v${version:-1.0.0}"
+    rand_delay 0.2 0.5
+    echo "    Uploaded ${name:-demo-crate} v${version:-1.0.0}"
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac

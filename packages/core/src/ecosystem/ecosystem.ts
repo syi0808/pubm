@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import type {
   ManifestReader,
   PackageManifest,
@@ -65,5 +66,28 @@ export abstract class Ecosystem {
 
   async syncLockfile(): Promise<string | undefined> {
     return undefined;
+  }
+
+  /**
+   * Temporarily resolve workspace-specific dependency references to concrete
+   * versions for publishing. Returns a backup map (filePath → originalContent)
+   * that can be passed to {@link restorePublishDependencies} to undo changes.
+   *
+   * JS: resolves `workspace:*` / `workspace:^` / `workspace:~` in package.json
+   * Rust: no-op (sibling versions are committed in Phase 2)
+   */
+  async resolvePublishDependencies(
+    _workspaceVersions: Map<string, string>,
+  ): Promise<Map<string, string>> {
+    return new Map();
+  }
+
+  /**
+   * Restore manifest files from backups created by {@link resolvePublishDependencies}.
+   */
+  restorePublishDependencies(backups: Map<string, string>): void {
+    for (const [filePath, content] of backups) {
+      writeFileSync(filePath, content, "utf-8");
+    }
   }
 }
