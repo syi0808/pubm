@@ -331,3 +331,57 @@ registerInitCommand(program);
 registerInitCommand(program);
 registerSetupSkillsCommand(program);
 ```
+
+### 4. 문서 업데이트
+
+구현 완료 후 아래 문서들을 업데이트한다. 영어(`en`)가 원본이며, 번역(de, es, fr, ko, zh-cn)도 동일하게 반영해야 한다.
+
+#### Critical (기능 변경 직접 반영)
+
+**`website/src/content/docs/en/reference/cli.mdx`**
+- 커맨드 개요 테이블에서 `pubm init --changesets` 항목 제거
+- `pubm init` 설명을 인터랙티브 설정 마법사로 업데이트
+- `pubm setup-skills` 커맨드 섹션 신규 추가 (syntax, 지원 agent, 설치 경로, 예시)
+- 예시 커맨드 패턴 섹션 업데이트
+
+**`plugins/pubm-plugin/skills/publish-setup/SKILL.md`**
+- Step 9.1의 `pubm init --changesets` 호출을 새 `pubm init` 인터랙티브 흐름으로 교체
+- Agent skills 설치 관련 안내 추가
+
+#### High (사용자 가이드)
+
+**`website/src/content/docs/en/guides/quick-start.mdx`**
+- "Initialize the repository" 섹션을 인터랙티브 init 흐름으로 업데이트
+- `--changesets` 플래그 참조 제거
+- `pubm setup-skills` 언급 추가
+
+**`website/src/content/docs/en/guides/changesets.mdx`**
+- "File location" 섹션에서 `pubm init --changesets` 참조를 인터랙티브 init으로 교체
+
+**`website/src/content/docs/en/guides/coding-agents.mdx`**
+- "Start with setup automation" 섹션에 `pubm setup-skills` 커맨드 안내 추가
+- `pubm init` → `setup-skills` 연결 흐름 설명
+
+**`README.md`**
+- Quick Start 섹션에 인터랙티브 init 흐름 반영
+- `setup-skills` 간략 언급
+
+#### Medium
+
+**`website/src/content/docs/en/guides/configuration.mdx`**
+- `pubm init`이 config를 자동 생성할 수 있다는 안내 추가
+
+**`website/src/content/docs/en/guides/ci-cd.mdx`**
+- `pubm init`에서 CI 워크플로우 생성을 안내한다는 참조 추가
+
+**`plugins/pubm-plugin/INSTALLATION.md`**
+- `pubm setup-skills`를 대안 설치 방법으로 안내
+
+#### 번역 (6개 언어 동시 반영)
+
+위 영어 문서 변경사항을 아래 디렉토리에도 동일하게 반영:
+- `website/src/content/docs/de/` (German)
+- `website/src/content/docs/es/` (Spanish)
+- `website/src/content/docs/fr/` (French)
+- `website/src/content/docs/ko/` (Korean)
+- `website/src/content/docs/zh-cn/` (Chinese Simplified)
