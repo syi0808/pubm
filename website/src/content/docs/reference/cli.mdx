@@ -22,8 +22,8 @@ Running `pubm` with no version argument is the interactive happy path. It lets y
 | Command | Purpose |
 |---------|---------|
 | `pubm [version]` | Run the publish pipeline using a release type or explicit semver. |
-| `pubm init` | Create `pubm.config.ts` and `.pubm/changesets/`. |
-| `pubm init --changesets` | Also set up the PR changeset-check workflow. |
+| `pubm init` | Interactive setup wizard — package detection, config, changesets, CI workflows, and coding agent skills. |
+| `pubm setup-skills` | Download and install coding agent skills (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Push locally stored tokens into GitHub Secrets through `gh`. |
 | `pubm sync --discover` | Scan the repository for version references outside manifest files. |
 | `pubm update` | Self-update the CLI to the latest published version. |
@@ -167,21 +167,43 @@ Prompts are disabled automatically when:
 
 ## `pubm init`
 
-Initialize the repository for `pubm`.
+Interactive setup wizard for `pubm`. Requires a TTY (interactive terminal).
 
 ```bash
 pubm init
-pubm init --changesets
 ```
 
-### `--changesets`
+The wizard walks through each stage in order:
 
-Adds:
+1. **Package Detection** — scans the repository for manifest files (`package.json`, `jsr.json`, `Cargo.toml`) and workspace configuration, then confirms the detected packages and registries.
+2. **Basic Configuration** — prompts for the release branch and versioning strategy (`independent` or `fixed`).
+3. **Release Options** — asks about changelog generation and GitHub Release drafts.
+4. **Workflow Setup** — offers to enable the changesets workflow (creates `.pubm/changesets/`, `.github/workflows/changeset-check.yml`, and updates `.gitignore`) and generate CI release workflows (`.github/workflows/release.yml`).
+5. **Coding Agent Skills** — offers to download and install coding agent skills for Claude Code, Codex CLI, or Gemini CLI (same as `pubm setup-skills`).
 
-- `.github/workflows/changeset-check.yml`
-- `.gitignore` updates for `.pubm/changesets/`
+A `pubm.config.ts` file is only created when your choices differ from the defaults. If every value matches the default, no config file is written.
 
-Use this on repositories where every product change should include a reviewed changeset file.
+This command accepts no flags or options — all configuration is collected interactively.
+
+## `pubm setup-skills`
+
+Download and install coding agent skills for use with `pubm`.
+
+```bash
+pubm setup-skills
+```
+
+Supported agents and their installation paths:
+
+| Agent | Skill directory |
+|-------|-----------------|
+| Claude Code | `.claude/skills/pubm/` |
+| Codex CLI | `.agents/skills/pubm/` |
+| Gemini CLI | `.gemini/skills/pubm/` |
+
+Skills are downloaded from the pubm GitHub repository (latest release tag, with a fallback to the `main` branch).
+
+This command is also available as the final step of `pubm init`.
 
 ## `pubm secrets sync`
 
@@ -308,7 +330,7 @@ In normal publish mode, failures also trigger rollback behavior where possible.
 ### First local release on a new repository
 
 ```bash
-pubm init --changesets
+pubm init
 pubm changesets add
 pubm changesets version
 pubm --mode ci --phase prepare

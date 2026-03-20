@@ -176,7 +176,7 @@ Read the corresponding registry reference file for the template and constraints.
 
 Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted tokens and should not be committed.
 
-**Note:** If the user selected changesets workflow in Step 5, the `.gitignore` update will be handled by `pubm init --changesets` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
+**Note:** If the user selected changesets workflow in Step 5, the `.gitignore` update will be handled by `pubm init` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
 
 ### 9. CI setup (if selected in Step 5)
 
@@ -199,7 +199,7 @@ Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory 
 Run the CLI to set up the changesets workflow:
 
 ```bash
-pubm init --changesets
+pubm init
 ```
 
 This creates:
@@ -282,11 +282,11 @@ Remind the user they can run `pubm inspect packages` at any time to verify their
 - Always use `defineConfig()` from `pubm` for type safety in config files.
 - Config uses `packages` array with per-package `registries` — there is no top-level `registries` field on `PubmConfig`.
 - Config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
-- Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init --changesets`).
+- Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init`).
 - If unsure which registries the user wants, ask. Do not assume.
 - When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --mode ci --phase publish"` for CI.
 - In CI, use `--mode ci --phase publish` (publish + GitHub Release) or `--phase publish` (publish only).
-- When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init --changesets` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
+- When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
 - When the project analysis (Step 1) reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
 
 ## References

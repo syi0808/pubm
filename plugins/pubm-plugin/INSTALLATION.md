@@ -47,6 +47,16 @@ This bundle is published so those agents can consume the same checked-in `pubm` 
 4. preserve the folder layout so the manifest and skill files remain together
 5. start with `publish-setup`
 
+## Alternative: `pubm setup-skills`
+
+If `pubm` is already installed in the project, you can skip the manual bundle download and run:
+
+```bash
+pubm setup-skills
+```
+
+This downloads the skill bundle from the pubm GitHub repository and installs it into the correct directory for your agent (Claude Code, Codex CLI, or Gemini CLI). It is also offered as the final step of `pubm init`.
+
 ## Usage notes
 
 - use the checked-in skill bundle as the source of truth for agent-driven release work
