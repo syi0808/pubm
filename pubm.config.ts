@@ -23,6 +23,7 @@ export default defineConfig({
     brewTap({
       formula: "Formula/pubm.rb",
       packageName: "pubm",
+      repo: "syi0808/homebrew-pubm",
     }),
     externalVersionSync({
       targets: [
