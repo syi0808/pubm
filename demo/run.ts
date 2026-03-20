@@ -14,7 +14,7 @@
 
 import path from "node:path";
 import process from "node:process";
-import { setup, teardown, type DemoEnvironment } from "./setup.js";
+import { type DemoEnvironment, setup, teardown } from "./setup.js";
 
 // ── Parse args ─────────────────────────────────────────────────
 const isSingle = process.argv.includes("--single");
@@ -58,7 +58,7 @@ const cliEntryPoint = path.resolve(
 );
 
 const childEnv: Record<string, string> = {
-  ...process.env as Record<string, string>,
+  ...(process.env as Record<string, string>),
   // Prepend mock CLI scripts to PATH
   PATH: `${demoBinDir}:${process.env.PATH}`,
   // Token env vars (prevents keyring/SecureStore access)
@@ -67,7 +67,8 @@ const childEnv: Record<string, string> = {
   JSR_TOKEN: "jsrtoken_demo_000000000000000000000000",
   CARGO_REGISTRY_TOKEN: "cio_demo_000000000000000000000000000000000000",
   // npm auth config
-  "npm_config_//registry.npmjs.org/:_authToken": "npm_demo_000000000000000000000000",
+  "npm_config_//registry.npmjs.org/:_authToken":
+    "npm_demo_000000000000000000000000",
 };
 
 // ── Spawn the CLI ──────────────────────────────────────────────
@@ -89,9 +90,7 @@ const exitCode = await child.exited;
 // ── Cleanup ────────────────────────────────────────────────────
 if (keepEnv) {
   console.log(`\n  Demo workspace preserved at: ${env.workDir}`);
-  console.log(
-    `  Inspect: git -C ${env.workDir} log --oneline --all --graph\n`,
-  );
+  console.log(`  Inspect: git -C ${env.workDir} log --oneline --all --graph\n`);
 } else {
   teardown(env);
 }

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIsCI = vi.hoisted(() => ({ value: false }));
-vi.mock("std-env", () => ({ get isCI() { return mockIsCI.value; } }));
+vi.mock("std-env", () => ({
+  get isCI() {
+    return mockIsCI.value;
+  },
+}));
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));

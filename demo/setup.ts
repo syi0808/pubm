@@ -1,6 +1,8 @@
 /**
  * Sets up an isolated demo environment with fixtures and a local git repo.
  */
+
+import { execSync } from "node:child_process";
 import {
   appendFileSync,
   cpSync,
@@ -11,7 +13,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { execSync } from "node:child_process";
 
 export interface DemoEnvironment {
   /** Working directory (the demo project) */
@@ -87,7 +88,7 @@ export function setup(fixture: "single" | "monorepo"): DemoEnvironment {
     const changeFile = isMonorepo
       ? path.join(workDir, "packages/core/src/index.ts")
       : path.join(workDir, "src/index.ts");
-    appendFileSync(changeFile, '\nexport const updated = true;\n');
+    appendFileSync(changeFile, "\nexport const updated = true;\n");
     git("add -A", workDir);
     git('commit -m "feat: add greeting function"', workDir);
     git("push origin main", workDir);
