@@ -5,6 +5,8 @@ description: 为 pubm 配置 CI preparation、token 处理和发布自动化。
 
 `pubm` 旨在同时适配本地终端和 CI runner。关键点在于，正常的 `pubm` 流程已经知道如何在版本步骤中消耗待处理的 changeset，因此你不需要为了准备 CI 而额外增加一个 `pubm changesets version` 步骤。
 
+`pubm init` 可以在 setup 过程中为你生成 CI 工作流。向导会提供创建 `.github/workflows/release.yml`（tag 触发的发布）和 `.github/workflows/changeset-check.yml`（PR changeset 强制检查）的选项，无需手动编写。
+
 ## 推荐的发布模型
 
 使用两个阶段：
@@ -24,12 +26,12 @@ pubm --mode ci --phase publish
 
 `pubm --mode ci --phase prepare` 不只是检查 token。它会把发布流程运行到真正发布之前的那一步：
 
-- collects registry tokens
-- optionally syncs them to GitHub Secrets
-- runs prerequisite and required-condition checks
-- runs tests and build unless skipped
-- consumes pending changesets during versioning when present
-- creates the release commit and pushes tags and branch updates
+- 收集 registry token
+- 可选地将 token 同步到 GitHub Secrets
+- 运行前置条件和必要条件检查
+- 运行测试和构建（除非跳过）
+- 在版本步骤中消耗待处理的 changeset（如果存在）
+- 创建发布提交并推送 tags 和分支更新
 - 对发布任务进行 dry-run，而不执行真正发布
 
 因此，在完成 CI preparation 之后，你不需要再运行 `pubm patch --dry-run`。
@@ -119,7 +121,7 @@ GitHub Release 创建和资产上传都会使用 GitHub API。请提供 `GITHUB_
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run. You do not need to create it manually — just pass it through the environment.
+GitHub Actions 会在每次 workflow 运行中自动注入 `GITHUB_TOKEN` 作为内置 secret。你不需要手动创建它——只需通过环境变量传入即可。
 
 ### 上传前必须存在构建产物
 

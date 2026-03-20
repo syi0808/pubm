@@ -19,17 +19,13 @@ description: 记录发布意图、生成 changelog，并控制版本变更。
 .pubm/changesets/
 ```
 
-使用以下命令初始化该目录：
+运行交互式 setup 向导来初始化该目录：
 
 ```bash
 pubm init
 ```
 
-如果你还想添加一个强制检查 changeset 的 pull request 检查，运行：
-
-```bash
-pubm init --changesets
-```
+在 setup 过程中，`pubm init` 会询问是否启用 changesets 工作流。选择"是"会创建 `.pubm/changesets/` 目录，生成 `.github/workflows/changeset-check.yml` 用于 PR 强制检查，并更新 `.gitignore` 以跟踪 changeset 文件，同时忽略其他 `.pubm/` 内容。
 
 ## 创建 changeset
 

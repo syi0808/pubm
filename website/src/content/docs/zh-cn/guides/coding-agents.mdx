@@ -5,16 +5,26 @@ description: 从 setup automation 开始，把 pubm plugin 集成到你已经在
 
 本指南面向已经在使用 Claude Code 或 Codex 等 coding agent，并希望把 `pubm` 发布工作流接入现有环境的团队。
 
+## 使用 `pubm setup-skills` 快速安装
+
+安装 coding agent skills 最快的方式是：
+
+```bash
+pubm setup-skills
+```
+
+这会从 pubm GitHub 仓库下载适用于你的 agent（Claude Code、Codex CLI 或 Gemini CLI）的 skill bundle，并放置到正确的目录中。它也可作为 `pubm init` 的最后一步使用。
+
 ## 从 setup automation 开始
 
 如果仓库还没有接好，agent 最重要的动作不是发布，而是 setup。
 
 先使用 `publish-setup`。这个 skill 负责：
 
-- installing the `pubm plugin` bundle
-- generating or updating `pubm` config
-- wiring CI
-- enabling changesets
+- 安装 `pubm plugin` bundle
+- 生成或更新 `pubm` 配置
+- 接入 CI
+- 启用 changesets
 - 可选地接入 version-sync 目标
 
 把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接给 agent，这样它就能获取 bundle，并按照仓库内提交的 setup 流程执行。
@@ -25,7 +35,7 @@ description: 从 setup automation 开始，把 pubm plugin 集成到你已经在
 
 目前这个 bundle 包含：
 
-- a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- 位于 `plugins/pubm-plugin/.claude-plugin/plugin.json` 的 Claude Code plugin manifest
 - 位于 `plugins/pubm-plugin/skills/` 下的已提交 skill bundle
 
 ## 包含的 skills
@@ -56,9 +66,9 @@ Claude Code 使用基于 marketplace 的 plugin 模型。
 
 典型流程：
 
-1. add the marketplace
-2. install the plugin from that marketplace
-3. choose the installation scope in Claude Code
+1. 添加 marketplace
+2. 从 marketplace 安装 plugin
+3. 在 Claude Code 中选择安装范围
 
 ```text
 /plugin marketplace add your-org/claude-plugins
@@ -77,7 +87,7 @@ Claude Code 使用基于 marketplace 的 plugin 模型。
 
 Skills 应该编排 CLI，而不是替代 CLI。
 
-- use `pubm` commands for deterministic release operations
+- 使用 `pubm` 命令执行确定性的发布操作
 - 使用 skills 处理 setup 顺序、项目检查、安全检查和审批
 
 ## 需要编码的安全规则
@@ -94,10 +104,3 @@ Skills 应该编排 CLI，而不是替代 CLI。
 - 将 setup automation 和 publish automation 保持在同一个已提交 bundle 中
 - 直接暴露 `pubm` 命令，不要把它们翻译成模糊的自然语言动作
 - 把 `pubm` 视为最后一步，而不是默认步骤
-
-## 实用建议
-
-- treat `publish-setup` as the primary integration surface
-- keep setup automation and publish automation in the same checked-in bundle
-- expose `pubm` commands directly rather than translating them into vague natural-language actions
-- treat `pubm` as the last step, not the default step
