@@ -126,8 +126,10 @@ export async function promptBranch(cwd: string): Promise<string> {
       type: "input",
       name: "branch",
       message: "Enter branch name",
+      validate: (value: string) =>
+        value.trim().length > 0 || "Branch name cannot be empty",
     });
-    return branch;
+    return branch.trim();
   }
 
   return choice;
