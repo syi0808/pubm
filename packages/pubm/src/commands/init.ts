@@ -197,13 +197,18 @@ export function registerInitCommand(parent: Command): void {
         const wantsSkills = await promptSkills();
 
         if (wantsSkills) {
-          const { agents, skillCount } = await runSetupSkills(cwd);
-          if (agents.length > 0) {
-            const agentNames = agents.map((a) => AGENT_LABELS[a]).join(", ");
-            summary.push({
-              label: "Skills",
-              value: `${agentNames} (${skillCount} skills)`,
-            });
+          try {
+            const { agents, skillCount } = await runSetupSkills(cwd);
+            if (agents.length > 0) {
+              const agentNames = agents.map((a) => AGENT_LABELS[a]).join(", ");
+              summary.push({
+                label: "Skills",
+                value: `${agentNames} (${skillCount} skills)`,
+              });
+            }
+          } catch (e) {
+            ui.warn(`Skills installation failed: ${(e as Error).message}`);
+            ui.info("You can install skills later with `pubm setup-skills`.");
           }
         }
 

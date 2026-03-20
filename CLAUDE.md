@@ -106,7 +106,7 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 
 **packages/pubm:**
 - `packages/pubm/src/cli.ts` — CLI entry point using Commander framework
-- `packages/pubm/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-changesets`, `inspect`, `migrate`, `secrets`, `status`, `sync`, `update`, `version-cmd`
+- `packages/pubm/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-prompts`, `init-workflows`, `inspect`, `migrate`, `secrets`, `setup-skills`, `status`, `sync`, `update`, `version-cmd`
 
 **packages/plugins:**
 - `packages/plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
