@@ -1,0 +1,91 @@
+#!/bin/bash
+# Mock npm CLI for pubm demo environment
+# Simulates npm commands without actually contacting the registry
+
+# Random delay: sleep between $1 and $2 seconds (fractional)
+rand_delay() {
+  local min=$1 max=$2
+  local range=$(echo "$max - $min" | bc)
+  local r=$(echo "scale=3; $min + $range * $RANDOM / 32767" | bc)
+  sleep "$r"
+}
+
+case "$1" in
+  ping)
+    rand_delay 0.08 0.25
+    echo "Ping success: registry"
+    exit 0
+    ;;
+  whoami)
+    rand_delay 0.05 0.15
+    echo "demo-user"
+    exit 0
+    ;;
+  --version)
+    echo "10.0.0"
+    exit 0
+    ;;
+  publish)
+    rand_delay 0.8 2.0
+    # Extract package info from current directory's package.json if available
+    if [ -f "package.json" ]; then
+      name=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' package.json | head -1 | sed 's/.*: *"//;s/"//')
+      version=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' package.json | head -1 | sed 's/.*: *"//;s/"//')
+      echo "npm notice"
+      echo "npm notice Publishing to https://registry.npmjs.org/ with tag latest"
+      echo "npm notice === Tarball Details ==="
+      echo "npm notice name:          ${name:-demo-package}"
+      echo "npm notice version:       ${version:-1.0.0}"
+      echo "npm notice filename:      ${name:-demo-package}-${version:-1.0.0}.tgz"
+      echo "npm notice package size:  1.2 kB"
+      echo "npm notice total files:   4"
+      echo "npm notice"
+      echo "+ ${name:-demo-package}@${version:-1.0.0}"
+    else
+      echo "+ demo-package@1.0.0"
+    fi
+    exit 0
+    ;;
+  access)
+    rand_delay 0.1 0.3
+    # npm access list collaborators <pkg> --json
+    echo '{"demo-user": "read-write"}'
+    exit 0
+    ;;
+  view)
+    rand_delay 0.08 0.2
+    # npm view <pkg> dist-tags --json
+    echo '{"latest": "1.0.0"}'
+    exit 0
+    ;;
+  profile)
+    rand_delay 0.1 0.25
+    # npm profile get --json
+    echo '{"tfa":{"mode":null}}'
+    exit 0
+    ;;
+  login)
+    rand_delay 0.3 0.6
+    echo "Logged in as demo-user"
+    exit 0
+    ;;
+  run)
+    # For test/build scripts - delegate to the actual script via sh
+    shift  # remove "run"
+    script_name="$1"
+    shift
+    if [ -f "package.json" ]; then
+      # Extract the script command from package.json
+      script_cmd=$(node -e "const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));console.log(p.scripts?.['${script_name}']||'')" 2>/dev/null)
+      if [ -n "$script_cmd" ]; then
+        eval "$script_cmd"
+        exit $?
+      fi
+    fi
+    echo "Missing script: \"$script_name\""
+    exit 1
+    ;;
+  *)
+    exit 0
+    ;;
+esac

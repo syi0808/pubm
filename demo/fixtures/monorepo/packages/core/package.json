@@ -1,0 +1,11 @@
+{
+  "name": "@pubm/core",
+  "version": "1.0.0",
+  "description": "Core SDK for pubm",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo '@pubm/core: All tests passed!'",
+    "build": "echo '@pubm/core: Build complete!'"
+  }
+}

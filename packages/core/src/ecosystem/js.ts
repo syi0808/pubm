@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { JsrPackageRegistry } from "../registry/jsr.js";
@@ -56,6 +57,65 @@ export class JsEcosystem extends Ecosystem {
 
   supportedRegistries(): RegistryType[] {
     return ["npm", "jsr"];
+  }
+
+  async resolvePublishDependencies(
+    workspaceVersions: Map<string, string>,
+  ): Promise<Map<string, string>> {
+    const backups = new Map<string, string>();
+    const manifestPath = path.join(this.packagePath, "package.json");
+
+    if (!existsSync(manifestPath)) return backups;
+
+    const original = readFileSync(manifestPath, "utf-8");
+    const pkg = JSON.parse(original);
+    let modified = false;
+
+    const WORKSPACE_PREFIX = "workspace:";
+    const DEPENDENCY_FIELDS = [
+      "dependencies",
+      "devDependencies",
+      "optionalDependencies",
+      "peerDependencies",
+    ] as const;
+
+    for (const field of DEPENDENCY_FIELDS) {
+      const deps = pkg[field] as Record<string, string> | undefined;
+      if (!deps) continue;
+
+      for (const [depName, spec] of Object.entries(deps)) {
+        if (!spec.startsWith(WORKSPACE_PREFIX)) continue;
+
+        const range = spec.slice(WORKSPACE_PREFIX.length);
+
+        if (range === "*" || range === "^" || range === "~") {
+          const version = workspaceVersions.get(depName);
+          if (!version) {
+            throw new Error(
+              `Cannot resolve "${spec}" for dependency "${depName}": package not found in workspace`,
+            );
+          }
+          // Inline workspace protocol resolution (same as resolveWorkspaceProtocol)
+          deps[depName] =
+            range === "*" ? version : range === "^" ? `^${version}` : `~${version}`;
+        } else {
+          deps[depName] = range;
+        }
+
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      backups.set(manifestPath, original);
+      writeFileSync(
+        manifestPath,
+        `${JSON.stringify(pkg, null, 2)}\n`,
+        "utf-8",
+      );
+    }
+
+    return backups;
   }
 
   async createDescriptor(): Promise<EcosystemDescriptor> {

@@ -1,0 +1,9 @@
+{
+  "name": "pubm-monorepo",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "echo 'Workspace tests passed!'",
+    "build": "echo 'Workspace build complete!'"
+  }
+}

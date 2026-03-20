@@ -1,0 +1,7 @@
+[package]
+name = "pubm-native"
+version = "1.0.0"
+edition = "2021"
+description = "Native bindings for pubm"
+
+[dependencies]

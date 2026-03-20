@@ -454,6 +454,6 @@ describe("default registration factory and connector invocations", () => {
         { name: "my-npm", path: "/npm", registries: ["npm"] } as any,
       ],
     });
-    expect(names).toEqual(["/crate"]);
+    expect(names).toEqual(["my-crate"]);
   });
 });

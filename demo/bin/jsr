@@ -1,0 +1,30 @@
+#!/bin/bash
+# Mock jsr CLI for pubm demo environment
+
+rand_delay() {
+  local min=$1 max=$2
+  local range=$(echo "$max - $min" | bc)
+  local r=$(echo "scale=3; $min + $range * $RANDOM / 32767" | bc)
+  sleep "$r"
+}
+
+case "$1" in
+  --version)
+    echo "0.14.0"
+    exit 0
+    ;;
+  publish)
+    rand_delay 1.0 2.5
+    echo "Publishing..."
+    echo "Successfully published"
+    exit 0
+    ;;
+  login)
+    rand_delay 0.3 0.6
+    echo "Logged in successfully"
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac

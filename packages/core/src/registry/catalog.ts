@@ -157,7 +157,7 @@ registryCatalog.register({
     return (
       ctx.packages
         ?.filter((pkg) => pkg.registries?.includes("crates"))
-        .map((pkg) => pkg.path) ?? ["crate"]
+        .map((pkg) => pkg.name) ?? ["crate"]
     );
   },
   concurrentPublish: false,

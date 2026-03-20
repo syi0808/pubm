@@ -93,6 +93,7 @@ export function resolveWorkspaceProtocolsInManifests(
 
   for (const pkgPath of packagePaths) {
     const manifestPath = join(pkgPath, "package.json");
+    if (!existsSync(manifestPath)) continue;
     const original = readFileSync(manifestPath, "utf-8");
     const pkg = JSON.parse(original);
 
