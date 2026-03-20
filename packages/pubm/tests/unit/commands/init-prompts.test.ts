@@ -1,9 +1,5 @@
 import { execSync } from "node:child_process";
-import {
-  mkdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,14 +14,16 @@ vi.mock("@pubm/core", () => ({
   discoverPackages: vi.fn(),
 }));
 
-import Enquirer from "enquirer";
 import { detectWorkspace, discoverPackages } from "@pubm/core";
+import Enquirer from "enquirer";
 
 import {
-  INIT_DEFAULTS,
   buildConfigContent,
   detectDefaultBranch,
   detectPackages,
+  INIT_DEFAULTS,
+  type InitResult,
+  type PackageDetectionResult,
   promptBranch,
   promptChangelog,
   promptChangesets,
@@ -36,8 +34,6 @@ import {
   promptSkills,
   promptVersioning,
   shouldCreateConfig,
-  type InitResult,
-  type PackageDetectionResult,
 } from "../../../src/commands/init-prompts.js";
 
 const mockPrompt = vi.mocked(Enquirer.prompt);
@@ -427,7 +423,9 @@ describe("promptPackages", () => {
   });
 
   it("returns selected packages from multiselect for monorepo", async () => {
-    mockPrompt.mockResolvedValueOnce({ selected: ["packages/a", "packages/b"] });
+    mockPrompt.mockResolvedValueOnce({
+      selected: ["packages/a", "packages/b"],
+    });
 
     const detected: PackageDetectionResult = {
       isMonorepo: true,

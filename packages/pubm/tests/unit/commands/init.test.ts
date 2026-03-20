@@ -8,14 +8,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -67,6 +60,7 @@ vi.mock("@pubm/core", () => ({
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
+import { ui } from "@pubm/core";
 import { registerInitCommand } from "../../../src/commands/init.js";
 import {
   detectPackages,
@@ -85,7 +79,6 @@ import {
   writeWorkflowFile,
 } from "../../../src/commands/init-workflows.js";
 import { runSetupSkills } from "../../../src/commands/setup-skills.js";
-import { ui } from "@pubm/core";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -231,7 +224,11 @@ describe("generateChangesetCheckWorkflow", () => {
 describe("writeWorkflowFile", () => {
   it("creates workflow file in .github/workflows/", () => {
     const content = generateChangesetCheckWorkflow("main");
-    const result = writeWorkflowFileReal(TEST_DIR, "changeset-check.yml", content);
+    const result = writeWorkflowFileReal(
+      TEST_DIR,
+      "changeset-check.yml",
+      content,
+    );
 
     expect(result).toBe(true);
     const filePath = path.join(
@@ -252,7 +249,11 @@ describe("writeWorkflowFile", () => {
     writeFileSync(path.join(workflowDir, "changeset-check.yml"), "existing");
 
     const content = generateChangesetCheckWorkflow("main");
-    const result = writeWorkflowFileReal(TEST_DIR, "changeset-check.yml", content);
+    const result = writeWorkflowFileReal(
+      TEST_DIR,
+      "changeset-check.yml",
+      content,
+    );
     expect(result).toBe(false);
   });
 });
@@ -439,9 +440,7 @@ describe("init command — full flow", () => {
 
     expect(vi.mocked(runSetupSkills)).toHaveBeenCalled();
     // Summary line should contain the agent label and skill count
-    const summaryOutput = consoleSpy.mock.calls
-      .flat()
-      .join("\n");
+    const summaryOutput = consoleSpy.mock.calls.flat().join("\n");
     expect(summaryOutput).toContain("Claude Code");
     expect(summaryOutput).toContain("5 skills");
 
