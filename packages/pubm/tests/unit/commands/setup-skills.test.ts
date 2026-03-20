@@ -1,20 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT_LABELS,
+  type Agent,
   getInstallPath,
   registerSetupSkillsCommand,
   runSetupSkills,
-  type Agent,
 } from "../../../src/commands/setup-skills.js";
 
 vi.mock("enquirer", () => ({
@@ -199,7 +192,10 @@ describe("runSetupSkills — Happy Path", () => {
     await runSetupSkills(TEST_DIR);
 
     expect(Enquirer.prompt).toHaveBeenCalledOnce();
-    const callArg = vi.mocked(Enquirer.prompt).mock.calls[0][0] as Record<string, unknown>;
+    const callArg = vi.mocked(Enquirer.prompt).mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
     expect(callArg).toMatchObject({
       type: "multiselect",
       name: "agents",
@@ -646,7 +642,11 @@ describe("registerSetupSkillsCommand — action handler", () => {
 
     try {
       // Invoke the action handler directly
-      await (cmd as unknown as { _actionHandler: (...args: unknown[]) => Promise<void> })._actionHandler([], {}, cmd);
+      await (
+        cmd as unknown as {
+          _actionHandler: (...args: unknown[]) => Promise<void>;
+        }
+      )._actionHandler([], {}, cmd);
     } finally {
       if (originalIsTTY) {
         Object.defineProperty(process.stdin, "isTTY", originalIsTTY);
@@ -680,7 +680,11 @@ describe("registerSetupSkillsCommand — action handler", () => {
     const savedExitCode = process.exitCode;
 
     try {
-      await (cmd as unknown as { _actionHandler: (...args: unknown[]) => Promise<void> })._actionHandler([], {}, cmd);
+      await (
+        cmd as unknown as {
+          _actionHandler: (...args: unknown[]) => Promise<void>;
+        }
+      )._actionHandler([], {}, cmd);
     } finally {
       if (originalIsTTY) {
         Object.defineProperty(process.stdin, "isTTY", originalIsTTY);
@@ -718,7 +722,11 @@ describe("registerSetupSkillsCommand — action handler", () => {
     process.cwd = () => TEST_DIR;
 
     try {
-      await (cmd as unknown as { _actionHandler: (...args: unknown[]) => Promise<void> })._actionHandler([], {}, cmd);
+      await (
+        cmd as unknown as {
+          _actionHandler: (...args: unknown[]) => Promise<void>;
+        }
+      )._actionHandler([], {}, cmd);
     } finally {
       if (originalIsTTY) {
         Object.defineProperty(process.stdin, "isTTY", originalIsTTY);
@@ -756,7 +764,11 @@ describe("registerSetupSkillsCommand — action handler", () => {
     process.cwd = () => TEST_DIR;
 
     try {
-      await (cmd as unknown as { _actionHandler: (...args: unknown[]) => Promise<void> })._actionHandler([], {}, cmd);
+      await (
+        cmd as unknown as {
+          _actionHandler: (...args: unknown[]) => Promise<void>;
+        }
+      )._actionHandler([], {}, cmd);
     } finally {
       if (originalIsTTY) {
         Object.defineProperty(process.stdin, "isTTY", originalIsTTY);

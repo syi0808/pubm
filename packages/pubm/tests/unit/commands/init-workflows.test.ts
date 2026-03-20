@@ -109,7 +109,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
 
       it("does not include monorepo if-condition", () => {
         const yaml = generateReleaseWorkflow(false, "main", pm);
-        expect(yaml).not.toContain("startsWith(github.event.head_commit.message");
+        expect(yaml).not.toContain(
+          "startsWith(github.event.head_commit.message",
+        );
       });
     });
   }
@@ -270,7 +272,9 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
 
   it("bun: has 'Version Packages' if-condition", () => {
     const yaml = generateReleaseWorkflow(true, "main", "bun");
-    expect(yaml).toContain("startsWith(github.event.head_commit.message, 'Version Packages')");
+    expect(yaml).toContain(
+      "startsWith(github.event.head_commit.message, 'Version Packages')",
+    );
   });
 
   it("bun: includes correct setup and publish steps", () => {
@@ -287,7 +291,9 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
 
   it("pnpm: has 'Version Packages' if-condition", () => {
     const yaml = generateReleaseWorkflow(true, "main", "pnpm");
-    expect(yaml).toContain("startsWith(github.event.head_commit.message, 'Version Packages')");
+    expect(yaml).toContain(
+      "startsWith(github.event.head_commit.message, 'Version Packages')",
+    );
   });
 
   it("pnpm: includes correct setup and publish steps", () => {
@@ -304,7 +310,9 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
 
   it("npm: has 'Version Packages' if-condition", () => {
     const yaml = generateReleaseWorkflow(true, "main", "npm");
-    expect(yaml).toContain("startsWith(github.event.head_commit.message, 'Version Packages')");
+    expect(yaml).toContain(
+      "startsWith(github.event.head_commit.message, 'Version Packages')",
+    );
   });
 
   it("npm: includes correct setup and publish steps", () => {
@@ -321,7 +329,9 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
 
   it("yarn: has 'Version Packages' if-condition", () => {
     const yaml = generateReleaseWorkflow(true, "main", "yarn");
-    expect(yaml).toContain("startsWith(github.event.head_commit.message, 'Version Packages')");
+    expect(yaml).toContain(
+      "startsWith(github.event.head_commit.message, 'Version Packages')",
+    );
   });
 
   it("cargo: uses branch-based trigger", () => {
@@ -332,7 +342,9 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
 
   it("cargo: has 'Version Packages' if-condition", () => {
     const yaml = generateReleaseWorkflow(true, "main", "cargo");
-    expect(yaml).toContain("startsWith(github.event.head_commit.message, 'Version Packages')");
+    expect(yaml).toContain(
+      "startsWith(github.event.head_commit.message, 'Version Packages')",
+    );
   });
 
   it("all PMs: monorepo includes fetch-depth: 0", () => {
@@ -423,7 +435,10 @@ describe("generateChangesetCheckWorkflow — additional tests", () => {
 
 describe("updateGitignoreForChangesets — edge cases", () => {
   it("handles .gitignore with trailing whitespace after .pubm line", () => {
-    writeFileSync(path.join(TEST_DIR, ".gitignore"), "node_modules\n.pubm/\n\n");
+    writeFileSync(
+      path.join(TEST_DIR, ".gitignore"),
+      "node_modules\n.pubm/\n\n",
+    );
 
     const result = updateGitignoreForChangesets(TEST_DIR);
 
@@ -434,10 +449,7 @@ describe("updateGitignoreForChangesets — edge cases", () => {
   });
 
   it("does not add duplicate .pubm/* if already present but missing !.pubm/changesets/", () => {
-    writeFileSync(
-      path.join(TEST_DIR, ".gitignore"),
-      "node_modules\n.pubm/*\n",
-    );
+    writeFileSync(path.join(TEST_DIR, ".gitignore"), "node_modules\n.pubm/*\n");
 
     const result = updateGitignoreForChangesets(TEST_DIR);
 
@@ -501,7 +513,12 @@ describe("writeWorkflowFile — additional tests", () => {
     const content = "name: My Workflow\n";
     writeWorkflowFile(TEST_DIR, "my-workflow.yml", content);
 
-    const filePath = path.join(TEST_DIR, ".github", "workflows", "my-workflow.yml");
+    const filePath = path.join(
+      TEST_DIR,
+      ".github",
+      "workflows",
+      "my-workflow.yml",
+    );
     expect(readFileSync(filePath, "utf8")).toBe(content);
   });
 
@@ -514,7 +531,12 @@ describe("writeWorkflowFile — additional tests", () => {
     writeWorkflowFile(TEST_DIR, "release.yml", "release content");
     writeWorkflowFile(TEST_DIR, "check.yml", "check content");
 
-    const releasePath = path.join(TEST_DIR, ".github", "workflows", "release.yml");
+    const releasePath = path.join(
+      TEST_DIR,
+      ".github",
+      "workflows",
+      "release.yml",
+    );
     const checkPath = path.join(TEST_DIR, ".github", "workflows", "check.yml");
 
     expect(readFileSync(releasePath, "utf8")).toBe("release content");
@@ -524,7 +546,12 @@ describe("writeWorkflowFile — additional tests", () => {
   it("creates file at correct path inside cwd/.github/workflows/", () => {
     writeWorkflowFile(TEST_DIR, "test.yml", "test");
 
-    const expectedPath = path.join(TEST_DIR, ".github", "workflows", "test.yml");
+    const expectedPath = path.join(
+      TEST_DIR,
+      ".github",
+      "workflows",
+      "test.yml",
+    );
     expect(existsSync(expectedPath)).toBe(true);
   });
 });
