@@ -129,7 +129,10 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           const tmpDir = join(tmpdir(), `pubm-brew-tap-${Date.now()}`);
           const formulaFile = basename(formulaPath);
 
-          execSync(`git clone --depth 1 ${options.repo} ${tmpDir}`, {
+          const repoUrl = /^[^/]+\/[^/]+$/.test(options.repo)
+            ? `https://github.com/${options.repo}.git`
+            : options.repo;
+          execSync(`git clone --depth 1 ${repoUrl} ${tmpDir}`, {
             stdio: "inherit",
           });
           ensureGitIdentity(tmpDir);
