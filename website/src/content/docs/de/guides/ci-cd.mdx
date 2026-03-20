@@ -5,6 +5,8 @@ description: CI-Vorbereitung, Token-Verwaltung und Release-Automatisierung fuer 
 
 `pubm` ist so gebaut, dass es in lokalen Terminals und in CI-Runntern gleich gut funktioniert. Der wichtige Punkt ist: Die normale `pubm`-Pipeline kann ausstehende Changesets bereits waehrend des Versionierungsschritts verbrauchen. Du brauchst also keinen zusaetzlichen `pubm changesets version`-Schritt, nur um CI vorzubereiten.
 
+`pubm init` kann waehrend des Setups CI-Workflows fuer dich erzeugen. Der Wizard bietet an, `.github/workflows/release.yml` (tag-gesteuertes Publish) und `.github/workflows/changeset-check.yml` (PR-Changeset-Durchsetzung) zu erstellen, damit du sie nicht von Hand schreiben musst.
+
 ## Recommended release model
 
 Use two phases:
