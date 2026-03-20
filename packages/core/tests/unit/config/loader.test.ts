@@ -87,6 +87,37 @@ describe("loadConfig", () => {
     expect(JSON.parse(result.contents)).toContain("**/node_modules/**");
   });
 
+  it("loads config from explicit configPath", async () => {
+    const fixtureDir = path.resolve(
+      __dirname,
+      "../../fixtures/with-config",
+    );
+    const result = await loadConfig(fixtureDir, "custom.config.ts");
+    expect(result).not.toBeNull();
+    expect(result?.branch).toBe("custom-branch");
+    expect(result?.versioning).toBe("fixed");
+  });
+
+  it("throws when explicit configPath does not exist", async () => {
+    const fixtureDir = path.resolve(
+      __dirname,
+      "../../fixtures/with-config",
+    );
+    await expect(
+      loadConfig(fixtureDir, "nonexistent.config.ts"),
+    ).rejects.toThrow("Config file not found:");
+  });
+
+  it("resolves absolute configPath regardless of cwd", async () => {
+    const absolutePath = path.resolve(
+      __dirname,
+      "../../fixtures/with-config/custom.config.ts",
+    );
+    const result = await loadConfig("/tmp", absolutePath);
+    expect(result).not.toBeNull();
+    expect(result?.branch).toBe("custom-branch");
+  });
+
   it("can execute bundled CommonJS config output in vm", async () => {
     const executeBundledConfigInVm = (loader as Record<string, unknown>)
       .executeBundledConfigInVm;
