@@ -20,7 +20,7 @@
     "pubm": "./bin/cli.cjs"
   },
   "files": [
-    "bin/",
+    "bin/cli.cjs",
     "index.js",
     "index.cjs",
     "index.d.ts",
