@@ -301,4 +301,46 @@ describe("brewTap", () => {
       { stdio: "inherit" },
     );
   });
+
+  it("expands owner/repo shorthand to full GitHub URL when cloning tap", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify(
+        {
+          name: "@scope/pubm",
+          description: "Pubm CLI",
+          homepage: "https://example.com/pubm",
+          license: "Apache-2.0",
+        },
+        null,
+        2,
+      ),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      {
+        version: "4.0.0",
+        assets: [
+          {
+            name: "pubm-darwin-arm64.tar.gz",
+            url: "https://example.com/pubm-darwin-arm64.tar.gz",
+            sha256: "darwin-arm64",
+            platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
+          },
+        ],
+      } as never,
+    );
+
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      `git clone --depth 1 https://github.com/syi0808/homebrew-pubm.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
+      { stdio: "inherit" },
+    );
+  });
 });
