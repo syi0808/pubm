@@ -8,14 +8,14 @@ export function ensureGitIdentity(cwd?: string): void {
   try {
     execSync("git config user.name", { ...opts, stdio: "pipe" });
   } catch {
-    execSync('git config user.name "pubm[bot]"', opts);
+    execSync('git config user.name "pubm-bot"', opts);
   }
 
   try {
     execSync("git config user.email", { ...opts, stdio: "pipe" });
   } catch {
     execSync(
-      'git config user.email "pubm[bot]@users.noreply.github.com"',
+      'git config user.email "pubmsupport@gmail.com"',
       opts,
     );
   }

@@ -60,7 +60,7 @@ describe("ensureGitIdentity", () => {
     });
     expect(mockedExecSync).toHaveBeenNthCalledWith(
       2,
-      'git config user.name "pubm[bot]"',
+      'git config user.name "pubm-bot"',
       {
         cwd: "/tmp/pubm-repo",
         encoding: "utf-8",
@@ -73,7 +73,7 @@ describe("ensureGitIdentity", () => {
     });
     expect(mockedExecSync).toHaveBeenNthCalledWith(
       4,
-      'git config user.email "pubm[bot]@users.noreply.github.com"',
+      'git config user.email "pubmsupport@gmail.com"',
       {
         cwd: "/tmp/pubm-repo",
         encoding: "utf-8",
