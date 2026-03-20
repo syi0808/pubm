@@ -27,7 +27,7 @@ const define = {
 
 // Clean dist and tsbuildinfo
 if (existsSync(distDir)) {
-  rmSync(distDir, { recursive: true });
+  rmSync(distDir, { recursive: true, force: true });
 }
 for (const info of ["tsconfig.tsbuildinfo", "tsconfig.build.tsbuildinfo"]) {
   const p = path.join(coreDir, info);

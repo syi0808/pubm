@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAssetPipeline } from "../../../src/assets/pipeline.js";
-import type {
-  AssetPipelineHooks,
-  ResolvedAsset,
-} from "../../../src/assets/types.js";
+import type { ResolvedAsset } from "../../../src/assets/types.js";
+
+type BunSpawnOptions = {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+};
 
 function createTempBinary(name: string): string {
   const dir = mkdtempSync(join(tmpdir(), "pipeline-test-"));
@@ -126,9 +128,11 @@ describe("runAssetPipeline", () => {
   });
 
   describe("with Bun stub (compression)", () => {
+    const originalBun = globalThis.Bun;
+
     beforeEach(() => {
-      vi.stubGlobal("Bun", {
-        spawn: (args: string[], opts: any) => {
+      globalThis.Bun = {
+        spawn: (args: string[], opts?: BunSpawnOptions) => {
           const [cmd, ...cmdArgs] = args;
           const result = spawnSync(cmd, cmdArgs, {
             cwd: opts?.cwd,
@@ -155,11 +159,11 @@ describe("runAssetPipeline", () => {
             exited: Promise.resolve(result.status ?? 1),
           };
         },
-      });
+      } as typeof Bun;
     });
 
     afterEach(() => {
-      vi.unstubAllGlobals();
+      globalThis.Bun = originalBun;
     });
 
     it("runs with tar.gz compression", async () => {

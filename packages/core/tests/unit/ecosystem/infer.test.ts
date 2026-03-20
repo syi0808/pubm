@@ -2,7 +2,10 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("node:fs/promises");
+vi.mock("node:fs/promises", () => ({
+  readFile: vi.fn(),
+  stat: vi.fn(),
+}));
 
 const mockedStat = vi.mocked(stat);
 const mockedReadFile = vi.mocked(readFile);
@@ -177,7 +180,7 @@ describe("inferRegistries", () => {
         if (path.endsWith("package.json"))
           return JSON.stringify({ name: "test-pkg" });
         if (path.endsWith(".npmrc"))
-          return "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n";
+          return `//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}\n`;
         throw new Error("ENOENT");
       });
       const result = await inferRegistries("/project", "js");

@@ -53,13 +53,20 @@ interface CliOptions {
   saveToken: boolean;
 }
 
+type ResolvedCliOptionsInput = Omit<CliOptions, "version">;
+type ResolvedCliMode = Options["mode"];
+
+function resolveCliMode(mode?: string): ResolvedCliMode {
+  return mode === "ci" ? "ci" : "local";
+}
+
 export function resolveCliOptions(
-  options: Omit<CliOptions, "version">,
+  options: ResolvedCliOptionsInput,
 ): Partial<Options> {
   return {
-    testScript: (options as any).testScript,
-    buildScript: (options as any).buildScript,
-    mode: options.mode as any,
+    testScript: options.testScript,
+    buildScript: options.buildScript,
+    mode: resolveCliMode(options.mode),
     prepare: options.phase === "prepare" ? true : undefined,
     publish: options.phase === "publish" ? true : undefined,
     dryRun: options.dryRun,

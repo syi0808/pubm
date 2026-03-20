@@ -20,7 +20,7 @@ import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
 import type { PubmContext } from "../context.js";
-import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
@@ -121,14 +121,35 @@ function getPackageName(ctx: PubmContext, packagePath: string): string {
   );
 }
 
+function requirePackageEcosystem(pkg: {
+  path: string;
+  ecosystem?: EcosystemKey;
+}): EcosystemKey {
+  if (!pkg.ecosystem) {
+    throw new Error(`Package ${pkg.path} is missing an ecosystem.`);
+  }
+
+  return pkg.ecosystem;
+}
+
+function requireVersionPlan(ctx: PubmContext) {
+  const { versionPlan } = ctx.runtime;
+  if (!versionPlan) {
+    throw new Error("Version plan is required before running release tasks.");
+  }
+
+  return versionPlan;
+}
+
 async function writeVersions(
   ctx: PubmContext,
   versions: Map<string, string>,
 ): Promise<string[]> {
   const ecosystems = ctx.config.packages.map((pkg) => {
     const absPath = path.resolve(ctx.cwd ?? process.cwd(), pkg.path);
-    const descriptor = ecosystemCatalog.get(pkg.ecosystem!);
-    if (!descriptor) throw new Error(`Unknown ecosystem: ${pkg.ecosystem}`);
+    const ecosystem = requirePackageEcosystem(pkg);
+    const descriptor = ecosystemCatalog.get(ecosystem);
+    if (!descriptor) throw new Error(`Unknown ecosystem: ${ecosystem}`);
     const eco = new descriptor.ecosystemClass(absPath);
     return { eco, pkg };
   });
@@ -179,7 +200,8 @@ async function resolveWorkspaceProtocols(ctx: PubmContext): Promise<void> {
 
   for (const pkg of ctx.config.packages) {
     const absPath = path.resolve(ctx.cwd, pkg.path);
-    const descriptor = ecosystemCatalog.get(pkg.ecosystem!);
+    const ecosystem = requirePackageEcosystem(pkg);
+    const descriptor = ecosystemCatalog.get(ecosystem);
     if (!descriptor) continue;
 
     const eco = new descriptor.ecosystemClass(absPath);
@@ -194,7 +216,8 @@ async function resolveWorkspaceProtocols(ctx: PubmContext): Promise<void> {
     addRollback(async () => {
       for (const pkg of ctx.config.packages) {
         const absPath = path.resolve(ctx.cwd, pkg.path);
-        const descriptor = ecosystemCatalog.get(pkg.ecosystem!);
+        const ecosystem = requirePackageEcosystem(pkg);
+        const descriptor = ecosystemCatalog.get(ecosystem);
         if (!descriptor) continue;
         const eco = new descriptor.ecosystemClass(absPath);
         eco.restorePublishDependencies(allBackups);
@@ -624,7 +647,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             skip: () => dryRun,
             task: async (ctx, task): Promise<void> => {
               const git = new Git();
-              const snapshotPlan = ctx.runtime.versionPlan!;
+              const snapshotPlan = requireVersionPlan(ctx);
               const tagName = `v${snapshotPlan.mode !== "independent" ? snapshotPlan.version : ""}`;
               task.output = `Creating tag ${tagName}...`;
 
@@ -791,7 +814,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             let tagCreated = false;
             let commited = false;
 
-            const plan = ctx.runtime.versionPlan!;
+            const plan = requireVersionPlan(ctx);
 
             task.output = formatVersionPlan(ctx);
 
@@ -1118,7 +1141,11 @@ export async function run(ctx: PubmContext): Promise<void> {
             !ctx.runtime.workspaceBackups?.size,
           title: "Restoring workspace protocols",
           task: (ctx) => {
-            restoreManifests(ctx.runtime.workspaceBackups!);
+            const backups = ctx.runtime.workspaceBackups;
+            if (!backups) {
+              throw new Error("Workspace backups are required for restore.");
+            }
+            restoreManifests(backups);
             ctx.runtime.workspaceBackups = undefined;
           },
         },
@@ -1160,7 +1187,11 @@ export async function run(ctx: PubmContext): Promise<void> {
             !ctx.runtime.workspaceBackups?.size,
           title: "Restoring workspace protocols",
           task: (ctx) => {
-            restoreManifests(ctx.runtime.workspaceBackups!);
+            const backups = ctx.runtime.workspaceBackups;
+            if (!backups) {
+              throw new Error("Workspace backups are required for restore.");
+            }
+            restoreManifests(backups);
             ctx.runtime.workspaceBackups = undefined;
           },
         },
@@ -1168,7 +1199,13 @@ export async function run(ctx: PubmContext): Promise<void> {
           skip: (ctx) => !dryRun || !ctx.runtime.dryRunVersionBackup?.size,
           title: "Restoring original versions (dry-run)",
           task: async (ctx): Promise<void> => {
-            await writeVersions(ctx, ctx.runtime.dryRunVersionBackup!);
+            const backupVersions = ctx.runtime.dryRunVersionBackup;
+            if (!backupVersions) {
+              throw new Error(
+                "Dry-run version backup is required for restore.",
+              );
+            }
+            await writeVersions(ctx, backupVersions);
             ctx.runtime.dryRunVersionBackup = undefined;
           },
         },
@@ -1203,7 +1240,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             !hasPublish || !!ctx.options.skipReleaseDraft || dryRun,
           title: "Creating GitHub Release",
           task: async (ctx, task): Promise<void> => {
-            const plan = ctx.runtime.versionPlan!;
+            const plan = requireVersionPlan(ctx);
 
             // Resolve GitHub token from env or secure store
             const tokenResult = resolveGitHubToken();

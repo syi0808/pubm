@@ -51,7 +51,7 @@ let arch = archMap[os.arch()];
 if (!arch) {
   arch = os.arch();
 }
-const base = "@pubm/" + platform + "-" + arch;
+const base = `@pubm/${platform}-${arch}`;
 const binary = platform === "windows" ? "pubm.exe" : "pubm";
 
 function supportsAvx2() {

@@ -1,9 +1,17 @@
-import type { AssetPipelineHooks, ReleaseContext } from "../assets/types.js";
+import type {
+  AssetPipelineHooks,
+  ReleaseContext,
+  TransformedAsset,
+} from "../assets/types.js";
 import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 
 import type { HookName, PubmPlugin } from "./types.js";
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
 
 export class PluginRunner {
   constructor(private plugins: PubmPlugin[]) {}
@@ -49,18 +57,18 @@ export class PluginRunner {
     return this.plugins.flatMap((p) => p.ecosystems ?? []);
   }
 
-  collectAssetHooks(): AssetPipelineHooks {
-    const collected: AssetPipelineHooks = {};
+  collectAssetHooks(): AssetPipelineHooks<PubmContext> {
+    const collected: AssetPipelineHooks<PubmContext> = {};
 
     // Chain: resolveAssets — each plugin's output is next plugin's input
     const resolveChain = this.plugins
       .map((p) => p.hooks?.resolveAssets)
-      .filter(Boolean);
+      .filter(isDefined);
     if (resolveChain.length > 0) {
       collected.resolveAssets = async (assets, ctx) => {
         let result = assets;
         for (const hook of resolveChain) {
-          result = await hook!(result, ctx);
+          result = await hook(result, ctx);
         }
         return result;
       };
@@ -69,14 +77,14 @@ export class PluginRunner {
     // Chain: transformAsset — per-asset, supports array fan-out
     const transformChain = this.plugins
       .map((p) => p.hooks?.transformAsset)
-      .filter(Boolean);
+      .filter(isDefined);
     if (transformChain.length > 0) {
       collected.transformAsset = async (asset, ctx) => {
-        let items = [asset] as any[];
+        let items: TransformedAsset[] = [asset];
         for (const hook of transformChain) {
-          const next: any[] = [];
+          const next: TransformedAsset[] = [];
           for (const item of items) {
-            const result = await hook!(item, ctx);
+            const result = await hook(item, ctx);
             next.push(...(Array.isArray(result) ? result : [result]));
           }
           items = next;
@@ -88,12 +96,13 @@ export class PluginRunner {
     // Chain: compressAsset — per-asset
     const compressChain = this.plugins
       .map((p) => p.hooks?.compressAsset)
-      .filter(Boolean);
+      .filter(isDefined);
     if (compressChain.length > 0) {
       collected.compressAsset = async (asset, ctx) => {
-        let result = asset as any;
-        for (const hook of compressChain) {
-          result = await hook!(result, ctx);
+        const [firstHook, ...restHooks] = compressChain;
+        let result = await firstHook(asset, ctx);
+        for (const hook of restHooks) {
+          result = await hook(result, ctx);
         }
         return result;
       };
@@ -102,12 +111,12 @@ export class PluginRunner {
     // Chain: nameAsset — per-asset
     const nameChain = this.plugins
       .map((p) => p.hooks?.nameAsset)
-      .filter(Boolean);
+      .filter(isDefined);
     if (nameChain.length > 0) {
       collected.nameAsset = (asset, ctx) => {
         let result = "";
         for (const hook of nameChain) {
-          result = hook!(asset, ctx);
+          result = hook(asset, ctx);
         }
         return result;
       };
@@ -116,12 +125,12 @@ export class PluginRunner {
     // Chain: generateChecksums — chaining
     const checksumChain = this.plugins
       .map((p) => p.hooks?.generateChecksums)
-      .filter(Boolean);
+      .filter(isDefined);
     if (checksumChain.length > 0) {
       collected.generateChecksums = async (assets, ctx) => {
         let result = assets;
         for (const hook of checksumChain) {
-          result = await hook!(result, ctx);
+          result = await hook(result, ctx);
         }
         return result;
       };
@@ -130,12 +139,12 @@ export class PluginRunner {
     // Concat: uploadAssets — each plugin gets same input, results concatenated
     const uploadHooks = this.plugins
       .map((p) => p.hooks?.uploadAssets)
-      .filter(Boolean);
+      .filter(isDefined);
     if (uploadHooks.length > 0) {
       collected.uploadAssets = async (assets, ctx) => {
         const allResults = [];
         for (const hook of uploadHooks) {
-          const result = await hook!(assets, ctx);
+          const result = await hook(assets, ctx);
           allResults.push(...result);
         }
         return allResults;
