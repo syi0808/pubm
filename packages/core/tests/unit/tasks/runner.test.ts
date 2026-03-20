@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("std-env", () => ({ isCI: false }));
+const mockIsCI = vi.hoisted(() => ({ value: false }));
+vi.mock("std-env", () => ({ get isCI() { return mockIsCI.value; } }));
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
 }));
@@ -620,21 +621,35 @@ describe("run", () => {
   });
 
   describe("CI logging", () => {
-    it("passes CI renderer options to the pipeline when mode is ci", async () => {
-      const ciListrOptions = { renderer: "ci-renderer" } as any;
-      mockedCreateCiListrOptions.mockReturnValue(ciListrOptions);
+    it("passes CI renderer options to the pipeline when isCI is true", async () => {
+      mockIsCI.value = true;
+      try {
+        const ciListrOptions = { renderer: "ci-renderer" } as any;
+        mockedCreateCiListrOptions.mockReturnValue(ciListrOptions);
 
+        const options = createOptions({
+          options: { mode: "ci", prepare: true },
+        });
+        await run(options);
+
+        expect(mockedCreateCiListrOptions).toHaveBeenCalled();
+        // First createListr call is token collection, second is the pipeline
+        const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
+          Array.isArray(call[0]),
+        );
+        expect(pipelineCall?.[1]).toBe(ciListrOptions);
+      } finally {
+        mockIsCI.value = false;
+      }
+    });
+
+    it("does not pass CI renderer options when mode is ci but isCI is false", async () => {
       const options = createOptions({
         options: { mode: "ci", prepare: true },
       });
       await run(options);
 
-      expect(mockedCreateCiListrOptions).toHaveBeenCalled();
-      // First createListr call is token collection, second is the pipeline
-      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-        Array.isArray(call[0]),
-      );
-      expect(pipelineCall?.[1]).toBe(ciListrOptions);
+      expect(mockedCreateCiListrOptions).not.toHaveBeenCalled();
     });
   });
 
@@ -977,8 +992,9 @@ describe("run", () => {
       }
     });
 
-    it("does not attach live output callbacks in CI mode", async () => {
+    it("does not attach live output callbacks when isCI is true", async () => {
       const originalIsTTY = process.stdout.isTTY;
+      mockIsCI.value = true;
       try {
         Object.defineProperty(process.stdout, "isTTY", {
           value: true,
@@ -998,7 +1014,6 @@ describe("run", () => {
         await testTask.task(
           {
             ...options,
-            options: { ...options.options, mode: "ci" as const },
             runtime: { ...options.runtime, promptEnabled: false },
           },
           mockTask,
@@ -1014,6 +1029,7 @@ describe("run", () => {
           value: originalIsTTY,
           configurable: true,
         });
+        mockIsCI.value = false;
       }
     });
 

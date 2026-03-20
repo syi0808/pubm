@@ -389,8 +389,8 @@ function formatVersionPlan(ctx: PubmContext): string {
   return "";
 }
 
-function shouldRenderLiveCommandOutput(ctx: PubmContext): boolean {
-  return ctx.options.mode !== "ci" && !isCI && Boolean(process.stdout.isTTY);
+function shouldRenderLiveCommandOutput(_ctx: PubmContext): boolean {
+  return !isCI && Boolean(process.stdout.isTTY);
 }
 
 function normalizeLiveCommandOutputLine(line: string): string {
@@ -501,8 +501,9 @@ export async function run(ctx: PubmContext): Promise<void> {
         skip: ctx.options.skipConditionsCheck,
       }).run(ctx);
 
-      const pipelineListrOptions =
-        mode === "ci" || isCI ? createCiListrOptions<PubmContext>() : undefined;
+      const pipelineListrOptions = isCI
+        ? createCiListrOptions<PubmContext>()
+        : undefined;
 
       await createListr<PubmContext>(
         [
@@ -694,8 +695,9 @@ export async function run(ctx: PubmContext): Promise<void> {
       }).run(ctx);
     }
 
-    const pipelineListrOptions =
-      mode === "ci" || isCI ? createCiListrOptions<PubmContext>() : undefined;
+    const pipelineListrOptions = isCI
+      ? createCiListrOptions<PubmContext>()
+      : undefined;
 
     await createListr<PubmContext>(
       [
