@@ -2,48 +2,170 @@
 
 ## How pubm Works in CI
 
-pubm detects CI environments using the `std-env` package (`isCI` flag). When running in CI:
+pubm uses a **two-phase model** in CI: **prepare** and **publish**.
 
-- Interactive prompts are disabled (`promptEnabled` is set to `false`).
-- **Use `--mode ci --phase publish`** for the full CI pipeline: publish + GitHub Release with assets. Alternatively, use `--phase publish` if you only need the publish step.
-- Both modes read each package's version from its local manifest (`package.json`, `jsr.json`, `Cargo.toml`). Packages whose version is already published on the registry are automatically skipped.
-- In monorepo independent versioning mode, each package's version is read independently. Fixed mode uses a single shared version.
-- Authentication is handled entirely through environment variables (no interactive login).
+| Phase | Command | What it does |
+|---|---|---|
+| **prepare** | `pubm --mode ci --phase prepare` | Collect tokens, validate registry access, prepare for publish |
+| **publish** | `pubm --mode ci --phase publish` | Publish to all registries + create GitHub Release with assets |
+
+CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase publish`. Omitting the phase is an error.
 
 ### What `--mode ci --phase publish` Does
 
-- Skips prerequisites check (branch validation, remote status, working tree).
-- Skips required conditions check (registry ping, login validation).
-- Skips tests, build, version bump, git commit, tag creation, and tag pushing.
-- Publishes to all configured registries concurrently.
-- Creates a GitHub Release with release notes and uploads platform binary assets.
-- Requires `GITHUB_TOKEN` environment variable.
+- Skips prerequisites check (branch, remote, working tree).
+- Skips conditions check (registry ping, login validation).
+- Skips tests, build, version bump, git commit, tag creation, tag pushing.
+- Reads each package's version from its manifest (`package.json`, `jsr.json`, `Cargo.toml`).
+- Publishes to all configured registries concurrently. Already-published versions are skipped.
+- Creates a GitHub Release with release notes and uploads release assets.
+- In monorepo independent mode, each package version is read independently. Fixed mode uses a shared version.
 
-### What `--phase publish` Does
+### What `--mode ci --phase prepare` Does
 
-- Same as `--mode ci --phase publish` but **without** GitHub Release creation.
-- Runs **only** the publish step for all configured registries, concurrently.
+- Collects required tokens and validates registry access.
+- Useful as a pre-publish validation step or for interactive CI setups where tokens are gathered first.
 
-For tag-based workflows, the git tag must already exist before running. For commit-based monorepo workflows, tags are created locally and pushed alongside the commit.
+### Local workflow (triggers CI)
+
+Run `pubm --no-publish` locally to bump version, create a git commit + tag, and push — without publishing. This push triggers the CI workflow.
 
 ## Required Secrets
 
 | Secret | Registry | Description | How to Create |
 |---|---|---|---|
-| `GITHUB_TOKEN` | GitHub Releases | GitHub token for creating releases and uploading assets | Automatically available as `secrets.GITHUB_TOKEN` in GitHub Actions |
-| `NODE_AUTH_TOKEN` | npm | npm automation token | npmjs.com > Access Tokens > Generate New Token > Automation |
-| `JSR_TOKEN` | jsr | JSR API token | jsr.io/account/tokens/create (select "Interact with the JSR API") |
+| `GITHUB_TOKEN` | GitHub Releases | Token for releases and asset uploads | Automatically available as `secrets.GITHUB_TOKEN` |
+| `NODE_AUTH_TOKEN` | npm | npm automation token | npmjs.com > Access Tokens > Automation |
+| `JSR_TOKEN` | jsr | JSR API token | jsr.io/account/tokens/create |
 | `CARGO_REGISTRY_TOKEN` | crates.io | crates.io API token | crates.io > Account Settings > API Tokens |
 
-**npm note:** pubm checks for `NODE_AUTH_TOKEN` specifically (not `NPM_TOKEN`). In CI, it publishes with `--provenance --access public` automatically. If your package has 2FA enabled for token-based access, publishing will fail -- disable "Require two-factor authentication for write actions" in the package access settings on npmjs.com.
+**npm notes:**
+- pubm checks `NODE_AUTH_TOKEN` specifically (not `NPM_TOKEN`).
+- In CI, pubm publishes with `--provenance --access public` automatically.
+- 2FA for token-based access must be disabled on npmjs.com for CI publishing.
 
-## Template: GitHub Actions -- Tag-Based Auto Publish
+## Setup Blocks by Package Manager / Ecosystem
 
-The simplest approach. Create and push a tag locally (or via pubm's local workflow), and CI publishes automatically.
+Pick the block matching the user's package manager. These are **composable building blocks** — insert them into the templates below.
+
+### npm
 
 ```yaml
-# .github/workflows/publish.yml
-name: Publish
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+```
+
+Publish step: `npx pubm --mode ci --phase publish`
+
+### pnpm
+
+```yaml
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+```
+
+Publish step: `pnpm exec pubm --mode ci --phase publish`
+
+### yarn
+
+```yaml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build
+        run: yarn build
+```
+
+Publish step: `yarn pubm --mode ci --phase publish`
+
+### bun
+
+```yaml
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+```
+
+Publish step: `bunx pubm --mode ci --phase publish`
+
+**Note:** `actions/setup-node` with `registry-url` is still required even with bun — `NODE_AUTH_TOKEN` is only picked up by npm when registry-url is configured.
+
+### Rust (crates.io)
+
+For Rust-only projects, install pubm via Homebrew tap instead of npm. This requires that pubm's Homebrew formula is already published — see `references/homebrew-setup.md` for details.
+
+If the user also has `@pubm/plugin-brew` configured, installing pubm via Homebrew in CI creates a nice symmetry: pubm publishes their tool to Homebrew, and they install pubm itself from Homebrew.
+
+```yaml
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pubm
+        run: |
+          brew tap syi0808/tap
+          brew install pubm
+```
+
+Publish step: `pubm --mode ci --phase publish`
+
+**Note:** No `actions/setup-node` needed for Rust-only projects. If publishing to both npm/jsr and crates.io, combine with a JS setup block above.
+
+## Choosing a Trigger Strategy
+
+| Project type | Trigger | Why |
+|---|---|---|
+| **Single-package** | Tag-based (`v*` push) | Simplest — one tag, one version, one publish |
+| **Monorepo** | Commit-based ("Version Packages" on main) | Each package may have a different version; no single tag |
+| **Manual** | `workflow_dispatch` | For controlled, on-demand releases |
+
+## Template: Single Package — Tag-Based
+
+```yaml
+# .github/workflows/release.yml
+name: Release
 
 on:
   push:
@@ -55,46 +177,38 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
+      # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install pubm
-        run: npm install -g pubm
-
-      - name: Publish to registries
-        run: pubm --mode ci --phase publish
+      - name: Publish and release
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}  # npm
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}              # jsr
+          # CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}  # crates.io
 ```
+
+Replace `<runner>` with `npx`, `pnpm exec`, `yarn`, `bunx`, or remove it for Homebrew-installed pubm. Include only the env vars for registries the user targets.
 
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm --no-publish` locally (it bumps version, creates a git commit and tag, pushes tags — without publishing).
+2. Run `pubm --no-publish` locally — bumps version, creates git commit + tag, pushes.
 3. The pushed `v*` tag triggers this workflow.
-4. `pubm --mode ci --phase publish` reads the tag, publishes, and creates a GitHub Release.
+4. `--mode ci --phase publish` reads the tag version, publishes, creates GitHub Release.
 
-## Template: GitHub Actions -- Monorepo Auto Publish (Commit-Based)
-
-For monorepos using pubm's changeset workflow with independent or fixed versioning. The workflow triggers when a "Version Packages" commit is pushed to main.
+## Template: Monorepo — Commit-Based
 
 ```yaml
-# .github/workflows/publish.yml
-name: Publish
+# .github/workflows/release.yml
+name: Release
 
 on:
   push:
@@ -106,7 +220,7 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  release:
     if: startsWith(github.event.head_commit.message, 'Version Packages')
     runs-on: ubuntu-latest
     steps:
@@ -114,105 +228,120 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
+      # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install pubm
-        run: npm install -g pubm
-
-      - name: Publish to registries
-        run: pubm --mode ci --phase publish
+      - name: Publish and release
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}  # npm
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}              # jsr
 ```
 
 ### Workflow
 
 1. Develop and merge to main.
 2. When ready to release, merge the "Version Packages" PR (created by pubm's changeset workflow).
-3. The merged commit message starts with "Version Packages", triggering this workflow.
-4. `pubm --mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
+3. The commit message starts with "Version Packages", triggering this workflow.
+4. `--mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, creates GitHub Releases.
 
-**Important:** This template requires merge commit or fast-forward merge strategy. Squash merges may alter the commit message and break the trigger condition.
+**Important:** Requires **merge commit or fast-forward merge** strategy. Squash merges alter the commit message and break the trigger.
 
-## Template: GitHub Actions -- Manual Trigger (workflow_dispatch)
-
-Use this when you want to trigger a publish manually from the GitHub Actions UI.
+## Template: Manual Trigger (workflow_dispatch)
 
 ```yaml
-# .github/workflows/publish.yml
-name: Publish
+# .github/workflows/release.yml
+name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (e.g., 1.2.3)'
-        required: true
-        type: string
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
+      # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install pubm
-        run: npm install -g pubm
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create version tag
-        run: |
-          npm version ${{ inputs.version }} --no-git-tag-version
-          git add -A
-          git commit -m "v${{ inputs.version }}"
-          git tag "v${{ inputs.version }}"
-
-      - name: Publish to registries
-        run: pubm --mode ci --phase publish
+      - name: Publish and release
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-
-      - name: Push tags
-        run: git push --follow-tags
 ```
 
-**Important:** Since `pubm --mode ci --phase publish` requires an existing git tag, the workflow creates the tag before running pubm. The `--mode ci --phase publish` flags then read that tag as the version.
+**Note:** Version must already be bumped and tagged before triggering. Use `pubm --no-publish` locally first.
 
-## Template: Multi-Registry (npm + jsr + crates.io)
+## Full Examples
 
-For projects that publish to all three ecosystems.
+### bun + npm + jsr (monorepo)
+
+This is the pattern used by the pubm project itself.
 
 ```yaml
-# .github/workflows/publish.yml
-name: Publish
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    if: startsWith(github.event.head_commit.message, 'Version Packages')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish and release
+        run: bunx pubm --mode ci --phase publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Rust + crates.io (single-package, tag-based)
+
+```yaml
+name: Release
 
 on:
   push:
@@ -221,46 +350,33 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: npm install
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install pubm
-        run: npm install -g pubm
+        run: |
+          brew tap syi0808/tap
+          brew install pubm
 
-      - name: Publish to all registries
-        run: pubm --mode ci --phase publish --registry npm,jsr,crates
+      - name: Publish and release
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 ```
 
-## Template: Publish with Build and Test (Pre-Tag Workflow)
-
-If you want CI to run tests and build before the tag-triggered publish job, use a two-job approach.
+### pnpm + npm (single-package, tag-based)
 
 ```yaml
-# .github/workflows/publish.yml
-name: Publish
+name: Release
 
 on:
   push:
@@ -272,65 +388,37 @@ permissions:
   id-token: write
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
-  publish:
-    needs: validate
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Install pubm
-        run: npm install -g pubm
+      - name: Build
+        run: pnpm run build
 
-      - name: Publish to registries
-        run: pubm --mode ci --phase publish
+      - name: Publish and release
+        run: pnpm exec pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
-
-## Notes
-
-- **`--mode ci --phase publish` is the recommended CI mode.** It publishes to all configured registries and creates a GitHub Release with assets. Use `--phase publish` if you only want the publish step without GitHub Release creation.
-- **`id-token: write` permission** is needed for npm provenance. pubm automatically uses `npm publish --provenance --access public` in CI.
-- **`fetch-depth: 0`** is recommended on `actions/checkout` for GitHub Release note generation, which uses git history to build commit-based release notes. For single-package tag-based workflows, it's also needed for tag lookup.
-- **`registry-url` on `actions/setup-node`** configures the npm registry URL. This is required for `NODE_AUTH_TOKEN` to be picked up by npm.
-- **jsr CLI dependency:** If publishing to jsr, ensure `jsr` is listed as a devDependency in `package.json`. The `npm install` step in CI will make it available. pubm invokes `jsr` directly for jsr publishing.
-- **The `--registry` flag** defaults to `npm,jsr`. Use `--registry npm` for npm-only, `--registry jsr` for jsr-only, or `--registry npm,jsr,crates` for all three.
-- **crates.io publishing** uses `cargo publish` under the hood. The `CARGO_REGISTRY_TOKEN` environment variable is read by cargo automatically.
-- **2FA limitation:** In CI, npm publish with 2FA (OTP) is not supported. If your package requires 2FA for token-based writes, disable it in the package access settings on npmjs.com.
 
 ## Template: Changeset Check (PR Validation)
 
-This workflow is generated by `pubm init --changesets`. It validates that every PR includes a changeset file.
+Generated by `pubm init --changesets`. Validates that every PR includes a changeset file.
 
 ### How It Works
 
@@ -342,24 +430,34 @@ This workflow is generated by `pubm init --changesets`. It validates that every 
 
 ### Generated File
 
-`.github/workflows/changeset-check.yml` — generated by `pubm init --changesets`. The default branch is auto-detected from the git remote.
+`.github/workflows/changeset-check.yml` — default branch is auto-detected from the git remote.
 
 ### Comment Behavior
 
-The workflow uses `actions/github-script@v7` to post a single PR comment (identified by an HTML marker `<!-- changeset-check -->`). The comment is updated on each push, not duplicated.
+Uses `actions/github-script@v7` to post a single PR comment (identified by `<!-- changeset-check -->`). Updated on each push, not duplicated.
 
 | State | Comment | Check Result |
 |---|---|---|
-| Changeset files found | ✅ Changeset detected (with file list) | Pass |
-| No changeset files | ❌ No changeset found (with instructions) | Fail |
-| `no-changeset` label | ⚠️ Check skipped | Pass |
+| Changeset files found | Changeset detected (with file list) | Pass |
+| No changeset files | No changeset found (with instructions) | Fail |
+| `no-changeset` label | Check skipped | Pass |
 
 ### Required Permissions
 
 ```yaml
 permissions:
-  contents: read       # Read repository to diff files
-  pull-requests: write # Post/update PR comments
+  contents: read
+  pull-requests: write
 ```
 
-No additional secrets are required — `GITHUB_TOKEN` is automatically available.
+No additional secrets required — `GITHUB_TOKEN` is automatically available.
+
+## Notes
+
+- **CI mode requires a phase flag.** `pubm --mode ci` alone is an error — always specify `--phase prepare` or `--phase publish`.
+- **`id-token: write`** is needed for npm provenance (`npm publish --provenance`). Not needed for Rust-only projects.
+- **`fetch-depth: 0`** is required for GitHub Release note generation and tag lookup.
+- **`registry-url` on `actions/setup-node`** is required for `NODE_AUTH_TOKEN` to be picked up by npm.
+- **jsr CLI dependency:** Ensure `jsr` is listed as a devDependency for jsr publishing.
+- **`--registry` flag** defaults to `npm,jsr`. Use `--registry npm`, `--registry jsr`, or `--registry npm,jsr,crates`.
+- **crates.io** uses `cargo publish` — `CARGO_REGISTRY_TOKEN` is read by cargo automatically.
