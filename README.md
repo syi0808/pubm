@@ -80,11 +80,14 @@ Understands both JavaScript and Rust. Reads `package.json`, `jsr.json`, and `Car
 ```bash
 npm i -g pubm
 
-# Initialize
+# Interactive setup wizard — detects packages, configures registries, CI, and more
 pubm init
 
 # Just run pubm — that's it
 pubm
+
+# Optional: install coding agent skills (Claude Code, Codex, Gemini)
+pubm setup-skills
 ```
 
 No version argument needed. pubm launches an **interactive pipeline** that walks you through everything:

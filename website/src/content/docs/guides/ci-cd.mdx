@@ -5,6 +5,8 @@ description: Set up CI preparation, token handling, and release automation for p
 
 `pubm` is designed to behave well in both local terminals and CI runners. The key point is that the normal `pubm` pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
 
+`pubm init` can generate CI workflows for you during setup. The wizard offers to create `.github/workflows/release.yml` (tag-triggered publish) and `.github/workflows/changeset-check.yml` (PR changeset enforcement) so you do not need to write them by hand.
+
 ## Recommended release model
 
 Use two phases:
