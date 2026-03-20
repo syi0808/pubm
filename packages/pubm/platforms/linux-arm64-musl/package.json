@@ -15,6 +15,9 @@
   "cpu": [
     "arm64"
   ],
+  "files": [
+    "bin/"
+  ],
   "libc": [
     "musl"
   ],

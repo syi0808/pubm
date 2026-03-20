@@ -15,6 +15,9 @@
   "cpu": [
     "x64"
   ],
+  "files": [
+    "bin/"
+  ],
   "libc": [
     "musl"
   ],
