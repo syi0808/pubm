@@ -8,14 +8,14 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerInitCommand } from "../../../src/commands/init.js";
+import { detectDefaultBranch } from "../../../src/commands/init-prompts.js";
 import {
-  detectDefaultBranch,
   generateChangesetCheckWorkflow,
   updateGitignoreForChangesets,
-  writeChangesetCheckWorkflow,
-} from "../../../src/commands/init-changesets.js";
+  writeWorkflowFile,
+} from "../../../src/commands/init-workflows.js";
 
 const TEST_DIR = path.resolve("tests/unit/commands/.tmp-init");
 
@@ -101,9 +101,10 @@ describe("generateChangesetCheckWorkflow", () => {
   });
 });
 
-describe("writeChangesetCheckWorkflow", () => {
-  it("creates .github/workflows/changeset-check.yml", () => {
-    const result = writeChangesetCheckWorkflow(TEST_DIR, "main");
+describe("writeWorkflowFile", () => {
+  it("creates workflow file in .github/workflows/", () => {
+    const content = generateChangesetCheckWorkflow("main");
+    const result = writeWorkflowFile(TEST_DIR, "changeset-check.yml", content);
 
     expect(result).toBe(true);
     const filePath = path.join(
@@ -114,8 +115,8 @@ describe("writeChangesetCheckWorkflow", () => {
     );
     expect(existsSync(filePath)).toBe(true);
 
-    const content = readFileSync(filePath, "utf8");
-    expect(content).toContain("name: Changeset Check");
+    const written = readFileSync(filePath, "utf8");
+    expect(written).toContain("name: Changeset Check");
   });
 
   it("returns false when workflow file already exists", () => {
@@ -123,7 +124,8 @@ describe("writeChangesetCheckWorkflow", () => {
     mkdirSync(workflowDir, { recursive: true });
     writeFileSync(path.join(workflowDir, "changeset-check.yml"), "existing");
 
-    const result = writeChangesetCheckWorkflow(TEST_DIR, "main");
+    const content = generateChangesetCheckWorkflow("main");
+    const result = writeWorkflowFile(TEST_DIR, "changeset-check.yml", content);
     expect(result).toBe(false);
   });
 });
@@ -141,63 +143,16 @@ describe("detectDefaultBranch", () => {
   });
 });
 
-describe("pubm init --changesets", () => {
-  it("registers --changesets option", () => {
+describe("registerInitCommand", () => {
+  it("registers init command without --changesets option", () => {
     const parent = new Command();
     registerInitCommand(parent);
     const initCmd = parent.commands.find((c) => c.name() === "init");
     expect(initCmd).toBeDefined();
+    expect(initCmd!.description()).toBe(
+      "Interactive setup wizard for pubm configuration",
+    );
     const opt = initCmd!.options.find((o) => o.long === "--changesets");
-    expect(opt).toBeDefined();
-  });
-
-  it("creates workflow and updates gitignore when --changesets is passed", async () => {
-    const originalCwd = process.cwd();
-    process.chdir(TEST_DIR);
-    try {
-      const parent = new Command();
-      parent.exitOverride();
-      registerInitCommand(parent);
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-      await parent.parseAsync(["node", "test", "init", "--changesets"]);
-
-      expect(existsSync(path.join(TEST_DIR, ".pubm", "changesets"))).toBe(true);
-      expect(
-        existsSync(
-          path.join(TEST_DIR, ".github", "workflows", "changeset-check.yml"),
-        ),
-      ).toBe(true);
-
-      const gitignore = readFileSync(path.join(TEST_DIR, ".gitignore"), "utf8");
-      expect(gitignore).toContain(".pubm/*");
-      expect(gitignore).toContain("!.pubm/changesets/");
-
-      consoleSpy.mockRestore();
-    } finally {
-      process.chdir(originalCwd);
-    }
-  });
-
-  it("does not create changeset files without --changesets flag", async () => {
-    const originalCwd = process.cwd();
-    process.chdir(TEST_DIR);
-    try {
-      const parent = new Command();
-      parent.exitOverride();
-      registerInitCommand(parent);
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-      await parent.parseAsync(["node", "test", "init"]);
-
-      expect(existsSync(path.join(TEST_DIR, ".pubm", "changesets"))).toBe(true);
-      expect(
-        existsSync(
-          path.join(TEST_DIR, ".github", "workflows", "changeset-check.yml"),
-        ),
-      ).toBe(false);
-
-      consoleSpy.mockRestore();
-    } finally {
-      process.chdir(originalCwd);
-    }
+    expect(opt).toBeUndefined();
   });
 });
