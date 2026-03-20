@@ -10,6 +10,13 @@ pubm의 현재 `init` 커맨드는 최소한의 scaffolding만 수행한다 (`pu
 2. **`pubm setup-skills` 신규 커맨드** — GitHub에서 coding agent skills를 다운로드하여 각 agent의 네이티브 디렉토리에 설치.
 3. **`init` → `setup-skills` 연결** — init 마지막 단계에서 skills 설치 여부를 묻고, yes면 setup-skills 흐름으로 진입.
 
+## Constraints
+
+- 지원 에코시스템: JS (npm/jsr) 및 Rust (crates.io). 패키지 감지 시 `package.json` workspaces, `pnpm-workspace.yaml`, `Cargo.toml` workspace 모두 고려.
+- Non-TTY 환경 (CI, piped input)에서 `pubm init` 실행 시 에러와 함께 종료: `"pubm init requires an interactive terminal. Use pubm.config.ts for non-interactive configuration."`
+- 기존 `pubm.config.ts`가 있는 프로젝트에서 `pubm init` 재실행 시 경고 + confirm: `"pubm.config.ts already exists. Overwrite?"`. No 선택 시 config 생성만 skip하고 나머지 (changesets, CI, skills) 단계는 계속 진행.
+- 기존 `.pubm/changesets/`, `.github/workflows/*.yml` 파일이 이미 존재하면 skip (덮어쓰지 않음). Summary에서 `(already exists, skipped)` 표시.
+
 ## Design
 
 ### 1. `pubm init` — 인터랙티브 흐름
@@ -78,7 +85,7 @@ Downloading skills from GitHub...
 
 #### 패키지 감지 규칙
 
-- **모노레포**: `package.json`의 `workspaces` 필드 또는 `pnpm-workspace.yaml` 등에서 워크스페이스 감지. 감지된 패키지 목록을 모두 pre-selected 상태로 multi-select 표시. 사용자가 선택 해제 가능.
+- **모노레포**: `package.json`의 `workspaces` 필드, `pnpm-workspace.yaml`, 또는 `Cargo.toml`의 `[workspace]` 섹션에서 워크스페이스 감지. 감지된 패키지 목록을 모두 pre-selected 상태로 multi-select 표시. 사용자가 선택 해제 가능.
 - **싱글 패키지**: `"Is 'my-package' the package to publish?"` confirm만 표시.
 - **버저닝 전략**: 모노레포일 때만 표시. 싱글 패키지면 skip.
 
@@ -86,7 +93,10 @@ Downloading skills from GitHub...
 
 사용자가 선택한 모든 값을 default와 비교하여, 모든 값이 default와 동일하면 `pubm.config.ts`를 생성하지 않는다.
 
+비교 대상은 **인터랙티브 프롬프트에서 설정 가능한 필드만**이다. 프롬프트에서 다루지 않는 필드 (access, saveToken, rollbackStrategy, tag 등)는 비교에서 제외하며, 런타임 default에 위임한다.
+
 ```typescript
+// 프롬프트에서 설정 가능한 필드만 비교
 const DEFAULTS = {
   versioning: "independent",
   branch: "main",           // git에서 감지된 기본 브랜치
@@ -96,6 +106,12 @@ const DEFAULTS = {
 }
 ```
 
+프롬프트 결과 → config 필드 매핑:
+- "Generate changelog? No" → `changelog: false` (default `true`와 다르므로 config에 포함)
+- "Generate changelog? Yes" + "Format: github" → `changelogFormat: "github"` (default `"default"`와 다르므로 포함)
+- "Generate changelog? Yes" + "Format: default" → 둘 다 default이므로 생략
+
+규칙:
 - 하나라도 다른 필드가 있으면 → 차이나는 필드만 포함한 `pubm.config.ts` 생성
 - 모노레포에서 packages 지정이 필요하면 → packages 필드는 항상 포함
 - 싱글 패키지 + 모든 default → config 파일 미생성, "Using default configuration" 메시지 표시
@@ -119,12 +135,73 @@ export default defineConfig({
 | Changesets | CI | 생성 파일 |
 |-----------|-----|----------|
 | Yes | Yes | `changeset-check.yml` + `release.yml` |
-| Yes | No  | `changeset-check.yml` |
+| Yes | No  | 없음 (changeset-check도 CI이므로 CI=Yes일 때만 생성) |
 | No  | Yes | `release.yml` |
 | No  | No  | 없음 |
 
-- `changeset-check.yml`: PR에서 changeset 파일 존재 여부를 검사하는 기존 로직 재사용.
-- `release.yml`: tag 기반 release 워크플로우 (`pubm --mode ci --phase publish`).
+CI "Yes" 선택 시에만 워크플로우 파일을 생성한다. Changesets "Yes"이면서 CI "Yes"이면 `changeset-check.yml`도 함께 생성.
+
+- `changeset-check.yml`: PR에서 changeset 파일 존재 여부를 검사하는 기존 `generateChangesetCheckWorkflow()` 로직 재사용. `.gitignore` 업데이트도 기존 `updateGitignoreForChangesets()` 로직을 그대로 보존.
+- `release.yml`: 패키지 매니저 및 프로젝트 타입에 따라 적절한 CI 워크플로우 생성. 기존 `plugins/pubm-plugin/skills/publish-setup/references/ci-templates.md`의 템플릿을 기반으로 한다.
+
+**release.yml 생성 로직:**
+
+트리거 전략은 프로젝트 타입에 따라 자동 결정:
+- **싱글 패키지**: tag 기반 (`on: push: tags: ['v*']`)
+- **모노레포**: commit 기반 (`on: push: branches: [main]`, `if: startsWith(github.event.head_commit.message, 'Version Packages')`)
+
+패키지 매니저 감지 (lockfile 기반):
+- `bun.lock` → bun setup (oven-sh/setup-bun + actions/setup-node)
+- `pnpm-lock.yaml` → pnpm setup (pnpm/action-setup + actions/setup-node)
+- `yarn.lock` → yarn setup (actions/setup-node with cache: yarn)
+- `package-lock.json` / fallback → npm setup (actions/setup-node)
+- `Cargo.lock` (JS 없음) → Rust setup (dtolnay/rust-toolchain + brew install pubm)
+
+모노레포의 경우에도 `--phase publish`를 사용한다. 버저닝은 changesets 워크플로우에서 이미 처리되므로, CI에서는 publish만 수행.
+
+생성 예시 (bun + 싱글 패키지):
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish and release
+        run: bunx pubm --mode ci --phase publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
 
 ### 2. `pubm setup-skills` — Agent Skills 설치
 
@@ -153,10 +230,12 @@ Installing for Claude Code...
 
 #### 설치 소스
 
-GitHub REST API로 `syi0808/pubm` 레포의 `plugins/pubm-plugin/skills/` 디렉토리 내용을 다운로드한다.
+GitHub REST API로 `syi0808/pubm` 레포의 `plugins/pubm-plugin/skills/` 디렉토리 내용을 다운로드한다. 최신 릴리스 태그를 기준으로 다운로드하여 안정성을 보장한다.
 
-1. `GET /repos/syi0808/pubm/git/trees/{branch}?recursive=1` — skills 디렉토리 트리 조회
-2. 각 파일을 raw content URL로 다운로드
+1. `GET /repos/syi0808/pubm/releases/latest` — 최신 릴리스 태그 조회 (예: `v1.2.3`)
+2. `GET /repos/syi0808/pubm/git/trees/{tag}?recursive=1` — 해당 태그의 skills 디렉토리 트리 조회
+3. 각 파일을 raw content URL로 다운로드 (`https://raw.githubusercontent.com/syi0808/pubm/{tag}/plugins/pubm-plugin/skills/...`)
+4. Fallback: 릴리스가 없으면 `main` 브랜치에서 다운로드
 
 #### Agent별 설치 경로
 
