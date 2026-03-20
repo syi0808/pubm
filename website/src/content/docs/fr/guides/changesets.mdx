@@ -19,17 +19,13 @@ Les changesets en attente se trouvent dans :
 .pubm/changesets/
 ```
 
-Initialisez ce répertoire avec :
+Initialisez ce répertoire en lançant l'assistant de configuration interactif :
 
 ```bash
 pubm init
 ```
 
-Si vous voulez aussi une vérification de pull request qui impose les changesets, exécutez :
-
-```bash
-pubm init --changesets
-```
+Pendant la configuration, `pubm init` demande si vous souhaitez activer le workflow de changesets. Répondre oui crée le répertoire `.pubm/changesets/`, génère `.github/workflows/changeset-check.yml` pour l'application en PR, et met à jour `.gitignore` pour suivre les fichiers changeset tout en ignorant les autres contenus de `.pubm/`.
 
 ## Créer un changeset
 
