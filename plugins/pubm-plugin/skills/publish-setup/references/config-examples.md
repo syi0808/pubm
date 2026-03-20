@@ -221,6 +221,9 @@ interface PubmConfig {
   releaseNotes?: boolean
   rollbackStrategy?: 'individual' | 'all'
   plugins?: PubmPlugin[]
+  compress?: CompressOption
+  releaseAssets?: ReleaseAssetEntry[]
+  excludeRelease?: string[]
 }
 ```
 
@@ -246,6 +249,9 @@ interface PubmConfig {
 | `releaseNotes` | `boolean` | `true` | Include release notes in GitHub release. |
 | `rollbackStrategy` | `'individual' \| 'all'` | `'individual'` | Rollback scope on publish failure. |
 | `plugins` | `PubmPlugin[]` | `[]` | Plugins to extend the publish pipeline. |
+| `compress` | `CompressOption` | — | Compress release assets (gzip, brotli, etc.). |
+| `releaseAssets` | `ReleaseAssetEntry[]` | — | Files to upload as GitHub Release assets. |
+| `excludeRelease` | `string[]` | — | Glob patterns to exclude packages from tag/release creation. |
 
 ### `ValidateConfig`
 

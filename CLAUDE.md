@@ -13,8 +13,8 @@ This repository is a monorepo managed with Turborepo and Bun workspaces.
 ```
 packages/
   core/                            — @pubm/core: Core SDK (ecosystem, registry, changeset, monorepo, plugin, config, tasks, validate, prerelease, git, utils)
-  cli/                             — pubm: CLI using Commander, depends on @pubm/core
-    platforms/                     — Cross-platform binaries (darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64)
+  pubm/                            — pubm: CLI using Commander, depends on @pubm/core
+    platforms/                     — Cross-platform binaries (12 targets: darwin-arm64, darwin-x64, darwin-x64-baseline, linux-arm64, linux-arm64-musl, linux-x64, linux-x64-baseline, linux-x64-musl, linux-x64-musl-baseline, windows-arm64, windows-x64, windows-x64-baseline)
   plugins/
     plugin-brew/                   — @pubm/plugin-brew: Homebrew formula publishing
     plugin-external-version-sync/  — @pubm/plugin-external-version-sync: Syncs version to external files
@@ -94,15 +94,19 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 - `packages/core/src/validate/` — Pre-publish validation (entry points, extraneous files)
 - `packages/core/src/prerelease/` — Pre-release and snapshot version handling
 - `packages/core/src/utils/db.ts` — AES-256-CBC encrypted token storage in `~/.pubm/`
+- `packages/core/src/utils/secure-store.ts` — Secure token storage via @napi-rs/keyring
+- `packages/core/src/utils/github-token.ts` — GitHub token resolution (env → keyring → interactive prompt)
+- `packages/core/src/utils/resolve-phases.ts` — Release phase resolution and validation
+- `packages/core/src/utils/filter-config.ts` — Filters config packages by various criteria
 - `packages/core/src/utils/exec.ts` — Bun.spawn wrapper for running shell commands
 - `packages/core/src/utils/open-url.ts` — Cross-platform URL opener
 - `packages/core/src/utils/spawn-interactive.ts` — Interactive process spawning (TTY passthrough)
 - `packages/core/src/utils/rollback.ts` — Tracks and reverses git operations on failure
 - `packages/core/src/utils/package.ts` — Reads/caches package.json and jsr.json, version replacement
 
-**packages/cli:**
-- `packages/cli/src/cli.ts` — CLI entry point using Commander framework
-- `packages/cli/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-changesets`, `migrate`, `pre`, `secrets`, `snapshot`, `status`, `sync`, `update`, `version-cmd`
+**packages/pubm:**
+- `packages/pubm/src/cli.ts` — CLI entry point using Commander framework
+- `packages/pubm/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-changesets`, `inspect`, `migrate`, `secrets`, `status`, `sync`, `update`, `version-cmd`
 
 **packages/plugins:**
 - `packages/plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
@@ -115,8 +119,8 @@ Auto-detection picks the ecosystem from registry config or manifest files (packa
 Root `bun run build` runs all builds via Turborepo.
 
 - `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types). Build script: `packages/core/build.ts`
-- `packages/cli`: Each platform has its own `build.ts` (`packages/cli/platforms/*/build.ts`) that cross-compiles a single binary → `packages/cli/platforms/*/bin/`
-- `bin/cli.cjs` (in packages/cli) is a static wrapper that delegates to the platform-specific binary (not a build output)
+- `packages/pubm`: Each platform has its own `build.ts` (`packages/pubm/platforms/*/build.ts`) that cross-compiles a single binary → `packages/pubm/platforms/*/bin/`
+- `bin/cli.cjs` (in packages/pubm) is a static wrapper that delegates to the platform-specific binary (not a build output)
 
 `listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
 
@@ -159,6 +163,55 @@ Changesets are required for any user-facing change. Do not commit without adding
 - **Identifier**: Use the package's filesystem path (e.g., `packages/core`), not the registry name. Package names are also accepted and auto-resolved to paths.
 - **Message**: Write in English, from the user's perspective. Describe what changed, not how it was implemented internally.
 - **Scope**: Only document user-facing changes. Internal refactors without behavioral impact do not need a changeset.
+
+## Documentation Maintenance
+
+The following documentation must be kept in sync with code changes. When modifying features, CLI commands, configuration options, or plugin APIs, update all affected documents.
+
+### README
+
+- `README.md` — Project overview, installation, usage examples
+- `CONTRIBUTING.md` — Contribution guidelines
+
+### Website Documentation (`website/src/content/docs/`)
+
+English (`docs/`) is the source of truth. Translations must be updated in parallel.
+
+**Guides:**
+- `guides/quick-start.mdx` — Getting started guide
+- `guides/configuration.mdx` — Configuration options reference
+- `guides/changesets.mdx` — Changeset workflow
+- `guides/monorepo.mdx` — Monorepo support
+- `guides/ci-cd.mdx` — CI/CD integration
+- `guides/coding-agents.mdx` — AI coding agent usage
+- `guides/troubleshooting.mdx` — Common issues and solutions
+- `guides/asset-pipeline-hooks.mdx` — Asset pipeline hooks
+- `guides/release-assets.mdx` — Release asset management
+
+**Reference:**
+- `reference/cli.mdx` — CLI command reference
+- `reference/sdk.mdx` — Programmatic SDK API
+- `reference/plugins.mdx` — Plugin authoring guide
+- `reference/official-plugins.mdx` — Official plugins documentation
+- `reference/platform-detection.mdx` — Platform detection behavior
+
+**Supported languages:** `en` (default), `fr`, `es`, `de`, `zh-cn`, `ko`
+
+### Claude Code Plugin Skills (`plugins/pubm-plugin/skills/`)
+
+- `publish-setup/SKILL.md` — Publish setup wizard skill
+  - `references/config-examples.md`, `references/ci-templates.md` — Config and CI examples
+  - `references/registry-npm.md`, `references/registry-jsr.md`, `references/registry-crates.md` — Registry-specific references
+- `create-plugin/SKILL.md` — Plugin creation wizard skill
+  - `references/plugin-api.md` — Plugin API reference
+
+### Documentation Update Rules
+
+- **New CLI command or option** → update `reference/cli.mdx` and `README.md`
+- **New configuration option** → update `guides/configuration.mdx` and relevant guide pages
+- **New plugin or plugin API change** → update `reference/plugins.mdx`, `reference/official-plugins.mdx`, and `create-plugin/references/plugin-api.md`
+- **Registry behavior change** → update relevant `registry-*.md` reference files and `guides/quick-start.mdx`
+- **Translation** → all 6 language directories must have the same set of files; when adding a new page, add it to all locales
 
 ## Code Style
 
