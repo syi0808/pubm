@@ -25,19 +25,20 @@ npm i -g pubm
 
 Wenn du `pubm` ueber Claude Code, Codex oder einen anderen Coding Agent einbindest, beginne mit der Setup-Automatisierung statt Release-Prompts von Hand zu schreiben.
 
-- Verwende den Skill `publish-setup` aus dem `pubm plugin`-Bundle, um den Release-Workflow zu installieren, Konfiguration zu erzeugen, CI anzubinden und Changesets zu aktivieren.
+- Fuehre `pubm setup-skills` aus, um Coding-Agent-Skills direkt herunterzuladen und zu installieren, oder lass `pubm init` die Skill-Installation als letzten Schritt anbieten.
+- Alternativ verwende den Skill `publish-setup` aus dem `pubm plugin`-Bundle, um den Release-Workflow zu installieren, Konfiguration zu erzeugen, CI anzubinden und Changesets zu aktivieren.
 - Gib deinem Agenten den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle abrufen und mit `publish-setup` starten kann.
 - Lies [Coding Agent Integration](/pubm/de/de/guides/coding-agents/) fuer das Integrationsmodell und die Rollen der Skills.
 
 ## 1. Initialize the repository
 
-Erstelle das grundlegende `pubm`-Layout:
+Starte den interaktiven Setup-Wizard:
 
 ```bash
 pubm init
 ```
 
-Das erstellt `pubm.config.ts` und `.pubm/changesets/`.
+Der Wizard erkennt deine Pakete und Registries und fuehrt dich dann durch Branch-Konfiguration, Versionierungsstrategie, Changelog, Changesets, CI-Workflow-Erzeugung und Coding-Agent-Skills. Eine Config-Datei wird nur erstellt, wenn deine Auswahl von den Standardwerten abweicht.
 
 ## 2. Publish
 

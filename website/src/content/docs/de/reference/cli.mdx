@@ -22,8 +22,8 @@ Wenn du `pubm` ohne Versionsargument aufrufst, landest du im interaktiven Standa
 | Befehl | Zweck |
 |---------|-------|
 | `pubm [version]` | Fuehrt die Publish-Pipeline mit einem Release-Typ oder einer expliziten SemVer aus. |
-| `pubm init` | Erstellt `pubm.config.ts` und `.pubm/changesets/`. |
-| `pubm init --changesets` | Richtet zusaetzlich den Pull-Request-Workflow fuer Changeset-Pruefungen ein. |
+| `pubm init` | Interaktiver Setup-Wizard — Paketerkennung, Konfiguration, Changesets, CI-Workflows und Coding-Agent-Skills. |
+| `pubm setup-skills` | Coding-Agent-Skills herunterladen und installieren (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Schiebt lokal gespeicherte Tokens ueber `gh` in GitHub Secrets. |
 | `pubm sync --discover` | Durchsucht das Repository nach Versionsverweisen ausserhalb von Manifest-Dateien. |
 | `pubm update` | Aktualisiert die CLI selbst auf die neueste veroeffentlichte Version. |
@@ -167,21 +167,43 @@ Prompts werden automatisch deaktiviert, wenn:
 
 ## `pubm init`
 
-Initialisiert das Repository fuer `pubm`.
+Interaktiver Setup-Wizard fuer `pubm`. Erfordert ein TTY (interaktives Terminal).
 
 ```bash
 pubm init
-pubm init --changesets
 ```
 
-### `--changesets`
+Der Wizard fuehrt der Reihe nach durch jeden Schritt:
 
-Fuegt hinzu:
+1. **Paketerkennung** — durchsucht das Repository nach Manifest-Dateien (`package.json`, `jsr.json`, `Cargo.toml`) und Workspace-Konfiguration, bestaetigt dann die erkannten Pakete und Registries.
+2. **Grundkonfiguration** — fragt nach dem Release-Branch und der Versionierungsstrategie (`independent` oder `fixed`).
+3. **Release-Optionen** — fragt nach Changelog-Erzeugung und GitHub-Release-Entwuerfen.
+4. **Workflow-Setup** — bietet an, den Changesets-Workflow zu aktivieren (erstellt `.pubm/changesets/`, `.github/workflows/changeset-check.yml` und aktualisiert `.gitignore`) und CI-Release-Workflows zu erzeugen (`.github/workflows/release.yml`).
+5. **Coding-Agent-Skills** — bietet an, Coding-Agent-Skills fuer Claude Code, Codex CLI oder Gemini CLI herunterzuladen und zu installieren (entspricht `pubm setup-skills`).
 
-- `.github/workflows/changeset-check.yml`
-- `.gitignore`-Anpassungen fuer `.pubm/changesets/`
+Eine `pubm.config.ts`-Datei wird nur erstellt, wenn deine Auswahl von den Standardwerten abweicht. Wenn alle Werte den Standardwerten entsprechen, wird keine Config-Datei geschrieben.
 
-Verwende das in Repositories, in denen jede Produktaenderung eine gepruefte Changeset-Datei enthalten soll.
+Dieser Befehl akzeptiert keine Flags oder Optionen — alle Konfiguration wird interaktiv abgefragt.
+
+## `pubm setup-skills`
+
+Coding-Agent-Skills fuer die Verwendung mit `pubm` herunterladen und installieren.
+
+```bash
+pubm setup-skills
+```
+
+Unterstuetzte Agenten und ihre Installationspfade:
+
+| Agent | Skill-Verzeichnis |
+|-------|-------------------|
+| Claude Code | `.claude/skills/pubm/` |
+| Codex CLI | `.agents/skills/pubm/` |
+| Gemini CLI | `.gemini/skills/pubm/` |
+
+Skills werden aus dem pubm-GitHub-Repository heruntergeladen (neuester Release-Tag, mit Fallback auf den `main`-Branch).
+
+Dieser Befehl ist auch als letzter Schritt von `pubm init` verfuegbar.
 
 ## `pubm secrets sync`
 
@@ -308,7 +330,7 @@ Im normalen Publish-Modus fuehren Fehler nach Moeglichkeit auch zu einem Rollbac
 ### Erstes lokales Release in einem neuen Repository
 
 ```bash
-pubm init --changesets
+pubm init
 pubm changesets add
 pubm changesets version
 pubm --mode ci --phase prepare

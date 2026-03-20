@@ -19,17 +19,13 @@ Pending changesets live in:
 .pubm/changesets/
 ```
 
-Initialize that directory with:
+Initialisiere dieses Verzeichnis, indem du den interaktiven Setup-Wizard ausfuehrst:
 
 ```bash
 pubm init
 ```
 
-If you also want a pull-request check that enforces changesets, run:
-
-```bash
-pubm init --changesets
-```
+Waehrend des Setups fragt `pubm init`, ob der Changesets-Workflow aktiviert werden soll. Bei Ja erstellt es das Verzeichnis `.pubm/changesets/`, erzeugt `.github/workflows/changeset-check.yml` fuer die PR-Durchsetzung und aktualisiert `.gitignore`, damit Changeset-Dateien nachverfolgt, andere `.pubm/`-Inhalte aber ignoriert werden.
 
 ## Creating a changeset
 
