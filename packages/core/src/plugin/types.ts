@@ -29,12 +29,12 @@ export interface PluginHooks {
   onRollback?: HookFn;
   onSuccess?: HookFn;
   // Asset pipeline hooks
-  resolveAssets?: AssetPipelineHooks["resolveAssets"];
-  transformAsset?: AssetPipelineHooks["transformAsset"];
-  compressAsset?: AssetPipelineHooks["compressAsset"];
-  nameAsset?: AssetPipelineHooks["nameAsset"];
-  generateChecksums?: AssetPipelineHooks["generateChecksums"];
-  uploadAssets?: AssetPipelineHooks["uploadAssets"];
+  resolveAssets?: AssetPipelineHooks<PubmContext>["resolveAssets"];
+  transformAsset?: AssetPipelineHooks<PubmContext>["transformAsset"];
+  compressAsset?: AssetPipelineHooks<PubmContext>["compressAsset"];
+  nameAsset?: AssetPipelineHooks<PubmContext>["nameAsset"];
+  generateChecksums?: AssetPipelineHooks<PubmContext>["generateChecksums"];
+  uploadAssets?: AssetPipelineHooks<PubmContext>["uploadAssets"];
 }
 
 export type HookName = keyof PluginHooks;

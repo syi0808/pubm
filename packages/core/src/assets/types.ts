@@ -86,29 +86,29 @@ export interface ReleaseContext {
   assets: ReleaseAsset[];
 }
 
-export interface AssetPipelineHooks {
+export interface AssetPipelineHooks<Ctx = unknown> {
   resolveAssets?: (
     resolved: ResolvedAsset[],
-    ctx: any,
+    ctx: Ctx,
   ) => Promise<ResolvedAsset[]> | ResolvedAsset[];
   transformAsset?: (
     asset: ResolvedAsset,
-    ctx: any,
+    ctx: Ctx,
   ) =>
     | Promise<TransformedAsset | TransformedAsset[]>
     | TransformedAsset
     | TransformedAsset[];
   compressAsset?: (
-    asset: TransformedAsset,
-    ctx: any,
+    asset: TransformedAsset | CompressedAsset,
+    ctx: Ctx,
   ) => Promise<CompressedAsset> | CompressedAsset;
-  nameAsset?: (asset: CompressedAsset, ctx: any) => string;
+  nameAsset?: (asset: CompressedAsset, ctx: Ctx) => string;
   generateChecksums?: (
     assets: PreparedAsset[],
-    ctx: any,
+    ctx: Ctx,
   ) => Promise<PreparedAsset[]> | PreparedAsset[];
   uploadAssets?: (
     assets: PreparedAsset[],
-    ctx: any,
+    ctx: Ctx,
   ) => Promise<UploadedAsset[]> | UploadedAsset[];
 }

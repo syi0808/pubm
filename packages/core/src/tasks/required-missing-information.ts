@@ -421,13 +421,16 @@ async function handleMultiPackage(
       );
       if (result === "accepted") return;
       if (result === "add_packages") {
+        if (!bumps) {
+          throw new Error("Changeset bumps are required for add_packages.");
+        }
         await handleAddPackages(
           ctx,
           task,
           sortedPackageInfos,
           currentVersions,
           graph,
-          bumps!,
+          bumps,
         );
         return;
       }

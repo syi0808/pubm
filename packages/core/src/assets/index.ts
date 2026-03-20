@@ -1,4 +1,4 @@
-export type { PipelineContext } from "./pipeline.js";
+export type { AssetPipelineContext, PipelineContext } from "./pipeline.js";
 export { runAssetPipeline } from "./pipeline.js";
 export { parsePlatform } from "./platform-parser.js";
 export type { NormalizedGroup } from "./resolver.js";

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("std-env", () => ({ isCI: false }));
-vi.mock("node:fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs")>();
+vi.mock("node:fs", async () => {
+  const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
   return {
     ...actual,
     existsSync: vi.fn(),
@@ -268,7 +268,6 @@ import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
-import { JsrClient } from "../../../src/registry/jsr.js";
 import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import {

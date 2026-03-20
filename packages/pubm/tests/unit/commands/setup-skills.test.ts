@@ -28,16 +28,18 @@ vi.mock("@pubm/core", () => ({
 const TEST_DIR = path.resolve("tests/unit/commands/.tmp-setup-skills");
 
 let mockFetch: ReturnType<typeof vi.fn>;
+const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });
   vi.clearAllMocks();
   mockFetch = vi.fn();
-  vi.stubGlobal("fetch", mockFetch);
+  globalThis.fetch = mockFetch as typeof fetch;
 });
 
 afterEach(() => {
   rmSync(TEST_DIR, { recursive: true, force: true });
+  globalThis.fetch = originalFetch;
 });
 
 // ---------------------------------------------------------------------------
@@ -119,8 +121,8 @@ describe("AGENT_LABELS", () => {
 
   it("has correct display names", () => {
     expect(AGENT_LABELS["claude-code"]).toBe("Claude Code");
-    expect(AGENT_LABELS["codex"]).toBe("Codex CLI");
-    expect(AGENT_LABELS["gemini"]).toBe("Gemini CLI");
+    expect(AGENT_LABELS.codex).toBe("Codex CLI");
+    expect(AGENT_LABELS.gemini).toBe("Gemini CLI");
   });
 });
 

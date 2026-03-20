@@ -25,8 +25,7 @@ function isAuthError(error: unknown): boolean {
 async function withTokenRetry(
   registryKey: string,
   ctx: PubmContext,
-  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
-  task: any,
+  task: Parameters<ListrTask<PubmContext>["task"]>[1],
   action: () => Promise<void>,
 ): Promise<void> {
   try {
@@ -39,9 +38,10 @@ async function withTokenRetry(
     const config = descriptor.tokenConfig;
 
     // Shared promise: first task prompts, others await
-    const retryKey = `_tokenRetry_${registryKey}`;
-    if (!(ctx.runtime as any)[retryKey]) {
-      (ctx.runtime as any)[retryKey] = (async () => {
+    const retryPromises = ctx.runtime.tokenRetryPromises ?? {};
+    ctx.runtime.tokenRetryPromises = retryPromises;
+    if (!retryPromises[registryKey]) {
+      retryPromises[registryKey] = (async () => {
         task.output = `Auth failed. Re-enter ${config.promptLabel}`;
         const newToken: string = await task
           .prompt(ListrEnquirerPromptAdapter)
@@ -55,7 +55,7 @@ async function withTokenRetry(
       })();
     }
 
-    await (ctx.runtime as any)[retryKey];
+    await retryPromises[registryKey];
     await action();
   }
 }
@@ -134,9 +134,11 @@ async function findUnpublishedSiblingDeps(
 
   const results = await Promise.all(
     siblingDeps.map(async (name) => {
-      const registry = await cratesPackageRegistry(
-        siblingNameToPath.get(name)!,
-      );
+      const siblingPath = siblingNameToPath.get(name);
+      if (!siblingPath) {
+        throw new Error(`Missing sibling crate path for dependency: ${name}`);
+      }
+      const registry = await cratesPackageRegistry(siblingPath);
       const published = await registry.isPublished();
       return published ? null : name;
     }),

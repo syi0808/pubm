@@ -14,15 +14,18 @@ export interface PipelineContext {
   name: string;
   version: string;
   tempDir: string;
-  pubmContext?: unknown;
 }
 
-export async function runAssetPipeline(
+export interface AssetPipelineContext<Ctx = unknown> extends PipelineContext {
+  pubmContext?: Ctx;
+}
+
+export async function runAssetPipeline<Ctx = unknown>(
   resolved: ResolvedAsset[],
-  hooks: AssetPipelineHooks,
-  ctx: PipelineContext,
+  hooks: AssetPipelineHooks<Ctx>,
+  ctx: AssetPipelineContext<Ctx>,
 ): Promise<PreparedAsset[]> {
-  const hookCtx = ctx.pubmContext ?? ctx;
+  const hookCtx = (ctx.pubmContext ?? ctx) as Ctx;
 
   // 1. Resolve hook
   let assets = resolved;

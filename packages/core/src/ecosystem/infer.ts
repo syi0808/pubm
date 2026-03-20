@@ -16,13 +16,25 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function readJsonSafe(path: string): Promise<Record<string, any> | null> {
+async function readJsonSafe(
+  path: string,
+): Promise<Record<string, unknown> | null> {
   try {
     const content = await readFile(path, "utf-8");
     return JSON.parse(content);
   } catch {
     return null;
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 async function readFileSafe(path: string): Promise<string | null> {
@@ -95,10 +107,10 @@ async function inferJsRegistries(
   }
 
   const packageJson = await readJsonSafe(join(packagePath, "package.json"));
-  const packageName = packageJson?.name as string | undefined;
-  const publishConfigRegistry = packageJson?.publishConfig?.registry as
-    | string
-    | undefined;
+  const packageName = readString(packageJson?.name);
+  const publishConfigRegistry = readString(
+    asRecord(packageJson?.publishConfig)?.registry,
+  );
 
   let npmRegistryUrl: string | null = null;
 

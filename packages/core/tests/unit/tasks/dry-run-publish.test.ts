@@ -440,12 +440,12 @@ describe("withTokenRetry", () => {
     };
 
     // First task triggers retry
-    const sharedRuntime = { _tokenRetry_npm: undefined } as any;
+    const sharedRuntime = { tokenRetryPromises: {} } as any;
     const task = createNpmDryRunPublishTask("packages/core");
     await (task as any).task({ runtime: sharedRuntime }, mockTask);
 
-    // The retry key should exist on the runtime
-    expect(sharedRuntime._tokenRetry_npm).toBeDefined();
+    // The retry entry should exist on the runtime
+    expect(sharedRuntime.tokenRetryPromises.npm).toBeDefined();
     delete process.env.NODE_AUTH_TOKEN;
   });
 
