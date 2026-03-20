@@ -44,7 +44,8 @@ const routes: MockRoute[] = [
   // npm version check → 404 (not yet published)
   {
     match: (url) => {
-      const pattern = /registry\.npmjs\.org\/(@[^/]+\/[^/]+|[^@/][^/]*)\/\d+\.\d+\.\d+/;
+      const pattern =
+        /registry\.npmjs\.org\/(@[^/]+\/[^/]+|[^@/][^/]*)\/\d+\.\d+\.\d+/;
       return pattern.test(url);
     },
     handle: () => new Response("Not Found", { status: 404 }),
@@ -55,7 +56,9 @@ const routes: MockRoute[] = [
     match: (url) => {
       if (!url.includes("registry.npmjs.org/")) return false;
       if (url.includes("/-/")) return false;
-      const rest = url.replace(/.*registry\.npmjs\.org\//, "").replace(/\/$/, "");
+      const rest = url
+        .replace(/.*registry\.npmjs\.org\//, "")
+        .replace(/\/$/, "");
       return !rest.split("/").some((p) => /^\d+\.\d+\.\d+/.test(p));
     },
     handle: (url) => {
@@ -77,7 +80,10 @@ const routes: MockRoute[] = [
       (url.includes("api.jsr.io/user") || url.includes("jsr.io/api/user")) &&
       !url.includes("user/"),
     handle: () =>
-      Response.json({ id: 1, login: "demo-user", name: "Demo User" }, { status: 200 }),
+      Response.json(
+        { id: 1, login: "demo-user", name: "Demo User" },
+        { status: 200 },
+      ),
   },
 
   // user scopes
@@ -103,7 +109,10 @@ const routes: MockRoute[] = [
       /api\.jsr\.io\/scopes\/[^/]+\/packages\/[^/]+$/.test(url) ||
       /jsr\.io\/api\/scopes\/[^/]+\/packages\/[^/]+$/.test(url),
     handle: () =>
-      Response.json({ scope: "demo", name: "hello", description: "A demo package" }, { status: 200 }),
+      Response.json(
+        { scope: "demo", name: "hello", description: "A demo package" },
+        { status: 200 },
+      ),
   },
 
   // version check → 404 (not yet published)
@@ -117,7 +126,8 @@ const routes: MockRoute[] = [
   // create scope (POST)
   {
     match: (url, init) =>
-      (url.includes("api.jsr.io/scopes") || url.includes("jsr.io/api/scopes")) &&
+      (url.includes("api.jsr.io/scopes") ||
+        url.includes("jsr.io/api/scopes")) &&
       init?.method === "POST" &&
       !url.includes("/packages"),
     handle: () => Response.json({ scope: "demo" }, { status: 201 }),
@@ -137,14 +147,18 @@ const routes: MockRoute[] = [
   {
     match: (url) => url.includes("jsr.io/@") && !url.includes("api.jsr.io"),
     handle: () =>
-      Response.json({ name: "@demo/hello", description: "A demo package" }, { status: 200 }),
+      Response.json(
+        { name: "@demo/hello", description: "A demo package" },
+        { status: 200 },
+      ),
   },
 
   // ── crates.io API ────────────────────────────────────────────
 
   // ping
   {
-    match: (url) => url.includes("crates.io/api/v1") && !url.includes("/crates/"),
+    match: (url) =>
+      url.includes("crates.io/api/v1") && !url.includes("/crates/"),
     handle: () => Response.json({}, { status: 200 }),
   },
 
@@ -153,13 +167,17 @@ const routes: MockRoute[] = [
     match: (url) => /crates\.io\/api\/v1\/crates\/[^/]+$/.test(url),
     handle: (url) => {
       const name = url.split("/crates/")[1];
-      return Response.json({ crate: { name, max_version: "1.0.0" } }, { status: 200 });
+      return Response.json(
+        { crate: { name, max_version: "1.0.0" } },
+        { status: 200 },
+      );
     },
   },
 
   // crate version check → 404 (not yet published)
   {
-    match: (url) => /crates\.io\/api\/v1\/crates\/[^/]+\/\d+\.\d+\.\d+/.test(url),
+    match: (url) =>
+      /crates\.io\/api\/v1\/crates\/[^/]+\/\d+\.\d+\.\d+/.test(url),
     handle: () => new Response("Not Found", { status: 404 }),
   },
 
@@ -198,7 +216,10 @@ const routes: MockRoute[] = [
     handle: (url) => {
       const name = new URL(url).searchParams.get("name") ?? "asset";
       return Response.json(
-        { name, browser_download_url: `https://github.com/demo/releases/download/${name}` },
+        {
+          name,
+          browser_download_url: `https://github.com/demo/releases/download/${name}`,
+        },
         { status: 201 },
       );
     },

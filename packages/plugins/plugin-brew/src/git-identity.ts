@@ -14,9 +14,6 @@ export function ensureGitIdentity(cwd?: string): void {
   try {
     execSync("git config user.email", { ...opts, stdio: "pipe" });
   } catch {
-    execSync(
-      'git config user.email "pubmsupport@gmail.com"',
-      opts,
-    );
+    execSync('git config user.email "pubmsupport@gmail.com"', opts);
   }
 }

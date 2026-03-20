@@ -1,16 +1,16 @@
 // packages/pubm/src/commands/init.ts
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { Command } from "commander";
 import { ui } from "@pubm/core";
+import type { Command } from "commander";
 import {
-  type InitResult,
   buildConfigContent,
   detectDefaultBranch,
   detectPackages,
+  type InitResult,
   promptBranch,
-  promptChangesets,
   promptChangelog,
+  promptChangesets,
   promptCI,
   promptGithubRelease,
   promptOverwriteConfig,
@@ -61,9 +61,7 @@ export function registerInitCommand(parent: Command): void {
         const detected = await detectPackages(cwd);
 
         if (detected.isMonorepo) {
-          const wsType = detected.workspaces
-            .map((w) => w.type)
-            .join(", ");
+          const wsType = detected.workspaces.map((w) => w.type).join(", ");
           console.log(`◆ Detected monorepo (${wsType} workspaces)\n`);
         }
 
@@ -98,9 +96,7 @@ export function registerInitCommand(parent: Command): void {
             mkdirSync(changesetsDir, { recursive: true });
             console.log("  → .pubm/changesets/ created");
           } else {
-            console.log(
-              "  → .pubm/changesets/ (already exists, skipped)",
-            );
+            console.log("  → .pubm/changesets/ (already exists, skipped)");
           }
 
           const gitignoreUpdated = updateGitignoreForChangesets(cwd);
@@ -128,9 +124,7 @@ export function registerInitCommand(parent: Command): void {
           );
           if (releaseWritten) {
             workflowsCreated++;
-            console.log(
-              "  → .github/workflows/release.yml created",
-            );
+            console.log("  → .github/workflows/release.yml created");
           } else {
             console.log(
               "  → .github/workflows/release.yml (already exists, skipped)",
@@ -139,8 +133,7 @@ export function registerInitCommand(parent: Command): void {
 
           // changeset-check.yml (only if changesets enabled)
           if (changesets) {
-            const checkContent =
-              generateChangesetCheckWorkflow(branch);
+            const checkContent = generateChangesetCheckWorkflow(branch);
             const checkWritten = writeWorkflowFile(
               cwd,
               "changeset-check.yml",
@@ -148,9 +141,7 @@ export function registerInitCommand(parent: Command): void {
             );
             if (checkWritten) {
               workflowsCreated++;
-              console.log(
-                "  → .github/workflows/changeset-check.yml created",
-              );
+              console.log("  → .github/workflows/changeset-check.yml created");
             } else {
               console.log(
                 "  → .github/workflows/changeset-check.yml (already exists, skipped)",
@@ -208,9 +199,7 @@ export function registerInitCommand(parent: Command): void {
         if (wantsSkills) {
           const { agents, skillCount } = await runSetupSkills(cwd);
           if (agents.length > 0) {
-            const agentNames = agents
-              .map((a) => AGENT_LABELS[a])
-              .join(", ");
+            const agentNames = agents.map((a) => AGENT_LABELS[a]).join(", ");
             summary.push({
               label: "Skills",
               value: `${agentNames} (${skillCount} skills)`,

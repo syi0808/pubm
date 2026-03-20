@@ -88,10 +88,7 @@ describe("loadConfig", () => {
   });
 
   it("loads config from explicit configPath", async () => {
-    const fixtureDir = path.resolve(
-      __dirname,
-      "../../fixtures/with-config",
-    );
+    const fixtureDir = path.resolve(__dirname, "../../fixtures/with-config");
     const result = await loadConfig(fixtureDir, "custom.config.ts");
     expect(result).not.toBeNull();
     expect(result?.branch).toBe("custom-branch");
@@ -99,10 +96,7 @@ describe("loadConfig", () => {
   });
 
   it("throws when explicit configPath does not exist", async () => {
-    const fixtureDir = path.resolve(
-      __dirname,
-      "../../fixtures/with-config",
-    );
+    const fixtureDir = path.resolve(__dirname, "../../fixtures/with-config");
     await expect(
       loadConfig(fixtureDir, "nonexistent.config.ts"),
     ).rejects.toThrow("Config file not found:");

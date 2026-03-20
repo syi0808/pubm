@@ -97,7 +97,11 @@ export class JsEcosystem extends Ecosystem {
           }
           // Inline workspace protocol resolution (same as resolveWorkspaceProtocol)
           deps[depName] =
-            range === "*" ? version : range === "^" ? `^${version}` : `~${version}`;
+            range === "*"
+              ? version
+              : range === "^"
+                ? `^${version}`
+                : `~${version}`;
         } else {
           deps[depName] = range;
         }
@@ -108,11 +112,7 @@ export class JsEcosystem extends Ecosystem {
 
     if (modified) {
       backups.set(manifestPath, original);
-      writeFileSync(
-        manifestPath,
-        `${JSON.stringify(pkg, null, 2)}\n`,
-        "utf-8",
-      );
+      writeFileSync(manifestPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf-8");
     }
 
     return backups;
