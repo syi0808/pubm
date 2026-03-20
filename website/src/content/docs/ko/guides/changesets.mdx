@@ -19,17 +19,13 @@ description: 릴리스 의도를 기록하고, changelog를 생성하며, 버전
 .pubm/changesets/
 ```
 
-이 디렉터리를 초기화하려면 다음을 실행합니다.
+대화형 설정 마법사를 실행해 이 디렉터리를 초기화합니다.
 
 ```bash
 pubm init
 ```
 
-changeset을 강제하는 pull request 검사도 함께 설정하려면 다음을 실행합니다.
-
-```bash
-pubm init --changesets
-```
+설정 중에 `pubm init`은 changeset 워크플로를 활성화할지 묻습니다. 활성화를 선택하면 `.pubm/changesets/` 디렉터리가 생성되고, PR 강제를 위한 `.github/workflows/changeset-check.yml`이 생성되며, changeset 파일을 추적하되 다른 `.pubm/` 콘텐츠는 무시하도록 `.gitignore`가 업데이트됩니다.
 
 ## Changeset 만들기
 
