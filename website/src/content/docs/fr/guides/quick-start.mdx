@@ -25,19 +25,20 @@ npm i -g pubm
 
 Si vous raccordez `pubm` via Claude Code, Codex ou un autre agent de code, commencez par l'automatisation de configuration au lieu d'écrire les invites de release à la main.
 
-- Utilisez le skill `publish-setup` du bundle `pubm plugin` pour installer le workflow de release, générer la config, raccorder la CI et activer les changesets.
+- Exécutez `pubm setup-skills` pour télécharger et installer les skills pour agents de code directement, ou laissez `pubm init` proposer l'installation des skills comme dernière étape.
+- Utilisez alternativement le skill `publish-setup` du bundle `pubm plugin` pour installer le workflow de release, générer la config, raccorder la CI et activer les changesets.
 - Donnez à votre agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il puisse récupérer le bundle et commencer par `publish-setup`.
 - Lisez [Intégration des agents de code](/pubm/fr/guides/coding-agents/) pour le modèle d'intégration et les rôles des skills.
 
 ## 1. Initialiser le dépôt
 
-Créez la structure de base de `pubm` :
+Lancez l'assistant de configuration interactif :
 
 ```bash
 pubm init
 ```
 
-Cela crée `pubm.config.ts` et `.pubm/changesets/`.
+L'assistant détecte vos packages et registries, puis vous guide à travers la configuration de la branche, la stratégie de versioning, le changelog, les changesets, la génération de workflows CI et les skills pour agents de code. Un fichier de config n'est créé que si vos choix diffèrent des valeurs par défaut.
 
 ## 2. Publier
 

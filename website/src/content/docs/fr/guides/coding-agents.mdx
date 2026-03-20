@@ -5,6 +5,16 @@ description: Intégrer le bundle de plugin pubm dans les agents de code que vous
 
 Ce guide s'adresse aux équipes qui utilisent déjà des agents de code comme Claude Code ou Codex et qui veulent ajouter les workflows de release `pubm` à cet environnement existant.
 
+## Installation rapide avec `pubm setup-skills`
+
+La façon la plus rapide d'installer les skills pour agents de code est :
+
+```bash
+pubm setup-skills
+```
+
+Cela télécharge le bundle de skills pour votre agent (Claude Code, Codex CLI ou Gemini CLI) depuis le dépôt GitHub de pubm et le place dans le répertoire approprié. Cette commande est aussi disponible comme dernière étape de `pubm init`.
+
 ## Commencer par l'automatisation de la configuration
 
 Si un dépôt n'est pas encore câblé, l'action d'agent la plus importante n'est pas la publication. C'est la configuration.

@@ -22,8 +22,8 @@ Lancer `pubm` sans argument de version suit le chemin interactif habituel. Cela 
 | Commande | But |
 |---------|-----|
 | `pubm [version]` | Exécuter le pipeline de publication à l'aide d'un type de release ou d'une version semver explicite. |
-| `pubm init` | Créer `pubm.config.ts` et `.pubm/changesets/`. |
-| `pubm init --changesets` | Mettre aussi en place le workflow de vérification des changesets en pull request. |
+| `pubm init` | Assistant de configuration interactif — détection des packages, config, changesets, workflows CI et skills pour agents de code. |
+| `pubm setup-skills` | Télécharger et installer les skills pour agents de code (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Pousser les tokens stockés localement vers GitHub Secrets via `gh`. |
 | `pubm sync --discover` | Analyser le dépôt pour trouver les références de version en dehors des manifests. |
 | `pubm update` | Mettre à jour la CLI elle-même vers la dernière version publiée. |
@@ -167,21 +167,43 @@ Les invites sont désactivées automatiquement lorsque :
 
 ## `pubm init`
 
-Initialiser le dépôt pour `pubm`.
+Assistant de configuration interactif pour `pubm`. Nécessite un TTY (terminal interactif).
 
 ```bash
 pubm init
-pubm init --changesets
 ```
 
-### `--changesets`
+L'assistant parcourt chaque étape dans l'ordre :
 
-Ajoute :
+1. **Détection des packages** — analyse le dépôt à la recherche de fichiers manifest (`package.json`, `jsr.json`, `Cargo.toml`) et de la configuration workspace, puis confirme les packages et registries détectés.
+2. **Configuration de base** — demande la branche de release et la stratégie de versioning (`independent` ou `fixed`).
+3. **Options de release** — pose des questions sur la génération de changelog et les drafts de GitHub Release.
+4. **Configuration du workflow** — propose d'activer le workflow de changesets (crée `.pubm/changesets/`, `.github/workflows/changeset-check.yml` et met à jour `.gitignore`) et de générer les workflows de release CI (`.github/workflows/release.yml`).
+5. **Skills pour agents de code** — propose de télécharger et d'installer les skills pour agents de code pour Claude Code, Codex CLI ou Gemini CLI (identique à `pubm setup-skills`).
 
-- `.github/workflows/changeset-check.yml`
-- des mises à jour `.gitignore` pour `.pubm/changesets/`
+Un fichier `pubm.config.ts` n'est créé que si vos choix diffèrent des valeurs par défaut. Si toutes les valeurs correspondent aux valeurs par défaut, aucun fichier de config n'est écrit.
 
-Utilisez cela sur les dépôts où chaque changement de produit doit inclure un fichier changeset relu.
+Cette commande n'accepte ni flags ni options — toute la configuration est collectée de manière interactive.
+
+## `pubm setup-skills`
+
+Télécharger et installer les skills pour agents de code à utiliser avec `pubm`.
+
+```bash
+pubm setup-skills
+```
+
+Agents pris en charge et leurs chemins d'installation :
+
+| Agent | Répertoire des skills |
+|-------|----------------------|
+| Claude Code | `.claude/skills/pubm/` |
+| Codex CLI | `.agents/skills/pubm/` |
+| Gemini CLI | `.gemini/skills/pubm/` |
+
+Les skills sont téléchargés depuis le dépôt GitHub de pubm (dernier tag de release, avec repli sur la branche `main`).
+
+Cette commande est aussi disponible comme dernière étape de `pubm init`.
 
 ## `pubm secrets sync`
 
@@ -294,7 +316,7 @@ En mode publication normal, les échecs déclenchent aussi un comportement de ro
 ### Première release locale sur un nouveau dépôt
 
 ```bash
-pubm init --changesets
+pubm init
 pubm changesets add
 pubm changesets version
 pubm --mode ci --phase prepare
