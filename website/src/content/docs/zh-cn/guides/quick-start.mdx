@@ -25,19 +25,20 @@ npm i -g pubm
 
 如果你要通过 Claude Code、Codex 或其他 coding agent 接入 `pubm`，请先从 setup automation 开始，而不是手写发布提示词。
 
-- 使用 `pubm plugin` bundle 中的 `publish-setup` skill 来安装发布工作流、生成配置、接入 CI 并启用 changesets。
+- 运行 `pubm setup-skills` 直接下载并安装 coding agent skills，或者让 `pubm init` 在最后一步提供 skill 安装选项。
+- 或者，使用 `pubm plugin` bundle 中的 `publish-setup` skill 来安装发布工作流、生成配置、接入 CI 并启用 changesets。
 - 把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接交给你的 agent，这样它就能获取 bundle 并从 `publish-setup` 开始。
 - 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 了解集成模型和各 skill 的职责。
 
 ## 1. 初始化仓库
 
-创建基础的 `pubm` 结构：
+运行交互式 setup 向导：
 
 ```bash
 pubm init
 ```
 
-这会创建 `pubm.config.ts` 和 `.pubm/changesets/`。
+向导会检测你的包和 registry，然后引导你完成分支配置、版本策略、changelog、changesets、CI 工作流生成和 coding agent skills。只有当你的选择与默认值不同时，才会创建配置文件。
 
 ## 2. 发布
 

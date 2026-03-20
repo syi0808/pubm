@@ -22,8 +22,8 @@ pubm
 | Command | Purpose |
 |---------|---------|
 | `pubm [version]` | 使用 release type 或明确的 semver 运行发布流程。 |
-| `pubm init` | 创建 `pubm.config.ts` 和 `.pubm/changesets/`。 |
-| `pubm init --changesets` | 同时设置 PR 的 changeset 检查工作流。 |
+| `pubm init` | 交互式 setup 向导——包检测、配置、changesets、CI 工作流和 coding agent skills。 |
+| `pubm setup-skills` | 下载并安装 coding agent skills（Claude Code、Codex、Gemini）。 |
 | `pubm secrets sync` | 通过 `gh` 把本地保存的 token 推送到 GitHub Secrets。 |
 | `pubm sync --discover` | 扫描仓库中 manifest 文件之外的版本引用。 |
 | `pubm update` | 将 CLI 自更新到最新发布版本。 |
@@ -167,21 +167,43 @@ CI Publish 模式会从最新的 Git tag 发布，并通过 API 创建 GitHub Re
 
 ## `pubm init`
 
-为 `pubm` 初始化仓库。
+`pubm` 的交互式 setup 向导。需要 TTY（交互式终端）。
 
 ```bash
 pubm init
-pubm init --changesets
 ```
 
-### `--changesets`
+向导按顺序引导完成每个阶段：
 
-会添加：
+1. **包检测** — 扫描仓库中的 manifest 文件（`package.json`、`jsr.json`、`Cargo.toml`）和 workspace 配置，然后确认检测到的包和 registry。
+2. **基础配置** — 提示输入发布分支和版本策略（`independent` 或 `fixed`）。
+3. **发布选项** — 询问是否生成 changelog 和 GitHub Release 草稿。
+4. **工作流 Setup** — 提供启用 changesets 工作流的选项（创建 `.pubm/changesets/`、`.github/workflows/changeset-check.yml` 并更新 `.gitignore`），以及生成 CI 发布工作流（`.github/workflows/release.yml`）。
+5. **Coding Agent Skills** — 提供为 Claude Code、Codex CLI 或 Gemini CLI 下载并安装 coding agent skills 的选项（与 `pubm setup-skills` 相同）。
 
-- `.github/workflows/changeset-check.yml`
-- 针对 `.pubm/changesets/` 的 `.gitignore` 更新
+只有当你的选择与默认值不同时，才会创建 `pubm.config.ts` 文件。如果每个值都与默认值相同，则不会写入配置文件。
 
-当仓库中的每个产品变更都应该包含一个经过审阅的 changeset 文件时，使用这个选项。
+此命令不接受任何 flags 或选项——所有配置均通过交互方式收集。
+
+## `pubm setup-skills`
+
+下载并安装与 `pubm` 配合使用的 coding agent skills。
+
+```bash
+pubm setup-skills
+```
+
+支持的 agent 及其安装路径：
+
+| Agent | Skill 目录 |
+|-------|-----------|
+| Claude Code | `.claude/skills/pubm/` |
+| Codex CLI | `.agents/skills/pubm/` |
+| Gemini CLI | `.gemini/skills/pubm/` |
+
+Skills 从 pubm GitHub 仓库下载（最新 release tag，回退到 `main` 分支）。
+
+此命令也可作为 `pubm init` 的最后一步使用。
 
 ## `pubm secrets sync`
 
@@ -308,7 +330,7 @@ pubm changesets migrate
 ### 新仓库的首次本地发布
 
 ```bash
-pubm init --changesets
+pubm init
 pubm changesets add
 pubm changesets version
 pubm --mode ci --phase prepare
