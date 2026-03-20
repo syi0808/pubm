@@ -20,6 +20,7 @@ import semver from "semver";
 import { isCI } from "std-env";
 import { registerChangesetsCommand } from "./commands/changesets.js";
 import { registerInitCommand } from "./commands/init.js";
+import { registerSetupSkillsCommand } from "./commands/setup-skills.js";
 import { registerInspectCommand } from "./commands/inspect.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSyncCommand } from "./commands/sync.js";
@@ -98,6 +99,7 @@ export function createProgram(): Command {
   // Register subcommands
   registerChangesetsCommand(program, () => resolvedConfig);
   registerInitCommand(program);
+  registerSetupSkillsCommand(program);
   registerUpdateCommand(program);
   registerSecretsCommand(program);
   registerSyncCommand(program);
