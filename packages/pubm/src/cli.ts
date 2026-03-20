@@ -87,6 +87,7 @@ export function createProgram(): Command {
   program.version(PUBM_VERSION);
   program.enablePositionalOptions();
   program.option("--no-color", "Disable colored output");
+  program.option("--config <path>", "Path to config file");
   program.hook("preAction", (thisCommand) => {
     if (!thisCommand.opts().color) {
       process.env.NO_COLOR = "1";
@@ -362,8 +363,13 @@ export function createProgram(): Command {
   const program = createProgram();
   const cwd = process.cwd();
 
+  // Extract --config from argv before full parse
+  const configArgIndex = process.argv.indexOf("--config");
+  const configPath =
+    configArgIndex !== -1 ? process.argv[configArgIndex + 1] : undefined;
+
   // Single config load + resolve for entire CLI session
-  const raw = await loadConfig(cwd);
+  const raw = await loadConfig(cwd, configPath);
   const config = await resolveConfig(raw ?? {}, cwd);
 
   // Register plugin commands

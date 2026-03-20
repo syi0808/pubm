@@ -886,19 +886,37 @@ function formatStageError(stage: string, error: unknown): string {
 
 export async function loadConfig(
   cwd: string = process.cwd(),
+  configPath?: string,
 ): Promise<PubmConfig | null> {
-  const configPath = await findConfigFile(cwd);
-  if (!configPath) return null;
+  let resolvedConfigPath: string | null;
+
+  if (configPath) {
+    resolvedConfigPath = path.resolve(cwd, configPath);
+    try {
+      if (!(await stat(resolvedConfigPath)).isFile()) {
+        throw new Error(`Config path is not a file: ${resolvedConfigPath}`);
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new Error(`Config file not found: ${resolvedConfigPath}`);
+      }
+      throw e;
+    }
+  } else {
+    resolvedConfigPath = await findConfigFile(cwd);
+  }
+
+  if (!resolvedConfigPath) return null;
 
   const errors: string[] = [];
 
   try {
-    return await importConfigModule(configPath);
+    return await importConfigModule(resolvedConfigPath);
   } catch (error) {
     errors.push(formatStageError("native import", error));
   }
 
-  const output = await buildConfig(configPath);
+  const output = await buildConfig(resolvedConfigPath);
 
   if (!output.success) {
     errors.push(
@@ -920,14 +938,14 @@ export async function loadConfig(
   try {
     return await importBundledConfig(
       bundledSource,
-      configPath,
+      resolvedConfigPath,
       output.optionalDependencies,
     );
   } catch (error) {
     errors.push(formatStageError("bundled import", error));
   }
 
-  const vmOutput = await buildConfigWithFormat(configPath, "cjs");
+  const vmOutput = await buildConfigWithFormat(resolvedConfigPath, "cjs");
   if (!vmOutput.success) {
     errors.push(
       formatStageError(
@@ -951,7 +969,7 @@ export async function loadConfig(
   try {
     return await executeBundledConfigInVm(
       await vmEntrypoint.text(),
-      configPath,
+      resolvedConfigPath,
     );
   } catch (error) {
     errors.push(formatStageError("bundled vm", error));
