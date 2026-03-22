@@ -63,7 +63,7 @@ jobs:
           --filter=${{ matrix.platform_package }}
       - name: 'Run scoped tests without dependency rebuilds'
         run: >
-          bunx turbo run test --only
+          bunx turbo run test --only --continue
           --filter=@pubm/core
           --filter=@pubm/plugin-brew
           --filter=@pubm/plugin-external-version-sync

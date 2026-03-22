@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs/promises", () => ({
@@ -354,7 +355,7 @@ describe("JsEcosystem", () => {
       const versions = new Map([["dep-a", "2.0.0"]]);
       const result = await eco.resolvePublishDependencies(versions);
 
-      const manifestPath = `${pkgPath}/package.json`;
+      const manifestPath = path.join(pkgPath, "package.json");
       expect(result.get(manifestPath)).toBe(originalContent);
       expect(mockedWriteFileSync).toHaveBeenCalledWith(
         manifestPath,
