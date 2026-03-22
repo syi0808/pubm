@@ -6,10 +6,21 @@ vi.mock("node:fs/promises", () => ({
   stat: vi.fn(),
 }));
 
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: vi.fn(),
+    readFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+  };
+});
+
 vi.mock("../../../src/utils/package-manager.js", () => ({
   getPackageManager: vi.fn(),
 }));
 
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { JsEcosystem } from "../../../src/ecosystem/js.js";
 import { JsEcosystemDescriptor } from "../../../src/ecosystem/js-descriptor.js";
@@ -21,6 +32,9 @@ const mockedReadFile = vi.mocked(readFile);
 const mockedWriteFile = vi.mocked(writeFile);
 const mockedStat = vi.mocked(stat);
 const mockedGetPackageManager = vi.mocked(getPackageManager);
+const mockedExistsSync = vi.mocked(existsSync);
+const mockedReadFileSync = vi.mocked(readFileSync);
+const mockedWriteFileSync = vi.mocked(writeFileSync);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -209,6 +223,203 @@ describe("JsEcosystem", () => {
       const jsDescriptor = descriptor as JsEcosystemDescriptor;
       expect(jsDescriptor.npmName).toBeUndefined();
       expect(jsDescriptor.jsrName).toBeUndefined();
+    });
+  });
+
+  describe("resolvePublishDependencies", () => {
+    it("returns empty map when package.json doesn't exist", async () => {
+      mockedExistsSync.mockReturnValue(false);
+
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.resolvePublishDependencies(new Map());
+
+      expect(result.size).toBe(0);
+      expect(mockedReadFileSync).not.toHaveBeenCalled();
+    });
+
+    it("returns empty map when no workspace: deps", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { lodash: "^4.0.0" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.resolvePublishDependencies(new Map());
+
+      expect(result.size).toBe(0);
+      expect(mockedWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it("resolves workspace:* to exact version", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { "dep-a": "workspace:*" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const versions = new Map([["dep-a", "2.0.0"]]);
+      const result = await eco.resolvePublishDependencies(versions);
+
+      expect(mockedWriteFileSync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockedWriteFileSync.mock.calls[0][1] as string,
+      );
+      expect(written.dependencies["dep-a"]).toBe("2.0.0");
+      expect(result.size).toBe(1);
+    });
+
+    it("resolves workspace:^ to caret version", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { "dep-a": "workspace:^" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const versions = new Map([["dep-a", "3.1.0"]]);
+      const result = await eco.resolvePublishDependencies(versions);
+
+      expect(mockedWriteFileSync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockedWriteFileSync.mock.calls[0][1] as string,
+      );
+      expect(written.dependencies["dep-a"]).toBe("^3.1.0");
+      expect(result.size).toBe(1);
+    });
+
+    it("resolves workspace:~ to tilde version", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { "dep-a": "workspace:~" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const versions = new Map([["dep-a", "1.5.0"]]);
+      const result = await eco.resolvePublishDependencies(versions);
+
+      expect(mockedWriteFileSync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockedWriteFileSync.mock.calls[0][1] as string,
+      );
+      expect(written.dependencies["dep-a"]).toBe("~1.5.0");
+      expect(result.size).toBe(1);
+    });
+
+    it("resolves bare workspace range (e.g. workspace:^1.0.0)", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { "dep-a": "workspace:^1.0.0" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.resolvePublishDependencies(new Map());
+
+      expect(mockedWriteFileSync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockedWriteFileSync.mock.calls[0][1] as string,
+      );
+      expect(written.dependencies["dep-a"]).toBe("^1.0.0");
+      expect(result.size).toBe(1);
+    });
+
+    it("creates backup and writes modified package.json", async () => {
+      const originalContent = JSON.stringify({
+        name: "my-pkg",
+        version: "1.0.0",
+        dependencies: { "dep-a": "workspace:*" },
+      });
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(originalContent);
+
+      const eco = new JsEcosystem(pkgPath);
+      const versions = new Map([["dep-a", "2.0.0"]]);
+      const result = await eco.resolvePublishDependencies(versions);
+
+      const manifestPath = `${pkgPath}/package.json`;
+      expect(result.get(manifestPath)).toBe(originalContent);
+      expect(mockedWriteFileSync).toHaveBeenCalledWith(
+        manifestPath,
+        expect.any(String),
+        "utf-8",
+      );
+    });
+
+    it("throws when workspace version not found for workspace:*", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          dependencies: { "unknown-dep": "workspace:*" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      await expect(eco.resolvePublishDependencies(new Map())).rejects.toThrow(
+        'Cannot resolve "workspace:*" for dependency "unknown-dep": package not found in workspace',
+      );
+    });
+
+    it("handles multiple dependency fields", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+          devDependencies: { "dev-dep": "workspace:^" },
+          optionalDependencies: { "opt-dep": "workspace:~" },
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const versions = new Map([
+        ["dev-dep", "1.0.0"],
+        ["opt-dep", "2.0.0"],
+      ]);
+      const result = await eco.resolvePublishDependencies(versions);
+
+      expect(mockedWriteFileSync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockedWriteFileSync.mock.calls[0][1] as string,
+      );
+      expect(written.devDependencies["dev-dep"]).toBe("^1.0.0");
+      expect(written.optionalDependencies["opt-dep"]).toBe("~2.0.0");
+      expect(result.size).toBe(1);
+    });
+
+    it("skips dependency fields that don't exist", async () => {
+      mockedExistsSync.mockReturnValue(true);
+      mockedReadFileSync.mockReturnValue(
+        JSON.stringify({
+          name: "my-pkg",
+          version: "1.0.0",
+        }),
+      );
+
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.resolvePublishDependencies(new Map());
+
+      expect(result.size).toBe(0);
+      expect(mockedWriteFileSync).not.toHaveBeenCalled();
     });
   });
 });

@@ -72,7 +72,7 @@ export async function detectPackages(
   const discovered = await discoverPackages({ cwd });
   const packages = discovered.map((pkg) => ({
     name: pkg.name,
-    path: path.relative(cwd, pkg.path),
+    path: path.relative(cwd, pkg.path).replace(/\\/g, "/"),
   }));
 
   return { isMonorepo, workspaces, packages };

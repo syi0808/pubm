@@ -38,6 +38,16 @@ describe("generateSnapshotVersion", () => {
     expect(result).toBe("1.0.0-dev-");
   });
 
+  it("should replace all placeholders including timestamp in template", () => {
+    const result = generateSnapshotVersion({
+      tag: "beta",
+      baseVersion: "2.0.0",
+      template: "{base}-{tag}-{timestamp}-{commit}",
+      commit: "abc1234",
+    });
+    expect(result).toBe("2.0.0-beta-20260304T123000-abc1234");
+  });
+
   it("should default tag to snapshot", () => {
     const result = generateSnapshotVersion({ baseVersion: "2.0.0" });
     expect(result).toBe("2.0.0-snapshot-20260304T123000");

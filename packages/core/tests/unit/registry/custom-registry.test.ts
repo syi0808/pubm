@@ -148,6 +148,18 @@ describe("CustomPackageRegistry", () => {
   });
 });
 
+describe("CustomPackageRegistry.npm() without registry URL", () => {
+  it("throws when registry is falsy", async () => {
+    const reg = new CustomPackageRegistry("test-pkg", FIXTURE_PATH);
+    // Force registry to undefined to test the guard on line 7
+    (reg as any).registry = undefined;
+
+    await expect(reg.npm(["whoami"])).rejects.toThrow(
+      "Custom registry URL is required for npm operations.",
+    );
+  });
+});
+
 describe("CustomPackageRegistry URL support", () => {
   it("uses custom registry URL when provided", () => {
     const registry = new CustomPackageRegistry(

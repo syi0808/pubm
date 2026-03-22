@@ -133,17 +133,17 @@ describe("AGENT_LABELS", () => {
 describe("getInstallPath", () => {
   it("returns correct path for claude-code", () => {
     const result = getInstallPath("claude-code", "/home/user/project");
-    expect(result).toBe("/home/user/project/.claude/skills/pubm");
+    expect(result).toBe(path.join("/home/user/project", ".claude/skills/pubm"));
   });
 
   it("returns correct path for codex", () => {
     const result = getInstallPath("codex", "/home/user/project");
-    expect(result).toBe("/home/user/project/.agents/skills/pubm");
+    expect(result).toBe(path.join("/home/user/project", ".agents/skills/pubm"));
   });
 
   it("returns correct path for gemini", () => {
     const result = getInstallPath("gemini", "/home/user/project");
-    expect(result).toBe("/home/user/project/.gemini/skills/pubm");
+    expect(result).toBe(path.join("/home/user/project", ".gemini/skills/pubm"));
   });
 
   it("uses cwd correctly in path construction", () => {
