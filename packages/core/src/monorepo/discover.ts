@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import micromatch from "micromatch";
 import type { PackageConfig } from "../config/types.js";
@@ -47,17 +47,33 @@ function matchesIgnore(pkgPath: string, ignorePatterns: string[]): boolean {
   });
 }
 
-export function resolvePatterns(cwd: string, patterns: string[]): string[] {
-  const entries = readdirSync(cwd, { recursive: true, encoding: "utf-8" });
-
-  const dirs = entries.filter((entry) => {
-    const fullPath = path.join(cwd, entry);
+function readdirRecursiveNoSymlinks(dir: string, root: string): string[] {
+  const results: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir, { encoding: "utf-8" });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    if (entry === "node_modules" || entry === ".git") continue;
+    const fullPath = path.join(dir, entry);
     try {
-      return statSync(fullPath).isDirectory();
+      const stat = lstatSync(fullPath);
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
+        results.push(path.relative(root, fullPath));
+        results.push(...readdirRecursiveNoSymlinks(fullPath, root));
+      }
     } catch {
-      return false;
+      // skip inaccessible entries
     }
-  });
+  }
+  return results;
+}
+
+export function resolvePatterns(cwd: string, patterns: string[]): string[] {
+  const dirs = readdirRecursiveNoSymlinks(cwd, cwd);
 
   // Normalize separators for matching on Windows
   const normalizedDirs = dirs.map((d) => d.replace(/\\/g, "/"));

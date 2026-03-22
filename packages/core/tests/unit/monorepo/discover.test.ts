@@ -22,6 +22,7 @@ vi.mock("node:fs", () => ({
     }
     return { isDirectory: () => true };
   }),
+  lstatSync: vi.fn(),
   mkdirSync: originalMkdirSync,
   writeFileSync: originalWriteFileSync,
 }));
@@ -47,16 +48,20 @@ vi.mock("../../../src/ecosystem/catalog.js", async (importOriginal) => {
   };
 });
 
-import { readdirSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { ecosystemCatalog } from "../../../src/ecosystem/catalog.js";
 import { inferRegistries } from "../../../src/ecosystem/infer.js";
 import type { PackageManifest } from "../../../src/manifest/manifest-reader.js";
-import { discoverPackages } from "../../../src/monorepo/discover.js";
+import {
+  discoverPackages,
+  resolvePatterns,
+} from "../../../src/monorepo/discover.js";
 import { detectWorkspace } from "../../../src/monorepo/workspace.js";
 
 const mockedReaddirSync = vi.mocked(readdirSync);
 const mockedStatSync = vi.mocked(statSync);
+const mockedLstatSync = vi.mocked(lstatSync);
 const mockedDetectWorkspace = vi.mocked(detectWorkspace);
 const mockedInferRegistries = vi.mocked(inferRegistries);
 const mockedEcosystemCatalog = vi.mocked(ecosystemCatalog);
@@ -102,10 +107,53 @@ function createMockEcosystemDescriptor(
   };
 }
 
-function setupDirectoryEntries(entries: string[]) {
-  mockedReaddirSync.mockReturnValue(
-    entries as unknown as ReturnType<typeof readdirSync>,
-  );
+/**
+ * Build a virtual filesystem tree from flat relative paths and set up
+ * readdirSync / lstatSync mocks so that the custom recursive walker
+ * in resolvePatterns works correctly.
+ *
+ * @param entries Relative directory paths (e.g. ["packages/foo", "packages/bar"])
+ * @param symlinks Relative paths that should appear as symlinks (skipped by walker)
+ */
+function setupDirectoryEntries(entries: string[], symlinks: string[] = []) {
+  // Build a tree: dir → set of immediate children
+  const tree = new Map<string, Set<string>>();
+  const symlinkSet = new Set(symlinks.map((s) => path.join("/project", s)));
+
+  for (const entry of entries) {
+    const parts = entry.split("/");
+    let current = "/project";
+    for (const part of parts) {
+      if (!tree.has(current)) tree.set(current, new Set());
+      tree.get(current)!.add(part);
+      current = path.join(current, part);
+    }
+  }
+
+  // Also register symlink paths in the tree so they appear in readdir
+  for (const sl of symlinks) {
+    const parts = sl.split("/");
+    let current = "/project";
+    for (const part of parts) {
+      if (!tree.has(current)) tree.set(current, new Set());
+      tree.get(current)!.add(part);
+      current = path.join(current, part);
+    }
+  }
+
+  mockedReaddirSync.mockImplementation(((dirPath: string) => {
+    const children = tree.get(dirPath);
+    return children ? [...children] : [];
+  }) as typeof readdirSync);
+
+  mockedLstatSync.mockImplementation(((fullPath: string) => {
+    const isSymlink = symlinkSet.has(fullPath);
+    return {
+      isDirectory: () => !isSymlink,
+      isSymbolicLink: () => isSymlink,
+    };
+  }) as unknown as typeof lstatSync);
+
   mockedStatSync.mockImplementation(
     () =>
       ({
@@ -645,6 +693,51 @@ describe("discoverPackages", () => {
       cwd: "/project",
       configPackages: [{ path: "nonexistent/*" }],
     });
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe("resolvePatterns", () => {
+  it("skips symlinks to avoid ELOOP errors", () => {
+    setupDirectoryEntries(
+      ["packages/core", "packages/pubm"],
+      ["node_modules/pubm"],
+    );
+
+    const result = resolvePatterns("/project", ["packages/*"]);
+
+    const relPaths = result.map((r) => path.relative("/project", r));
+    expect(relPaths).toContain(path.join("packages", "core"));
+    expect(relPaths).toContain(path.join("packages", "pubm"));
+    // Symlink should not appear in results
+    expect(relPaths).not.toContain(path.join("node_modules", "pubm"));
+  });
+
+  it("skips node_modules directories entirely", () => {
+    setupDirectoryEntries(["packages/core", "node_modules/some-pkg"]);
+
+    const result = resolvePatterns("/project", ["**/*"]);
+
+    const relPaths = result.map((r) => path.relative("/project", r));
+    expect(relPaths).toContain(path.join("packages", "core"));
+    expect(relPaths.some((p) => p.includes("node_modules"))).toBe(false);
+  });
+
+  it("skips .git directories entirely", () => {
+    setupDirectoryEntries(["packages/core", ".git/objects"]);
+
+    const result = resolvePatterns("/project", ["**/*"]);
+
+    const relPaths = result.map((r) => path.relative("/project", r));
+    expect(relPaths).toContain(path.join("packages", "core"));
+    expect(relPaths.some((p) => p.includes(".git"))).toBe(false);
+  });
+
+  it("handles empty directory tree", () => {
+    setupDirectoryEntries([]);
+
+    const result = resolvePatterns("/project", ["packages/*"]);
 
     expect(result).toEqual([]);
   });
