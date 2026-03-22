@@ -148,7 +148,7 @@ describe("discoverVersionReferences", () => {
     return discoverVersionReferences(tempDir, "1.0.0").then((refs) => {
       expect(refs).toHaveLength(1);
       expect(refs[0]).toEqual({
-        file: path.join(".claude-plugin", "manifest.json"),
+        file: ".claude-plugin/manifest.json",
         type: "json",
         jsonPath: "version",
       });
@@ -177,7 +177,7 @@ describe("discoverVersionReferences", () => {
 
     return discoverVersionReferences(tempDir, "4.0.0").then((refs) => {
       expect(refs).toHaveLength(1);
-      expect(refs[0].file).toBe(path.join("src", "config", "meta.json"));
+      expect(refs[0].file).toBe("src/config/meta.json");
     });
   });
 });

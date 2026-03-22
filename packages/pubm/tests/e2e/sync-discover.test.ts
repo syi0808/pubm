@@ -138,7 +138,7 @@ describe("pubm sync --discover", () => {
 
     it("should discover references in nested directories", async () => {
       const { stdout } = await ctx.run("sync", "--discover");
-      expect(stdout).toContain(path.join("src", "meta.json"));
+      expect(stdout).toContain("src/meta.json");
       expect(stdout).toContain("JSON");
     });
   });
