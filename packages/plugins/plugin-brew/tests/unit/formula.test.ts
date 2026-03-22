@@ -360,6 +360,161 @@ describe("formula helpers", () => {
     expect(matched?.sha256).toBe("a");
   });
 
+  it("skips unknown platforms during updateFormula", () => {
+    const original = generateFormula({
+      name: "pubm",
+      desc: "pubm cli",
+      homepage: "https://example.com/pubm",
+      license: "MIT",
+      version: "0.1.0",
+      assets: [
+        {
+          platform: "darwin-arm64",
+          url: "https://example.com/old.tar.gz",
+          sha256: "old-sha",
+        },
+      ],
+    });
+
+    const updated = updateFormula(original, "2.0.0", [
+      {
+        platform: "darwin-x64-baseline" as never,
+        url: "https://example.com/new.tar.gz",
+        sha256: "new-sha",
+      },
+    ]);
+
+    expect(updated).toContain('version "2.0.0"');
+    // The unknown platform asset should be skipped, old urls stay unchanged
+    expect(updated).toContain('url "https://example.com/old.tar.gz"');
+    expect(updated).not.toContain('url "https://example.com/new.tar.gz"');
+  });
+
+  it("generates musl formula with only linux-arm64-musl (x64-musl placeholder)", () => {
+    const content = generateFormula({
+      name: "pubm",
+      desc: "pubm cli",
+      homepage: "https://example.com/pubm",
+      license: "MIT",
+      version: "1.0.0",
+      assets: [
+        {
+          platform: "linux-arm64-musl",
+          url: "https://example.com/linux-arm64-musl.tar.gz",
+          sha256: "la64m",
+        },
+      ],
+    });
+
+    expect(content).toContain("libc_is_musl?");
+    expect(content).toContain(
+      'url "https://example.com/linux-arm64-musl.tar.gz"',
+    );
+    expect(content).toContain('sha256 "la64m"');
+    // x64 musl and non-musl should be PLACEHOLDER
+    const lines = content.split("\n");
+    const placeholderCount = lines.filter((l) =>
+      l.includes('url "PLACEHOLDER"'),
+    ).length;
+    expect(placeholderCount).toBeGreaterThanOrEqual(3);
+  });
+
+  it("generates musl formula with only linux-x64-musl (arm64-musl placeholder)", () => {
+    const content = generateFormula({
+      name: "pubm",
+      desc: "pubm cli",
+      homepage: "https://example.com/pubm",
+      license: "MIT",
+      version: "1.0.0",
+      assets: [
+        {
+          platform: "linux-x64-musl",
+          url: "https://example.com/linux-x64-musl.tar.gz",
+          sha256: "lx64m",
+        },
+      ],
+    });
+
+    expect(content).toContain("libc_is_musl?");
+    expect(content).toContain(
+      'url "https://example.com/linux-x64-musl.tar.gz"',
+    );
+    expect(content).toContain('sha256 "lx64m"');
+    // arm64 musl should be PLACEHOLDER
+    const lines = content.split("\n");
+    const placeholderCount = lines.filter((l) =>
+      l.includes('url "PLACEHOLDER"'),
+    ).length;
+    expect(placeholderCount).toBeGreaterThanOrEqual(3);
+  });
+
+  it("updates non-musl linux assets in formula with musl blocks", () => {
+    const original = generateFormula({
+      name: "pubm",
+      desc: "pubm cli",
+      homepage: "https://example.com/pubm",
+      license: "MIT",
+      version: "0.1.0",
+      assets: [
+        {
+          platform: "darwin-arm64",
+          url: "https://example.com/old-darwin-arm64.tar.gz",
+          sha256: "old-darwin-arm64",
+        },
+        {
+          platform: "linux-arm64",
+          url: "https://example.com/old-linux-arm64.tar.gz",
+          sha256: "old-linux-arm64",
+        },
+        {
+          platform: "linux-arm64-musl",
+          url: "https://example.com/old-linux-arm64-musl.tar.gz",
+          sha256: "old-linux-arm64-musl",
+        },
+        {
+          platform: "linux-x64",
+          url: "https://example.com/old-linux-x64.tar.gz",
+          sha256: "old-linux-x64",
+        },
+        {
+          platform: "linux-x64-musl",
+          url: "https://example.com/old-linux-x64-musl.tar.gz",
+          sha256: "old-linux-x64-musl",
+        },
+      ],
+    });
+
+    // Only update the non-musl linux assets (not musl ones)
+    const updated = updateFormula(original, "3.0.0", [
+      {
+        platform: "linux-arm64",
+        url: "https://example.com/new-linux-arm64.tar.gz",
+        sha256: "new-linux-arm64",
+      },
+      {
+        platform: "linux-x64",
+        url: "https://example.com/new-linux-x64.tar.gz",
+        sha256: "new-linux-x64",
+      },
+    ]);
+
+    expect(updated).toContain('version "3.0.0"');
+    // Non-musl linux assets should be updated
+    expect(updated).toContain(
+      'url "https://example.com/new-linux-arm64.tar.gz"',
+    );
+    expect(updated).toContain('sha256 "new-linux-arm64"');
+    expect(updated).toContain('url "https://example.com/new-linux-x64.tar.gz"');
+    expect(updated).toContain('sha256 "new-linux-x64"');
+    // Musl assets should remain unchanged
+    expect(updated).toContain(
+      'url "https://example.com/old-linux-arm64-musl.tar.gz"',
+    );
+    expect(updated).toContain(
+      'url "https://example.com/old-linux-x64-musl.tar.gz"',
+    );
+  });
+
   it("releaseAssetsToFormulaAssets maps only recognized platform assets", () => {
     const mapped = releaseAssetsToFormulaAssets([
       {

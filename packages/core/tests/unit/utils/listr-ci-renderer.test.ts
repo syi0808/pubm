@@ -116,6 +116,46 @@ describe("PubmCiRenderer", () => {
     ]);
   });
 
+  it("baseLabel falls back to currentLabel when task.path is empty (line 149)", () => {
+    const task = new MockTask();
+    task.path = [];
+    task.title = "My task";
+    task.initialTitle = "My task";
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const renderer = new PubmCiRenderer([task as never]);
+
+    renderer.render();
+
+    // TITLE event triggers baseLabel(task) which should fall through to
+    // currentLabel when path normalizes to empty (line 149).
+    // Note: task.title is already updated by listr before the event fires,
+    // so baseLabel and currentLabel both use the new title.
+    task.title = "Updated task";
+    task.emit("TITLE", "Updated task");
+
+    expect(logSpy.mock.calls.map((call) => call[0])).toEqual([
+      "[pubm][title] Updated task -> Updated task",
+    ]);
+  });
+
+  it("suppresses log when assembled message normalizes to empty (line 167)", () => {
+    const task = new MockTask();
+    task.path = [];
+    task.title = "\u001b[31m\u001b[39m";
+    task.initialTitle = "\u001b[31m\u001b[39m";
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const renderer = new PubmCiRenderer([task as never]);
+
+    renderer.render();
+
+    // STATE event calls log("start", currentLabel(task)).
+    // currentLabel produces "" because leaf is VT-only and basePath is empty.
+    // log() then normalizes to "" and returns early (line 167).
+    task.emit("STATE", ListrTaskState.STARTED);
+
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
   it("avoids duplicate listeners and ignores blank title or output updates", () => {
     const task = new MockTask();
     task.path = [];

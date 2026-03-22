@@ -10,6 +10,21 @@ describe("pubm metadata", () => {
     vi.unstubAllGlobals();
   });
 
+  it("falls back to default engines when package.json has no engines field", async () => {
+    vi.doMock("../../../package.json", () => ({
+      default: { name: "@pubm/core", version: "0.0.0-test" },
+    }));
+
+    const metadata = await importFreshMetadata();
+
+    // Without engines in package.json, the ?? fallbacks are used
+    expect(metadata.PUBM_ENGINES.node).toBe(">=18");
+    expect(metadata.PUBM_ENGINES.git).toBe(">=2.11.0");
+    expect(metadata.PUBM_ENGINES.npm).toBe("*");
+    expect(metadata.PUBM_ENGINES.pnpm).toBe("*");
+    expect(metadata.PUBM_ENGINES.yarn).toBe("*");
+  });
+
   it("falls back to CLI package metadata when defines are absent", async () => {
     const metadata = await importFreshMetadata();
 

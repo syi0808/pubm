@@ -66,6 +66,18 @@ describe("readChangesets", () => {
     );
   });
 
+  it("passes resolveKey to parseChangeset", () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReaddirSync.mockReturnValue(["test.md"] as any);
+    mockedReadFileSync.mockReturnValue('---\n"old-key": patch\n---\n\nFix.');
+
+    const resolver = (key: string) => (key === "old-key" ? "new-key" : key);
+    const result = readChangesets("/tmp/project", resolver);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].releases[0].path).toBe("new-key");
+  });
+
   it("skips non-.md files", () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReaddirSync.mockReturnValue([

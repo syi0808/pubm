@@ -217,3 +217,4 @@ English (`docs/`) is the source of truth. Translations must be updated in parall
 
 - **Module system**: ESM (`"type": "module"`)
 - **TypeScript**: Strict mode, target ES2020, bundler module resolution
+- **Path handling**: Always use `node:path` (`join`, `resolve`, `relative`, `dirname`, etc.) for path construction — never concatenate strings with `/`. When a path will appear in config files, user-facing output, or test assertions (not direct filesystem operations), normalize to forward slashes with `.replace(/\\/g, "/")`. In tests, build expected paths with `path.join()` rather than hardcoding separators.

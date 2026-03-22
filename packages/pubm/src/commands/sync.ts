@@ -97,7 +97,7 @@ export async function discoverVersionReferences(
       if (SKIP_FILES.has(name) || isDotfile(name)) continue;
 
       const fullPath = path.join(dir, name);
-      const relativePath = path.relative(cwd, fullPath);
+      const relativePath = path.relative(cwd, fullPath).replace(/\\/g, "/");
 
       try {
         const fileStat = await stat(fullPath);

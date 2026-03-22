@@ -127,6 +127,45 @@ describe("exec", () => {
     );
   });
 
+  it("includes trailing decoder output when stream ends with a partial chunk", async () => {
+    // TextDecoder.decode() with no args after streaming may produce trailing
+    // bytes. We simulate this by creating a stream whose final chunk encodes
+    // a multi-byte character split across two enqueue calls, so the trailing
+    // decode produces output on lines 60-61.
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode("hello\u00e9"); // é is 2 bytes in UTF-8
+    // Split so the last byte is delivered alone — the decoder in stream mode
+    // will buffer it, and the trailing decode() call will flush it.
+    const firstPart = bytes.slice(0, bytes.length - 1);
+    const lastPart = bytes.slice(bytes.length - 1);
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(firstPart);
+        controller.enqueue(lastPart);
+        controller.close();
+      },
+    });
+
+    vi.stubGlobal("Bun", {
+      spawn: vi.fn().mockReturnValue({
+        stdout: stream,
+        stderr: new ReadableStream({
+          start(c) {
+            c.close();
+          },
+        }),
+        exited: Promise.resolve(0),
+      }),
+    });
+
+    const { exec } = await import("../../../src/utils/exec.js");
+    const result = await exec("test-cmd");
+
+    expect(result.stdout).toBe("hello\u00e9");
+    expect(result.exitCode).toBe(0);
+  });
+
   it("throws NonZeroExitError with captured output when throwOnError is enabled", async () => {
     vi.stubGlobal("Bun", {
       spawn: vi.fn().mockReturnValue({
