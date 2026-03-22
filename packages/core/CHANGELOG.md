@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5
+
+### Patch Changes
+
+- Fix ELOOP error caused by circular symlinks during workspace directory scanning
+
 ## 0.4.4
 
 ### Patch Changes
