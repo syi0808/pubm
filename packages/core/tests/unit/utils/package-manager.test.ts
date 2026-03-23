@@ -5,7 +5,7 @@ vi.mock("../../../src/utils/package.js", () => ({
 }));
 
 import { findOutFile } from "../../../src/utils/package.js";
-import { getPackageManager } from "../../../src/utils/package-manager.js";
+import { getInstallCommand, getPackageManager } from "../../../src/utils/package-manager.js";
 
 const mockFindOutFile = vi.mocked(findOutFile);
 
@@ -137,5 +137,40 @@ describe("getPackageManager", () => {
     expect(mockFindOutFile).toHaveBeenCalledWith("npm-shrinkwrap.json");
     expect(mockFindOutFile).toHaveBeenCalledWith("pnpm-lock.yaml");
     expect(mockFindOutFile).toHaveBeenCalledWith("yarn.lock");
+  });
+});
+
+describe("getInstallCommand", () => {
+  it("returns bun install for bun", () => {
+    expect(getInstallCommand("bun")).toEqual(["bun", "install"]);
+  });
+
+  it("returns npm install --package-lock-only for npm", () => {
+    expect(getInstallCommand("npm")).toEqual([
+      "npm",
+      "install",
+      "--package-lock-only",
+    ]);
+  });
+
+  it("returns pnpm install --lockfile-only for pnpm", () => {
+    expect(getInstallCommand("pnpm")).toEqual([
+      "pnpm",
+      "install",
+      "--lockfile-only",
+    ]);
+  });
+
+  it("returns yarn install for yarn without .yarnrc.yml", () => {
+    expect(getInstallCommand("yarn", false)).toEqual(["yarn", "install"]);
+  });
+
+  it("returns yarn install --mode update-lockfile for yarn with .yarnrc.yml", () => {
+    expect(getInstallCommand("yarn", true)).toEqual([
+      "yarn",
+      "install",
+      "--mode",
+      "update-lockfile",
+    ]);
   });
 });
