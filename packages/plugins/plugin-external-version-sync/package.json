@@ -15,7 +15,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node --format esm && bunx tsc --project tsconfig.build.json",
+    "build": "bun run ./build.ts",
     "check": "biome check",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
