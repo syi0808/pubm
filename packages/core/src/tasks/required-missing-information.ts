@@ -533,7 +533,13 @@ async function handleRemainingPackages(
       );
     }
 
-    const result = await promptVersion(task, currentVersion, pkg.name, undefined, lastBumpType);
+    const result = await promptVersion(
+      task,
+      currentVersion,
+      pkg.name,
+      undefined,
+      lastBumpType,
+    );
     versions.set(pkg.path, result.version);
     lastBumpType = result.bumpType;
 

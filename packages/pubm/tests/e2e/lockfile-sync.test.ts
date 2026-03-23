@@ -1,11 +1,5 @@
 import { execSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -179,7 +173,7 @@ describe("lockfile sync — discovery with different package managers", () => {
 
     const eco = new JsEcosystem(pkgPath);
     // npm install --package-lock-only may fail, but discovery should work
-    const result = await eco.syncLockfile("optional");
+    await eco.syncLockfile("optional");
 
     // Verify discovery happened (exec was called with npm)
     expect(mockedExec).toHaveBeenCalledWith(
