@@ -66,7 +66,7 @@ Un registre refuse votre package ? pubm annule le bump de version, le git tag et
 
 ### Verifications prealables
 
-Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action. Vous pouvez aussi dry-run tout votre pipeline CI en local :
+Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action. En mode CI, pubm valide les tokens et effectue un publish dry-run pour detecter les problemes avant la vraie publication :
 
 ```bash
 pubm --mode ci --phase prepare

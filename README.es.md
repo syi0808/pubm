@@ -66,7 +66,7 @@ Si un registro rechaza tu paquete, pubm deshace el cambio de version, el git tag
 
 ### Preflight checks
 
-Rama, working tree, sincronizacion remota, estado de login y permisos de publicacion se verifican **antes** de que pubm toque nada. Tambien puedes hacer dry-run de toda tu pipeline de CI en local:
+Rama, working tree, sincronizacion remota, estado de login y permisos de publicacion se verifican **antes** de que pubm toque nada. En modo CI, pubm valida tokens y ejecuta publish dry-runs para detectar problemas antes de la publicacion real:
 
 ```bash
 pubm --mode ci --phase prepare
