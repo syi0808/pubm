@@ -504,6 +504,7 @@ async function handleRemainingPackages(
   );
   const publishPaths = new Set<string>(bumps.keys());
   const reverseDeps = buildReverseDeps(graph);
+  let lastBumpType: string | undefined;
 
   for (const pkg of remainingPackages) {
     // remainingPackages ⊆ packageInfos so currentVersions and graph always have pkg.path
@@ -532,8 +533,9 @@ async function handleRemainingPackages(
       );
     }
 
-    const result = await promptVersion(task, currentVersion, pkg.name);
+    const result = await promptVersion(task, currentVersion, pkg.name, undefined, lastBumpType);
     versions.set(pkg.path, result.version);
+    lastBumpType = result.bumpType;
 
     if (result.version !== currentVersion) {
       bumpedPackages.add(pkg.path);

@@ -962,6 +962,93 @@ describe("requiredMissingInformationTasks", () => {
       );
     });
 
+    it("independent mode: carries last selected bump type as initial for next prompt", async () => {
+      const packages: ResolvedPackageConfig[] = [
+        makePkg({
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/a",
+          dependencies: [],
+        }),
+        makePkg({
+          name: "pkg-b",
+          version: "2.0.0",
+          path: "packages/b",
+          dependencies: [],
+        }),
+        makePkg({
+          name: "pkg-c",
+          version: "3.0.0",
+          path: "packages/c",
+          dependencies: [],
+        }),
+      ];
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { versionPlan: undefined },
+        config: { versioning: "independent", packages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+      // pkg-a: patch (1.0.1), pkg-b: minor (2.1.0), pkg-c: major (4.0.0)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.0.1")
+        .mockResolvedValueOnce("2.1.0")
+        .mockResolvedValueOnce("4.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      const calls = mockTask._promptAdapter.run.mock.calls;
+      // First prompt: no lastBumpType → initial defaults to 0
+      expect(calls[0][0].initial).toBe(0);
+      // Second prompt: lastBumpType = "patch" → RELEASE_TYPES index 4, +1 for "Keep current" = 5
+      expect(calls[1][0].initial).toBe(5);
+      // Third prompt: lastBumpType = "minor" → RELEASE_TYPES index 2, +1 for "Keep current" = 3
+      expect(calls[2][0].initial).toBe(3);
+    });
+
+    it("independent mode: resets initial to 0 when 'Keep current' is selected", async () => {
+      const packages: ResolvedPackageConfig[] = [
+        makePkg({
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/a",
+          dependencies: [],
+        }),
+        makePkg({
+          name: "pkg-b",
+          version: "2.0.0",
+          path: "packages/b",
+          dependencies: [],
+        }),
+      ];
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { versionPlan: undefined },
+        config: { versioning: "independent", packages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+      // pkg-a: keep current (1.0.0), pkg-b: any
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("1.0.0")
+        .mockResolvedValueOnce("2.0.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      const calls = mockTask._promptAdapter.run.mock.calls;
+      // Second prompt: lastBumpType = undefined (kept current) → initial 0
+      expect(calls[1][0].initial).toBe(0);
+    });
+
     it("no-changeset independent: excludes packages with unchanged versions from versionPlan and config", async () => {
       // No changesets — pure manual path goes straight to mode selection
       // (default beforeEach has hasChangesets: false)
@@ -1839,6 +1926,72 @@ describe("requiredMissingInformationTasks", () => {
         ctx,
         new Set(["packages/a", "packages/b"]),
       );
+    });
+
+    it("add_packages: carries last selected bump type as initial for next remaining prompt", async () => {
+      // pkgA is changeset-bumped; pkgB and pkgC are remaining
+      const pkgANoDep = makePkg({
+        name: "@scope/a",
+        version: "1.0.0",
+        path: "packages/a",
+        dependencies: [],
+      });
+      const pkgBNoDep = makePkg({
+        name: "@scope/b",
+        version: "2.0.0",
+        path: "packages/b",
+        dependencies: [],
+      });
+      const pkgCNoDep = makePkg({
+        name: "@scope/c",
+        version: "3.0.0",
+        path: "packages/c",
+        dependencies: [],
+      });
+
+      const ctx: any = {
+        config: {
+          packages: [pkgANoDep, pkgBNoDep, pkgCNoDep],
+          versioning: undefined,
+        },
+        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        cwd: "/cwd",
+        options: {},
+      };
+
+      mockedGetStatus.mockReturnValue({
+        hasChangesets: true,
+        packages: new Map([["packages/a", { changesetCount: 1 }]]),
+        changesets: [],
+      } as any);
+      mockedCalculateVersionBumps.mockReturnValue(
+        new Map([
+          [
+            "packages/a",
+            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
+          ],
+        ]),
+      );
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const mockTask = createMockTask();
+
+      // add_packages → pkgB: patch (2.0.1) → pkgC: minor (3.1.0)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.0.1") // pkgB: patch
+        .mockResolvedValueOnce("3.1.0"); // pkgC: minor
+
+      await versionTask.task(ctx, mockTask);
+
+      const calls = mockTask._promptAdapter.run.mock.calls;
+      // calls[0]: add_packages prompt
+      // calls[1]: pkgB version prompt — no lastBumpType → initial 0
+      expect(calls[1][0].initial).toBe(0);
+      // calls[2]: pkgC version prompt — lastBumpType = "patch" → RELEASE_TYPES index 4, +1 = 5
+      expect(calls[2][0].initial).toBe(5);
     });
 
     it("add_packages: uses pkg.path as display name when package has no name", async () => {
