@@ -36,6 +36,7 @@ const defaultConfig = {
   releaseDraft: true,
   releaseNotes: true,
   rollbackStrategy: "individual" as const,
+  lockfileSync: "optional" as const,
 };
 
 export async function resolveConfig(
