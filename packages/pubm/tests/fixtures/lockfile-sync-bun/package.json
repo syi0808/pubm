@@ -1,0 +1,5 @@
+{
+  "name": "test-lockfile-sync",
+  "private": true,
+  "workspaces": ["packages/*"]
+}
