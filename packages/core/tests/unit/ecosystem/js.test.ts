@@ -263,7 +263,7 @@ describe("JsEcosystem", () => {
 
       expect(result).toBe(lockPath);
       expect(mockedExec).toHaveBeenCalledWith("bun", ["install"], {
-        nodeOptions: { cwd: "/workspace" },
+        nodeOptions: { cwd: path.dirname(lockPath) },
       });
     });
 
@@ -284,7 +284,7 @@ describe("JsEcosystem", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "npm",
         ["install", "--package-lock-only"],
-        { nodeOptions: { cwd: "/workspace" } },
+        { nodeOptions: { cwd: path.dirname(lockPath) } },
       );
     });
 
@@ -305,7 +305,7 @@ describe("JsEcosystem", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "pnpm",
         ["install", "--lockfile-only"],
-        { nodeOptions: { cwd: "/workspace" } },
+        { nodeOptions: { cwd: path.dirname(lockPath) } },
       );
     });
 
@@ -325,7 +325,7 @@ describe("JsEcosystem", () => {
 
       expect(result).toBe(lockPath);
       expect(mockedExec).toHaveBeenCalledWith("yarn", ["install"], {
-        nodeOptions: { cwd: "/workspace" },
+        nodeOptions: { cwd: path.dirname(lockPath) },
       });
     });
 
@@ -349,7 +349,7 @@ describe("JsEcosystem", () => {
       expect(mockedExec).toHaveBeenCalledWith(
         "yarn",
         ["install", "--mode", "update-lockfile"],
-        { nodeOptions: { cwd: "/workspace" } },
+        { nodeOptions: { cwd: path.dirname(lockPath) } },
       );
     });
 
