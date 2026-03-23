@@ -235,6 +235,45 @@ describe("writeVersionsForEcosystem", () => {
       expect(ecoA.syncLockfile).toHaveBeenCalled();
       expect(ecoB.syncLockfile).toHaveBeenCalled();
     });
+
+    it("deduplicates lockfile paths when multiple ecosystems return the same path", async () => {
+      const sharedLockPath = "/workspace/bun.lock";
+      const ecoA = createMockEcosystem("pkg-a", sharedLockPath);
+      const ecoB = createMockEcosystem("pkg-b", sharedLockPath);
+
+      const ecosystems = [
+        { eco: ecoA, pkg: createMockPkg("pkg-a") },
+        { eco: ecoB, pkg: createMockPkg("pkg-b") },
+      ];
+      const versions = new Map([
+        ["/mock/pkg-a", "2.0.0"],
+        ["/mock/pkg-b", "3.0.0"],
+      ]);
+
+      const result = await writeVersionsForEcosystem(ecosystems, versions);
+
+      expect(result).toEqual([sharedLockPath]);
+    });
+
+    it("passes lockfileSync mode to syncLockfile", async () => {
+      const eco = createMockEcosystem("pkg-a");
+      const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
+
+      await writeVersionsForEcosystem(ecosystems, versions, "skip");
+
+      expect(eco.syncLockfile).toHaveBeenCalledWith("skip");
+    });
+
+    it("defaults to undefined lockfileSync when not provided", async () => {
+      const eco = createMockEcosystem("pkg-a");
+      const ecosystems = [{ eco, pkg: createMockPkg("pkg-a") }];
+      const versions = new Map([["/mock/pkg-a", "2.0.0"]]);
+
+      await writeVersionsForEcosystem(ecosystems, versions);
+
+      expect(eco.syncLockfile).toHaveBeenCalledWith(undefined);
+    });
   });
 
   describe("empty ecosystems", () => {
