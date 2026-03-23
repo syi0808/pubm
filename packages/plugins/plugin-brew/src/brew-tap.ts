@@ -125,17 +125,34 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           const { tmpdir } = await import("node:os");
           const { basename, join } = await import("node:path");
           const { execSync } = await import("node:child_process");
+          const { resolveGitHubToken } = await import("@pubm/core");
 
           const tmpDir = join(tmpdir(), `pubm-brew-tap-${Date.now()}`);
           const formulaFile = basename(formulaPath);
 
-          const ghToken = process.env.GITHUB_TOKEN;
-          const repoUrl = /^[^/]+\/[^/]+$/.test(options.repo)
-            ? ghToken
-              ? `https://x-access-token:${ghToken}@github.com/${options.repo}.git`
-              : `https://github.com/${options.repo}.git`
+          // Normalize repo to HTTPS URL
+          const isShorthand = /^[^/]+\/[^/]+$/.test(options.repo);
+          const repoUrl = isShorthand
+            ? `https://github.com/${options.repo}.git`
             : options.repo;
-          execSync(`git clone --depth 1 ${repoUrl} ${tmpDir}`, {
+
+          // Extract owner/repo for gh CLI
+          const ownerRepoMatch = repoUrl.match(
+            /github\.com[/:]([^/]+\/[^/.]+?)(?:\.git)?$/,
+          );
+          const ownerRepo = ownerRepoMatch?.[1] ?? options.repo;
+
+          // Embed token in clone URL for CI auth
+          let cloneUrl = repoUrl;
+          const tokenResult = resolveGitHubToken();
+          if (tokenResult?.token && repoUrl.startsWith("https://github.com/")) {
+            cloneUrl = repoUrl.replace(
+              "https://github.com/",
+              `https://x-access-token:${tokenResult.token}@github.com/`,
+            );
+          }
+
+          execSync(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, {
             stdio: "inherit",
           });
           ensureGitIdentity(tmpDir);
@@ -154,21 +171,18 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           );
 
           try {
-            execSync(`git -C ${tmpDir} push`, { stdio: "inherit" });
+            execSync(`cd ${tmpDir} && git push`, { stdio: "inherit" });
           } catch {
             const branch = `pubm/brew-formula-v${releaseCtx.version}`;
-            execSync(`git -C ${tmpDir} checkout -b ${branch}`, {
+            execSync(`cd ${tmpDir} && git checkout -b ${branch}`, {
               stdio: "inherit",
             });
-            execSync(`git -C ${tmpDir} push origin ${branch}`, {
+            execSync(`cd ${tmpDir} && git push origin ${branch}`, {
               stdio: "inherit",
             });
-            const repoSlug = /^[^/]+\/[^/]+$/.test(options.repo)
-              ? options.repo
-              : "";
             execSync(
-              `gh pr create --repo ${repoSlug} --title "Update ${formulaFile} to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
-              { stdio: "inherit", cwd: tmpDir },
+              `gh pr create --repo ${ownerRepo} --title "chore(brew): update formula to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
+              { stdio: "inherit" },
             );
             console.log(`Created PR on branch ${branch}`);
           }
