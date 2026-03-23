@@ -129,8 +129,11 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           const tmpDir = join(tmpdir(), `pubm-brew-tap-${Date.now()}`);
           const formulaFile = basename(formulaPath);
 
+          const ghToken = process.env.GITHUB_TOKEN;
           const repoUrl = /^[^/]+\/[^/]+$/.test(options.repo)
-            ? `https://github.com/${options.repo}.git`
+            ? ghToken
+              ? `https://x-access-token:${ghToken}@github.com/${options.repo}.git`
+              : `https://github.com/${options.repo}.git`
             : options.repo;
           execSync(`git clone --depth 1 ${repoUrl} ${tmpDir}`, {
             stdio: "inherit",
@@ -146,10 +149,29 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
               `cd ${tmpDir}`,
               `git add Formula/${formulaFile}`,
               `git commit -m "Update ${formulaFile} to ${releaseCtx.version}"`,
-              "git push",
             ].join(" && "),
             { stdio: "inherit" },
           );
+
+          try {
+            execSync(`git -C ${tmpDir} push`, { stdio: "inherit" });
+          } catch {
+            const branch = `pubm/brew-formula-v${releaseCtx.version}`;
+            execSync(`git -C ${tmpDir} checkout -b ${branch}`, {
+              stdio: "inherit",
+            });
+            execSync(`git -C ${tmpDir} push origin ${branch}`, {
+              stdio: "inherit",
+            });
+            const repoSlug = /^[^/]+\/[^/]+$/.test(options.repo)
+              ? options.repo
+              : "";
+            execSync(
+              `gh pr create --repo ${repoSlug} --title "Update ${formulaFile} to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
+              { stdio: "inherit", cwd: tmpDir },
+            );
+            console.log(`Created PR on branch ${branch}`);
+          }
         }
       },
     },
