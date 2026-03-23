@@ -1,6 +1,6 @@
 {
   "name": "@pubm/plugin-brew",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "pubm plugin for Homebrew formula publishing workflows",
   "main": "./dist/index.js",

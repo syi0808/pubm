@@ -1,6 +1,6 @@
 {
   "name": "pubm",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "publish manager for multiple registry (jsr, npm and private registries)",
   "types": "./index.d.ts",
