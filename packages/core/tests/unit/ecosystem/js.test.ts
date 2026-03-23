@@ -262,9 +262,13 @@ describe("JsEcosystem", () => {
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
-      expect(mockedExec).toHaveBeenCalledWith("bun", ["install"], {
-        nodeOptions: { cwd: path.dirname(lockPath) },
-      });
+      expect(mockedExec).toHaveBeenCalledWith(
+        "bun",
+        ["install", "--lockfile-only"],
+        {
+          nodeOptions: { cwd: path.dirname(lockPath) },
+        },
+      );
     });
 
     it("finds package-lock.json and runs npm install --package-lock-only", async () => {

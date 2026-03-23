@@ -15,7 +15,7 @@ export function getInstallCommand(
 ): string[] {
   switch (pm) {
     case "bun":
-      return ["bun", "install"];
+      return ["bun", "install", "--lockfile-only"];
     case "npm":
       return ["npm", "install", "--package-lock-only"];
     case "pnpm":
