@@ -1,18 +1,18 @@
 ---
 title: CI/CD
-description: CI-Vorbereitung, Token-Verwaltung und Release-Automatisierung fuer pubm einrichten.
+description: CI-Vorbereitung, Token-Verwaltung und Release-Automatisierung für pubm einrichten.
 ---
 
-`pubm` ist so gebaut, dass es in lokalen Terminals und in CI-Runntern gleich gut funktioniert. Der wichtige Punkt ist: Die normale `pubm`-Pipeline kann ausstehende Changesets bereits waehrend des Versionierungsschritts verbrauchen. Du brauchst also keinen zusaetzlichen `pubm changesets version`-Schritt, nur um CI vorzubereiten.
+`pubm` ist so gebaut, dass es in lokalen Terminals und in CI-Runntern gleich gut funktioniert. Der wichtige Punkt ist: Die normale `pubm`-Pipeline kann ausstehende Changesets bereits während des Versionierungsschritts verbrauchen. Du brauchst also keinen zusätzlichen `pubm changesets version`-Schritt, nur um CI vorzubereiten.
 
-`pubm init` kann waehrend des Setups CI-Workflows fuer dich erzeugen. Der Wizard bietet an, `.github/workflows/release.yml` (tag-gesteuertes Publish) und `.github/workflows/changeset-check.yml` (PR-Changeset-Durchsetzung) zu erstellen, damit du sie nicht von Hand schreiben musst.
+`pubm init` kann während des Setups CI-Workflows für dich erzeugen. Der Wizard bietet an, `.github/workflows/release.yml` (tag-gesteuertes Publish) und `.github/workflows/changeset-check.yml` (PR-Changeset-Durchsetzung) zu erstellen, damit du sie nicht von Hand schreiben musst.
 
 ## Recommended release model
 
 Use two phases:
 
 1. fuehre `pubm --mode ci --phase prepare` lokal oder in einem kontrollierten Release-Job aus
-2. veroeffentliche aus CI mit `pubm --mode ci --phase publish`
+2. veröffentliche aus CI mit `pubm --mode ci --phase publish`
 
 ```bash
 pubm --mode ci --phase prepare
@@ -28,13 +28,13 @@ pubm --mode ci --phase publish
 
 - sammelt Registry-Tokens ein
 - synchronisiert sie optional mit GitHub Secrets
-- fuehrt Pruefungen fuer Voraussetzungen und Pflichtbedingungen aus
+- fuehrt Prüfungen für Voraussetzungen und Pflichtbedingungen aus
 - fuehrt Tests und Build aus, sofern sie nicht uebersprungen werden
-- verbraucht ausstehende Changesets waehrend der Versionierung, wenn vorhanden
+- verbraucht ausstehende Changesets während der Versionierung, wenn vorhanden
 - erstellt den Release-Commit und pusht Tags sowie Branch-Aktualisierungen
-- fuehrt Publish-Aufgaben im Dry-Run aus, statt wirklich zu veroeffentlichen
+- fuehrt Publish-Aufgaben im Dry-Run aus, statt wirklich zu veröffentlichen
 
-Daher musst du nach der CI-Vorbereitung nicht noch `pubm patch --dry-run` ausfuehren.
+Daher musst du nach der CI-Vorbereitung nicht noch `pubm patch --dry-run` ausführen.
 
 ## Required environment variables
 
@@ -48,7 +48,7 @@ In CI, provide registry tokens with environment variables:
 
 ## Syncing GitHub secrets
 
-Wenn du Tokens bereits lokal ueber einen CI-Vorbereitungslauf gespeichert hast, kannst du sie so in GitHub Secrets uebertragen:
+Wenn du Tokens bereits lokal über einen CI-Vorbereitungslauf gespeichert hast, kannst du sie so in GitHub Secrets uebertragen:
 
 ```bash
 pubm secrets sync
@@ -92,7 +92,7 @@ jobs:
 
 ### Shallow checkout
 
-Tag-basierte und verlaufssensitive Operationen brauchen vollstaendige Git-Informationen. Verwende fuer Release-Jobs `fetch-depth: 0`.
+Tag-basierte und verlaufssensitive Operationen brauchen vollständige Git-Informationen. Verwende für Release-Jobs `fetch-depth: 0`.
 
 ### Missing registry tokens
 
@@ -100,11 +100,11 @@ Tag-basierte und verlaufssensitive Operationen brauchen vollstaendige Git-Inform
 
 ### npm 2FA token mismatch
 
-Verwende fuer CI-Veroeffentlichungen Automation-kompatible Tokens.
+Verwende für CI-Veröffentlichungen Automation-kompatible Tokens.
 
 ### Build output is not present in `contents`
 
-Wenn du aus `dist/` veroeffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --mode ci --phase publish` laeuft.
+Wenn du aus `dist/` veröffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --mode ci --phase publish` laeuft.
 
 ## GitHub Release assets
 
@@ -112,7 +112,7 @@ Wenn dein Projekt `releaseAssets` in `pubm.config.ts` nutzt, fuehrt `pubm --mode
 
 ### `GITHUB_TOKEN` requirement
 
-GitHub-Release-Erstellung und Asset-Upload nutzen die GitHub API. Stelle `GITHUB_TOKEN` bereit, oder alternativ ein fein granulars Token mit `contents: write`-Berechtigung. Das Token wird fuer jede GitHub-Release-Erstellung benoetigt, nicht nur fuer Asset-Uploads:
+GitHub-Release-Erstellung und Asset-Upload nutzen die GitHub API. Stelle `GITHUB_TOKEN` bereit, oder alternativ ein fein granulars Token mit `contents: write`-Berechtigung. Das Token wird für jede GitHub-Release-Erstellung benötigt, nicht nur für Asset-Uploads:
 
 ```yaml
 - run: pubm --mode ci --phase publish
@@ -121,11 +121,11 @@ GitHub-Release-Erstellung und Asset-Upload nutzen die GitHub API. Stelle `GITHUB
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-GitHub Actions fuegt `GITHUB_TOKEN` in jedem Workflow-Lauf als eingebautes Secret ein. Du musst es nicht manuell anlegen, sondern nur ueber die Umgebung weiterreichen.
+GitHub Actions fuegt `GITHUB_TOKEN` in jedem Workflow-Lauf als eingebautes Secret ein. Du musst es nicht manuell anlegen, sondern nur über die Umgebung weiterreichen.
 
 ### Build outputs must exist before upload
 
-Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --mode ci --phase publish` ausgefuehrt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
+Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --mode ci --phase publish` ausgeführt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
 
 ### Example with release assets
 
@@ -159,6 +159,6 @@ jobs:
 
 ## Next steps
 
-- Lies den Leitfaden [Troubleshooting](/pubm/de/de/guides/troubleshooting/) fuer die Fehleranalyse.
-- Lies die [CLI-Referenz](/pubm/de/de/reference/cli/) fuer alle in CI genutzten Ausfuehrungsflags.
-- Lies den Leitfaden [Release Assets](/pubm/de/de/guides/release-assets/), um `releaseAssets` in deinem Projekt zu konfigurieren.
+- Lies den Leitfaden [Troubleshooting](/pubm/de/guides/troubleshooting/) für die Fehleranalyse.
+- Lies die [CLI-Referenz](/pubm/de/reference/cli/) für alle in CI genutzten Ausführungsflags.
+- Lies den Leitfaden [Release Assets](/pubm/de/guides/release-assets/), um `releaseAssets` in deinem Projekt zu konfigurieren.

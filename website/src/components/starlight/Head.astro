@@ -1,0 +1,41 @@
+---
+import Default from "@astrojs/starlight/components/Head.astro";
+import type { Props } from "@astrojs/starlight/props";
+
+const { entry, slug } = Astro.props;
+const siteUrl = "https://syi0808.github.io/pubm";
+
+let breadcrumbSchema: string | null = null;
+
+if (slug) {
+  const segments = slug.split("/").filter(Boolean);
+  const breadcrumbItems = [
+    { name: "Home", url: `${siteUrl}/` },
+    ...segments.map((segment: string, i: number) => ({
+      name: segment
+        .split("-")
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" "),
+      url: `${siteUrl}/${segments.slice(0, i + 1).join("/")}/`,
+    })),
+  ];
+
+  if (breadcrumbItems.length > 1 && entry?.data?.title) {
+    breadcrumbItems[breadcrumbItems.length - 1].name = entry.data.title;
+  }
+
+  breadcrumbSchema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  });
+}
+---
+
+<Default {...Astro.props}><slot /></Default>
+{breadcrumbSchema && <script type="application/ld+json" set:html={breadcrumbSchema} />}

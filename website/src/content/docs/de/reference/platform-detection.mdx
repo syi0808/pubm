@@ -1,9 +1,9 @@
 ---
 title: Plattform-Erkennung
-description: Eingebaute Tabellen fuer OS, Architektur, ABI und Varianten, die fuer die automatische Plattform-Analyse verwendet werden.
+description: Eingebaute Tabellen für OS, Architektur, ABI und Varianten, die für die automatische Plattform-Analyse verwendet werden.
 ---
 
-`pubm` bringt eine eingebaute Plattform-Erkennungs-Engine mit, die OS, Architektur, ABI und Varianten aus Dateipfaden analysiert. Das bildet die Grundlage fuer automatische Asset-Benennung, OS-abhängige Standardwerte bei der Komprimierung und das strukturierte `ParsedPlatform`-Objekt, das von Plugins wie `@pubm/plugin-brew` verwendet wird.
+`pubm` bringt eine eingebaute Plattform-Erkennungs-Engine mit, die OS, Architektur, ABI und Varianten aus Dateipfaden analysiert. Das bildet die Grundlage für automatische Asset-Benennung, OS-abhängige Standardwerte bei der Komprimierung und das strukturierte `ParsedPlatform`-Objekt, das von Plugins wie `@pubm/plugin-brew` verwendet wird.
 
 ## Wie das Parsen funktioniert
 
@@ -21,7 +21,7 @@ Es gibt zwei Modi:
 { path: "platforms/{platform}/bin/mytool" }
 ```
 
-**Automatisches Scannen von Segmenten.** Wenn keine Capture-Variablen verwendet werden, zerlegt `pubm` den Pfad zuerst an `/` in Segmente und dann jedes Segment an `-`. Jedes daraus entstehende Token wird der Reihe nach gegen die Tabellen fuer OS, Architektur, ABI, Variante und Vendor getestet. Der erste Treffer pro Kategorie gewinnt.
+**Automatisches Scannen von Segmenten.** Wenn keine Capture-Variablen verwendet werden, zerlegt `pubm` den Pfad zuerst an `/` in Segmente und dann jedes Segment an `-`. Jedes daraus entstehende Token wird der Reihe nach gegen die Tabellen für OS, Architektur, ABI, Variante und Vendor getestet. Der erste Treffer pro Kategorie gewinnt.
 
 ```ts
 // Pfad: platforms/darwin-arm64/bin/pubm
@@ -36,11 +36,11 @@ Tokens, die zu keiner Tabelle passen, werden ignoriert.
 
 Die Template-Variable `{platform}` enthaelt den rohen Plattform-String:
 
-- wenn `{platform}` als Capture-Variable verwendet wurde: das erfasste Segment unveraendert (`darwin-arm64`)
+- wenn `{platform}` als Capture-Variable verwendet wurde: das erfasste Segment unverändert (`darwin-arm64`)
 - wenn einzelne Capture-Variablen verwendet wurden (`{os}`, `{arch}`): zusammengesetzt als `{os}-{arch}`
 - wenn automatische Erkennung verwendet wurde: das passende Pfadsegment (`darwin-arm64`)
 
-Vendor, ABI und Variante werden absichtlich aus `{platform}` ausgeschlossen, damit der haeufige Fall kurz und lesbar bleibt. Sie sind einzeln ueber `{vendor}`, `{abi}` und `{variant}` erreichbar.
+Vendor, ABI und Variante werden absichtlich aus `{platform}` ausgeschlossen, damit der häufige Fall kurz und lesbar bleibt. Sie sind einzeln über `{vendor}`, `{abi}` und `{variant}` erreichbar.
 
 ## `ParsedPlatform`-Typ
 
@@ -56,11 +56,11 @@ interface ParsedPlatform {
 }
 ```
 
-Dieses Objekt wird jedem Asset angehaengt, das durch die Pipeline laeuft, und ueber `ReleaseAsset.platform` im `afterRelease`-Hook sichtbar.
+Dieses Objekt wird jedem Asset angehaengt, das durch die Pipeline laeuft, und über `ReleaseAsset.platform` im `afterRelease`-Hook sichtbar.
 
 ## OS-Tabelle
 
-Kanonische Werte werden in Template-Variablen und Plugin-Vergleichen verwendet. Aliase werden waehrend des Pfad-Parsens erkannt.
+Kanonische Werte werden in Template-Variablen und Plugin-Vergleichen verwendet. Aliase werden während des Pfad-Parsens erkannt.
 
 | Canonical | Aliases |
 |-----------|---------|
@@ -105,12 +105,12 @@ Kanonische Werte werden in Template-Variablen und Plugin-Vergleichen verwendet. 
 
 ## ABI-Tabelle
 
-ABI-Tokens tauchen in Rust-Zieltripletts und Toolchain-Namen fuer Cross-Compilation auf.
+ABI-Tokens tauchen in Rust-Zieltripletts und Toolchain-Namen für Cross-Compilation auf.
 
 | Value | Meaning |
 |-------|---------|
 | `gnu` / `glibc` | GNU C Library |
-| `musl` | musl libc (gut fuer statische Builds) |
+| `musl` | musl libc (gut für statische Builds) |
 | `msvc` | Microsoft Visual C++ Runtime |
 | `mingw` / `mingw32` / `mingw-w64` | MinGW-Toolchain |
 | `gnueabihf` | ARM hard-float mit glibc |
@@ -118,7 +118,7 @@ ABI-Tokens tauchen in Rust-Zieltripletts und Toolchain-Namen fuer Cross-Compilat
 | `musleabihf` | ARM hard-float mit musl |
 | `musleabi` | ARM soft-float mit musl |
 | `androideabi` | Android ARM EABI |
-| `uclibc` | uClibc fuer eingebettete Targets |
+| `uclibc` | uClibc für eingebettete Targets |
 | `bionic` | Androids Bionic-C-Bibliothek |
 
 ## Varianten-Tabelle
@@ -136,11 +136,11 @@ Variant-Tokens beschreiben Mikroarchitektur-Stufen oder Faehigkeitsanforderungen
 
 ## Vendor-Tabelle
 
-Vendor-Tokens werden waehrend des Parsens erkannt, aber nicht in die `{platform}`-Variable aufgenommen. Du erreichst sie ueber `{vendor}`.
+Vendor-Tokens werden während des Parsens erkannt, aber nicht in die `{platform}`-Variable aufgenommen. Du erreichst sie über `{vendor}`.
 
 | Value | Meaning |
 |-------|---------|
-| `unknown` | Generisch (Rust-Standard fuer Linux-Targets) |
+| `unknown` | Generisch (Rust-Standard für Linux-Targets) |
 | `apple` | Apple-Plattformen (macOS, iOS) |
 | `pc` | PC/Desktop (Windows, Solaris) |
 | `none` | Bare-Metal-Targets |
@@ -204,5 +204,5 @@ bin/myapp-armv7l      -> arch: "arm"
 
 ## Verwandte Doku
 
-- [Release Assets](/pubm/de/de/guides/release-assets/) - Konfigurationsleitfaden
-- [Asset Pipeline Hooks](/pubm/de/de/guides/asset-pipeline-hooks/) - Referenz fuer Plugin-Hooks
+- [Release Assets](/pubm/de/guides/release-assets/) - Konfigurationsleitfaden
+- [Asset Pipeline Hooks](/pubm/de/guides/asset-pipeline-hooks/) - Referenz für Plugin-Hooks

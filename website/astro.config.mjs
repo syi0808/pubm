@@ -217,6 +217,13 @@ export default defineConfig({
       title: "pubm",
       description:
         "Publish across npm, jsr, crates.io, and private registries from one command.",
+      lastUpdated: true,
+      editLink: {
+        baseUrl: "https://github.com/syi0808/pubm/edit/main/website/",
+      },
+      components: {
+        Head: "./src/components/starlight/Head.astro",
+      },
       locales: {
         root: { label: "English", lang: "en" },
         ko: { label: "한국어", lang: "ko" },
@@ -254,6 +261,14 @@ export default defineConfig({
             content:
               "https://syi0808.github.io/pubm/logo_typo_with_transparent.png",
           },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:site", content: "@castle_0808" },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:creator", content: "@castle_0808" },
         },
       ],
       social: [

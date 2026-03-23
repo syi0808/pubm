@@ -60,9 +60,9 @@ Sechs Hooks erlauben es Plugins, jede Stufe der Release-Asset-Pipeline abzufange
 | `generateChecksums` | Nachdem alle Assets benannt und gehasht wurden | `PreparedAsset[]` -> `PreparedAsset[]` |
 | `uploadAssets` | Nach dem GitHub-Release-Upload | `PreparedAsset[]` -> `UploadedAsset[]` |
 
-Wenn mehrere Plugins denselben Asset-Pipeline-Hook registrieren, werden sie in Registrierungsreihenfolge verkettet. `uploadAssets` ist die Ausnahme: Jedes Plugin erhaelt dieselbe Eingabe unabhaengig, und alle Ergebnisse werden zusammengefuehrt.
+Wenn mehrere Plugins denselben Asset-Pipeline-Hook registrieren, werden sie in Registrierungsreihenfolge verkettet. `uploadAssets` ist die Ausnahme: Jedes Plugin erhält dieselbe Eingabe unabhängig, und alle Ergebnisse werden zusammengefuehrt.
 
-Lies [Asset Pipeline Hooks](/pubm/de/de/guides/asset-pipeline-hooks/) fuer vollstaendige Signaturen, Beispiele und Kompositionsregeln.
+Lies [Asset Pipeline Hooks](/pubm/de/guides/asset-pipeline-hooks/) für vollständige Signaturen, Beispiele und Kompositionsregeln.
 
 ## Hook-Signaturen
 
@@ -140,10 +140,10 @@ export interface PluginSubcommand {
 
 ## Benutzerdefinierte Registries und Ecosystems
 
-Verwende benutzerdefinierte Registries, wenn du ein weiteres Publish-Ziel brauchst. Verwende benutzerdefinierte Ecosystems, wenn du `pubm` beibringen willst, wie Versionsdaten fuer einen anderen Pakettyp gelesen und geschrieben werden.
+Verwende benutzerdefinierte Registries, wenn du ein weiteres Publish-Ziel brauchst. Verwende benutzerdefinierte Ecosystems, wenn du `pubm` beibringen willst, wie Versionsdaten für einen anderen Pakettyp gelesen und geschrieben werden.
 
 ## Verwandte Doku
 
-- [Konfiguration](/pubm/de/de/guides/configuration/)
-- [Coding Agent Integration](/pubm/de/de/guides/coding-agents/)
-- [Offizielle Plugins](/pubm/de/de/reference/official-plugins/)
+- [Konfiguration](/pubm/de/guides/configuration/)
+- [Coding Agent Integration](/pubm/de/guides/coding-agents/)
+- [Offizielle Plugins](/pubm/de/reference/official-plugins/)

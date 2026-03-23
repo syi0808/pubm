@@ -1,6 +1,57 @@
 ---
 title: Troubleshooting
 description: Diagnose the most common release, config, and registry issues in pubm.
+head:
+  - tag: script
+    attrs:
+      type: application/ld+json
+    content: |
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What do I do when pubm publish is blocked by Git state?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Commit or stash local changes, confirm you are on the expected branch, and only use --any-branch if you genuinely want weaker release safety."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Why does pubm say no changesets were found?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm files exist in .pubm/changesets/, make sure you are in the repository root, and if migrating from .changeset/, run pubm changesets migrate."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I fix npm publish auth or permission errors with pubm?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Verify NODE_AUTH_TOKEN, confirm the token has publish access, use automation-compatible tokens in CI, and confirm the package access level matches registry expectations."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Why does pubm CI publish fail when local publish succeeds?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "CI disables prompts and tokens must come from environment variables. Run pubm --mode ci --phase prepare locally to simulate, use full Git history in CI, and confirm every required token is present."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What happens when pubm rolls back and the repository state looks confusing?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Inspect current tags with git tag, check working tree status with git status, and rerun only after understanding which step failed first. Diagnose the original cause, not the rollback messages."
+            }
+          }
+        ]
+      }
 ---
 
 This guide focuses on the failure modes that matter most in practice: configuration loading, versioning, registry auth, Git state, and CI behavior.
@@ -248,3 +299,10 @@ pubm --mode ci --phase prepare
 ```
 
 Only rerun a real publish after the dry-run and CI preparation outputs make sense again.
+
+## Related pages
+
+- [CLI Reference](/pubm/reference/cli/) — full list of flags and execution modes
+- [Configuration](/pubm/guides/configuration/) — config file format and option reference
+- [CI/CD](/pubm/guides/ci-cd/) — CI preparation, token handling, and release automation
+- [Changesets](/pubm/guides/changesets/) — how changesets drive version bumps and changelogs
