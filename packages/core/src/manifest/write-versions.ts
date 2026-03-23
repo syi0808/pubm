@@ -4,6 +4,7 @@ import type { Ecosystem } from "../ecosystem/ecosystem.js";
 export async function writeVersionsForEcosystem(
   ecosystems: { eco: Ecosystem; pkg: ResolvedPackageConfig }[],
   versions: Map<string, string>,
+  lockfileSync?: "required" | "optional" | "skip",
 ): Promise<string[]> {
   const modifiedFiles: string[] = [];
 
@@ -34,10 +35,14 @@ export async function writeVersionsForEcosystem(
     );
   }
 
-  // Phase 3: Sync lockfiles
+  // Phase 3: Sync lockfiles (deduplicated)
+  const syncedLockfiles = new Set<string>();
   for (const { eco } of ecosystems) {
-    const lockfilePath = await eco.syncLockfile();
-    if (lockfilePath) modifiedFiles.push(lockfilePath);
+    const lockfilePath = await eco.syncLockfile(lockfileSync);
+    if (lockfilePath && !syncedLockfiles.has(lockfilePath)) {
+      syncedLockfiles.add(lockfilePath);
+      modifiedFiles.push(lockfilePath);
+    }
   }
 
   return modifiedFiles;

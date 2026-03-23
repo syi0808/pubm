@@ -119,7 +119,7 @@ export async function runVersionCommand(
   for (const [pkgPath, bump] of bumps) {
     versions.set(pkgPath, bump.newVersion);
   }
-  await writeVersionsForEcosystem(ecosystems, versions);
+  await writeVersionsForEcosystem(ecosystems, versions, config.lockfileSync);
 
   // Write changelogs
   for (const { pkgPath, content } of changelogs.values()) {

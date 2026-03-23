@@ -133,6 +133,7 @@ describe("runVersionCommand", () => {
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([[".", "1.1.0"]]),
+      undefined,
     );
     expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(changesets, ".");
     expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", entries);
@@ -364,6 +365,7 @@ describe("runVersionCommand", () => {
         ["packages/pkg-a", "1.1.0"],
         ["packages/pkg-b", "1.1.0"],
       ]),
+      undefined,
     );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
       path.resolve("/tmp/project", "packages/pkg-a"),

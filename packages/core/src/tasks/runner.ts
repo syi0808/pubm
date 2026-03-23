@@ -154,7 +154,11 @@ async function writeVersions(
     return { eco, pkg };
   });
 
-  const lockfileChanges = await writeVersionsForEcosystem(ecosystems, versions);
+  const lockfileChanges = await writeVersionsForEcosystem(
+    ecosystems,
+    versions,
+    ctx.config.lockfileSync,
+  );
 
   // Collect manifest file paths for git staging
   const manifestFiles = ecosystems.flatMap(({ eco }) =>
