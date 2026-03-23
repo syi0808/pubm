@@ -25,10 +25,6 @@ const { locale, copy } = Astro.props;
     </div>
 
     <div class="footer-col footer-badges">
-      <div class="badge-row">
-        <img src="https://img.shields.io/npm/v/pubm" alt="npm version" />
-        <img src="https://jsr.io/badges/@pubm/pubm/score" alt="jsr score" />
-      </div>
       <span class="footer-license">Apache-2.0</span>
     </div>
   </div>
@@ -93,16 +89,7 @@ const { locale, copy } = Astro.props;
     gap: 0.5rem;
   }
 
-  .badge-row {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .badge-row img {
-    height: 20px;
-  }
-
-  .footer-license {
+.footer-license {
     color: var(--text-muted);
     font-size: 0.8rem;
   }
