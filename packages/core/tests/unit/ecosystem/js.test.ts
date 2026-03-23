@@ -17,8 +17,17 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
-vi.mock("../../../src/utils/package-manager.js", () => ({
-  getPackageManager: vi.fn(),
+vi.mock("../../../src/utils/package-manager.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../src/utils/package-manager.js")>();
+  return {
+    ...actual,
+    getPackageManager: vi.fn(),
+  };
+});
+
+vi.mock("../../../src/utils/exec.js", () => ({
+  exec: vi.fn(),
 }));
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -28,7 +37,9 @@ import { JsEcosystemDescriptor } from "../../../src/ecosystem/js-descriptor.js";
 import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
+import { exec } from "../../../src/utils/exec.js";
 
+const mockedExec = vi.mocked(exec);
 const mockedReadFile = vi.mocked(readFile);
 const mockedWriteFile = vi.mocked(writeFile);
 const mockedStat = vi.mocked(stat);
@@ -224,6 +235,149 @@ describe("JsEcosystem", () => {
       const jsDescriptor = descriptor as JsEcosystemDescriptor;
       expect(jsDescriptor.npmName).toBeUndefined();
       expect(jsDescriptor.jsrName).toBeUndefined();
+    });
+  });
+
+  describe("syncLockfile", () => {
+    it("returns undefined when mode is skip", async () => {
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.syncLockfile("skip");
+      expect(result).toBeUndefined();
+      expect(mockedExec).not.toHaveBeenCalled();
+    });
+
+    it("finds bun.lock walking upward and runs bun install", async () => {
+      const lockPath = path.join("/workspace", "bun.lock");
+      mockedStat.mockImplementation(async (filePath) => {
+        if (String(filePath) === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBe(lockPath);
+      expect(mockedExec).toHaveBeenCalledWith("bun", ["install"], {
+        nodeOptions: { cwd: "/workspace" },
+      });
+    });
+
+    it("finds package-lock.json and runs npm install --package-lock-only", async () => {
+      const lockPath = path.join("/workspace", "package-lock.json");
+      mockedStat.mockImplementation(async (filePath) => {
+        if (String(filePath) === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBe(lockPath);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        ["install", "--package-lock-only"],
+        { nodeOptions: { cwd: "/workspace" } },
+      );
+    });
+
+    it("finds pnpm-lock.yaml and runs pnpm install --lockfile-only", async () => {
+      const lockPath = path.join("/workspace", "pnpm-lock.yaml");
+      mockedStat.mockImplementation(async (filePath) => {
+        if (String(filePath) === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBe(lockPath);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "pnpm",
+        ["install", "--lockfile-only"],
+        { nodeOptions: { cwd: "/workspace" } },
+      );
+    });
+
+    it("detects yarn v1 (no .yarnrc.yml) and runs yarn install", async () => {
+      const lockPath = path.join("/workspace", "yarn.lock");
+      mockedStat.mockImplementation(async (filePath) => {
+        const p = String(filePath);
+        if (p === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBe(lockPath);
+      expect(mockedExec).toHaveBeenCalledWith("yarn", ["install"], {
+        nodeOptions: { cwd: "/workspace" },
+      });
+    });
+
+    it("detects yarn v2+ (.yarnrc.yml exists) and runs yarn install --mode update-lockfile", async () => {
+      const lockPath = path.join("/workspace", "yarn.lock");
+      const yarnrcPath = path.join("/workspace", ".yarnrc.yml");
+      mockedStat.mockImplementation(async (filePath) => {
+        const p = String(filePath);
+        if (p === lockPath || p === yarnrcPath)
+          return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBe(lockPath);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "yarn",
+        ["install", "--mode", "update-lockfile"],
+        { nodeOptions: { cwd: "/workspace" } },
+      );
+    });
+
+    it("returns undefined when no lock file is found", async () => {
+      mockedStat.mockRejectedValue(new Error("ENOENT"));
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile();
+
+      expect(result).toBeUndefined();
+      expect(mockedExec).not.toHaveBeenCalled();
+    });
+
+    it("warns and returns undefined on failure in optional mode", async () => {
+      const lockPath = path.join("/workspace", "bun.lock");
+      mockedStat.mockImplementation(async (filePath) => {
+        if (String(filePath) === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockRejectedValue(new Error("bun not found"));
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const result = await eco.syncLockfile("optional");
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("throws on failure in required mode", async () => {
+      const lockPath = path.join("/workspace", "bun.lock");
+      mockedStat.mockImplementation(async (filePath) => {
+        if (String(filePath) === lockPath) return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedExec.mockRejectedValue(new Error("bun not found"));
+
+      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      await expect(eco.syncLockfile("required")).rejects.toThrow("bun not found");
     });
   });
 

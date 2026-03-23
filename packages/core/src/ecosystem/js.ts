@@ -1,11 +1,17 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { JsrPackageRegistry } from "../registry/jsr.js";
 import { NpmPackageRegistry } from "../registry/npm.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
-import { getPackageManager } from "../utils/package-manager.js";
+import {
+  type PackageManager,
+  getInstallCommand,
+  getPackageManager,
+  lockFiles,
+} from "../utils/package-manager.js";
+import { exec } from "../utils/exec.js";
 import type { EcosystemDescriptor } from "./descriptor.js";
 import { Ecosystem } from "./ecosystem.js";
 import { JsEcosystemDescriptor } from "./js-descriptor.js";
@@ -57,6 +63,72 @@ export class JsEcosystem extends Ecosystem {
 
   supportedRegistries(): RegistryType[] {
     return ["npm", "jsr"];
+  }
+
+  async syncLockfile(
+    mode: "required" | "optional" | "skip" = "optional",
+  ): Promise<string | undefined> {
+    if (mode === "skip") return undefined;
+
+    const found = await this.findLockfile();
+    if (!found) return undefined;
+
+    const { lockfilePath, packageManager } = found;
+    const lockfileDir = path.dirname(lockfilePath);
+
+    try {
+      let isYarnBerry: boolean | undefined;
+      if (packageManager === "yarn") {
+        const yarnrcPath = path.join(lockfileDir, ".yarnrc.yml");
+        try {
+          isYarnBerry = (await stat(yarnrcPath)).isFile();
+        } catch {
+          isYarnBerry = false;
+        }
+      }
+
+      const [cmd, ...args] = getInstallCommand(packageManager, isYarnBerry);
+      await exec(cmd, args, { nodeOptions: { cwd: lockfileDir } });
+      return lockfilePath;
+    } catch (error) {
+      if (mode === "required") throw error;
+      console.warn(
+        `Warning: Failed to sync lockfile at ${lockfilePath}: ${error instanceof Error ? error.message : error}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * Walk from packagePath upward to find the first JS lock file.
+   * In JS monorepos, the first lock file found ascending is the workspace root's.
+   * Nested lock files below a workspace root indicate a separate project boundary,
+   * not a workspace member.
+   */
+  private async findLockfile(): Promise<
+    { lockfilePath: string; packageManager: PackageManager } | undefined
+  > {
+    let dir = this.packagePath;
+    const { root } = path.parse(dir);
+
+    while (dir !== root) {
+      for (const [pm, files] of Object.entries(lockFiles)) {
+        for (const file of files) {
+          const candidate = path.join(dir, file);
+          try {
+            if ((await stat(candidate)).isFile()) {
+              return {
+                lockfilePath: candidate,
+                packageManager: pm as PackageManager,
+              };
+            }
+          } catch {}
+        }
+      }
+      dir = path.dirname(dir);
+    }
+
+    return undefined;
   }
 
   async resolvePublishDependencies(
