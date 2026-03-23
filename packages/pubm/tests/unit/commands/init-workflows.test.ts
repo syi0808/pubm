@@ -385,20 +385,14 @@ describe("generateReleaseWorkflow — branch customization", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateChangesetCheckWorkflow — additional tests", () => {
-  it("contains actions/github-script for PR comment logic", () => {
+  it("uses syi0808/pubm-actions@v1 action", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("actions/github-script@v7");
+    expect(yaml).toContain("syi0808/pubm-actions@v1");
   });
 
-  it("contains 'Fail if no changeset' step", () => {
+  it("contains skip-label input set to no-changeset", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("Fail if no changeset");
-  });
-
-  it("contains no-changeset label skip logic", () => {
-    const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("no-changeset");
-    expect(yaml).toContain("skipped=true");
+    expect(yaml).toContain("skip-label: no-changeset");
   });
 
   it("contains pull-requests: write permission", () => {
@@ -406,9 +400,9 @@ describe("generateChangesetCheckWorkflow — additional tests", () => {
     expect(yaml).toContain("pull-requests: write");
   });
 
-  it("contains .pubm/changesets/*.md path pattern", () => {
+  it("contains fetch-depth: 0 for full git history", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain(".pubm/changesets/*.md");
+    expect(yaml).toContain("fetch-depth: 0");
   });
 
   it("uses 'develop' branch in trigger when specified", () => {
@@ -423,9 +417,11 @@ describe("generateChangesetCheckWorkflow — additional tests", () => {
     expect(yaml).toContain("unlabeled");
   });
 
-  it("contains exit 1 for failing when no changeset found", () => {
+  it("does not contain inline bash scripts", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("exit 1");
+    expect(yaml).not.toContain("run: |");
+    expect(yaml).not.toContain("exit 1");
+    expect(yaml).not.toContain("actions/github-script");
   });
 });
 

@@ -157,6 +157,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Changeset check (PR validation)
+
+Use the [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action to enforce that every PR includes a changeset. `pubm init` generates this workflow automatically when changesets are enabled.
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+The action detects new `.pubm/changesets/*.md` files in the PR diff, validates their format, and posts a comment with the result. Add the `no-changeset` label to skip the check for PRs that don't need a changeset (docs, CI config, etc.).
+
 ## Next steps
 
 - Read the [Troubleshooting](/pubm/guides/troubleshooting/) guide for failure diagnosis.
