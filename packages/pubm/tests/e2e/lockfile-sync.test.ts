@@ -37,10 +37,7 @@ import { type E2EContext, e2e } from "../utils/e2e.js";
 
 const mockedExec = vi.mocked(exec);
 
-// Bun workspace symlinks fail on Windows CI (ENOENT on relative symlink paths)
-const isWindows = process.platform === "win32";
-
-describe.skipIf(isWindows)("lockfile sync — bun workspace", () => {
+describe("lockfile sync — bun workspace", () => {
   let ctx: E2EContext;
   let pkgAPath: string;
   let pkgBPath: string;
@@ -51,7 +48,7 @@ describe.skipIf(isWindows)("lockfile sync — bun workspace", () => {
     pkgBPath = path.join(ctx.dir, "packages", "pkg-b");
 
     // Generate a real bun.lock by running bun install
-    execSync("bun install", { cwd: ctx.dir, stdio: "pipe" });
+    execSync("bun install --lockfile-only", { cwd: ctx.dir, stdio: "pipe" });
   }, 30_000);
 
   afterAll(() => ctx.cleanup());
@@ -61,9 +58,13 @@ describe.skipIf(isWindows)("lockfile sync — bun workspace", () => {
     const result = await eco.syncLockfile("optional");
 
     expect(result).toBe(path.join(ctx.dir, "bun.lock"));
-    expect(mockedExec).toHaveBeenCalledWith("bun", ["install"], {
-      nodeOptions: { cwd: ctx.dir },
-    });
+    expect(mockedExec).toHaveBeenCalledWith(
+      "bun",
+      ["install", "--lockfile-only"],
+      {
+        nodeOptions: { cwd: ctx.dir },
+      },
+    );
   });
 
   it("should discover the same bun.lock from a different nested package", async () => {
@@ -72,9 +73,13 @@ describe.skipIf(isWindows)("lockfile sync — bun workspace", () => {
     const result = await eco.syncLockfile("optional");
 
     expect(result).toBe(path.join(ctx.dir, "bun.lock"));
-    expect(mockedExec).toHaveBeenCalledWith("bun", ["install"], {
-      nodeOptions: { cwd: ctx.dir },
-    });
+    expect(mockedExec).toHaveBeenCalledWith(
+      "bun",
+      ["install", "--lockfile-only"],
+      {
+        nodeOptions: { cwd: ctx.dir },
+      },
+    );
   });
 
   it("should return undefined when mode is skip", async () => {
@@ -290,7 +295,7 @@ describe("lockfile sync — discovery with different package managers", () => {
   });
 });
 
-describe.skipIf(isWindows)("lockfile sync — deduplication in monorepo", () => {
+describe("lockfile sync — deduplication in monorepo", () => {
   let ctx: E2EContext;
   let pkgAPath: string;
   let pkgBPath: string;
@@ -301,7 +306,7 @@ describe.skipIf(isWindows)("lockfile sync — deduplication in monorepo", () => 
     pkgBPath = path.join(ctx.dir, "packages", "pkg-b");
 
     // Generate a real bun.lock
-    execSync("bun install", { cwd: ctx.dir, stdio: "pipe" });
+    execSync("bun install --lockfile-only", { cwd: ctx.dir, stdio: "pipe" });
   }, 30_000);
 
   afterAll(() => ctx.cleanup());

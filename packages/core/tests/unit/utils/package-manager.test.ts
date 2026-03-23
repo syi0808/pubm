@@ -144,8 +144,12 @@ describe("getPackageManager", () => {
 });
 
 describe("getInstallCommand", () => {
-  it("returns bun install for bun", () => {
-    expect(getInstallCommand("bun")).toEqual(["bun", "install"]);
+  it("returns bun install --lockfile-only for bun", () => {
+    expect(getInstallCommand("bun")).toEqual([
+      "bun",
+      "install",
+      "--lockfile-only",
+    ]);
   });
 
   it("returns npm install --package-lock-only for npm", () => {
