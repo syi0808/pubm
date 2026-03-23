@@ -155,6 +155,14 @@ describe("lockfile sync — discovery with different package managers", () => {
   let pkgPath: string;
 
   beforeAll(async () => {
+    // Use no-op mock — this block only tests discovery, not real installs.
+    // Avoids Windows timeout where npm install --package-lock-only hangs.
+    mockedExec.mockImplementation(async () => ({
+      stdout: "",
+      stderr: "",
+      exitCode: 0,
+    }));
+
     ctx = await e2e();
     pkgPath = path.join(ctx.dir, "packages", "my-pkg");
 
