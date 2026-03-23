@@ -50,6 +50,7 @@ export interface PubmConfig {
   releaseDraft?: boolean;
   releaseNotes?: boolean;
   rollbackStrategy?: "individual" | "all";
+  lockfileSync?: "required" | "optional" | "skip";
   plugins?: PubmPlugin[];
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
