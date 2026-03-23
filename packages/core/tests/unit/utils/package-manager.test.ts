@@ -5,7 +5,10 @@ vi.mock("../../../src/utils/package.js", () => ({
 }));
 
 import { findOutFile } from "../../../src/utils/package.js";
-import { getInstallCommand, getPackageManager } from "../../../src/utils/package-manager.js";
+import {
+  getInstallCommand,
+  getPackageManager,
+} from "../../../src/utils/package-manager.js";
 
 const mockFindOutFile = vi.mocked(findOutFile);
 
