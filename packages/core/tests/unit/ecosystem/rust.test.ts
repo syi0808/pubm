@@ -297,7 +297,9 @@ my-build = { path = "../my-build" }
     });
 
     it("returns undefined immediately when mode is skip", async () => {
-      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
+      const eco = new RustEcosystem(
+        path.join("/workspace", "crates", "my-crate"),
+      );
       const result = await eco.syncLockfile("skip");
       expect(result).toBeUndefined();
       expect(mockedExec).not.toHaveBeenCalled();
@@ -316,7 +318,9 @@ my-build = { path = "../my-build" }
       mockedExec.mockRejectedValue(new Error("cargo not found"));
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
+      const eco = new RustEcosystem(
+        path.join("/workspace", "crates", "my-crate"),
+      );
       const result = await eco.syncLockfile("optional");
 
       expect(result).toBeUndefined();
@@ -335,8 +339,12 @@ my-build = { path = "../my-build" }
       mockedReadFile.mockResolvedValue(CARGO_TOML as any);
       mockedExec.mockRejectedValue(new Error("cargo not found"));
 
-      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
-      await expect(eco.syncLockfile("required")).rejects.toThrow("cargo not found");
+      const eco = new RustEcosystem(
+        path.join("/workspace", "crates", "my-crate"),
+      );
+      await expect(eco.syncLockfile("required")).rejects.toThrow(
+        "cargo not found",
+      );
     });
   });
 

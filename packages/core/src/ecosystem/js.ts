@@ -5,13 +5,13 @@ import { JsrPackageRegistry } from "../registry/jsr.js";
 import { NpmPackageRegistry } from "../registry/npm.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 import type { RegistryType } from "../types/options.js";
+import { exec } from "../utils/exec.js";
 import {
-  type PackageManager,
   getInstallCommand,
   getPackageManager,
   lockFiles,
+  type PackageManager,
 } from "../utils/package-manager.js";
-import { exec } from "../utils/exec.js";
 import type { EcosystemDescriptor } from "./descriptor.js";
 import { Ecosystem } from "./ecosystem.js";
 import { JsEcosystemDescriptor } from "./js-descriptor.js";

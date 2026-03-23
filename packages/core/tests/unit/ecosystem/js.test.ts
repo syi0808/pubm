@@ -19,7 +19,9 @@ vi.mock("node:fs", async (importOriginal) => {
 
 vi.mock("../../../src/utils/package-manager.js", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../../src/utils/package-manager.js")>();
+    await importOriginal<
+      typeof import("../../../src/utils/package-manager.js")
+    >();
   return {
     ...actual,
     getPackageManager: vi.fn(),
@@ -36,8 +38,8 @@ import { JsEcosystem } from "../../../src/ecosystem/js.js";
 import { JsEcosystemDescriptor } from "../../../src/ecosystem/js-descriptor.js";
 import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { NpmPackageRegistry } from "../../../src/registry/npm.js";
-import { getPackageManager } from "../../../src/utils/package-manager.js";
 import { exec } from "../../../src/utils/exec.js";
+import { getPackageManager } from "../../../src/utils/package-manager.js";
 
 const mockedExec = vi.mocked(exec);
 const mockedReadFile = vi.mocked(readFile);
@@ -254,7 +256,9 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
@@ -271,7 +275,9 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
@@ -290,7 +296,9 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
@@ -310,7 +318,9 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
@@ -330,7 +340,9 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBe(lockPath);
@@ -344,7 +356,9 @@ describe("JsEcosystem", () => {
     it("returns undefined when no lock file is found", async () => {
       mockedStat.mockRejectedValue(new Error("ENOENT"));
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile();
 
       expect(result).toBeUndefined();
@@ -360,7 +374,9 @@ describe("JsEcosystem", () => {
       mockedExec.mockRejectedValue(new Error("bun not found"));
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
       const result = await eco.syncLockfile("optional");
 
       expect(result).toBeUndefined();
@@ -376,8 +392,12 @@ describe("JsEcosystem", () => {
       });
       mockedExec.mockRejectedValue(new Error("bun not found"));
 
-      const eco = new JsEcosystem(path.join("/workspace", "packages", "my-pkg"));
-      await expect(eco.syncLockfile("required")).rejects.toThrow("bun not found");
+      const eco = new JsEcosystem(
+        path.join("/workspace", "packages", "my-pkg"),
+      );
+      await expect(eco.syncLockfile("required")).rejects.toThrow(
+        "bun not found",
+      );
     });
   });
 
