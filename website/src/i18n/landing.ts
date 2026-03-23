@@ -65,9 +65,9 @@ export interface LandingDictionary {
 export const landingCopy: Record<SiteLocale, LandingDictionary> = {
   en: {
     meta: {
-      title: "pubm - One command, every registry",
+      title: "pubm — Publish to every registry with one command",
       description:
-        "One command to publish across npm, jsr, crates.io, and private registries with automatic rollback when things go wrong.",
+        "Publish to npm, jsr, crates.io, and private registries in one step. Automatic rollback if anything fails.",
     },
     nav: { docs: "Docs", github: "GitHub", cta: "Get Started" },
     hero: {
@@ -75,16 +75,16 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       titleLine1: "One command.",
       titleLine2: "Every registry.",
       description:
-        "Publish to npm, jsr, crates.io, and private registries in a single step. If anything fails, pubm rolls everything back automatically.",
+        "npm, jsr, crates.io, private registries — one step. If anything fails, pubm undoes the version bump, tag, and commit. Your repo stays clean.",
       primaryCta: "Get Started",
       secondaryCta: "Star on GitHub",
     },
     registry: {
-      badge: "Unified Distribution",
-      title: "Write once,",
-      titleAccent: "ship everywhere.",
+      badge: "Zero Config",
+      title: "Drop in your manifest,",
+      titleAccent: "pubm does the rest.",
       description:
-        "Stop juggling registry CLIs. Pubm handles authentication, protocols, and publishing across every ecosystem so you focus on code, not deployment scripts.",
+        "package.json → npm. jsr.json → jsr. Cargo.toml → crates.io. pubm reads your project and figures out the registries. No config file needed.",
       statuses: {
         connected: "Connected",
         ready: "Ready",
@@ -93,93 +93,88 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "Publish without fear",
+      title: "Releases that don't break things",
       description:
-        "Every release is validated, orchestrated, and recoverable. No more half-published packages or manual cleanup.",
+        "Every step is validated before it runs. If something goes wrong, everything rolls back. No half-published packages.",
       items: [
         {
-          title: "One workflow, every registry",
+          title: "All your registries, one command",
           description:
-            "npm, jsr, crates.io, and private registries from a single command, with dependency-aware ordering for monorepos.",
+            "npm, jsr, crates.io, private registries. Monorepos publish in dependency order. No scripts to chain.",
         },
         {
           title: "Automatic rollback",
           description:
-            "If any registry rejects your package, pubm undoes the version bump, git tag, and commit so your repo returns to its previous state.",
+            "Registry rejected your package? pubm undoes the version bump, git tag, and commit. No half-published state, no manual cleanup.",
         },
         {
-          title: "Catch problems before publishing",
+          title: "Preflight checks",
           description:
-            "Branch guards, clean working tree, remote sync, and registry auth are verified before any side effects happen.",
+            "Branch, working tree, remote sync, login status, publish permissions — all verified before pubm touches anything.",
         },
         {
-          title: "Works locally and in CI",
+          title: "Same command, local and CI",
           description:
-            "Interactive prompts at the terminal, fully headless in CI. Same command and same guarantees.",
-        },
-        {
-          title: "Set up once, scale forever",
-          description:
-            "Start a new project with pubm and never revisit your release setup. Add registries, packages, or ecosystems without changing your workflow.",
+            "Interactive prompts in your terminal, fully headless in CI. No separate config, no flags to remember.",
         },
       ],
     },
     workflow: {
-      badge: "Release Pipeline",
-      title: "One command does",
-      titleAccent: "everything.",
+      badge: "How It Works",
+      title: "Run `pubm`.",
+      titleAccent: "That's it.",
       description:
-        "Run `pubm` and it handles the rest: version prompts, preflight checks, testing, building, and publishing across every registry.",
+        "Version prompts, preflight checks, tests, builds, multi-registry publish — one command handles the entire pipeline.",
       steps: [
         {
-          title: "Pick your version",
+          title: "Pick a version",
           description:
-            "Run `pubm` with no arguments and choose the next patch, minor, or major release before anything else happens.",
+            "Run `pubm`. Choose patch, minor, or major. That's the only decision you make.",
         },
         {
-          title: "Preflight and auth",
+          title: "Preflight checks",
           description:
-            "pubm verifies the branch, working tree, remote sync, and registry credentials before it makes changes.",
+            "pubm verifies your branch, working tree, remote sync, and registry credentials before changing anything.",
         },
         {
           title: "Test, build, tag",
           description:
-            "Your test suite runs, the build executes, and the version is bumped atomically with a git commit and tag.",
+            "Your test suite runs, the build executes, then pubm bumps the version and creates a git commit + tag.",
         },
         {
           title: "Publish everywhere",
           description:
-            "All registries receive your package concurrently. If anything fails, every change rolls back automatically.",
+            "All registries receive your package at once. If any registry fails, every change rolls back automatically.",
         },
       ],
     },
     install: {
-      title: "Install once. Then just run `pubm`.",
+      title: "Install once. Then just `pubm`.",
       description:
-        "Start fresh or drop into an existing project. pubm wires npm, jsr, and private registries from day one — no migration needed later.",
+        "New project or existing one. pubm auto-detects your registries from day one — no migration needed later.",
       readDocs: "Read the Docs",
       viewGithub: "View on GitHub",
       copyLabel: "Copy commands",
-      terminalTitle: "bash - install",
+      terminalTitle: "bash — install",
     },
     footer: { tagline: "One command, every registry", docs: "Docs" },
     why: {
       badge: "Why pubm?",
-      title: "The right foundation for new projects",
+      title: "Start right. Never migrate.",
       description:
-        "Most release tools assume you already know what you need. pubm gives new projects a complete, multi-registry setup from day one.",
+        "Most release tools lock you into a setup. pubm grows with your project — add registries, packages, or ecosystems without changing your workflow.",
       items: [
         {
-          heading: "No migration later",
-          body: "Start with npm only and add jsr or crates.io when you're ready — no workflow changes required.",
+          heading: "No migration tax",
+          body: "Start with npm only. Add jsr or crates.io when you're ready. Your workflow doesn't change.",
         },
         {
-          heading: "JS + Rust in one pipeline",
-          body: "Shipping a Rust crate alongside an npm package? pubm reads both package.json and Cargo.toml — one command publishes to npm, jsr, and crates.io together.",
+          heading: "JS + Rust, one pipeline",
+          body: "Publishing a Rust crate alongside an npm package? pubm reads both package.json and Cargo.toml and ships everything together.",
         },
         {
-          heading: "Grows with your monorepo",
-          body: "One package today, ten tomorrow. pubm's dependency-aware ordering means you never publish in the wrong order.",
+          heading: "Monorepo-ready from day one",
+          body: "One package today, ten tomorrow. pubm publishes in dependency order — no broken releases from wrong sequencing.",
         },
       ],
     },
@@ -201,11 +196,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       secondaryCta: "GitHub에서 스타 주기",
     },
     registry: {
-      badge: "통합 배포",
-      title: "한 번 작성하고,",
-      titleAccent: "어디든 배포하세요.",
+      badge: "설정 불필요",
+      title: "매니페스트만 두면,",
+      titleAccent: "나머지는 pubm이 처리합니다.",
       description:
-        "레지스트리마다 다른 CLI를 따로 다룰 필요가 없습니다. pubm이 인증, 프로토콜, 배포 흐름을 통합합니다.",
+        "package.json은 npm, jsr.json은 jsr, Cargo.toml은 crates.io로 연결됩니다. pubm이 프로젝트를 읽고 레지스트리를 판단하므로 설정 파일이 필요 없습니다.",
       statuses: {
         connected: "연결됨",
         ready: "준비됨",
@@ -214,34 +209,29 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "불안 없이 배포하세요",
+      title: "깨지지 않는 릴리스",
       description:
-        "모든 릴리스는 사전 검증되고, 전체 흐름이 오케스트레이션되며, 실패 시 복구 가능합니다.",
+        "모든 단계는 실행 전에 검증됩니다. 문제가 생기면 전체가 롤백됩니다. 반쯤만 배포된 패키지는 남지 않습니다.",
       items: [
         {
-          title: "하나의 워크플로, 모든 레지스트리",
+          title: "모든 레지스트리, 하나의 명령",
           description:
-            "npm, jsr, crates.io, 사설 레지스트리를 단일 명령으로 처리하며, 모노레포에서는 의존 순서를 고려해 배포합니다.",
+            "npm, jsr, crates.io, 사설 레지스트리를 한 번에 처리합니다. 모노레포는 의존 순서대로 배포됩니다. 이어 붙일 스크립트가 필요 없습니다.",
         },
         {
           title: "자동 롤백",
           description:
-            "어느 한 레지스트리라도 배포를 거부하면 버전 변경, git 태그, 커밋까지 되돌려 저장소 상태를 복원합니다.",
+            "레지스트리에서 패키지를 거부하더라도 pubm이 버전 변경, git 태그, 커밋을 되돌립니다. 반쯤 배포된 상태도, 수동 정리도 없습니다.",
         },
         {
-          title: "배포 전에 문제 감지",
+          title: "사전 점검",
           description:
-            "브랜치 상태, 워킹 트리, 원격 동기화, 레지스트리 인증을 실제 변경 전에 확인합니다.",
+            "브랜치, 워킹 트리, 원격 동기화, 로그인 상태, 배포 권한까지 pubm이 실제 변경 전에 모두 확인합니다.",
         },
         {
-          title: "로컬과 CI 모두 지원",
+          title: "같은 명령, 로컬과 CI 모두",
           description:
-            "터미널에서는 대화형으로, CI에서는 완전 무인으로 동작합니다. 명령과 보장은 동일합니다.",
-        },
-        {
-          title: "한 번 설정, 영구적으로 확장",
-          description:
-            "pubm으로 새 프로젝트를 시작하면 릴리즈 설정을 다시 손볼 필요가 없습니다. 레지스트리, 패키지, 생태계를 추가해도 워크플로우는 그대로입니다.",
+            "터미널에서는 대화형 프롬프트로, CI에서는 완전 무인으로 동작합니다. 별도 설정도, 외울 플래그도 없습니다.",
         },
       ],
     },
@@ -277,7 +267,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "한 번 설치하고, 이후엔 `pubm`만 실행하세요.",
       description:
-        "새 프로젝트든 기존 프로젝트든 바로 시작하세요. pubm은 처음부터 npm, jsr, private registry를 모두 지원합니다.",
+        "새 프로젝트든 기존 프로젝트든 바로 시작할 수 있습니다. pubm은 첫날부터 레지스트리를 자동 감지하므로 나중에 마이그레이션할 필요가 없습니다.",
       readDocs: "문서 읽기",
       viewGithub: "GitHub 보기",
       copyLabel: "명령 복사",
@@ -286,21 +276,21 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     footer: { tagline: "하나의 명령, 모든 레지스트리", docs: "문서" },
     why: {
       badge: "왜 pubm인가?",
-      title: "새 프로젝트를 위한 올바른 기반",
+      title: "처음부터 제대로. 마이그레이션은 없습니다.",
       description:
-        "대부분의 릴리즈 도구는 이미 무엇이 필요한지 알고 있다고 가정합니다. pubm은 새 프로젝트에 처음부터 완전한 멀티 레지스트리 셋업을 제공합니다.",
+        "대부분의 릴리스 도구는 특정 셋업에 묶이게 만듭니다. pubm은 프로젝트가 커져도 워크플로우를 바꾸지 않고 레지스트리, 패키지, 생태계를 확장할 수 있습니다.",
       items: [
         {
-          heading: "나중에 마이그레이션 없음",
-          body: "지금은 npm만으로 시작하고, 준비되면 jsr이나 crates.io를 추가하세요 — 워크플로우 변경이 없습니다.",
+          heading: "마이그레이션 비용 없음",
+          body: "지금은 npm만으로 시작하고 준비되면 jsr이나 crates.io를 추가하세요. 워크플로우는 바뀌지 않습니다.",
         },
         {
-          heading: "JS + Rust 하나의 파이프라인",
-          body: "npm 패키지와 함께 Rust crate도 배포하나요? pubm은 package.json과 Cargo.toml을 모두 읽어 npm, jsr, crates.io를 한 번에 배포합니다.",
+          heading: "JS + Rust, 하나의 파이프라인",
+          body: "npm 패키지와 Rust crate를 함께 배포하나요? pubm은 package.json과 Cargo.toml을 모두 읽고 전부 함께 릴리스합니다.",
         },
         {
-          heading: "모노레포와 함께 성장",
-          body: "오늘은 패키지 1개, 내일은 10개. pubm의 의존성 순서 정렬로 항상 올바른 순서로 배포됩니다.",
+          heading: "첫날부터 모노레포 대응",
+          body: "오늘은 패키지 하나, 내일은 열 개여도 괜찮습니다. pubm은 의존 순서대로 배포해 순서 문제로 릴리스가 깨지지 않습니다.",
         },
       ],
     },
@@ -322,11 +312,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       secondaryCta: "在 GitHub 上加星",
     },
     registry: {
-      badge: "统一分发",
-      title: "写一次，",
-      titleAccent: "发布到所有地方。",
+      badge: "零配置",
+      title: "放入你的清单文件，",
+      titleAccent: "剩下的交给 pubm。",
       description:
-        "不必再切换不同仓库 CLI。pubm 统一处理认证、协议和发布流程。",
+        "package.json 对应 npm，jsr.json 对应 jsr，Cargo.toml 对应 crates.io。pubm 会读取项目并判断该发布到哪些仓库，不需要额外配置文件。",
       statuses: {
         connected: "已连接",
         ready: "就绪",
@@ -335,28 +325,28 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "放心发布",
-      description: "每次发布都会先验证、统一编排，并且在失败时可恢复。",
+      title: "不会把发布搞坏",
+      description: "每一步都会先验证再执行。出了问题就整体回滚，不会留下只发布一半的包。",
       items: [
         {
-          title: "一套流程，覆盖所有仓库",
+          title: "所有仓库，一条命令",
           description:
-            "同一条命令同时支持 npm、jsr、crates.io 和私有仓库，也支持 monorepo 依赖顺序。",
+            "npm、jsr、crates.io、私有仓库都用同一条命令。monorepo 会按依赖顺序发布，不需要再串脚本。",
         },
         {
           title: "自动回滚",
           description:
-            "任何仓库拒绝发布时，pubm 会撤销版本变更、git tag 和提交。",
+            "仓库拒绝包时，pubm 会撤销版本变更、git tag 和提交。不会留下半发布状态，也不用手工清理。",
         },
         {
-          title: "发布前先发现问题",
+          title: "预检查",
           description:
-            "分支状态、工作区、远端同步和仓库认证都会在真正执行前完成校验。",
+            "分支、工作区、远端同步、登录状态和发布权限，都会在 pubm 动手前先检查完成。",
         },
         {
-          title: "本地与 CI 一致",
+          title: "同一条命令，兼顾本地与 CI",
           description:
-            "本地终端可交互，CI 中可全自动执行。命令一致，保证一致。",
+            "终端里是交互式提示，CI 里是完全无头执行。不需要单独配置，也不用记额外参数。",
         },
       ],
     },
@@ -389,13 +379,33 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "安装一次，然后只需运行 `pubm`。",
       description:
-        "默认流程是交互式的：在终端选择 patch、minor 或 major，后续发布流程由 pubm 处理。",
+        "无论是新项目还是已有项目，都可以直接开始。pubm 从第一天起就会自动识别仓库，后面不需要再迁移。",
       readDocs: "阅读文档",
       viewGithub: "查看 GitHub",
       copyLabel: "复制命令",
       terminalTitle: "bash - 安装",
     },
     footer: { tagline: "一条命令，所有仓库", docs: "文档" },
+    why: {
+      badge: "为什么选择 pubm？",
+      title: "一开始就走对路。以后不用迁移。",
+      description:
+        "大多数发布工具会把你锁进某种固定做法。pubm 会随着项目一起增长，新增仓库、包或生态时都不用改工作流。",
+      items: [
+        {
+          heading: "没有迁移成本",
+          body: "现在先只发 npm，准备好了再加 jsr 或 crates.io。你的工作流不用变。",
+        },
+        {
+          heading: "JS + Rust，一条流水线",
+          body: "要同时发布 Rust crate 和 npm 包？pubm 会读取 package.json 和 Cargo.toml，把它们一起发出去。",
+        },
+        {
+          heading: "从第一天就适配 monorepo",
+          body: "今天一个包，明天十个也没问题。pubm 会按依赖顺序发布，不会因为顺序错误把发布搞坏。",
+        },
+      ],
+    },
   },
   fr: {
     meta: {
@@ -414,11 +424,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       secondaryCta: "Ajouter une etoile",
     },
     registry: {
-      badge: "Distribution unifiee",
-      title: "Ecrire une fois,",
-      titleAccent: "deployer partout.",
+      badge: "Zero config",
+      title: "Ajoutez vos manifests,",
+      titleAccent: "pubm gere le reste.",
       description:
-        "Inutile de jongler avec plusieurs CLI de registre. pubm gere l'authentification, les protocoles et la publication.",
+        "package.json pour npm, jsr.json pour jsr, Cargo.toml pour crates.io. pubm lit votre projet et detecte les registres sans fichier de config.",
       statuses: {
         connected: "Connecte",
         ready: "Pret",
@@ -427,28 +437,29 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "Publier sans crainte",
-      description: "Chaque release est verifiee, orchestree et recuperable.",
+      title: "Des releases qui ne cassent rien",
+      description:
+        "Chaque etape est verifiee avant execution. Si quelque chose rate, tout est annule. Aucun package a moitie publie.",
       items: [
         {
-          title: "Un workflow pour tous les registres",
+          title: "Tous vos registres, une commande",
           description:
-            "Une seule commande pour npm, jsr, crates.io et les registres prives, avec ordre de dependances pour les monorepos.",
+            "npm, jsr, crates.io, registres prives. Les monorepos publient dans l'ordre des dependances. Aucun script a enchainer.",
         },
         {
           title: "Rollback automatique",
           description:
-            "Si un registre refuse le package, pubm annule le bump de version, le tag git et le commit.",
+            "Un registre refuse votre package ? pubm annule le bump de version, le tag git et le commit. Pas d'etat a moitie publie, pas de nettoyage manuel.",
         },
         {
-          title: "Problemes detectes avant publication",
+          title: "Verifications prealables",
           description:
-            "Etat de la branche, working tree, synchro distante et auth registre sont verifies avant les effets de bord.",
+            "Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies avant toute action.",
         },
         {
-          title: "Local et CI",
+          title: "La meme commande en local et en CI",
           description:
-            "Interactif dans le terminal, sans interaction en CI. Meme commande, memes garanties.",
+            "Prompts interactifs dans le terminal, execution totalement headless en CI. Pas de config separee, pas de flags a memoriser.",
         },
       ],
     },
@@ -484,13 +495,33 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "Installez une fois. Ensuite, lancez simplement `pubm`.",
       description:
-        "Le flux par defaut est interactif: choisissez patch, minor ou major, puis laissez pubm piloter la release.",
+        "Nouveau projet ou projet existant, demarrez tout de suite. pubm detecte vos registres des le premier jour, sans migration plus tard.",
       readDocs: "Lire la doc",
       viewGithub: "Voir sur GitHub",
       copyLabel: "Copier les commandes",
       terminalTitle: "bash - installation",
     },
     footer: { tagline: "Une commande, tous les registres", docs: "Docs" },
+    why: {
+      badge: "Pourquoi pubm ?",
+      title: "Bien demarrer. Ne jamais migrer.",
+      description:
+        "La plupart des outils de release vous enferment dans un setup. pubm grandit avec votre projet : ajoutez registres, packages ou ecosystemes sans changer de workflow.",
+      items: [
+        {
+          heading: "Aucun cout de migration",
+          body: "Commencez avec npm seulement. Ajoutez jsr ou crates.io quand vous etes pret. Votre workflow ne change pas.",
+        },
+        {
+          heading: "JS + Rust, un seul pipeline",
+          body: "Vous publiez une crate Rust en meme temps qu'un package npm ? pubm lit package.json et Cargo.toml et livre tout ensemble.",
+        },
+        {
+          heading: "Pret pour le monorepo des le premier jour",
+          body: "Un package aujourd'hui, dix demain. pubm publie dans l'ordre des dependances, sans release casse a cause d'un mauvais sequencement.",
+        },
+      ],
+    },
   },
   de: {
     meta: {
@@ -509,11 +540,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       secondaryCta: "Auf GitHub markieren",
     },
     registry: {
-      badge: "Einheitliche Distribution",
-      title: "Einmal schreiben,",
-      titleAccent: "uberall ausliefern.",
+      badge: "Keine Konfiguration",
+      title: "Manifest ablegen,",
+      titleAccent: "pubm erledigt den Rest.",
       description:
-        "Keine getrennten Registry-CLIs mehr. pubm ubernimmt Authentifizierung, Protokolle und Veroffentlichung uber alle Okosysteme hinweg.",
+        "package.json fur npm, jsr.json fur jsr, Cargo.toml fur crates.io. pubm liest dein Projekt und erkennt die Registries selbst. Keine Config-Datei erforderlich.",
       statuses: {
         connected: "Verbunden",
         ready: "Bereit",
@@ -522,29 +553,29 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "Ohne Risiko veroffentlichen",
+      title: "Releases, die nichts kaputt machen",
       description:
-        "Jeder Release wird validiert, orchestriert und kann wiederhergestellt werden.",
+        "Jeder Schritt wird vor der Ausfuhrung validiert. Wenn etwas schiefgeht, wird alles zuruckgerollt. Keine halb veroffentlichten Pakete.",
       items: [
         {
-          title: "Ein Workflow fur alle Registries",
+          title: "Alle Registries, ein Befehl",
           description:
-            "Eine einzige Anweisung fur npm, jsr, crates.io und private Registries, inklusive abhangigkeitsbewusster Reihenfolge im Monorepo.",
+            "npm, jsr, crates.io, private Registries. Monorepos veroffentlichen in Abhangigkeitsreihenfolge. Keine Scripts zum Verketten.",
         },
         {
           title: "Automatisches Rollback",
           description:
-            "Wenn eine Registry das Paket ablehnt, macht pubm Version, Git-Tag und Commit ruckgangig.",
+            "Registry lehnt dein Paket ab? pubm macht Versionsbump, Git-Tag und Commit ruckgangig. Kein halb veroffentlichter Zustand, kein manuelles Aufraumen.",
         },
         {
-          title: "Probleme vor dem Publish erkennen",
+          title: "Preflight-Checks",
           description:
-            "Branch, Working Tree, Remote-Sync und Registry-Auth werden vor Seiteneffekten gepruft.",
+            "Branch, Working Tree, Remote-Sync, Login-Status und Publish-Berechtigungen werden gepruft, bevor pubm etwas anfasst.",
         },
         {
-          title: "Lokal und in CI",
+          title: "Gleicher Befehl, lokal und in CI",
           description:
-            "Interaktiv im Terminal, voll headless in CI. Gleicher Befehl, gleiche Garantien.",
+            "Interaktive Prompts im Terminal, voll headless in CI. Keine separate Konfiguration, keine Flags zum Merken.",
         },
       ],
     },
@@ -580,13 +611,33 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "Einmal installieren. Danach einfach `pubm` ausfuhren.",
       description:
-        "Der Standardablauf ist interaktiv: Patch, Minor oder Major wahlen, den Rest der Release-Pipeline ubernimmt pubm.",
+        "Neues oder bestehendes Projekt: pubm erkennt deine Registries von Anfang an automatisch. Spatere Migrationen sind nicht notig.",
       readDocs: "Docs lesen",
       viewGithub: "Auf GitHub ansehen",
       copyLabel: "Befehle kopieren",
       terminalTitle: "bash - installation",
     },
     footer: { tagline: "Ein Befehl, jede Registry", docs: "Docs" },
+    why: {
+      badge: "Warum pubm?",
+      title: "Richtig anfangen. Nie migrieren.",
+      description:
+        "Die meisten Release-Tools sperren dich in ein Setup ein. pubm wachst mit deinem Projekt: weitere Registries, Pakete oder Okosysteme kommen dazu, ohne dass sich dein Workflow andert.",
+      items: [
+        {
+          heading: "Keine Migrationskosten",
+          body: "Starte erst nur mit npm. Fuge jsr oder crates.io hinzu, wenn du bereit bist. Dein Workflow bleibt gleich.",
+        },
+        {
+          heading: "JS + Rust, eine Pipeline",
+          body: "Du veroffentlichst ein Rust-Crate zusammen mit einem npm-Paket? pubm liest package.json und Cargo.toml und liefert alles gemeinsam aus.",
+        },
+        {
+          heading: "Von Tag eins an monorepo-tauglich",
+          body: "Heute ein Paket, morgen zehn. pubm veroffentlicht in Abhangigkeitsreihenfolge, damit Releases nicht an falscher Sequenzierung scheitern.",
+        },
+      ],
+    },
   },
   es: {
     meta: {
@@ -605,11 +656,11 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       secondaryCta: "Dar estrella en GitHub",
     },
     registry: {
-      badge: "Distribucion unificada",
-      title: "Escribe una vez,",
-      titleAccent: "publica en todas partes.",
+      badge: "Cero configuracion",
+      title: "Deja tus manifests,",
+      titleAccent: "pubm hace el resto.",
       description:
-        "Deja de alternar entre CLIs de registros. pubm gestiona autenticacion, protocolos y publicacion en todos los ecosistemas.",
+        "package.json va a npm, jsr.json a jsr y Cargo.toml a crates.io. pubm lee tu proyecto y detecta los registros sin archivo de configuracion.",
       statuses: {
         connected: "Conectado",
         ready: "Listo",
@@ -618,28 +669,29 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       },
     },
     features: {
-      title: "Publica sin miedo",
-      description: "Cada release se valida, se orquesta y puede recuperarse.",
+      title: "Releases que no rompen nada",
+      description:
+        "Cada paso se valida antes de ejecutarse. Si algo sale mal, todo vuelve atras. No quedan paquetes publicados a medias.",
       items: [
         {
-          title: "Un flujo para todos los registros",
+          title: "Todos tus registros, un comando",
           description:
-            "Una sola orden para npm, jsr, crates.io y registros privados, con orden segun dependencias en monorepos.",
+            "npm, jsr, crates.io y registros privados con una sola orden. Los monorepos publican segun dependencias. Sin scripts encadenados.",
         },
         {
           title: "Rollback automatico",
           description:
-            "Si un registro rechaza el paquete, pubm deshace el cambio de version, el tag y el commit.",
+            "Si un registro rechaza el paquete, pubm deshace el cambio de version, el tag y el commit. Sin estado a medias ni limpieza manual.",
         },
         {
-          title: "Detecta problemas antes de publicar",
+          title: "Preflight checks",
           description:
-            "Se verifican rama, working tree, sincronizacion remota y auth antes de generar efectos laterales.",
+            "Rama, working tree, sincronizacion remota, estado de login y permisos de publicacion se revisan antes de tocar nada.",
         },
         {
-          title: "Funciona localmente y en CI",
+          title: "El mismo comando en local y CI",
           description:
-            "Interactivo en terminal y totalmente sin cabeza en CI. Mismo comando, mismas garantias.",
+            "Prompts interactivos en la terminal y ejecucion totalmente headless en CI. Sin configuracion separada ni flags para memorizar.",
         },
       ],
     },
@@ -675,12 +727,32 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "Instala una vez. Luego solo ejecuta `pubm`.",
       description:
-        "El flujo por defecto es interactivo: elige patch, minor o major en la terminal y deja que pubm haga el resto.",
+        "Proyecto nuevo o existente, puedes empezar de inmediato. pubm detecta tus registros desde el primer dia y no exige migracion despues.",
       readDocs: "Leer docs",
       viewGithub: "Ver en GitHub",
       copyLabel: "Copiar comandos",
       terminalTitle: "bash - instalacion",
     },
     footer: { tagline: "Un comando, todos los registros", docs: "Docs" },
+    why: {
+      badge: "Por que pubm?",
+      title: "Empieza bien. Nunca migres.",
+      description:
+        "La mayoria de herramientas de release te atan a una configuracion. pubm crece con tu proyecto: agrega registros, paquetes o ecosistemas sin cambiar tu flujo.",
+      items: [
+        {
+          heading: "Sin costo de migracion",
+          body: "Empieza solo con npm. Agrega jsr o crates.io cuando quieras. Tu flujo no cambia.",
+        },
+        {
+          heading: "JS + Rust, un solo pipeline",
+          body: "Publicas un crate de Rust junto a un paquete npm? pubm lee package.json y Cargo.toml y lo publica todo junto.",
+        },
+        {
+          heading: "Listo para monorepo desde el dia uno",
+          body: "Hoy un paquete, manana diez. pubm publica segun dependencias para evitar releases rotos por mal orden.",
+        },
+      ],
+    },
   },
 };
