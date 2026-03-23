@@ -64,7 +64,9 @@ export abstract class Ecosystem {
     return false;
   }
 
-  async syncLockfile(): Promise<string | undefined> {
+  async syncLockfile(
+    _mode: "required" | "optional" | "skip" = "optional",
+  ): Promise<string | undefined> {
     return undefined;
   }
 
