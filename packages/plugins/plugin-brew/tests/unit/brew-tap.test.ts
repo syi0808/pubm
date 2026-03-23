@@ -306,7 +306,7 @@ describe("brewTap", () => {
       expect.stringContaining('git commit -m "Update pubm.rb to 3.0.0"'),
       { stdio: "inherit" },
     );
-    expect(mockedExecSync).toHaveBeenCalledWith(`git -C ${tmpDir} push`, {
+    expect(mockedExecSync).toHaveBeenCalledWith(`cd ${tmpDir} && git push`, {
       stdio: "inherit",
     });
   });
@@ -326,34 +326,28 @@ describe("brewTap", () => {
       ),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    const originalToken = process.env.GITHUB_TOKEN;
-    process.env.GITHUB_TOKEN = "ghp_test123";
+    resolveGitHubTokenMock.mockReturnValue({
+      token: "ghp_test123",
+      source: "env",
+    });
 
-    try {
-      const plugin = brewTap({
-        formula: "Formula/pubm.rb",
-        repo: "syi0808/homebrew-pubm",
-      });
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
 
-      await plugin.hooks?.afterRelease?.(
-        {} as never,
-        {
-          version: "5.0.0",
-          assets: [],
-        } as never,
-      );
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      {
+        version: "5.0.0",
+        assets: [],
+      } as never,
+    );
 
-      expect(mockedExecSync).toHaveBeenCalledWith(
-        `git clone --depth 1 https://x-access-token:ghp_test123@github.com/syi0808/homebrew-pubm.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
-        { stdio: "inherit" },
-      );
-    } finally {
-      if (originalToken === undefined) {
-        delete process.env.GITHUB_TOKEN;
-      } else {
-        process.env.GITHUB_TOKEN = originalToken;
-      }
-    }
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      `git clone --depth 1 https://x-access-token:ghp_test123@github.com/syi0808/homebrew-pubm.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
+      { stdio: "inherit" },
+    );
   });
 
   it("uses plain URL when GITHUB_TOKEN is not set for tap repo", async () => {
@@ -371,34 +365,25 @@ describe("brewTap", () => {
       ),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    const originalToken = process.env.GITHUB_TOKEN;
-    delete process.env.GITHUB_TOKEN;
+    resolveGitHubTokenMock.mockReturnValue(null);
 
-    try {
-      const plugin = brewTap({
-        formula: "Formula/pubm.rb",
-        repo: "syi0808/homebrew-pubm",
-      });
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
 
-      await plugin.hooks?.afterRelease?.(
-        {} as never,
-        {
-          version: "5.1.0",
-          assets: [],
-        } as never,
-      );
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      {
+        version: "5.1.0",
+        assets: [],
+      } as never,
+    );
 
-      expect(mockedExecSync).toHaveBeenCalledWith(
-        `git clone --depth 1 https://github.com/syi0808/homebrew-pubm.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
-        { stdio: "inherit" },
-      );
-    } finally {
-      if (originalToken === undefined) {
-        delete process.env.GITHUB_TOKEN;
-      } else {
-        process.env.GITHUB_TOKEN = originalToken;
-      }
-    }
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      `git clone --depth 1 https://github.com/syi0808/homebrew-pubm.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
+      { stdio: "inherit" },
+    );
   });
 
   it("creates a PR when pushing to tap repo fails", async () => {
@@ -420,7 +405,7 @@ describe("brewTap", () => {
     const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
 
     mockedExecSync.mockImplementation((command) => {
-      if (command === `git -C ${tmpDir} push`) {
+      if (command === `cd ${tmpDir} && git push`) {
         throw new Error("permission denied");
       }
       return Buffer.from("");
@@ -440,16 +425,16 @@ describe("brewTap", () => {
     );
 
     expect(mockedExecSync).toHaveBeenCalledWith(
-      `git -C ${tmpDir} checkout -b pubm/brew-formula-v6.0.0`,
+      `cd ${tmpDir} && git checkout -b pubm/brew-formula-v6.0.0`,
       { stdio: "inherit" },
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
-      `git -C ${tmpDir} push origin pubm/brew-formula-v6.0.0`,
+      `cd ${tmpDir} && git push origin pubm/brew-formula-v6.0.0`,
       { stdio: "inherit" },
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
-      'gh pr create --repo syi0808/homebrew-pubm --title "Update pubm.rb to 6.0.0" --body "Automated formula update by pubm"',
-      { stdio: "inherit", cwd: tmpDir },
+      'gh pr create --repo syi0808/homebrew-pubm --title "chore(brew): update formula to 6.0.0" --body "Automated formula update by pubm"',
+      { stdio: "inherit" },
     );
     expect(logSpy).toHaveBeenCalledWith(
       "Created PR on branch pubm/brew-formula-v6.0.0",
