@@ -15,8 +15,17 @@
 
 <p align="center">
 <strong>One command. Every registry.</strong><br>
-Publish to npm, jsr, crates.io, and private registries in a single step.<br>
-If anything fails, pubm rolls everything back automatically.
+Publish to npm, jsr, crates.io, and private registries in one step.<br>
+If anything fails, pubm undoes the version bump, tag, and commit automatically.
+</p>
+
+<p align="center">
+  <a href="./README.md">English</a> ·
+  <a href="./README.ko.md">한국어</a> ·
+  <a href="./README.zh-cn.md">简体中文</a> ·
+  <a href="./README.fr.md">Français</a> ·
+  <a href="./README.de.md">Deutsch</a> ·
+  <a href="./README.es.md">Español</a>
 </p>
 
 <p align="center">
@@ -25,23 +34,23 @@ If anything fails, pubm rolls everything back automatically.
 
 ## Why pubm?
 
-Most release tools assume a single registry. pubm is built for projects that publish to more than one:
+Most release tools assume one registry. pubm is built for projects that grow:
 
 - **npm + jsr** — ship to both JavaScript registries in one command
-- **JS + Rust** — publish `package.json` and `Cargo.toml` in a single pipeline; no two-step release scripts
+- **JS + Rust** — publish `package.json` and `Cargo.toml` in a single pipeline
 - **Monorepos** — publishes packages in dependency order, no manual sequencing
-- **Start right** — set up once when you create the project, never revisit the release config
+- **Automatic rollback** — if any registry fails, pubm undoes the version bump, tag, and commit
+- **Zero config** — registries are auto-detected from your manifest files
 
-If you only ever publish to npm and have one package, `np` or `release-it` will serve you fine.
-If you publish to multiple registries, mix ecosystems, manage a monorepo, or want to grow without changing your setup, pubm is the better foundation.
+Start with npm only. Add jsr next month. Move to a monorepo next year. Your release command stays the same: `pubm`.
 
-Publishing a package to multiple registries shouldn't require shell scripts or plugins bolted onto tools designed for one registry. pubm treats multi-registry publishing as a single transaction — it either succeeds everywhere or rolls back cleanly.
+If you only publish one package to npm, `np` or `release-it` will serve you fine. pubm is for when you don't want to redo your release setup every time your project grows.
 
-## Publish without fear
+## How it works
 
-### One workflow, every registry
+### Zero config
 
-npm, jsr, crates.io, and private registries from a single command. Registries are **auto-inferred** from your manifest files — no configuration needed:
+pubm reads your manifest files and figures out the registries:
 
 | Manifest | Registry |
 |----------|----------|
@@ -49,31 +58,31 @@ npm, jsr, crates.io, and private registries from a single command. Registries ar
 | `jsr.json` | jsr |
 | `Cargo.toml` | crates.io |
 
-Have both `package.json` and `jsr.json`? pubm publishes to both in one release.
+Have both `package.json` and `jsr.json`? pubm publishes to both in one release. No config needed.
 
 ### Automatic rollback
 
-If any registry rejects your package, pubm undoes the version bump, git tag, and commit. Your repo returns to its previous state. No more half-published packages or manual cleanup.
+Registry rejected your package? pubm undoes the version bump, git tag, and commit. No half-published state, no manual cleanup.
 
-### Catch problems before publishing
+### Preflight checks
 
-Branch guards, clean working tree, remote sync, registry availability, login status, and publish permissions — all verified **before** any side effects happen. The `--mode ci --phase prepare` mode goes further: simulate your entire CI publish pipeline locally, including token validation, without actually publishing.
+Branch, working tree, remote sync, login status, publish permissions — all verified **before** pubm touches anything. You can also dry-run your entire CI pipeline locally:
 
 ```bash
 pubm --mode ci --phase prepare
 ```
 
-### Works locally and in CI
+### Same command, local and CI
 
-Interactive prompts at the terminal, fully headless in CI. Same command, same guarantees. No flags to remember, no separate CI config.
+Interactive prompts in your terminal, fully headless in CI. No separate config, no flags to remember.
 
 ### Monorepo-native
 
-Detects pnpm, yarn, npm, bun, deno, and Cargo workspaces automatically. Publishes in dependency order. Supports independent and fixed versioning, fixed groups, and linked groups.
+Detects pnpm, yarn, npm, bun, deno, and Cargo workspaces automatically. Publishes in dependency order. Supports independent versioning, fixed versioning, and linked groups.
 
 ### Multi-ecosystem
 
-Understands both JavaScript and Rust. Reads `package.json`, `jsr.json`, and `Cargo.toml`. Mixed JS + Rust workspaces work out of the box.
+JavaScript and Rust in the same pipeline. Mixed JS + Rust workspaces work out of the box.
 
 ## Quick Start
 
@@ -90,23 +99,21 @@ pubm
 pubm setup-skills
 ```
 
-No version argument needed. pubm launches an **interactive pipeline** that walks you through everything:
+That's it. pubm walks you through the rest:
 
 ```
   $ pubm
     │
-    ├─ Pick your version     ── patch, minor, or major
+    ├─ Pick a version        ── patch, minor, or major
     ├─ Preflight checks      ── branch, working tree, remote sync
     ├─ Registry validation   ── auth, permissions, availability
     ├─ Test & Build          ── runs your npm scripts
     ├─ Version bump          ── updates manifests, creates git commit + tag
-    ├─ Publish               ── all registries concurrently
+    ├─ Publish               ── all registries at once
     ├─ Post-publish          ── pushes tags, creates GitHub Release
     │
-    └─ On failure → automatic rollback of all changes
+    └─ On failure → rolls back everything
 ```
-
-One command does everything. No separate steps, no scripts to chain.
 
 ## Documentation
 
