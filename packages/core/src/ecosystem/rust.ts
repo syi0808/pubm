@@ -67,16 +67,27 @@ export class RustEcosystem extends Ecosystem {
     return modified;
   }
 
-  async syncLockfile(): Promise<string | undefined> {
+  async syncLockfile(
+    mode: "required" | "optional" | "skip" = "optional",
+  ): Promise<string | undefined> {
+    if (mode === "skip") return undefined;
+
     const lockfilePath = await this.findLockfile();
     if (!lockfilePath) return undefined;
 
-    const name = await this.packageName();
-    await exec("cargo", ["update", "--package", name], {
-      nodeOptions: { cwd: path.dirname(lockfilePath) },
-    });
-
-    return lockfilePath;
+    try {
+      const name = await this.packageName();
+      await exec("cargo", ["update", "--package", name], {
+        nodeOptions: { cwd: path.dirname(lockfilePath) },
+      });
+      return lockfilePath;
+    } catch (error) {
+      if (mode === "required") throw error;
+      console.warn(
+        `Warning: Failed to sync lockfile at ${lockfilePath}: ${error instanceof Error ? error.message : error}`,
+      );
+      return undefined;
+    }
   }
 
   private async findLockfile(): Promise<string | undefined> {

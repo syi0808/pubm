@@ -295,6 +295,49 @@ my-build = { path = "../my-build" }
       await expect(eco.syncLockfile()).resolves.toBeUndefined();
       expect(mockedExec).not.toHaveBeenCalled();
     });
+
+    it("returns undefined immediately when mode is skip", async () => {
+      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
+      const result = await eco.syncLockfile("skip");
+      expect(result).toBeUndefined();
+      expect(mockedExec).not.toHaveBeenCalled();
+      expect(mockedStat).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined and warns when install fails in optional mode", async () => {
+      mockedStat.mockImplementation(async (filePath) => {
+        const p = String(filePath);
+        if (p.endsWith("Cargo.toml")) return { isFile: () => true } as any;
+        if (p === path.join("/workspace", "Cargo.lock"))
+          return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedReadFile.mockResolvedValue(CARGO_TOML as any);
+      mockedExec.mockRejectedValue(new Error("cargo not found"));
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
+      const result = await eco.syncLockfile("optional");
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it("throws when install fails in required mode", async () => {
+      mockedStat.mockImplementation(async (filePath) => {
+        const p = String(filePath);
+        if (p.endsWith("Cargo.toml")) return { isFile: () => true } as any;
+        if (p === path.join("/workspace", "Cargo.lock"))
+          return { isFile: () => true } as any;
+        throw new Error("ENOENT");
+      });
+      mockedReadFile.mockResolvedValue(CARGO_TOML as any);
+      mockedExec.mockRejectedValue(new Error("cargo not found"));
+
+      const eco = new RustEcosystem(path.join("/workspace", "crates", "my-crate"));
+      await expect(eco.syncLockfile("required")).rejects.toThrow("cargo not found");
+    });
   });
 
   describe("createDescriptor", () => {
