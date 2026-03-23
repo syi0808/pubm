@@ -1,19 +1,19 @@
 ---
 title: Offizielle Plugins
-description: Unterstuetzte Plugins, die vom pubm-Projekt gepflegt werden.
+description: Unterstützte Plugins, die vom pubm-Projekt gepflegt werden.
 ---
 
-Offizielle Plugins werden gemeinsam mit `pubm` gepflegt und folgen denselben Release- und Kompatibilitaetserwartungen wie das Kernprojekt. Verwende sie, wenn du eine gut unterstuetzte Integration willst, ohne das Plugin von Grund auf selbst zu bauen.
+Offizielle Plugins werden gemeinsam mit `pubm` gepflegt und folgen denselben Release- und Kompatibilitaetserwartungen wie das Kernprojekt. Verwende sie, wenn du eine gut unterstützte Integration willst, ohne das Plugin von Grund auf selbst zu bauen.
 
 ## `@pubm/plugin-brew`
 
 `@pubm/plugin-brew` hilft CLI-Projekten dabei, Homebrew-Formulae mit jedem Release synchron zu halten.
 
-### Wofuer es sich eignet
+### Wofür es sich eignet
 
-- ein CLI-Binary ueber Homebrew ausliefern
+- ein CLI-Binary über Homebrew ausliefern
 - ein dediziertes Tap-Repository automatisch aktualisieren
-- Formula-Pruefsummen mit den Release-Artefakten synchron halten
+- Formula-Prüfsummen mit den Release-Artefakten synchron halten
 
 ### Typische Config
 
@@ -37,25 +37,25 @@ export default defineConfig({
 |--------|-----|--------------|
 | `formula` | `string` | Pfad der Formula relativ zum Repository-Root. |
 | `repo` | `string` | Optionaler URL des entfernten Tap-Repositories. Wenn weggelassen, wird das aktuelle Repository verwendet. |
-| `packageName` | `string` | Optionaler Filter fuer den Paketnamen. Wenn gesetzt, laeuft das Plugin nur fuer Releases, die zu diesem Paketnamen passen. Praktisch in Monorepos. |
-| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Optionale benutzerdefinierte Plattform-Matcher. Ueberschreibt die Standardlogik fuer `os + arch`. |
+| `packageName` | `string` | Optionaler Filter für den Paketnamen. Wenn gesetzt, laeuft das Plugin nur für Releases, die zu diesem Paketnamen passen. Praktisch in Monorepos. |
+| `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Optionale benutzerdefinierte Plattform-Matcher. Überschreibt die Standardlogik für `os + arch`. |
 
 ### Plattform-Matching
 
 Das Plugin verwendet strukturierte `ParsedPlatform`-Daten aus jedem `ReleaseAsset`, um Artefakte den Formula-Plattform-Eintraegen zuzuordnen. Die Standardlogik deckt vier Plattformen ab:
 
-| Formula-Schluessel | Passt, wenn |
+| Formula-Schlüssel | Passt, wenn |
 |--------------------|-------------|
 | `darwin-arm64` | `asset.platform.os === "darwin" && asset.platform.arch === "arm64"` |
 | `darwin-x64` | `asset.platform.os === "darwin" && asset.platform.arch === "x64"` |
 | `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
 | `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
 
-Das ersetzt den bisherigen Ansatz, Asset-Namen per String-Matching zu pruefen, zum Beispiel `asset.name.includes("darwin-arm64")`, der bei Namensaenderungen fragil war.
+Das ersetzt den bisherigen Ansatz, Asset-Namen per String-Matching zu prüfen, zum Beispiel `asset.name.includes("darwin-arm64")`, der bei Namensänderungen fragil war.
 
 ### Benutzerdefinierte Plattform-Matcher
 
-Verwende `assetPlatforms`, wenn das Standard-Matching ueber `os + arch` nicht ausreicht, zum Beispiel wenn du fuer Linux nur musl-Builds haben willst:
+Verwende `assetPlatforms`, wenn das Standard-Matching über `os + arch` nicht ausreicht, zum Beispiel wenn du für Linux nur musl-Builds haben willst:
 
 ```ts
 brewTap({
@@ -71,28 +71,28 @@ brewTap({
 })
 ```
 
-Jedes Prädikat erhaelt ein `ReleaseAsset` und gibt `true` zurueck, wenn das Artefakt fuer diesen Formula-Eintrag verwendet werden soll.
+Jedes Prädikat erhält ein `ReleaseAsset` und gibt `true` zurück, wenn das Artefakt für diesen Formula-Eintrag verwendet werden soll.
 
 ### Verhalten
 
 Das Plugin kann:
 
 - eine Formula-Vorlage erzeugen, wenn noch keine existiert
-- `url`- und `sha256`-Werte fuer Release-Artefakte anhand strukturierter Plattforminformationen aktualisieren
-- Formula-Aenderungen committen und pushen
-- auf einen Pull-Request-Workflow zurueckfallen, wenn direkter Push nicht passt
+- `url`- und `sha256`-Werte für Release-Artefakte anhand strukturierter Plattforminformationen aktualisieren
+- Formula-Änderungen committen und pushen
+- auf einen Pull-Request-Workflow zurückfallen, wenn direkter Push nicht passt
 
-### Zugehoeriger Befehl
+### Zugehöriger Befehl
 
 ```bash
 pubm brew init
 ```
 
-Nutze das, um aus Paketmetadaten eine startfaehige Formula-Vorlage zu erzeugen.
+Nutze das, um aus Paketmetadaten eine startfähige Formula-Vorlage zu erzeugen.
 
 ### `brewCore`
 
-Fuer Beitrage zu `homebrew-core` (dem Standard-Homebrew-Repository) verwende `brewCore` statt `brewTap`:
+Für Beitrage zu `homebrew-core` (dem Standard-Homebrew-Repository) verwende `brewCore` statt `brewTap`:
 
 ```ts
 import { brewCore } from "@pubm/plugin-brew";
@@ -109,14 +109,14 @@ export default defineConfig({
 | Option | Typ | Beschreibung |
 |--------|-----|--------------|
 | `formula` | `string` | Formula-Pfad relativ zum Repository-Root. |
-| `packageName` | `string` | Optionaler Filter fuer den Paketnamen in Monorepos. |
+| `packageName` | `string` | Optionaler Filter für den Paketnamen in Monorepos. |
 | `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Optionale benutzerdefinierte Plattform-Matcher. |
 
-`brewCore` forkt `homebrew/homebrew-core`, aktualisiert die Formula und oeffnet automatisch einen PR.
+`brewCore` forkt `homebrew/homebrew-core`, aktualisiert die Formula und öffnet automatisch einen PR.
 
 ## `@pubm/plugin-external-version-sync`
 
-Dieses Plugin haelt Dateien ausserhalb von Manifests mit deiner Paketversion synchron.
+Dieses Plugin haelt Dateien außerhalb von Manifests mit deiner Paketversion synchron.
 
 Verwende es, wenn ein Release auch Folgendes aktualisieren soll:
 
@@ -158,7 +158,7 @@ export default defineConfig({
 
 #### `regex`
 
-Verwende das fuer beliebige Textdateien:
+Verwende das für beliebige Textdateien:
 
 ```ts
 {
@@ -174,7 +174,7 @@ Voraussetzungen:
 
 #### `json`
 
-Verwende das fuer maschinenlesbare Manifests:
+Verwende das für maschinenlesbare Manifests:
 
 ```ts
 {
@@ -191,7 +191,7 @@ Wenn du nicht sicher bist, wo Versionen in deinem Repository vorkommen, fuehre a
 pubm sync --discover
 ```
 
-Der Befehl durchsucht moegliche Versionsverweise und gibt Kandidaten-Dateien sowie Pfade aus, die du in die Plugin-Config uebernehmen kannst.
+Der Befehl durchsucht mögliche Versionsverweise und gibt Kandidaten-Dateien sowie Pfade aus, die du in die Plugin-Config uebernehmen kannst.
 
 ## Wann du offizielle statt benutzerdefinierter Plugins waehlen solltest
 
@@ -205,19 +205,19 @@ Bau ein benutzerdefiniertes Plugin, wenn:
 
 - deine Registry oder dein Post-Release-Workflow organisationsspezifisch ist
 - du eigene Policy- oder Deployment-Logik brauchst
-- du zusaetzliche CLI-Befehle fuer Operatoren willst
+- du zusätzliche CLI-Befehle für Operatoren willst
 
-Lies die [Plugins API Reference](/pubm/de/de/reference/plugins/), wenn du ueber den offiziellen Satz hinaus erweitern willst.
+Lies die [Plugins API Reference](/pubm/de/reference/plugins/), wenn du über den offiziellen Satz hinaus erweitern willst.
 
-## Automatisierung fuer Coding-Agent-Setups
+## Automatisierung für Coding-Agent-Setups
 
-Runtime-Plugins sind nur ein Teil der Geschichte. Dieses Repository liefert ausserdem ein `pubm plugin`-Bundle unter `plugins/pubm-plugin/skills/*` fuer Coding-Agent-Workflows wie:
+Runtime-Plugins sind nur ein Teil der Geschichte. Dieses Repository liefert außerdem ein `pubm plugin`-Bundle unter `plugins/pubm-plugin/skills/*` für Coding-Agent-Workflows wie:
 
 - Release-Setup
-- Preview-first-Publish-Unterstuetzung
+- Preview-first-Publish-Unterstützung
 - Version-Sync-Discovery
 - Plugin-Scaffolding
 
 Wenn du `pubm` in eine Agenten-Umgebung integrierst, kombiniere Runtime-Plugins mit diesen skill-artigen Assets, damit Setup- und Publish-Flows explizit und wiederholbar bleiben.
 
-Lies den Leitfaden [Coding Agent Integration](/pubm/de/de/guides/coding-agents/) fuer das Integrations-Layout.
+Lies den Leitfaden [Coding Agent Integration](/pubm/de/guides/coding-agents/) für das Integrations-Layout.

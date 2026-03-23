@@ -40,31 +40,31 @@ await pubm({
 | Feld | Typ | Zweck |
 |------|-----|-------|
 | `version` | `string` | Erforderliches Release-Ziel wie `patch`, `minor`, `major` oder eine explizite SemVer. |
-| `dryRun` | `boolean` | Zeigt den Task-Plan an, ohne Git-Zustand zu aendern oder zu veroeffentlichen. |
-| `mode` | `"local" \| "ci"` | Ausfuehrungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
+| `dryRun` | `boolean` | Zeigt den Task-Plan an, ohne Git-Zustand zu ändern oder zu veröffentlichen. |
+| `mode` | `"local" \| "ci"` | Ausführungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
 | `prepare` | `boolean` | Fuehrt nur die Vorbereitungsphase aus (Validierung und Publish-Checks im Dry-Run). |
-| `publish` | `boolean` | Fuehrt nur die Publish-Phase aus (Veroeffentlichung vom neuesten Tag). |
-| `releaseDraft` | `boolean` | Erstellt einen Draft-GitHub-Release statt eines veroeffentlichten Releases. |
+| `publish` | `boolean` | Fuehrt nur die Publish-Phase aus (Veröffentlichung vom neuesten Tag). |
+| `releaseDraft` | `boolean` | Erstellt einen Draft-GitHub-Release statt eines veröffentlichten Releases. |
 | `branch` | `string` | Verlangt einen bestimmten Branch vor dem Veröffentlichen. |
-| `anyBranch` | `boolean` | Deaktiviert die Branch-Pruefung fuer einen Lauf. |
-| `tag` | `string` | Veroeffentlicht unter einem Dist-Tag wie `latest`, `next` oder `beta`. |
+| `anyBranch` | `boolean` | Deaktiviert die Branch-Prüfung für einen Lauf. |
+| `tag` | `string` | Veröffentlicht unter einem Dist-Tag wie `latest`, `next` oder `beta`. |
 | `snapshot` | `string \| boolean` | Baut eine Snapshot-Version anhand der konfigurierten Vorlage. |
-| `packages` | `PackageConfig[]` | Ueberschreibt automatisch gefundene Pakete. |
+| `packages` | `PackageConfig[]` | Überschreibt automatisch gefundene Pakete. |
 
-Fuer Config-getriebene Releases laedt `pubm()` automatisch `pubm.config.*`, loest die Paket-Erkennung auf und verbindet die Plugins, bevor der Task-Graph ausgefuehrt wird.
+Für Config-getriebene Releases laedt `pubm()` automatisch `pubm.config.*`, loest die Paket-Erkennung auf und verbindet die Plugins, bevor der Task-Graph ausgeführt wird.
 
 ## Config-Helfer
 
-Diese Helfer sind die wichtigsten Einstiegsstellen fuer Code, der `pubm.config.*` lesen oder validieren will.
+Diese Helfer sind die wichtigsten Einstiegsstellen für Code, der `pubm.config.*` lesen oder validieren will.
 
 | Export | Art | Zweck |
 |------|-----|-------|
 | `defineConfig` | function | Typisierter Helfer zum Schreiben von `pubm.config.ts`. |
-| `loadConfig` | function | Laedt `pubm.config.*` von der Festplatte und gibt `PubmConfig \| null` zurueck. |
+| `loadConfig` | function | Laedt `pubm.config.*` von der Festplatte und gibt `PubmConfig \| null` zurück. |
 | `resolveConfig` | function | Wendet Standardwerte an, entdeckt Pakete automatisch und normalisiert private Registries. |
 | `PubmConfig` | type | Form der vom Benutzer geschriebenen Config. |
-| `ResolvedPubmConfig` | type | Vollstaendig aufgeloeste Config, die `resolveConfig()` zurueckgibt. |
-| `PackageConfig` | type | Paketbezogener Config-Eintrag fuer Discovery und Publish-Planung. |
+| `ResolvedPubmConfig` | type | Vollstaendig aufgeloeste Config, die `resolveConfig()` zurückgibt. |
+| `PackageConfig` | type | Paketbezogener Config-Eintrag für Discovery und Publish-Planung. |
 
 ```ts
 import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
@@ -77,7 +77,7 @@ const config = await loadConfig(process.cwd());
 const resolved = config ? await resolveConfig(config, process.cwd()) : null;
 ```
 
-`PackageConfig` ist der Ort, an dem du pro Paket Registries, Ecosystem, Build-Command oder Test-Command ueberschreiben kannst:
+`PackageConfig` ist der Ort, an dem du pro Paket Registries, Ecosystem, Build-Command oder Test-Command überschreiben kannst:
 
 ```ts
 type PackageConfig = {
@@ -98,12 +98,12 @@ Nutze die Plugin-Exports, wenn du die Publish-Pipeline um benutzerdefinierte Reg
 | `PubmPlugin` | type | Oberster Plugin-Vertrag. |
 | `PluginHooks` | type | Lifecycle-Hooks wie `beforeBuild`, `afterPublish`, `onError`, `afterRelease` und Asset-Pipeline-Hooks. |
 | `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook-Signaturen. |
-| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Modell fuer benutzerdefinierte CLI-Befehle von Plugins. |
-| `PluginRunner` | class | Hilfsklasse, die Hooks ausfuehrt und Registries/Ecosystems aus geladenen Plugins sammelt. |
-| `ReleaseContext` | type | Release-Metadaten fuer `afterRelease`-Hooks. Enthält `packageName`, `version`, `tag`, `releaseUrl` und `assets`. |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Modell für benutzerdefinierte CLI-Befehle von Plugins. |
+| `PluginRunner` | class | Hilfsklasse, die Hooks ausführt und Registries/Ecosystems aus geladenen Plugins sammelt. |
+| `ReleaseContext` | type | Release-Metadaten für `afterRelease`-Hooks. Enthält `packageName`, `version`, `tag`, `releaseUrl` und `assets`. |
 | `ReleaseAsset` | type | Ein hochgeladenes Asset: `name`, `url`, `sha256` und strukturiertes `platform`. |
 | `ParsedPlatform` | type | Strukturierte Plattforminfo: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |
-| `PreparedAsset` | type | Asset nach Komprimierung und Hashing, bereit fuer den Upload. |
+| `PreparedAsset` | type | Asset nach Komprimierung und Hashing, bereit für den Upload. |
 | `TransformedAsset` | type | Asset nach dem `transformAsset`-Hook, vor der Komprimierung. |
 | `CompressedAsset` | type | Asset nach dem `compressAsset`-Schritt, vor der Benennung. |
 | `UploadedAsset` | type | Asset nach dem Upload mit `url` und `target`. |
@@ -128,12 +128,12 @@ export default defineConfig({
 
 ## Asset-Pipeline
 
-Diese Exporte treiben die Release-Asset-Pipeline an und sind fuer Plugin-Autoren und eigenes Tooling nuetzlich.
+Diese Exporte treiben die Release-Asset-Pipeline an und sind für Plugin-Autoren und eigenes Tooling nuetzlich.
 
 | Export | Art | Zweck |
 |------|-----|-------|
 | `parsePlatform` | function | Analysiert OS, Architektur, ABI, Variante und Vendor aus einem Pfadsegment-String anhand der eingebauten Tabellen. |
-| `runAssetPipeline` | function | Fuehrt die komplette Asset-Pipeline (resolve, transform, compress, name, hash, checksums) fuer eine aufgeloeste Config und ein Hook-Set aus. |
+| `runAssetPipeline` | function | Fuehrt die komplette Asset-Pipeline (resolve, transform, compress, name, hash, checksums) für eine aufgeloeste Config und ein Hook-Set aus. |
 
 ```ts
 import { parsePlatform, runAssetPipeline } from "@pubm/core";
@@ -161,7 +161,7 @@ import type {
 } from "@pubm/core";
 ```
 
-Siehe [Release Assets](/pubm/de/de/guides/release-assets/) und [Asset Pipeline Hooks](/pubm/de/de/guides/asset-pipeline-hooks/) fuer die Anwendungsleitfaeden.
+Siehe [Release Assets](/pubm/de/guides/release-assets/) und [Asset Pipeline Hooks](/pubm/de/guides/asset-pipeline-hooks/) für die Anwendungsleitfaeden.
 
 ## Changeset- und Versionshelfer
 
@@ -179,7 +179,7 @@ Die Changeset-Exports helfen dir, eigenes Tooling rund um `.pubm/changesets` zu 
 | `deleteChangesetFiles` | function | Verbrauchte Changeset-Dateien entfernen. |
 | `parseChangelogSection` | function | Einen Changelog-Abschnitt wieder in strukturierte Daten parsen. |
 
-Wichtige zugehoerige Typen:
+Wichtige zugehörige Typen:
 
 | Typ | Zweck |
 |-----|-------|
@@ -188,8 +188,8 @@ Wichtige zugehoerige Typen:
 | `BumpType` | `"patch" \| "minor" \| "major"`. |
 | `Status` / `PackageStatus` | Aggregierter ausstehender Status aus `getStatus()`. |
 | `VersionBump` | Ergebnis der Versionsplanung aus `calculateVersionBumps()`. |
-| `ChangelogEntry` / `DependencyUpdate` | Eingaben fuer das Rendern des Changelogs. |
-| `PackageVersionInfo` | Paketname, Version und Pfad, die von Discovery-Helfern zurueckgegeben werden. |
+| `ChangelogEntry` / `DependencyUpdate` | Eingaben für das Rendern des Changelogs. |
+| `PackageVersionInfo` | Paketname, Version und Pfad, die von Discovery-Helfern zurückgegeben werden. |
 | `MigrationResult` | Ergebnisobjekt von `migrateFromChangesets()`. |
 
 ```ts
@@ -212,20 +212,20 @@ Diese Exporte sind nuetzlich, wenn du dieselbe Workspace-Erkennung brauchst, die
 |------|-----|-------|
 | `detectWorkspace` | function | Erkennt pnpm-, npm-, Yarn-, Bun-, Cargo- oder Deno-Workspaces aus Repository-Dateien. |
 | `discoverPackages` | function | Findet publishbare Pakete automatisch und leitet Registries/Ecosystems ab. |
-| `buildDependencyGraph` | function | Baut einen internen Abhaengigkeitsgraphen aus Paketmetadaten. |
-| `topologicalSort` | function | Sortiert Graphknoten so, dass Abhaengigkeiten zuerst kommen. |
+| `buildDependencyGraph` | function | Baut einen internen Abhängigkeitsgraphen aus Paketmetadaten. |
+| `topologicalSort` | function | Sortiert Graphknoten so, dass Abhängigkeiten zuerst kommen. |
 | `resolveGroups` | function | Loest fixed/linked-Gruppen gegen eine gefundene Paketliste auf. |
 | `applyFixedGroup` / `applyLinkedGroup` | functions | Wendet Gruppensemantik auf die Versionsplanung an. |
-| `Git` | class | Schlanke Huelle um Git-Befehle, die fuer Release-Automatisierung genutzt werden. |
+| `Git` | class | Schlanke Huelle um Git-Befehle, die für Release-Automatisierung genutzt werden. |
 
-Wichtige zugehoerige Typen:
+Wichtige zugehörige Typen:
 
 | Typ | Zweck |
 |-----|-------|
 | `WorkspaceInfo` | Workspace-Typ plus Include-/Exclude-Muster. |
-| `DiscoverOptions` | Eingabe fuer `discoverPackages()`. |
+| `DiscoverOptions` | Eingabe für `discoverPackages()`. |
 | `DiscoveredPackage` | Automatisch erkanntes Paket mit Pfad, Registries und Ecosystem. |
-| `PackageNode` | Eingabeknoten fuer den Aufbau des Abhaengigkeitsgraphen. |
+| `PackageNode` | Eingabeknoten für den Aufbau des Abhängigkeitsgraphen. |
 
 ```ts
 import {
@@ -256,32 +256,32 @@ const ordered = topologicalSort(graph);
 
 ## Validierungs- und Utility-Helfer
 
-Das Paket-Root exportiert ausserdem die folgenden Helfer fuer Tooling-Integrationen.
+Das Paket-Root exportiert außerdem die folgenden Helfer für Tooling-Integrationen.
 
 | Export | Art | Zweck |
 |------|-----|-------|
-| `validateEntryPoints` | function | Prueft `main`, `module`, `types`, `exports` und `bin`-Pfade in einem Paket-Manifest. |
+| `validateEntryPoints` | function | Prüft `main`, `module`, `types`, `exports` und `bin`-Pfade in einem Paket-Manifest. |
 | `detectExtraneousFiles` | function | Markiert Dateien, die normalerweise nicht in Publish-Artefakten landen sollten. |
-| `getPackageJson` | function | Liest das naechste `package.json`, optional mit `jsr.json`-Fallback. |
+| `getPackageJson` | function | Liest das nächste `package.json`, optional mit `jsr.json`-Fallback. |
 | `replaceVersion` / `replaceVersionAtPath` | functions | Schreibt Paketversionen in Manifests um. |
 | `version` | function | Liest die aktuelle Paketversion aus `package.json` oder `jsr.json`. |
 | `generateSnapshotVersion` | function | Baut Snapshot-Versionen aus `base`, `tag`, `timestamp` und optional `commit`. |
 | `loadTokensFromDb` | function | Laedt gespeicherte Registry-Tokens und beachtet passende Umgebungsvariablen. |
-| `syncGhSecrets` | function | Schiebt Registry-Tokens ueber `gh secret set` in GitHub Secrets. |
+| `syncGhSecrets` | function | Schiebt Registry-Tokens über `gh secret set` in GitHub Secrets. |
 | `exec` | function | Startet einen Subprozess und faengt stdout/stderr ab. |
 | `getPackageManager` | function | Erkennt den Workspace-Paketmanager anhand der Lockfiles. |
 | `detectRuntime` / `isBun` | functions | Erkennt die aktuelle Runtime. |
-| `notifyNewVersion` | function | Prueft, ob es eine neuere veroeffentlichte `pubm`-Version gibt, und gibt ein Update-Banner aus. |
+| `notifyNewVersion` | function | Prüft, ob es eine neuere veröffentlichte `pubm`-Version gibt, und gibt ein Update-Banner aus. |
 | `consoleError` | function | Formatiert und gibt `pubm`-Fehler aus. |
-| `PUBM_VERSION` / `PUBM_ENGINES` | constants | Paketmetadaten, die zur Laufzeit verfuegbar sind. |
+| `PUBM_VERSION` / `PUBM_ENGINES` | constants | Paketmetadaten, die zur Laufzeit verfügbar sind. |
 
-Wichtige zugehoerige Typen:
+Wichtige zugehörige Typen:
 
 | Typ | Zweck |
 |-----|-------|
-| `EntryPointError` | Eintrag fuer Validierungsergebnisse bei defekten Manifest-Pfaden. |
-| `ExtraneousFile` | Eintrag fuer Validierungsergebnisse bei Dateien, die nicht veroeffentlicht werden sollten. |
-| `SnapshotOptions` | Eingabe fuer `generateSnapshotVersion()`. |
+| `EntryPointError` | Eintrag für Validierungsergebnisse bei defekten Manifest-Pfaden. |
+| `ExtraneousFile` | Eintrag für Validierungsergebnisse bei Dateien, die nicht veröffentlicht werden sollten. |
+| `SnapshotOptions` | Eingabe für `generateSnapshotVersion()`. |
 | `Runtime` | `"node" \| "bun"`. |
 
 ```ts

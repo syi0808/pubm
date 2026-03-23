@@ -1,6 +1,6 @@
 ---
 title: Fehlerbehebung
-description: Die haeufigsten Probleme mit Release, Config und Registries in pubm diagnostizieren.
+description: Die häufigsten Probleme mit Release, Config und Registries in pubm diagnostizieren.
 ---
 
 Dieser Leitfaden konzentriert sich auf die Ausfallarten, die in der Praxis am wichtigsten sind: Config-Laden, Versionierung, Registry-Authentifizierung, Git-Zustand und CI-Verhalten.
@@ -18,10 +18,10 @@ pubm --mode ci --phase prepare
 
 Zusammen beantworten diese Befehle:
 
-- welche Version `pubm` zu veroeffentlichen glaubt
+- welche Version `pubm` zu veröffentlichen glaubt
 - welche Pakete betroffen sind
 - ob der Changelog-Text plausibel ist
-- ob Zugangsdaten und Registry-Pruefungen bereit sind
+- ob Zugangsdaten und Registry-Prüfungen bereit sind
 
 ## Publish durch Git-Zustand blockiert
 
@@ -31,11 +31,11 @@ Symptome:
 - Fehler melden einen nicht sauberen Working Tree
 - Fehler melden den falschen Branch
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
-- lokale Aenderungen committen oder stashten
+- lokale Änderungen committen oder stashten
 - bestaetigen, dass du auf dem erwarteten Branch bist
-- falls das eine absichtliche Ausnahme ist, pruefen, ob `--any-branch` akzeptabel ist
+- falls das eine absichtliche Ausnahme ist, prüfen, ob `--any-branch` akzeptabel ist
 
 Umgehungsflags sollten nicht in den Standard-Workflow uebernommen werden, wenn du nicht wirklich bewusst eine schwächere Release-Sicherheit willst.
 
@@ -45,11 +45,11 @@ Symptome:
 
 - `pubm changesets version` gibt `No changesets found.` aus
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - sicherstellen, dass Dateien in `.pubm/changesets/` existieren
 - sicherstellen, dass du im Repository-Root bist
-- wenn du von `.changeset/` migrierst, `pubm changesets migrate` ausfuehren
+- wenn du von `.changeset/` migrierst, `pubm changesets migrate` ausführen
 
 ## Falsche Pakete werden hochgezogen
 
@@ -58,9 +58,9 @@ Symptome:
 - Pakete, die du nicht erwartet hast, erscheinen in `changesets status`
 - feste oder gekoppelte Pakete bewegen sich unerwartet gemeinsam
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
-- `pubm changesets status --verbose` ausfuehren
+- `pubm changesets status --verbose` ausführen
 - die `fixed`- und `linked`-Gruppen in `pubm.config.*` ansehen
 - verifizieren, ob das Repository `independent` oder `fixed` versioniert
 
@@ -73,12 +73,12 @@ Symptome:
 - der Start faellt noch vor Beginn der Release-Pipeline fehl
 - Fehler betreffen Config-Imports oder das Bundling
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
-- sicherstellen, dass die Config-Datei einen unterstuetzten Namen hat
+- sicherstellen, dass die Config-Datei einen unterstützten Namen hat
 - `defineConfig` aus `@pubm/core` importieren
 - schwere Laufzeit-Arbeit aus dem Top-Level des Config-Moduls entfernen
-- pruefen, ob optionale Abhaengigkeiten dort installiert sind, wo sie gebraucht werden
+- prüfen, ob optionale Abhängigkeiten dort installiert sind, wo sie gebraucht werden
 
 Gute Config-Dateien sind vor allem deklarativ. Wenn die Datei wie Anwendungs-Code aussieht, lagere Hilfsfunktionen in kleinere Module aus und halte die Auswertung vorhersehbar.
 
@@ -89,54 +89,54 @@ Symptome:
 - 401- oder 403-Antworten
 - Meldungen zu OTP, 2FA oder Publish-Berechtigungen
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - `NODE_AUTH_TOKEN` kontrollieren
 - bestaetigen, dass der Token Publish-Zugriff auf das Paket hat
 - in CI lieber Automation-kompatible Tokens verwenden
 - bestaetigen, dass das Access-Level des Pakets zu den Registry-Erwartungen passt
 
-Wenn das Repository scoped Public Packages veroeffentlicht, auch pruefen, ob das Paket auf npm oeffentlich sein soll.
+Wenn das Repository scoped Public Packages veröffentlicht, auch prüfen, ob das Paket auf npm oeffentlich sein soll.
 
 ## jsr-Publish scheitert
 
 Symptome:
 
-- das jsr-Ziel scheitert, waehrend npm funktioniert
+- das jsr-Ziel scheitert, während npm funktioniert
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - `JSR_TOKEN` kontrollieren
-- `pubm --mode ci --phase prepare` ausfuehren
-- bestaetigen, dass die Paketmetadaten fuer jsr gueltig sind
+- `pubm --mode ci --phase prepare` ausführen
+- bestaetigen, dass die Paketmetadaten für jsr gueltig sind
 
-Weil `pubm` an mehrere Ziele veroeffentlicht, solltest du die fehlerhafte Registry reparieren, statt blind erneut zu versuchen und damit moegliche Teilveroeffentlichungen zu verwechseln.
+Weil `pubm` an mehrere Ziele veröffentlicht, solltest du die fehlerhafte Registry reparieren, statt blind erneut zu versuchen und damit mögliche Teilveröffentlichungen zu verwechseln.
 
 ## crates.io-Publish scheitert
 
 Symptome:
 
-- Rust-Paketveroeffentlichung scheitert
+- Rust-Paketveröffentlichung scheitert
 - ein Crate klappt, blockiert aber ein anderes in der Sequenz
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - `CARGO_REGISTRY_TOKEN` kontrollieren
-- bestaetigen, dass Abhaengigkeitsreihenfolge und Versionen der Crates gueltig sind
-- die paketbezogene `registries`-Ueberschreibung in `pubm.config.*` pruefen (oder Manifest-Dateien, falls Ableitung genutzt wird)
+- bestaetigen, dass Abhängigkeitsreihenfolge und Versionen der Crates gueltig sind
+- die paketbezogene `registries`-Überschreibung in `pubm.config.*` prüfen (oder Manifest-Dateien, falls Ableitung genutzt wird)
 
-Rust-Publishes werden sequentiell ausgefuehrt, wenn die Reihenfolge wichtig ist. Das ist normal und meist ein Zeichen dafuer, dass `pubm` die Abhaengigkeitskonsistenz schuetzt.
+Rust-Publishes werden sequentiell ausgeführt, wenn die Reihenfolge wichtig ist. Das ist normal und meist ein Zeichen dafür, dass `pubm` die Abhängigkeitskonsistenz schuetzt.
 
 ## Build- oder Test-Schritt scheitert innerhalb von pubm
 
 Symptome:
 
-- der Release-Flow stoppt waehrend Test oder Build
+- der Release-Flow stoppt während Test oder Build
 - die Fehlermeldung empfiehlt, das zugrunde liegende Script erneut auszufuehren
 
 Was du tun solltest:
 
-1. das Script direkt erneut ausfuehren
+1. das Script direkt erneut ausführen
 2. den eigentlichen Build- oder Testfehler beheben
 3. `pubm` erneut starten
 
@@ -153,37 +153,37 @@ Wenn deine Scripts andere Namen haben, gleiche sie mit Config oder CLI-Flags ab:
 pubm --test-script test:ci --build-script build:release
 ```
 
-## Veroeffentlichung aus `contents` funktioniert nicht
+## Veröffentlichung aus `contents` funktioniert nicht
 
 Symptome:
 
 - der Publish-Befehl findet erwartete Dateien nicht
 - Release funktioniert aus dem Root, scheitert aber aus `dist/`
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - bestaetigen, dass `contents` auf das finale Publish-Verzeichnis zeigt
 - sicherstellen, dass der Build-Schritt dieses Verzeichnis erzeugt, bevor der Publish beginnt
-- pruefen, ob das Zielverzeichnis die Manifest-Dateien enthaelt, die die gewaehlte Registry erwartet
+- prüfen, ob das Zielverzeichnis die Manifest-Dateien enthaelt, die die gewaehlte Registry erwartet
 
-`contents` aendert das Working Directory fuer die Laufzeit-Pipeline. Behandle es als Publish-Root, nicht nur als Ausgabeverzeichnis.
+`contents` ändert das Working Directory für die Laufzeit-Pipeline. Behandle es als Publish-Root, nicht nur als Ausgabeverzeichnis.
 
 ## CI funktioniert anders als lokale Laeufe
 
 Symptome:
 
-- lokales Veroeffentlichen klappt
+- lokales Veröffentlichen klappt
 - CI-Publish scheitert oder haengt
 
 Warum das passiert:
 
 - CI deaktiviert Prompts
 - Tokens muessen aus Umgebungsvariablen oder vorheriger Secret-Synchronisierung kommen
-- flache Checkouts brechen haeufig tag-bewusste Flows
+- flache Checkouts brechen häufig tag-bewusste Flows
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
-- `pubm --mode ci --phase prepare` lokal ausfuehren
+- `pubm --mode ci --phase prepare` lokal ausführen
 - in CI den vollen Git-Verlauf verwenden
 - bestaetigen, dass jedes erforderliche Token in der Job-Umgebung vorhanden ist
 
@@ -192,15 +192,15 @@ Was du pruefen solltest:
 Symptome:
 
 - die Erstellung des Releases scheitert
-- die Release-Metadaten wirken unvollstaendig
+- die Release-Metadaten wirken unvollständig
 
-Was du pruefen solltest:
+Was du prüfen solltest:
 
 - bestaetigen, dass die Remote-Metadaten des Repositories gueltig sind
 - sicherstellen, dass Git-Tags existieren und gepusht wurden
 - zwischen normalem Publish-Flow und `--mode ci --phase publish` unterscheiden
 
-`pubm` erstellt einen GitHub Release ueber die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--mode ci --phase publish` erstellt im Rahmen der Pipeline einen GitHub Release ueber die API.
+`pubm` erstellt einen GitHub Release über die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--mode ci --phase publish` erstellt im Rahmen der Pipeline einen GitHub Release über die API.
 
 ## Rollback ist passiert und der Repository-Zustand wirkt verwirrend
 

@@ -1,19 +1,19 @@
 ---
 title: Quick Start
-description: "pubm installieren, ein Projekt initialisieren und das erste Release veroeffentlichen."
+description: "pubm installieren, ein Projekt initialisieren und das erste Release veröffentlichen."
 ---
 
-`pubm` ist ein Release-Orchestrator fuer Projekte, die in mehr als eine Registry, mehr als ein Paket oder mehr als ein Ecosystem veroeffentlichen.
+`pubm` ist ein Release-Orchestrator für Projekte, die in mehr als eine Registry, mehr als ein Paket oder mehr als ein Ecosystem veröffentlichen.
 
 ## Before you start
 
-`pubm` ist fuer Repositories gedacht, die bereits Git nutzen und ein gueltiges Paket-Manifest haben.
+`pubm` ist für Repositories gedacht, die bereits Git nutzen und ein gueltiges Paket-Manifest haben.
 
 - Git `2.11+`
 - ein Paket-Manifest wie `package.json`
 - ein sauberer Working Tree vor dem Veröffentlichen
 
-`pubm` selbst wird als von Bun gebautes Einzelbinary ausgeliefert. Du brauchst keine separate Node.js-Laufzeit nur fuer die CLI, auch wenn die npm-basierte Installation weiterhin deine Paketmanager-Toolchain verwendet.
+`pubm` selbst wird als von Bun gebautes Einzelbinary ausgeliefert. Du brauchst keine separate Node.js-Laufzeit nur für die CLI, auch wenn die npm-basierte Installation weiterhin deine Paketmanager-Toolchain verwendet.
 
 Installiere die CLI global:
 
@@ -23,12 +23,12 @@ npm i -g pubm
 
 ## For coding agents
 
-Wenn du `pubm` ueber Claude Code, Codex oder einen anderen Coding Agent einbindest, beginne mit der Setup-Automatisierung statt Release-Prompts von Hand zu schreiben.
+Wenn du `pubm` über Claude Code, Codex oder einen anderen Coding Agent einbindest, beginne mit der Setup-Automatisierung statt Release-Prompts von Hand zu schreiben.
 
 - Fuehre `pubm setup-skills` aus, um Coding-Agent-Skills direkt herunterzuladen und zu installieren, oder lass `pubm init` die Skill-Installation als letzten Schritt anbieten.
 - Alternativ verwende den Skill `publish-setup` aus dem `pubm plugin`-Bundle, um den Release-Workflow zu installieren, Konfiguration zu erzeugen, CI anzubinden und Changesets zu aktivieren.
 - Gib deinem Agenten den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle abrufen und mit `publish-setup` starten kann.
-- Lies [Coding Agent Integration](/pubm/de/de/guides/coding-agents/) fuer das Integrationsmodell und die Rollen der Skills.
+- Lies [Coding Agent Integration](/pubm/de/guides/coding-agents/) für das Integrationsmodell und die Rollen der Skills.
 
 ## 1. Initialize the repository
 
@@ -48,4 +48,4 @@ Starte den Release-Flow:
 pubm
 ```
 
-Wenn ausstehende Changesets existieren, verbraucht `pubm` sie waehrend des Versionsschritts der Release-Pipeline. Fuer Konfigurationsdetails lies [Configuration](/pubm/de/de/guides/configuration/). Fuer CI, Tokens und das Verhalten der CI-Vorbereitung lies [CI/CD](/pubm/de/de/guides/ci-cd/). Fuer Monorepos lies [Monorepo](/pubm/de/de/guides/monorepo/). Fuer exakte Flags und Subcommands lies die [CLI Reference](/pubm/de/de/reference/cli/).
+Wenn ausstehende Changesets existieren, verbraucht `pubm` sie während des Versionsschritts der Release-Pipeline. Für Konfigurationsdetails lies [Configuration](/pubm/de/guides/configuration/). Für CI, Tokens und das Verhalten der CI-Vorbereitung lies [CI/CD](/pubm/de/guides/ci-cd/). Für Monorepos lies [Monorepo](/pubm/de/guides/monorepo/). Für exakte Flags und Subcommands lies die [CLI Reference](/pubm/de/reference/cli/).
