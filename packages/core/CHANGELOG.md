@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.6
+
+### Patch Changes
+
+- Add lockfileSync config option and JS lockfile sync on version bump
+
 ## 0.4.5
 
 ### Patch Changes
