@@ -25,13 +25,13 @@ Implement `syncLockfile()` following the same pattern as `RustEcosystem`:
 
 | Package Manager | Lock File(s) | Command | Notes |
 |---|---|---|---|
-| bun | `bun.lock`, `bun.lockb` | `bun install` | Updates lock file in-place |
-| npm | `package-lock.json`, `npm-shrinkwrap.json` | `npm install --package-lock-only` | Lock only, no node_modules |
+| bun | `bun.lock`, `bun.lockb` | `bun install` | No lock-only option; also updates `node_modules` (not committed) |
+| npm | `npm-shrinkwrap.json`, `package-lock.json` | `npm install --package-lock-only` | Lock only, no node_modules. `npm-shrinkwrap.json` takes precedence per npm docs |
 | pnpm | `pnpm-lock.yaml` | `pnpm install --lockfile-only` | Lock only, no node_modules |
 | yarn v2+ | `yarn.lock` | `yarn install --mode update-lockfile` | Berry lock-only mode |
 | yarn v1 | `yarn.lock` | `yarn install` | No lock-only option; full install required |
 
-**Yarn version detection:** check for `.yarnrc.yml` in the lock file's directory (present = v2+, absent = v1).
+**Yarn version detection:** check for `.yarnrc.yml` in the lock file's directory (present = v2+, absent = v1). Note: Yarn Berry can resolve `.yarnrc.yml` from parent directories, but in practice it colocates with `yarn.lock` at the workspace root. If this heuristic proves insufficient, fall back to `yarn --version`.
 
 ### 3. Configuration
 
@@ -58,7 +58,7 @@ syncLockfile(lockfileSync) called
             └─ lockfileSync === "required" → throw Error
 ```
 
-### 5. Signature Change
+### 5. Signature Changes
 
 `Ecosystem.syncLockfile()` gains a parameter for the sync mode:
 
@@ -66,9 +66,39 @@ syncLockfile(lockfileSync) called
 async syncLockfile(mode?: "required" | "optional" | "skip"): Promise<string | undefined>
 ```
 
-`writeVersionsForEcosystem()` receives the resolved config's `lockfileSync` value and passes it through.
+`writeVersionsForEcosystem()` gains a `lockfileSync` parameter and passes it to each `syncLockfile()` call:
+
+```ts
+export async function writeVersionsForEcosystem(
+  ecosystems: { eco: Ecosystem; pkg: ResolvedPackageConfig }[],
+  versions: Map<string, string>,
+  lockfileSync?: "required" | "optional" | "skip",
+): Promise<string[]>
+```
+
+**Call sites to update:**
+- `packages/core/src/tasks/runner.ts` — pass `ctx.config.lockfileSync` to `writeVersionsForEcosystem()`
+- `packages/pubm/src/commands/version-cmd.ts` — pass config's `lockfileSync` (or default `"optional"`)
 
 `RustEcosystem.syncLockfile()` is updated to accept the parameter and respect `"skip"` / error handling behavior.
+
+### 6. Phase 3 Deduplication
+
+In a monorepo, multiple `JsEcosystem` instances share the same root lock file. Phase 3 must deduplicate to avoid running install N times:
+
+```ts
+// Phase 3: Sync lockfiles (deduplicated)
+const syncedLockfiles = new Set<string>();
+for (const { eco } of ecosystems) {
+  const lockfilePath = await eco.syncLockfile(lockfileSync);
+  if (lockfilePath && !syncedLockfiles.has(lockfilePath)) {
+    syncedLockfiles.add(lockfilePath);
+    modifiedFiles.push(lockfilePath);
+  }
+}
+```
+
+This also benefits `RustEcosystem` if multiple Rust crates share a `Cargo.lock`.
 
 ## Files to Change
 
@@ -79,7 +109,9 @@ async syncLockfile(mode?: "required" | "optional" | "skip"): Promise<string | un
 | `packages/core/src/ecosystem/rust.ts` | Update `syncLockfile()` to accept `mode` parameter, add skip/error handling |
 | `packages/core/src/utils/package-manager.ts` | Export `lockFile` map, add `installCommand()` function with yarn version detection |
 | `packages/core/src/config/types.ts` | Add `lockfileSync` to `PubmConfig` |
-| `packages/core/src/manifest/write-versions.ts` | Pass `lockfileSync` setting to `syncLockfile()` |
+| `packages/core/src/manifest/write-versions.ts` | Add `lockfileSync` parameter, deduplicate Phase 3 |
+| `packages/core/src/tasks/runner.ts` | Pass `ctx.config.lockfileSync` to `writeVersionsForEcosystem()` |
+| `packages/pubm/src/commands/version-cmd.ts` | Pass `lockfileSync` to `writeVersionsForEcosystem()` |
 | Tests | Unit tests for each changed module |
 
 ## Out of Scope
