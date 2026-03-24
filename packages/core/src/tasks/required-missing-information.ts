@@ -7,7 +7,11 @@ import { getStatus } from "../changeset/status.js";
 import type { VersionBump } from "../changeset/version.js";
 import { calculateVersionBumps } from "../changeset/version.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
-import type { PubmContext } from "../context.js";
+import type {
+  FixedVersionPlan,
+  IndependentVersionPlan,
+  PubmContext,
+} from "../context.js";
 import { defaultOptions } from "../options.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { filterConfigPackages } from "../utils/filter-config.js";
@@ -451,6 +455,28 @@ async function handleMultiPackage(
 }
 
 /**
+ * Builds a FixedVersionPlan or IndependentVersionPlan based on the configured
+ * versioning mode. In fixed mode, all packages are unified to the highest version.
+ */
+function buildVersionPlan(
+  versioning: "fixed" | "independent",
+  packages: Map<string, string>,
+): FixedVersionPlan | IndependentVersionPlan {
+  if (versioning === "fixed") {
+    let highest = "0.0.0";
+    for (const ver of packages.values()) {
+      if (semver.gt(ver, highest)) highest = ver;
+    }
+    const unified = new Map<string, string>();
+    for (const key of packages.keys()) {
+      unified.set(key, highest);
+    }
+    return { mode: "fixed", version: highest, packages: unified };
+  }
+  return { mode: "independent", packages };
+}
+
+/**
  * add_packages branch: auto-bump changeset packages, then prompt for remaining.
  */
 async function handleAddPackages(
@@ -472,10 +498,10 @@ async function handleAddPackages(
     bumps,
   );
 
-  ctx.runtime.versionPlan = {
-    mode: "independent",
-    packages: new Map([...versions].filter(([p]) => publishPaths.has(p))),
-  };
+  ctx.runtime.versionPlan = buildVersionPlan(
+    ctx.config.versioning,
+    new Map([...versions].filter(([p]) => publishPaths.has(p))),
+  );
   ctx.runtime.changesetConsumed = true;
   filterConfigPackages(ctx, publishPaths);
 }
@@ -660,10 +686,7 @@ async function promptChangesetRecommendations(
     for (const [path, bump] of bumps) {
       versions.set(path, bump.newVersion);
     }
-    ctx.runtime.versionPlan = {
-      mode: "independent",
-      packages: versions,
-    };
+    ctx.runtime.versionPlan = buildVersionPlan(ctx.config.versioning, versions);
     ctx.runtime.changesetConsumed = true;
     filterConfigPackages(ctx, new Set(bumps.keys()));
     return "accepted";
