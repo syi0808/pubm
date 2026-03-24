@@ -251,12 +251,12 @@ Add to `package.json`. The `release` script depends on whether CI was set up:
 ```json
 {
   "scripts": {
-    "release": "pubm --no-publish",
-    "ci:release": "pubm --mode ci --phase publish"
+    "release": "pubm --mode ci --phase prepare",
+    "release:ci": "pubm --mode ci --phase publish"
   }
 }
 ```
-`--no-publish` makes the local `release` command only bump the version, create a git commit and tag, and push — CI handles the actual publishing.
+`--phase prepare` collects tokens and validates registry access. `--phase publish` handles the actual publishing in CI.
 
 **If CI was NOT configured** (publishing is done locally):
 ```json
@@ -284,7 +284,7 @@ Remind the user they can run `pubm inspect packages` at any time to verify their
 - Config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
 - Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init`).
 - If unsure which registries the user wants, ask. Do not assume.
-- When suggesting npm scripts: use `"release": "pubm --no-publish"` if CI is configured (local run only bumps version and pushes tags, CI publishes), or `"release": "pubm"` if no CI. Always use `"ci:release": "pubm --mode ci --phase publish"` for CI.
+- When suggesting npm scripts: use `"release": "pubm --mode ci --phase prepare"` if CI is configured (collects tokens and validates registry access), or `"release": "pubm"` if no CI. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
 - In CI, use `--mode ci --phase publish` (publish + GitHub Release) or `--phase publish` (publish only).
 - When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
 - When the project analysis (Step 1) reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
