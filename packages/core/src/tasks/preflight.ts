@@ -142,9 +142,10 @@ export async function promptGhSecretsSync(
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
   pluginSecrets: GhSecretEntry[] = [],
+  repoSlug: string,
 ): Promise<void> {
   const currentHash = tokensSyncHash(tokens, pluginSecrets);
-  const storedHash = readGhSecretsSyncHash();
+  const storedHash = readGhSecretsSyncHash(repoSlug);
 
   if (storedHash === currentHash) {
     task.output =
@@ -173,7 +174,7 @@ export async function promptGhSecretsSync(
   }
 
   try {
-    writeGhSecretsSyncHash(currentHash);
+    writeGhSecretsSyncHash(repoSlug, currentHash);
   } catch (error) {
     throw new PreflightError("Failed to save GitHub Secrets sync state.", {
       cause: error,

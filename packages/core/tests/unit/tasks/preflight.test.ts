@@ -360,7 +360,7 @@ describe("promptGhSecretsSync", () => {
     mockedReadGhSecretsSyncHash.mockReturnValue(hash);
 
     const mockTask = { output: "", prompt: vi.fn() };
-    await promptGhSecretsSync(tokens, mockTask);
+    await promptGhSecretsSync(tokens, mockTask, [], "owner/repo");
 
     expect(mockTask.prompt).not.toHaveBeenCalled();
     expect(mockTask.output).toBe(
@@ -383,11 +383,12 @@ describe("promptGhSecretsSync", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await promptGhSecretsSync({ npm: "tok-new" }, mockTask);
+    await promptGhSecretsSync({ npm: "tok-new" }, mockTask, [], "owner/repo");
 
     expect(mockTask.prompt).toHaveBeenCalled();
     expect(mockedExec).toHaveBeenCalled();
     expect(mockedWriteGhSecretsSyncHash).toHaveBeenCalledWith(
+      "owner/repo",
       expect.any(String),
     );
   });
@@ -401,10 +402,11 @@ describe("promptGhSecretsSync", () => {
       prompt: vi.fn().mockReturnValue(mockPromptAdapter),
     };
 
-    await promptGhSecretsSync({ npm: "tok-1" }, mockTask);
+    await promptGhSecretsSync({ npm: "tok-1" }, mockTask, [], "owner/repo");
 
     expect(mockedExec).not.toHaveBeenCalled();
     expect(mockedWriteGhSecretsSyncHash).toHaveBeenCalledWith(
+      "owner/repo",
       expect.any(String),
     );
   });
@@ -422,7 +424,7 @@ describe("promptGhSecretsSync", () => {
     };
 
     await expect(
-      promptGhSecretsSync({ npm: "tok-1" }, mockTask),
+      promptGhSecretsSync({ npm: "tok-1" }, mockTask, [], "owner/repo"),
     ).rejects.toThrow("Failed to save GitHub Secrets sync state.");
   });
 });

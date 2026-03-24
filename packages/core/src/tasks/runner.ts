@@ -35,6 +35,7 @@ import { resolveGitHubToken, saveGitHubToken } from "../utils/github-token.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { openUrl } from "../utils/open-url.js";
 import { getPackageManager } from "../utils/package-manager.js";
+import { parseOwnerRepo } from "../utils/parse-owner-repo.js";
 import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
 import {
@@ -728,7 +729,16 @@ export async function run(ctx: PubmContext): Promise<void> {
               token: pluginTokens[c.key],
             }));
 
-          await promptGhSecretsSync(tokens, task, pluginSecrets);
+          let repoSlug: string;
+          try {
+            const remoteUrl = await new Git().repository();
+            const { owner, repo } = parseOwnerRepo(remoteUrl);
+            repoSlug = `${owner}/${repo}`;
+          } catch {
+            repoSlug = process.cwd();
+          }
+
+          await promptGhSecretsSync(tokens, task, pluginSecrets, repoSlug);
 
           // Inject tokens and switch to non-interactive mode
           cleanupEnv = injectTokensToEnv(tokens);
