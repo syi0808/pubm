@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import type { PubmPlugin } from "@pubm/core";
@@ -46,6 +47,17 @@ export function externalVersionSync(
             const filePath = path.isAbsolute(target.file)
               ? target.file
               : path.resolve(cwd, target.file);
+
+            // Back up file contents before modification for rollback
+            if (existsSync(filePath)) {
+              const backup = readFileSync(filePath, "utf-8");
+              ctx.runtime.rollback.add({
+                label: `Restore ${target.file}`,
+                fn: async () => {
+                  writeFileSync(filePath, backup, "utf-8");
+                },
+              });
+            }
 
             syncVersionInFile(filePath, version, target);
           } catch (error) {
