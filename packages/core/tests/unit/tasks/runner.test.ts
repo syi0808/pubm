@@ -437,6 +437,8 @@ beforeEach(() => {
       popStash: vi.fn().mockResolvedValue(undefined),
       status: vi.fn().mockResolvedValue(""),
       checkTagExist: vi.fn().mockResolvedValue(false),
+      revParse: vi.fn().mockResolvedValue("abc123"),
+      branch: vi.fn().mockResolvedValue("main"),
     } as any;
   });
   mockedGetPackageManager.mockResolvedValue("pnpm" as any);
@@ -1146,6 +1148,8 @@ describe("run", () => {
           popStash,
           status: vi.fn().mockResolvedValue(" M package.json"),
           checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
         } as any;
       });
 
@@ -1183,6 +1187,8 @@ describe("run", () => {
           deleteTag: vi.fn().mockResolvedValue(undefined),
           status: vi.fn().mockResolvedValue(""),
           checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
         } as any;
       });
 
@@ -1222,6 +1228,8 @@ describe("run", () => {
           deleteTag: vi.fn().mockResolvedValue(undefined),
           status: vi.fn().mockResolvedValue(""),
           checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
         } as any;
       });
 
