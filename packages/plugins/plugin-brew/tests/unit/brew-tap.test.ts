@@ -328,10 +328,6 @@ describe("brewTap", () => {
       ),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    resolveGitHubTokenMock.mockReturnValue({
-      token: "ghp_test123",
-      source: "env",
-    });
 
     const plugin = brewTap({
       formula: "Formula/pubm.rb",
@@ -371,7 +367,6 @@ describe("brewTap", () => {
       ),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    resolveGitHubTokenMock.mockReturnValue(null);
 
     const plugin = brewTap({
       formula: "Formula/pubm.rb",

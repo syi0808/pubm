@@ -1283,10 +1283,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             // Re-sync lockfile to reflect restored workspace:* protocols
             const syncedLockfiles = new Set<string>();
             for (const pkg of ctx.config.packages) {
-              const absPath = path.resolve(
-                ctx.cwd ?? process.cwd(),
-                pkg.path,
-              );
+              const absPath = path.resolve(ctx.cwd ?? process.cwd(), pkg.path);
               const ecosystem = requirePackageEcosystem(pkg);
               const descriptor = ecosystemCatalog.get(ecosystem);
               if (!descriptor) continue;
