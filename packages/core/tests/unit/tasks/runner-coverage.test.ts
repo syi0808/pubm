@@ -5090,7 +5090,7 @@ describe("restore workspace protocols task (dry-run phase)", () => {
       },
     };
 
-    expect(() => restoreTask.task(ctx)).toThrow(
+    await expect(restoreTask.task(ctx)).rejects.toThrow(
       "Workspace backups are required for restore.",
     );
   });

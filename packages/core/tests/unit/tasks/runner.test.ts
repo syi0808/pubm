@@ -33,6 +33,9 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     manifestFiles() {
       return ["package.json"];
     }
+    syncLockfile() {
+      return Promise.resolve(undefined);
+    }
   }
   class MockRustEcosystem {
     packagePath: string;
@@ -41,6 +44,9 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     }
     manifestFiles() {
       return ["Cargo.toml"];
+    }
+    syncLockfile() {
+      return Promise.resolve(undefined);
     }
   }
   const descriptors: Record<string, any> = {
@@ -261,6 +267,7 @@ vi.mock("../../../src/registry/jsr.js", () => ({
 }));
 
 import type { PubmContext } from "../../../src/context.js";
+import { ecosystemCatalog } from "../../../src/ecosystem/catalog.js";
 import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
@@ -1998,6 +2005,34 @@ describe("run", () => {
       expect(innerParentTask.newListr.mock.calls[0][0][0].title).toBe(
         "Dry-run custom-registry",
       );
+    });
+
+    it("re-syncs lockfile after restoring workspace protocols", async () => {
+      const jsDesc = ecosystemCatalog.get("js")!;
+      const syncLockfileSpy = vi.spyOn(
+        jsDesc.ecosystemClass.prototype,
+        "syncLockfile",
+      );
+      syncLockfileSpy.mockResolvedValue("/workspace/bun.lock");
+
+      const options = createOptions({
+        options: { mode: "ci", prepare: true },
+        runtime: {
+          versionPlan: {
+            mode: "single" as const,
+            version: "2.0.0",
+            packagePath: ".",
+          },
+          workspaceBackups: new Map([
+            ["/workspace/packages/pubm/package.json", '{"version":"2.0.0"}'],
+          ]),
+        },
+      });
+
+      await run(options);
+
+      expect(syncLockfileSpy).toHaveBeenCalled();
+      syncLockfileSpy.mockRestore();
     });
   });
 });
