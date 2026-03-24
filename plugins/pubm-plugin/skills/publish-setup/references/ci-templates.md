@@ -28,7 +28,7 @@ CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase 
 
 ### Local workflow (triggers CI)
 
-Run `pubm --no-publish` locally to bump version, create a git commit + tag, and push — without publishing. This push triggers the CI workflow.
+Run `pubm --mode ci --phase prepare` locally to collect tokens and validate registry access, then push. This push triggers the CI workflow.
 
 ## Required Secrets
 
@@ -200,7 +200,7 @@ Replace `<runner>` with `npx`, `pnpm exec`, `yarn`, `bunx`, or remove it for Hom
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm --no-publish` locally — bumps version, creates git commit + tag, pushes.
+2. Run `pubm --mode ci --phase prepare` locally — collects tokens, validates registry access, pushes.
 3. The pushed `v*` tag triggers this workflow.
 4. `--mode ci --phase publish` reads the tag version, publishes, creates GitHub Release.
 
@@ -278,7 +278,7 @@ jobs:
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
 
-**Note:** Version must already be bumped and tagged before triggering. Use `pubm --no-publish` locally first.
+**Note:** Version must already be bumped and tagged before triggering. Use `pubm --mode ci --phase prepare` locally first.
 
 ## Full Examples
 
