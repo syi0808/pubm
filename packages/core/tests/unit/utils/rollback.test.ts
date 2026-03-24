@@ -1,204 +1,164 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RollbackTracker } from "../../../src/utils/rollback.js";
 
-let addRollback: typeof import("../../../src/utils/rollback.js").addRollback;
-let rollback: typeof import("../../../src/utils/rollback.js").rollback;
-let rollbackLog: typeof import("../../../src/utils/rollback.js").rollbackLog;
-let rollbackError: typeof import("../../../src/utils/rollback.js").rollbackError;
+type TestCtx = { id: number };
 
-beforeEach(async () => {
-  vi.resetModules();
-  const mod = await import("../../../src/utils/rollback.js");
-  addRollback = mod.addRollback;
-  rollback = mod.rollback;
-  rollbackLog = mod.rollbackLog;
-  rollbackError = mod.rollbackError;
-});
+describe("RollbackTracker", () => {
+  let tracker: RollbackTracker<TestCtx>;
+  const ctx: TestCtx = { id: 1 };
 
-describe("addRollback", () => {
-  it("adds functions to the rollback queue", async () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-    const ctx = { id: 1 };
-
-    addRollback(fn, ctx);
-    await rollback();
-
-    expect(fn).toHaveBeenCalledOnce();
-  });
-});
-
-describe("rollback", () => {
-  it("executes all queued rollbacks with correct context", async () => {
-    const ctx1 = { name: "first" };
-    const ctx2 = { name: "second" };
-    const fn1 = vi.fn().mockResolvedValue(undefined);
-    const fn2 = vi.fn().mockResolvedValue(undefined);
-
-    addRollback(fn1, ctx1);
-    addRollback(fn2, ctx2);
-
-    await rollback();
-
-    expect(fn1).toHaveBeenCalledWith(ctx1);
-    expect(fn2).toHaveBeenCalledWith(ctx2);
-  });
-
-  it("logs styled rollback start and completion", async () => {
-    const spy = vi.spyOn(console, "log");
-    const fn = vi.fn().mockResolvedValue(undefined);
-
-    addRollback(fn, {});
-    await rollback();
-
-    const startCall = spy.mock.calls.find((c) =>
-      (c[0] as string).includes("Rolling back"),
-    );
-    const doneCall = spy.mock.calls.find((c) =>
-      (c[0] as string).includes("Rollback completed"),
-    );
-    expect(startCall).toBeDefined();
-    expect(doneCall).toBeDefined();
-  });
-
-  it("is idempotent — second call is a no-op and does not log again", async () => {
-    const spy = vi.spyOn(console, "log");
-    const fn = vi.fn().mockResolvedValue(undefined);
-
-    addRollback(fn, {});
-    await rollback();
-
-    spy.mockClear();
-    fn.mockClear();
-
-    await rollback();
-
-    expect(fn).not.toHaveBeenCalled();
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when queue is empty (no logs)", async () => {
-    const spy = vi.spyOn(console, "log");
-
-    await rollback();
-
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it("continues executing remaining rollbacks when one throws", async () => {
-    const fn1 = vi.fn().mockRejectedValue(new Error("fn1 failed"));
-    const fn2 = vi.fn().mockResolvedValue(undefined);
-    const fn3 = vi.fn().mockResolvedValue(undefined);
-
+  beforeEach(() => {
+    tracker = new RollbackTracker();
+    vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
-
-    addRollback(fn1, {});
-    addRollback(fn2, {});
-    addRollback(fn3, {});
-
-    await rollback();
-
-    expect(fn1).toHaveBeenCalledOnce();
-    expect(fn2).toHaveBeenCalledOnce();
-    expect(fn3).toHaveBeenCalledOnce();
   });
 
-  it("logs styled failed rollback operations", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
-
-    const fn = vi.fn().mockRejectedValue(new Error("disk full"));
-
-    addRollback(fn, {});
-    await rollback();
-
-    const failCall = errorSpy.mock.calls.find((c) =>
-      (c[0] as string).includes("disk full"),
-    );
-    expect(failCall).toBeDefined();
-  });
-
-  it("handles non-Error rejection reasons in rollback", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
-
-    const fn = vi.fn().mockRejectedValue("string rejection");
-
-    addRollback(fn, {});
-    await rollback();
-
-    const failCall = errorSpy.mock.calls.find((c) =>
-      (c[0] as string).includes("string rejection"),
-    );
-    expect(failCall).toBeDefined();
-  });
-
-  it("logs styled error completion message when some rollbacks fail", async () => {
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    vi.spyOn(console, "error").mockImplementation(() => {});
-
-    const fn1 = vi.fn().mockRejectedValue(new Error("oops"));
-    const fn2 = vi.fn().mockResolvedValue(undefined);
-
-    addRollback(fn1, {});
-    addRollback(fn2, {});
-
-    await rollback();
-
-    const errorCompletion = logSpy.mock.calls.find((c) =>
-      (c[0] as string).includes("Rollback completed with errors"),
-    );
-    expect(errorCompletion).toBeDefined();
-  });
-
-  it("executes multiple rollbacks concurrently via Promise.all", async () => {
-    const order: number[] = [];
-
-    const fn1 = vi.fn(async () => {
-      order.push(1);
+  describe("add", () => {
+    it("accepts actions without throwing", () => {
+      expect(() =>
+        tracker.add({
+          label: "test",
+          fn: async () => {},
+        }),
+      ).not.toThrow();
     });
-    const fn2 = vi.fn(async () => {
-      order.push(2);
-    });
-    const fn3 = vi.fn(async () => {
-      order.push(3);
+  });
+
+  describe("execute", () => {
+    it("runs actions in LIFO order", async () => {
+      const order: number[] = [];
+      tracker.add({ label: "first", fn: async () => { order.push(1); } });
+      tracker.add({ label: "second", fn: async () => { order.push(2); } });
+      tracker.add({ label: "third", fn: async () => { order.push(3); } });
+
+      await tracker.execute(ctx, { interactive: false });
+
+      expect(order).toEqual([3, 2, 1]);
     });
 
-    addRollback(fn1, {});
-    addRollback(fn2, {});
-    addRollback(fn3, {});
+    it("is idempotent — second call is a no-op", async () => {
+      const fn = vi.fn();
+      tracker.add({ label: "test", fn });
 
-    await rollback();
+      await tracker.execute(ctx, { interactive: false });
+      await tracker.execute(ctx, { interactive: false });
 
-    expect(fn1).toHaveBeenCalledOnce();
-    expect(fn2).toHaveBeenCalledOnce();
-    expect(fn3).toHaveBeenCalledOnce();
-    expect(order).toHaveLength(3);
-    expect(order).toContain(1);
-    expect(order).toContain(2);
-    expect(order).toContain(3);
+      expect(fn).toHaveBeenCalledOnce();
+    });
+
+    it("does nothing when no actions registered", async () => {
+      await tracker.execute(ctx, { interactive: false });
+    });
+
+    it("continues when an action throws", async () => {
+      const fn1 = vi.fn().mockRejectedValue(new Error("fail"));
+      const fn2 = vi.fn();
+      tracker.add({ label: "will-succeed", fn: fn2 });
+      tracker.add({ label: "will-fail", fn: fn1 });
+
+      await tracker.execute(ctx, { interactive: false });
+
+      expect(fn1).toHaveBeenCalledOnce();
+      expect(fn2).toHaveBeenCalledOnce();
+    });
+
+    it("passes ctx to each action", async () => {
+      const fn = vi.fn();
+      tracker.add({ label: "test", fn });
+
+      await tracker.execute(ctx, { interactive: false });
+
+      expect(fn).toHaveBeenCalledWith(ctx);
+    });
+
+    it("returns result with succeeded count", async () => {
+      tracker.add({ label: "a", fn: async () => {} });
+      tracker.add({ label: "b", fn: async () => {} });
+
+      const result = await tracker.execute(ctx, { interactive: false });
+
+      expect(result.succeeded).toBe(2);
+      expect(result.failed).toBe(0);
+      expect(result.skipped).toBe(0);
+    });
+
+    it("returns result with failed count and manual recovery", async () => {
+      tracker.add({ label: "good", fn: async () => {} });
+      tracker.add({ label: "bad", fn: vi.fn().mockRejectedValue(new Error("oops")) });
+
+      const result = await tracker.execute(ctx, { interactive: false });
+
+      expect(result.succeeded).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.manualRecovery).toContain("bad");
+    });
+
+    it("handles non-Error rejection reasons", async () => {
+      tracker.add({ label: "string-reject", fn: vi.fn().mockRejectedValue("string error") });
+
+      const result = await tracker.execute(ctx, { interactive: false });
+
+      expect(result.failed).toBe(1);
+    });
   });
-});
 
-describe("rollbackLog", () => {
-  it("logs sub-operation with arrow prefix", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+  describe("confirm actions", () => {
+    it("auto-executes confirm actions in CI (interactive: false, sigint: false)", async () => {
+      const fn = vi.fn();
+      tracker.add({ label: "unpublish", fn, confirm: true });
 
-    rollbackLog("Deleting tag");
+      await tracker.execute(ctx, { interactive: false });
 
-    const output = spy.mock.calls[0][0] as string;
-    expect(output).toContain("↩");
-    expect(output).toContain("Deleting tag");
+      expect(fn).toHaveBeenCalledOnce();
+    });
+
+    it("skips confirm actions on SIGINT", async () => {
+      const fn = vi.fn();
+      tracker.add({ label: "unpublish", fn, confirm: true });
+
+      const result = await tracker.execute(ctx, { interactive: false, sigint: true });
+
+      expect(fn).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(1);
+      expect(result.manualRecovery).toContain("unpublish");
+    });
+
+    it("executes non-confirm actions even on SIGINT", async () => {
+      const confirmFn = vi.fn();
+      const normalFn = vi.fn();
+      tracker.add({ label: "normal", fn: normalFn });
+      tracker.add({ label: "confirm", fn: confirmFn, confirm: true });
+
+      await tracker.execute(ctx, { interactive: false, sigint: true });
+
+      expect(confirmFn).not.toHaveBeenCalled();
+      expect(normalFn).toHaveBeenCalledOnce();
+    });
   });
-});
 
-describe("rollbackError", () => {
-  it("logs error with cross prefix", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+  describe("reset", () => {
+    it("allows re-execution after reset", async () => {
+      const fn = vi.fn();
+      tracker.add({ label: "test", fn });
 
-    rollbackError("Failed to delete tag");
+      await tracker.execute(ctx, { interactive: false });
+      expect(fn).toHaveBeenCalledOnce();
 
-    const output = spy.mock.calls[0][0] as string;
-    expect(output).toContain("✗");
-    expect(output).toContain("Failed to delete tag");
+      tracker.reset();
+      tracker.add({ label: "test2", fn });
+      await tracker.execute(ctx, { interactive: false });
+
+      expect(fn).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("size", () => {
+    it("returns number of registered actions", () => {
+      expect(tracker.size).toBe(0);
+      tracker.add({ label: "a", fn: async () => {} });
+      expect(tracker.size).toBe(1);
+      tracker.add({ label: "b", fn: async () => {} });
+      expect(tracker.size).toBe(2);
+    });
   });
 });
