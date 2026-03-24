@@ -26,7 +26,6 @@ export interface PluginHooks {
   afterPush?: HookFn;
   afterRelease?: AfterReleaseHookFn;
   onError?: ErrorHookFn;
-  onRollback?: HookFn;
   onSuccess?: HookFn;
   // Asset pipeline hooks
   resolveAssets?: AssetPipelineHooks<PubmContext>["resolveAssets"];
