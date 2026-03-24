@@ -701,7 +701,7 @@ export async function collectPluginCredentials(
       const tokenUrlInfo = credential.tokenUrl
         ? `\nGenerate a token from ${color.bold(ui.link(credential.tokenUrlLabel ?? credential.tokenUrl, credential.tokenUrl))}`
         : "";
-      const token = await task.prompt(ListrEnquirerPromptAdapter).run({
+      const token = await wrappedTask.prompt({
         type: "password",
         message: `Enter ${credential.label}`,
         ...(tokenUrlInfo ? { footer: tokenUrlInfo } : {}),
@@ -762,7 +762,7 @@ Add to `packages/core/tests/unit/tasks/preflight.test.ts` within the existing `s
 
 ```typescript
 it("syncs plugin secrets using secretName/token pairs", async () => {
-  await syncGhSecrets([], [
+  await syncGhSecrets({}, [
     { secretName: "MY_PLUGIN_SECRET", token: "plugin-token-123" },
   ]);
 
@@ -881,10 +881,14 @@ export async function promptGhSecretsSync(
 ): Promise<void> {
 ```
 
-And update the `syncGhSecrets` call inside it:
+And update both the `syncGhSecrets` call and `tokensSyncHash` call inside it:
 
 ```typescript
 await syncGhSecrets(tokens, pluginSecrets);
+```
+
+```typescript
+const currentHash = tokensSyncHash(tokens, pluginSecrets);
 ```
 
 Update `tokensSyncHash` to include plugin secrets:
@@ -903,6 +907,38 @@ function tokensSyncHash(
     .digest("hex")
     .slice(0, 16);
 }
+```
+
+- [ ] **Step 5b: Write test for `injectPluginTokensToEnv`**
+
+Add to an appropriate test file (e.g. `packages/core/tests/unit/utils/token.test.ts` or create one):
+
+```typescript
+import { injectPluginTokensToEnv } from "../../../src/utils/token.js";
+import type { PluginCredential } from "../../../src/plugin/types.js";
+
+describe("injectPluginTokensToEnv", () => {
+  it("injects plugin tokens into process.env", () => {
+    const creds: PluginCredential[] = [
+      { key: "my-token", env: "MY_PLUGIN_TOKEN", label: "My Token" },
+    ];
+    const cleanup = injectPluginTokensToEnv({ "my-token": "secret" }, creds);
+
+    expect(process.env.MY_PLUGIN_TOKEN).toBe("secret");
+    cleanup();
+    expect(process.env.MY_PLUGIN_TOKEN).toBeUndefined();
+  });
+
+  it("skips credentials without a matching token", () => {
+    const creds: PluginCredential[] = [
+      { key: "missing", env: "MISSING_TOKEN", label: "Missing" },
+    ];
+    const cleanup = injectPluginTokensToEnv({}, creds);
+
+    expect(process.env.MISSING_TOKEN).toBeUndefined();
+    cleanup();
+  });
+});
 ```
 
 - [ ] **Step 6: Export new types and functions from `core/src/index.ts`**
@@ -1132,25 +1168,37 @@ if (mode === "local" && hasPrepare) {
 
 - [ ] **Step 4: Integrate into CI publish flow**
 
-Find the CI publish entry point (where `hasPublish && !hasPrepare`). Add plugin credential collection with `promptEnabled = false`:
+There is no dedicated CI publish block in `runner.ts`. When `mode === "ci"` and only `hasPublish` (no `hasPrepare`), neither the CI prepare block (line 688) nor the local block (line 712) executes. The pipeline starts directly at line 741.
+
+Add a new block between line 735 (end of local mode block) and line 737 (`const pipelineListrOptions`):
 
 ```typescript
-// Collect plugin credentials in CI publish (env only, no prompt)
-const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
-if (pluginCreds.length > 0) {
-  const pluginTokens = await collectPluginCredentials(
-    pluginCreds,
-    false, // No prompting in CI
-    /* task wrapper for output */ { output: "", title: "", prompt: () => Promise.resolve() } as any,
-  );
-  ctx.runtime.pluginTokens = pluginTokens;
-  const cleanupPluginEnv = injectPluginTokensToEnv(pluginTokens, pluginCreds);
-  const originalCleanup = cleanupEnv;
-  cleanupEnv = () => { originalCleanup(); cleanupPluginEnv(); };
-}
+    // CI publish: collect plugin credentials from env (no prompting)
+    if (mode === "ci" && hasPublish && !hasPrepare) {
+      const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
+      if (pluginCreds.length > 0) {
+        await createListr<PubmContext>({
+          title: "Collecting plugin credentials",
+          task: async (ctx, task): Promise<void> => {
+            const pluginTokens = await collectPluginCredentials(
+              pluginCreds,
+              false, // No prompting in CI
+              task,
+            );
+            ctx.runtime.pluginTokens = pluginTokens;
+            const cleanupPluginEnv = injectPluginTokensToEnv(pluginTokens, pluginCreds);
+            const originalCleanup = cleanupEnv;
+            cleanupEnv = () => {
+              originalCleanup?.();
+              cleanupPluginEnv();
+            };
+          },
+        }).run(ctx);
+      }
+    }
 ```
 
-Note: In CI publish, there may not be a listr2 task wrapper available. `collectPluginCredentials` with `promptEnabled=false` only checks env/resolve/keyring and throws on missing required credentials — it never calls `task.prompt`, so a minimal stub is sufficient.
+In CI publish with `promptEnabled=false`, `collectPluginCredentials` only tries env/resolve/keyring and throws on missing required credentials — it never calls `task.prompt`.
 
 - [ ] **Step 5: Run typecheck and existing runner tests**
 
@@ -1355,6 +1403,14 @@ if (options.repo) {
 ```
 
 Remove the `resolveGitHubToken` import.
+
+- [ ] **Step 4b: Update existing brew-tap tests that mock `resolveGitHubToken`**
+
+The existing `brew-tap.test.ts` extensively mocks `resolveGitHubToken` from `@pubm/core` (lines 6-8, 19-21). Since `afterRelease` now uses `ctx.runtime.pluginTokens` instead:
+
+1. Remove the `resolveGitHubTokenMock` hoisted mock and the `@pubm/core` vi.mock block
+2. Update existing `afterRelease` tests to pass `ctx.runtime.pluginTokens` with the token value instead of setting `resolveGitHubTokenMock.mockReturnValue`
+3. Ensure the `ctx` mock object includes `runtime: { pluginTokens: { "brew-github-token": "test-token" } }`
 
 - [ ] **Step 5: Run brew-tap tests**
 
