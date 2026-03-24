@@ -1190,13 +1190,32 @@ export async function run(ctx: PubmContext): Promise<void> {
             (!dryRun && !(mode === "ci" && hasPrepare)) ||
             !ctx.runtime.workspaceBackups?.size,
           title: "Restoring workspace protocols",
-          task: (ctx) => {
+          task: async (ctx) => {
             const backups = ctx.runtime.workspaceBackups;
             if (!backups) {
               throw new Error("Workspace backups are required for restore.");
             }
             restoreManifests(backups);
             ctx.runtime.workspaceBackups = undefined;
+
+            // Re-sync lockfile to reflect restored workspace:* protocols
+            const syncedLockfiles = new Set<string>();
+            for (const pkg of ctx.config.packages) {
+              const absPath = path.resolve(
+                ctx.cwd ?? process.cwd(),
+                pkg.path,
+              );
+              const ecosystem = requirePackageEcosystem(pkg);
+              const descriptor = ecosystemCatalog.get(ecosystem);
+              if (!descriptor) continue;
+              const eco = new descriptor.ecosystemClass(absPath);
+              const lockfilePath = await eco.syncLockfile(
+                ctx.config.lockfileSync,
+              );
+              if (lockfilePath && !syncedLockfiles.has(lockfilePath)) {
+                syncedLockfiles.add(lockfilePath);
+              }
+            }
           },
         },
         {
