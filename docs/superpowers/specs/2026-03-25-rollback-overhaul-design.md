@@ -53,13 +53,16 @@ class RollbackTracker<Ctx> {
 2. Reverses the actions array (LIFO)
 3. Creates a listr2 task list from the reversed actions
 4. For each action:
+   - Check `aborted` flag — if true, skip remaining actions
    - If `confirm: true` and `interactive: true` → prompt user before executing
    - If `confirm: true` and `interactive: false` (CI) → execute automatically
    - If `confirm: true` and SIGINT → skip (prompt impossible), add to manual recovery summary
    - On failure → log error, continue to next action
 5. After all actions: print summary (succeeded/failed/skipped counts + manual recovery list)
 
-**`reset()`**: Clears actions and resets `executed` flag. For testing only.
+**SIGINT during rollback**: An internal `aborted` flag is set by a SIGINT listener registered at the start of `execute()`. The current action completes, then the loop checks `aborted` before each subsequent action, skipping remaining actions and adding them to the manual recovery summary.
+
+**`reset()`**: Clears actions, resets `executed` and `aborted` flags. For testing only.
 
 ### 2. Context Integration
 
@@ -72,7 +75,7 @@ interface PubmRuntime {
 }
 ```
 
-Initialized in `runner.ts` before pipeline execution.
+The `RollbackTracker` is constructed independently in `runner.ts` before `ctx` is fully assembled, then assigned to `ctx.runtime.rollback`. The `ctx` reference passed to `execute()` is the same object — this avoids circular type issues since `RollbackTracker<PubmContext>` is parameterized with the already-defined `PubmContext` type.
 
 ### 3. `onRollback` Plugin Hook Removal
 
@@ -109,25 +112,38 @@ ctx.rollback.add({
 });
 ```
 
-#### 4.3 Changeset Consumption
+#### 4.3 Changeset Consumption and Changelog
 
-Before consuming changesets, back up all changeset files:
+Before consuming changesets, back up all changeset files and the changelog:
 
 ```typescript
+// Back up changeset files (deleted during consumption)
 const changesetFiles = getChangesetFiles(cwd);
-const backups = new Map<string, string>();
+const changesetBackups = new Map<string, string>();
 for (const file of changesetFiles) {
-  backups.set(file, await Bun.file(file).text());
+  changesetBackups.set(file, await Bun.file(file).text());
 }
 ctx.rollback.add({
-  label: `Restore ${backups.size} changeset file(s)`,
+  label: `Restore ${changesetBackups.size} changeset file(s)`,
   fn: async () => {
-    for (const [filePath, content] of backups) {
+    for (const [filePath, content] of changesetBackups) {
       await Bun.write(filePath, content);
     }
   },
 });
+
+// Back up changelog file (modified during consumption)
+const changelogPath = path.join(cwd, "CHANGELOG.md");
+if (await Bun.file(changelogPath).exists()) {
+  const changelogBackup = await Bun.file(changelogPath).text();
+  ctx.rollback.add({
+    label: "Restore CHANGELOG.md",
+    fn: async () => { await Bun.write(changelogPath, changelogBackup); },
+  });
+}
 ```
+
+The backup is captured in the runner before calling `deleteChangesetFiles()` and `writeChangelogToFile()` — not inside those functions.
 
 #### 4.4 Git Commit
 
@@ -145,6 +161,8 @@ ctx.rollback.add({
   },
 });
 ```
+
+**Note on redundancy with file-restore actions**: In LIFO order, git commit rollback (`git reset HEAD^ --hard`) executes before file-restore actions (4.1, 4.3). The `git reset --hard` already restores files to their pre-commit state, making subsequent file restores a no-op. This is intentional — file-restore actions serve as a safety net if `git reset --hard` fails (the error is logged and execution continues to the next action).
 
 #### 4.5 Git Tag
 
@@ -184,15 +202,18 @@ for (const tag of pushedTags) {
 
 #### 4.8 Git Push (Commits)
 
-After pushing commits:
+Before pushing, capture the current HEAD SHA. After push succeeds, register force-push rollback using the saved SHA (not `HEAD^`, which only handles single-commit scenarios):
 
 ```typescript
+const prePushSha = await git.revParse("HEAD^");  // or count commits to reset
 ctx.rollback.add({
   label: `Force push to revert remote ${branch}`,
-  fn: async () => { await git.push("-f", "origin", `HEAD^:${branch}`); },
+  fn: async () => { await git.push("-f", "origin", `${prePushSha}:${branch}`); },
   confirm: true,
 });
 ```
+
+This handles monorepo independent mode where multiple commits may be created before push.
 
 #### 4.9 GitHub Release
 
@@ -225,22 +246,28 @@ hooks: {
 
 ### 5. Registry `unpublish` Method
 
-Add optional method to `Registry` abstract class:
+Add method to `PackageRegistry` abstract class with a default no-op implementation:
 
 ```typescript
-abstract class Registry {
+abstract class PackageRegistry {
   // ... existing methods
-  unpublish?(packageName: string, version: string): Promise<void>;
+  async unpublish(packageName: string, version: string): Promise<void> {
+    // Default: no-op. Registries that support unpublish override this.
+  }
 }
 ```
 
-**NpmRegistry**: `npm unpublish <pkg>@<version>` — may fail (72h limit, permissions)
+Call sites check if the registry has a meaningful `unpublish` implementation via a separate `supportsUnpublish` flag or by checking if the method is overridden.
 
-**JsrRegistry**: Not implemented — no API support for version-level deletion
+**NpmPackageRegistry**: `npm unpublish <pkg>@<version>` — may fail (72h limit, permissions). Rollback label: "Unpublish".
 
-**CratesRegistry**: `cargo yank --vers <version> <crate>`
+**JsrPackageRegistry**: Not overridden — no API support for version-level deletion.
 
-If `unpublish` is not implemented, no rollback action is registered for that registry. Failed publishes on such registries appear in the manual recovery summary.
+**CratesPackageRegistry**: `cargo yank --vers <version> <crate>` — marks version as yanked (does not delete). Rollback label: "Yank" (not "Unpublish", since yank prevents new resolution but existing lockfiles still work).
+
+**CustomPackageRegistry**: Extends `NpmPackageRegistry`, inherits `unpublish` automatically.
+
+If a registry does not support unpublish, no rollback action is registered. Registries without unpublish that had successful publishes appear in the manual recovery summary.
 
 ### 6. listr2 Rollback UX
 
@@ -336,7 +363,8 @@ Pipeline task throws
 - `packages/core/src/utils/rollback.ts` — Replace with `RollbackTracker` class
 - `packages/core/src/context.ts` — Add `rollback` to `PubmRuntime`
 - `packages/core/src/tasks/runner.ts` — Initialize tracker, migrate all rollback registrations, update catch/SIGINT
-- `packages/core/src/registry/base.ts` — Add optional `unpublish` method
+- `packages/core/src/manifest/write-versions.ts` — Add backup capture before writing version files (or wrap calls in runner)
+- `packages/core/src/registry/package-registry.ts` — Add `unpublish` default no-op method
 - `packages/core/src/registry/npm.ts` — Implement `unpublish`
 - `packages/core/src/registry/crates.ts` — Implement `unpublish` (yank)
 - `packages/core/src/registry/jsr.ts` — No `unpublish` (not supported)
@@ -344,5 +372,6 @@ Pipeline task throws
 - `packages/core/src/plugin/runner.ts` — Remove `onRollback` invocation
 - `packages/plugins/plugin-brew/src/index.ts` — Add `ctx.rollback.add()` for PR close
 - `packages/plugins/plugin-external-version-sync/src/index.ts` — Add `ctx.rollback.add()` for file restore
+- `packages/core/src/changeset/reader.ts` — Confirm changeset file list is available before deletion for backup
 - `packages/core/tests/unit/utils/rollback.test.ts` — Rewrite for `RollbackTracker`
 - `packages/core/tests/e2e/rollback/` — New E2E test suite (17 scenarios)
