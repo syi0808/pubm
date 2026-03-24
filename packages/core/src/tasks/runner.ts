@@ -25,7 +25,7 @@ import {
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
-import type { PubmContext } from "../context.js";
+import { getPackageVersion, type PubmContext } from "../context.js";
 import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -35,6 +35,7 @@ import {
   restoreManifests,
 } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
+import { PackageRegistry } from "../registry/package-registry.js";
 import { JsrClient } from "../registry/jsr.js";
 import { exec } from "../utils/exec.js";
 import { resolveGitHubToken, saveGitHubToken } from "../utils/github-token.js";
@@ -53,7 +54,10 @@ import {
   createJsrDryRunPublishTask,
   createNpmDryRunPublishTask,
 } from "./dry-run-publish.js";
-import { createGitHubRelease } from "./github-release.js";
+import {
+  createGitHubRelease,
+  deleteGitHubRelease,
+} from "./github-release.js";
 import {
   collectEcosystemRegistryGroups,
   countRegistryTargets,
@@ -317,6 +321,21 @@ function pluginPublishTasks(ctx: PubmContext) {
     title: `Publishing to ${registry.packageName} (plugin)`,
     task: async (): Promise<void> => {
       await registry.publish();
+
+      if (registry.supportsUnpublish) {
+        const version = getPackageVersion(ctx, registry.packagePath);
+        const registryType = (registry.constructor as typeof PackageRegistry)
+          .registryType;
+        const label =
+          registryType === "crates" ? "Yank" : "Unpublish";
+        ctx.runtime.rollback.add({
+          label: `${label} ${registry.packageName}@${version} from ${registryType}`,
+          fn: async () => {
+            await registry.unpublish(registry.packageName, version);
+          },
+          confirm: true,
+        });
+      }
     },
   }));
 }
@@ -1549,6 +1568,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             task.output = "Running plugin beforePush hooks...";
             await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
             const git = new Git();
+            const prePushSha = await git.revParse("HEAD");
             task.output = "Executing `git push --follow-tags`...";
 
             const result = await git.push("--follow-tags");
@@ -1561,6 +1581,46 @@ export async function run(ctx: PubmContext): Promise<void> {
 
               await git.push("--tags");
             }
+
+            // Register remote tag rollback
+            const plan = requireVersionPlan(ctx);
+            if (plan.mode === "independent") {
+              for (const [pkgPath, pkgVersion] of plan.packages) {
+                if (isReleaseExcluded(ctx.config, pkgPath)) continue;
+                const pkgName = getPackageName(ctx, pkgPath);
+                const tag = `${pkgName}@${pkgVersion}`;
+                ctx.runtime.rollback.add({
+                  label: `Delete remote tag ${tag}`,
+                  fn: async () => {
+                    const g = new Git();
+                    await g.pushDelete("origin", tag);
+                  },
+                });
+              }
+            } else {
+              const tagName = `v${plan.version}`;
+              ctx.runtime.rollback.add({
+                label: `Delete remote tag ${tagName}`,
+                fn: async () => {
+                  const g = new Git();
+                  await g.pushDelete("origin", tagName);
+                },
+              });
+            }
+
+            // Register force push rollback if commits were pushed
+            if (result) {
+              const branch = await git.branch();
+              ctx.runtime.rollback.add({
+                label: `Force push to revert remote ${branch}`,
+                fn: async () => {
+                  const g = new Git();
+                  await g.forcePush("origin", `${prePushSha}:${branch}`);
+                },
+                confirm: true,
+              });
+            }
+
             task.output = "Running plugin afterPush hooks...";
             await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
             task.output = "Push step completed.";
@@ -1681,6 +1741,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                       );
                     }
                     task.output = `Release created: ${result.releaseUrl}`;
+                    if (result.releaseId) {
+                      const releaseId = result.releaseId;
+                      ctx.runtime.rollback.add({
+                        label: `Delete GitHub Release ${tag}`,
+                        fn: async () => {
+                          await deleteGitHubRelease(releaseId);
+                        },
+                      });
+                    }
                     await ctx.runtime.pluginRunner.runAfterReleaseHook(
                       ctx,
                       result,
@@ -1778,6 +1847,15 @@ export async function run(ctx: PubmContext): Promise<void> {
                     );
                   }
                   task.output = `Release created: ${result.releaseUrl}`;
+                  if (result.releaseId) {
+                    const releaseId = result.releaseId;
+                    ctx.runtime.rollback.add({
+                      label: `Delete GitHub Release ${tag}`,
+                      fn: async () => {
+                        await deleteGitHubRelease(releaseId);
+                      },
+                    });
+                  }
                   await ctx.runtime.pluginRunner.runAfterReleaseHook(
                     ctx,
                     result,

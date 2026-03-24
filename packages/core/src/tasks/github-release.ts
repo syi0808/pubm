@@ -112,6 +112,7 @@ export async function createGitHubRelease(
   }
 
   const release = (await createResponse.json()) as {
+    id: number;
     html_url: string;
     upload_url: string;
   };
@@ -161,6 +162,44 @@ export async function createGitHubRelease(
     version: options.version,
     tag: options.tag,
     releaseUrl,
+    releaseId: release.id,
     assets: releaseAssets,
   };
+}
+
+/**
+ * Delete a GitHub Release by its ID
+ */
+export async function deleteGitHubRelease(
+  releaseId: number,
+): Promise<void> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    throw new GitHubReleaseError(
+      "GITHUB_TOKEN environment variable is required to delete a GitHub Release",
+    );
+  }
+
+  const git = new Git();
+  const remoteUrl = await git.repository();
+  const { owner, repo } = parseOwnerRepo(remoteUrl);
+
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/releases/${releaseId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+
+  if (!response.ok && response.status !== 404) {
+    const errorBody = await response.text();
+    throw new GitHubReleaseError(
+      `Failed to delete GitHub Release ${releaseId} (${response.status}): ${errorBody}`,
+    );
+  }
 }

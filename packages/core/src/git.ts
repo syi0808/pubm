@@ -363,6 +363,38 @@ export class Git {
     }
   }
 
+  async revParse(rev: string): Promise<string> {
+    try {
+      return (await this.git(["rev-parse", rev])).trim();
+    } catch (error) {
+      throw new GitError(`Failed to run \`git rev-parse ${rev}\``, {
+        cause: error,
+      });
+    }
+  }
+
+  async pushDelete(remote: string, ref: string): Promise<void> {
+    try {
+      await this.git(["push", remote, "--delete", ref]);
+    } catch (error) {
+      throw new GitError(
+        `Failed to run \`git push ${remote} --delete ${ref}\``,
+        { cause: error },
+      );
+    }
+  }
+
+  async forcePush(remote: string, refspec: string): Promise<void> {
+    try {
+      await this.git(["push", "-f", remote, refspec]);
+    } catch (error) {
+      throw new GitError(
+        `Failed to run \`git push -f ${remote} ${refspec}\``,
+        { cause: error },
+      );
+    }
+  }
+
   async push(options?: string): Promise<boolean> {
     const args = ["push", options].filter((v) => v) as string[];
 

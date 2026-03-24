@@ -2268,6 +2268,8 @@ describe("post-publish", () => {
 
     const gitInstance = {
       push: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
+      revParse: vi.fn().mockResolvedValue("abc123"),
+      branch: vi.fn().mockResolvedValue("main"),
     };
     mockedGit.mockImplementation(function () {
       return gitInstance as any;

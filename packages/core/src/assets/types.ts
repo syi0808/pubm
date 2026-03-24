@@ -83,6 +83,7 @@ export interface ReleaseContext {
   version: string;
   tag: string;
   releaseUrl: string;
+  releaseId?: number;
   assets: ReleaseAsset[];
 }
 
