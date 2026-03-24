@@ -333,37 +333,7 @@ describe("brewCore", () => {
   });
 
   describe("credentials", () => {
-    it("returns credential for brew-core", () => {
-      const plugin = brewCore({ formula: "Formula/test.rb" });
-      const ctx = {
-        options: { mode: "local", publish: true },
-        config: {},
-        runtime: { promptEnabled: true },
-      } as any;
-
-      const creds = plugin.credentials!(ctx);
-      expect(creds).toHaveLength(1);
-      expect(creds[0].key).toBe("brew-github-token");
-      expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
-    });
-
-    it("returns empty when phases do not include publish and mode is not ci", () => {
-      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
-
-      const plugin = brewCore({ formula: "Formula/test.rb" });
-      const ctx = {
-        options: { mode: "local" },
-        config: {},
-        runtime: {},
-      } as any;
-
-      const creds = plugin.credentials!(ctx);
-      expect(creds).toHaveLength(0);
-    });
-
-    it("returns credential when phases do not include publish but mode is ci", () => {
-      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
-
+    it("returns credential in CI mode", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
         options: { mode: "ci" },
@@ -373,6 +343,44 @@ describe("brewCore", () => {
 
       const creds = plugin.credentials!(ctx);
       expect(creds).toHaveLength(1);
+      expect(creds[0].key).toBe("brew-github-token");
+      expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
+    });
+
+    it("returns empty in local mode", () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local", publish: true },
+        config: {},
+        runtime: { promptEnabled: true },
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(0);
+    });
+
+    it("returns credential in CI mode regardless of phase", () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(1);
+    });
+
+    it("returns empty in local mode regardless of phase", () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(0);
     });
   });
 
