@@ -10,7 +10,6 @@ import {
   PubmCiRenderer,
   type PubmCiRendererOptions,
 } from "./listr-ci-renderer.js";
-import { rollback } from "./rollback.js";
 
 type PubmListrTask<Context extends {}> =
   | ListrTask<Context, ListrRendererFactory, ListrRendererFactory>
@@ -64,11 +63,6 @@ export function createListr<Context extends {}>(
   ) as unknown as Listr<Context>;
 
   listr.isRoot = () => false;
-
-  // externalSignalHandler is injected through the patched listr2 build.
-  // we should make pr on listr2 for new option externalSignalHandler
-  // @ts-expect-error
-  listr.externalSignalHandler = rollback;
 
   return listr;
 }
