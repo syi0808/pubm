@@ -43,6 +43,8 @@ describe("brewCore", () => {
     mkdirSync(tmpRoot, { recursive: true });
     process.chdir(tmpRoot);
     vi.clearAllMocks();
+    mockedExecSync.mockReset();
+    mockedExecFileSync.mockReset();
   });
 
   afterEach(() => {
@@ -162,6 +164,9 @@ describe("brewCore", () => {
         expect(options).toMatchObject({ encoding: "utf-8" });
         return "octocat\n" as never;
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/homebrew/homebrew-core/pull/999\n" as never;
+      }
 
       return Buffer.from("");
     });
@@ -173,6 +178,7 @@ describe("brewCore", () => {
       {
         runtime: {
           pluginTokens: { "brew-github-token": "test-token" },
+          rollback: { add: vi.fn() },
         },
       } as never,
       {
@@ -214,7 +220,7 @@ describe("brewCore", () => {
         'gh pr create --repo homebrew/homebrew-core --title "pubm 1.5.0"',
       ),
       {
-        stdio: "inherit",
+        encoding: "utf-8",
         env: { ...process.env, GH_TOKEN: "test-token" },
       },
     );
@@ -229,6 +235,9 @@ describe("brewCore", () => {
       if (command === "gh api user --jq .login") {
         return "octocat\n" as never;
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/homebrew/homebrew-core/pull/100\n" as never;
+      }
 
       return Buffer.from("");
     });
@@ -239,6 +248,7 @@ describe("brewCore", () => {
       {
         runtime: {
           pluginTokens: { "brew-github-token": "test-token" },
+          rollback: { add: vi.fn() },
         },
       } as never,
       {
@@ -281,6 +291,9 @@ describe("brewCore", () => {
     vi.spyOn(Date, "now").mockReturnValue(444444);
     mockedExecSync.mockImplementation((command) => {
       if (command === "gh api user --jq .login") return "octocat\n" as never;
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/homebrew/homebrew-core/pull/101\n" as never;
+      }
       return Buffer.from("");
     });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -291,7 +304,12 @@ describe("brewCore", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      { runtime: { pluginTokens: { "brew-github-token": "tkn" } } } as never,
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "tkn" },
+          rollback: { add: vi.fn() },
+        },
+      } as never,
       {
         version: "2.0.0",
         assets: [],
@@ -308,6 +326,9 @@ describe("brewCore", () => {
     vi.spyOn(Date, "now").mockReturnValue(555555);
     mockedExecSync.mockImplementation((command) => {
       if (command === "gh api user --jq .login") return "octocat\n" as never;
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/homebrew/homebrew-core/pull/102\n" as never;
+      }
       return Buffer.from("");
     });
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -315,7 +336,7 @@ describe("brewCore", () => {
     const plugin = brewCore({ formula: "Formula/test.rb" });
 
     await plugin.hooks?.afterRelease?.(
-      { runtime: { pluginTokens: {} } } as never,
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
       { version: "3.0.0", assets: [] } as never,
     );
 

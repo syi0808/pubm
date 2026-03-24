@@ -193,10 +193,23 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
             const branch = `pubm/brew-formula-v${releaseCtx.version}`;
             execSync(`git checkout -b ${branch}`, { stdio: "inherit" });
             execSync(`git push origin ${branch}`, { stdio: "inherit" });
-            execSync(
+            const prUrl = execSync(
               `gh pr create --title "chore(brew): update formula to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
-              { stdio: "inherit" },
-            );
+              { encoding: "utf-8" },
+            ).trim();
+            const prNumber = prUrl.match(/\/pull\/(\d+)/)?.[1];
+            if (prNumber) {
+              ctx.runtime.rollback.add({
+                label: `Close Homebrew tap PR #${prNumber}`,
+                fn: async () => {
+                  execSync(
+                    `gh pr close ${prNumber} --comment "Closed by pubm rollback"`,
+                    { stdio: "inherit" },
+                  );
+                },
+                confirm: true,
+              });
+            }
             console.log(`Created PR on branch ${branch}`);
           }
           return;
@@ -264,10 +277,24 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
             execSync(`cd ${tmpDir} && git push origin ${branch}`, {
               stdio: "inherit",
             });
-            execSync(
+            const prUrl = execSync(
               `gh pr create --repo ${ownerRepo} --title "chore(brew): update formula to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
-              { stdio: "inherit", ...ghEnv },
-            );
+              { encoding: "utf-8", ...ghEnv },
+            ).trim();
+            const prNumber = prUrl.match(/\/pull\/(\d+)/)?.[1];
+            if (prNumber) {
+              const repoFlag = ownerRepo;
+              ctx.runtime.rollback.add({
+                label: `Close Homebrew tap PR #${prNumber} (${repoFlag})`,
+                fn: async () => {
+                  execSync(
+                    `gh pr close ${prNumber} --repo ${repoFlag} --comment "Closed by pubm rollback"`,
+                    { stdio: "inherit", ...ghEnv },
+                  );
+                },
+                confirm: true,
+              });
+            }
             console.log(`Created PR on branch ${branch}`);
           }
         }
