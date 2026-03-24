@@ -23,6 +23,9 @@ function makeCtx(version: string): PubmContext {
         version,
         packagePath: "test-pkg",
       },
+      rollback: {
+        add: vi.fn(),
+      },
     },
   } as unknown as PubmContext;
 }
