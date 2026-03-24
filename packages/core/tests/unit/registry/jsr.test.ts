@@ -1128,7 +1128,7 @@ describe("JsrPackageRegistry checkAvailability()", () => {
 
   function makeCtx(promptEnabled = false) {
     return {
-      runtime: { promptEnabled },
+      runtime: { promptEnabled, rollback: { add: vi.fn() } },
     } as any;
   }
 
