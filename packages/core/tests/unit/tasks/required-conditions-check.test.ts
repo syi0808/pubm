@@ -103,7 +103,7 @@ async function getSubtasks() {
     }),
   };
 
-  taskDef.task({}, mockParentTask);
+  taskDef.task(createCtx(), mockParentTask);
 
   return capturedSubtasks;
 }
@@ -145,6 +145,10 @@ beforeEach(async () => {
       return { _taskDef: taskDef, run: vi.fn() };
     }),
     createCiListrOptions: vi.fn(),
+  }));
+
+  vi.doMock("../../../src/plugin/wrap-task-context.js", () => ({
+    wrapTaskContext: vi.fn((task: any) => task),
   }));
 
   mockGitInstance = {
@@ -1058,6 +1062,58 @@ describe("requiredConditionsCheckTask", () => {
       expect(registrySubtasks).toHaveLength(2);
       expect(registrySubtasks[0].title).toBe("Checking npm availability");
       expect(registrySubtasks[1].title).toBe("Checking jsr availability");
+    });
+  });
+
+  describe("Plugin condition checks", () => {
+    it("appends plugin condition checks as subtasks", async () => {
+      const pluginCheckFn = vi.fn();
+
+      const { requiredConditionsCheckTask } = await import(
+        "../../../src/tasks/required-conditions-check.js"
+      );
+      const listrResult = requiredConditionsCheckTask();
+      const taskDef = (listrResult as any)._taskDef;
+
+      const mockPluginRunner = {
+        collectChecks: vi.fn().mockReturnValue([
+          {
+            title: "Plugin condition check",
+            phase: "conditions",
+            task: pluginCheckFn,
+          },
+        ]),
+      };
+
+      const ctx = createCtx({
+        runtime: {
+          pluginRunner: mockPluginRunner as any,
+        },
+      });
+
+      let captured: any[];
+      const mockParentTask = {
+        newListr: vi.fn((subtasks: any[], _opts?: any) => {
+          captured = subtasks;
+          return subtasks;
+        }),
+      };
+
+      taskDef.task(ctx, mockParentTask);
+
+      expect(mockPluginRunner.collectChecks).toHaveBeenCalledWith(
+        ctx,
+        "conditions",
+      );
+
+      // Should have 4 built-in + 1 plugin check = 5
+      expect(captured!).toHaveLength(5);
+      expect(captured![4].title).toBe("Plugin condition check");
+
+      // Verify the plugin check task calls through wrapTaskContext
+      const mockTask = { output: "", title: "" };
+      await captured![4].task(ctx, mockTask);
+      expect(pluginCheckFn).toHaveBeenCalled();
     });
   });
 });

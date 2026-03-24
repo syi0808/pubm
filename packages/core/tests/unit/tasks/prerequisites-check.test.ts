@@ -66,7 +66,7 @@ async function getSubtasks() {
     }),
   };
 
-  taskDef.task({}, mockParentTask);
+  taskDef.task(createCtx(), mockParentTask);
 
   return capturedSubtasks;
 }
@@ -87,6 +87,10 @@ beforeEach(async () => {
       return { _taskDef: taskDef, run: vi.fn() };
     }),
     createCiListrOptions: vi.fn(),
+  }));
+
+  vi.doMock("../../../src/plugin/wrap-task-context.js", () => ({
+    wrapTaskContext: vi.fn((task: any) => task),
   }));
 
   mockGitInstance = {
@@ -430,6 +434,58 @@ describe("prerequisitesCheckTask", () => {
       await expect(commitsTask.task(ctx, task)).rejects.toThrow(
         "No commits exist from the latest tag",
       );
+    });
+  });
+
+  describe("Plugin prerequisite checks", () => {
+    it("appends plugin prerequisite checks as subtasks", async () => {
+      const pluginCheckFn = vi.fn();
+
+      const { prerequisitesCheckTask } = await import(
+        "../../../src/tasks/prerequisites-check.js"
+      );
+      const listrResult = prerequisitesCheckTask();
+      const taskDef = (listrResult as any)._taskDef;
+
+      const mockPluginRunner = {
+        collectChecks: vi.fn().mockReturnValue([
+          {
+            title: "Plugin pre check",
+            phase: "prerequisites",
+            task: pluginCheckFn,
+          },
+        ]),
+      };
+
+      const ctx = createCtx({
+        runtime: {
+          pluginRunner: mockPluginRunner as any,
+        },
+      });
+
+      let captured: any[];
+      const mockParentTask = {
+        newListr: vi.fn((subtasks: any[]) => {
+          captured = subtasks;
+          return subtasks;
+        }),
+      };
+
+      taskDef.task(ctx, mockParentTask);
+
+      expect(mockPluginRunner.collectChecks).toHaveBeenCalledWith(
+        ctx,
+        "prerequisites",
+      );
+
+      // Should have 4 built-in + 1 plugin check = 5
+      expect(captured!).toHaveLength(5);
+      expect(captured![4].title).toBe("Plugin pre check");
+
+      // Verify the plugin check task calls through wrapTaskContext
+      const mockTask = { output: "", title: "" };
+      await captured![4].task(ctx, mockTask);
+      expect(pluginCheckFn).toHaveBeenCalled();
     });
   });
 });

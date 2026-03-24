@@ -26,7 +26,7 @@ pubm --mode ci --phase publish
 
 `pubm --mode ci --phase prepare` 不只是检查 token。它会把发布流程运行到真正发布之前的那一步：
 
-- 收集 registry token
+- 收集 registry token 和插件凭证
 - 可选地将 token 同步到 GitHub Secrets
 - 运行前置条件和必要条件检查
 - 运行测试和构建（除非跳过）
@@ -45,6 +45,14 @@ pubm --mode ci --phase publish
 | `NODE_AUTH_TOKEN` | npm |
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
+
+插件也可以声明自己需要的凭证。pubm 会自动收集并解析这些值。在 `--ci-prepare` 期间，它会提示输入缺失的值并将其同步到 GitHub Secrets；在 `--phase publish` 期间，它只会从环境变量中读取已解析的值，如果缺少任何必需凭证就会报错。
+
+例如，`@pubm/plugin-brew` 需要：
+
+| 变量 | 用途 |
+|------|------|
+| `PUBM_BREW_GITHUB_TOKEN` | 用于推送 Homebrew formula 更新并创建 pull request 的 GitHub PAT。 |
 
 ## 同步 GitHub secrets
 

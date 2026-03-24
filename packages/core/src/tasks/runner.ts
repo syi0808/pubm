@@ -44,7 +44,7 @@ import {
   rollbackLog,
 } from "../utils/rollback.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
-import { injectTokensToEnv } from "../utils/token.js";
+import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
 import { createCratesPublishTask } from "./crates.js";
 import {
@@ -61,12 +61,27 @@ import {
 } from "./grouping.js";
 import { createJsrPublishTask } from "./jsr.js";
 import { createNpmPublishTask } from "./npm.js";
-import { collectTokens, promptGhSecretsSync } from "./preflight.js";
+import {
+  collectPluginCredentials,
+  collectTokens,
+  type GhSecretEntry,
+  promptGhSecretsSync,
+} from "./preflight.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 
 const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
+
+function chainCleanup(
+  existing: (() => void) | undefined,
+  next: () => void,
+): () => void {
+  return () => {
+    existing?.();
+    next();
+  };
+}
 
 async function prepareReleaseAssets(
   ctx: PubmContext,
@@ -692,10 +707,35 @@ export async function run(ctx: PubmContext): Promise<void> {
         task: async (ctx, task): Promise<void> => {
           const registries = collectRegistries(ctx.config);
           const tokens = await collectTokens(registries, task);
-          await promptGhSecretsSync(tokens, task);
+
+          // Collect plugin credentials
+          const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
+          const pluginTokens = await collectPluginCredentials(
+            pluginCreds,
+            ctx.runtime.promptEnabled,
+            task,
+          );
+          ctx.runtime.pluginTokens = pluginTokens;
+
+          // Build plugin secrets for GitHub sync
+          const pluginSecrets: GhSecretEntry[] = pluginCreds
+            .filter(
+              (c): c is typeof c & { ghSecretName: string } =>
+                !!c.ghSecretName && !!pluginTokens[c.key],
+            )
+            .map((c) => ({
+              secretName: c.ghSecretName,
+              token: pluginTokens[c.key],
+            }));
+
+          await promptGhSecretsSync(tokens, task, pluginSecrets);
 
           // Inject tokens and switch to non-interactive mode
           cleanupEnv = injectTokensToEnv(tokens);
+          cleanupEnv = chainCleanup(
+            cleanupEnv,
+            injectPluginTokensToEnv(pluginTokens, pluginCreds),
+          );
           ctx.runtime.promptEnabled = false;
         },
       }).run(ctx);
@@ -729,9 +769,51 @@ export async function run(ctx: PubmContext): Promise<void> {
         }).run(ctx);
       }
 
+      // Collect plugin credentials
+      const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
+      if (pluginCreds.length > 0) {
+        await createListr<PubmContext>({
+          title: "Collecting plugin credentials",
+          task: async (ctx, task): Promise<void> => {
+            const pluginTokens = await collectPluginCredentials(
+              pluginCreds,
+              ctx.runtime.promptEnabled,
+              task,
+            );
+            ctx.runtime.pluginTokens = pluginTokens;
+            cleanupEnv = chainCleanup(
+              cleanupEnv,
+              injectPluginTokensToEnv(pluginTokens, pluginCreds),
+            );
+          },
+        }).run(ctx);
+      }
+
       await requiredConditionsCheckTask({
         skip: ctx.options.skipConditionsCheck,
       }).run(ctx);
+    }
+
+    // CI publish: collect plugin credentials from env (no prompting)
+    if (mode === "ci" && hasPublish && !hasPrepare) {
+      const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
+      if (pluginCreds.length > 0) {
+        await createListr<PubmContext>({
+          title: "Collecting plugin credentials",
+          task: async (ctx, task): Promise<void> => {
+            const pluginTokens = await collectPluginCredentials(
+              pluginCreds,
+              false, // No prompting in CI
+              task,
+            );
+            ctx.runtime.pluginTokens = pluginTokens;
+            cleanupEnv = chainCleanup(
+              cleanupEnv,
+              injectPluginTokensToEnv(pluginTokens, pluginCreds),
+            );
+          },
+        }).run(ctx);
+      }
     }
 
     const pipelineListrOptions = isCI

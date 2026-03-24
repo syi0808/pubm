@@ -132,14 +132,18 @@ export type {
   ErrorHookFn,
   HookFn,
   HookName,
+  PluginCheck,
   PluginCommand,
   PluginCommandOption,
+  PluginCredential,
   PluginHooks,
   PluginSubcommand,
+  PluginTaskContext,
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
-export { syncGhSecrets } from "./tasks/preflight.js";
+export type { GhSecretEntry } from "./tasks/preflight.js";
+export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
 export type { Options, ReleaseMode, ResolvedOptions } from "./types/options.js";
@@ -156,7 +160,7 @@ export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
 export type { SnapshotOptions } from "./utils/snapshot.js";
 export { generateSnapshotVersion } from "./utils/snapshot.js";
-export { loadTokensFromDb } from "./utils/token.js";
+export { injectPluginTokensToEnv, loadTokensFromDb } from "./utils/token.js";
 export { ui } from "./utils/ui.js";
 export type { EntryPointError, ExtraneousFile } from "./validate/index.js";
 // Validation

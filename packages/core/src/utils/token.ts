@@ -1,3 +1,4 @@
+import type { PluginCredential } from "../plugin/types.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { SecureStore } from "./secure-store.js";
 
@@ -44,6 +45,31 @@ export function injectTokensToEnv(tokens: Record<string, string>): () => void {
       originals[envVar] = process.env[envVar];
       process.env[envVar] = value;
     }
+  }
+
+  return () => {
+    for (const [envVar, original] of Object.entries(originals)) {
+      if (original === undefined) {
+        delete process.env[envVar];
+      } else {
+        process.env[envVar] = original;
+      }
+    }
+  };
+}
+
+export function injectPluginTokensToEnv(
+  pluginTokens: Record<string, string>,
+  credentials: PluginCredential[],
+): () => void {
+  const originals: Record<string, string | undefined> = {};
+
+  for (const credential of credentials) {
+    const token = pluginTokens[credential.key];
+    if (!token) continue;
+
+    originals[credential.env] = process.env[credential.env];
+    process.env[credential.env] = token;
   }
 
   return () => {

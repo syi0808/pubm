@@ -58,10 +58,57 @@ export interface PluginCommand {
   subcommands?: PluginSubcommand[];
 }
 
+export interface PluginTaskContext {
+  /** Display status message on the current task */
+  output: string;
+  /** Modify task title */
+  title: string;
+  /** Run an enquirer prompt */
+  prompt<T = unknown>(options: {
+    type: string;
+    message: string;
+    [key: string]: unknown;
+  }): Promise<T>;
+}
+
+export interface PluginCredential {
+  /** SecureStore storage key (e.g. "brew-github-token") */
+  key: string;
+  /** Environment variable name (e.g. "PUBM_BREW_GITHUB_TOKEN") */
+  env: string;
+  /** Prompt display label (e.g. "GitHub PAT for Homebrew tap") */
+  label: string;
+  /** Token generation URL for user guidance */
+  tokenUrl?: string;
+  /** Display text for the token URL */
+  tokenUrlLabel?: string;
+  /** GitHub Secrets key name for sync */
+  ghSecretName?: string;
+  /** If false, collection failure is skipped (default: true) */
+  required?: boolean;
+  /** Custom resolver tried after env, before keyring */
+  resolve?: () => Promise<string | null>;
+  /** Token validation function */
+  validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;
+}
+
+export interface PluginCheck {
+  /** Check display title */
+  title: string;
+  /** Which preflight phase to insert into */
+  phase: "prerequisites" | "conditions";
+  /** Check logic */
+  task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void>;
+}
+
 export interface PubmPlugin {
   name: string;
   registries?: PackageRegistry[];
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
+  /** Declare credentials this plugin needs */
+  credentials?: (ctx: PubmContext) => PluginCredential[];
+  /** Declare preflight checks this plugin adds */
+  checks?: (ctx: PubmContext) => PluginCheck[];
 }

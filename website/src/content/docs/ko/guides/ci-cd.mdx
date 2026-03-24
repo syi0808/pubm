@@ -26,7 +26,7 @@ pubm --mode ci --phase publish
 
 `pubm --mode ci --phase prepare`는 단순한 토큰 점검이 아닙니다. 실제 publish 직전까지 릴리스 파이프라인을 실행합니다.
 
-- 레지스트리 토큰을 수집합니다.
+- 레지스트리 토큰과 플러그인 자격 증명을 수집합니다.
 - 필요하면 GitHub Secrets로 동기화합니다.
 - 사전 조건과 필수 조건 검사를 실행합니다.
 - 생략되지 않았다면 테스트와 빌드를 실행합니다.
@@ -45,6 +45,14 @@ CI에서는 환경 변수를 통해 레지스트리 토큰을 제공합니다.
 | `NODE_AUTH_TOKEN` | npm |
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
+
+플러그인은 자신이 요구하는 자격 증명을 별도로 선언할 수도 있습니다. pubm은 이를 자동으로 수집하고 해석합니다. `--ci-prepare` 동안에는 누락된 값을 프롬프트하고 GitHub Secrets로 동기화하며, `--phase publish` 동안에는 환경 변수에서만 해석된 값을 읽고 필수 자격 증명이 하나라도 없으면 오류를 냅니다.
+
+예를 들어 `@pubm/plugin-brew`는 다음을 요구합니다.
+
+| 변수 | 용도 |
+|------|------|
+| `PUBM_BREW_GITHUB_TOKEN` | Homebrew용 formula 업데이트를 push하고 pull request를 열 때 사용하는 GitHub PAT입니다. |
 
 ## GitHub Secrets 동기화
 

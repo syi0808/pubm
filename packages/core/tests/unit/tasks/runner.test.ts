@@ -125,6 +125,7 @@ vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
 }));
 vi.mock("../../../src/tasks/preflight.js", () => ({
   collectTokens: vi.fn(),
+  collectPluginCredentials: vi.fn().mockResolvedValue({}),
   promptGhSecretsSync: vi.fn(),
 }));
 vi.mock("../../../src/utils/token.js", () => ({
@@ -150,6 +151,7 @@ vi.mock("../../../src/utils/token.js", () => ({
   },
   loadTokensFromDb: vi.fn(),
   injectTokensToEnv: vi.fn().mockReturnValue(vi.fn()),
+  injectPluginTokensToEnv: vi.fn().mockReturnValue(vi.fn()),
 }));
 vi.mock("../../../src/utils/open-url.js", () => ({
   openUrl: vi.fn(),

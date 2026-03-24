@@ -610,4 +610,90 @@ describe("PluginRunner", () => {
       expect(hooks.uploadAssets).toBeUndefined();
     });
   });
+
+  describe("collectCredentials", () => {
+    it("collects credentials from all plugins", () => {
+      const plugin1: PubmPlugin = {
+        name: "plugin-1",
+        credentials: () => [
+          { key: "token-a", env: "TOKEN_A", label: "Token A" },
+        ],
+      };
+      const plugin2: PubmPlugin = {
+        name: "plugin-2",
+        credentials: () => [
+          { key: "token-b", env: "TOKEN_B", label: "Token B" },
+        ],
+      };
+
+      const runner = new PluginRunner([plugin1, plugin2]);
+      const creds = runner.collectCredentials(makeCtx());
+
+      expect(creds).toHaveLength(2);
+      expect(creds[0].key).toBe("token-a");
+      expect(creds[1].key).toBe("token-b");
+    });
+
+    it("deduplicates by key (first-wins)", () => {
+      const plugin1: PubmPlugin = {
+        name: "plugin-1",
+        credentials: () => [
+          { key: "shared", env: "SHARED_TOKEN", label: "From plugin 1" },
+        ],
+      };
+      const plugin2: PubmPlugin = {
+        name: "plugin-2",
+        credentials: () => [
+          { key: "shared", env: "SHARED_TOKEN", label: "From plugin 2" },
+        ],
+      };
+
+      const runner = new PluginRunner([plugin1, plugin2]);
+      const creds = runner.collectCredentials(makeCtx());
+
+      expect(creds).toHaveLength(1);
+      expect(creds[0].label).toBe("From plugin 1");
+    });
+
+    it("returns empty array when no plugins have credentials", () => {
+      const plugin: PubmPlugin = { name: "no-creds" };
+      const runner = new PluginRunner([plugin]);
+
+      expect(runner.collectCredentials(makeCtx())).toEqual([]);
+    });
+  });
+
+  describe("collectChecks", () => {
+    it("collects checks filtered by phase", () => {
+      const plugin: PubmPlugin = {
+        name: "check-plugin",
+        checks: () => [
+          {
+            title: "Pre check",
+            phase: "prerequisites" as const,
+            task: vi.fn(),
+          },
+          { title: "Cond check", phase: "conditions" as const, task: vi.fn() },
+        ],
+      };
+
+      const runner = new PluginRunner([plugin]);
+
+      expect(runner.collectChecks(makeCtx(), "prerequisites")).toHaveLength(1);
+      expect(runner.collectChecks(makeCtx(), "prerequisites")[0].title).toBe(
+        "Pre check",
+      );
+      expect(runner.collectChecks(makeCtx(), "conditions")).toHaveLength(1);
+      expect(runner.collectChecks(makeCtx(), "conditions")[0].title).toBe(
+        "Cond check",
+      );
+    });
+
+    it("returns empty array when no plugins have checks", () => {
+      const plugin: PubmPlugin = { name: "no-checks" };
+      const runner = new PluginRunner([plugin]);
+
+      expect(runner.collectChecks(makeCtx(), "prerequisites")).toEqual([]);
+    });
+  });
 });

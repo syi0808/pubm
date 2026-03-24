@@ -76,6 +76,7 @@ export interface PubmContext {
     tokenRetryPromises?: Record<string, Promise<string>>;
     workspaceBackups?: Map<string, string>;
     dryRunVersionBackup?: Map<string, string>;
+    pluginTokens?: Record<string, string>;
   };
 }
 

@@ -99,7 +99,13 @@ Usa las exportaciones de plugins cuando quieras extender el pipeline de publicac
 | `PluginHooks` | type | Hooks de ciclo de vida como `beforeBuild`, `afterPublish`, `onError`, `afterRelease` y los hooks del asset pipeline. |
 | `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Firmas de hooks. |
 | `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Modelo de comandos CLI personalizados para plugins. |
-| `PluginRunner` | class | Utilidad que ejecuta hooks y recopila registries/ecosystems de los plugins cargados. |
+| `PluginRunner` | class | Utilidad que ejecuta hooks y recopila registries/ecosystems de los plugins cargados. También expone `collectCredentials()` y `collectChecks()` para reunir descriptores de credenciales y checks de preflight de todos los plugins registrados. |
+| `PluginCredential` | type | Descriptor declarativo de un token o secret requerido por un plugin. Consulta la [Referencia de la API de plugins](/pubm/es/reference/plugins/#plugincredential). |
+| `PluginCheck` | type | Descriptor de un check de preflight aportado por un plugin. Consulta la [Referencia de la API de plugins](/pubm/es/reference/plugins/#plugincheck). |
+| `PluginTaskContext` | type | Wrapper agnóstico de listr2 que se pasa a `PluginCheck.task`. Expone `output`, `title` y `prompt()`. |
+| `GhSecretEntry` | type | Una entrada devuelta por los helpers de sincronización de GitHub Secrets: `{ secretName: string; token: string }`. |
+| `collectPluginCredentials` | function | Reúne `PluginCredential[]` de todos los plugins registrados en la config y resuelve sus valores. |
+| `injectPluginTokensToEnv` | function | Escribe los valores de tokens de plugin resueltos en `process.env` para que los pasos posteriores de publish puedan leerlos como variables de entorno normales. |
 | `ReleaseContext` | type | Metadatos de release pasados a los hooks `afterRelease`. Incluye `packageName`, `version`, `tag`, `releaseUrl` y `assets`. |
 | `ReleaseAsset` | type | Un asset subido: `name`, `url`, `sha256` y `platform` estructurada. |
 | `ParsedPlatform` | type | Información estructurada de plataforma: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |

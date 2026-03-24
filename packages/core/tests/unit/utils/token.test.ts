@@ -9,9 +9,11 @@ vi.mock("../../../src/utils/secure-store.js", () => ({
   }),
 }));
 
+import type { PluginCredential } from "../../../src/plugin/types.js";
 import { registryCatalog } from "../../../src/registry/catalog.js";
 import { SecureStore } from "../../../src/utils/secure-store.js";
 import {
+  injectPluginTokensToEnv,
   injectTokensToEnv,
   loadTokensFromDb,
 } from "../../../src/utils/token.js";
@@ -168,5 +170,41 @@ describe("injectTokensToEnv", () => {
 
     cleanup();
     expect(process.env.NODE_AUTH_TOKEN).toBe(previousNodeAuthToken);
+  });
+});
+
+describe("injectPluginTokensToEnv", () => {
+  it("injects plugin tokens into process.env", () => {
+    const creds: PluginCredential[] = [
+      { key: "my-token", env: "MY_PLUGIN_TOKEN", label: "My Token" },
+    ];
+    const cleanup = injectPluginTokensToEnv({ "my-token": "secret" }, creds);
+
+    expect(process.env.MY_PLUGIN_TOKEN).toBe("secret");
+    cleanup();
+    expect(process.env.MY_PLUGIN_TOKEN).toBeUndefined();
+  });
+
+  it("skips credentials without a matching token", () => {
+    const creds: PluginCredential[] = [
+      { key: "missing", env: "MISSING_TOKEN", label: "Missing" },
+    ];
+    const cleanup = injectPluginTokensToEnv({}, creds);
+
+    expect(process.env.MISSING_TOKEN).toBeUndefined();
+    cleanup();
+  });
+
+  it("restores pre-existing env value after cleanup", () => {
+    process.env.MY_PLUGIN_TOKEN = "original";
+    const creds: PluginCredential[] = [
+      { key: "my-token", env: "MY_PLUGIN_TOKEN", label: "My Token" },
+    ];
+    const cleanup = injectPluginTokensToEnv({ "my-token": "injected" }, creds);
+
+    expect(process.env.MY_PLUGIN_TOKEN).toBe("injected");
+    cleanup();
+    expect(process.env.MY_PLUGIN_TOKEN).toBe("original");
+    delete process.env.MY_PLUGIN_TOKEN;
   });
 });

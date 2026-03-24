@@ -4,6 +4,7 @@ import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { ui } from "../utils/ui.js";
 
@@ -25,7 +26,7 @@ export const prerequisitesCheckTask = (
     ...options,
     exitOnError: true,
     title: "Prerequisites check (for deployment reliability)",
-    task: (_, parentTask) =>
+    task: (ctx, parentTask) =>
       parentTask.newListr([
         {
           skip: (ctx) => !!ctx.options.anyBranch,
@@ -151,6 +152,16 @@ export const prerequisitesCheckTask = (
             }
           },
         },
+        // Append plugin prerequisite checks
+        ...ctx.runtime.pluginRunner
+          .collectChecks(ctx, "prerequisites")
+          .map((check) => ({
+            title: check.title,
+            // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+            task: async (ctx: PubmContext, task: any) => {
+              await check.task(ctx, wrapTaskContext(task));
+            },
+          })),
       ]),
   };
 

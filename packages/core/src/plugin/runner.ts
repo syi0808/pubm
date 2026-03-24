@@ -7,7 +7,12 @@ import type { PubmContext } from "../context.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 
-import type { HookName, PubmPlugin } from "./types.js";
+import type {
+  HookName,
+  PluginCheck,
+  PluginCredential,
+  PubmPlugin,
+} from "./types.js";
 
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
@@ -55,6 +60,25 @@ export class PluginRunner {
 
   collectEcosystems(): Ecosystem[] {
     return this.plugins.flatMap((p) => p.ecosystems ?? []);
+  }
+
+  collectCredentials(ctx: PubmContext): PluginCredential[] {
+    const all = this.plugins.flatMap((p) => p.credentials?.(ctx) ?? []);
+    const seen = new Set<string>();
+    return all.filter((c) => {
+      if (seen.has(c.key)) return false;
+      seen.add(c.key);
+      return true;
+    });
+  }
+
+  collectChecks(
+    ctx: PubmContext,
+    phase: "prerequisites" | "conditions",
+  ): PluginCheck[] {
+    return this.plugins
+      .flatMap((p) => p.checks?.(ctx) ?? [])
+      .filter((c) => c.phase === phase);
   }
 
   collectAssetHooks(): AssetPipelineHooks<PubmContext> {

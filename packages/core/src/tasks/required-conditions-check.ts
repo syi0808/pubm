@@ -5,6 +5,7 @@ import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { getConnector } from "../registry/index.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
@@ -71,7 +72,7 @@ export const requiredConditionsCheckTask = (
   const taskDef: ListrTask<PubmContext> = {
     ...options,
     title: "Required conditions check (for pubm tasks)",
-    task: (_, parentTask): Listr<PubmContext> =>
+    task: (ctx, parentTask): Listr<PubmContext> =>
       parentTask.newListr(
         [
           {
@@ -165,6 +166,16 @@ export const requiredConditionsCheckTask = (
               );
             },
           },
+          // Append plugin condition checks
+          ...ctx.runtime.pluginRunner
+            .collectChecks(ctx, "conditions")
+            .map((check) => ({
+              title: check.title,
+              // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+              task: async (ctx: PubmContext, task: any) => {
+                await check.task(ctx, wrapTaskContext(task));
+              },
+            })),
         ],
         {
           concurrent: true,

@@ -14,8 +14,13 @@ export interface PubmPlugin {
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
+  credentials?: (ctx: PubmContext) => PluginCredential[];
+  checks?: (ctx: PubmContext) => PluginCheck[];
 }
 ```
+
+- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、将其注入环境变量，并在执行 `--ci-prepare` 时同步到 GitHub Secrets。
+- `checks` - 返回与核心 prerequisite/condition 阶段一起运行的 preflight checks。每个 check 通过 `phase` 字段声明自己的执行时机。
 
 ## Hooks
 
@@ -92,6 +97,7 @@ export interface PubmContext {
     versionPlan?: VersionPlan;
     releaseContext?: ReleaseContext;
     tempDir?: string;
+    pluginTokens?: Record<string, string>;
   };
 }
 ```
@@ -102,6 +108,77 @@ export interface PubmContext {
 - `ctx.options`：解析后的 CLI 选项（version、tag、mode、dryRun 等）
 - `ctx.cwd`：工作目录
 - `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
+- `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，并可在后续所有 hooks 中使用。
+
+## `PluginCredential`
+
+用于声明插件所需 token 或 secret 的描述类型。
+
+```ts
+export interface PluginCredential {
+  key: string;
+  env: string;
+  label: string;
+  tokenUrl?: string;
+  tokenUrlLabel?: string;
+  ghSecretName?: string;
+  required?: boolean;
+  resolve?: () => Promise<string | null>;
+  validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `key` | `string` | 用于在 `ctx.runtime.pluginTokens` 中查找值的内部标识符。 |
+| `env` | `string` | 在 CI 中提供该 token 的环境变量名。 |
+| `label` | `string` | 在交互式提示中展示的人类可读标签。 |
+| `tokenUrl` | `string` | 用户可创建该 token 的可选 URL。 |
+| `tokenUrlLabel` | `string` | `tokenUrl` 的可选展示标签。 |
+| `ghSecretName` | `string` | `--ci-prepare` 同步时应写入的 GitHub Secret 名称。 |
+| `required` | `boolean` | 为 `true` 时，如果无法解析该凭证，pubm 会报错。默认值为 `true`。 |
+| `resolve` | `function` | 可选的自定义 resolver，不接收参数，返回 `Promise<string \| null>`。会在 keyring/prompt fallback 之前调用。 |
+| `validate` | `function` | 可选的 token 校验器。接收已解析 token 和 `PluginTaskContext`；返回 `false` 时会重新提示。 |
+
+解析顺序：`env` 环境变量 -> `resolve()` -> keyring（SecureStore）-> 交互式提示。
+
+## `PluginCheck`
+
+用于描述插件提供的 preflight check。
+
+```ts
+export interface PluginCheck {
+  title: string;
+  phase: "prerequisites" | "conditions";
+  task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void> | void;
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `title` | `string` | 在任务列表 UI 中显示的标签。 |
+| `phase` | `"prerequisites" \| "conditions"` | 执行时机：`"prerequisites"` 在网络调用之前运行；`"conditions"` 在确认 registry 连通性之后运行。 |
+| `task` | `function` | check 的实现。抛出错误即可让该 check 失败。 |
+
+## `PluginTaskContext`
+
+作为第二个参数传给 `PluginCheck.task` 的 listr2 无关包装器。
+
+```ts
+export interface PluginTaskContext {
+  output: string;
+  title: string;
+  prompt<T = unknown>(options: {
+    type: string;
+    message: string;
+    [key: string]: unknown;
+  }): Promise<T>;
+}
+```
+
+- `output` - 在任务列表 UI 中于 check 标题下显示状态行。
+- `title` - 动态修改任务标题。
+- `prompt()` - 运行 enquirer prompt，仅在交互模式下可用。
 
 ## 示例
 
