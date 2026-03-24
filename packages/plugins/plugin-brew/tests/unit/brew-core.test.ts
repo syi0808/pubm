@@ -475,7 +475,9 @@ describe("brewCore", () => {
         ["repo", "view", "homebrew/homebrew-core", "--json", "name"],
         { stdio: "pipe" },
       );
-      expect(taskObj.output).toContain("Access to homebrew/homebrew-core verified");
+      expect(taskObj.output).toContain(
+        "Access to homebrew/homebrew-core verified",
+      );
     });
 
     it("local check throws when gh auth fails", async () => {

@@ -115,9 +115,7 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
 
             const repoName = /^[^/]+\/[^/]+$/.test(targetRepo)
               ? targetRepo
-              : targetRepo.match(
-                  /github\.com[/:]([^/]+\/[^/.]+)/,
-                )?.[1];
+              : targetRepo.match(/github\.com[/:]([^/]+\/[^/.]+)/)?.[1];
             if (repoName) {
               try {
                 execFileSync(
