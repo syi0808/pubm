@@ -38,12 +38,6 @@ import { getPackageManager } from "../utils/package-manager.js";
 import { parseOwnerRepo } from "../utils/parse-owner-repo.js";
 import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
-import {
-  addRollback,
-  rollback,
-  rollbackError,
-  rollbackLog,
-} from "../utils/rollback.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
 import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
@@ -538,7 +532,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
   const onSigint = async () => {
     cleanupEnv?.();
-    await rollback();
+    await ctx.runtime.rollback.execute(ctx, { interactive: false, sigint: true });
     process.exit(130);
   };
   process.on("SIGINT", onSigint);
@@ -1687,7 +1681,9 @@ export async function run(ctx: PubmContext): Promise<void> {
     await ctx.runtime.pluginRunner.runErrorHook(ctx, e as Error);
 
     consoleError(e as Error);
-    await rollback();
+    await ctx.runtime.rollback.execute(ctx, {
+      interactive: ctx.runtime.promptEnabled,
+    });
 
     process.exit(1);
   }
