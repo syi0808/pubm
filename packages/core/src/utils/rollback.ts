@@ -1,58 +1,115 @@
 import { ui } from "./ui.js";
 
-type Rollback<Ctx extends {}> = (ctx: Ctx) => Promise<unknown>;
-
-// biome-ignore lint/suspicious/noExplicitAny: generic rollback storage requires any
-const rollbacks: { fn: Rollback<any>; ctx: unknown }[] = [];
-
-export function addRollback<Ctx extends {}>(
-  rollback: Rollback<Ctx>,
-  context: Ctx,
-): void {
-  rollbacks.push({ fn: rollback, ctx: context });
+export interface RollbackAction<Ctx> {
+  label: string;
+  fn: (ctx: Ctx) => Promise<void>;
+  confirm?: boolean;
 }
 
-export function rollbackLog(message: string): void {
-  console.log(`  ${ui.chalk.yellow("↩")} ${message}`);
+export interface RollbackExecuteOptions {
+  interactive: boolean;
+  sigint?: boolean;
 }
 
-export function rollbackError(message: string): void {
-  console.error(`  ${ui.chalk.red("✗")} ${message}`);
+export interface RollbackResult {
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  manualRecovery: string[];
 }
 
-let called = false;
+export class RollbackTracker<Ctx> {
+  private actions: RollbackAction<Ctx>[] = [];
+  private executed = false;
+  private aborted = false;
 
-export async function rollback(): Promise<void> {
-  if (called) return void 0;
+  add(action: RollbackAction<Ctx>): void {
+    this.actions.push(action);
+  }
 
-  called = true;
+  get size(): number {
+    return this.actions.length;
+  }
 
-  if (rollbacks.length <= 0) return void 0;
+  async execute(ctx: Ctx, options: RollbackExecuteOptions): Promise<RollbackResult> {
+    const result: RollbackResult = {
+      succeeded: 0,
+      failed: 0,
+      skipped: 0,
+      manualRecovery: [],
+    };
 
-  console.log(
-    `\n${ui.chalk.yellow("⟲")} ${ui.chalk.yellow("Rolling back...")}`,
-  );
+    if (this.executed) return result;
+    this.executed = true;
 
-  const results = await Promise.allSettled(
-    rollbacks.map(({ fn, ctx }) => fn(ctx)),
-  );
+    if (this.actions.length === 0) return result;
 
-  const failures = results.filter(
-    (r): r is PromiseRejectedResult => r.status === "rejected",
-  );
+    // Listen for SIGINT during rollback
+    const onSigint = () => { this.aborted = true; };
+    process.on("SIGINT", onSigint);
 
-  if (failures.length > 0) {
-    for (const failure of failures) {
-      rollbackError(
-        failure.reason instanceof Error
-          ? failure.reason.message
-          : failure.reason,
+    console.log(
+      `\n${ui.chalk.yellow("⟲")} ${ui.chalk.yellow("Rolling back...")}`,
+    );
+
+    const reversed = [...this.actions].reverse();
+
+    for (const action of reversed) {
+      if (this.aborted) {
+        result.skipped++;
+        result.manualRecovery.push(action.label);
+        continue;
+      }
+
+      // Skip confirm actions on SIGINT-triggered rollback (no prompt possible)
+      if (action.confirm && options.sigint) {
+        console.log(`  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (requires confirmation)`);
+        result.skipped++;
+        result.manualRecovery.push(action.label);
+        continue;
+      }
+
+      try {
+        console.log(`  ${ui.chalk.yellow("↩")} ${action.label}`);
+        await action.fn(ctx);
+        console.log(`  ${ui.chalk.green("✓")} ${action.label}`);
+        result.succeeded++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`  ${ui.chalk.red("✖")} ${action.label} — ${msg}`);
+        result.failed++;
+        result.manualRecovery.push(action.label);
+      }
+    }
+
+    process.removeListener("SIGINT", onSigint);
+
+    // Summary
+    const total = result.succeeded + result.failed + result.skipped;
+    if (result.failed > 0 || result.skipped > 0) {
+      const parts = [`${result.succeeded}/${total}`];
+      if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+      console.log(
+        `${ui.chalk.red("✖")} ${ui.chalk.red("Rollback completed with errors")} (${parts.join(", ")})`,
+      );
+      if (result.manualRecovery.length > 0) {
+        console.log("  Manual recovery needed:");
+        for (const item of result.manualRecovery) {
+          console.log(`    • ${item}`);
+        }
+      }
+    } else {
+      console.log(
+        `${ui.chalk.green("✓")} Rollback completed (${result.succeeded}/${total})`,
       );
     }
-    console.log(
-      `${ui.chalk.red("✗")} ${ui.chalk.red("Rollback completed with errors.")} Some operations may require manual recovery.`,
-    );
-  } else {
-    console.log(`${ui.chalk.green("✓")} Rollback completed`);
+
+    return result;
+  }
+
+  reset(): void {
+    this.actions = [];
+    this.executed = false;
+    this.aborted = false;
   }
 }
