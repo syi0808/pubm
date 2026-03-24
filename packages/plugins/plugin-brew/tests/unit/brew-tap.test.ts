@@ -9,6 +9,7 @@ const { ensureGitIdentityMock } = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
+  execFileSync: vi.fn(),
 }));
 
 vi.mock("../../src/git-identity.js", () => ({
@@ -19,13 +20,14 @@ vi.mock("@pubm/core", () => ({
   resolvePhases: vi.fn().mockReturnValue(["prepare", "publish"]),
 }));
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { resolvePhases } from "@pubm/core";
 import { brewTap } from "../../src/brew-tap.js";
 
 const mockedResolvePhases = vi.mocked(resolvePhases);
 
 const mockedExecSync = vi.mocked(execSync);
+const mockedExecFileSync = vi.mocked(execFileSync);
 const tmpRoot = join(import.meta.dirname, ".tmp-brew-tap");
 const originalCwd = process.cwd();
 
@@ -719,7 +721,89 @@ describe("brewTap", () => {
   });
 
   describe("checks", () => {
-    it("adds condition check for external repo", () => {
+    it("returns CI PAT check when mode is ci and repo is set", () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+      expect(checks[0].phase).toBe("conditions");
+      expect(checks[0].title).toContain("token");
+    });
+
+    it("CI PAT check throws when token is missing", async () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = { runtime: { pluginTokens: {} } } as any;
+      const taskObj = { output: "" } as any;
+
+      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
+        "PUBM_BREW_GITHUB_TOKEN is required",
+      );
+    });
+
+    it("CI PAT check succeeds when token is present", async () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {
+        runtime: { pluginTokens: { "brew-github-token": "ghp_abc" } },
+      } as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(taskObj.output).toBe("Homebrew tap token verified");
+    });
+
+    it("returns empty checks for CI when repo is not set", () => {
+      const plugin = brewTap({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(0);
+    });
+
+    it("returns empty checks for local mode without repo", () => {
+      const plugin = brewTap({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(0);
+    });
+
+    it("returns gh auth check for local mode with repo", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
@@ -733,10 +817,16 @@ describe("brewTap", () => {
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(1);
       expect(checks[0].phase).toBe("conditions");
+      expect(checks[0].title).toContain("git/gh access");
     });
 
-    it("returns empty checks for same-repo formula", () => {
-      const plugin = brewTap({ formula: "Formula/test.rb" });
+    it("local check passes when gh auth and repo access succeed", async () => {
+      mockedExecFileSync.mockReturnValue(Buffer.from(""));
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
       const ctx = {
         options: { mode: "local" },
         config: {},
@@ -744,10 +834,126 @@ describe("brewTap", () => {
       } as any;
 
       const checks = plugin.checks!(ctx);
-      expect(checks).toHaveLength(0);
+      const taskCtx = {} as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        "gh",
+        ["auth", "status"],
+        { stdio: "pipe" },
+      );
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        "gh",
+        ["repo", "view", "user/homebrew-test", "--json", "name"],
+        { stdio: "pipe" },
+      );
+      expect(taskObj.output).toContain("Access to user/homebrew-test verified");
     });
 
-    it("returns empty checks when phases do not include publish and mode is not ci", () => {
+    it("local check throws when gh auth fails", async () => {
+      mockedExecFileSync.mockImplementation((cmd, args) => {
+        if (args?.[0] === "auth") throw new Error("not logged in");
+        return Buffer.from("");
+      });
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {} as any;
+      const taskObj = { output: "" } as any;
+
+      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
+        "GitHub CLI is not authenticated",
+      );
+    });
+
+    it("local check throws when repo access fails", async () => {
+      mockedExecFileSync.mockImplementation((cmd, args) => {
+        if (args?.[0] === "repo") throw new Error("not found");
+        return Buffer.from("");
+      });
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {} as any;
+      const taskObj = { output: "" } as any;
+
+      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
+        "Cannot access tap repository",
+      );
+    });
+
+    it("local check extracts owner/repo from full GitHub URL", async () => {
+      mockedExecFileSync.mockReturnValue(Buffer.from(""));
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "https://github.com/user/homebrew-test.git",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {} as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        "gh",
+        ["repo", "view", "user/homebrew-test", "--json", "name"],
+        { stdio: "pipe" },
+      );
+    });
+
+    it("local check skips repo view for non-GitHub URL and only verifies gh auth", async () => {
+      mockedExecFileSync.mockReturnValue(Buffer.from(""));
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "https://gitlab.com/group/homebrew-tap.git",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {} as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        "gh",
+        ["auth", "status"],
+        { stdio: "pipe" },
+      );
+      expect(mockedExecFileSync).toHaveBeenCalledTimes(1);
+      expect(taskObj.output).toBe("GitHub CLI authenticated");
+    });
+
+    it("returns empty checks when local mode and phases do not include publish", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewTap({
@@ -764,7 +970,7 @@ describe("brewTap", () => {
       expect(checks).toHaveLength(0);
     });
 
-    it("returns checks when phases do not include publish but mode is ci", () => {
+    it("returns checks in CI mode even when phases only include prepare", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewTap({
@@ -779,51 +985,6 @@ describe("brewTap", () => {
 
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(1);
-    });
-
-    it("check task throws when pluginTokens is missing brew-github-token", async () => {
-      const plugin = brewTap({
-        formula: "Formula/test.rb",
-        repo: "user/homebrew-test",
-      });
-      const ctx = {
-        options: { mode: "local" },
-        config: {},
-        runtime: { pluginTokens: {} },
-      } as any;
-
-      const checks = plugin.checks!(ctx);
-      expect(checks).toHaveLength(1);
-
-      const taskCtx = {
-        runtime: { pluginTokens: {} },
-      } as any;
-      const taskObj = { output: "" } as any;
-
-      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
-        "PUBM_BREW_GITHUB_TOKEN is required",
-      );
-    });
-
-    it("check task succeeds and sets output when token is present", async () => {
-      const plugin = brewTap({
-        formula: "Formula/test.rb",
-        repo: "user/homebrew-test",
-      });
-      const ctx = {
-        options: { mode: "local" },
-        config: {},
-        runtime: {},
-      } as any;
-
-      const checks = plugin.checks!(ctx);
-      const taskCtx = {
-        runtime: { pluginTokens: { "brew-github-token": "ghp_abc" } },
-      } as any;
-      const taskObj = { output: "" } as any;
-
-      await checks[0].task(taskCtx, taskObj);
-      expect(taskObj.output).toBe("Homebrew tap token verified");
     });
   });
 
