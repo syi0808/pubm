@@ -2,21 +2,28 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { Db } from "./db.js";
 
-const SYNC_HASH_FILENAME = "gh-secrets-sync-hash";
+const SYNC_MAP_FILENAME = "gh-secrets-sync-map";
 
-function syncHashFilePath(): string {
-  return path.join(new Db().path, SYNC_HASH_FILENAME);
+function syncMapFilePath(): string {
+  return path.join(new Db().path, SYNC_MAP_FILENAME);
 }
 
-export function readGhSecretsSyncHash(): string | null {
+function readMap(): Record<string, string> {
   try {
-    const value = readFileSync(syncHashFilePath(), "utf8").trim();
-    return value || null;
+    const raw = readFileSync(syncMapFilePath(), "utf8");
+    return JSON.parse(raw);
   } catch {
-    return null;
+    return {};
   }
 }
 
-export function writeGhSecretsSyncHash(hash: string): void {
-  writeFileSync(syncHashFilePath(), `${hash}\n`, "utf8");
+export function readGhSecretsSyncHash(repoSlug: string): string | null {
+  const map = readMap();
+  return map[repoSlug] ?? null;
+}
+
+export function writeGhSecretsSyncHash(repoSlug: string, hash: string): void {
+  const map = readMap();
+  map[repoSlug] = hash;
+  writeFileSync(syncMapFilePath(), JSON.stringify(map), "utf8");
 }

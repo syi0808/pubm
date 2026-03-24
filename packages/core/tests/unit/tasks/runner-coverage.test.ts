@@ -2057,7 +2057,7 @@ describe("CI prepare pipeline", () => {
     await tokenTask.task(ctx, task);
 
     expect(mockedCollectTokens).toHaveBeenCalledWith(["npm", "jsr"], task);
-    expect(mockedPromptGhSecretsSync).toHaveBeenCalledWith(tokens, task, []);
+    expect(mockedPromptGhSecretsSync).toHaveBeenCalledWith(tokens, task, [], "pubm/pubm");
     expect(mockedInjectTokensToEnv).toHaveBeenCalledWith(tokens);
     expect(ctx.runtime.promptEnabled).toBe(false);
 
