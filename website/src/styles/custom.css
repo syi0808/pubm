@@ -16,6 +16,24 @@
   --sl-font-mono: "JetBrains Mono", monospace;
 }
 
+[data-theme="light"] {
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: rgba(255, 255, 255, 0.85);
+  --sl-color-bg-sidebar: #f8f9fa;
+  --sl-color-hairline-light: rgba(0, 0, 0, 0.08);
+  --sl-color-hairline-shade: rgba(0, 0, 0, 0.04);
+  --sl-color-accent-low: #e8f4f8;
+  --sl-color-accent-high: #1a1a2e;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #f8f9fa;
+  --sl-color-gray-2: #e9ecef;
+  --sl-color-gray-3: #868e96;
+  --sl-color-gray-4: #495057;
+  --sl-color-gray-5: #343a40;
+  --sl-color-gray-6: #212529;
+  --sl-color-black: #0f1117;
+}
+
 [data-theme="dark"] {
   --sl-color-bg: #0f1117;
   --sl-color-bg-nav: rgba(22, 27, 38, 0.85);
