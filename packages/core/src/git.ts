@@ -388,10 +388,9 @@ export class Git {
     try {
       await this.git(["push", "-f", remote, refspec]);
     } catch (error) {
-      throw new GitError(
-        `Failed to run \`git push -f ${remote} ${refspec}\``,
-        { cause: error },
-      );
+      throw new GitError(`Failed to run \`git push -f ${remote} ${refspec}\``, {
+        cause: error,
+      });
     }
   }
 

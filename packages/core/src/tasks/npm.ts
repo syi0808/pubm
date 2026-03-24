@@ -3,6 +3,7 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
+import type { NpmPackageRegistry } from "../registry/npm.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 
 class NpmAvailableError extends AbstractError {
@@ -117,6 +118,24 @@ export function createNpmPublishTask(
         }
         throw error;
       }
+
+      registerUnpublishRollback(ctx, npm, version);
     },
   };
+}
+
+function registerUnpublishRollback(
+  ctx: PubmContext,
+  registry: NpmPackageRegistry,
+  version: string,
+): void {
+  if (registry.supportsUnpublish) {
+    ctx.runtime.rollback.add({
+      label: `Unpublish ${registry.packageName}@${version} from npm`,
+      fn: async () => {
+        await registry.unpublish(registry.packageName, version);
+      },
+      confirm: true,
+    });
+  }
 }

@@ -236,6 +236,17 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
   }
 
+  override get supportsUnpublish(): boolean {
+    return true;
+  }
+
+  async unpublish(packageName: string, version: string): Promise<void> {
+    await this.npm(
+      ["unpublish", `${packageName}@${version}`],
+      this.packagePath,
+    );
+  }
+
   async dryRunPublish(): Promise<void> {
     try {
       await exec("npm", ["publish", "--dry-run"], {

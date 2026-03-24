@@ -35,8 +35,8 @@ import {
   restoreManifests,
 } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { PackageRegistry } from "../registry/package-registry.js";
 import { JsrClient } from "../registry/jsr.js";
+import type { PackageRegistry } from "../registry/package-registry.js";
 import { exec } from "../utils/exec.js";
 import { resolveGitHubToken, saveGitHubToken } from "../utils/github-token.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
@@ -54,10 +54,7 @@ import {
   createJsrDryRunPublishTask,
   createNpmDryRunPublishTask,
 } from "./dry-run-publish.js";
-import {
-  createGitHubRelease,
-  deleteGitHubRelease,
-} from "./github-release.js";
+import { createGitHubRelease, deleteGitHubRelease } from "./github-release.js";
 import {
   collectEcosystemRegistryGroups,
   countRegistryTargets,
@@ -326,8 +323,7 @@ function pluginPublishTasks(ctx: PubmContext) {
         const version = getPackageVersion(ctx, registry.packagePath);
         const registryType = (registry.constructor as typeof PackageRegistry)
           .registryType;
-        const label =
-          registryType === "crates" ? "Yank" : "Unpublish";
+        const label = registryType === "crates" ? "Yank" : "Unpublish";
         ctx.runtime.rollback.add({
           label: `${label} ${registry.packageName}@${version} from ${registryType}`,
           fn: async () => {

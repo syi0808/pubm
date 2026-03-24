@@ -163,6 +163,18 @@ export class CratesPackageRegistry extends PackageRegistry {
     }
   }
 
+  override get supportsUnpublish(): boolean {
+    return true;
+  }
+
+  async unpublish(_packageName: string, version: string): Promise<void> {
+    const args = ["yank", "--vers", version];
+    if (this.packagePath) {
+      args.push("--manifest-path", path.join(this.packagePath, "Cargo.toml"));
+    }
+    await exec("cargo", args, { throwOnError: true });
+  }
+
   async dryRunPublish(): Promise<void> {
     try {
       const args = ["publish", "--dry-run"];
