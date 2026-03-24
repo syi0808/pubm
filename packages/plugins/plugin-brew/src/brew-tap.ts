@@ -68,22 +68,70 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
       ];
     },
     checks: (ctx) => {
-      if (!options.repo) return [];
       const phases = resolvePhases(ctx.options);
-      // Return checks for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
       if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+
+      // CI: verify PAT exists (only relevant when repo is set)
+      if (ctx.options.mode === "ci") {
+        if (!options.repo) return [];
+        return [
+          {
+            title: "Checking Homebrew tap token availability",
+            phase: "conditions" as const,
+            task: async (ctx, task) => {
+              const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+              if (!token) {
+                throw new Error(
+                  "PUBM_BREW_GITHUB_TOKEN is required for Homebrew tap publishing.",
+                );
+              }
+              task.output = "Homebrew tap token verified";
+            },
+          },
+        ];
+      }
+
+      // Local, !repo: no checks needed — git push uses existing auth,
+      // gh pr create is only a fallback
+      if (!options.repo) return [];
+
+      // Local, repo: verify gh auth + repo access
+      const targetRepo = options.repo;
       return [
         {
-          title: "Checking Homebrew tap token availability",
+          title: "Checking git/gh access for Homebrew tap",
           phase: "conditions" as const,
-          task: async (ctx, task) => {
-            const token = ctx.runtime.pluginTokens?.["brew-github-token"];
-            if (!token) {
+          task: async (_ctx, task) => {
+            const { execFileSync } = await import("node:child_process");
+
+            try {
+              execFileSync("gh", ["auth", "status"], { stdio: "pipe" });
+              task.output = "GitHub CLI authenticated";
+            } catch {
               throw new Error(
-                "PUBM_BREW_GITHUB_TOKEN is required for Homebrew tap publishing. Set the environment variable or run with interactive mode.",
+                "GitHub CLI is not authenticated. Run `gh auth login` first.",
               );
             }
-            task.output = "Homebrew tap token verified";
+
+            const repoName = /^[^/]+\/[^/]+$/.test(targetRepo)
+              ? targetRepo
+              : targetRepo.match(
+                  /github\.com[/:]([^/]+\/[^/.]+)/,
+                )?.[1];
+            if (repoName) {
+              try {
+                execFileSync(
+                  "gh",
+                  ["repo", "view", repoName, "--json", "name"],
+                  { stdio: "pipe" },
+                );
+                task.output = `Access to ${repoName} verified`;
+              } catch {
+                throw new Error(
+                  `Cannot access tap repository '${targetRepo}'. Check your GitHub permissions.`,
+                );
+              }
+            }
           },
         },
       ];
