@@ -3,6 +3,7 @@ import type { ReleaseContext } from "./assets/types.js";
 import type { ResolvedPubmConfig } from "./config/types.js";
 import { PluginRunner } from "./plugin/runner.js";
 import type { ResolvedOptions } from "./types/options.js";
+import { RollbackTracker } from "./utils/rollback.js";
 
 export interface SingleVersionPlan {
   mode: "single";
@@ -77,6 +78,7 @@ export interface PubmContext {
     workspaceBackups?: Map<string, string>;
     dryRunVersionBackup?: Map<string, string>;
     pluginTokens?: Record<string, string>;
+    rollback: RollbackTracker<PubmContext>;
   };
 }
 
@@ -91,6 +93,7 @@ export function createContext(
     cleanWorkingTree: false,
     pluginRunner: new PluginRunner([]),
     tokenRetryPromises: {},
+    rollback: new RollbackTracker<PubmContext>(),
   };
 
   const ctx = Object.defineProperties(Object.create(null), {
