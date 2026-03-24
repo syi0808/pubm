@@ -1633,6 +1633,25 @@ describe("requiredMissingInformationTasks", () => {
         new Set(["packages/a"]),
       );
     });
+
+    it("only_changesets: respects versioning fixed — creates FixedVersionPlan", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      ctx.config.versioning = "fixed";
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.versionPlan).toEqual({
+        mode: "fixed",
+        version: "1.1.0",
+        packages: new Map([["packages/a", "1.1.0"]]),
+      });
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
   });
 
   describe("three-choice prompt — add_packages", () => {
@@ -2044,6 +2063,33 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
+
+    it("add_packages: respects versioning fixed — creates FixedVersionPlan with highest version", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      ctx.config.versioning = "fixed";
+      const mockTask = createMockTask();
+
+      // Three-choice → add_packages; pkgB (remaining) → "2.1.0" (bumped)
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("2.1.0");
+
+      await versionTask.task(ctx, mockTask);
+
+      // Fixed mode: highest version (2.1.0) applied to all packages
+      expect(ctx.runtime.versionPlan).toEqual({
+        mode: "fixed",
+        version: "2.1.0",
+        packages: new Map([
+          ["packages/a", "2.1.0"],
+          ["packages/b", "2.1.0"],
+        ]),
+      });
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
   });
