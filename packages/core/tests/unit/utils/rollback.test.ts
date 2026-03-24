@@ -27,9 +27,24 @@ describe("RollbackTracker", () => {
   describe("execute", () => {
     it("runs actions in LIFO order", async () => {
       const order: number[] = [];
-      tracker.add({ label: "first", fn: async () => { order.push(1); } });
-      tracker.add({ label: "second", fn: async () => { order.push(2); } });
-      tracker.add({ label: "third", fn: async () => { order.push(3); } });
+      tracker.add({
+        label: "first",
+        fn: async () => {
+          order.push(1);
+        },
+      });
+      tracker.add({
+        label: "second",
+        fn: async () => {
+          order.push(2);
+        },
+      });
+      tracker.add({
+        label: "third",
+        fn: async () => {
+          order.push(3);
+        },
+      });
 
       await tracker.execute(ctx, { interactive: false });
 
@@ -84,7 +99,10 @@ describe("RollbackTracker", () => {
 
     it("returns result with failed count and manual recovery", async () => {
       tracker.add({ label: "good", fn: async () => {} });
-      tracker.add({ label: "bad", fn: vi.fn().mockRejectedValue(new Error("oops")) });
+      tracker.add({
+        label: "bad",
+        fn: vi.fn().mockRejectedValue(new Error("oops")),
+      });
 
       const result = await tracker.execute(ctx, { interactive: false });
 
@@ -94,7 +112,10 @@ describe("RollbackTracker", () => {
     });
 
     it("handles non-Error rejection reasons", async () => {
-      tracker.add({ label: "string-reject", fn: vi.fn().mockRejectedValue("string error") });
+      tracker.add({
+        label: "string-reject",
+        fn: vi.fn().mockRejectedValue("string error"),
+      });
 
       const result = await tracker.execute(ctx, { interactive: false });
 
@@ -116,7 +137,10 @@ describe("RollbackTracker", () => {
       const fn = vi.fn();
       tracker.add({ label: "unpublish", fn, confirm: true });
 
-      const result = await tracker.execute(ctx, { interactive: false, sigint: true });
+      const result = await tracker.execute(ctx, {
+        interactive: false,
+        sigint: true,
+      });
 
       expect(fn).not.toHaveBeenCalled();
       expect(result.skipped).toBe(1);

@@ -103,12 +103,6 @@ vi.mock("../../../src/utils/token.js", () => ({
   injectTokensToEnv: vi.fn(() => vi.fn()),
   injectPluginTokensToEnv: vi.fn(() => vi.fn()),
 }));
-vi.mock("../../../src/utils/rollback.js", () => ({
-  rollback: vi.fn(),
-  addRollback: vi.fn(),
-  rollbackLog: vi.fn(),
-  rollbackError: vi.fn(),
-}));
 vi.mock("../../../src/tasks/prerequisites-check.js", () => ({
   prerequisitesCheckTask: vi.fn(() => ({
     run: vi.fn().mockResolvedValue(undefined),
@@ -286,7 +280,7 @@ import { resolveGitHubToken } from "../../../src/utils/github-token.js";
 import { createListr } from "../../../src/utils/listr.js";
 import { openUrl } from "../../../src/utils/open-url.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
-import { addRollback, rollback } from "../../../src/utils/rollback.js";
+import { RollbackTracker } from "../../../src/utils/rollback.js";
 import { generateSnapshotVersion } from "../../../src/utils/snapshot.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 import { makeTestContext } from "../../helpers/make-context.js";
@@ -311,8 +305,6 @@ const mockedCratesDescriptor = (
 const mockedCreateCratesDryRunPublishTask = vi.mocked(
   createCratesDryRunPublishTask,
 );
-const mockedAddRollback = vi.mocked(addRollback);
-const mockedRollback = vi.mocked(rollback);
 const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
@@ -675,10 +667,6 @@ describe("runner coverage scenarios", () => {
       ["packages/pubm", "2.1.0"],
     ]);
     const pluginRunner = new PluginRunner([]);
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
     mockedWriteVersionsForEcosystem.mockResolvedValue([]);
     mockedReadChangesets.mockReturnValue([{ id: "cs-1" }] as any);
     mockedBuildChangelogEntries
@@ -723,6 +711,7 @@ describe("runner coverage scenarios", () => {
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -748,6 +737,7 @@ describe("runner coverage scenarios", () => {
       runtime: {
         changesetConsumed: true,
         pluginRunner,
+        rollback,
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -782,10 +772,15 @@ describe("runner coverage scenarios", () => {
       "commit-sha",
     );
 
-    expect(rollbackHandler).toBeDefined();
-    await rollbackHandler?.();
-    expect(gitInstance.deleteTag).toHaveBeenCalledWith("@pubm/core@2.0.0");
-    expect(gitInstance.deleteTag).toHaveBeenCalledWith("pubm@2.1.0");
+    expect(rollback.size).toBeGreaterThan(0);
+    await rollback.execute(ctx, { interactive: false });
+    // Rollback creates new Git instances, so check the last created instances
+    const allGitInstances = mockedGit.mock.results.map((r: any) => r.value);
+    const allDeleteTagCalls = allGitInstances.flatMap(
+      (g: any) => g.deleteTag?.mock?.calls ?? [],
+    );
+    expect(allDeleteTagCalls.flat()).toContain("@pubm/core@2.0.0");
+    expect(allDeleteTagCalls.flat()).toContain("pubm@2.1.0");
   });
 
   it("handles fixed workspace version bumps and writes a root changelog", async () => {
@@ -860,6 +855,7 @@ describe("runner coverage scenarios", () => {
         versions,
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "3.0.0",
@@ -925,6 +921,7 @@ describe("runner coverage scenarios", () => {
         version: "1.2.0",
         versions,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "1.2.0",
@@ -975,6 +972,7 @@ describe("runner coverage scenarios", () => {
         version: "4.0.0",
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -1540,6 +1538,7 @@ describe("tag existence check", () => {
         version: "5.0.0",
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -1599,6 +1598,7 @@ describe("tag existence check", () => {
         version: "5.0.0",
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -1648,6 +1648,7 @@ describe("tag existence check", () => {
         version: "5.0.0",
         promptEnabled: false,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -1744,6 +1745,7 @@ describe("tag existence check", () => {
         versions,
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "3.0.0",
@@ -1842,6 +1844,7 @@ describe("tag existence check", () => {
         changesetConsumed: true,
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: versions,
@@ -1928,6 +1931,7 @@ describe("independent release draft", () => {
         version: "2.0.0",
         versions,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: versions,
@@ -1990,6 +1994,7 @@ describe("independent release draft", () => {
       runtime: {
         version: "4.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -2122,6 +2127,7 @@ describe("CI GitHub Release", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -2217,6 +2223,7 @@ describe("CI GitHub Release", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -2283,6 +2290,7 @@ describe("post-publish", () => {
       runtime: {
         version: "5.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: { mode: "single", version: "5.0.0", packageName: "pubm" },
       },
     };
@@ -2374,6 +2382,7 @@ describe("post-publish", () => {
       runtime: {
         version: "6.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "6.0.0",
@@ -2415,14 +2424,14 @@ describe("error/catch path", () => {
         }) as any,
     );
 
-    await run(
-      createOptions({
-        runtime: { version: "1.0.0", pluginRunner },
-      }),
-    );
+    const options = createOptions({
+      runtime: { version: "1.0.0", pluginRunner },
+    });
+    const executeSpy = vi.spyOn(options.runtime.rollback, "execute");
+    await run(options);
 
     expect(mockedConsoleError).toHaveBeenCalled();
-    expect(mockedRollback).toHaveBeenCalled();
+    expect(executeSpy).toHaveBeenCalled();
     expect(exitSpy).toHaveBeenCalledWith(1);
 
     exitSpy.mockRestore();
@@ -2471,6 +2480,7 @@ describe("publish-only mode", () => {
       runtime: {
         version: "1.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: { mode: "single", version: "1.0.0", packageName: "pubm" },
       },
     };
@@ -2576,11 +2586,6 @@ describe("normal pipeline test and build tasks", () => {
 
 describe("version bump rollback", () => {
   it("rollback handler deletes tag for single mode", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "7.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -2601,6 +2606,7 @@ describe("version bump rollback", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -2618,6 +2624,7 @@ describe("version bump rollback", () => {
       runtime: {
         version: "7.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "7.0.0",
@@ -2628,8 +2635,8 @@ describe("version bump rollback", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
-    await rollbackHandler?.();
+    expect(rollback.size).toBeGreaterThan(0);
+    await rollback.execute(ctx, { interactive: false });
 
     // After commit and tag creation, rollback should delete tag and reset
     expect(gitInstance.deleteTag).toHaveBeenCalledWith("v7.0.0");
@@ -2637,11 +2644,6 @@ describe("version bump rollback", () => {
   });
 
   it("rollback handler handles dirty working tree with stash", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "7.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -2662,6 +2664,7 @@ describe("version bump rollback", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -2679,6 +2682,7 @@ describe("version bump rollback", () => {
       runtime: {
         version: "7.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "7.0.0",
@@ -2689,8 +2693,8 @@ describe("version bump rollback", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
-    await rollbackHandler?.();
+    expect(rollback.size).toBeGreaterThan(0);
+    await rollback.execute(ctx, { interactive: false });
 
     expect(gitInstance.stash).toHaveBeenCalled();
     expect(gitInstance.popStash).toHaveBeenCalled();
@@ -2756,6 +2760,7 @@ describe("tag existence in fixed and independent modes", () => {
         versions,
         promptEnabled: false,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "3.0.0",
@@ -2834,6 +2839,7 @@ describe("tag existence in fixed and independent modes", () => {
         versions,
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "3.0.0",
@@ -2921,6 +2927,7 @@ describe("tag existence in fixed and independent modes", () => {
         versions,
         promptEnabled: false,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: versions,
@@ -3015,6 +3022,7 @@ describe("tag existence in fixed and independent modes", () => {
         changesetConsumed: true,
         promptEnabled: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: versions,
@@ -3076,6 +3084,7 @@ describe("version plan formatting fallbacks", () => {
         version: "2.0.0",
         versions,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "2.0.0",
@@ -3233,6 +3242,7 @@ describe("fixed mode changeset with empty entries", () => {
         versions,
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "5.0.0",
@@ -3322,6 +3332,7 @@ describe("independent changeset with empty entries for some packages", () => {
       runtime: {
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -3369,6 +3380,7 @@ describe("dry-run version bump early return", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "2.0.0",
@@ -3448,6 +3460,7 @@ describe("dry-run version bump early return", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "3.0.0",
@@ -3524,6 +3537,7 @@ describe("dry-run version bump early return", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: versions,
@@ -3623,6 +3637,7 @@ describe("independent mode GitHub release with null result", () => {
       options: { skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -3703,6 +3718,7 @@ describe("independent mode GitHub release with null result", () => {
         runtime: {
           changesetConsumed: false,
           pluginRunner: new PluginRunner([]),
+          rollback: new RollbackTracker(),
           versionPlan: {
             mode: "independent",
             packages: pathVersions,
@@ -3797,6 +3813,7 @@ describe("independent mode GitHub release with null result", () => {
         },
         runtime: {
           pluginRunner: new PluginRunner([]),
+          rollback: new RollbackTracker(),
           versionPlan: {
             mode: "independent",
             packages: pathVersions,
@@ -3883,6 +3900,7 @@ describe("independent mode GitHub release with null result", () => {
         runtime: {
           changesetConsumed: false,
           pluginRunner: new PluginRunner([]),
+          rollback: new RollbackTracker(),
           versionPlan: {
             mode: "independent",
             packages: pathVersions,
@@ -3909,10 +3927,6 @@ describe("independent mode GitHub release with null result", () => {
         ["packages/core", "2.0.0"],
         ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
       ]);
-      let rollbackHandler: (() => Promise<void>) | undefined;
-      mockedAddRollback.mockImplementation((fn: any) => {
-        rollbackHandler = fn;
-      });
 
       await run(
         createOptions({
@@ -3949,6 +3963,7 @@ describe("independent mode GitHub release with null result", () => {
 
       const tasks = mockedCreateListr.mock.calls[0][0] as any[];
       const versionTask = tasks[2];
+      const rollback = new RollbackTracker();
       const ctx: any = {
         cwd: process.cwd(),
         config: {
@@ -3975,6 +3990,7 @@ describe("independent mode GitHub release with null result", () => {
         runtime: {
           changesetConsumed: false,
           pluginRunner: new PluginRunner([]),
+          rollback,
           versionPlan: {
             mode: "independent",
             packages: pathVersions,
@@ -3985,12 +4001,16 @@ describe("independent mode GitHub release with null result", () => {
 
       await versionTask.task(ctx, task);
 
-      expect(rollbackHandler).toBeDefined();
-      await rollbackHandler?.();
+      expect(rollback.size).toBeGreaterThan(0);
+      await rollback.execute(ctx, { interactive: false });
 
-      const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
-      expect(gitInstance.deleteTag).toHaveBeenCalledWith("@pubm/core@2.0.0");
-      expect(gitInstance.deleteTag).not.toHaveBeenCalledWith(
+      // Rollback creates new Git instances, so check all instances
+      const allGitInstances = mockedGit.mock.results.map((r: any) => r.value);
+      const allDeleteTagCalls = allGitInstances.flatMap(
+        (g: any) => g.deleteTag?.mock?.calls ?? [],
+      );
+      expect(allDeleteTagCalls.flat()).toContain("@pubm/core@2.0.0");
+      expect(allDeleteTagCalls.flat()).not.toContain(
         "@pubm/darwin-arm64@2.0.0",
       );
     });
@@ -3999,11 +4019,6 @@ describe("independent mode GitHub release with null result", () => {
 
 describe("rollback error handling branches", () => {
   it("handles tag deletion error in single mode rollback", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "8.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -4024,6 +4039,7 @@ describe("rollback error handling branches", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -4041,6 +4057,7 @@ describe("rollback error handling branches", () => {
       runtime: {
         version: "8.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "8.0.0",
@@ -4051,18 +4068,13 @@ describe("rollback error handling branches", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
     // Should not throw even if deleteTag fails
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
     expect(gitInstance.deleteTag).toHaveBeenCalledWith("v8.0.0");
   });
 
   it("handles commit reset error in rollback", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "8.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -4087,6 +4099,7 @@ describe("rollback error handling branches", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -4104,6 +4117,7 @@ describe("rollback error handling branches", () => {
       runtime: {
         version: "8.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "8.0.0",
@@ -4114,9 +4128,9 @@ describe("rollback error handling branches", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
     // Should not throw even if reset fails
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
   });
 
   it("handles tag deletion error in independent mode rollback", async () => {
@@ -4124,10 +4138,6 @@ describe("rollback error handling branches", () => {
       ["packages/core", "2.0.0"],
       ["packages/pubm", "2.1.0"],
     ]);
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
 
     await run(
       createOptions({
@@ -4178,6 +4188,7 @@ describe("rollback error handling branches", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -4203,6 +4214,7 @@ describe("rollback error handling branches", () => {
       runtime: {
         changesetConsumed: false,
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -4212,9 +4224,9 @@ describe("rollback error handling branches", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
     // Should not throw even when deleteTag fails for each package
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
     expect(gitInstance.deleteTag).toHaveBeenCalled();
   });
 });
@@ -4225,10 +4237,6 @@ describe("independent rollback with non-Error rejection in tag deletion", () => 
       ["packages/core", "2.0.0"],
       ["packages/pubm", "2.1.0"],
     ]);
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
 
     await run(
       createOptions({
@@ -4279,6 +4287,7 @@ describe("independent rollback with non-Error rejection in tag deletion", () => 
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -4304,6 +4313,7 @@ describe("independent rollback with non-Error rejection in tag deletion", () => 
       runtime: {
         changesetConsumed: false,
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -4313,9 +4323,9 @@ describe("independent rollback with non-Error rejection in tag deletion", () => 
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
     // Should handle non-Error string rejection in per-package tag deletion
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
     expect(gitInstance.deleteTag).toHaveBeenCalled();
   });
 });
@@ -4546,6 +4556,7 @@ describe("GitHub release with asset upload hooks", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -4631,6 +4642,7 @@ describe("independent release draft with excludeRelease", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -4873,6 +4885,7 @@ describe("formatVersionSummary and formatVersionPlan edge cases", () => {
       runtime: {
         changesetConsumed: false,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -4978,6 +4991,7 @@ describe("dry-run version application with independent mode", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -5170,11 +5184,6 @@ describe("dry-run version restore task", () => {
 
 describe("rollback with non-Error objects", () => {
   it("rollback handles non-Error object in tag deletion", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "9.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -5195,6 +5204,7 @@ describe("rollback with non-Error objects", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -5212,6 +5222,7 @@ describe("rollback with non-Error objects", () => {
       runtime: {
         version: "9.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "9.0.0",
@@ -5222,17 +5233,12 @@ describe("rollback with non-Error objects", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
     // Should handle non-Error rejection gracefully
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
   });
 
   it("rollback handles non-Error object during commit reset", async () => {
-    let rollbackHandler: (() => Promise<void>) | undefined;
-    mockedAddRollback.mockImplementation((fn: any) => {
-      rollbackHandler = fn;
-    });
-
     await run(createOptions({ runtime: { version: "9.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -5260,6 +5266,7 @@ describe("rollback with non-Error objects", () => {
       return gitInstance as any;
     } as any);
 
+    const rollback = new RollbackTracker();
     const ctx: any = {
       cwd: process.cwd(),
       config: {
@@ -5277,6 +5284,7 @@ describe("rollback with non-Error objects", () => {
       runtime: {
         version: "9.0.0",
         pluginRunner: new PluginRunner([]),
+        rollback,
         versionPlan: {
           mode: "single",
           version: "9.0.0",
@@ -5287,8 +5295,8 @@ describe("rollback with non-Error objects", () => {
 
     await versionTask.task(ctx, createTask());
 
-    expect(rollbackHandler).toBeDefined();
-    await rollbackHandler?.();
+    const result = await rollback.execute(ctx, { interactive: false });
+    expect(result.failed).toBeGreaterThan(0);
   });
 });
 
@@ -5344,6 +5352,7 @@ describe("independent changelog without pkgConfig match", () => {
       runtime: {
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -5388,6 +5397,7 @@ describe("single changeset with no changesets found", () => {
         version: "4.0.0",
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -5458,6 +5468,7 @@ describe("independent tempDir cleanup in release", () => {
       options: { skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -5521,6 +5532,7 @@ describe("GitHub release token prompt paths", () => {
       options: { releaseDraft: false, skipReleaseDraft: false, mode: "local" },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -5572,6 +5584,7 @@ describe("GitHub release token prompt paths", () => {
       options: { releaseDraft: false, skipReleaseDraft: false, mode: "local" },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -5623,6 +5636,7 @@ describe("GitHub release token prompt paths", () => {
       options: { releaseDraft: false, skipReleaseDraft: false, mode: "local" },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -5675,6 +5689,7 @@ describe("GitHub release token prompt paths", () => {
       options: { releaseDraft: false, skipReleaseDraft: false, mode: "local" },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "5.0.0",
@@ -5745,6 +5760,7 @@ describe("fixed mode release with tempDir cleanup", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "4.0.0",
@@ -5810,6 +5826,7 @@ describe("fixed mode release with tempDir cleanup", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "4.0.0",
@@ -5878,6 +5895,7 @@ describe("fixed mode release with changelog sections", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "4.0.0",
@@ -5930,6 +5948,7 @@ describe("fixed mode packageName fallback in release", () => {
       options: { releaseDraft: false, skipReleaseDraft: false },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "fixed",
           version: "4.0.0",
@@ -5982,6 +6001,7 @@ describe("single changeset with pkgPath fallback", () => {
         version: "4.0.0",
         changesetConsumed: true,
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "single",
           version: "4.0.0",
@@ -6158,6 +6178,7 @@ describe("independent release draft with previousTag fallback", () => {
       },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: {
           mode: "independent",
           packages: pathVersions,
@@ -6193,6 +6214,7 @@ describe("empty registry group summary", () => {
       config: { packages: [] },
       runtime: {
         pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
         versionPlan: { mode: "single", version: "1.0.0", packageName: "pubm" },
       },
     };

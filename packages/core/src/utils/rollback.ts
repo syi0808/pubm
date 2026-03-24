@@ -31,7 +31,10 @@ export class RollbackTracker<Ctx> {
     return this.actions.length;
   }
 
-  async execute(ctx: Ctx, options: RollbackExecuteOptions): Promise<RollbackResult> {
+  async execute(
+    ctx: Ctx,
+    options: RollbackExecuteOptions,
+  ): Promise<RollbackResult> {
     const result: RollbackResult = {
       succeeded: 0,
       failed: 0,
@@ -45,7 +48,9 @@ export class RollbackTracker<Ctx> {
     if (this.actions.length === 0) return result;
 
     // Listen for SIGINT during rollback
-    const onSigint = () => { this.aborted = true; };
+    const onSigint = () => {
+      this.aborted = true;
+    };
     process.on("SIGINT", onSigint);
 
     console.log(
@@ -63,7 +68,9 @@ export class RollbackTracker<Ctx> {
 
       // Skip confirm actions on SIGINT-triggered rollback (no prompt possible)
       if (action.confirm && options.sigint) {
-        console.log(`  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (requires confirmation)`);
+        console.log(
+          `  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (requires confirmation)`,
+        );
         result.skipped++;
         result.manualRecovery.push(action.label);
         continue;

@@ -68,12 +68,6 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     },
   };
 });
-vi.mock("../../../src/utils/rollback.js", () => ({
-  rollback: vi.fn(),
-  addRollback: vi.fn(),
-  rollbackLog: vi.fn(),
-  rollbackError: vi.fn(),
-}));
 vi.mock("../../../src/utils/ui.js", () => ({
   ui: {
     link: vi.fn(),
@@ -82,6 +76,10 @@ vi.mock("../../../src/utils/ui.js", () => ({
     chalk: {
       bold: (s: string) => s,
       blueBright: (s: string) => s,
+      yellow: (s: string) => s,
+      green: (s: string) => s,
+      red: (s: string) => s,
+      dim: (s: string) => s,
     },
   },
 }));
@@ -286,7 +284,6 @@ import { sortCratesByDependencyOrder } from "../../../src/utils/crate-graph.js";
 import { exec } from "../../../src/utils/exec.js";
 import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
 import { getPackageManager } from "../../../src/utils/package-manager.js";
-import { addRollback, rollback } from "../../../src/utils/rollback.js";
 import { injectTokensToEnv } from "../../../src/utils/token.js";
 import { ui } from "../../../src/utils/ui.js";
 import { makeTestContext } from "../../helpers/make-context.js";
@@ -298,11 +295,9 @@ const mockedRequiredConditionsCheckTask = vi.mocked(
 const mockedCreateListr = vi.mocked(createListr);
 const mockedCreateCiListrOptions = vi.mocked(createCiListrOptions);
 const mockedConsoleError = vi.mocked(consoleError);
-const mockedRollback = vi.mocked(rollback);
 const mockedExec = vi.mocked(exec);
 const mockedGetPackageManager = vi.mocked(getPackageManager);
 const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
-const mockedAddRollback = vi.mocked(addRollback);
 const mockedLink = vi.mocked(ui.link);
 const mockedGit = vi.mocked(Git);
 const mockedSortCrates = vi.mocked(sortCratesByDependencyOrder);
@@ -446,8 +441,6 @@ beforeEach(() => {
   });
   mockedGetPackageManager.mockResolvedValue("pnpm" as any);
   mockedWriteVersionsForEcosystem.mockResolvedValue([]);
-  mockedRollback.mockResolvedValue(undefined);
-  mockedAddRollback.mockImplementation(() => {});
   mockedLink.mockImplementation((_text: string, url: string) => url);
   mockedPrerequisitesCheckTask.mockReturnValue({
     run: vi.fn().mockResolvedValue(undefined),
@@ -848,9 +841,10 @@ describe("run", () => {
       } as any);
 
       const options = createOptions();
+      const executeSpy = vi.spyOn(options.runtime.rollback, "execute");
       await run(options);
 
-      expect(mockedRollback).toHaveBeenCalledOnce();
+      expect(executeSpy).toHaveBeenCalledOnce();
     });
 
     it("calls process.exit(1) on error", async () => {
@@ -867,19 +861,22 @@ describe("run", () => {
 
     it("calls rollback before process.exit", async () => {
       const callOrder: string[] = [];
-      mockedRollback.mockImplementationOnce(async () => {
-        callOrder.push("rollback");
-      });
-      processExitSpy.mockImplementation((() => {
-        callOrder.push("exit");
-      }) as any);
-
       const error = new Error("Task failed");
       mockedPrerequisitesCheckTask.mockReturnValueOnce({
         run: vi.fn().mockRejectedValue(error),
       } as any);
 
       const options = createOptions();
+      vi.spyOn(options.runtime.rollback, "execute").mockImplementationOnce(
+        async () => {
+          callOrder.push("rollback");
+          return { succeeded: 0, failed: 0, skipped: 0, manualRecovery: [] };
+        },
+      );
+      processExitSpy.mockImplementation((() => {
+        callOrder.push("exit");
+      }) as any);
+
       await run(options);
 
       expect(callOrder).toEqual(["rollback", "exit"]);
@@ -1085,8 +1082,8 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      // addRollback should have been called for version bump
-      expect(mockedAddRollback).toHaveBeenCalled();
+      // Rollback actions should have been registered for version bump
+      expect(options.runtime.rollback.size).toBeGreaterThan(0);
       expect(mockedWriteVersionsForEcosystem).toHaveBeenCalled();
     });
 
@@ -1120,28 +1117,18 @@ describe("run", () => {
     it("registers rollback that handles tag deletion and commit reset", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
-      let capturedRollback: Function | undefined;
-      mockedAddRollback.mockImplementation((fn: any) => {
-        capturedRollback = fn;
-      });
-
       const options = createOptions();
       await run(options);
 
-      // Execute the captured rollback
-      expect(capturedRollback).toBeDefined();
-      await capturedRollback!();
+      // Rollback actions should include tag deletion and commit reset
+      expect(options.runtime.rollback.size).toBeGreaterThanOrEqual(2);
     });
 
     it("stashes and restores dirty files while rolling back a release commit", async () => {
       mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
 
-      let capturedRollback: Function | undefined;
       const stash = vi.fn().mockResolvedValue(undefined);
       const popStash = vi.fn().mockResolvedValue(undefined);
-      mockedAddRollback.mockImplementation((fn: any) => {
-        capturedRollback = fn;
-      });
       mockedGit.mockImplementation(function () {
         return {
           reset: vi.fn().mockResolvedValue(undefined),
@@ -1162,10 +1149,11 @@ describe("run", () => {
         } as any;
       });
 
-      await run(createOptions());
+      const options = createOptions();
+      await run(options);
 
-      expect(capturedRollback).toBeDefined();
-      await capturedRollback!();
+      // Execute rollback to verify stash/popStash are called
+      await options.runtime.rollback.execute(options, { interactive: false });
 
       expect(stash).toHaveBeenCalledOnce();
       expect(popStash).toHaveBeenCalledOnce();
@@ -1696,9 +1684,10 @@ describe("run", () => {
 
     it("does not call rollback on success", async () => {
       const options = createOptions();
+      const executeSpy = vi.spyOn(options.runtime.rollback, "execute");
       await run(options);
 
-      expect(mockedRollback).not.toHaveBeenCalled();
+      expect(executeSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -1748,12 +1737,13 @@ describe("run", () => {
         });
 
       const options = createOptions();
+      const executeSpy = vi.spyOn(options.runtime.rollback, "execute");
       await run(options);
 
       expect(sigintHandler).toBeDefined();
       await sigintHandler!();
 
-      expect(mockedRollback).toHaveBeenCalledOnce();
+      expect(executeSpy).toHaveBeenCalledOnce();
       expect(processExitSpy).toHaveBeenCalledWith(130);
 
       onSpy.mockRestore();
