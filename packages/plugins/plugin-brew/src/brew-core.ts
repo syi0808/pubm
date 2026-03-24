@@ -214,13 +214,30 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
           { stdio: "inherit" },
         );
 
-        execSync(
+        const prUrl = execSync(
           [
             `cd ${tmpDir}`,
             `gh pr create --repo homebrew/homebrew-core --title "${name} ${releaseCtx.version}" --body "Update ${name} formula to version ${releaseCtx.version}"`,
           ].join(" && "),
-          { stdio: "inherit", ...ghEnv },
-        );
+          { encoding: "utf-8", ...ghEnv },
+        ).trim();
+
+        const prNumber = prUrl.match(/\/pull\/(\d+)/)?.[1];
+        if (prNumber) {
+          ctx.runtime.rollback.add({
+            label: `Close homebrew-core PR #${prNumber}`,
+            fn: async () => {
+              const { execSync: execSyncRb } = await import(
+                "node:child_process"
+              );
+              execSyncRb(
+                `gh pr close ${prNumber} --repo homebrew/homebrew-core --comment "Closed by pubm rollback"`,
+                { stdio: "inherit", ...ghEnv },
+              );
+            },
+            confirm: true,
+          });
+        }
 
         console.log(
           `PR created to homebrew/homebrew-core for ${name} ${releaseCtx.version}`,

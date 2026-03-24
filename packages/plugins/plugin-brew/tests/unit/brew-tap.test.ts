@@ -37,6 +37,8 @@ describe("brewTap", () => {
     mkdirSync(tmpRoot, { recursive: true });
     process.chdir(tmpRoot);
     vi.clearAllMocks();
+    mockedExecSync.mockReset();
+    mockedExecFileSync.mockReset();
   });
 
   afterEach(() => {
@@ -190,6 +192,9 @@ describe("brewTap", () => {
       if (command === "git push") {
         throw new Error("no upstream");
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/user/repo/pull/42\n" as never;
+      }
 
       return Buffer.from("");
     });
@@ -198,7 +203,7 @@ describe("brewTap", () => {
     const plugin = brewTap({ formula: "Formula/pubm.rb" });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { rollback: { add: vi.fn() } } } as never,
       {
         version: "2.0.0",
         assets: [],
@@ -222,7 +227,7 @@ describe("brewTap", () => {
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
       'gh pr create --title "chore(brew): update formula to 2.0.0" --body "Automated formula update by pubm"',
-      { stdio: "inherit" },
+      { encoding: "utf-8" },
     );
     expect(logSpy).toHaveBeenCalledWith(
       "Created PR on branch pubm/brew-formula-v2.0.0",
@@ -411,6 +416,9 @@ describe("brewTap", () => {
       if (command === `cd ${tmpDir} && git push`) {
         throw new Error("permission denied");
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/syi0808/homebrew-pubm/pull/50\n" as never;
+      }
       return Buffer.from("");
     });
 
@@ -420,7 +428,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      { runtime: { pluginTokens: {} } } as never,
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
       {
         version: "6.0.0",
         assets: [],
@@ -437,7 +445,7 @@ describe("brewTap", () => {
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
       'gh pr create --repo syi0808/homebrew-pubm --title "chore(brew): update formula to 6.0.0" --body "Automated formula update by pubm"',
-      { stdio: "inherit" },
+      { encoding: "utf-8" },
     );
     expect(logSpy).toHaveBeenCalledWith(
       "Created PR on branch pubm/brew-formula-v6.0.0",
@@ -548,6 +556,9 @@ describe("brewTap", () => {
       if (command === `cd ${tmpDir} && git push`) {
         throw new Error("permission denied");
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/syi0808/homebrew-pubm/pull/60\n" as never;
+      }
       return Buffer.from("");
     });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -558,7 +569,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      { runtime: { pluginTokens: {} } } as never,
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
       { version: "6.0.0", assets: [] } as never,
     );
 
@@ -572,7 +583,7 @@ describe("brewTap", () => {
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
       'gh pr create --repo syi0808/homebrew-pubm --title "chore(brew): update formula to 6.0.0" --body "Automated formula update by pubm"',
-      { stdio: "inherit" },
+      { encoding: "utf-8" },
     );
     expect(logSpy).toHaveBeenCalledWith(
       "Created PR on branch pubm/brew-formula-v6.0.0",
@@ -621,6 +632,9 @@ describe("brewTap", () => {
       if (command === `cd ${tmpDir} && git push`) {
         throw new Error("push failed");
       }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://gitlab.com/mygroup/homebrew-tap/pull/10\n" as never;
+      }
       return Buffer.from("");
     });
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -631,7 +645,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      { runtime: { pluginTokens: {} } } as never,
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
       { version: "10.0.0", assets: [] } as never,
     );
 
@@ -1033,6 +1047,9 @@ describe("brewTap", () => {
             "fatal: could not read Username for 'https://github.com': No such device or address",
           );
         }
+        if (typeof command === "string" && command.includes("gh pr create")) {
+          return "https://github.com/syi0808/homebrew-pubm/pull/80\n" as never;
+        }
         return Buffer.from("");
       });
       vi.spyOn(console, "log").mockImplementation(() => {});
@@ -1046,6 +1063,7 @@ describe("brewTap", () => {
         {
           runtime: {
             pluginTokens: { "brew-github-token": "ghs_ci_token" },
+            rollback: { add: vi.fn() },
           },
         } as never,
         { version: "8.0.0", assets: [] } as never,
@@ -1075,6 +1093,9 @@ describe("brewTap", () => {
         if (command === `cd ${tmpDir} && git push`) {
           throw new Error("auth failure");
         }
+        if (typeof command === "string" && command.includes("gh pr create")) {
+          return "https://github.com/example/homebrew-tap/pull/90\n" as never;
+        }
         return Buffer.from("");
       });
       vi.spyOn(console, "log").mockImplementation(() => {});
@@ -1086,7 +1107,9 @@ describe("brewTap", () => {
 
       await expect(
         plugin.hooks?.afterRelease?.(
-          { runtime: { pluginTokens: {} } } as never,
+          {
+            runtime: { pluginTokens: {}, rollback: { add: vi.fn() } },
+          } as never,
           { version: "9.0.0", assets: [] } as never,
         ),
       ).resolves.toBeUndefined();
