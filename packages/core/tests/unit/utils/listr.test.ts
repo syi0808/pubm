@@ -35,15 +35,8 @@ vi.mock("listr2", () => {
   };
 });
 
-vi.mock("../../../src/utils/rollback.js", () => {
-  return {
-    rollback: vi.fn(),
-  };
-});
-
 let createListr: typeof import("../../../src/utils/listr.js").createListr;
 let createCiListrOptions: typeof import("../../../src/utils/listr.js").createCiListrOptions;
-let rollbackFn: typeof import("../../../src/utils/rollback.js").rollback;
 
 beforeEach(async () => {
   mockListrInstance.isRoot = () => true;
@@ -56,9 +49,6 @@ beforeEach(async () => {
   const listrMod = await import("../../../src/utils/listr.js");
   createListr = listrMod.createListr;
   createCiListrOptions = listrMod.createCiListrOptions;
-
-  const rollbackMod = await import("../../../src/utils/rollback.js");
-  rollbackFn = rollbackMod.rollback;
 });
 
 describe("createListr", () => {
@@ -73,15 +63,6 @@ describe("createListr", () => {
     const result = createListr([]);
 
     expect(result.isRoot()).toBe(false);
-  });
-
-  it("sets externalSignalHandler to the rollback function", () => {
-    const result = createListr([]);
-    const listrWithSignalHandler = result as typeof result & {
-      externalSignalHandler?: unknown;
-    };
-
-    expect(listrWithSignalHandler.externalSignalHandler).toBe(rollbackFn);
   });
 
   it("passes constructor options through to Listr", () => {

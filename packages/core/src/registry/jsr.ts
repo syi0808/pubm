@@ -12,7 +12,6 @@ import {
   isValidPackageName,
 } from "../utils/package-name.js";
 import { PUBM_VERSION } from "../utils/pubm-metadata.js";
-import { addRollback } from "../utils/rollback.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { ui } from "../utils/ui.js";
 import { RegistryConnector } from "./connector.js";
@@ -258,14 +257,17 @@ export class JsrPackageRegistry extends PackageRegistry {
     // J1, J2, J3: Non-scoped package → scope selection + creation + rollback
     if (!isScopedPackage(this.packageName)) {
       // J3: Register rollback
-      addRollback(async (rollbackCtx: PubmContext): Promise<void> => {
-        if (rollbackCtx.runtime.packageCreated) {
-          await this.client.deletePackage(this.packageName);
-        }
-        if (rollbackCtx.runtime.scopeCreated) {
-          await this.client.deleteScope(`${getScope(this.packageName)}`);
-        }
-      }, ctx);
+      ctx.runtime.rollback.add({
+        label: `Delete JSR package ${this.packageName}`,
+        fn: async (rollbackCtx) => {
+          if (rollbackCtx.runtime.packageCreated) {
+            await this.client.deletePackage(this.packageName);
+          }
+          if (rollbackCtx.runtime.scopeCreated) {
+            await this.client.deleteScope(`${getScope(this.packageName)}`);
+          }
+        },
+      });
 
       // J1: Scope selection prompt (interactive only)
       if (ctx.runtime.promptEnabled) {
