@@ -1689,8 +1689,6 @@ export async function run(ctx: PubmContext): Promise<void> {
     consoleError(e as Error);
     await rollback();
 
-    await ctx.runtime.pluginRunner.runHook("onRollback", ctx);
-
     process.exit(1);
   }
 }
