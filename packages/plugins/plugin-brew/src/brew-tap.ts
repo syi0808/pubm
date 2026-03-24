@@ -53,10 +53,8 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
       },
     ],
     credentials: (ctx) => {
-      if (!options.repo) return [];
-      const phases = resolvePhases(ctx.options);
-      // Return credentials for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
-      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      // PAT is only needed in CI where interactive git/gh auth is unavailable
+      if (!options.repo || ctx.options.mode !== "ci") return [];
       return [
         {
           key: "brew-github-token",
