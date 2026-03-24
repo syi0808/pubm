@@ -56,9 +56,8 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
       },
     ],
     credentials: (ctx) => {
-      const phases = resolvePhases(ctx.options);
-      // Return credentials for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
-      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      // PAT is only needed in CI where interactive gh auth is unavailable
+      if (ctx.options.mode !== "ci") return [];
       return [
         {
           key: "brew-github-token",
