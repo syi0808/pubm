@@ -3,9 +3,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ensureGitIdentityMock, resolveGitHubTokenMock } = vi.hoisted(() => ({
+const { ensureGitIdentityMock } = vi.hoisted(() => ({
   ensureGitIdentityMock: vi.fn(),
-  resolveGitHubTokenMock: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("node:child_process", () => ({
@@ -17,11 +16,14 @@ vi.mock("../../src/git-identity.js", () => ({
 }));
 
 vi.mock("@pubm/core", () => ({
-  resolveGitHubToken: resolveGitHubTokenMock,
+  resolvePhases: vi.fn().mockReturnValue(["prepare", "publish"]),
 }));
 
 import { execSync } from "node:child_process";
+import { resolvePhases } from "@pubm/core";
 import { brewTap } from "../../src/brew-tap.js";
+
+const mockedResolvePhases = vi.mocked(resolvePhases);
 
 const mockedExecSync = vi.mocked(execSync);
 const tmpRoot = join(import.meta.dirname, ".tmp-brew-tap");
@@ -269,7 +271,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       {
         version: "3.0.0",
         assets: [
@@ -301,17 +303,17 @@ describe("brewTap", () => {
       `git clone --depth 1 https://github.com/example/homebrew-tap.git ${join(tmpdir(), "pubm-brew-tap-123456")}`,
       { stdio: "inherit" },
     );
-    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
     expect(mockedExecSync).toHaveBeenCalledWith(
       expect.stringContaining('git commit -m "Update pubm.rb to 3.0.0"'),
       { stdio: "inherit" },
     );
-    expect(mockedExecSync).toHaveBeenCalledWith(`git -C ${tmpDir} push`, {
+    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+    expect(mockedExecSync).toHaveBeenCalledWith(`cd ${tmpDir} && git push`, {
       stdio: "inherit",
     });
   });
 
-  it("includes GITHUB_TOKEN in clone URL when available for tap repo", async () => {
+  it("embeds pluginTokens in clone URL when available for tap repo", async () => {
     writeFileSync(
       resolve(tmpRoot, "package.json"),
       JSON.stringify(
@@ -337,7 +339,11 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "ghp_test123" },
+        },
+      } as never,
       {
         version: "5.0.0",
         assets: [],
@@ -350,7 +356,7 @@ describe("brewTap", () => {
     );
   });
 
-  it("uses plain URL when GITHUB_TOKEN is not set for tap repo", async () => {
+  it("uses plain URL when no pluginToken is available for tap repo", async () => {
     writeFileSync(
       resolve(tmpRoot, "package.json"),
       JSON.stringify(
@@ -373,7 +379,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       {
         version: "5.1.0",
         assets: [],
@@ -417,7 +423,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       {
         version: "6.0.0",
         assets: [],
@@ -463,7 +469,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       {
         version: "4.0.0",
         assets: [
@@ -489,10 +495,6 @@ describe("brewTap", () => {
       JSON.stringify({ name: "pubm" }, null, 2),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    resolveGitHubTokenMock.mockReturnValue({
-      token: "ghp_test123",
-      source: "env",
-    });
 
     const plugin = brewTap({
       formula: "Formula/pubm.rb",
@@ -500,7 +502,11 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "ghp_test123" },
+        },
+      } as never,
       { version: "5.0.0", assets: [] } as never,
     );
 
@@ -516,7 +522,6 @@ describe("brewTap", () => {
       JSON.stringify({ name: "pubm" }, null, 2),
     );
     vi.spyOn(Date, "now").mockReturnValue(123456);
-    resolveGitHubTokenMock.mockReturnValue(null);
 
     const plugin = brewTap({
       formula: "Formula/pubm.rb",
@@ -524,7 +529,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       { version: "5.1.0", assets: [] } as never,
     );
 
@@ -556,7 +561,7 @@ describe("brewTap", () => {
     });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      { runtime: { pluginTokens: {} } } as never,
       { version: "6.0.0", assets: [] } as never,
     );
 
@@ -577,6 +582,245 @@ describe("brewTap", () => {
     );
   });
 
+  it("skips release when packageName is set and displayLabel does not match", async () => {
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      packageName: "my-tool",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      { version: "1.0.0", assets: [], displayLabel: "other-tool" } as never,
+    );
+
+    // No formula should be written, no git commands issued
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
+  it("proceeds with release when packageName matches displayLabel", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      packageName: "my-tool",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      { version: "1.0.0", assets: [], displayLabel: "my-tool" } as never,
+    );
+
+    expect(logSpy).toHaveBeenCalledWith("Formula updated at Formula/pubm.rb");
+  });
+
+  it("uses options.repo as ownerRepo fallback when URL does not match github.com pattern", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+
+    mockedExecSync.mockImplementation((command) => {
+      if (command === `cd ${tmpDir} && git push`) {
+        throw new Error("push failed");
+      }
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "https://gitlab.com/mygroup/homebrew-tap.git",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { pluginTokens: {} } } as never,
+      { version: "10.0.0", assets: [] } as never,
+    );
+
+    // The gh pr create should use the raw repo string as ownerRepo fallback
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "--repo https://gitlab.com/mygroup/homebrew-tap.git",
+      ),
+      expect.anything(),
+    );
+  });
+
+  describe("credentials", () => {
+    it("returns credential for external repo", () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local", publish: true },
+        config: {},
+        runtime: { promptEnabled: true },
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(1);
+      expect(creds[0].key).toBe("brew-github-token");
+      expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
+    });
+
+    it("returns empty for same-repo formula", () => {
+      const plugin = brewTap({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(0);
+    });
+
+    it("returns empty when phases do not include publish and mode is not ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(0);
+    });
+
+    it("returns credential when phases do not include publish but mode is ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(1);
+    });
+  });
+
+  describe("checks", () => {
+    it("adds condition check for external repo", () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+      expect(checks[0].phase).toBe("conditions");
+    });
+
+    it("returns empty checks for same-repo formula", () => {
+      const plugin = brewTap({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(0);
+    });
+
+    it("returns empty checks when phases do not include publish and mode is not ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(0);
+    });
+
+    it("returns checks when phases do not include publish but mode is ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+    });
+
+    it("check task throws when pluginTokens is missing brew-github-token", async () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: { pluginTokens: {} },
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+
+      const taskCtx = {
+        runtime: { pluginTokens: {} },
+      } as any;
+      const taskObj = { output: "" } as any;
+
+      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
+        "PUBM_BREW_GITHUB_TOKEN is required",
+      );
+    });
+
+    it("check task succeeds and sets output when token is present", async () => {
+      const plugin = brewTap({
+        formula: "Formula/test.rb",
+        repo: "user/homebrew-test",
+      });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {
+        runtime: { pluginTokens: { "brew-github-token": "ghp_abc" } },
+      } as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(taskObj.output).toBe("Homebrew tap token verified");
+    });
+  });
+
   describe("regression", () => {
     it("separate tap repo push uses authenticated URL in CI", async () => {
       writeFileSync(
@@ -584,10 +828,6 @@ describe("brewTap", () => {
         JSON.stringify({ name: "pubm" }, null, 2),
       );
       vi.spyOn(Date, "now").mockReturnValue(123456);
-      resolveGitHubTokenMock.mockReturnValue({
-        token: "ghs_ci_token_abc",
-        source: "env",
-      });
 
       const plugin = brewTap({
         formula: "Formula/pubm.rb",
@@ -595,7 +835,11 @@ describe("brewTap", () => {
       });
 
       await plugin.hooks?.afterRelease?.(
-        {} as never,
+        {
+          runtime: {
+            pluginTokens: { "brew-github-token": "ghs_ci_token_abc" },
+          },
+        } as never,
         { version: "7.0.0", assets: [] } as never,
       );
 
@@ -614,10 +858,6 @@ describe("brewTap", () => {
         JSON.stringify({ name: "pubm" }, null, 2),
       );
       vi.spyOn(Date, "now").mockReturnValue(123456);
-      resolveGitHubTokenMock.mockReturnValue({
-        token: "ghs_ci_token",
-        source: "env",
-      });
       const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
 
       mockedExecSync.mockImplementation((command) => {
@@ -636,7 +876,11 @@ describe("brewTap", () => {
       });
 
       await plugin.hooks?.afterRelease?.(
-        {} as never,
+        {
+          runtime: {
+            pluginTokens: { "brew-github-token": "ghs_ci_token" },
+          },
+        } as never,
         { version: "8.0.0", assets: [] } as never,
       );
 
@@ -675,7 +919,7 @@ describe("brewTap", () => {
 
       await expect(
         plugin.hooks?.afterRelease?.(
-          {} as never,
+          { runtime: { pluginTokens: {} } } as never,
           { version: "9.0.0", assets: [] } as never,
         ),
       ).resolves.toBeUndefined();

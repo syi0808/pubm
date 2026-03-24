@@ -73,6 +73,20 @@ brewTap({
 
 每个谓词都会接收一个 `ReleaseAsset`，并在该 formula 条目应该使用该资产时返回 `true`。
 
+### 凭证与 preflight checks
+
+`@pubm/plugin-brew` 会自动声明自己需要的凭证和 checks，你不需要手动配置。
+
+**必需凭证：**
+
+| 环境变量 | GitHub Secret 名称 | 用途 |
+|----------|--------------------|------|
+| `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | 带有 `repo` scope 的 GitHub Personal Access Token，用于推送 formula 更新并创建 pull request。 |
+
+在本地运行时，pubm 会提示输入这个 token，并将其保存到系统 keyring。在 CI 中，请通过 `PUBM_BREW_GITHUB_TOKEN` 环境变量提供该 token。运行 `pubm --mode ci --phase prepare` 或 `pubm secrets sync`，即可把已保存的 token 同步到仓库的 GitHub Secrets，让 CI workflow 自动使用。
+
+该插件还会注册一个 preflight check，在 publish 阶段开始前验证 token 是否存在以及是否具备所需的仓库访问权限。
+
 ### 行为
 
 这个插件可以：
@@ -112,7 +126,7 @@ export default defineConfig({
 | `packageName` | `string` | monorepo 的可选 package 名称过滤器。 |
 | `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 可选的自定义平台匹配器。 |
 
-`brewCore` 会 fork `homebrew/homebrew-core`，更新 formula，并自动打开 PR。
+`brewCore` 会 fork `homebrew/homebrew-core`，更新 formula，并自动打开 PR。和 `brewTap` 一样，它也会自动声明 `PUBM_BREW_GITHUB_TOKEN` 凭证以及对应的 preflight check。
 
 ## `@pubm/plugin-external-version-sync`
 

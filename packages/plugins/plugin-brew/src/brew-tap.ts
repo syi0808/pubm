@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { PubmPlugin } from "@pubm/core";
+import { type PubmPlugin, resolvePhases } from "@pubm/core";
 import {
   generateFormula,
   releaseAssetsToFormulaAssets,
@@ -52,8 +52,46 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
         ],
       },
     ],
+    credentials: (ctx) => {
+      if (!options.repo) return [];
+      const phases = resolvePhases(ctx.options);
+      // Return credentials for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
+      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      return [
+        {
+          key: "brew-github-token",
+          env: "PUBM_BREW_GITHUB_TOKEN",
+          label: "GitHub PAT for Homebrew tap",
+          tokenUrl: "https://github.com/settings/tokens/new?scopes=repo",
+          tokenUrlLabel: "github.com",
+          ghSecretName: "PUBM_BREW_GITHUB_TOKEN",
+          required: true,
+        },
+      ];
+    },
+    checks: (ctx) => {
+      if (!options.repo) return [];
+      const phases = resolvePhases(ctx.options);
+      // Return checks for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
+      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      return [
+        {
+          title: "Checking Homebrew tap token availability",
+          phase: "conditions" as const,
+          task: async (ctx, task) => {
+            const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+            if (!token) {
+              throw new Error(
+                "PUBM_BREW_GITHUB_TOKEN is required for Homebrew tap publishing. Set the environment variable or run with interactive mode.",
+              );
+            }
+            task.output = "Homebrew tap token verified";
+          },
+        },
+      ];
+    },
     hooks: {
-      afterRelease: async (_ctx, releaseCtx) => {
+      afterRelease: async (ctx, releaseCtx) => {
         if (
           options.packageName &&
           releaseCtx.displayLabel !== options.packageName
@@ -125,7 +163,6 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
           const { tmpdir } = await import("node:os");
           const { basename, join } = await import("node:path");
           const { execSync } = await import("node:child_process");
-          const { resolveGitHubToken } = await import("@pubm/core");
 
           const tmpDir = join(tmpdir(), `pubm-brew-tap-${Date.now()}`);
           const formulaFile = basename(formulaPath);
@@ -144,13 +181,16 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
 
           // Embed token in clone URL for CI auth
           let cloneUrl = repoUrl;
-          const tokenResult = resolveGitHubToken();
-          if (tokenResult?.token && repoUrl.startsWith("https://github.com/")) {
+          const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+          if (token && repoUrl.startsWith("https://github.com/")) {
             cloneUrl = repoUrl.replace(
               "https://github.com/",
-              `https://x-access-token:${tokenResult.token}@github.com/`,
+              `https://x-access-token:${token}@github.com/`,
             );
           }
+          const ghEnv = token
+            ? { env: { ...process.env, GH_TOKEN: token } }
+            : {};
 
           execSync(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, {
             stdio: "inherit",
@@ -182,7 +222,7 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
             });
             execSync(
               `gh pr create --repo ${ownerRepo} --title "chore(brew): update formula to ${releaseCtx.version}" --body "Automated formula update by pubm"`,
-              { stdio: "inherit" },
+              { stdio: "inherit", ...ghEnv },
             );
             console.log(`Created PR on branch ${branch}`);
           }

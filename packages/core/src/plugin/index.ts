@@ -4,9 +4,12 @@ export type {
   ErrorHookFn,
   HookFn,
   HookName,
+  PluginCheck,
   PluginCommand,
   PluginCommandOption,
+  PluginCredential,
   PluginHooks,
   PluginSubcommand,
+  PluginTaskContext,
   PubmPlugin,
 } from "./types.js";

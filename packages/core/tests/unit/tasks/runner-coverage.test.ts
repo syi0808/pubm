@@ -101,6 +101,7 @@ vi.mock("../../../src/utils/github-token.js", () => ({
 }));
 vi.mock("../../../src/utils/token.js", () => ({
   injectTokensToEnv: vi.fn(() => vi.fn()),
+  injectPluginTokensToEnv: vi.fn(() => vi.fn()),
 }));
 vi.mock("../../../src/utils/rollback.js", () => ({
   rollback: vi.fn(),
@@ -120,6 +121,7 @@ vi.mock("../../../src/tasks/required-conditions-check.js", () => ({
 }));
 vi.mock("../../../src/tasks/preflight.js", () => ({
   collectTokens: vi.fn(),
+  collectPluginCredentials: vi.fn().mockResolvedValue({}),
   promptGhSecretsSync: vi.fn(),
 }));
 vi.mock("../../../src/tasks/npm.js", () => ({
@@ -2055,7 +2057,7 @@ describe("CI prepare pipeline", () => {
     await tokenTask.task(ctx, task);
 
     expect(mockedCollectTokens).toHaveBeenCalledWith(["npm", "jsr"], task);
-    expect(mockedPromptGhSecretsSync).toHaveBeenCalledWith(tokens, task);
+    expect(mockedPromptGhSecretsSync).toHaveBeenCalledWith(tokens, task, []);
     expect(mockedInjectTokensToEnv).toHaveBeenCalledWith(tokens);
     expect(ctx.runtime.promptEnabled).toBe(false);
 

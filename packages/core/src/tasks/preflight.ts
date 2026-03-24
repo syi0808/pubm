@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color } from "listr2";
 import { AbstractError } from "../error.js";
+import type { PluginCredential } from "../plugin/types.js";
+import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { exec } from "../utils/exec.js";
 import {
@@ -90,9 +92,16 @@ export async function collectTokens(
   return tokens;
 }
 
+export interface GhSecretEntry {
+  secretName: string;
+  token: string;
+}
+
 export async function syncGhSecrets(
   tokens: Record<string, string>,
+  pluginSecrets: GhSecretEntry[] = [],
 ): Promise<void> {
+  // Registry tokens
   for (const [registry, token] of Object.entries(tokens)) {
     const descriptor = registryCatalog.get(registry);
     if (!descriptor) continue;
@@ -102,12 +111,28 @@ export async function syncGhSecrets(
       throwOnError: true,
     });
   }
+
+  // Plugin tokens
+  for (const { secretName, token } of pluginSecrets) {
+    await exec("gh", ["secret", "set", secretName, "--body", token], {
+      throwOnError: true,
+    });
+  }
 }
 
-function tokensSyncHash(tokens: Record<string, string>): string {
+// Hash format v2: includes plugin secrets — existing hashes will mismatch,
+// prompting a one-time re-sync on upgrade. The version constant ensures
+// future format changes automatically produce different hashes.
+function tokensSyncHash(
+  tokens: Record<string, string>,
+  pluginSecrets: GhSecretEntry[] = [],
+): string {
   const sorted = Object.entries(tokens).sort(([a], [b]) => a.localeCompare(b));
+  const pluginSorted = [...pluginSecrets].sort((a, b) =>
+    a.secretName.localeCompare(b.secretName),
+  );
   return createHash("sha256")
-    .update(JSON.stringify(sorted))
+    .update(JSON.stringify({ v: 2, sorted, pluginSorted }))
     .digest("hex")
     .slice(0, 16);
 }
@@ -116,8 +141,9 @@ export async function promptGhSecretsSync(
   tokens: Record<string, string>,
   // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
   task: any,
+  pluginSecrets: GhSecretEntry[] = [],
 ): Promise<void> {
-  const currentHash = tokensSyncHash(tokens);
+  const currentHash = tokensSyncHash(tokens, pluginSecrets);
   const storedHash = readGhSecretsSyncHash();
 
   if (storedHash === currentHash) {
@@ -136,7 +162,7 @@ export async function promptGhSecretsSync(
   if (shouldSync) {
     task.output = "Syncing tokens to GitHub Secrets...";
     try {
-      await syncGhSecrets(tokens);
+      await syncGhSecrets(tokens, pluginSecrets);
       task.output = "Tokens synced to GitHub Secrets.";
     } catch (error) {
       throw new PreflightError(
@@ -153,4 +179,120 @@ export async function promptGhSecretsSync(
       cause: error,
     });
   }
+}
+
+export async function collectPluginCredentials(
+  credentials: PluginCredential[],
+  promptEnabled: boolean,
+  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
+  task: any,
+): Promise<Record<string, string>> {
+  const tokens: Record<string, string> = {};
+  const store = new SecureStore();
+  const wrappedTask = wrapTaskContext(task);
+
+  for (const credential of credentials) {
+    const required = credential.required !== false;
+
+    // 1. Check environment variable
+    const envValue = process.env[credential.env];
+    if (envValue) {
+      if (credential.validate) {
+        wrappedTask.output = `Validating ${credential.label}...`;
+        const isValid = await credential.validate(envValue, wrappedTask);
+        if (!isValid) {
+          throw new PreflightError(
+            `${credential.env} is set but invalid. Please update the environment variable.`,
+          );
+        }
+      }
+      tokens[credential.key] = envValue;
+      continue;
+    }
+
+    // 2. Try custom resolver (before keyring)
+    if (credential.resolve) {
+      const resolved = await credential.resolve();
+      if (resolved) {
+        if (credential.validate) {
+          wrappedTask.output = `Validating ${credential.label}...`;
+          if (await credential.validate(resolved, wrappedTask)) {
+            tokens[credential.key] = resolved;
+            store.set(credential.key, resolved);
+            continue;
+          }
+        } else {
+          tokens[credential.key] = resolved;
+          store.set(credential.key, resolved);
+          continue;
+        }
+      }
+    }
+
+    // 3. Check keyring/SecureStore
+    const stored = store.get(credential.key);
+    if (stored) {
+      if (credential.validate) {
+        wrappedTask.output = `Validating stored ${credential.label}...`;
+        const isValid = await credential.validate(stored, wrappedTask);
+        if (!isValid) {
+          wrappedTask.output = `Stored ${credential.label} is invalid`;
+          store.delete(credential.key);
+        } else {
+          tokens[credential.key] = stored;
+          continue;
+        }
+      } else {
+        tokens[credential.key] = stored;
+        continue;
+      }
+    }
+
+    // 4. Prompt (if interactive)
+    if (!promptEnabled) {
+      if (required) {
+        throw new PreflightError(
+          `${credential.label} is required. Set ${credential.env} environment variable.`,
+        );
+      }
+      continue;
+    }
+
+    // Prompt loop
+    while (true) {
+      wrappedTask.output = `Enter ${credential.label}`;
+      const tokenUrlInfo = credential.tokenUrl
+        ? `\nGenerate a token from ${color.bold(ui.link(credential.tokenUrlLabel ?? credential.tokenUrl, credential.tokenUrl))}`
+        : "";
+      const token = await wrappedTask.prompt({
+        type: "password",
+        message: `Enter ${credential.label}`,
+        ...(tokenUrlInfo ? { footer: tokenUrlInfo } : {}),
+      });
+
+      if (!`${token}`.trim()) {
+        if (required) {
+          throw new PreflightError(
+            `${credential.label} is required to continue.`,
+          );
+        }
+        break;
+      }
+
+      if (credential.validate) {
+        wrappedTask.output = `Validating ${credential.label}...`;
+        const isValid = await credential.validate(token as string, wrappedTask);
+        if (!isValid) {
+          wrappedTask.output = `${credential.label} is invalid. Please try again.`;
+          continue;
+        }
+      }
+
+      tokens[credential.key] = token as string;
+      store.set(credential.key, token as string);
+      break;
+    }
+  }
+
+  return tokens;
 }

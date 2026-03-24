@@ -73,6 +73,20 @@ brewTap({
 
 Chaque prédicat reçoit un `ReleaseAsset` et renvoie `true` si l'artefact doit être utilisé pour cette entrée de formula.
 
+### Credentials et checks de preflight
+
+`@pubm/plugin-brew` déclare automatiquement ses credentials et ses checks. Vous n'avez pas besoin de les configurer manuellement.
+
+**Credential requis :**
+
+| Variable d'environnement | Nom du GitHub Secret | Rôle |
+|--------------------------|----------------------|------|
+| `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | GitHub Personal Access Token avec la portée `repo`, utilisé pour pousser les mises à jour de formula et ouvrir des pull requests. |
+
+En local, pubm demande ce token et le stocke dans le keyring du système. En CI, fournissez le token via la variable d'environnement `PUBM_BREW_GITHUB_TOKEN`. Exécutez `pubm --mode ci --phase prepare` ou `pubm secrets sync` pour synchroniser le token stocké vers les GitHub Secrets de votre dépôt afin que les workflows CI puissent l'utiliser automatiquement.
+
+Le plugin enregistre aussi un check de preflight qui vérifie que le token est présent et qu'il dispose de l'accès dépôt nécessaire avant le début de la phase de publish.
+
 ### Comportement
 
 Le plugin peut :
@@ -112,7 +126,7 @@ export default defineConfig({
 | `packageName` | `string` | Filtre de nom de package facultatif pour les monorepos. |
 | `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | Matchers de plateforme personnalisés facultatifs. |
 
-`brewCore` fork `homebrew/homebrew-core`, met à jour la formula et ouvre automatiquement une PR.
+`brewCore` fork `homebrew/homebrew-core`, met à jour la formula et ouvre automatiquement une PR. Comme `brewTap`, il déclare aussi automatiquement le credential `PUBM_BREW_GITHUB_TOKEN` et un check de preflight.
 
 ## `@pubm/plugin-external-version-sync`
 

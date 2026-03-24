@@ -26,8 +26,10 @@ vi.mock("../../../src/utils/token.js", async (importOriginal) => {
   };
 });
 
+import type { PluginCredential } from "../../../src/plugin/types.js";
 import { registryCatalog } from "../../../src/registry/catalog.js";
 import {
+  collectPluginCredentials,
   collectTokens,
   promptGhSecretsSync,
   syncGhSecrets,
@@ -293,6 +295,49 @@ describe("syncGhSecrets", () => {
 
     await expect(syncGhSecrets({ npm: "tok-123" })).rejects.toThrow();
   });
+
+  it("syncs plugin secrets using secretName/token pairs", async () => {
+    mockedExec.mockResolvedValue({
+      stdout: "",
+      stderr: "",
+      exitCode: 0,
+    } as any);
+
+    await syncGhSecrets({}, [
+      { secretName: "MY_PLUGIN_SECRET", token: "plugin-token-123" },
+    ]);
+
+    expect(mockedExec).toHaveBeenCalledWith(
+      "gh",
+      ["secret", "set", "MY_PLUGIN_SECRET", "--body", "plugin-token-123"],
+      { throwOnError: true },
+    );
+  });
+
+  it("syncs both registry and plugin secrets", async () => {
+    mockedExec.mockResolvedValue({
+      stdout: "",
+      stderr: "",
+      exitCode: 0,
+    } as any);
+
+    await syncGhSecrets({ npm: "npm-token" }, [
+      { secretName: "PLUGIN_TOKEN", token: "plugin-val" },
+    ]);
+
+    // npm registry secret
+    expect(mockedExec).toHaveBeenCalledWith(
+      "gh",
+      ["secret", "set", "NODE_AUTH_TOKEN", "--body", "npm-token"],
+      { throwOnError: true },
+    );
+    // plugin secret
+    expect(mockedExec).toHaveBeenCalledWith(
+      "gh",
+      ["secret", "set", "PLUGIN_TOKEN", "--body", "plugin-val"],
+      { throwOnError: true },
+    );
+  });
 });
 
 describe("promptGhSecretsSync", () => {
@@ -306,8 +351,9 @@ describe("promptGhSecretsSync", () => {
     const sorted = Object.entries(tokens).sort(([a], [b]) =>
       a.localeCompare(b),
     );
+    const pluginSorted: unknown[] = [];
     const hash = createHash("sha256")
-      .update(JSON.stringify(sorted))
+      .update(JSON.stringify({ v: 2, sorted, pluginSorted }))
       .digest("hex")
       .slice(0, 16);
 
@@ -378,5 +424,195 @@ describe("promptGhSecretsSync", () => {
     await expect(
       promptGhSecretsSync({ npm: "tok-1" }, mockTask),
     ).rejects.toThrow("Failed to save GitHub Secrets sync state.");
+  });
+});
+
+describe("collectPluginCredentials", () => {
+  const makePluginTask = () => ({
+    output: "",
+    title: "",
+    prompt: vi.fn().mockReturnValue({
+      run: vi.fn().mockResolvedValue("prompted-token"),
+    }),
+  });
+
+  it("resolves from env var", async () => {
+    process.env.TEST_PLUGIN_TOKEN = "env-token";
+    const credentials: PluginCredential[] = [
+      { key: "test-key", env: "TEST_PLUGIN_TOKEN", label: "Test Token" },
+    ];
+
+    const result = await collectPluginCredentials(
+      credentials,
+      true,
+      makePluginTask() as any,
+    );
+
+    expect(result).toEqual({ "test-key": "env-token" });
+    delete process.env.TEST_PLUGIN_TOKEN;
+  });
+
+  it("resolves from custom resolver before keyring", async () => {
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "NONEXISTENT_VAR_1",
+        label: "Test Token",
+        resolve: vi.fn().mockResolvedValue("resolved-token"),
+      },
+    ];
+
+    const result = await collectPluginCredentials(
+      credentials,
+      true,
+      makePluginTask() as any,
+    );
+
+    expect(result).toEqual({ "test-key": "resolved-token" });
+    expect(credentials[0].resolve).toHaveBeenCalled();
+  });
+
+  it("resolves from keyring when env and resolver return null", async () => {
+    const mockStore = {
+      get: vi.fn().mockReturnValue("keyring-token"),
+      set: vi.fn(),
+      delete: vi.fn(),
+    };
+    mockedSecureStore.mockImplementation(function () {
+      return mockStore as any;
+    });
+
+    const credentials: PluginCredential[] = [
+      { key: "test-key", env: "NONEXISTENT_VAR_2", label: "Test Token" },
+    ];
+
+    const result = await collectPluginCredentials(
+      credentials,
+      true,
+      makePluginTask() as any,
+    );
+
+    expect(result).toEqual({ "test-key": "keyring-token" });
+  });
+
+  it("prompts when all sources return null and promptEnabled is true", async () => {
+    mockedSecureStore.mockImplementation(function () {
+      return {
+        get: vi.fn().mockReturnValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+      } as any;
+    });
+
+    const task = makePluginTask();
+    const credentials: PluginCredential[] = [
+      { key: "test-key", env: "NONEXISTENT_VAR_3", label: "Test Token" },
+    ];
+
+    const result = await collectPluginCredentials(
+      credentials,
+      true,
+      task as any,
+    );
+
+    expect(result).toEqual({ "test-key": "prompted-token" });
+  });
+
+  it("throws for required credential when prompt is disabled (CI)", async () => {
+    mockedSecureStore.mockImplementation(function () {
+      return {
+        get: vi.fn().mockReturnValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+      } as any;
+    });
+
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "NONEXISTENT_VAR_4",
+        label: "Test Token",
+        required: true,
+      },
+    ];
+
+    await expect(
+      collectPluginCredentials(credentials, false, makePluginTask() as any),
+    ).rejects.toThrow("Test Token");
+  });
+
+  it("skips optional credential when not available", async () => {
+    mockedSecureStore.mockImplementation(function () {
+      return {
+        get: vi.fn().mockReturnValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+      } as any;
+    });
+
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "NONEXISTENT_VAR_5",
+        label: "Test Token",
+        required: false,
+      },
+    ];
+
+    const result = await collectPluginCredentials(
+      credentials,
+      false,
+      makePluginTask() as any,
+    );
+
+    expect(result).toEqual({});
+  });
+
+  it("throws when env token fails validation", async () => {
+    process.env.TEST_PLUGIN_TOKEN_INVALID = "bad-token";
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "TEST_PLUGIN_TOKEN_INVALID",
+        label: "Test Token",
+        validate: vi.fn().mockResolvedValue(false),
+      },
+    ];
+
+    await expect(
+      collectPluginCredentials(credentials, true, makePluginTask() as any),
+    ).rejects.toThrow("TEST_PLUGIN_TOKEN_INVALID is set but invalid");
+
+    expect(credentials[0].validate).toHaveBeenCalledWith(
+      "bad-token",
+      expect.any(Object),
+    );
+    delete process.env.TEST_PLUGIN_TOKEN_INVALID;
+  });
+
+  it("validates token and saves to SecureStore on success", async () => {
+    const mockStore = {
+      get: vi.fn().mockReturnValue(null),
+      set: vi.fn(),
+      delete: vi.fn(),
+    };
+    mockedSecureStore.mockImplementation(function () {
+      return mockStore as any;
+    });
+
+    const task = makePluginTask();
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "NONEXISTENT_VAR_6",
+        label: "Test Token",
+        validate: vi.fn().mockResolvedValue(true),
+      },
+    ];
+
+    await collectPluginCredentials(credentials, true, task as any);
+
+    expect(credentials[0].validate).toHaveBeenCalled();
+    expect(mockStore.set).toHaveBeenCalledWith("test-key", "prompted-token");
   });
 });

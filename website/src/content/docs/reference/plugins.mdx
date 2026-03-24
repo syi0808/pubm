@@ -14,8 +14,13 @@ export interface PubmPlugin {
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
+  credentials?: (ctx: PubmContext) => PluginCredential[];
+  checks?: (ctx: PubmContext) => PluginCheck[];
 }
 ```
+
+- `credentials` — returns the list of tokens this plugin needs. Called once during initialization so pubm can prompt for missing tokens, inject them into the environment, and sync them to GitHub Secrets when running `--ci-prepare`.
+- `checks` — returns preflight checks that run alongside the core prerequisite and condition phases. Each check declares when it should run via its `phase` field.
 
 ## Hooks
 
@@ -92,6 +97,7 @@ export interface PubmContext {
     versionPlan?: VersionPlan;
     releaseContext?: ReleaseContext;
     tempDir?: string;
+    pluginTokens?: Record<string, string>;
   };
 }
 ```
@@ -102,6 +108,77 @@ Key fields:
 - `ctx.options` — resolved CLI options (version, tag, mode, dryRun, etc.)
 - `ctx.cwd` — working directory
 - `ctx.runtime` — mutable runtime state (version plan, temp directory, etc.)
+- `ctx.runtime.pluginTokens` — map of resolved plugin credential values keyed by `PluginCredential.key`. Populated after the credential collection step and available in all subsequent hooks.
+
+## `PluginCredential`
+
+Declarative descriptor for a token or secret that a plugin requires.
+
+```ts
+export interface PluginCredential {
+  key: string;
+  env: string;
+  label: string;
+  tokenUrl?: string;
+  tokenUrlLabel?: string;
+  ghSecretName?: string;
+  required?: boolean;
+  resolve?: () => Promise<string | null>;
+  validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | `string` | Internal identifier used to look up the value in `ctx.runtime.pluginTokens`. |
+| `env` | `string` | Environment variable name that provides the token in CI. |
+| `label` | `string` | Human-readable label shown in interactive prompts. |
+| `tokenUrl` | `string` | Optional URL where the user can create the token. |
+| `tokenUrlLabel` | `string` | Optional display label for `tokenUrl`. |
+| `ghSecretName` | `string` | Name of the GitHub Secret that should hold this token, used by `--ci-prepare` sync. |
+| `required` | `boolean` | When `true`, pubm errors if the credential cannot be resolved. Defaults to `true`. |
+| `resolve` | `function` | Optional custom resolver (no arguments, returns `Promise<string \| null>`). Called before the keyring/prompt fallback. |
+| `validate` | `function` | Optional token validator. Receives the resolved token and a `PluginTaskContext`; return `false` to re-prompt. |
+
+Resolution order: `env` variable → `resolve()` → keyring (SecureStore) → interactive prompt.
+
+## `PluginCheck`
+
+Descriptor for a preflight check contributed by a plugin.
+
+```ts
+export interface PluginCheck {
+  title: string;
+  phase: "prerequisites" | "conditions";
+  task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void> | void;
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | `string` | Label shown in the task list UI. |
+| `phase` | `"prerequisites" \| "conditions"` | When to run: `"prerequisites"` runs before network calls; `"conditions"` runs after registry connectivity is confirmed. |
+| `task` | `function` | The check implementation. Throw to fail the check. |
+
+## `PluginTaskContext`
+
+A listr2-agnostic wrapper passed as the second argument to `PluginCheck.task`.
+
+```ts
+export interface PluginTaskContext {
+  output: string;
+  title: string;
+  prompt<T = unknown>(options: {
+    type: string;
+    message: string;
+    [key: string]: unknown;
+  }): Promise<T>;
+}
+```
+
+- `output` — display a status line beneath the check title in the task list UI.
+- `title` — modify the task title dynamically.
+- `prompt()` — run an enquirer prompt (available in interactive mode).
 
 ## Example
 

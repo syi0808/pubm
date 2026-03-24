@@ -14,8 +14,13 @@ export interface PubmPlugin {
   ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
+  credentials?: (ctx: PubmContext) => PluginCredential[];
+  checks?: (ctx: PubmContext) => PluginCheck[];
 }
 ```
+
+- `credentials` - gibt die Liste der Tokens zurück, die dieses Plugin benötigt. pubm ruft das beim Initialisieren einmal auf, fragt fehlende Tokens ab, injiziert sie in die Umgebung und synchronisiert sie bei `--ci-prepare` mit GitHub Secrets.
+- `checks` - gibt Preflight-Checks zurück, die zusammen mit den Kernphasen für Voraussetzungen und Bedingungen laufen. Jeder Check legt über sein Feld `phase` fest, wann er ausgeführt wird.
 
 ## Hooks
 
@@ -92,6 +97,7 @@ export interface PubmContext {
     versionPlan?: VersionPlan;
     releaseContext?: ReleaseContext;
     tempDir?: string;
+    pluginTokens?: Record<string, string>;
   };
 }
 ```
@@ -102,6 +108,77 @@ Wichtige Felder:
 - `ctx.options` - aufgeloeste CLI-Optionen (Version, Tag, Mode, dryRun usw.)
 - `ctx.cwd` - Arbeitsverzeichnis
 - `ctx.runtime` - veraenderbarer Runtime-Zustand (Version-Plan, temporäres Verzeichnis usw.)
+- `ctx.runtime.pluginTokens` - Map der aufgeloesten Plugin-Credentials, indiziert über `PluginCredential.key`. Wird nach dem Sammeln der Credentials befüllt und steht danach in allen Hooks zur Verfügung.
+
+## `PluginCredential`
+
+Deklarativer Deskriptor für ein Token oder Secret, das ein Plugin benötigt.
+
+```ts
+export interface PluginCredential {
+  key: string;
+  env: string;
+  label: string;
+  tokenUrl?: string;
+  tokenUrlLabel?: string;
+  ghSecretName?: string;
+  required?: boolean;
+  resolve?: () => Promise<string | null>;
+  validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;
+}
+```
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `key` | `string` | Interner Bezeichner, über den der Wert in `ctx.runtime.pluginTokens` nachgeschlagen wird. |
+| `env` | `string` | Name der Umgebungsvariable, die das Token in CI bereitstellt. |
+| `label` | `string` | Menschlich lesbares Label für interaktive Prompts. |
+| `tokenUrl` | `string` | Optionale URL, unter der Benutzer das Token erstellen können. |
+| `tokenUrlLabel` | `string` | Optionales Anzeigelabel für `tokenUrl`. |
+| `ghSecretName` | `string` | Name des GitHub Secrets, das dieses Token bei `--ci-prepare` erhalten soll. |
+| `required` | `boolean` | Wenn `true`, meldet pubm einen Fehler, falls das Credential nicht aufgeloest werden kann. Standard ist `true`. |
+| `resolve` | `function` | Optionaler eigener Resolver ohne Argumente, der `Promise<string \| null>` zurückgibt. Wird vor Keyring/Prompt-Fallback aufgerufen. |
+| `validate` | `function` | Optionaler Token-Validator. Erhält das aufgeloeste Token und einen `PluginTaskContext`; gibt `false` zurück, um erneut zu fragen. |
+
+Aufloesungsreihenfolge: `env`-Umgebungsvariable -> `resolve()` -> Keyring (SecureStore) -> interaktiver Prompt.
+
+## `PluginCheck`
+
+Deskriptor für einen Preflight-Check, den ein Plugin beiträgt.
+
+```ts
+export interface PluginCheck {
+  title: string;
+  phase: "prerequisites" | "conditions";
+  task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void> | void;
+}
+```
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `title` | `string` | Beschriftung in der Aufgabenliste. |
+| `phase` | `"prerequisites" \| "conditions"` | Zeitpunkt der Ausführung: `"prerequisites"` läuft vor Netzwerkanfragen, `"conditions"` nach bestätigter Registry-Konnektivität. |
+| `task` | `function` | Implementierung des Checks. Wirf einen Fehler, um den Check fehlschlagen zu lassen. |
+
+## `PluginTaskContext`
+
+Ein listr2-unabhaengiger Wrapper, der als zweites Argument an `PluginCheck.task` übergeben wird.
+
+```ts
+export interface PluginTaskContext {
+  output: string;
+  title: string;
+  prompt<T = unknown>(options: {
+    type: string;
+    message: string;
+    [key: string]: unknown;
+  }): Promise<T>;
+}
+```
+
+- `output` - zeigt eine Statuszeile unterhalb des Check-Titels in der Aufgabenliste an.
+- `title` - aendert den Aufgabentitel dynamisch.
+- `prompt()` - fuehrt einen enquirer-Prompt aus. Verfügbar im interaktiven Modus.
 
 ## Beispiel
 

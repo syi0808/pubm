@@ -99,7 +99,13 @@ type PackageConfig = {
 | `PluginHooks` | type | 生命周期 hooks，例如 `beforeBuild`、`afterPublish`、`onError`、`afterRelease` 以及资产流水线 hooks。 |
 | `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook 签名。 |
 | `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | 插件的自定义 CLI 命令模型。 |
-| `PluginRunner` | class | 执行 hooks 并收集已加载插件中的 registries/ecosystems 的工具。 |
+| `PluginRunner` | class | 执行 hooks 并收集已加载插件中的 registries/ecosystems 的工具。同时还提供 `collectCredentials()` 和 `collectChecks()`，用于从所有已注册插件中收集凭证描述和 preflight checks。 |
+| `PluginCredential` | type | 用于声明插件所需 token 或 secret 的描述类型。参见[插件 API 参考](/pubm/zh-cn/reference/plugins/#plugincredential)。 |
+| `PluginCheck` | type | 插件提供的 preflight check 描述类型。参见[插件 API 参考](/pubm/zh-cn/reference/plugins/#plugincheck)。 |
+| `PluginTaskContext` | type | 传给 `PluginCheck.task` 的 listr2 无关包装器，提供 `output`、`title` 和 `prompt()`。 |
+| `GhSecretEntry` | type | GitHub Secrets 同步辅助函数返回的一项：`{ secretName: string; token: string }`。 |
+| `collectPluginCredentials` | function | 从 config 中注册的所有插件收集 `PluginCredential[]` 并解析它们的值。 |
+| `injectPluginTokensToEnv` | function | 将已解析的插件 token 值写入 `process.env`，让后续发布步骤可以像读取普通环境变量一样读取它们。 |
 | `ReleaseContext` | type | 传给 `afterRelease` hooks 的 release 元数据。包含 `packageName`、`version`、`tag`、`releaseUrl` 和 `assets`。 |
 | `ReleaseAsset` | type | 一个已上传资产：`name`、`url`、`sha256` 以及结构化的 `platform`。 |
 | `ParsedPlatform` | type | 结构化的平台信息：`raw`、`os`、`arch`、`vendor`、`abi`、`variant`。 |

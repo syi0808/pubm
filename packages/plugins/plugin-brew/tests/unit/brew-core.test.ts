@@ -21,8 +21,15 @@ vi.mock("../../src/git-identity.js", () => ({
   ensureGitIdentity: ensureGitIdentityMock,
 }));
 
+vi.mock("@pubm/core", () => ({
+  resolvePhases: vi.fn().mockReturnValue(["prepare", "publish"]),
+}));
+
 import { execSync } from "node:child_process";
+import { resolvePhases } from "@pubm/core";
 import { brewCore } from "../../src/brew-core.js";
+
+const mockedResolvePhases = vi.mocked(resolvePhases);
 
 const mockedExecSync = vi.mocked(execSync);
 const tmpRoot = join(import.meta.dirname, ".tmp-brew-core");
@@ -161,7 +168,11 @@ describe("brewCore", () => {
     const plugin = brewCore({ formula: "Formula/pubm.rb" });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "test-token" },
+        },
+      } as never,
       {
         version: "1.5.0",
         assets: [
@@ -186,10 +197,10 @@ describe("brewCore", () => {
     expect(ensureGitIdentityMock).toHaveBeenCalledWith(clonedDir);
     expect(mockedExecSync).toHaveBeenCalledWith(
       "gh repo fork homebrew/homebrew-core --clone=false",
-      { stdio: "pipe" },
+      { stdio: "pipe", env: { ...process.env, GH_TOKEN: "test-token" } },
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
-      `git clone --depth 1 https://github.com/octocat/homebrew-core.git ${clonedDir}`,
+      `git clone --depth 1 https://x-access-token:test-token@github.com/octocat/homebrew-core.git ${clonedDir}`,
       { stdio: "inherit" },
     );
     expect(mockedExecSync).toHaveBeenCalledWith(
@@ -200,7 +211,10 @@ describe("brewCore", () => {
       expect.stringContaining(
         'gh pr create --repo homebrew/homebrew-core --title "pubm 1.5.0"',
       ),
-      { stdio: "inherit" },
+      {
+        stdio: "inherit",
+        env: { ...process.env, GH_TOKEN: "test-token" },
+      },
     );
     expect(logSpy).toHaveBeenCalledWith(
       "PR created to homebrew/homebrew-core for pubm 1.5.0",
@@ -220,7 +234,11 @@ describe("brewCore", () => {
     const plugin = brewCore({ formula: "Formula/pubm.rb" });
 
     await plugin.hooks?.afterRelease?.(
-      {} as never,
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "test-token" },
+        },
+      } as never,
       {
         version: "4.0.0",
         assets: [],
@@ -241,5 +259,200 @@ describe("brewCore", () => {
     expect(readFileSync(formulaPath, "utf-8")).toContain('desc "A CLI tool"');
     expect(readFileSync(formulaPath, "utf-8")).toContain('homepage ""');
     expect(readFileSync(formulaPath, "utf-8")).toContain('license "MIT"');
+  });
+
+  it("skips release when packageName is set and displayLabel does not match", async () => {
+    const plugin = brewCore({
+      formula: "Formula/test.rb",
+      packageName: "my-tool",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      {} as never,
+      { version: "1.0.0", assets: [], displayLabel: "other-tool" } as never,
+    );
+
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
+  it("proceeds with release when packageName matches displayLabel", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(444444);
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "gh api user --jq .login") return "octocat\n" as never;
+      return Buffer.from("");
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const plugin = brewCore({
+      formula: "Formula/test.rb",
+      packageName: "my-tool",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { pluginTokens: { "brew-github-token": "tkn" } } } as never,
+      {
+        version: "2.0.0",
+        assets: [],
+        displayLabel: "my-tool",
+      } as never,
+    );
+
+    expect(logSpy).toHaveBeenCalledWith(
+      "PR created to homebrew/homebrew-core for my-tool 2.0.0",
+    );
+  });
+
+  it("uses plain clone URL and empty ghEnv when no token is available", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(555555);
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "gh api user --jq .login") return "octocat\n" as never;
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const plugin = brewCore({ formula: "Formula/test.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { pluginTokens: {} } } as never,
+      { version: "3.0.0", assets: [] } as never,
+    );
+
+    const cloneCall = mockedExecSync.mock.calls.find(
+      ([cmd]) => typeof cmd === "string" && cmd.startsWith("git clone"),
+    );
+    expect(cloneCall?.[0]).toContain(
+      "https://github.com/octocat/homebrew-core.git",
+    );
+    expect(cloneCall?.[0]).not.toContain("x-access-token");
+
+    // gh pr create should have no GH_TOKEN env override
+    const prCall = mockedExecSync.mock.calls.find(
+      ([cmd]) => typeof cmd === "string" && cmd.includes("gh pr create --repo"),
+    );
+    expect(prCall?.[1]).not.toHaveProperty("env");
+  });
+
+  describe("credentials", () => {
+    it("returns credential for brew-core", () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local", publish: true },
+        config: {},
+        runtime: { promptEnabled: true },
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(1);
+      expect(creds[0].key).toBe("brew-github-token");
+      expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
+    });
+
+    it("returns empty when phases do not include publish and mode is not ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(0);
+    });
+
+    it("returns credential when phases do not include publish but mode is ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const creds = plugin.credentials!(ctx);
+      expect(creds).toHaveLength(1);
+    });
+  });
+
+  describe("checks", () => {
+    it("adds condition check for brew-core", () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+      expect(checks[0].phase).toBe("conditions");
+    });
+
+    it("returns empty checks when phases do not include publish and mode is not ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(0);
+    });
+
+    it("returns checks when phases do not include publish but mode is ci", () => {
+      mockedResolvePhases.mockReturnValueOnce(["prepare"]);
+
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "ci" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      expect(checks).toHaveLength(1);
+    });
+
+    it("check task throws when brew-github-token is missing", async () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {
+        runtime: { pluginTokens: {} },
+      } as any;
+      const taskObj = { output: "" } as any;
+
+      await expect(checks[0].task(taskCtx, taskObj)).rejects.toThrow(
+        "PUBM_BREW_GITHUB_TOKEN is required",
+      );
+    });
+
+    it("check task succeeds and sets output when token is present", async () => {
+      const plugin = brewCore({ formula: "Formula/test.rb" });
+      const ctx = {
+        options: { mode: "local" },
+        config: {},
+        runtime: {},
+      } as any;
+
+      const checks = plugin.checks!(ctx);
+      const taskCtx = {
+        runtime: { pluginTokens: { "brew-github-token": "tkn" } },
+      } as any;
+      const taskObj = { output: "" } as any;
+
+      await checks[0].task(taskCtx, taskObj);
+      expect(taskObj.output).toBe("Homebrew core token verified");
+    });
   });
 });

@@ -26,7 +26,7 @@ pubm --mode ci --phase publish
 
 `pubm --mode ci --phase prepare` ist nicht nur ein Token-Check. Es laeuft durch die Release-Pipeline bis direkt vor das eigentliche Veröffentlichen:
 
-- sammelt Registry-Tokens ein
+- sammelt Registry-Tokens und Plugin-Credentials ein
 - synchronisiert sie optional mit GitHub Secrets
 - fuehrt Prüfungen für Voraussetzungen und Pflichtbedingungen aus
 - fuehrt Tests und Build aus, sofern sie nicht uebersprungen werden
@@ -45,6 +45,14 @@ In CI, provide registry tokens with environment variables:
 | `NODE_AUTH_TOKEN` | npm |
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
+
+Plugins koennen auch eigene benoetigte Credentials deklarieren. pubm sammelt und löst diese automatisch auf. Bei `--ci-prepare` fragt es nach fehlenden Werten und synchronisiert sie mit GitHub Secrets. Bei `--phase publish` liest es die aufgeloesten Werte nur noch aus der Umgebung und bricht mit einem Fehler ab, wenn ein erforderliches Credential fehlt.
+
+Zum Beispiel benoetigt `@pubm/plugin-brew`:
+
+| Variable | Zweck |
+|----------|-------|
+| `PUBM_BREW_GITHUB_TOKEN` | GitHub PAT zum Pushen von Formula-Updates und zum Öffnen von Pull Requests für Homebrew. |
 
 ## Syncing GitHub secrets
 

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import type { PubmPlugin } from "@pubm/core";
+import { type PubmPlugin, resolvePhases } from "@pubm/core";
 import {
   generateFormula,
   releaseAssetsToFormulaAssets,
@@ -55,8 +55,45 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
         ],
       },
     ],
+    credentials: (ctx) => {
+      const phases = resolvePhases(ctx.options);
+      // Return credentials for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
+      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      return [
+        {
+          key: "brew-github-token",
+          env: "PUBM_BREW_GITHUB_TOKEN",
+          label: "GitHub PAT for Homebrew (homebrew-core)",
+          tokenUrl:
+            "https://github.com/settings/tokens/new?scopes=repo,workflow",
+          tokenUrlLabel: "github.com",
+          ghSecretName: "PUBM_BREW_GITHUB_TOKEN",
+          required: true,
+        },
+      ];
+    },
+    checks: (ctx) => {
+      const phases = resolvePhases(ctx.options);
+      // Return checks for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
+      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      return [
+        {
+          title: "Checking Homebrew core token availability",
+          phase: "conditions" as const,
+          task: async (ctx, task) => {
+            const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+            if (!token) {
+              throw new Error(
+                "PUBM_BREW_GITHUB_TOKEN is required for homebrew-core publishing.",
+              );
+            }
+            task.output = "Homebrew core token verified";
+          },
+        },
+      ];
+    },
     hooks: {
-      afterRelease: async (_ctx, releaseCtx) => {
+      afterRelease: async (ctx, releaseCtx) => {
         if (
           options.packageName &&
           releaseCtx.displayLabel !== options.packageName
@@ -78,10 +115,14 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
           options.assetPlatforms,
         );
 
+        const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+        const ghEnv = token ? { env: { ...process.env, GH_TOKEN: token } } : {};
+
         // Fork homebrew-core if needed
         try {
           execSync("gh repo fork homebrew/homebrew-core --clone=false", {
             stdio: "pipe",
+            ...ghEnv,
           });
         } catch {
           // Fork may already exist
@@ -90,14 +131,18 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
         // Get the user's GitHub username for the fork
         const username = execSync("gh api user --jq .login", {
           encoding: "utf-8",
+          ...ghEnv,
         }).trim();
 
         // Clone the fork
         const tmpDir = join(tmpdir(), `pubm-brew-core-${Date.now()}`);
-        execSync(
-          `git clone --depth 1 https://github.com/${username}/homebrew-core.git ${tmpDir}`,
-          { stdio: "inherit" },
-        );
+        let cloneUrl = `https://github.com/${username}/homebrew-core.git`;
+        if (token) {
+          cloneUrl = `https://x-access-token:${token}@github.com/${username}/homebrew-core.git`;
+        }
+        execSync(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, {
+          stdio: "inherit",
+        });
         ensureGitIdentity(tmpDir);
 
         // Update or create the formula
@@ -139,7 +184,7 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
             `cd ${tmpDir}`,
             `gh pr create --repo homebrew/homebrew-core --title "${name} ${releaseCtx.version}" --body "Update ${name} formula to version ${releaseCtx.version}"`,
           ].join(" && "),
-          { stdio: "inherit" },
+          { stdio: "inherit", ...ghEnv },
         );
 
         console.log(

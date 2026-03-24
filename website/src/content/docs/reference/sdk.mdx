@@ -99,7 +99,13 @@ Use the plugin exports when you want to extend the publish pipeline with custom 
 | `PluginHooks` | type | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, `afterRelease`, and asset pipeline hooks. |
 | `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook signatures. |
 | `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Custom CLI command model for plugins. |
-| `PluginRunner` | class | Utility that executes hooks and collects registries/ecosystems from loaded plugins. |
+| `PluginRunner` | class | Utility that executes hooks and collects registries/ecosystems from loaded plugins. Also exposes `collectCredentials()` and `collectChecks()` to gather credential descriptors and preflight checks from all registered plugins. |
+| `PluginCredential` | type | Declarative descriptor for a token or secret required by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincredential). |
+| `PluginCheck` | type | Descriptor for a preflight check contributed by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincheck). |
+| `PluginTaskContext` | type | Listr2-agnostic wrapper passed to `PluginCheck.task`. Exposes `output`, `title`, and `prompt()`. |
+| `GhSecretEntry` | type | One entry returned by the GitHub Secrets sync helpers: `{ secretName: string; token: string }`. |
+| `collectPluginCredentials` | function | Gather `PluginCredential[]` from all plugins registered in the config and resolve their values. |
+| `injectPluginTokensToEnv` | function | Write resolved plugin token values into `process.env` so subsequent publish steps can read them as plain env vars. |
 | `ReleaseContext` | type | Release metadata passed to `afterRelease` hooks. Includes `packageName`, `version`, `tag`, `releaseUrl`, and `assets`. |
 | `ReleaseAsset` | type | One uploaded asset: `name`, `url`, `sha256`, and structured `platform`. |
 | `ParsedPlatform` | type | Structured platform info: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |

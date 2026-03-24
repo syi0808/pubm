@@ -11,8 +11,86 @@ interface PubmPlugin {
   ecosystems?: Ecosystem[];        // Custom ecosystem implementations
   hooks?: PluginHooks;             // Lifecycle hooks
   commands?: PluginCommand[];      // CLI subcommands
+  credentials?: (ctx: PubmContext) => PluginCredential[];  // Token descriptors
+  checks?: (ctx: PubmContext) => PluginCheck[];            // Preflight checks
 }
 ```
+
+- `credentials` — declare tokens or secrets this plugin requires. pubm resolves them via env → `resolve()` → keyring → interactive prompt, injects them into `ctx.runtime.pluginTokens`, and syncs them to GitHub Secrets during `--ci-prepare`.
+- `checks` — declare preflight checks that run alongside the core prerequisite and condition phases.
+
+## PluginCredential
+
+Declare tokens or secrets required by a plugin. pubm resolves each credential via the following chain: env var → `resolve()` → keyring (SecureStore) → interactive prompt.
+
+```typescript
+interface PluginCredential {
+  key: string;           // Internal identifier; resolved value available at ctx.runtime.pluginTokens[key]
+  env: string;           // Environment variable name for CI
+  label: string;         // Human-readable prompt label
+  tokenUrl?: string;     // URL where users can create the token
+  tokenUrlLabel?: string; // Display label for tokenUrl
+  ghSecretName?: string; // GitHub Secret name for --ci-prepare sync
+  required?: boolean;    // Error if unresolved (default: true)
+  resolve?: () => Promise<string | null>;  // Custom resolver (no args)
+  validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;  // Token validator
+}
+```
+
+Example:
+
+```typescript
+credentials: () => [
+  {
+    key: "my-plugin-token",
+    env: "MY_PLUGIN_TOKEN",
+    label: "My Plugin API Token",
+    tokenUrl: "https://example.com/tokens",
+    tokenUrlLabel: "Create token",
+    ghSecretName: "MY_PLUGIN_TOKEN",
+    required: true,
+  },
+],
+```
+
+Access the resolved value in hooks via `ctx.runtime.pluginTokens?.["my-plugin-token"]`.
+
+## PluginCheck
+
+Declare preflight checks that run alongside the core prerequisite and condition phases.
+
+```typescript
+interface PluginCheck {
+  title: string;
+  phase: "prerequisites" | "conditions";
+  task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void> | void;
+}
+```
+
+- `phase: "prerequisites"` — runs before network calls, suitable for local environment validation.
+- `phase: "conditions"` — runs after registry connectivity is confirmed, suitable for permission checks.
+
+Throw from `task` to fail the check and halt the pipeline.
+
+## PluginTaskContext
+
+A listr2-agnostic wrapper passed as the second argument to `PluginCheck.task`.
+
+```typescript
+interface PluginTaskContext {
+  output: string;
+  title: string;
+  prompt<T = unknown>(options: {
+    type: string;
+    message: string;
+    [key: string]: unknown;
+  }): Promise<T>;
+}
+```
+
+- `output` — display a status line beneath the check title in the terminal UI.
+- `title` — modify the task title dynamically.
+- `prompt()` — run an enquirer prompt (available in interactive mode).
 
 ## Plugin Hooks
 
@@ -79,6 +157,7 @@ interface PubmContext {
     versionPlan?: VersionPlan;          // Version plan for the release
     releaseContext?: ReleaseContext;     // Available in afterRelease
     npmOtp?: string;                    // npm OTP code
+    pluginTokens?: Record<string, string>; // Resolved plugin credentials keyed by PluginCredential.key
   };
 }
 ```

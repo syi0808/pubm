@@ -73,6 +73,20 @@ brewTap({
 
 각 predicate는 `ReleaseAsset`를 받아, 해당 asset을 formula 항목에 사용해야 하면 `true`를 반환합니다.
 
+### 자격 증명과 preflight check
+
+`@pubm/plugin-brew`는 필요한 자격 증명과 check를 자체적으로 선언합니다. 별도로 수동 설정할 필요는 없습니다.
+
+**필수 자격 증명:**
+
+| 환경 변수 | GitHub Secret 이름 | 용도 |
+|-----------|--------------------|------|
+| `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | Homebrew formula 업데이트를 push하고 pull request를 열기 위한 `repo` 스코프의 GitHub Personal Access Token입니다. |
+
+로컬 실행에서는 pubm이 이 토큰을 프롬프트하고 시스템 keyring에 저장합니다. CI에서는 `PUBM_BREW_GITHUB_TOKEN` 환경 변수로 토큰을 제공합니다. `pubm --mode ci --phase prepare` 또는 `pubm secrets sync`를 실행하면 저장된 토큰을 저장소의 GitHub Secrets로 동기화해 CI workflow가 자동으로 사용할 수 있습니다.
+
+이 플러그인은 또한 publish 단계가 시작되기 전에 토큰 존재 여부와 필요한 저장소 접근 권한을 검증하는 preflight check를 등록합니다.
+
 ### 동작
 
 플러그인은 다음을 수행할 수 있습니다.
@@ -112,7 +126,7 @@ export default defineConfig({
 | `packageName` | `string` | 모노레포용 선택적 package name 필터 |
 | `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 선택적 커스텀 플랫폼 매처 |
 
-`brewCore`는 `homebrew/homebrew-core`를 포크하고, formula를 업데이트한 뒤, PR을 자동으로 엽니다.
+`brewCore`는 `homebrew/homebrew-core`를 포크하고, formula를 업데이트한 뒤, PR을 자동으로 엽니다. `brewTap`과 마찬가지로 `PUBM_BREW_GITHUB_TOKEN` 자격 증명과 preflight check도 자동으로 선언합니다.
 
 ## `@pubm/plugin-external-version-sync`
 
