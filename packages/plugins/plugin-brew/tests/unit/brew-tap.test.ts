@@ -306,7 +306,7 @@ describe("brewTap", () => {
       expect.stringContaining('git commit -m "Update pubm.rb to 3.0.0"'),
       { stdio: "inherit" },
     );
-    expect(mockedExecSync).toHaveBeenCalledWith(`cd ${tmpDir} && git push`, {
+    expect(mockedExecSync).toHaveBeenCalledWith(`git -C ${tmpDir} push`, {
       stdio: "inherit",
     });
   });
