@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
 import pubmPackageJson from "../../package.json" with { type: "json" };
@@ -24,6 +24,12 @@ const define = {
 };
 
 mkdirSync(BIN_DIR, { recursive: true });
+
+// Remove cached binary so cli.cjs picks up the fresh build
+const CACHED_BIN = join(ROOT, "..", "..", "bin", ".pubm");
+if (existsSync(CACHED_BIN)) {
+  unlinkSync(CACHED_BIN);
+}
 
 console.log("[@pubm/windows-x64-baseline] Compiling...");
 
