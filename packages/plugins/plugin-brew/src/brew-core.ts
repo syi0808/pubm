@@ -73,20 +73,56 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
     },
     checks: (ctx) => {
       const phases = resolvePhases(ctx.options);
-      // Return checks for publish phase, or any CI mode (including ci-prepare for GH Secrets sync)
       if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+
+      // CI: verify PAT exists
+      if (ctx.options.mode === "ci") {
+        return [
+          {
+            title: "Checking Homebrew core token availability",
+            phase: "conditions" as const,
+            task: async (ctx, task) => {
+              const token = ctx.runtime.pluginTokens?.["brew-github-token"];
+              if (!token) {
+                throw new Error(
+                  "PUBM_BREW_GITHUB_TOKEN is required for homebrew-core publishing.",
+                );
+              }
+              task.output = "Homebrew core token verified";
+            },
+          },
+        ];
+      }
+
+      // Local: verify gh auth + homebrew-core access (needed for fork + PR)
       return [
         {
-          title: "Checking Homebrew core token availability",
+          title: "Checking GitHub CLI access for homebrew-core",
           phase: "conditions" as const,
-          task: async (ctx, task) => {
-            const token = ctx.runtime.pluginTokens?.["brew-github-token"];
-            if (!token) {
+          task: async (_ctx, task) => {
+            const { execFileSync } = await import("node:child_process");
+
+            try {
+              execFileSync("gh", ["auth", "status"], { stdio: "pipe" });
+              task.output = "GitHub CLI authenticated";
+            } catch {
               throw new Error(
-                "PUBM_BREW_GITHUB_TOKEN is required for homebrew-core publishing.",
+                "GitHub CLI is not authenticated. Run `gh auth login` first.",
               );
             }
-            task.output = "Homebrew core token verified";
+
+            try {
+              execFileSync(
+                "gh",
+                ["repo", "view", "homebrew/homebrew-core", "--json", "name"],
+                { stdio: "pipe" },
+              );
+              task.output = "Access to homebrew/homebrew-core verified";
+            } catch {
+              throw new Error(
+                "Cannot access homebrew/homebrew-core. Check your GitHub permissions.",
+              );
+            }
           },
         },
       ];
