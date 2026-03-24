@@ -156,6 +156,12 @@ export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { ReleasePhase } from "./utils/resolve-phases.js";
 export { resolvePhases, validateOptions } from "./utils/resolve-phases.js";
+export type {
+  RollbackAction,
+  RollbackExecuteOptions,
+  RollbackResult,
+} from "./utils/rollback.js";
+export { RollbackTracker } from "./utils/rollback.js";
 export type { Runtime } from "./utils/runtime.js";
 export { detectRuntime, isBun } from "./utils/runtime.js";
 export type { SnapshotOptions } from "./utils/snapshot.js";

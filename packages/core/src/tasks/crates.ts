@@ -2,7 +2,11 @@ import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
-import { CratesConnector, cratesPackageRegistry } from "../registry/crates.js";
+import {
+  CratesConnector,
+  type CratesPackageRegistry,
+  cratesPackageRegistry,
+} from "../registry/crates.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -75,6 +79,25 @@ export function createCratesPublishTask(
         }
         throw error;
       }
+
+      registerYankRollback(ctx, registry, packageName, version);
     },
   };
+}
+
+function registerYankRollback(
+  ctx: PubmContext,
+  registry: CratesPackageRegistry,
+  packageName: string,
+  version: string,
+): void {
+  if (registry.supportsUnpublish) {
+    ctx.runtime.rollback.add({
+      label: `Yank ${packageName}@${version} from crates`,
+      fn: async () => {
+        await registry.unpublish(packageName, version);
+      },
+      confirm: true,
+    });
+  }
 }

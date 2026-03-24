@@ -170,9 +170,7 @@ export async function createGitHubRelease(
 /**
  * Delete a GitHub Release by its ID
  */
-export async function deleteGitHubRelease(
-  releaseId: number,
-): Promise<void> {
+export async function deleteGitHubRelease(releaseId: number): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new GitHubReleaseError(

@@ -26,6 +26,14 @@ export abstract class PackageRegistry {
 
   async dryRunPublish(): Promise<void> {}
 
+  get supportsUnpublish(): boolean {
+    return false;
+  }
+
+  async unpublish(_packageName: string, _version: string): Promise<void> {
+    // Default no-op. Registries that support unpublish override this.
+  }
+
   async checkAvailability(
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     _task: any,
