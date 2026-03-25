@@ -41,8 +41,7 @@ Available hooks (see `references/plugin-api.md` for details):
 | `beforePush` | Before git push |
 | `afterPush` | After git push |
 | `afterRelease` | After GitHub release creation (receives `ReleaseContext`) |
-| `onError` | On pipeline error (receives `Error`) |
-| `onRollback` | During rollback |
+| `onError` | On pipeline error (receives `Error`). Use `ctx.runtime.rollback.add()` to register rollback actions. |
 | `onSuccess` | On successful publish |
 
 ### 2. Choose Plugin Form

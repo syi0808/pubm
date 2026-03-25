@@ -2404,12 +2404,11 @@ describe("post-publish", () => {
 
 describe("error/catch path", () => {
   it("triggers rollback, plugin error hooks, and process.exit on error", async () => {
-    const onRollback = vi.fn();
     const onError = vi.fn();
     const pluginRunner = new PluginRunner([
       {
         name: "error-plugin",
-        hooks: { onRollback, onError },
+        hooks: { onError },
       },
     ]);
 
