@@ -157,7 +157,10 @@ describe("createCratesPublishTask", () => {
           rollback: new RollbackTracker(),
         },
         config: {
-          rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+          rollback: {
+            strategy: "individual",
+            dangerouslyAllowUnpublish: false,
+          },
         },
       } as any;
       const task = createCratesPublishTask(packagePath);
@@ -176,7 +179,10 @@ describe("createCratesPublishTask", () => {
           rollback: new RollbackTracker(),
         },
         config: {
-          rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+          rollback: {
+            strategy: "individual",
+            dangerouslyAllowUnpublish: false,
+          },
         },
       } as any;
       const task = createCratesPublishTask(packagePath);
