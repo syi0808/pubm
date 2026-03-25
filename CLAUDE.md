@@ -14,7 +14,7 @@ This repository is a monorepo managed with Turborepo and Bun workspaces.
 packages/
   core/                            — @pubm/core: Core SDK (ecosystem, registry, changeset, monorepo, plugin, config, tasks, validate, prerelease, git, utils)
   pubm/                            — pubm: CLI using Commander, depends on @pubm/core
-    platforms/                     — Cross-platform binaries (12 targets: darwin-arm64, darwin-x64, darwin-x64-baseline, linux-arm64, linux-arm64-musl, linux-x64, linux-x64-baseline, linux-x64-musl, linux-x64-musl-baseline, windows-arm64, windows-x64, windows-x64-baseline)
+    platforms/                     — Cross-platform binaries
   plugins/
     plugin-brew/                   — @pubm/plugin-brew: Homebrew formula publishing
     plugin-external-version-sync/  — @pubm/plugin-external-version-sync: Syncs version to external files
@@ -41,6 +41,7 @@ bun run dev:site       # Start Astro documentation dev server
 bun run build:site     # Build static documentation site
 bun run release        # Release with preflight checks
 bun run release:ci     # Release in CI environment
+bun run changesets:add # Add changesets (via pubm)
 ```
 
 Run a single test file (within a package):
@@ -52,77 +53,12 @@ Tests live in `tests/unit/` and `tests/e2e/` within each package. Coverage thres
 
 ## Architecture
 
-### Core Flow (`packages/core/src/tasks/runner.ts`)
-
-The publish pipeline runs as an ordered task chain using listr2:
-
-1. **Prerequisites check** — validates branch, remote status, working tree
-2. **Required conditions check** — pings registries, validates login/permissions
-3. **Version/tag prompts** — interactive prompts (skipped in CI/non-TTY)
-4. **Test & Build** — runs configured npm scripts
-5. **Version bump** — updates package.json/jsr.json, creates git commit + tag
-6. **Publish** — publishes concurrently to all configured registries
-7. **Post-publish** — pushes tags, creates GitHub release draft
-8. **Rollback on failure** — auto-reverses git operations if publish fails
-
-A shared `Ctx` context object flows through all tasks.
-
-### Ecosystem Abstraction (`packages/core/src/ecosystem/`)
-
-`Ecosystem` is the abstract base class for language-specific behavior. Implementations:
-- `JsEcosystem` — JavaScript/TypeScript packages (npm, jsr registries)
-- `RustEcosystem` — Rust crates (crates.io registry)
-
-Auto-detection picks the ecosystem from registry config or manifest files (package.json, Cargo.toml).
-
-### Registry Abstraction (`packages/core/src/registry/`)
-
-`Registry` is the abstract base class. Concrete implementations:
-- `NpmRegistry` — npm CLI wrapper, OTP support, provenance in CI
-- `JsrRegistry` — JSR API integration, encrypted token storage via `Db` class
-- `CratesRegistry` — crates.io publishing for Rust crates
-- `CustomRegistry` — User-defined custom registry support
-
-### Key Modules
-
-**packages/core:**
-- `packages/core/src/index.ts` — Programmatic API export
-- `packages/core/src/options.ts` — Resolves CLI flags into normalized options
-- `packages/core/src/git.ts` — Git operations wrapper (branch, tag, commit, push)
-- `packages/core/src/changeset/` — Changeset management (parsing, reading, writing, versioning, changelog generation)
-- `packages/core/src/monorepo/` — Workspace discovery, dependency graph, package grouping
-- `packages/core/src/validate/` — Pre-publish validation (entry points, extraneous files)
-- `packages/core/src/prerelease/` — Pre-release and snapshot version handling
-- `packages/core/src/utils/db.ts` — AES-256-CBC encrypted token storage in `~/.pubm/`
-- `packages/core/src/utils/secure-store.ts` — Secure token storage via @napi-rs/keyring
-- `packages/core/src/utils/github-token.ts` — GitHub token resolution (env → keyring → interactive prompt)
-- `packages/core/src/utils/resolve-phases.ts` — Release phase resolution and validation
-- `packages/core/src/utils/filter-config.ts` — Filters config packages by various criteria
-- `packages/core/src/utils/exec.ts` — Bun.spawn wrapper for running shell commands
-- `packages/core/src/utils/open-url.ts` — Cross-platform URL opener
-- `packages/core/src/utils/spawn-interactive.ts` — Interactive process spawning (TTY passthrough)
-- `packages/core/src/utils/rollback.ts` — Tracks and reverses git operations on failure
-- `packages/core/src/utils/package.ts` — Reads/caches package.json and jsr.json, version replacement
-
-**packages/pubm:**
-- `packages/pubm/src/cli.ts` — CLI entry point using Commander framework
-- `packages/pubm/src/commands/` — Subcommands: `add`, `changelog`, `changesets`, `init`, `init-prompts`, `init-workflows`, `inspect`, `migrate`, `secrets`, `setup-skills`, `status`, `sync`, `update`, `version-cmd`
-
-**packages/plugins:**
-- `packages/plugins/plugin-external-version-sync/src/index.ts` — Syncs version to external files
-- `packages/plugins/plugin-brew/src/index.ts` — Updates Homebrew formula on release
-  - `brew-core.ts`, `brew-tap.ts`, `formula.ts` — Homebrew publishing logic
-  - `git-identity.ts` — Git identity management for Homebrew PRs
-
-### Build Configuration
-
-Root `bun run build` runs all builds via Turborepo.
-
-- `packages/core`: `src/index.ts` → `dist/` (ESM + CJS + types). Build script: `packages/core/build.ts`
-- `packages/pubm`: Each platform has its own `build.ts` (`packages/pubm/platforms/*/build.ts`) that cross-compiles a single binary → `packages/pubm/platforms/*/bin/`
-- `bin/cli.cjs` (in packages/pubm) is a static wrapper that delegates to the platform-specific binary (not a build output)
-
-`listr2` is bundled to avoid dependency issues. Note: `listr2` has a patch applied (`patches/listr2.patch`).
+> See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation including diagrams, design patterns, and module organization.
+>
+> ARCHITECTURE.md is large. Do NOT read the entire file. Instead, use a **subagent(haiku)** to read and summarize only the relevant section. Example:
+> ```
+> Agent(model: "haiku", prompt: "Read ARCHITECTURE.md and summarize the Registry Abstraction section. Focus on ...")
+> ```
 
 ## Pre-commit Checklist
 
@@ -149,7 +85,7 @@ Coverage thresholds are enforced per-package in `vitest.config.mts`. **Never low
 After completing a bug fix or feature addition, create a changeset to document the change:
 
 ```bash
-bunx pubm add --packages <package-path> --bump <patch|minor|major> --message "description of the change"
+bun run changesets:add --packages <package-path> --bump <patch|minor|major> --message "description of the change"
 ```
 
 - `patch` — bug fixes, minor corrections
@@ -167,11 +103,6 @@ Changesets are required for any user-facing change. Do not commit without adding
 ## Documentation Maintenance
 
 The following documentation must be kept in sync with code changes. When modifying features, CLI commands, configuration options, or plugin APIs, update all affected documents.
-
-### README
-
-- `README.md` — Project overview, installation, usage examples
-- `CONTRIBUTING.md` — Contribution guidelines
 
 ### Website Documentation (`website/src/content/docs/`)
 
