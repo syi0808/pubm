@@ -23,6 +23,7 @@ import {
   writeChangelogToFile,
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
+import type { Changeset } from "../changeset/parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
 import { getPackageVersion, type PubmContext } from "../context.js";
@@ -237,13 +238,8 @@ async function resolveWorkspaceProtocols(ctx: PubmContext): Promise<void> {
     ctx.runtime.rollback.add({
       label: "Restore workspace protocol dependencies",
       fn: async () => {
-        for (const pkg of ctx.config.packages) {
-          const absPath = path.resolve(ctx.cwd, pkg.path);
-          const ecosystem = requirePackageEcosystem(pkg);
-          const descriptor = ecosystemCatalog.get(ecosystem);
-          if (!descriptor) continue;
-          const eco = new descriptor.ecosystemClass(absPath);
-          eco.restorePublishDependencies(allBackups);
+        for (const [filePath, content] of allBackups) {
+          writeFileSync(filePath, content, "utf-8");
         }
       },
     });
@@ -541,6 +537,96 @@ function createLiveCommandOutput(
     },
     finish,
   };
+}
+
+/** Back up manifest files and register rollback to restore them. */
+function registerManifestBackups(ctx: PubmContext): void {
+  for (const pkg of ctx.config.packages) {
+    const absPath = path.resolve(ctx.cwd, pkg.path);
+    const ecosystem = requirePackageEcosystem(pkg);
+    const descriptor = ecosystemCatalog.get(ecosystem);
+    if (!descriptor) continue;
+    const eco = new descriptor.ecosystemClass(absPath);
+    for (const manifestFile of eco.manifestFiles()) {
+      const manifestPath = path.resolve(absPath, manifestFile);
+      if (existsSync(manifestPath)) {
+        const backup = readFileSync(manifestPath, "utf-8");
+        ctx.runtime.rollback.add({
+          label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
+          fn: async () => {
+            writeFileSync(manifestPath, backup, "utf-8");
+          },
+        });
+      }
+    }
+  }
+}
+
+/** Back up changeset files and register rollback to restore them. */
+function registerChangesetBackups(
+  ctx: PubmContext,
+  changesets: Changeset[],
+): void {
+  const changesetsDir = path.join(ctx.cwd, ".pubm", "changesets");
+  const changesetBackups = new Map<string, string>();
+  for (const changeset of changesets) {
+    const filePath = path.join(changesetsDir, `${changeset.id}.md`);
+    if (existsSync(filePath)) {
+      changesetBackups.set(filePath, readFileSync(filePath, "utf-8"));
+    }
+  }
+  if (changesetBackups.size > 0) {
+    ctx.runtime.rollback.add({
+      label: `Restore ${changesetBackups.size} changeset file(s)`,
+      fn: async () => {
+        for (const [fp, content] of changesetBackups) {
+          writeFileSync(fp, content, "utf-8");
+        }
+      },
+    });
+  }
+}
+
+/** Back up changelog file and register rollback to restore it. */
+function registerChangelogBackup(
+  ctx: PubmContext,
+  changelogPath: string,
+): void {
+  if (existsSync(changelogPath)) {
+    const changelogBackup = readFileSync(changelogPath, "utf-8");
+    ctx.runtime.rollback.add({
+      label: `Restore ${path.relative(ctx.cwd, changelogPath)}`,
+      fn: async () => {
+        writeFileSync(changelogPath, changelogBackup, "utf-8");
+      },
+    });
+  }
+}
+
+/** Register rollback to reset the most recent git commit. */
+function registerCommitRollback(ctx: PubmContext): void {
+  ctx.runtime.rollback.add({
+    label: "Reset git commit",
+    fn: async () => {
+      const g = new Git();
+      await g.reset();
+      const dirty = (await g.status()) !== "";
+      if (dirty) await g.stash();
+      await g.reset("HEAD^", "--hard");
+      if (dirty) await g.popStash();
+    },
+  });
+}
+
+/** Register rollback to delete a local git tag. */
+function registerTagRollback(ctx: PubmContext, tagName: string): void {
+  ctx.runtime.rollback.add({
+    label: `Delete local tag ${tagName}`,
+    fn: async () => {
+      const g = new Git();
+      await g.deleteTag(tagName);
+    },
+  });
 }
 
 export async function run(ctx: PubmContext): Promise<void> {
@@ -946,26 +1032,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 return;
               }
 
-              // Back up manifest files before version write
-              for (const pkg of ctx.config.packages) {
-                const absPath = path.resolve(ctx.cwd, pkg.path);
-                const ecosystem = requirePackageEcosystem(pkg);
-                const descriptor = ecosystemCatalog.get(ecosystem);
-                if (!descriptor) continue;
-                const eco = new descriptor.ecosystemClass(absPath);
-                for (const manifestFile of eco.manifestFiles()) {
-                  const manifestPath = path.resolve(absPath, manifestFile);
-                  if (existsSync(manifestPath)) {
-                    const backup = readFileSync(manifestPath, "utf-8");
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
-                      fn: async () => {
-                        writeFileSync(manifestPath, backup, "utf-8");
-                      },
-                    });
-                  }
-                }
-              }
+              registerManifestBackups(ctx);
 
               const replaced = await writeVersions(ctx, singleVersions);
 
@@ -979,53 +1046,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const resolver = createKeyResolver(ctx.config.packages);
                 const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
-                  // Back up changeset files
-                  const changesetsDir = path.join(
-                    ctx.cwd,
-                    ".pubm",
-                    "changesets",
-                  );
-                  const changesetBackups = new Map<string, string>();
-                  for (const changeset of changesets) {
-                    const filePath = path.join(
-                      changesetsDir,
-                      `${changeset.id}.md`,
-                    );
-                    if (existsSync(filePath)) {
-                      changesetBackups.set(
-                        filePath,
-                        readFileSync(filePath, "utf-8"),
-                      );
-                    }
-                  }
-                  if (changesetBackups.size > 0) {
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${changesetBackups.size} changeset file(s)`,
-                      fn: async () => {
-                        for (const [fp, content] of changesetBackups) {
-                          writeFileSync(fp, content, "utf-8");
-                        }
-                      },
-                    });
-                  }
+                  registerChangesetBackups(ctx, changesets);
 
-                  // Back up changelog
-                  const changelogPath = path.join(
-                    ctx.cwd,
-                    "CHANGELOG.md",
-                  );
-                  if (existsSync(changelogPath)) {
-                    const changelogBackup = readFileSync(
-                      changelogPath,
-                      "utf-8",
-                    );
-                    ctx.runtime.rollback.add({
-                      label: "Restore CHANGELOG.md",
-                      fn: async () => {
-                        writeFileSync(changelogPath, changelogBackup, "utf-8");
-                      },
-                    });
-                  }
+                  const changelogPath = path.join(ctx.cwd, "CHANGELOG.md");
+                  registerChangelogBackup(ctx, changelogPath);
 
                   const pkgPath = ctx.config.packages[0]?.path ?? "";
                   const entries = buildChangelogEntries(changesets, pkgPath);
@@ -1071,26 +1095,10 @@ export async function run(ctx: PubmContext): Promise<void> {
 
               task.output = `Creating release commit ${tagName}...`;
               const commit = await git.commit(tagName);
-              ctx.runtime.rollback.add({
-                label: "Reset git commit",
-                fn: async () => {
-                  const g = new Git();
-                  await g.reset();
-                  const dirty = (await g.status()) !== "";
-                  if (dirty) await g.stash();
-                  await g.reset("HEAD^", "--hard");
-                  if (dirty) await g.popStash();
-                },
-              });
+              registerCommitRollback(ctx);
               task.output = "Creating tag...";
               await git.createTag(tagName, commit);
-              ctx.runtime.rollback.add({
-                label: `Delete local tag ${tagName}`,
-                fn: async () => {
-                  const g = new Git();
-                  await g.deleteTag(tagName);
-                },
-              });
+              registerTagRollback(ctx, tagName);
             } else if (plan.mode === "fixed") {
               // Fixed monorepo: same version for all packages
               task.output = "Updating package versions across the workspace...";
@@ -1099,26 +1107,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 return;
               }
 
-              // Back up manifest files before version write
-              for (const pkg of ctx.config.packages) {
-                const absPath = path.resolve(ctx.cwd, pkg.path);
-                const ecosystem = requirePackageEcosystem(pkg);
-                const descriptor = ecosystemCatalog.get(ecosystem);
-                if (!descriptor) continue;
-                const eco = new descriptor.ecosystemClass(absPath);
-                for (const manifestFile of eco.manifestFiles()) {
-                  const manifestPath = path.resolve(absPath, manifestFile);
-                  if (existsSync(manifestPath)) {
-                    const backup = readFileSync(manifestPath, "utf-8");
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
-                      fn: async () => {
-                        writeFileSync(manifestPath, backup, "utf-8");
-                      },
-                    });
-                  }
-                }
-              }
+              registerManifestBackups(ctx);
 
               const replaced = await writeVersions(ctx, plan.packages);
 
@@ -1132,53 +1121,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const resolver = createKeyResolver(ctx.config.packages);
                 const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
-                  // Back up changeset files
-                  const changesetsDir = path.join(
-                    ctx.cwd,
-                    ".pubm",
-                    "changesets",
-                  );
-                  const changesetBackups = new Map<string, string>();
-                  for (const changeset of changesets) {
-                    const filePath = path.join(
-                      changesetsDir,
-                      `${changeset.id}.md`,
-                    );
-                    if (existsSync(filePath)) {
-                      changesetBackups.set(
-                        filePath,
-                        readFileSync(filePath, "utf-8"),
-                      );
-                    }
-                  }
-                  if (changesetBackups.size > 0) {
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${changesetBackups.size} changeset file(s)`,
-                      fn: async () => {
-                        for (const [fp, content] of changesetBackups) {
-                          writeFileSync(fp, content, "utf-8");
-                        }
-                      },
-                    });
-                  }
+                  registerChangesetBackups(ctx, changesets);
 
-                  // Back up changelog
-                  const changelogPath = path.join(
-                    ctx.cwd,
-                    "CHANGELOG.md",
-                  );
-                  if (existsSync(changelogPath)) {
-                    const changelogBackup = readFileSync(
-                      changelogPath,
-                      "utf-8",
-                    );
-                    ctx.runtime.rollback.add({
-                      label: "Restore CHANGELOG.md",
-                      fn: async () => {
-                        writeFileSync(changelogPath, changelogBackup, "utf-8");
-                      },
-                    });
-                  }
+                  const changelogPath = path.join(ctx.cwd, "CHANGELOG.md");
+                  registerChangelogBackup(ctx, changelogPath);
 
                   const allEntries = [...plan.packages.keys()].flatMap(
                     (pkgPath) => buildChangelogEntries(changesets, pkgPath),
@@ -1226,26 +1172,10 @@ export async function run(ctx: PubmContext): Promise<void> {
 
               task.output = `Creating release commit ${tagName}...`;
               const commit = await git.commit(tagName);
-              ctx.runtime.rollback.add({
-                label: "Reset git commit",
-                fn: async () => {
-                  const g = new Git();
-                  await g.reset();
-                  const dirty = (await g.status()) !== "";
-                  if (dirty) await g.stash();
-                  await g.reset("HEAD^", "--hard");
-                  if (dirty) await g.popStash();
-                },
-              });
+              registerCommitRollback(ctx);
               task.output = "Creating tag...";
               await git.createTag(tagName, commit);
-              ctx.runtime.rollback.add({
-                label: `Delete local tag ${tagName}`,
-                fn: async () => {
-                  const g = new Git();
-                  await g.deleteTag(tagName);
-                },
-              });
+              registerTagRollback(ctx, tagName);
             } else {
               // Independent monorepo
               task.output = "Updating package versions across the workspace...";
@@ -1254,26 +1184,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 return;
               }
 
-              // Back up manifest files before version write
-              for (const pkg of ctx.config.packages) {
-                const absPath = path.resolve(ctx.cwd, pkg.path);
-                const ecosystem = requirePackageEcosystem(pkg);
-                const descriptor = ecosystemCatalog.get(ecosystem);
-                if (!descriptor) continue;
-                const eco = new descriptor.ecosystemClass(absPath);
-                for (const manifestFile of eco.manifestFiles()) {
-                  const manifestPath = path.resolve(absPath, manifestFile);
-                  if (existsSync(manifestPath)) {
-                    const backup = readFileSync(manifestPath, "utf-8");
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
-                      fn: async () => {
-                        writeFileSync(manifestPath, backup, "utf-8");
-                      },
-                    });
-                  }
-                }
-              }
+              registerManifestBackups(ctx);
 
               const replaced = await writeVersions(ctx, plan.packages);
 
@@ -1287,35 +1198,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const resolver = createKeyResolver(ctx.config.packages);
                 const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
-                  // Back up changeset files
-                  const changesetsDir = path.join(
-                    ctx.cwd,
-                    ".pubm",
-                    "changesets",
-                  );
-                  const changesetBackups = new Map<string, string>();
-                  for (const changeset of changesets) {
-                    const filePath = path.join(
-                      changesetsDir,
-                      `${changeset.id}.md`,
-                    );
-                    if (existsSync(filePath)) {
-                      changesetBackups.set(
-                        filePath,
-                        readFileSync(filePath, "utf-8"),
-                      );
-                    }
-                  }
-                  if (changesetBackups.size > 0) {
-                    ctx.runtime.rollback.add({
-                      label: `Restore ${changesetBackups.size} changeset file(s)`,
-                      fn: async () => {
-                        for (const [fp, content] of changesetBackups) {
-                          writeFileSync(fp, content, "utf-8");
-                        }
-                      },
-                    });
-                  }
+                  registerChangesetBackups(ctx, changesets);
 
                   // Back up changelog files (per-package for independent mode)
                   for (const [pkgPath] of plan.packages) {
@@ -1329,22 +1212,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       changelogDir,
                       "CHANGELOG.md",
                     );
-                    if (existsSync(changelogPath)) {
-                      const changelogBackup = readFileSync(
-                        changelogPath,
-                        "utf-8",
-                      );
-                      ctx.runtime.rollback.add({
-                        label: `Restore ${path.relative(ctx.cwd, changelogPath)}`,
-                        fn: async () => {
-                          writeFileSync(
-                            changelogPath,
-                            changelogBackup,
-                            "utf-8",
-                          );
-                        },
-                      });
-                    }
+                    registerChangelogBackup(ctx, changelogPath);
                   }
 
                   for (const [pkgPath, pkgVersion] of plan.packages) {
@@ -1410,17 +1278,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 .join("\n")}`;
               task.output = "Creating release commit...";
               const commit = await git.commit(commitMsg);
-              ctx.runtime.rollback.add({
-                label: "Reset git commit",
-                fn: async () => {
-                  const g = new Git();
-                  await g.reset();
-                  const dirty = (await g.status()) !== "";
-                  if (dirty) await g.stash();
-                  await g.reset("HEAD^", "--hard");
-                  if (dirty) await g.popStash();
-                },
-              });
+              registerCommitRollback(ctx);
 
               // Create per-package tags
               task.output = "Creating tags...";
@@ -1429,13 +1287,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const pkgName = getPackageName(ctx, pkgPath);
                 const tag = `${pkgName}@${pkgVersion}`;
                 await git.createTag(tag, commit);
-                ctx.runtime.rollback.add({
-                  label: `Delete local tag ${tag}`,
-                  fn: async () => {
-                    const g = new Git();
-                    await g.deleteTag(tag);
-                  },
-                });
+                registerTagRollback(ctx, tag);
               }
             }
           },
