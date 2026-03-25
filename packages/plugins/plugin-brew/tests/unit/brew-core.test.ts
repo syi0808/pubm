@@ -229,6 +229,52 @@ describe("brewCore", () => {
     );
   });
 
+  it("registers rollback that closes homebrew-core PR", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(222222);
+    const clonedDir = join(tmpdir(), "pubm-brew-core-222222");
+    mkdirSync(join(clonedDir, "Formula"), { recursive: true });
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "my-tool" }, null, 2),
+    );
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "gh api user --jq .login") return "octocat\n" as never;
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/homebrew/homebrew-core/pull/999\n" as never;
+      }
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const rollbackAdd = vi.fn();
+    const plugin = brewCore({ formula: "Formula/my-tool.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "tkn" },
+          rollback: { add: rollbackAdd },
+        },
+      } as never,
+      { version: "1.0.0", assets: [] } as never,
+    );
+
+    expect(rollbackAdd).toHaveBeenCalledOnce();
+    const action = rollbackAdd.mock.calls[0][0];
+    expect(action.label).toContain("999");
+    expect(action.confirm).toBe(true);
+
+    // Invoke the rollback fn
+    mockedExecSync.mockReset();
+    mockedExecSync.mockReturnValue(Buffer.from(""));
+    await action.fn();
+
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      'gh pr close 999 --repo homebrew/homebrew-core --comment "Closed by pubm rollback"',
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+  });
+
   it("creates a new default formula when the workspace has no package.json", async () => {
     vi.spyOn(Date, "now").mockReturnValue(333333);
     mockedExecSync.mockImplementation((command) => {

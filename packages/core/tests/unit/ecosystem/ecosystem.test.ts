@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { EcosystemDescriptor } from "../../../src/ecosystem/descriptor.js";
 import { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../../../src/registry/package-registry.js";
@@ -97,5 +97,27 @@ describe("Ecosystem", () => {
     const eco = new TestEcosystem("/some/path");
     const result = await eco.syncLockfile();
     expect(result).toBeUndefined();
+  });
+
+  it("resolvePublishDependencies returns empty map by default", async () => {
+    const eco = new TestEcosystem("/some/path");
+    const result = await eco.resolvePublishDependencies(new Map());
+    expect(result).toEqual(new Map());
+  });
+
+  it("restorePublishDependencies writes backup contents to files", () => {
+    const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+    const { join } = require("node:path");
+    const { tmpdir } = require("node:os");
+
+    const dir = mkdtempSync(join(tmpdir(), "eco-restore-"));
+    const filePath = join(dir, "package.json");
+    writeFileSync(filePath, '{"version":"2.0.0"}', "utf-8");
+
+    const eco = new TestEcosystem("/some/path");
+    const backups = new Map([[filePath, '{"version":"1.0.0"}']]);
+    eco.restorePublishDependencies(backups);
+
+    expect(readFileSync(filePath, "utf-8")).toBe('{"version":"1.0.0"}');
   });
 });

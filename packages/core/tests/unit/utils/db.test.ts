@@ -31,6 +31,10 @@ vi.mock("node:fs", () => {
     mkdirSync: vi.fn(),
     writeFileSync: vi.fn(defaultWriteFileSync),
     readFileSync: vi.fn(defaultReadFileSync),
+    unlinkSync: vi.fn((filePath: string) => {
+      if (!(filePath in store)) throw new Error("ENOENT");
+      delete store[filePath];
+    }),
   };
 });
 
@@ -180,6 +184,23 @@ describe("Db", () => {
       const result = db.get("corrupt-field");
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("delete", () => {
+    it("removes a previously stored field", () => {
+      const db = new Db();
+
+      db.set("to-delete", "value");
+      expect(db.get("to-delete")).toBe("value");
+
+      db.delete("to-delete");
+      expect(db.get("to-delete")).toBeNull();
+    });
+
+    it("does not throw when deleting a non-existent field", () => {
+      const db = new Db();
+      expect(() => db.delete("nonexistent")).not.toThrow();
     });
   });
 
