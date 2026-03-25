@@ -9,6 +9,7 @@ import type {
   PubmConfig,
   ResolvedPackageConfig,
   ResolvedPubmConfig,
+  RollbackConfig,
   ValidateConfig,
 } from "./types.js";
 
@@ -16,6 +17,11 @@ const defaultValidate: Required<ValidateConfig> = {
   cleanInstall: true,
   entryPoints: true,
   extraneousFiles: true,
+};
+
+const defaultRollback: Required<RollbackConfig> = {
+  strategy: "individual",
+  dangerouslyAllowUnpublish: false,
 };
 
 const defaultConfig = {
@@ -35,7 +41,6 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  rollbackStrategy: "individual" as const,
   lockfileSync: "optional" as const,
 };
 
@@ -86,6 +91,13 @@ export async function resolveConfig(
     ...config,
     packages,
     validate: { ...defaultValidate, ...config.validate },
+    rollback: {
+      ...defaultRollback,
+      ...(config.rollbackStrategy
+        ? { strategy: config.rollbackStrategy }
+        : {}),
+      ...config.rollback,
+    },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     plugins: config.plugins ?? [],
     ...(discoveryEmpty ? { discoveryEmpty } : {}),

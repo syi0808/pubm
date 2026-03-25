@@ -30,6 +30,13 @@ export interface ValidateConfig {
   extraneousFiles?: boolean;
 }
 
+export interface RollbackConfig {
+  /** @default "individual" */
+  strategy?: "individual" | "all";
+  /** Allow registry unpublish/yank during rollback in non-TTY environments. @default false */
+  dangerouslyAllowUnpublish?: boolean;
+}
+
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
@@ -49,7 +56,9 @@ export interface PubmConfig {
   saveToken?: boolean;
   releaseDraft?: boolean;
   releaseNotes?: boolean;
+  /** @deprecated Use `rollback.strategy` instead. */
   rollbackStrategy?: "individual" | "all";
+  rollback?: RollbackConfig;
   lockfileSync?: "required" | "optional" | "skip";
   plugins?: PubmPlugin[];
   compress?: CompressOption;
@@ -67,6 +76,8 @@ export interface ResolvedPubmConfig
       | "compress"
       | "releaseAssets"
       | "excludeRelease"
+      | "rollbackStrategy"
+      | "rollback"
     >
   > {
   compress?: CompressOption;
@@ -74,6 +85,7 @@ export interface ResolvedPubmConfig
   excludeRelease?: string[];
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
+  rollback: Required<RollbackConfig>;
   discoveryEmpty?: boolean;
 }
 
