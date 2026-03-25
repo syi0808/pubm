@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RollbackTracker } from "../../../src/utils/rollback.js";
+
+const mockQuestion = vi.fn();
+vi.mock("node:readline", () => ({
+  createInterface: () => ({
+    question: mockQuestion,
+    close: vi.fn(),
+  }),
+}));
+
+// Import after mock setup
+const { RollbackTracker } = await import("../../../src/utils/rollback.js");
 
 type TestCtx = { id: number };
 
@@ -157,6 +167,35 @@ describe("RollbackTracker", () => {
 
       expect(confirmFn).not.toHaveBeenCalled();
       expect(normalFn).toHaveBeenCalledOnce();
+    });
+
+    it("prompts in interactive mode and skips when user declines", async () => {
+      mockQuestion.mockImplementation((_q: string, cb: (a: string) => void) => {
+        cb("n");
+      });
+
+      const fn = vi.fn();
+      tracker.add({ label: "dangerous", fn, confirm: true });
+
+      const result = await tracker.execute(ctx, { interactive: true });
+
+      expect(fn).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(1);
+      expect(result.manualRecovery).toContain("dangerous");
+    });
+
+    it("prompts in interactive mode and executes when user accepts", async () => {
+      mockQuestion.mockImplementation((_q: string, cb: (a: string) => void) => {
+        cb("");
+      });
+
+      const fn = vi.fn();
+      tracker.add({ label: "dangerous", fn, confirm: true });
+
+      const result = await tracker.execute(ctx, { interactive: true });
+
+      expect(fn).toHaveBeenCalledOnce();
+      expect(result.succeeded).toBe(1);
     });
   });
 

@@ -1,4 +1,16 @@
+import { createInterface } from "node:readline";
 import { ui } from "./ui.js";
+
+async function promptConfirm(label: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise<boolean>((resolve) => {
+    rl.question(`  ${ui.chalk.yellow("?")} ${label} [Y/n] `, (answer) => {
+      rl.close();
+      const normalized = answer.trim().toLowerCase();
+      resolve(normalized === "" || normalized === "y" || normalized === "yes");
+    });
+  });
+}
 
 export interface RollbackAction<Ctx> {
   label: string;
@@ -74,6 +86,19 @@ export class RollbackTracker<Ctx> {
         result.skipped++;
         result.manualRecovery.push(action.label);
         continue;
+      }
+
+      // Prompt for confirm actions in interactive mode
+      if (action.confirm && options.interactive) {
+        const confirmed = await promptConfirm(action.label);
+        if (!confirmed) {
+          console.log(
+            `  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (user declined)`,
+          );
+          result.skipped++;
+          result.manualRecovery.push(action.label);
+          continue;
+        }
       }
 
       try {
