@@ -6,9 +6,9 @@ Official plugins are maintained alongside pubm and follow the same release cycle
 
 | Plugin | Package | Hook | Description |
 |---|---|---|---|
-| `externalVersionSync()` | `@pubm/plugin-external-version-sync` | `afterVersion` | Sync version to non-manifest files |
-| `brewTap()` | `@pubm/plugin-brew` | `afterRelease` | Update formula in a custom Homebrew tap |
-| `brewCore()` | `@pubm/plugin-brew` | `afterRelease` | Open PR to homebrew-core |
+| `externalVersionSync()` | `@pubm/plugin-external-version-sync` | `afterVersion` | Sync version to non-manifest files. Rolls back file contents on failure. |
+| `brewTap()` | `@pubm/plugin-brew` | `afterRelease` | Update formula in a custom Homebrew tap. Rolls back by closing created PRs on failure. |
+| `brewCore()` | `@pubm/plugin-brew` | `afterRelease` | Open PR to homebrew-core. Rolls back by closing created PRs on failure. |
 
 ## `@pubm/plugin-external-version-sync`
 

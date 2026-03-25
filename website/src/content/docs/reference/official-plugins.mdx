@@ -7,7 +7,7 @@ Official plugins are maintained alongside `pubm` and follow the same release and
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` helps CLI projects keep Homebrew formulae in sync with each release.
+`@pubm/plugin-brew` helps CLI projects keep Homebrew formulae in sync with each release. Registers rollback actions to close any Homebrew PRs created if the pipeline fails after PR creation.
 
 ### What it is good for
 
@@ -130,7 +130,7 @@ export default defineConfig({
 
 ## `@pubm/plugin-external-version-sync`
 
-This plugin keeps non-manifest files aligned with your package version.
+This plugin keeps non-manifest files aligned with your package version. Registers rollback actions to restore original file contents if the pipeline fails after version sync.
 
 Use it when a release should also update:
 

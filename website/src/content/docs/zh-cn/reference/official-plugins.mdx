@@ -7,7 +7,7 @@ description: 由 pubm 项目维护的受支持插件。
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` 帮助 CLI 项目在每次发布时同步 Homebrew formula。
+`@pubm/plugin-brew` 帮助 CLI 项目在每次发布时同步 Homebrew formula。如果管道在 PR 创建后失败，会注册回滚操作来关闭已创建的 Homebrew PR。
 
 ### 适用场景
 
@@ -130,7 +130,7 @@ export default defineConfig({
 
 ## `@pubm/plugin-external-version-sync`
 
-这个插件用于让非 manifest 文件和你的 package 版本保持一致。
+这个插件用于让非 manifest 文件和你的 package 版本保持一致。如果管道在版本同步后失败，会注册回滚操作来恢复原始文件内容。
 
 当发布还需要同时更新以下内容时，就使用它：
 

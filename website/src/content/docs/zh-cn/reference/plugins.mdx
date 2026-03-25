@@ -109,6 +109,38 @@ export interface PubmContext {
 - `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
 - `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，并可在后续所有 hooks 中使用。
 
+### Rollback API
+
+插件可以注册回滚操作，当发布流水线失败时会自动执行。操作按 LIFO（后进先出）顺序执行。
+
+在任何 hook 中使用 `ctx.runtime.rollback.add()` 注册回滚操作：
+
+```typescript
+hooks: {
+  afterVersion: async (ctx) => {
+    // Perform side effect
+    const backup = readFileSync(filePath, "utf-8");
+    modifyFile(filePath);
+
+    // Register rollback to undo it
+    ctx.runtime.rollback.add({
+      label: `Restore ${filePath}`,
+      fn: async () => {
+        writeFileSync(filePath, backup, "utf-8");
+      },
+    });
+  },
+}
+```
+
+#### `RollbackAction`
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | 回滚期间显示的人类可读描述 |
+| `fn` | `(ctx: PubmContext) => Promise<void>` | 用于撤销副作用的异步函数 |
+| `confirm` | `boolean?` | 为 `true` 时，在 TTY 模式下执行前会请求确认。在 CI 中自动执行。 |
+
 ## `PluginCredential`
 
 用于声明插件所需 token 或 secret 的描述类型。

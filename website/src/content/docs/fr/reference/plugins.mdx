@@ -109,6 +109,38 @@ Champs clés :
 - `ctx.runtime` - état runtime mutable (plan de version, répertoire temporaire, etc.)
 - `ctx.runtime.pluginTokens` - map des valeurs de credentials de plugin résolues, indexée par `PluginCredential.key`. Elle est remplie après l'étape de collecte des credentials et reste disponible dans tous les hooks suivants.
 
+### API de rollback
+
+Les plugins peuvent enregistrer des actions de rollback qui s'exécutent automatiquement lorsque le pipeline de publication échoue. Les actions sont exécutées dans l'ordre LIFO (dernier entré, premier sorti).
+
+Enregistrez des actions de rollback avec `ctx.runtime.rollback.add()` dans n'importe quel hook :
+
+```typescript
+hooks: {
+  afterVersion: async (ctx) => {
+    // Perform side effect
+    const backup = readFileSync(filePath, "utf-8");
+    modifyFile(filePath);
+
+    // Register rollback to undo it
+    ctx.runtime.rollback.add({
+      label: `Restore ${filePath}`,
+      fn: async () => {
+        writeFileSync(filePath, backup, "utf-8");
+      },
+    });
+  },
+}
+```
+
+#### `RollbackAction`
+
+| Propriété | Type | Description |
+|-----------|------|-------------|
+| `label` | `string` | Description lisible affichée pendant le rollback |
+| `fn` | `(ctx: PubmContext) => Promise<void>` | Fonction asynchrone qui annule l'effet de bord |
+| `confirm` | `boolean?` | Si `true`, demande une confirmation en mode TTY avant l'exécution. S'exécute automatiquement en CI. |
+
 ## `PluginCredential`
 
 Descripteur déclaratif pour un token ou secret dont un plugin a besoin.
