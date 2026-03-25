@@ -977,11 +977,11 @@ export async function run(ctx: PubmContext): Promise<void> {
                 task.output =
                   "Applying changesets and generating changelog entries...";
                 const resolver = createKeyResolver(ctx.config.packages);
-                const changesets = readChangesets(process.cwd(), resolver);
+                const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
                   // Back up changeset files
                   const changesetsDir = path.join(
-                    process.cwd(),
+                    ctx.cwd,
                     ".pubm",
                     "changesets",
                   );
@@ -1011,7 +1011,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                   // Back up changelog
                   const changelogPath = path.join(
-                    process.cwd(),
+                    ctx.cwd,
                     "CHANGELOG.md",
                   );
                   if (existsSync(changelogPath)) {
@@ -1033,8 +1033,8 @@ export async function run(ctx: PubmContext): Promise<void> {
                     plan.version,
                     entries,
                   );
-                  writeChangelogToFile(process.cwd(), changelogContent);
-                  deleteChangesetFiles(process.cwd(), changesets);
+                  writeChangelogToFile(ctx.cwd, changelogContent);
+                  deleteChangesetFiles(ctx.cwd, changesets);
                 }
               }
 
@@ -1130,11 +1130,11 @@ export async function run(ctx: PubmContext): Promise<void> {
                 task.output =
                   "Applying changesets and generating changelog entries...";
                 const resolver = createKeyResolver(ctx.config.packages);
-                const changesets = readChangesets(process.cwd(), resolver);
+                const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
                   // Back up changeset files
                   const changesetsDir = path.join(
-                    process.cwd(),
+                    ctx.cwd,
                     ".pubm",
                     "changesets",
                   );
@@ -1164,7 +1164,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
                   // Back up changelog
                   const changelogPath = path.join(
-                    process.cwd(),
+                    ctx.cwd,
                     "CHANGELOG.md",
                   );
                   if (existsSync(changelogPath)) {
@@ -1188,9 +1188,9 @@ export async function run(ctx: PubmContext): Promise<void> {
                       plan.version,
                       allEntries,
                     );
-                    writeChangelogToFile(process.cwd(), changelogContent);
+                    writeChangelogToFile(ctx.cwd, changelogContent);
                   }
-                  deleteChangesetFiles(process.cwd(), changesets);
+                  deleteChangesetFiles(ctx.cwd, changesets);
                 }
               }
 
@@ -1285,11 +1285,11 @@ export async function run(ctx: PubmContext): Promise<void> {
                 task.output =
                   "Applying changesets and generating changelog entries...";
                 const resolver = createKeyResolver(ctx.config.packages);
-                const changesets = readChangesets(process.cwd(), resolver);
+                const changesets = readChangesets(ctx.cwd, resolver);
                 if (changesets.length > 0) {
                   // Back up changeset files
                   const changesetsDir = path.join(
-                    process.cwd(),
+                    ctx.cwd,
                     ".pubm",
                     "changesets",
                   );
@@ -1362,7 +1362,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       );
                     }
                   }
-                  deleteChangesetFiles(process.cwd(), changesets);
+                  deleteChangesetFiles(ctx.cwd, changesets);
                 }
               }
 
@@ -1564,7 +1564,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             task.output = "Running plugin beforePush hooks...";
             await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
             const git = new Git();
-            const prePushSha = await git.revParse("HEAD");
+            const prePushSha = await git.revParse("HEAD~1");
             task.output = "Executing `git push --follow-tags`...";
 
             const result = await git.push("--follow-tags");
