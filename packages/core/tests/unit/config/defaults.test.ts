@@ -36,7 +36,10 @@ describe("resolveConfig", () => {
     expect(resolved.validate.extraneousFiles).toBe(true);
     expect(resolved.commit).toBe(false);
     expect(resolved.access).toBe("public");
-    expect(resolved.rollbackStrategy).toBe("individual");
+    expect(resolved.rollback).toEqual({
+      strategy: "individual",
+      dangerouslyAllowUnpublish: false,
+    });
   });
 
   it("merges user config over defaults", async () => {
@@ -143,6 +146,31 @@ describe("resolveConfig", () => {
         ecosystem: "js",
       },
     ]);
+  });
+
+  it("migrates deprecated rollbackStrategy to rollback.strategy", async () => {
+    const resolved = await resolveConfig({ rollbackStrategy: "all" });
+    expect(resolved.rollback.strategy).toBe("all");
+  });
+
+  it("rollback.strategy takes precedence over rollbackStrategy", async () => {
+    const resolved = await resolveConfig({
+      rollbackStrategy: "all",
+      rollback: { strategy: "individual" },
+    });
+    expect(resolved.rollback.strategy).toBe("individual");
+  });
+
+  it("defaults dangerouslyAllowUnpublish to false", async () => {
+    const resolved = await resolveConfig({});
+    expect(resolved.rollback.dangerouslyAllowUnpublish).toBe(false);
+  });
+
+  it("accepts rollback.dangerouslyAllowUnpublish from config", async () => {
+    const resolved = await resolveConfig({
+      rollback: { dangerouslyAllowUnpublish: true },
+    });
+    expect(resolved.rollback.dangerouslyAllowUnpublish).toBe(true);
   });
 
   describe("private registry normalization", () => {

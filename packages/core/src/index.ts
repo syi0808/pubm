@@ -76,6 +76,7 @@ export type {
   PackageConfig,
   PubmConfig,
   ResolvedPubmConfig,
+  RollbackConfig,
 } from "./config/index.js";
 // Config
 export { defineConfig, loadConfig, resolveConfig } from "./config/index.js";
