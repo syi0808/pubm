@@ -47,7 +47,7 @@ describe("inferRegistries", () => {
       expect(result).toContain("jsr");
     });
 
-    it("infers jsr only when only jsr.json exists", async () => {
+    it("infers jsr only when only jsr.json exists (no package.json)", async () => {
       const { inferRegistries } = await import(
         "../../../src/ecosystem/infer.js"
       );
@@ -149,9 +149,9 @@ describe("inferRegistries", () => {
       mockFileExists("package.json");
       mockedReadFile.mockResolvedValue("{invalid json" as any);
       const result = await inferRegistries("/project", "js");
-      // packageJson is null, so packageName is undefined, no publishConfig
-      // npmrcContent is also null (no .npmrc), so npm is default
-      expect(result).toEqual(["npm"]);
+      // NpmPackageRegistry.canInfer catches JSON.parse failure, returns false
+      // JsrPackageRegistry.canInfer: no jsr.json or deno.json
+      expect(result).toEqual([]);
     });
 
     it("handles .npmrc read failure gracefully", async () => {
@@ -203,15 +203,68 @@ describe("inferRegistries", () => {
       const result = await inferRegistries("/project", "js");
       expect(result).toContain("npm.internal.com");
     });
-  });
 
-  describe("Rust ecosystem", () => {
-    it("returns crates as default", async () => {
+    it("infers jsr from deno.json with name+version+exports", async () => {
       const { inferRegistries } = await import(
         "../../../src/ecosystem/infer.js"
       );
+      mockFileExists("package.json", "deno.json");
+      mockedReadFile.mockImplementation(async (p) => {
+        const filePath = typeof p === "string" ? p : p.toString();
+        if (filePath.endsWith("package.json")) {
+          return JSON.stringify({ name: "test-pkg" });
+        }
+        if (filePath.endsWith("deno.json")) {
+          return JSON.stringify({
+            name: "@scope/pkg",
+            version: "1.0.0",
+            exports: "./mod.ts",
+          });
+        }
+        throw new Error("ENOENT");
+      });
+      const result = await inferRegistries("/project", "js");
+      expect(result).toContain("npm");
+      expect(result).toContain("jsr");
+    });
+
+    it("does not infer jsr from deno.json without exports", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("package.json", "deno.json");
+      mockedReadFile.mockImplementation(async (p) => {
+        const filePath = typeof p === "string" ? p : p.toString();
+        if (filePath.endsWith("package.json")) {
+          return JSON.stringify({ name: "test-pkg" });
+        }
+        if (filePath.endsWith("deno.json")) {
+          return JSON.stringify({ name: "@scope/pkg", version: "1.0.0" });
+        }
+        throw new Error("ENOENT");
+      });
+      const result = await inferRegistries("/project", "js");
+      expect(result).toEqual(["npm"]);
+    });
+  });
+
+  describe("Rust ecosystem", () => {
+    it("infers crates when Cargo.toml exists", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists("Cargo.toml");
       const result = await inferRegistries("/project", "rust");
       expect(result).toEqual(["crates"]);
+    });
+
+    it("returns empty when Cargo.toml does not exist", async () => {
+      const { inferRegistries } = await import(
+        "../../../src/ecosystem/infer.js"
+      );
+      mockFileExists(); // no files
+      const result = await inferRegistries("/project", "rust");
+      expect(result).toEqual([]);
     });
   });
 

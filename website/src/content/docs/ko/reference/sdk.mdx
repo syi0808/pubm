@@ -270,7 +270,7 @@ const ordered = topologicalSort(graph);
 | `detectExtraneousFiles` | function | 보통 publish 산출물에 포함되면 안 되는 파일을 찾아냅니다. |
 | `getPackageJson` | function | 가장 가까운 `package.json`을 읽고, 필요하면 `jsr.json`으로 fallback합니다. |
 | `replaceVersion` / `replaceVersionAtPath` | functions | 매니페스트의 패키지 버전을 다시 씁니다. |
-| `version` | function | `package.json` 또는 `jsr.json`에서 현재 패키지 버전을 읽습니다. |
+| `version` | function | `package.json`, `jsr.json` 또는 `deno.json` / `deno.jsonc`에서 현재 패키지 버전을 읽습니다. |
 | `generateSnapshotVersion` | function | `base`, `tag`, `timestamp`, 선택적 `commit`으로 snapshot 버전을 만듭니다. |
 | `loadTokensFromDb` | function | 저장된 registry 토큰을 읽고, 일치하는 env var도 함께 반영합니다. |
 | `syncGhSecrets` | function | `gh secret set`을 통해 registry 토큰을 GitHub Secrets에 밀어 넣습니다. |

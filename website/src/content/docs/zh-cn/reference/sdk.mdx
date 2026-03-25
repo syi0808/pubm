@@ -270,7 +270,7 @@ package root 还导出了下面这些辅助函数，供工具集成使用。
 | `detectExtraneousFiles` | function | 标记通常不应出现在发布构件中的文件。 |
 | `getPackageJson` | function | 读取最近的 `package.json`，并可选回退到 `jsr.json`。 |
 | `replaceVersion` / `replaceVersionAtPath` | functions | 重写 manifest 中的 package 版本。 |
-| `version` | function | 从 `package.json` 或 `jsr.json` 读取当前 package 版本。 |
+| `version` | function | 从 `package.json`、`jsr.json` 或 `deno.json` / `deno.jsonc` 读取当前 package 版本。 |
 | `generateSnapshotVersion` | function | 基于 `base`、`tag`、`timestamp` 和可选 `commit` 构建 snapshot 版本。 |
 | `loadTokensFromDb` | function | 读取已保存的 registry token，同时也会考虑匹配的环境变量。 |
 | `syncGhSecrets` | function | 通过 `gh secret set` 把 registry token 推送到 GitHub Secrets。 |

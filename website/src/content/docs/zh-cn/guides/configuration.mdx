@@ -60,6 +60,7 @@ export default defineConfig({
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
 | `Cargo.toml` | `crates` |
 
 npm 还适用两条额外规则：
@@ -344,7 +345,7 @@ export default defineConfig({
 
 ### 简单库
 
-如果包里有 `package.json` 和 `jsr.json`，registry 会自动推断。不需要配置文件，`pubm.config.ts` 是可选的。只有在你需要覆盖默认值时才创建它，例如自定义 branch、plugins、release assets 等。
+如果包里有 `package.json` 和 `jsr.json`（或 `deno.json` / `deno.jsonc`），registry 会自动推断。不需要配置文件，`pubm.config.ts` 是可选的。只有在你需要覆盖默认值时才创建它，例如自定义 branch、plugins、release assets 等。
 
 ### App monorepo
 

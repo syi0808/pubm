@@ -7,7 +7,6 @@ import { exec } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
 import type { RegistryConnector } from "./connector.js";
 import { CratesConnector, cratesPackageRegistry } from "./crates.js";
-import { CustomPackageRegistry } from "./custom-registry.js";
 import { jsrConnector, jsrPackageRegistry } from "./jsr.js";
 import { NpmPackageRegistry, npmConnector, npmPackageRegistry } from "./npm.js";
 import type { PackageRegistry } from "./package-registry.js";
@@ -191,6 +190,9 @@ export function registerPrivateRegistry(
     concurrentPublish: true,
     connector: () => npmConnector(),
     factory: async (packagePath) => {
+      // Lazy import to break circular dependency:
+      // npm.ts -> catalog.ts -> custom-registry.ts -> npm.ts
+      const { CustomPackageRegistry } = await import("./custom-registry.js");
       const manifest = await NpmPackageRegistry.reader.read(packagePath);
       return new CustomPackageRegistry(manifest.name, packagePath, config.url);
     },

@@ -48,6 +48,7 @@ pubm은 매니페스트 파일을 읽고 어떤 레지스트리에 배포할지 
 |----------|----------|
 | `package.json` | npm |
 | `jsr.json` | jsr |
+| `deno.json` / `deno.jsonc` | jsr |
 | `Cargo.toml` | crates.io |
 
 `package.json`과 `jsr.json`이 모두 있으면 한 번의 릴리스에서 둘 다 배포합니다. 별도 설정은 필요 없습니다.

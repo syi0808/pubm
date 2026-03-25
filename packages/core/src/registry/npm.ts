@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -5,8 +6,11 @@ import { color } from "listr2";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
+import type { RegistryType } from "../types/options.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
+import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
 import { isValidPackageName } from "../utils/package-name.js";
+import { registerPrivateRegistry } from "./catalog.js";
 import { RegistryConnector } from "./connector.js";
 import {
   PackageRegistry,
@@ -63,7 +67,8 @@ export class NpmConnector extends RegistryConnector {
 export class NpmPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
     file: "package.json",
-    parser: JSON.parse,
+    parser: (_filename: string, content: string) =>
+      JSON.parse(content) as Record<string, unknown>,
     fields: {
       name: (p) => (p.name as string) ?? "",
       version: (p) => (p.version as string) ?? "0.0.0",
@@ -77,6 +82,96 @@ export class NpmPackageRegistry extends PackageRegistry {
     },
   });
   static override registryType = "npm" as const;
+
+  static override async canInfer(
+    packagePath: string,
+    rootPath?: string,
+  ): Promise<RegistryType | false> {
+    if (!(await NpmPackageRegistry.reader.exists(packagePath))) return false;
+
+    const packageJsonPath = join(packagePath, "package.json");
+    let packageJson: Record<string, unknown>;
+    try {
+      packageJson = JSON.parse(await readFile(packageJsonPath, "utf-8"));
+    } catch {
+      return false;
+    }
+
+    const packageName =
+      typeof packageJson.name === "string" ? packageJson.name : undefined;
+    const publishConfig = packageJson.publishConfig as
+      | Record<string, unknown>
+      | undefined;
+    const publishConfigRegistry =
+      typeof publishConfig?.registry === "string"
+        ? publishConfig.registry
+        : undefined;
+
+    let npmRegistryUrl: string | null = null;
+
+    if (publishConfigRegistry) {
+      npmRegistryUrl = publishConfigRegistry;
+    } else {
+      npmRegistryUrl = await NpmPackageRegistry.readNpmrcRegistry(
+        packagePath,
+        packageName,
+      );
+      if (!npmRegistryUrl && rootPath && rootPath !== packagePath) {
+        npmRegistryUrl = await NpmPackageRegistry.readNpmrcRegistry(
+          rootPath,
+          packageName,
+        );
+      }
+    }
+
+    const NPM_OFFICIAL = "registry.npmjs.org";
+    if (
+      npmRegistryUrl &&
+      !normalizeRegistryUrl(npmRegistryUrl).includes(NPM_OFFICIAL)
+    ) {
+      const key = normalizeRegistryUrl(npmRegistryUrl);
+      registerPrivateRegistry(
+        {
+          url: npmRegistryUrl,
+          token: {
+            envVar: `${key.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_TOKEN`,
+          },
+        },
+        "js",
+      );
+      return key as RegistryType;
+    }
+
+    return "npm";
+  }
+
+  private static async readNpmrcRegistry(
+    dir: string,
+    packageName?: string,
+  ): Promise<string | null> {
+    try {
+      const content = await readFile(join(dir, ".npmrc"), "utf-8");
+      const lines = content.split("\n");
+
+      if (packageName?.startsWith("@")) {
+        const scope = packageName.split("/")[0];
+        for (const line of lines) {
+          const match = line.match(
+            new RegExp(`^${scope.replace("/", "\\/")}:registry=(.+)$`),
+          );
+          if (match) return match[1].trim();
+        }
+      }
+
+      for (const line of lines) {
+        const match = line.match(/^registry=(.+)$/);
+        if (match) return match[1].trim();
+      }
+    } catch {
+      // .npmrc doesn't exist
+    }
+    return null;
+  }
 
   constructor(packageName: string, packagePath: string, registry?: string) {
     super(packageName, packagePath, registry ?? "https://registry.npmjs.org");

@@ -16,11 +16,28 @@ import type { EcosystemDescriptor } from "./descriptor.js";
 import { Ecosystem } from "./ecosystem.js";
 import { JsEcosystemDescriptor } from "./js-descriptor.js";
 
+// Known limitation: replaces the first "version" match only (no `g` flag).
+// If a JSONC comment or nested object contains "version": "..." before the
+// top-level field, that string would be modified instead. Acceptable tradeoff
+// — Deno config files rarely have version strings in comments or nested objects.
 const versionRegex = /("version"\s*:\s*")[^"]*(")/;
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const s = await stat(filePath);
+    return s.isFile();
+  } catch {
+    return false;
+  }
+}
 
 export class JsEcosystem extends Ecosystem {
   static async detect(packagePath: string): Promise<boolean> {
-    return NpmPackageRegistry.reader.exists(packagePath);
+    if (await NpmPackageRegistry.reader.exists(packagePath)) return true;
+    return (
+      (await fileExists(path.join(packagePath, "deno.json"))) ||
+      (await fileExists(path.join(packagePath, "deno.jsonc")))
+    );
   }
 
   registryClasses(): (typeof PackageRegistry)[] {
@@ -31,7 +48,7 @@ export class JsEcosystem extends Ecosystem {
   }
 
   async writeVersion(newVersion: string): Promise<void> {
-    const files = ["package.json", "jsr.json"];
+    const files = ["package.json", "jsr.json", "deno.json", "deno.jsonc"];
 
     for (const file of files) {
       const filePath = path.join(this.packagePath, file);

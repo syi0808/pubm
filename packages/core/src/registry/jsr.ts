@@ -1,9 +1,13 @@
+import { readFile, stat } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
+import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
 import type { JsrApi } from "../types/jsr-api.js";
+import type { RegistryType } from "../types/options.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import {
   getScope,
@@ -79,18 +83,81 @@ export class JsrConnector extends RegistryConnector {
   }
 }
 
+function parseJsonOrJsonc(
+  filename: string,
+  content: string,
+): Record<string, unknown> {
+  return (
+    filename.endsWith(".jsonc") ? parseJsonc(content) : JSON.parse(content)
+  ) as Record<string, unknown>;
+}
+
 export class JsrPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
-    file: "jsr.json",
-    parser: JSON.parse,
+    file: ["jsr.json", "deno.json", "deno.jsonc"],
+    parser: parseJsonOrJsonc,
     fields: {
       name: (p) => (p.name as string) ?? "",
       version: (p) => (p.version as string) ?? "0.0.0",
       private: (_p) => false,
       dependencies: (_p) => [],
     },
+    validate: (manifests) => {
+      const entries = [...manifests.entries()];
+      const resolved = entries[0][1];
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      for (let i = 1; i < entries.length; i++) {
+        const [file, manifest] = entries[i];
+        if (manifest.name !== resolved.name) {
+          errors.push(
+            `name mismatch: "${resolved.name}" vs "${manifest.name}" in ${file}`,
+          );
+        }
+        if (manifest.version !== resolved.version) {
+          errors.push(
+            `version mismatch: "${resolved.version}" vs "${manifest.version}" in ${file}`,
+          );
+        }
+        if (manifest.private !== resolved.private) {
+          warnings.push(`private mismatch in ${file}`);
+        }
+      }
+
+      return { resolved, errors, warnings };
+    },
   });
   static override registryType = "jsr" as const;
+
+  static override async canInfer(
+    packagePath: string,
+  ): Promise<RegistryType | false> {
+    // jsr.json exists → always infer JSR
+    try {
+      const s = await stat(join(packagePath, "jsr.json"));
+      if (s.isFile()) return "jsr";
+    } catch {
+      // jsr.json doesn't exist, check deno files
+    }
+
+    // Check deno.json/deno.jsonc for name+version+exports
+    for (const file of ["deno.json", "deno.jsonc"]) {
+      const filePath = join(packagePath, file);
+      try {
+        const content = await readFile(filePath, "utf-8");
+        const parsed = parseJsonOrJsonc(file, content);
+
+        if (parsed?.name && parsed?.version && parsed?.exports) {
+          return "jsr";
+        }
+      } catch {
+        // File doesn't exist or parse error, continue
+      }
+    }
+
+    return false;
+  }
 
   registry = "https://jsr.io";
   client: JsrClient;
@@ -226,7 +293,7 @@ export class JsrPackageRegistry extends PackageRegistry {
   getRequirements(): RegistryRequirements {
     return {
       needsPackageScripts: false,
-      requiredManifest: "jsr.json",
+      requiredManifest: "jsr.json or deno.json",
     };
   }
 
@@ -252,6 +319,19 @@ export class JsrPackageRegistry extends PackageRegistry {
       } else {
         throw new Error("jsr is not installed. Please install jsr to proceed.");
       }
+    }
+
+    // Validate manifest consistency across jsr.json/deno.json/deno.jsonc
+    const validation = await JsrPackageRegistry.reader.validate(
+      this.packagePath,
+    );
+    if (validation.warnings.length > 0) {
+      task.output = validation.warnings.join("; ");
+    }
+    if (validation.errors.length > 0) {
+      throw new JsrError(
+        `Manifest inconsistency: ${validation.errors.join("; ")}`,
+      );
     }
 
     // J1, J2, J3: Non-scoped package → scope selection + creation + rollback

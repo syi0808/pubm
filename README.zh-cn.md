@@ -48,6 +48,7 @@ pubm 会读取你的清单文件并判断该发布到哪些仓库。
 |----------|----------|
 | `package.json` | npm |
 | `jsr.json` | jsr |
+| `deno.json` / `deno.jsonc` | jsr |
 | `Cargo.toml` | crates.io |
 
 如果同时存在 `package.json` 和 `jsr.json`，pubm 会在一次 release 中同时发布到两边，不需要额外配置。

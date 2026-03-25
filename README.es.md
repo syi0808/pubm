@@ -48,6 +48,7 @@ pubm lee tus manifests y deduce los registros.
 |----------|----------|
 | `package.json` | npm |
 | `jsr.json` | jsr |
+| `deno.json` / `deno.jsonc` | jsr |
 | `Cargo.toml` | crates.io |
 
 Tienes `package.json` y `jsr.json`? pubm publica en ambos dentro de una sola release. Sin configuracion adicional.

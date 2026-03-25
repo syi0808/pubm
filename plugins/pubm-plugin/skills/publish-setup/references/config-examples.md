@@ -29,8 +29,8 @@ The file must export a config object as the default export. Use `defineConfig()`
 
 When auto-detection is sufficient, no config file is needed. pubm will:
 - Detect packages from workspace config or single-package root
-- Detect JS ecosystem (package.json) or Rust ecosystem (Cargo.toml)
-- Infer registries: npm (default for JS), jsr (when jsr.json exists), crates (for Rust), private (from .npmrc or publishConfig)
+- Detect JS ecosystem (package.json, deno.json, deno.jsonc) or Rust ecosystem (Cargo.toml)
+- Infer registries: npm (default for JS), jsr (when jsr.json, deno.json, or deno.jsonc exists), crates (for Rust), private (from .npmrc or publishConfig)
 
 ### Monorepo with explicit packages and registries
 

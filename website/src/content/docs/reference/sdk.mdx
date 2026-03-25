@@ -270,7 +270,7 @@ The package root also exports the helpers below for tooling integrations.
 | `detectExtraneousFiles` | function | Flag files that should usually stay out of publish artifacts. |
 | `getPackageJson` | function | Read the nearest `package.json`, with optional `jsr.json` fallback. |
 | `replaceVersion` / `replaceVersionAtPath` | functions | Rewrite package versions in manifests. |
-| `version` | function | Read the current package version from `package.json` or `jsr.json`. |
+| `version` | function | Read the current package version from `package.json`, `jsr.json`, or `deno.json` / `deno.jsonc`. |
 | `generateSnapshotVersion` | function | Build snapshot versions from `base`, `tag`, `timestamp`, and optional `commit`. |
 | `loadTokensFromDb` | function | Load stored registry tokens, also honoring matching env vars. |
 | `syncGhSecrets` | function | Push registry tokens into GitHub Secrets via `gh secret set`. |

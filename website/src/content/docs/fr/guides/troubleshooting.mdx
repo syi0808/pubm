@@ -164,7 +164,7 @@ Ce qu'il faut vérifier :
 
 - confirmez que `contents` pointe vers le répertoire de publication final
 - assurez-vous que l'étape de build crée ce répertoire avant le début de la publication
-- vérifiez que le répertoire cible contient les fichiers manifest attendus par le registry sélectionné
+- vérifiez que le répertoire cible contient les fichiers manifest attendus par le registry sélectionné (`package.json` pour npm, `jsr.json` ou `deno.json` / `deno.jsonc` pour jsr, `Cargo.toml` pour crates)
 
 `contents` change le répertoire de travail du pipeline d'exécution. Traitez-le comme une racine de publication, pas seulement comme un dossier de sortie.
 

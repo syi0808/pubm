@@ -164,7 +164,7 @@ Was du prüfen solltest:
 
 - bestaetigen, dass `contents` auf das finale Publish-Verzeichnis zeigt
 - sicherstellen, dass der Build-Schritt dieses Verzeichnis erzeugt, bevor der Publish beginnt
-- prüfen, ob das Zielverzeichnis die Manifest-Dateien enthaelt, die die gewaehlte Registry erwartet
+- prüfen, ob das Zielverzeichnis die Manifest-Dateien enthaelt, die die gewaehlte Registry erwartet (`package.json` für npm, `jsr.json` oder `deno.json` / `deno.jsonc` für jsr, `Cargo.toml` für crates)
 
 `contents` ändert das Working Directory für die Laufzeit-Pipeline. Behandle es als Publish-Root, nicht nur als Ausgabeverzeichnis.
 

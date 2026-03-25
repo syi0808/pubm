@@ -60,6 +60,7 @@ export default defineConfig({
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
 | `Cargo.toml` | `crates` |
 
 Für `npm` gelten zwei zusätzliche Regeln:
@@ -344,7 +345,7 @@ Lies die [Plugins API Reference](/pubm/de/reference/plugins/) für Hook-Reihenfo
 
 ### Einfache Bibliothek
 
-Wenn das Paket `package.json` und `jsr.json` hat, werden Registries automatisch abgeleitet. Eine Config-Datei ist nicht nötig - `pubm.config.ts` ist optional. Erstelle sie nur, wenn du einen Standardwert überschreiben musst (z. B. eigener Branch, Plugins, Release-Artefakte usw.).
+Wenn das Paket `package.json` und `jsr.json` (oder `deno.json` / `deno.jsonc`) hat, werden Registries automatisch abgeleitet. Eine Config-Datei ist nicht nötig - `pubm.config.ts` ist optional. Erstelle sie nur, wenn du einen Standardwert überschreiben musst (z. B. eigener Branch, Plugins, Release-Artefakte usw.).
 
 ### App-Monorepo
 
