@@ -123,6 +123,14 @@ Danach fuehrt dich pubm durch den Rest:
 
 pubm speichert Tokens uber `@napi-rs/keyring` im nativen Keychain deines Betriebssystems (macOS Keychain, Windows Credential Manager, Linux Secret Service). Umgebungsvariablen haben immer Vorrang. Mit `--no-save-token` wirst du bei jedem Lauf erneut gefragt.
 
+## Datenschutz
+
+pubm sammelt keine Telemetrie-, Analyse- oder Nutzungsdaten.
+
+- **Token-Speicherung** — Registry-Tokens werden im nativen Keychain deines Betriebssystems gespeichert (macOS Keychain, Windows Credential Manager, Linux Secret Service) mit einem AES-256-CBC-verschlusselten Fallback unter `~/.pubm/`
+- **Netzwerk** — pubm kommuniziert ausschliesslich mit den von dir konfigurierten Registries (npm, jsr, crates.io) und GitHub fur die Release-Erstellung
+- **Update-Check** — Fragt die oeffentliche npm-Registry nach neueren Versionen ab (nur lokal, in CI deaktiviert)
+
 ---
 
 ## Mitwirken
