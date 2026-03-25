@@ -32,7 +32,8 @@
     "check": "biome check",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
-    "coverage": "vitest --run --coverage"
+    "coverage": "vitest --run --coverage",
+    "build": "bun run ./build.ts"
   },
   "dependencies": {
     "@pubm/core": "workspace:*",
