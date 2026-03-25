@@ -109,6 +109,38 @@ Wichtige Felder:
 - `ctx.runtime` - veraenderbarer Runtime-Zustand (Version-Plan, temporäres Verzeichnis usw.)
 - `ctx.runtime.pluginTokens` - Map der aufgeloesten Plugin-Credentials, indiziert über `PluginCredential.key`. Wird nach dem Sammeln der Credentials befüllt und steht danach in allen Hooks zur Verfügung.
 
+### Rollback-API
+
+Plugins koennen Rollback-Aktionen registrieren, die automatisch ausgefuehrt werden, wenn die Publish-Pipeline fehlschlaegt. Die Aktionen werden in LIFO-Reihenfolge (Last-in, First-out) ausgefuehrt.
+
+Registriere Rollback-Aktionen mit `ctx.runtime.rollback.add()` in jedem Hook:
+
+```typescript
+hooks: {
+  afterVersion: async (ctx) => {
+    // Perform side effect
+    const backup = readFileSync(filePath, "utf-8");
+    modifyFile(filePath);
+
+    // Register rollback to undo it
+    ctx.runtime.rollback.add({
+      label: `Restore ${filePath}`,
+      fn: async () => {
+        writeFileSync(filePath, backup, "utf-8");
+      },
+    });
+  },
+}
+```
+
+#### `RollbackAction`
+
+| Eigenschaft | Typ | Beschreibung |
+|-------------|-----|--------------|
+| `label` | `string` | Menschlich lesbare Beschreibung, die waehrend des Rollbacks angezeigt wird |
+| `fn` | `(ctx: PubmContext) => Promise<void>` | Asynchrone Funktion, die den Seiteneffekt rueckgaengig macht |
+| `confirm` | `boolean?` | Wenn `true`, wird im TTY-Modus vor der Ausfuehrung eine Bestaetigung angefordert. In CI wird automatisch ausgefuehrt. |
+
 ## `PluginCredential`
 
 Deklarativer Deskriptor für ein Token oder Secret, das ein Plugin benötigt.

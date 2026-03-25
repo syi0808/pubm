@@ -7,7 +7,7 @@ Offizielle Plugins werden gemeinsam mit `pubm` gepflegt und folgen denselben Rel
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` hilft CLI-Projekten dabei, Homebrew-Formulae mit jedem Release synchron zu halten.
+`@pubm/plugin-brew` hilft CLI-Projekten dabei, Homebrew-Formulae mit jedem Release synchron zu halten. Registriert Rollback-Aktionen, um erstellte Homebrew-PRs zu schliessen, falls die Pipeline nach der PR-Erstellung fehlschlaegt.
 
 ### Wofür es sich eignet
 
@@ -130,7 +130,7 @@ export default defineConfig({
 
 ## `@pubm/plugin-external-version-sync`
 
-Dieses Plugin haelt Dateien außerhalb von Manifests mit deiner Paketversion synchron.
+Dieses Plugin haelt Dateien außerhalb von Manifests mit deiner Paketversion synchron. Registriert Rollback-Aktionen, um den ursprünglichen Dateiinhalt wiederherzustellen, falls die Pipeline nach der Versionssynchronisierung fehlschlaegt.
 
 Verwende es, wenn ein Release auch Folgendes aktualisieren soll:
 

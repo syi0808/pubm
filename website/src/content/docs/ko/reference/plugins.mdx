@@ -109,6 +109,38 @@ export interface PubmContext {
 - `ctx.runtime` - 가변 런타임 상태(version plan, temp directory 등)
 - `ctx.runtime.pluginTokens` - `PluginCredential.key`를 키로 하는 해석된 플러그인 자격 증명 값 맵입니다. 자격 증명 수집 단계 이후 채워지며 이후 모든 hook에서 사용할 수 있습니다.
 
+### Rollback API
+
+플러그인은 publish 파이프라인이 실패할 때 자동으로 실행되는 롤백 액션을 등록할 수 있습니다. 액션은 LIFO(후입선출) 순서로 실행됩니다.
+
+아무 hook 안에서 `ctx.runtime.rollback.add()`를 사용하여 롤백 액션을 등록합니다.
+
+```typescript
+hooks: {
+  afterVersion: async (ctx) => {
+    // Perform side effect
+    const backup = readFileSync(filePath, "utf-8");
+    modifyFile(filePath);
+
+    // Register rollback to undo it
+    ctx.runtime.rollback.add({
+      label: `Restore ${filePath}`,
+      fn: async () => {
+        writeFileSync(filePath, backup, "utf-8");
+      },
+    });
+  },
+}
+```
+
+#### `RollbackAction`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `label` | `string` | 롤백 중 표시되는 사람이 읽을 수 있는 설명 |
+| `fn` | `(ctx: PubmContext) => Promise<void>` | 부작용을 되돌리는 비동기 함수 |
+| `confirm` | `boolean?` | `true`이면 TTY 모드에서 실행 전 확인을 요청합니다. CI에서는 자동으로 실행됩니다. |
+
 ## `PluginCredential`
 
 플러그인이 필요로 하는 토큰이나 secret을 선언적으로 설명하는 타입입니다.

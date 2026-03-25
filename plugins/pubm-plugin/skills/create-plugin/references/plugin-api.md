@@ -191,6 +191,36 @@ interface PubmContext {
 | `ctx.runtime.tag` | `string` | Release dist-tag |
 | `ctx.runtime.releaseContext` | `ReleaseContext` | GitHub release info (in `afterRelease`) |
 
+### Rollback API
+
+Plugins can register rollback actions that execute automatically when the publish pipeline fails. Actions are executed in LIFO (last-in, first-out) order.
+
+Register rollback actions using `ctx.runtime.rollback.add()` inside any hook:
+
+```typescript
+hooks: {
+  afterVersion: async (ctx) => {
+    const backup = readFileSync(filePath, "utf-8");
+    modifyFile(filePath);
+
+    ctx.runtime.rollback.add({
+      label: `Restore ${filePath}`,
+      fn: async () => {
+        writeFileSync(filePath, backup, "utf-8");
+      },
+    });
+  },
+}
+```
+
+#### RollbackAction
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `label` | `string` | Human-readable description shown during rollback |
+| `fn` | `(ctx: PubmContext) => Promise<void>` | Async function that reverses the side effect |
+| `confirm` | `boolean?` | If `true`, prompts for confirmation in TTY mode before executing. Auto-executes in CI. |
+
 ### VersionPlan
 
 ```typescript
