@@ -200,6 +200,31 @@ describe("externalVersionSync", () => {
     vi.restoreAllMocks();
   });
 
+  it("rollback restores original file contents", async () => {
+    const filePath = join(tmpDir, "rollback.json");
+    const original = JSON.stringify({ version: "0.0.0" }, null, "  ");
+    writeFileSync(filePath, original);
+
+    const ctx = makeCtx("1.0.0");
+    const plugin = externalVersionSync({
+      targets: [{ file: filePath, jsonPath: "version" }],
+    });
+
+    await plugin.hooks?.afterVersion?.(ctx);
+
+    // File was modified
+    expect(JSON.parse(readFileSync(filePath, "utf-8")).version).toBe("1.0.0");
+
+    // Extract and invoke the rollback fn
+    const rollbackAdd = ctx.runtime.rollback.add as ReturnType<typeof vi.fn>;
+    expect(rollbackAdd).toHaveBeenCalledOnce();
+    const rollbackAction = rollbackAdd.mock.calls[0][0];
+    await rollbackAction.fn();
+
+    // File is restored to original
+    expect(readFileSync(filePath, "utf-8")).toBe(original);
+  });
+
   it("does not log when file is already up to date", async () => {
     const filePath = join(tmpDir, "app.json");
     writeFileSync(filePath, JSON.stringify({ version: "1.0.0" }, null, "  "));

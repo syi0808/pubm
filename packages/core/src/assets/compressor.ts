@@ -124,6 +124,7 @@ export async function compressFile(
  * xz compresses in-place: `xz file.tar` → `file.tar.xz` (removes original)
  * zstd needs explicit output: `zstd file.tar -o file.tar.zst`
  */
+/* istanbul ignore next -- Windows-only bsdtar fallback, no Windows CI */
 async function tarThenCompress(
   archivePath: string,
   dir: string,

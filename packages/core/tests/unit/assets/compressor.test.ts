@@ -108,6 +108,23 @@ describe("compressFile", () => {
     expect(existsSync(result)).toBe(true);
   });
 
+  it("includes extra files in tar.gz archive", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "compress-test-"));
+    const srcFile = join(dir, "testbin");
+    writeFileSync(srcFile, "binary content");
+    const extraFile = join(dir, "README");
+    writeFileSync(extraFile, "readme content");
+    const outDir = mkdtempSync(join(tmpdir(), "compress-out-"));
+    const { compressFile: compressFileFresh } = await import(
+      "../../../src/assets/compressor.js"
+    );
+    const result = await compressFileFresh(srcFile, outDir, "tar.gz", [
+      extraFile,
+    ]);
+    expect(result).toMatch(/\.tar\.gz$/);
+    expect(existsSync(result)).toBe(true);
+  });
+
   it.skipIf(process.platform === "win32")("creates zip archive", async () => {
     const dir = mkdtempSync(join(tmpdir(), "compress-test-"));
     const srcFile = join(dir, "testbin");

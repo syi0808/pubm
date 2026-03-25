@@ -909,4 +909,24 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       expect(tfaSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe("unpublish", () => {
+    it("supportsUnpublish returns true", () => {
+      const registry = new NpmPackageRegistry("test-pkg", FIXTURE_PATH);
+      expect(registry.supportsUnpublish).toBe(true);
+    });
+
+    it("calls npm unpublish with correct args", async () => {
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      const registry = new NpmPackageRegistry("test-pkg", FIXTURE_PATH);
+      await registry.unpublish("test-pkg", "1.0.0");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(["unpublish", "test-pkg@1.0.0"]),
+        expect.any(Object),
+      );
+    });
+  });
 });

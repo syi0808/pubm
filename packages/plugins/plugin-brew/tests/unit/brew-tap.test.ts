@@ -234,6 +234,94 @@ describe("brewTap", () => {
     );
   });
 
+  it("same-repo PR fallback registers rollback that closes the PR", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "git push") {
+        throw new Error("no upstream");
+      }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/user/repo/pull/42\n" as never;
+      }
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const rollbackAdd = vi.fn();
+    const plugin = brewTap({ formula: "Formula/pubm.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { rollback: { add: rollbackAdd } } } as never,
+      { version: "2.0.0", assets: [] } as never,
+    );
+
+    expect(rollbackAdd).toHaveBeenCalledOnce();
+    const action = rollbackAdd.mock.calls[0][0];
+    expect(action.label).toContain("42");
+    expect(action.confirm).toBe(true);
+
+    // Invoke the rollback fn
+    mockedExecSync.mockReset();
+    mockedExecSync.mockReturnValue(Buffer.from(""));
+    await action.fn();
+
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      'gh pr close 42 --comment "Closed by pubm rollback"',
+      { stdio: "inherit" },
+    );
+  });
+
+  it("separate repo PR fallback registers rollback that closes the PR", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+
+    mockedExecSync.mockImplementation((command) => {
+      if (command === `cd ${tmpDir} && git push`) {
+        throw new Error("permission denied");
+      }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        return "https://github.com/syi0808/homebrew-pubm/pull/60\n" as never;
+      }
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const rollbackAdd = vi.fn();
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      {
+        runtime: { pluginTokens: {}, rollback: { add: rollbackAdd } },
+      } as never,
+      { version: "6.0.0", assets: [] } as never,
+    );
+
+    expect(rollbackAdd).toHaveBeenCalledOnce();
+    const action = rollbackAdd.mock.calls[0][0];
+    expect(action.label).toContain("60");
+    expect(action.confirm).toBe(true);
+
+    // Invoke the rollback fn
+    mockedExecSync.mockReset();
+    mockedExecSync.mockReturnValue(Buffer.from(""));
+    await action.fn();
+
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      'gh pr close 60 --repo syi0808/homebrew-pubm --comment "Closed by pubm rollback"',
+      { stdio: "inherit" },
+    );
+  });
+
   it("creates a new default formula during release when the workspace has no package.json", async () => {
     const plugin = brewTap({ formula: "Formula/my-tool.rb" });
 

@@ -55,6 +55,47 @@ describe("PackageRegistry", () => {
   });
 });
 
+describe("PackageRegistry defaults", () => {
+  class MinimalTestRegistry extends PackageRegistry {
+    async publish(): Promise<boolean> {
+      return true;
+    }
+    async isPublished(): Promise<boolean> {
+      return false;
+    }
+    async isVersionPublished(): Promise<boolean> {
+      return false;
+    }
+    async hasPermission(): Promise<boolean> {
+      return true;
+    }
+    async isPackageNameAvailable(): Promise<boolean> {
+      return true;
+    }
+    async distTags(): Promise<string[]> {
+      return [];
+    }
+    getRequirements() {
+      return { needsPackageScripts: false, requiredManifest: "test.json" };
+    }
+  }
+
+  it("supportsUnpublish returns false by default", () => {
+    const reg = new MinimalTestRegistry("my-package", FIXTURE_PATH);
+    expect(reg.supportsUnpublish).toBe(false);
+  });
+
+  it("unpublish is a no-op by default", async () => {
+    const reg = new MinimalTestRegistry("my-package", FIXTURE_PATH);
+    await expect(reg.unpublish("my-package", "1.0.0")).resolves.toBeUndefined();
+  });
+
+  it("dryRunPublish is a no-op by default", async () => {
+    const reg = new MinimalTestRegistry("my-package", FIXTURE_PATH);
+    await expect(reg.dryRunPublish()).resolves.toBeUndefined();
+  });
+});
+
 describe("base checkAvailability", () => {
   class BaseTestRegistry extends PackageRegistry {
     async publish(): Promise<boolean> {

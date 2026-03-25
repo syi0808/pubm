@@ -356,3 +356,94 @@ describe("createGitHubRelease", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("deleteGitHubRelease", () => {
+  const originalToken = process.env.GITHUB_TOKEN;
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+
+  afterEach(() => {
+    process.env.GITHUB_TOKEN = originalToken;
+    global.fetch = originalFetch;
+    vi.unstubAllGlobals();
+  });
+
+  it("throws when GITHUB_TOKEN is missing", async () => {
+    process.env.GITHUB_TOKEN = "";
+    const { deleteGitHubRelease } = await freshImport();
+
+    await expect(deleteGitHubRelease(12345)).rejects.toThrow(
+      "GITHUB_TOKEN environment variable is required",
+    );
+  });
+
+  it("deletes a release successfully", async () => {
+    const { mockGit } = await getMocks();
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/owner/repo.git"),
+      } as any;
+    } as any);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    }) as any;
+
+    const { deleteGitHubRelease } = await freshImport();
+    await expect(deleteGitHubRelease(12345)).resolves.toBeUndefined();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.github.com/repos/owner/repo/releases/12345",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("ignores 404 response", async () => {
+    const { mockGit } = await getMocks();
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/owner/repo.git"),
+      } as any;
+    } as any);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: vi.fn().mockResolvedValue("Not Found"),
+    }) as any;
+
+    const { deleteGitHubRelease } = await freshImport();
+    await expect(deleteGitHubRelease(99999)).resolves.toBeUndefined();
+  });
+
+  it("throws on non-404 error response", async () => {
+    const { mockGit } = await getMocks();
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/owner/repo.git"),
+      } as any;
+    } as any);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: vi.fn().mockResolvedValue("Internal Server Error"),
+    }) as any;
+
+    const { deleteGitHubRelease } = await freshImport();
+    await expect(deleteGitHubRelease(12345)).rejects.toThrow(
+      "Failed to delete GitHub Release 12345 (500)",
+    );
+  });
+});
