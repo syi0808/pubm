@@ -1169,6 +1169,87 @@ describe("brewTap", () => {
       );
     });
 
+    it("updates local formula AND separate tap repo when repo is configured", async () => {
+      mkdirSync(resolve(tmpRoot, "Formula"), { recursive: true });
+      writeFileSync(
+        resolve(tmpRoot, "Formula/pubm.rb"),
+        [
+          "class Pubm < Formula",
+          '  version "0.1.0"',
+          "",
+          "  on_macos do",
+          "    if Hardware::CPU.arm?",
+          '      url "https://example.com/old-darwin-arm64.tar.gz"',
+          '      sha256 "old-darwin-arm64"',
+          "    end",
+          "  end",
+          "end",
+          "",
+        ].join("\n"),
+      );
+      writeFileSync(
+        resolve(tmpRoot, "package.json"),
+        JSON.stringify({ name: "pubm" }, null, 2),
+      );
+      vi.spyOn(Date, "now").mockReturnValue(123456);
+      vi.spyOn(console, "log").mockImplementation(() => {});
+
+      const plugin = brewTap({
+        formula: "Formula/pubm.rb",
+        repo: "syi0808/homebrew-pubm",
+      });
+
+      await plugin.hooks?.afterRelease?.(
+        {
+          runtime: {
+            pluginTokens: { "brew-github-token": "ghp_token" },
+            rollback: { add: vi.fn() },
+          },
+        } as never,
+        {
+          version: "10.0.0",
+          assets: [
+            {
+              name: "pubm-darwin-arm64.tar.gz",
+              url: "https://example.com/new-darwin-arm64.tar.gz",
+              sha256: "new-darwin-arm64",
+              platform: { raw: "darwin-arm64", os: "darwin", arch: "arm64" },
+            },
+          ],
+        } as never,
+      );
+
+      // Local formula file should be updated
+      const localFormula = readFileSync(
+        resolve(tmpRoot, "Formula/pubm.rb"),
+        "utf-8",
+      );
+      expect(localFormula).toContain('version "10.0.0"');
+      expect(localFormula).toContain(
+        'url "https://example.com/new-darwin-arm64.tar.gz"',
+      );
+
+      const calls = mockedExecSync.mock.calls.map(([cmd]) => cmd);
+
+      // Local git add/commit/push should have been called
+      expect(calls).toContain(`git add ${resolve(tmpRoot, "Formula/pubm.rb")}`);
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("chore(brew): update formula to 10.0.0"),
+        ]),
+      );
+      expect(calls).toContain("git push");
+
+      // Separate tap repo clone/commit/push should also have been called
+      const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(`git clone --depth 1`),
+        ]),
+      );
+      expect(calls).toContain(`cd ${tmpDir} && git push`);
+    });
+
     it("release does not throw when brew tap push fails and PR fallback succeeds", async () => {
       writeFileSync(
         resolve(tmpRoot, "package.json"),

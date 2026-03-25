@@ -177,7 +177,7 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
         writeFileSync(formulaPath, content);
         console.log(`Formula updated at ${options.formula}`);
 
-        if (!options.repo) {
+        {
           const { execSync } = await import("node:child_process");
           ensureGitIdentity();
 
@@ -212,7 +212,6 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
             }
             console.log(`Created PR on branch ${branch}`);
           }
-          return;
         }
 
         if (options.repo) {
