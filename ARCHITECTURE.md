@@ -277,7 +277,7 @@ packages/core/src/
     ├── db.ts                AES-256-CBC encrypted token storage
     ├── secure-store.ts      @napi-rs/keyring integration
     ├── github-token.ts      Token resolution (env→keyring→prompt)
-    ├── package.ts           package.json/jsr.json read/cache
+    ├── package.ts           package.json/jsr.json/deno.json/deno.jsonc read/cache
     ├── package-manager.ts   Detect npm/yarn/pnpm/bun/deno
     ├── resolve-phases.ts    Release phase validation
     ├── filter-config.ts     Filter config packages
@@ -627,7 +627,7 @@ classDiagram
 
     class JsEcosystem {
         +registryClasses() [NpmPackageRegistry, JsrPackageRegistry]
-        +writeVersion() regex replace in package.json + jsr.json
+        +writeVersion() regex replace in package.json, jsr.json, deno.json, deno.jsonc
         +manifestFiles() ["package.json"]
         +defaultTestCommand() "{pm} run test"
         +defaultBuildCommand() "{pm} run build"
@@ -750,6 +750,7 @@ Config has registries?
 │
 └── No  → Detect from manifest files
           NpmPackageRegistry.reader.exists(path)? → JsEcosystem
+          JsrPackageRegistry.reader.exists(path)? → JsEcosystem (Deno-only projects with deno.json/deno.jsonc)
           CratesPackageRegistry.reader.exists(path)? → RustEcosystem
 ```
 
@@ -795,7 +796,7 @@ classDiagram
     }
 
     class JsrPackageRegistry {
-        +reader: ManifestReader for jsr.json
+        +reader: ManifestReader (multi-file: jsr.json, deno.json, deno.jsonc with priority)
         +registryType = "jsr"
         +JsrClient: nested API client
         +publish() jsr publish --token

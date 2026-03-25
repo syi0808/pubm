@@ -270,7 +270,7 @@ Das Paket-Root exportiert außerdem die folgenden Helfer für Tooling-Integratio
 | `detectExtraneousFiles` | function | Markiert Dateien, die normalerweise nicht in Publish-Artefakten landen sollten. |
 | `getPackageJson` | function | Liest das nächste `package.json`, optional mit `jsr.json`-Fallback. |
 | `replaceVersion` / `replaceVersionAtPath` | functions | Schreibt Paketversionen in Manifests um. |
-| `version` | function | Liest die aktuelle Paketversion aus `package.json` oder `jsr.json`. |
+| `version` | function | Liest die aktuelle Paketversion aus `package.json`, `jsr.json` oder `deno.json` / `deno.jsonc`. |
 | `generateSnapshotVersion` | function | Baut Snapshot-Versionen aus `base`, `tag`, `timestamp` und optional `commit`. |
 | `loadTokensFromDb` | function | Laedt gespeicherte Registry-Tokens und beachtet passende Umgebungsvariablen. |
 | `syncGhSecrets` | function | Schiebt Registry-Tokens über `gh secret set` in GitHub Secrets. |

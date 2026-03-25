@@ -16,7 +16,7 @@ CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase 
 - Skips prerequisites check (branch, remote, working tree).
 - Skips conditions check (registry ping, login validation).
 - Skips tests, build, version bump, git commit, tag creation, tag pushing.
-- Reads each package's version from its manifest (`package.json`, `jsr.json`, `Cargo.toml`).
+- Reads each package's version from its manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, or `Cargo.toml`).
 - Publishes to all configured registries concurrently. Already-published versions are skipped.
 - Creates a GitHub Release with release notes and uploads release assets.
 - In monorepo independent mode, each package version is read independently. Fixed mode uses a shared version.

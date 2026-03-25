@@ -164,7 +164,7 @@ pubm --test-script test:ci --build-script build:release
 
 - `contents`가 최종 publish 디렉터리를 가리키는지 확인합니다.
 - build 단계가 publish 시작 전에 그 디렉터리를 만드는지 확인합니다.
-- 대상 디렉터리에 선택한 레지스트리가 기대하는 매니페스트 파일이 있는지 확인합니다.
+- 대상 디렉터리에 선택한 레지스트리가 기대하는 매니페스트 파일이 있는지 확인합니다. (npm은 `package.json`, jsr은 `jsr.json` 또는 `deno.json` / `deno.jsonc`, crates는 `Cargo.toml`)
 
 `contents`는 런타임 파이프라인의 working directory를 바꿉니다. 단순한 출력 폴더가 아니라 publish root로 취급해야 합니다.
 

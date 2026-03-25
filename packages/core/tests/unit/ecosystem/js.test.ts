@@ -69,6 +69,28 @@ describe("JsEcosystem", () => {
       mockedStat.mockRejectedValue(new Error("ENOENT"));
       expect(await JsEcosystem.detect(pkgPath)).toBe(false);
     });
+
+    it("returns true when deno.json exists (no package.json)", async () => {
+      mockedStat.mockImplementation(async (p) => {
+        const filePath = typeof p === "string" ? p : p.toString();
+        if (filePath.endsWith("deno.json")) {
+          return { isFile: () => true } as any;
+        }
+        throw new Error("ENOENT");
+      });
+      expect(await JsEcosystem.detect(pkgPath)).toBe(true);
+    });
+
+    it("returns true when deno.jsonc exists (no package.json)", async () => {
+      mockedStat.mockImplementation(async (p) => {
+        const filePath = typeof p === "string" ? p : p.toString();
+        if (filePath.endsWith("deno.jsonc")) {
+          return { isFile: () => true } as any;
+        }
+        throw new Error("ENOENT");
+      });
+      expect(await JsEcosystem.detect(pkgPath)).toBe(true);
+    });
   });
 
   describe("packageName", () => {
@@ -122,6 +144,27 @@ describe("JsEcosystem", () => {
       await eco.writeVersion("2.0.0");
 
       expect(mockedWriteFile).not.toHaveBeenCalled();
+    });
+
+    it("writes version to deno.json and deno.jsonc when they exist", async () => {
+      const eco = new JsEcosystem(pkgPath);
+      mockedReadFile.mockImplementation(async (p) => {
+        const filePath = typeof p === "string" ? p : p.toString();
+        if (filePath.endsWith("deno.json"))
+          return '{ "name": "@scope/pkg", "version": "1.0.0" }' as any;
+        if (filePath.endsWith("deno.jsonc"))
+          return '// comment\n{ "name": "@scope/pkg", "version": "1.0.0" }' as any;
+        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      });
+
+      await eco.writeVersion("2.0.0");
+
+      // 4 files in the list: package.json (ENOENT), jsr.json (ENOENT), deno.json (written), deno.jsonc (written)
+      expect(mockedWriteFile).toHaveBeenCalledTimes(2);
+      const denoJsonCall = mockedWriteFile.mock.calls.find((c) =>
+        (c[0] as string).endsWith("deno.json"),
+      );
+      expect(denoJsonCall?.[1]).toContain('"2.0.0"');
     });
 
     it("rethrows non-ENOENT errors during writeVersion", async () => {

@@ -1,15 +1,17 @@
 # npm Registry Constraints
 
-## package.json Template (from jsr.json)
+## package.json Template (from jsr.json or deno.json)
 
 ```json
 {
-  "name": "<name from jsr.json>",
-  "version": "<version from jsr.json>",
+  "name": "<name from jsr.json or deno.json>",
+  "version": "<version from jsr.json or deno.json>",
   "files": ["<from publish.include, plus negated publish.exclude>"],
-  "exports": "<converted from jsr.json exports>"
+  "exports": "<converted from jsr.json or deno.json exports>"
 }
 ```
+
+When generating `package.json` for npm publishing, the source can be either `jsr.json` or `deno.json`/`deno.jsonc`.
 
 ## Exports Conversion
 

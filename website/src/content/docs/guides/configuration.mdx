@@ -60,6 +60,7 @@ export default defineConfig({
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
 | `Cargo.toml` | `crates` |
 
 Two additional rules apply for npm:
@@ -344,7 +345,7 @@ Read the [Plugins API Reference](/pubm/reference/plugins/) for hook order, comma
 
 ### Simple library
 
-If the package has `package.json` and `jsr.json`, registries are inferred automatically. No config file is needed — `pubm.config.ts` is optional. Only create it when you need to override a default (custom branch, plugins, release assets, etc.).
+If the package has `package.json` and `jsr.json` (or `deno.json` / `deno.jsonc`), registries are inferred automatically. No config file is needed — `pubm.config.ts` is optional. Only create it when you need to override a default (custom branch, plugins, release assets, etc.).
 
 ### App monorepo
 

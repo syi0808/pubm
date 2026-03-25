@@ -24,7 +24,7 @@ pubm publishes packages to multiple registries (npm, jsr, crates.io, private reg
 Before anything else, thoroughly analyze the project to understand what we're working with.
 
 **Scan the following:**
-- **Manifest files**: `package.json`, `jsr.json`, `Cargo.toml` — detect ecosystem (JS/Rust/both)
+- **Manifest files**: `package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml` — detect ecosystem (JS/Rust/both)
 - **Workspace config**: `pnpm-workspace.yaml`, `package.json` workspaces, `Cargo.toml [workspace]` — detect monorepo structure
 - **Package manager**: lock files (`bun.lockb`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`) — determines install commands
 - **Existing config**: `pubm.config.ts` / `.js` / `.mjs` — check if pubm is already configured
@@ -52,10 +52,10 @@ Check `package.json` devDependencies for `pubm`. If not installed, ask whether t
 Run `pubm inspect packages` to show the auto-detected ecosystem, packages, and target registries.
 
 pubm auto-detects:
-- **Ecosystem**: JavaScript (package.json) or Rust (Cargo.toml)
+- **Ecosystem**: JavaScript (package.json, deno.json, deno.jsonc) or Rust (Cargo.toml)
 - **Packages**: Workspace packages via pnpm-workspace.yaml, package.json workspaces, or Cargo.toml [workspace]. Falls back to single-package if no workspace found.
 - **Registries per package**:
-  - JS: npm (default when package.json exists), jsr (when jsr.json exists), private registry (from publishConfig.registry or .npmrc)
+  - JS: npm (default when package.json exists), jsr (when jsr.json or deno.json/deno.jsonc exists), private registry (from publishConfig.registry or .npmrc)
   - Rust: crates (always)
 
 Show the output and ask the user:
@@ -161,8 +161,8 @@ For each registry that a package targets, check if its required config file exis
 
 | Target registry | Required file | Source file | Reference |
 |---|---|---|---|
-| `jsr` | `jsr.json` | `package.json` | `references/registry-jsr.md` |
-| `npm` or custom URL | `package.json` | `jsr.json` | `references/registry-npm.md` |
+| `jsr` | `jsr.json` | `package.json` or `deno.json`/`deno.jsonc` | `references/registry-jsr.md` |
+| `npm` or custom URL | `package.json` | `jsr.json` or `deno.json`/`deno.jsonc` | `references/registry-npm.md` |
 | `crates` | `Cargo.toml` | `package.json` | `references/registry-crates.md` |
 
 Read the corresponding registry reference file for the template and constraints.

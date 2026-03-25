@@ -1,4 +1,5 @@
 export {
+  type ConsistencyResult,
   ManifestReader,
   type ManifestSchema,
   type PackageManifest,

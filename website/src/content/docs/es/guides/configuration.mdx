@@ -60,6 +60,7 @@ export default defineConfig({
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
 | `Cargo.toml` | `crates` |
 
 Para npm se aplican dos reglas adicionales:
@@ -344,7 +345,7 @@ Lee la [Plugins API Reference](/pubm/es/reference/plugins/) para conocer el orde
 
 ### Biblioteca simple
 
-Si el paquete tiene `package.json` y `jsr.json`, los registries se infieren automáticamente. No hace falta un archivo de configuración: `pubm.config.ts` es opcional. Créalo solo cuando necesites sobrescribir un valor por defecto, como un branch personalizado, plugins o assets de release.
+Si el paquete tiene `package.json` y `jsr.json` (o `deno.json` / `deno.jsonc`), los registries se infieren automáticamente. No hace falta un archivo de configuración: `pubm.config.ts` es opcional. Créalo solo cuando necesites sobrescribir un valor por defecto, como un branch personalizado, plugins o assets de release.
 
 ### Monorepo de app
 

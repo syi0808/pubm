@@ -48,6 +48,7 @@ pubm lit vos manifests et determine les registres cibles.
 |----------|----------|
 | `package.json` | npm |
 | `jsr.json` | jsr |
+| `deno.json` / `deno.jsonc` | jsr |
 | `Cargo.toml` | crates.io |
 
 Vous avez `package.json` et `jsr.json` ? pubm publie vers les deux dans une seule release. Aucun fichier de config n'est necessaire.

@@ -164,7 +164,7 @@ pubm --test-script test:ci --build-script build:release
 
 - confirm `contents` points to the final publish directory
 - ensure the build step creates that directory before publish starts
-- verify the target directory contains the manifest files expected by the selected registry
+- verify the target directory contains the manifest files expected by the selected registry (`package.json` for npm, `jsr.json` or `deno.json` / `deno.jsonc` for jsr, `Cargo.toml` for crates)
 
 `contents` 会改变运行时流程的工作目录。应把它视为发布根目录，而不只是输出目录。
 

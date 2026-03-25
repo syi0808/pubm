@@ -270,7 +270,7 @@ La raíz del paquete también exporta los siguientes ayudantes para integracione
 | `detectExtraneousFiles` | function | Marca archivos que normalmente deberían quedarse fuera de los artefactos publicados. |
 | `getPackageJson` | function | Lee el `package.json` más cercano, con fallback opcional a `jsr.json`. |
 | `replaceVersion` / `replaceVersionAtPath` | functions | Reescriben versiones de paquetes en los manifests. |
-| `version` | function | Lee la versión actual del paquete desde `package.json` o `jsr.json`. |
+| `version` | function | Lee la versión actual del paquete desde `package.json`, `jsr.json` o `deno.json` / `deno.jsonc`. |
 | `generateSnapshotVersion` | function | Construye versiones snapshot a partir de `base`, `tag`, `timestamp` y `commit` opcional. |
 | `loadTokensFromDb` | function | Carga tokens de registry guardados y también respeta las env vars coincidentes. |
 | `syncGhSecrets` | function | Sube tokens de registry a GitHub Secrets mediante `gh secret set`. |

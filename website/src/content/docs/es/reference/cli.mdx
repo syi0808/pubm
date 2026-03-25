@@ -175,7 +175,7 @@ pubm init
 
 El asistente recorre cada etapa en orden:
 
-1. **Detección de paquetes** — escanea el repositorio en busca de archivos manifest (`package.json`, `jsr.json`, `Cargo.toml`) y la configuración del workspace, y confirma los paquetes y registries detectados.
+1. **Detección de paquetes** — escanea el repositorio en busca de archivos manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) y la configuración del workspace, y confirma los paquetes y registries detectados.
 2. **Configuración básica** — solicita el branch de release y la estrategia de versionado (`independent` o `fixed`).
 3. **Opciones de release** — pregunta sobre la generación de changelog y los borradores de GitHub Release.
 4. **Configuración de workflows** — ofrece activar el workflow de changesets (crea `.pubm/changesets/`, `.github/workflows/changeset-check.yml` y actualiza `.gitignore`) y generar workflows de release para CI (`.github/workflows/release.yml`).

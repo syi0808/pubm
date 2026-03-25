@@ -48,6 +48,7 @@ pubm liest deine Manifest-Dateien und erkennt daraus die passenden Registries.
 |----------|----------|
 | `package.json` | npm |
 | `jsr.json` | jsr |
+| `deno.json` / `deno.jsonc` | jsr |
 | `Cargo.toml` | crates.io |
 
 Du hast sowohl `package.json` als auch `jsr.json`? pubm veroffentlicht in einem Release an beide. Keine Config notwendig.

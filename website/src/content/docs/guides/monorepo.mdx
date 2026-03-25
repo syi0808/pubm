@@ -105,7 +105,7 @@ The standard `pubm` release pipeline then consumes those pending changesets duri
 
 ## Multi-registry monorepos
 
-Each package's registries are inferred from its manifest files. A package with both `package.json` and `jsr.json` resolves to both `npm` and `jsr`. A `Cargo.toml` resolves to `crates`. Use `registries` only to override or extend.
+Each package's registries are inferred from its manifest files. A package with both `package.json` and `jsr.json` resolves to both `npm` and `jsr`. A `deno.json` or `deno.jsonc` also resolves to `jsr`. A `Cargo.toml` resolves to `crates`. Use `registries` only to override or extend.
 
 ## Git tags in monorepos
 

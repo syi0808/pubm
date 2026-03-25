@@ -72,7 +72,8 @@ export class CratesConnector extends RegistryConnector {
 export class CratesPackageRegistry extends PackageRegistry {
   static override reader = new ManifestReader({
     file: "Cargo.toml",
-    parser: (raw: string) => parse(raw) as Record<string, unknown>,
+    parser: (_filename: string, raw: string) =>
+      parse(raw) as Record<string, unknown>,
     fields: {
       name: (p) =>
         ((p.package as Record<string, unknown>)?.name as string) ?? "",

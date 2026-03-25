@@ -60,6 +60,7 @@ export default defineConfig({
 |---|---|
 | `package.json` | `npm` |
 | `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
 | `Cargo.toml` | `crates` |
 
 npm에는 추가 규칙이 두 개 있습니다.
@@ -344,7 +345,7 @@ export default defineConfig({
 
 ### 단순 라이브러리
 
-패키지에 `package.json`과 `jsr.json`이 있으면 레지스트리는 자동 추론됩니다. 설정 파일은 필요하지 않습니다. `pubm.config.ts`는 선택 사항입니다. 기본값을 덮어써야 할 때만 만듭니다. 예를 들면 커스텀 브랜치, 플러그인, release assets 등이 있습니다.
+패키지에 `package.json`과 `jsr.json` (또는 `deno.json` / `deno.jsonc`)이 있으면 레지스트리는 자동 추론됩니다. 설정 파일은 필요하지 않습니다. `pubm.config.ts`는 선택 사항입니다. 기본값을 덮어써야 할 때만 만듭니다. 예를 들면 커스텀 브랜치, 플러그인, release assets 등이 있습니다.
 
 ### 앱 모노레포
 

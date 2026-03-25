@@ -215,7 +215,7 @@ What to check:
 
 - confirm `contents` points to the final publish directory
 - ensure the build step creates that directory before publish starts
-- verify the target directory contains the manifest files expected by the selected registry
+- verify the target directory contains the manifest files expected by the selected registry (`package.json` for npm, `jsr.json` or `deno.json` / `deno.jsonc` for jsr, `Cargo.toml` for crates)
 
 `contents` changes the working directory for the runtime pipeline. Treat it as a publish root, not just an output folder.
 

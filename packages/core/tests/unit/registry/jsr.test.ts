@@ -1,6 +1,7 @@
-import path from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import path, { join } from "node:path";
 import process from "node:process";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const FIXTURE_PATH = path.resolve(__dirname, "../../fixtures/basic");
 
@@ -472,12 +473,12 @@ describe("JsrPackageRegistry", () => {
 });
 
 describe("getRequirements", () => {
-  it("returns needsPackageScripts false and requiredManifest jsr.json", () => {
+  it("returns needsPackageScripts false and requiredManifest jsr.json or deno.json", () => {
     const registry = new JsrPackageRegistry("@scope/my-package", FIXTURE_PATH);
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
       needsPackageScripts: false,
-      requiredManifest: "jsr.json",
+      requiredManifest: "jsr.json or deno.json",
     });
   });
 });
@@ -1115,6 +1116,17 @@ describe("JsrPackageRegistry checkAvailability()", () => {
     registry = new JsrPackageRegistry("@scope/pkg", FIXTURE_PATH);
     // Mock JsrConnector.isInstalled to return true (bypass jsr install prompt)
     mockedExec.mockResolvedValue({ stdout: "0.1.0", stderr: "" } as any);
+    // Mock reader.validate to return a clean result (avoids real FS reads)
+    vi.spyOn(JsrPackageRegistry.reader, "validate").mockResolvedValue({
+      resolved: {
+        name: "@scope/pkg",
+        version: "1.0.0",
+        private: false,
+        dependencies: [],
+      },
+      errors: [],
+      warnings: [],
+    });
   });
 
   function makeTask() {
@@ -1179,6 +1191,16 @@ describe("JsrPackageRegistry checkAvailability()", () => {
       );
       const unscopedRegistry = new FreshJsr("my-pkg");
 
+      vi.spyOn(FreshJsr.reader, "validate").mockResolvedValue({
+        resolved: {
+          name: "my-pkg",
+          version: "1.0.0",
+          private: false,
+          dependencies: [],
+        },
+        errors: [],
+        warnings: [],
+      });
       vi.spyOn(unscopedRegistry.client, "scopes").mockResolvedValue([]);
       vi.spyOn(unscopedRegistry.client, "createScope").mockResolvedValue(true);
       vi.spyOn(unscopedRegistry.client, "package").mockResolvedValue(null);
@@ -1240,6 +1262,16 @@ describe("JsrPackageRegistry checkAvailability()", () => {
       );
       const unscopedRegistry = new FreshJsr("my-pkg");
 
+      vi.spyOn(FreshJsr.reader, "validate").mockResolvedValue({
+        resolved: {
+          name: "my-pkg",
+          version: "1.0.0",
+          private: false,
+          dependencies: [],
+        },
+        errors: [],
+        warnings: [],
+      });
       vi.spyOn(unscopedRegistry.client, "scopes").mockResolvedValue([
         "existing",
       ]);
@@ -1326,5 +1358,216 @@ describe("JsrPackageRegistry checkAvailability()", () => {
         registry.checkAvailability(makeTask(), makeCtx()),
       ).resolves.toBeUndefined();
     });
+  });
+});
+
+describe("JsrPackageRegistry.reader", () => {
+  const tmpDir = join(
+    process.env.TMPDIR ?? "/tmp",
+    `jsr-reader-test-${process.pid}`,
+  );
+
+  beforeEach(() => {
+    JsrPackageRegistry.reader.clearCache();
+    mkdirSync(tmpDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("reads from jsr.json when it exists", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.2.3" }),
+    );
+
+    const manifest = await JsrPackageRegistry.reader.read(tmpDir);
+
+    expect(manifest.name).toBe("@scope/pkg");
+    expect(manifest.version).toBe("1.2.3");
+  });
+
+  it("falls back to deno.json when jsr.json is absent", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/deno-pkg", version: "2.0.0" }),
+    );
+
+    const manifest = await JsrPackageRegistry.reader.read(tmpDir);
+
+    expect(manifest.name).toBe("@scope/deno-pkg");
+    expect(manifest.version).toBe("2.0.0");
+  });
+
+  it("falls back to deno.jsonc when jsr.json and deno.json are absent", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.jsonc"),
+      `// comment\n{ "name": "@scope/jsonc-pkg", "version": "3.0.0" }`,
+    );
+
+    const manifest = await JsrPackageRegistry.reader.read(tmpDir);
+
+    expect(manifest.name).toBe("@scope/jsonc-pkg");
+    expect(manifest.version).toBe("3.0.0");
+  });
+
+  it("prefers jsr.json over deno.json", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/jsr-pkg", version: "1.0.0" }),
+    );
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/deno-pkg", version: "2.0.0" }),
+    );
+
+    const manifest = await JsrPackageRegistry.reader.read(tmpDir);
+
+    expect(manifest.name).toBe("@scope/jsr-pkg");
+  });
+
+  it("exists returns true for deno.json", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+
+    const result = await JsrPackageRegistry.reader.exists(tmpDir);
+
+    expect(result).toBe(true);
+  });
+});
+
+describe("JsrPackageRegistry.reader.validate", () => {
+  const tmpDir = join(
+    process.env.TMPDIR ?? "/tmp",
+    `jsr-validate-test-${process.pid}`,
+  );
+
+  beforeEach(() => {
+    JsrPackageRegistry.reader.clearCache();
+    mkdirSync(tmpDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns errors when name differs between files", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg-a", version: "1.0.0" }),
+    );
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/pkg-b", version: "1.0.0" }),
+    );
+
+    const result = await JsrPackageRegistry.reader.validate(tmpDir);
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain("name mismatch");
+  });
+
+  it("returns errors when version differs between files", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "2.0.0" }),
+    );
+
+    const result = await JsrPackageRegistry.reader.validate(tmpDir);
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain("version mismatch");
+  });
+
+  it("returns clean result when single file", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+
+    const result = await JsrPackageRegistry.reader.validate(tmpDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+    expect(result.resolved.name).toBe("@scope/pkg");
+  });
+
+  it("returns clean result when files agree", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+
+    const result = await JsrPackageRegistry.reader.validate(tmpDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+  });
+});
+
+describe("JsrPackageRegistry.canInfer", () => {
+  const tmpDir = join(
+    process.env.TMPDIR ?? "/tmp",
+    `jsr-caninfer-test-${process.pid}`,
+  );
+
+  beforeEach(() => {
+    JsrPackageRegistry.reader.clearCache();
+    mkdirSync(tmpDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns 'jsr' when jsr.json exists", async () => {
+    writeFileSync(
+      join(tmpDir, "jsr.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+    expect(await JsrPackageRegistry.canInfer(tmpDir)).toBe("jsr");
+  });
+
+  it("returns 'jsr' when deno.json has name+version+exports", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({
+        name: "@scope/pkg",
+        version: "1.0.0",
+        exports: "./mod.ts",
+      }),
+    );
+    expect(await JsrPackageRegistry.canInfer(tmpDir)).toBe("jsr");
+  });
+
+  it("returns false when deno.json lacks exports", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.json"),
+      JSON.stringify({ name: "@scope/pkg", version: "1.0.0" }),
+    );
+    expect(await JsrPackageRegistry.canInfer(tmpDir)).toBe(false);
+  });
+
+  it("returns false when no manifest files exist", async () => {
+    expect(await JsrPackageRegistry.canInfer(tmpDir)).toBe(false);
+  });
+
+  it("returns 'jsr' when deno.jsonc has name+version+exports", async () => {
+    writeFileSync(
+      join(tmpDir, "deno.jsonc"),
+      '// Deno config\n{ "name": "@scope/pkg", "version": "1.0.0", "exports": "./mod.ts" }',
+    );
+    expect(await JsrPackageRegistry.canInfer(tmpDir)).toBe("jsr");
   });
 });

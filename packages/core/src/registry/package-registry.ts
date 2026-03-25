@@ -1,5 +1,6 @@
 import type { PubmContext } from "../context.js";
 import type { ManifestReader } from "../manifest/manifest-reader.js";
+import type { RegistryType } from "../types/options.js";
 
 export interface RegistryRequirements {
   needsPackageScripts: boolean;
@@ -9,6 +10,22 @@ export interface RegistryRequirements {
 export abstract class PackageRegistry {
   static reader: ManifestReader;
   static registryType: string;
+
+  /**
+   * Infer whether this registry applies to the given package.
+   * Must be called on a subclass (e.g., `NpmPackageRegistry.canInfer()`),
+   * not on the base `PackageRegistry` class directly — the base class has
+   * no `reader` or `registryType` assigned.
+   */
+  static async canInfer(
+    _packagePath: string,
+    _rootPath?: string,
+  ): Promise<RegistryType | false> {
+    // biome-ignore lint/complexity/noThisInStatic: `this` is intentional for polymorphic static dispatch — subclasses inherit this method and `this` resolves to the calling subclass
+    const exists = await this.reader.exists(_packagePath);
+    // biome-ignore lint/complexity/noThisInStatic: same as above
+    return exists ? (this.registryType as RegistryType) : false;
+  }
 
   constructor(
     public packageName: string,
