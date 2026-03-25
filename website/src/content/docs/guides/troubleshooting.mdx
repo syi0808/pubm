@@ -268,6 +268,22 @@ What to do:
 
 The important thing is to diagnose the original cause, not the rollback messages that come after it.
 
+## Version burned after rollback unpublish
+
+Symptoms:
+
+- publish failed, rollback ran, and unpublished a package from npm or yanked from crates.io
+- retrying the publish with the same version fails because the version is already taken
+
+What happened:
+
+npm unpublish removes the package tarball, but the version number is **permanently reserved** — it cannot be reused. crates.io `cargo yank` similarly marks the version as unusable.
+
+What to do:
+
+- bump to a new version (e.g., `1.2.4` instead of `1.2.3`) and re-publish
+- in CI, unpublish is skipped by default to avoid burning versions — use `--dangerously-allow-unpublish` or set `rollback.dangerouslyAllowUnpublish: true` in config to enable it
+
 ## When to file an issue
 
 Open an issue when you can reproduce a problem with:

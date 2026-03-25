@@ -41,7 +41,10 @@ export default defineConfig({
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  rollbackStrategy: "individual",
+  rollback: {
+    strategy: "individual",
+    dangerouslyAllowUnpublish: false,
+  },
   packages: [{ path: "." }],
   validate: {
     cleanInstall: true,
@@ -187,6 +190,26 @@ Variables de modèle disponibles :
 - `{tag}` : tag de snapshot, par défaut `snapshot`
 - `{timestamp}` : timestamp UTC au format `YYYYMMDDTHHmmss`
 - `{commit}` : SHA du commit Git courant
+
+### `rollback`
+
+Contrôle le comportement du rollback en cas d'échec de publication.
+
+| Clé | Type | Par défaut | Description |
+|-----|------|------------|-------------|
+| `strategy` | `"individual"` \| `"all"` | `"individual"` | Granularité du rollback. Remplace le champ obsolète `rollbackStrategy` de niveau supérieur. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | Autorise le unpublish/yank du registry lors du rollback dans les environnements sans TTY (CI). Même après un unpublish, npm réserve définitivement le numéro de version — il ne peut pas être réutilisé. |
+
+```ts
+export default defineConfig({
+  rollback: {
+    strategy: "individual",
+    dangerouslyAllowUnpublish: true, // activer pour CI
+  },
+});
+```
+
+Le champ obsolète `rollbackStrategy` de niveau supérieur fonctionne toujours et correspond à `rollback.strategy`. Si les deux sont définis, `rollback.strategy` a la priorité.
 
 ## Interaction entre la config et les flags CLI
 

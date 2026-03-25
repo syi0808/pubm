@@ -217,6 +217,22 @@ Was du tun solltest:
 
 Wichtig ist, die urspruengliche Ursache zu diagnostizieren, nicht die Rollback-Meldungen, die danach kommen.
 
+## Versionsnummer nach Rollback-Unpublish verbraucht
+
+Symptome:
+
+- der Publish schlug fehl, der Rollback lief durch und hat ein Paket von npm unpublisht oder von crates.io geyankt
+- ein erneuter Publish mit derselben Version schlaegt fehl, weil die Version bereits vergeben ist
+
+Was passiert ist:
+
+npm unpublish entfernt den Paket-Tarball, aber die Versionsnummer ist **dauerhaft reserviert** — sie kann nicht wiederverwendet werden. crates.io `cargo yank` markiert die Version ebenfalls als nicht mehr verwendbar.
+
+Was zu tun ist:
+
+- auf eine neue Version hochsetzen (z. B. `1.2.4` statt `1.2.3`) und erneut veröffentlichen
+- in CI wird Unpublish standardmaessig uebersprungen, um Versionsnummern nicht zu verbrauchen — aktiviere `--dangerously-allow-unpublish` oder setze `rollback.dangerouslyAllowUnpublish: true` in der Config, um es zu erlauben
+
 ## Wann du ein Issue melden solltest
 
 Erstelle ein Issue, wenn du das Problem reproduzieren kannst mit:

@@ -217,6 +217,22 @@ Qué hacer:
 
 Lo importante es diagnosticar la causa original, no los mensajes de rollback que llegan después.
 
+## Versión quemada tras el unpublish del rollback
+
+Síntomas:
+
+- la publicación falló, el rollback se ejecutó y se hizo unpublish de un paquete de npm o se yankeó de crates.io
+- reintentar la publicación con la misma versión falla porque esa versión ya está ocupada
+
+Qué ocurrió:
+
+npm unpublish elimina el tarball del paquete, pero el número de versión queda **reservado permanentemente** — no puede reutilizarse. `cargo yank` de crates.io también marca la versión como inutilizable.
+
+Qué hacer:
+
+- sube a una nueva versión (p. ej., `1.2.4` en lugar de `1.2.3`) y vuelve a publicar
+- en CI, el unpublish se omite por defecto para evitar quemar versiones — usa `--dangerously-allow-unpublish` o establece `rollback.dangerouslyAllowUnpublish: true` en la configuración para habilitarlo
+
 ## Cuándo abrir un issue
 
 Abre un issue cuando puedas reproducir el problema con:
