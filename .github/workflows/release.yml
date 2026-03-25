@@ -33,7 +33,7 @@ jobs:
             bun-${{ runner.os }}-
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version: "24.x"
           registry-url: https://registry.npmjs.org/
       - run: bun install --frozen-lockfile
       - run: bun run build
@@ -43,3 +43,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBM_BREW_GITHUB_TOKEN: ${{ secrets.PUBM_BREW_GITHUB_TOKEN }}
