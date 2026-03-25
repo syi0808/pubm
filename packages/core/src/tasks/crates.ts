@@ -7,6 +7,7 @@ import {
   type CratesPackageRegistry,
   cratesPackageRegistry,
 } from "../registry/crates.js";
+import { ui } from "../utils/ui.js";
 
 class CratesError extends AbstractError {
   name = "crates.io Error";
@@ -91,13 +92,27 @@ function registerYankRollback(
   packageName: string,
   version: string,
 ): void {
-  if (registry.supportsUnpublish) {
+  if (!registry.supportsUnpublish) return;
+
+  const canYank =
+    ctx.runtime.promptEnabled || ctx.config.rollback.dangerouslyAllowUnpublish;
+
+  if (!canYank) {
     ctx.runtime.rollback.add({
-      label: `Yank ${packageName}@${version} from crates`,
-      fn: async () => {
-        await registry.unpublish(packageName, version);
-      },
-      confirm: true,
+      label: `Yank ${packageName}@${version} from crates (skipped — use --dangerously-allow-unpublish to enable)`,
+      fn: async () => {},
     });
+    return;
   }
+
+  ctx.runtime.rollback.add({
+    label: `Yank ${packageName}@${version} from crates (⚠ version will be permanently burned)`,
+    fn: async () => {
+      await registry.unpublish(packageName, version);
+      console.log(
+        `    ${ui.chalk.yellow("⚠")} v${version} is permanently reserved on crates.io — this version cannot be reused`,
+      );
+    },
+    confirm: true,
+  });
 }

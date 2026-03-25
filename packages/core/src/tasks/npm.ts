@@ -5,6 +5,7 @@ import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import type { NpmPackageRegistry } from "../registry/npm.js";
 import { npmPackageRegistry } from "../registry/npm.js";
+import { ui } from "../utils/ui.js";
 
 class NpmAvailableError extends AbstractError {
   name = "npm is unavailable for publishing.";
@@ -129,13 +130,30 @@ function registerUnpublishRollback(
   registry: NpmPackageRegistry,
   version: string,
 ): void {
-  if (registry.supportsUnpublish) {
+  if (!registry.supportsUnpublish) return;
+
+  const canUnpublish =
+    ctx.runtime.promptEnabled || ctx.config.rollback.dangerouslyAllowUnpublish;
+
+  if (!canUnpublish) {
     ctx.runtime.rollback.add({
-      label: `Unpublish ${registry.packageName}@${version} from npm`,
-      fn: async () => {
-        await registry.unpublish(registry.packageName, version);
-      },
-      confirm: true,
+      label: `Unpublish ${registry.packageName}@${version} from npm (skipped — use --dangerously-allow-unpublish to enable)`,
+      fn: async () => {},
     });
+    return;
   }
+
+  // confirm: true serves the TTY path (triggers prompt). In CI it's inert —
+  // non-interactive mode executes confirm actions without prompting.
+  // On SIGINT, confirm actions are safely skipped regardless of dangerouslyAllowUnpublish.
+  ctx.runtime.rollback.add({
+    label: `Unpublish ${registry.packageName}@${version} from npm (⚠ version will be permanently burned)`,
+    fn: async () => {
+      await registry.unpublish(registry.packageName, version);
+      console.log(
+        `    ${ui.chalk.yellow("⚠")} v${version} is permanently reserved on npm — this version cannot be reused`,
+      );
+    },
+    confirm: true,
+  });
 }

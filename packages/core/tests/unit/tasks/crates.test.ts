@@ -6,6 +6,7 @@ const {
   mockPublish,
   mockIsVersionPublished,
   mockPackageName,
+  mockUnpublish,
   MockCratesRegistryFactory,
   MockRustEcosystemCtor,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   mockPublish: vi.fn().mockResolvedValue(true),
   mockIsVersionPublished: vi.fn().mockResolvedValue(false),
   mockPackageName: vi.fn().mockResolvedValue("my-crate"),
+  mockUnpublish: vi.fn().mockResolvedValue(undefined),
   MockCratesRegistryFactory: vi.fn(),
   MockRustEcosystemCtor: vi.fn(),
 }));
@@ -29,6 +31,8 @@ vi.mock("../../../src/registry/crates.js", () => ({
       hasPermission: mockHasPermission,
       publish: mockPublish,
       isVersionPublished: mockIsVersionPublished,
+      supportsUnpublish: true,
+      unpublish: mockUnpublish,
     });
   },
 }));
@@ -46,6 +50,7 @@ import {
   createCratesAvailableCheckTask,
   createCratesPublishTask,
 } from "../../../src/tasks/crates.js";
+import { RollbackTracker } from "../../../src/utils/rollback.js";
 
 beforeEach(() => {
   MockCratesRegistryFactory.mockClear();
@@ -55,6 +60,7 @@ beforeEach(() => {
   mockPublish.mockClear().mockResolvedValue(true);
   mockIsVersionPublished.mockClear().mockResolvedValue(false);
   mockPackageName.mockClear().mockResolvedValue("my-crate");
+  mockUnpublish.mockClear().mockResolvedValue(undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -103,13 +109,23 @@ describe("createCratesAvailableCheckTask", () => {
 // ---------------------------------------------------------------------------
 describe("createCratesPublishTask", () => {
   const packagePath = "rust/crates/my-crate";
-  const mockCtx = { runtime: { version: "1.0.0" } } as any;
+  const mockCtx = {
+    runtime: {
+      version: "1.0.0",
+      promptEnabled: true,
+      rollback: new RollbackTracker(),
+    },
+    config: {
+      rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+    },
+  } as any;
   const mockTask = { output: "", title: "", skip: vi.fn() };
 
   beforeEach(() => {
     mockTask.output = "";
     mockTask.title = "";
     mockTask.skip.mockClear();
+    mockCtx.runtime.rollback = new RollbackTracker();
   });
 
   it("has title with path label", () => {
@@ -130,5 +146,43 @@ describe("createCratesPublishTask", () => {
     await (task.task as any)(mockCtx, mockTask);
 
     expect(MockRustEcosystemCtor).toHaveBeenCalledWith(packagePath);
+  });
+
+  describe("rollback registration", () => {
+    it("registers no-op rollback in CI without dangerouslyAllowUnpublish", async () => {
+      const ctx = {
+        runtime: {
+          version: "1.0.0",
+          promptEnabled: false,
+          rollback: new RollbackTracker(),
+        },
+        config: {
+          rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+        },
+      } as any;
+      const task = createCratesPublishTask(packagePath);
+      await (task.task as any)(ctx, mockTask);
+
+      expect(ctx.runtime.rollback.size).toBe(1);
+      await ctx.runtime.rollback.execute(ctx, { interactive: false });
+      expect(mockUnpublish).not.toHaveBeenCalled();
+    });
+
+    it("registers real yank rollback in TTY mode", async () => {
+      const ctx = {
+        runtime: {
+          version: "1.0.0",
+          promptEnabled: true,
+          rollback: new RollbackTracker(),
+        },
+        config: {
+          rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+        },
+      } as any;
+      const task = createCratesPublishTask(packagePath);
+      await (task.task as any)(ctx, mockTask);
+
+      expect(ctx.runtime.rollback.size).toBe(1);
+    });
   });
 });

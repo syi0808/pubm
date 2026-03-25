@@ -7,6 +7,7 @@ vi.mock("../../../src/registry/npm.js", () => ({
 import type { PubmContext } from "../../../src/context.js";
 import { npmPackageRegistry } from "../../../src/registry/npm.js";
 import { createNpmPublishTask } from "../../../src/tasks/npm.js";
+import { RollbackTracker } from "../../../src/utils/rollback.js";
 
 const mockedNpmRegistry = vi.mocked(npmPackageRegistry);
 
@@ -21,6 +22,8 @@ function createMockNpm() {
     isVersionPublished: vi.fn().mockResolvedValue(false),
     publish: vi.fn().mockResolvedValue(true),
     publishProvenance: vi.fn().mockResolvedValue(true),
+    supportsUnpublish: true,
+    unpublish: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -39,10 +42,15 @@ function createCtx(
   overrides: {
     options?: Partial<PubmContext["options"]>;
     runtime?: Partial<PubmContext["runtime"]>;
+    config?: Partial<PubmContext["config"]>;
   } = {},
 ): PubmContext {
   return {
-    config: { packages: [{ path: ".", registries: ["npm"] }] },
+    config: {
+      packages: [{ path: ".", registries: ["npm"] }],
+      rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
+      ...overrides.config,
+    },
     options: {
       testScript: "test",
       buildScript: "build",
@@ -58,6 +66,7 @@ function createCtx(
       promptEnabled: true,
       cleanWorkingTree: true,
       pluginRunner: {} as any,
+      rollback: new RollbackTracker<PubmContext>(),
       ...overrides.runtime,
     },
   } as PubmContext;
@@ -223,6 +232,56 @@ describe("createNpmPublishTask", () => {
       // Initial publish + 3 OTP attempts = 4 calls
       expect(mockNpm.publish).toHaveBeenCalledTimes(4);
       expect(mockRun).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("rollback registration", () => {
+    it("registers confirm rollback with warning label in TTY mode", async () => {
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
+      const mockTask = createMockTask();
+
+      const task = createNpmPublishTask("packages/core");
+      await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+
+      expect(ctx.runtime.rollback.size).toBe(1);
+    });
+
+    it("registers no-op rollback with skip message in CI mode without opt-in", async () => {
+      const ctx = createCtx({
+        runtime: { promptEnabled: false },
+        config: { rollback: { strategy: "individual", dangerouslyAllowUnpublish: false } },
+      });
+      const mockTask = createMockTask();
+      process.env.NODE_AUTH_TOKEN = "test";
+
+      try {
+        const task = createNpmPublishTask("packages/core");
+        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+
+        expect(ctx.runtime.rollback.size).toBe(1);
+        await ctx.runtime.rollback.execute(ctx, { interactive: false });
+        expect(mockNpm.unpublish).not.toHaveBeenCalled();
+      } finally {
+        delete process.env.NODE_AUTH_TOKEN;
+      }
+    });
+
+    it("registers real unpublish rollback in CI mode with dangerouslyAllowUnpublish", async () => {
+      const ctx = createCtx({
+        runtime: { promptEnabled: false },
+        config: { rollback: { strategy: "individual", dangerouslyAllowUnpublish: true } },
+      });
+      const mockTask = createMockTask();
+      process.env.NODE_AUTH_TOKEN = "test";
+
+      try {
+        const task = createNpmPublishTask("packages/core");
+        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+
+        expect(ctx.runtime.rollback.size).toBe(1);
+      } finally {
+        delete process.env.NODE_AUTH_TOKEN;
+      }
     });
   });
 
