@@ -38,28 +38,28 @@ Please be respectful and constructive in all interactions. We are committed to p
 
 ### Requirements
 
-- Node.js 18 or later
+- Node.js 24 or later
 - Git 2.11.0 or later
-- pnpm 9.11.0 or later
+- Bun 1.3.11 or later
 
 ### Setup
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/pubm.git
 cd pubm
-pnpm install
-pnpm build
+bun install
+bun run build
 ```
 
 ### Useful Commands
 
 ```bash
-pnpm build        # Build with tsup (outputs ESM/CJS to dist/, CLI to bin/)
-pnpm check        # Lint and format check with Biome
-pnpm format       # Auto-fix lint and formatting issues
-pnpm typecheck    # TypeScript type checking
-pnpm test         # Run tests with Vitest
-pnpm coverage     # Run tests with coverage report
+bun run build        # Build all packages via Turborepo
+bun run check        # Lint and format check with Biome
+bun run format       # Auto-fix lint and formatting issues
+bun run typecheck    # TypeScript type checking
+bun run test         # Run tests with Vitest
+bun run coverage     # Run tests with coverage report
 ```
 
 ## Style Guide
@@ -69,11 +69,11 @@ pnpm coverage     # Run tests with coverage report
 This project uses [Biome](https://biomejs.dev/) for linting and formatting. Run the formatter before submitting:
 
 ```bash
-pnpm format
+bun run format
 ```
 
 Key conventions:
-- 2 spaces indentation, single quotes
+- 2 spaces indentation, double quotes
 - ESM module system (`"type": "module"`)
 - TypeScript strict mode
 
@@ -94,15 +94,15 @@ Keep the first line under 72 characters. Reference issue numbers when applicable
 Run the test suite before submitting a pull request:
 
 ```bash
-pnpm test
+bun run test
 ```
 
-Tests are located in `tests/unit/` and `tests/e2e/` and use [Vitest](https://vitest.dev/).
+Tests are located in `tests/unit/` and `tests/e2e/` within each package, and use [Vitest](https://vitest.dev/).
 
 To run a specific test file:
 
 ```bash
-pnpm vitest --run tests/unit/utils/rollback.test.ts
+cd packages/core && bun vitest --run tests/unit/utils/rollback.test.ts
 ```
 
 Coverage thresholds are strict (95% lines/functions/statements, 90% branches).
@@ -111,6 +111,7 @@ Coverage thresholds are strict (95% lines/functions/statements, 90% branches).
 
 Before submitting a pull request, run these checks in order and fix any failures:
 
-1. `pnpm format` — auto-fix lint and formatting issues
-2. `pnpm typecheck` — ensure no type errors
-3. `pnpm test` — ensure all tests pass
+1. `bun run format` — auto-fix lint and formatting issues
+2. `bun run typecheck` — ensure no type errors
+3. `bun run test` — ensure all tests pass
+4. `bun run coverage` — ensure coverage thresholds are met

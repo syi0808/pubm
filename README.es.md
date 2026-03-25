@@ -123,6 +123,14 @@ Luego pubm te guia por el resto:
 
 pubm guarda los tokens en el llavero nativo del sistema operativo (macOS Keychain, Windows Credential Manager, Linux Secret Service) mediante `@napi-rs/keyring`. Las variables de entorno siempre tienen prioridad. Usa `--no-save-token` si prefieres introducir el token cada vez.
 
+## Privacidad
+
+pubm no recopila telemetria, datos de analisis ni datos de uso.
+
+- **Almacenamiento de tokens** — Los tokens de registro se almacenan en el llavero nativo del sistema operativo (macOS Keychain, Windows Credential Manager, Linux Secret Service) con un respaldo cifrado AES-256-CBC en `~/.pubm/`
+- **Red** — pubm solo se comunica con los registros que configures (npm, jsr, crates.io) y GitHub para la creacion de releases
+- **Verificacion de actualizaciones** — Consulta el registro publico de npm para nuevas versiones (solo en local, desactivado en CI)
+
 ---
 
 ## Contribuir

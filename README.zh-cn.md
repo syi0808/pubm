@@ -123,6 +123,14 @@ pubm setup-skills
 
 pubm 通过 `@napi-rs/keyring` 把 token 存进操作系统原生密钥链中（macOS Keychain、Windows Credential Manager、Linux Secret Service）。环境变量始终优先。如果你希望每次都手动输入，可使用 `--no-save-token`。
 
+## 隐私
+
+pubm 不收集遥测数据、分析数据或使用数据。
+
+- **Token 存储** — 注册表 token 存储在操作系统密钥链中（macOS Keychain、Windows Credential Manager、Linux Secret Service），并以 AES-256-CBC 加密方式回退到 `~/.pubm/`
+- **网络** — pubm 仅与你配置的注册表（npm、jsr、crates.io）和 GitHub Release 创建进行通信
+- **更新检查** — 查询 npm 公共注册表以获取新版本（仅限本地，CI 中禁用）
+
 ---
 
 ## 贡献

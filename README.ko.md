@@ -123,6 +123,14 @@ pubm setup-skills
 
 pubm은 `@napi-rs/keyring`을 통해 OS 네이티브 키체인(macOS Keychain, Windows Credential Manager, Linux Secret Service)에 토큰을 저장합니다. 환경 변수가 항상 우선합니다. 매번 직접 입력하려면 `--no-save-token`을 사용하세요.
 
+## 개인정보 보호
+
+pubm은 텔레메트리, 분석 데이터, 사용 데이터를 수집하지 않습니다.
+
+- **토큰 저장** — 레지스트리 토큰은 OS 키체인(macOS Keychain, Windows Credential Manager, Linux Secret Service)에 저장되며, AES-256-CBC 암호화 폴백이 `~/.pubm/`에 위치합니다
+- **네트워크** — pubm은 설정된 레지스트리(npm, jsr, crates.io)와 GitHub Release 생성에만 통신합니다
+- **업데이트 확인** — npm 공개 레지스트리에 새 버전을 조회합니다 (로컬 전용, CI에서는 비활성)
+
 ---
 
 ## 기여
