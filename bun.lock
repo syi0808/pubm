@@ -34,7 +34,7 @@
     },
     "packages/core": {
       "name": "@pubm/core",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "dependencies": {
         "@listr2/prompt-adapter-enquirer": "^4.2.1",
         "@napi-rs/keyring": "^1.2.0",
@@ -56,21 +56,21 @@
     },
     "packages/plugins/plugin-brew": {
       "name": "@pubm/plugin-brew",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "peerDependencies": {
         "@pubm/core": ">=0.3.6",
       },
     },
     "packages/plugins/plugin-external-version-sync": {
       "name": "@pubm/plugin-external-version-sync",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "peerDependencies": {
         "@pubm/core": ">=0.3.6",
       },
     },
     "packages/pubm": {
       "name": "pubm",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "bin": {
         "pubm": "./bin/cli.cjs",
       },
@@ -102,7 +102,7 @@
     },
     "packages/pubm/platforms/darwin-arm64": {
       "name": "@pubm/darwin-arm64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-darwin-arm64": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -110,7 +110,7 @@
     },
     "packages/pubm/platforms/darwin-x64": {
       "name": "@pubm/darwin-x64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-darwin-x64": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -118,7 +118,7 @@
     },
     "packages/pubm/platforms/darwin-x64-baseline": {
       "name": "@pubm/darwin-x64-baseline",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-darwin-x64": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -126,7 +126,7 @@
     },
     "packages/pubm/platforms/linux-arm64": {
       "name": "@pubm/linux-arm64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-arm64-gnu": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -134,7 +134,7 @@
     },
     "packages/pubm/platforms/linux-arm64-musl": {
       "name": "@pubm/linux-arm64-musl",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-arm64-musl": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -142,7 +142,7 @@
     },
     "packages/pubm/platforms/linux-x64": {
       "name": "@pubm/linux-x64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-x64-gnu": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -150,7 +150,7 @@
     },
     "packages/pubm/platforms/linux-x64-baseline": {
       "name": "@pubm/linux-x64-baseline",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-x64-gnu": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -158,7 +158,7 @@
     },
     "packages/pubm/platforms/linux-x64-musl": {
       "name": "@pubm/linux-x64-musl",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-x64-musl": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -166,7 +166,7 @@
     },
     "packages/pubm/platforms/linux-x64-musl-baseline": {
       "name": "@pubm/linux-x64-musl-baseline",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-linux-x64-musl": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -174,7 +174,7 @@
     },
     "packages/pubm/platforms/windows-arm64": {
       "name": "@pubm/windows-arm64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-win32-arm64-msvc": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -182,7 +182,7 @@
     },
     "packages/pubm/platforms/windows-x64": {
       "name": "@pubm/windows-x64",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-win32-x64-msvc": "1.2.0",
         "@pubm/core": "workspace:*",
@@ -190,7 +190,7 @@
     },
     "packages/pubm/platforms/windows-x64-baseline": {
       "name": "@pubm/windows-x64-baseline",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "devDependencies": {
         "@napi-rs/keyring-win32-x64-msvc": "1.2.0",
         "@pubm/core": "workspace:*",
