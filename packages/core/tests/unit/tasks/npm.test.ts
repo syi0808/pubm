@@ -241,7 +241,10 @@ describe("createNpmPublishTask", () => {
       const mockTask = createMockTask();
 
       const task = createNpmPublishTask("packages/core");
-      await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+      await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(
+        ctx,
+        mockTask,
+      );
 
       expect(ctx.runtime.rollback.size).toBe(1);
     });
@@ -249,14 +252,22 @@ describe("createNpmPublishTask", () => {
     it("registers no-op rollback with skip message in CI mode without opt-in", async () => {
       const ctx = createCtx({
         runtime: { promptEnabled: false },
-        config: { rollback: { strategy: "individual", dangerouslyAllowUnpublish: false } },
+        config: {
+          rollback: {
+            strategy: "individual",
+            dangerouslyAllowUnpublish: false,
+          },
+        },
       });
       const mockTask = createMockTask();
       process.env.NODE_AUTH_TOKEN = "test";
 
       try {
         const task = createNpmPublishTask("packages/core");
-        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(
+          ctx,
+          mockTask,
+        );
 
         expect(ctx.runtime.rollback.size).toBe(1);
         await ctx.runtime.rollback.execute(ctx, { interactive: false });
@@ -269,14 +280,19 @@ describe("createNpmPublishTask", () => {
     it("registers real unpublish rollback in CI mode with dangerouslyAllowUnpublish", async () => {
       const ctx = createCtx({
         runtime: { promptEnabled: false },
-        config: { rollback: { strategy: "individual", dangerouslyAllowUnpublish: true } },
+        config: {
+          rollback: { strategy: "individual", dangerouslyAllowUnpublish: true },
+        },
       });
       const mockTask = createMockTask();
       process.env.NODE_AUTH_TOKEN = "test";
 
       try {
         const task = createNpmPublishTask("packages/core");
-        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(ctx, mockTask);
+        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(
+          ctx,
+          mockTask,
+        );
 
         expect(ctx.runtime.rollback.size).toBe(1);
       } finally {

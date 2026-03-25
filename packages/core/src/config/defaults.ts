@@ -93,9 +93,7 @@ export async function resolveConfig(
     validate: { ...defaultValidate, ...config.validate },
     rollback: {
       ...defaultRollback,
-      ...(config.rollbackStrategy
-        ? { strategy: config.rollbackStrategy }
-        : {}),
+      ...(config.rollbackStrategy ? { strategy: config.rollbackStrategy } : {}),
       ...config.rollback,
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
