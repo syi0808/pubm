@@ -116,7 +116,7 @@ type AfterReleaseHookFn = (ctx: PubmContext, releaseCtx: ReleaseContext) => Prom
 9. afterRelease (GitHub release)
 10. onSuccess
     ── or on failure ──
-    onError → onRollback
+    onError
 ```
 
 ### Hook Details
@@ -134,8 +134,7 @@ type AfterReleaseHookFn = (ctx: PubmContext, releaseCtx: ReleaseContext) => Prom
 | `beforePush` | `HookFn` | Pre-push validation |
 | `afterPush` | `HookFn` | Post-push actions (deploy triggers) |
 | `afterRelease` | `AfterReleaseHookFn` | Post-release actions (Homebrew, notifications) |
-| `onError` | `ErrorHookFn` | Error reporting, cleanup |
-| `onRollback` | `HookFn` | Custom rollback logic |
+| `onError` | `ErrorHookFn` | Error reporting, cleanup. Use `ctx.runtime.rollback.add()` to register rollback actions. |
 | `onSuccess` | `HookFn` | Success notifications, metrics |
 
 ## PubmContext

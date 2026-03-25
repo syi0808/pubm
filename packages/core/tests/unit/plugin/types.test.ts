@@ -26,14 +26,13 @@ describe("Plugin Types", () => {
         beforePush: hook,
         afterPush: hook,
         onError: errorHook,
-        onRollback: hook,
         onSuccess: hook,
       },
     };
 
     expect(plugin.name).toBe("test-all-hooks");
     expect(plugin.hooks).toBeDefined();
-    expect(Object.keys(plugin.hooks!)).toHaveLength(13);
+    expect(Object.keys(plugin.hooks!)).toHaveLength(12);
   });
 
   it("should accept a plugin with registries and ecosystems", () => {
@@ -59,7 +58,7 @@ describe("Plugin Types", () => {
     expect(plugin.ecosystems).toBeUndefined();
   });
 
-  it("should have 13 hook names", () => {
+  it("should have 12 hook names", () => {
     const hookNames: HookName[] = [
       "beforeTest",
       "afterTest",
@@ -72,11 +71,10 @@ describe("Plugin Types", () => {
       "beforePush",
       "afterPush",
       "onError",
-      "onRollback",
       "onSuccess",
     ];
 
-    expect(hookNames).toHaveLength(13);
+    expect(hookNames).toHaveLength(12);
 
     // Verify each hook name is assignable to PluginHooks
     const hooks: PluginHooks = {};
