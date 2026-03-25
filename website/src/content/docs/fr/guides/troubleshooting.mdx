@@ -217,6 +217,22 @@ Que faire :
 
 L'important est d'identifier la cause initiale, pas les messages de rollback qui arrivent ensuite.
 
+## Version brûlée après unpublish lors du rollback
+
+Symptômes :
+
+- la publication a échoué, le rollback a été exécuté et a dépublié un package de npm ou yanké de crates.io
+- relancer la publication avec la même version échoue car la version est déjà prise
+
+Ce qui s'est passé :
+
+npm unpublish supprime l'archive du package, mais le numéro de version est **définitivement réservé** — il ne peut pas être réutilisé. `cargo yank` de crates.io marque également la version comme inutilisable.
+
+Que faire :
+
+- passer à une nouvelle version (p. ex. `1.2.4` au lieu de `1.2.3`) et republier
+- en CI, l'unpublish est ignoré par défaut pour éviter de brûler des versions — utilisez `--dangerously-allow-unpublish` ou définissez `rollback.dangerouslyAllowUnpublish: true` dans la config pour l'activer
+
 ## Quand ouvrir un ticket
 
 Ouvrez un ticket lorsque vous pouvez reproduire un problème avec :

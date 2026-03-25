@@ -217,6 +217,22 @@ pubm --test-script test:ci --build-script build:release
 
 关键是诊断最初原因，而不是只看随后出现的 rollback 消息。
 
+## 回滚 unpublish 后版本号被永久占用
+
+症状：
+
+- publish 失败，rollback 运行，并从 npm unpublish 了某个包，或从 crates.io yank 了某个版本
+- 用相同版本重新 publish 时失败，提示版本号已被占用
+
+发生了什么：
+
+npm unpublish 会删除包的 tarball，但版本号会被**永久保留** — 无法被重用。crates.io 的 `cargo yank` 同样会将该版本标记为不可用。
+
+应该怎么做：
+
+- 升级到新版本（例如用 `1.2.4` 代替 `1.2.3`）并重新发布
+- 在 CI 中，默认会跳过 unpublish 以避免消耗版本号 — 使用 `--dangerously-allow-unpublish` 或在 config 中设置 `rollback.dangerouslyAllowUnpublish: true` 来启用它
+
 ## 何时提交 issue
 
 当你能用以下内容复现问题时，再提交 issue：

@@ -31,7 +31,7 @@ Most release tools assume one registry. pubm is built for projects that grow:
 - **npm + jsr** — ship to both JavaScript registries in one command
 - **JS + Rust** — publish `package.json` and `Cargo.toml` in a single pipeline
 - **Monorepos** — publishes packages in dependency order, no manual sequencing
-- **Automatic rollback** — if any registry fails, pubm undoes the version bump, tag, and commit
+- **Automatic rollback** — if any registry fails, pubm undoes the version bump, tag, and commit (registry unpublish is best-effort — version numbers may be permanently reserved)
 - **Zero config** — registries are auto-detected from your manifest files
 
 Start with npm only. Add jsr next month. Move to a monorepo next year. Your release command stays the same: `pubm`.
@@ -55,7 +55,7 @@ Have both `package.json` and `jsr.json`? pubm publishes to both in one release. 
 
 ### Automatic rollback
 
-Registry rejected your package? pubm undoes the version bump, git tag, and commit. No half-published state, no manual cleanup.
+Registry rejected your package? pubm undoes the version bump, git tag, and commit. Note: registry unpublish is best-effort — npm reserves the version number even after unpublish, so you may need to bump to a new version.
 
 ### Preflight checks
 
