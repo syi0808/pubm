@@ -51,6 +51,7 @@ interface CliOptions {
   contents?: string;
   registry?: string;
   saveToken: boolean;
+  dangerouslyAllowUnpublish?: boolean;
 }
 
 type ResolvedCliOptionsInput = Omit<CliOptions, "version">;
@@ -155,6 +156,10 @@ export function createProgram(): Command {
       "Do not save jsr tokens (request the token each time)",
     )
     .option(
+      "--dangerously-allow-unpublish",
+      "Allow registry unpublish/yank during rollback in non-TTY environments",
+    )
+    .option(
       "--registry <registries>",
       "Target registries for publish\n        registry can be npm | jsr | https://url.for.private-registries",
       "npm,jsr",
@@ -178,6 +183,17 @@ export function createProgram(): Command {
         }
 
         const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
+
+        // CLI override for dangerouslyAllowUnpublish
+        if (options.dangerouslyAllowUnpublish) {
+          ctx.config = Object.freeze({
+            ...ctx.config,
+            rollback: {
+              ...ctx.config.rollback,
+              dangerouslyAllowUnpublish: true,
+            },
+          });
+        }
 
         if (nextVersion) {
           if (resolvedConfig.packages.length <= 1) {
