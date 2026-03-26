@@ -129,7 +129,7 @@ GitHub Release 创建和资产上传都会使用 GitHub API。请提供 `GITHUB_
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-GitHub Actions 会在每次 workflow 运行中自动注入 `GITHUB_TOKEN` 作为内置 secret。你不需要手动创建它——只需通过环境变量传入即可。
+GitHub Actions 会在每次 workflow 运行中自动注入 `GITHUB_TOKEN` 作为内置 secret。你不需要手动创建它，只需通过环境变量传入即可。
 
 ### 上传前必须存在构建产物
 

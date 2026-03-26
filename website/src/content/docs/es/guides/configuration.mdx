@@ -157,7 +157,7 @@ Indica si el flujo de publicación debe crear un GitHub Release. Cuando se desac
 
 Patrones glob para paquetes que deben versionarse y publicarse, pero excluirse de la creación de tags de git y los borradores de GitHub Release. Solo aplica cuando `versioning` es `"independent"`.
 
-Úsalo para artefactos de build internos — como binarios específicos de plataforma — que se publican en un registro pero no deben aparecer como releases independientes.
+Úsalo para artefactos de build internos, como binarios específicos de plataforma, que se publican en un registro pero no deben aparecer como releases independientes.
 
 ```ts
 export default defineConfig({
@@ -198,7 +198,7 @@ Controla el comportamiento del rollback cuando la publicación falla.
 | Clave | Tipo | Por defecto | Descripción |
 |-------|------|-------------|-------------|
 | `strategy` | `"individual"` \| `"all"` | `"individual"` | Granularidad del rollback. Reemplaza el campo obsoleto de nivel superior `rollbackStrategy`. |
-| `dangerouslyAllowUnpublish` | `boolean` | `false` | Permite el unpublish/yank del registry durante el rollback en entornos sin TTY (CI). Incluso después del unpublish, npm reserva permanentemente el número de versión — no puede reutilizarse. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | Permite el unpublish/yank del registry durante el rollback en entornos sin TTY (CI). Incluso después del unpublish, npm reserva permanentemente el número de versión: no puede reutilizarse. |
 
 ```ts
 export default defineConfig({

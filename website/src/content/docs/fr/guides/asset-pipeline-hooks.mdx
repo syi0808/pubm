@@ -10,16 +10,16 @@ Le pipeline d'artefacts s'exécute après l'étape de build et avant l'upload de
 ```text
 releaseAssets config
   → correspondance glob → ResolvedAsset[]
-  → [resolveAssets]  — filtrer, ajouter ou remplacer la liste des artefacts
-  → [transformAsset] — signer, strip ou découper chaque artefact (1 → N)
-  → [compressAsset]  — remplacer la compression tar.gz / zip par défaut
-  → [nameAsset]      — remplacer le modèle de nom avec une logique dynamique
+  → [resolveAssets]  : filtrer, ajouter ou remplacer la liste des artefacts
+  → [transformAsset] : signer, strip ou découper chaque artefact (1 → N)
+  → [compressAsset]  : remplacer la compression tar.gz / zip par défaut
+  → [nameAsset]      : remplacer le modèle de nom avec une logique dynamique
   → hash sha256
-  → [generateChecksums] — ajouter des fichiers de checksum à la liste des artefacts
+  → [generateChecksums] : ajouter des fichiers de checksum à la liste des artefacts
   → upload vers GitHub Release (intégré)
-  → [uploadAssets]   — téléverser vers des cibles supplémentaires (S3, R2, CDN, etc.)
+  → [uploadAssets]   : téléverser vers des cibles supplémentaires (S3, R2, CDN, etc.)
   → ReleaseContext assemblé
-  → [afterRelease]   — consommer la liste finale des artefacts (brew, notification, etc.)
+  → [afterRelease]   : consommer la liste finale des artefacts (brew, notification, etc.)
 ```
 
 ## Interface des hooks

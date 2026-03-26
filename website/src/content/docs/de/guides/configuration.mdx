@@ -157,7 +157,7 @@ Ob der Publish-Flow einen GitHub Release erstellen soll. Wenn deaktiviert, wird 
 
 Glob-Muster für Pakete, die versioniert und veröffentlicht, aber von der Git-Tag-Erstellung und GitHub-Release-Entwuerfen ausgeschlossen werden sollen. Gilt nur bei `versioning: "independent"`.
 
-Verwende dies für interne Build-Artefakte — z.B. plattformspezifische Binaerdateien — die in eine Registry veröffentlicht werden, aber nicht als eigenstaendige Releases erscheinen sollen.
+Verwende dies für interne Build-Artefakte, z.B. plattformspezifische Binaerdateien, die in eine Registry veröffentlicht werden, aber nicht als eigenstaendige Releases erscheinen sollen.
 
 ```ts
 export default defineConfig({
@@ -198,7 +198,7 @@ Steuert das Rollback-Verhalten bei einem fehlgeschlagenen Publish.
 | Schlüssel | Typ | Standard | Beschreibung |
 |-----------|-----|----------|--------------|
 | `strategy` | `"individual"` \| `"all"` | `"individual"` | Rollback-Granularität. Ersetzt das veraltete Top-Level-Feld `rollbackStrategy`. |
-| `dangerouslyAllowUnpublish` | `boolean` | `false` | Erlaubt Registry-Unpublish/Yank während des Rollbacks in Nicht-TTY-Umgebungen (CI). Auch nach einem Unpublish reserviert npm die Versionsnummer dauerhaft — sie kann nicht wiederverwendet werden. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | Erlaubt Registry-Unpublish/Yank während des Rollbacks in Nicht-TTY-Umgebungen (CI). Auch nach einem Unpublish reserviert npm die Versionsnummer dauerhaft: sie kann nicht wiederverwendet werden. |
 
 ```ts
 export default defineConfig({

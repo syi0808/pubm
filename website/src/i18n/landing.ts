@@ -65,7 +65,7 @@ export interface LandingDictionary {
 export const landingCopy: Record<SiteLocale, LandingDictionary> = {
   en: {
     meta: {
-      title: "pubm — Publish to every registry with one command",
+      title: "pubm: Publish to every registry with one command",
       description:
         "Publish to npm, jsr, crates.io, and private registries in one step. Automatic rollback if anything fails.",
     },
@@ -75,7 +75,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       titleLine1: "One command.",
       titleLine2: "Every registry.",
       description:
-        "npm, jsr, crates.io, private registries — one step. If anything fails, pubm undoes the version bump, tag, and commit. Your repo stays clean.",
+        "npm, jsr, crates.io, private registries. One step. If anything fails, pubm undoes the version bump, tag, and commit. Your repo stays clean.",
       primaryCta: "Get Started",
       secondaryCta: "Star on GitHub",
     },
@@ -110,7 +110,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
         {
           title: "Preflight checks",
           description:
-            "Branch, working tree, remote sync, login status, publish permissions — all verified before pubm touches anything.",
+            "Branch, working tree, remote sync, login status, publish permissions. All verified before pubm touches anything.",
         },
         {
           title: "Same command, local and CI",
@@ -124,7 +124,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
       title: "Run `pubm`.",
       titleAccent: "That's it.",
       description:
-        "Version prompts, preflight checks, tests, builds, multi-registry publish — one command handles the entire pipeline.",
+        "Version prompts, preflight checks, tests, builds, multi-registry publish. One command handles the entire pipeline.",
       steps: [
         {
           title: "Pick a version",
@@ -151,18 +151,18 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     install: {
       title: "Install once. Then just `pubm`.",
       description:
-        "New project or existing one. pubm auto-detects your registries from day one — no migration needed later.",
+        "New project or existing one. pubm auto-detects your registries from day one. No migration needed later.",
       readDocs: "Read the Docs",
       viewGithub: "View on GitHub",
       copyLabel: "Copy commands",
-      terminalTitle: "bash — install",
+      terminalTitle: "bash - install",
     },
     footer: { tagline: "One command, every registry", docs: "Docs" },
     why: {
       badge: "Why pubm?",
       title: "Start right. Never migrate.",
       description:
-        "Most release tools lock you into a setup. pubm grows with your project — add registries, packages, or ecosystems without changing your workflow.",
+        "Most release tools lock you into a setup. pubm grows with your project. Add registries, packages, or ecosystems without changing your workflow.",
       items: [
         {
           heading: "No migration tax",
@@ -174,7 +174,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
         },
         {
           heading: "Monorepo-ready from day one",
-          body: "One package today, ten tomorrow. pubm publishes in dependency order — no broken releases from wrong sequencing.",
+          body: "One package today, ten tomorrow. pubm publishes in dependency order. No broken releases from wrong sequencing.",
         },
       ],
     },

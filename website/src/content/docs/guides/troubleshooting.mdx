@@ -277,12 +277,12 @@ Symptoms:
 
 What happened:
 
-npm unpublish removes the package tarball, but the version number is **permanently reserved** — it cannot be reused. crates.io `cargo yank` similarly marks the version as unusable.
+npm unpublish removes the package tarball, but the version number is **permanently reserved**: it cannot be reused. crates.io `cargo yank` similarly marks the version as unusable.
 
 What to do:
 
 - bump to a new version (e.g., `1.2.4` instead of `1.2.3`) and re-publish
-- in CI, unpublish is skipped by default to avoid burning versions — use `--dangerously-allow-unpublish` or set `rollback.dangerouslyAllowUnpublish: true` in config to enable it
+- in CI, unpublish is skipped by default to avoid burning versions. Use `--dangerously-allow-unpublish` or set `rollback.dangerouslyAllowUnpublish: true` in config to enable it
 
 ## When to file an issue
 
@@ -318,7 +318,7 @@ Only rerun a real publish after the dry-run and CI preparation outputs make sens
 
 ## Related pages
 
-- [CLI Reference](/pubm/reference/cli/) — full list of flags and execution modes
-- [Configuration](/pubm/guides/configuration/) — config file format and option reference
-- [CI/CD](/pubm/guides/ci-cd/) — CI preparation, token handling, and release automation
-- [Changesets](/pubm/guides/changesets/) — how changesets drive version bumps and changelogs
+- [CLI Reference](/pubm/reference/cli/): full list of flags and execution modes
+- [Configuration](/pubm/guides/configuration/): config file format and option reference
+- [CI/CD](/pubm/guides/ci-cd/): CI preparation, token handling, and release automation
+- [Changesets](/pubm/guides/changesets/): how changesets drive version bumps and changelogs

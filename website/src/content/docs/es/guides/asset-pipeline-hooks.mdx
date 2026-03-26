@@ -10,16 +10,16 @@ El asset pipeline se ejecuta después del build step y antes de subir al GitHub 
 ```
 releaseAssets config
   → glob matching → ResolvedAsset[]
-  → [resolveAssets]  — filtra, añade o reemplaza la lista de assets
-  → [transformAsset] — firma, reduce o divide cada asset (1 → N)
-  → [compressAsset]  — reemplaza la compresión por defecto tar.gz / zip
-  → [nameAsset]      — sobrescribe la plantilla de nombre con lógica dinámica
+  → [resolveAssets]: filtra, añade o reemplaza la lista de assets
+  → [transformAsset]: firma, reduce o divide cada asset (1 → N)
+  → [compressAsset]: reemplaza la compresión por defecto tar.gz / zip
+  → [nameAsset]: sobrescribe la plantilla de nombre con lógica dinámica
   → sha256 hash
-  → [generateChecksums] — añade archivos de checksum a la lista de assets
+  → [generateChecksums]: añade archivos de checksum a la lista de assets
   → GitHub Release upload (built-in)
-  → [uploadAssets]   — sube a destinos adicionales (S3, R2, CDN, etc.)
+  → [uploadAssets]: sube a destinos adicionales (S3, R2, CDN, etc.)
   → ReleaseContext assembled
-  → [afterRelease]   — consume la lista final de assets (brew, notificaciones, etc.)
+  → [afterRelease]: consume la lista final de assets (brew, notificaciones, etc.)
 ```
 
 ## Interfaz de hooks

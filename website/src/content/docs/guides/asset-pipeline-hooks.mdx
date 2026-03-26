@@ -10,16 +10,16 @@ The asset pipeline runs after the build step and before GitHub Release upload. P
 ```
 releaseAssets config
   → glob matching → ResolvedAsset[]
-  → [resolveAssets]  — filter, add, or replace the asset list
-  → [transformAsset] — sign, strip, or split each asset (1 → N)
-  → [compressAsset]  — replace default tar.gz / zip compression
-  → [nameAsset]      — override the name template with dynamic logic
+  → [resolveAssets]  : filter, add, or replace the asset list
+  → [transformAsset] : sign, strip, or split each asset (1 → N)
+  → [compressAsset]  : replace default tar.gz / zip compression
+  → [nameAsset]      : override the name template with dynamic logic
   → sha256 hash
-  → [generateChecksums] — append checksum files to the asset list
+  → [generateChecksums] : append checksum files to the asset list
   → GitHub Release upload (built-in)
-  → [uploadAssets]   — upload to additional targets (S3, R2, CDN, etc.)
+  → [uploadAssets]   : upload to additional targets (S3, R2, CDN, etc.)
   → ReleaseContext assembled
-  → [afterRelease]   — consume final asset list (brew, notify, etc.)
+  → [afterRelease]   : consume final asset list (brew, notify, etc.)
 ```
 
 ## Hooks interface
@@ -63,7 +63,7 @@ interface AssetPipelineHooks {
 All hooks are added to `PluginHooks` and registered through the standard `plugins` array in `pubm.config.ts`.
 
 :::note
-The `ctx` parameter is typed as `any` in the current TypeScript definitions to avoid circular imports. At runtime it is always a `PubmContext` instance — the signatures above reflect the runtime contract.
+The `ctx` parameter is typed as `any` in the current TypeScript definitions to avoid circular imports. At runtime it is always a `PubmContext` instance. The signatures above reflect the runtime contract.
 :::
 
 ## Hook reference
@@ -72,8 +72,8 @@ The `ctx` parameter is typed as `any` in the current TypeScript definitions to a
 
 Called once with the full list of glob-matched assets. Use this hook to filter assets, add programmatically discovered files, or attach metadata.
 
-**Input:** `ResolvedAsset[]` — assets from glob matching with parsed platform info
-**Output:** `ResolvedAsset[]` — the new asset list (replaces the previous list)
+**Input:** `ResolvedAsset[]`: assets from glob matching with parsed platform info
+**Output:** `ResolvedAsset[]`: the new asset list (replaces the previous list)
 
 ```ts
 const filterPlugin: PubmPlugin = {
@@ -95,8 +95,8 @@ const filterPlugin: PubmPlugin = {
 
 Called once per asset before compression. Use this hook to sign binaries, run `strip`, add sidecar files to an archive, or split one input into multiple outputs.
 
-**Input:** `ResolvedAsset` — one asset
-**Output:** `TransformedAsset | TransformedAsset[]` — one or more transformed assets
+**Input:** `ResolvedAsset`: one asset
+**Output:** `TransformedAsset | TransformedAsset[]`: one or more transformed assets
 
 `TransformedAsset` extends `ResolvedAsset` with an optional `extraFiles?: string[]` field. Files listed in `extraFiles` are bundled into the archive alongside the primary file during compression.
 
@@ -172,7 +172,7 @@ const customArchivePlugin: PubmPlugin = {
 Returns the final upload filename without the extension. The extension is appended from `compressFormat`. Use this hook when the name template system is not expressive enough.
 
 **Input:** `CompressedAsset`
-**Output:** `string` — the filename without extension
+**Output:** `string`: the filename without extension
 
 ```ts
 const dateStampPlugin: PubmPlugin = {
@@ -190,8 +190,8 @@ const dateStampPlugin: PubmPlugin = {
 
 Called with the complete list of prepared assets. Use this hook to append a checksum manifest file.
 
-**Input:** `PreparedAsset[]` — all assets including their `sha256` values
-**Output:** `PreparedAsset[]` — original assets plus any new checksum files
+**Input:** `PreparedAsset[]`: all assets including their `sha256` values
+**Output:** `PreparedAsset[]`: original assets plus any new checksum files
 
 ```ts
 import { writeFileSync } from "node:fs";
@@ -229,10 +229,10 @@ const checksumsPlugin: PubmPlugin = {
 
 ### `uploadAssets`
 
-Called after GitHub Release upload with the same `PreparedAsset[]`. Use this hook to mirror artifacts to additional targets. Each plugin's results are collected and concatenated — all plugins receive the same input list.
+Called after GitHub Release upload with the same `PreparedAsset[]`. Use this hook to mirror artifacts to additional targets. Each plugin's results are collected and concatenated. All plugins receive the same input list.
 
 **Input:** `PreparedAsset[]`
-**Output:** `UploadedAsset[]` — uploaded assets with `url` and `target` fields
+**Output:** `UploadedAsset[]`: uploaded assets with `url` and `target` fields
 
 ```ts
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -273,12 +273,12 @@ When multiple plugins register the same hook, they are composed in registration 
 
 | Hook | Composition rule |
 |------|-----------------|
-| `resolveAssets` | Chained — output of plugin N is input of plugin N+1 |
-| `transformAsset` | Chained — output of plugin N is input of plugin N+1 |
-| `compressAsset` | Chained — output of plugin N is input of plugin N+1 |
-| `nameAsset` | Last-wins — each plugin receives the same `(asset, ctx)` arguments; the last registered plugin's return value is used |
-| `generateChecksums` | Chained — output of plugin N is input of plugin N+1 |
-| `uploadAssets` | Additive — each plugin receives the original `PreparedAsset[]` independently; all results are concatenated |
+| `resolveAssets` | Chained: output of plugin N is input of plugin N+1 |
+| `transformAsset` | Chained: output of plugin N is input of plugin N+1 |
+| `compressAsset` | Chained: output of plugin N is input of plugin N+1 |
+| `nameAsset` | Last-wins: each plugin receives the same `(asset, ctx)` arguments; the last registered plugin's return value is used |
+| `generateChecksums` | Chained: output of plugin N is input of plugin N+1 |
+| `uploadAssets` | Additive: each plugin receives the original `PreparedAsset[]` independently; all results are concatenated |
 
 Any uncaught error in a hook chain aborts the pipeline and routes to the `onError` hook.
 
@@ -315,6 +315,6 @@ export default defineConfig({
 
 ## Related docs
 
-- [Release Assets](/pubm/guides/release-assets/) — declarative config reference
-- [Platform Detection](/pubm/reference/platform-detection/) — OS and arch tables
-- [Plugins API Reference](/pubm/reference/plugins/) — full plugin interface
+- [Release Assets](/pubm/guides/release-assets/): declarative config reference
+- [Platform Detection](/pubm/reference/platform-detection/): OS and arch tables
+- [Plugins API Reference](/pubm/reference/plugins/): full plugin interface

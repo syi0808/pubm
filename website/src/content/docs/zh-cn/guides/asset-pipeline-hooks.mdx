@@ -10,16 +10,16 @@ description: 通过 plugin hooks 拦截发布资产流水线的每个阶段。
 ```text
 releaseAssets config
   → glob matching → ResolvedAsset[]
-  → [resolveAssets]  — filter, add, or replace the asset list
-  → [transformAsset] — sign, strip, or split each asset (1 → N)
-  → [compressAsset]  — replace default tar.gz / zip compression
-  → [nameAsset]      — override the name template with dynamic logic
+  → [resolveAssets]: filter, add, or replace the asset list
+  → [transformAsset]: sign, strip, or split each asset (1 → N)
+  → [compressAsset]: replace default tar.gz / zip compression
+  → [nameAsset]: override the name template with dynamic logic
   → sha256 hash
-  → [generateChecksums] — append checksum files to the asset list
+  → [generateChecksums]: append checksum files to the asset list
   → GitHub Release upload (built-in)
-  → [uploadAssets]   — upload to additional targets (S3, R2, CDN, etc.)
+  → [uploadAssets]: upload to additional targets (S3, R2, CDN, etc.)
   → ReleaseContext assembled
-  → [afterRelease]   — consume final asset list (brew, notify, etc.)
+  → [afterRelease]: consume final asset list (brew, notify, etc.)
 ```
 
 ## Hooks 接口

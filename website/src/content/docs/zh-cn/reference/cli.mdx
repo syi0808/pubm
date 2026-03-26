@@ -80,12 +80,12 @@ pubm --tag beta
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | 在不修改 Git 状态或不发布的情况下显示任务图。 |
 | `--mode <mode>` | `local` | 执行模式：`local`（交互式）或 `ci`（非交互式，基于 tag）。 |
-| `--phase <phase>` | — | 流程阶段：`prepare`（验证和 dry-run）或 `publish`（从最新 tag 发布）。 |
+| `--phase <phase>` | - | 流程阶段：`prepare`（验证和 dry-run）或 `publish`（从最新 tag 发布）。 |
 | `--release-draft` | `false` | 创建 GitHub Release 草稿，而不是已发布的 release。 |
 | `-b, --branch <name>` | `main` | 在发布前要求当前分支匹配指定分支。 |
 | `-a, --any-branch` | `false` | 禁用当前运行的分支保护。 |
 | `-t, --tag <name>` | `latest` | 使用特定的 dist-tag，例如 `beta` 或 `next`。 |
-| `--snapshot [tag]` | — | 发布临时 snapshot 版本（默认 tag：`snapshot`） |
+| `--snapshot [tag]` | - | 发布临时 snapshot 版本（默认 tag：`snapshot`） |
 | `-c, --contents <path>` | none | 在运行发布流程之前切换到子目录。 |
 | `--registry <registries>` | `npm,jsr` | 以逗号分隔的目标 registries。支持 `npm`、`jsr`、`crates` 或自定义 registry URL。 |
 | `--test-script <script>` | `test` | 测试步骤使用的脚本名。 |
@@ -174,15 +174,15 @@ pubm init
 
 向导按顺序完成这些阶段：
 
-1. **包检测** — 扫描仓库中的 manifest 文件（`package.json`、`jsr.json`、`deno.json`、`deno.jsonc`、`Cargo.toml`）和 workspace 配置，然后确认检测到的包和 registry。
-2. **基础配置** — 提示输入发布分支和版本策略（`independent` 或 `fixed`）。
-3. **发布选项** — 询问是否生成 changelog 和 GitHub Release 草稿。
-4. **工作流 Setup** — 提供启用 changesets 工作流的选项（创建 `.pubm/changesets/`、`.github/workflows/changeset-check.yml` 并更新 `.gitignore`），以及生成 CI 发布工作流（`.github/workflows/release.yml`）。
-5. **Coding Agent Skills** — 提供为 Claude Code、Codex CLI 或 Gemini CLI 下载并安装 coding agent skills 的选项。它与 `pubm setup-skills` 一致。
+1. **包检测**: 扫描仓库中的 manifest 文件（`package.json`、`jsr.json`、`deno.json`、`deno.jsonc`、`Cargo.toml`）和 workspace 配置，然后确认检测到的包和 registry。
+2. **基础配置**: 提示输入发布分支和版本策略（`independent` 或 `fixed`）。
+3. **发布选项**: 询问是否生成 changelog 和 GitHub Release 草稿。
+4. **工作流 Setup**: 提供启用 changesets 工作流的选项（创建 `.pubm/changesets/`、`.github/workflows/changeset-check.yml` 并更新 `.gitignore`），以及生成 CI 发布工作流（`.github/workflows/release.yml`）。
+5. **Coding Agent Skills**: 提供为 Claude Code、Codex CLI 或 Gemini CLI 下载并安装 coding agent skills 的选项。它与 `pubm setup-skills` 一致。
 
 只有当你的选择与默认值不同时，才会创建 `pubm.config.ts` 文件。如果每个值都与默认值相同，则不会写入配置文件。
 
-此命令不接受任何 flags 或选项——所有配置均通过交互方式收集。
+此命令不接受任何 flags 或选项。所有配置均通过交互方式收集。
 
 ## `pubm setup-skills`
 

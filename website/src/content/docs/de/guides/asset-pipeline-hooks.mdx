@@ -10,16 +10,16 @@ Die Asset-Pipeline laeuft nach dem Build-Schritt und vor dem Upload in den GitHu
 ```
 releaseAssets config
   → Glob-Matching → ResolvedAsset[]
-  → [resolveAssets]  — Asset-Liste filtern, ergaenzen oder ersetzen
-  → [transformAsset] — jedes Asset signieren, strippen oder aufteilen (1 → N)
-  → [compressAsset]  — die Standard-Komprimierung tar.gz / zip ersetzen
-  → [nameAsset]      — die Name-Vorlage mit dynamischer Logik überschreiben
+  → [resolveAssets]  : Asset-Liste filtern, ergaenzen oder ersetzen
+  → [transformAsset] : jedes Asset signieren, strippen oder aufteilen (1 → N)
+  → [compressAsset]  : die Standard-Komprimierung tar.gz / zip ersetzen
+  → [nameAsset]      : die Name-Vorlage mit dynamischer Logik überschreiben
   → sha256 hash
-  → [generateChecksums] — Prüfsummen-Dateien an die Asset-Liste anhängen
+  → [generateChecksums] : Prüfsummen-Dateien an die Asset-Liste anhängen
   → GitHub-Release-Upload (integriert)
-  → [uploadAssets]   — an zusätzliche Ziele hochladen (S3, R2, CDN usw.)
+  → [uploadAssets]   : an zusätzliche Ziele hochladen (S3, R2, CDN usw.)
   → ReleaseContext zusammengebaut
-  → [afterRelease]   — finale Asset-Liste konsumieren (brew, notify usw.)
+  → [afterRelease]   : finale Asset-Liste konsumieren (brew, notify usw.)
 ```
 
 ## Hooks-Schnittstelle
