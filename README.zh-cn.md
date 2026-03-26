@@ -80,7 +80,12 @@ JavaScript 和 Rust 可以放在同一条流水线中。混合 JS + Rust 的 wor
 ## 快速开始
 
 ```bash
+# npm
 npm i -g pubm
+
+# Homebrew
+brew tap syi0808/pubm
+brew install pubm
 
 # 交互式初始化向导 - 检测包、配置仓库、CI 等
 pubm init

@@ -80,7 +80,12 @@ JavaScript et Rust dans le meme pipeline. Les workspaces mixtes JS + Rust foncti
 ## Demarrage rapide
 
 ```bash
+# npm
 npm i -g pubm
+
+# Homebrew
+brew tap syi0808/pubm
+brew install pubm
 
 # Assistant de configuration interactif - detecte les packages, configure les registres, la CI, etc.
 pubm init
