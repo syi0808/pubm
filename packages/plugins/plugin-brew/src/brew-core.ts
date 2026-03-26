@@ -214,34 +214,40 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
           { stdio: "inherit" },
         );
 
-        const prUrl = execSync(
-          [
-            `cd ${tmpDir}`,
-            `gh pr create --repo homebrew/homebrew-core --title "${name} ${releaseCtx.version}" --body "Update ${name} formula to version ${releaseCtx.version}"`,
-          ].join(" && "),
-          { encoding: "utf-8", ...ghEnv },
-        ).trim();
+        try {
+          const prUrl = execSync(
+            [
+              `cd ${tmpDir}`,
+              `gh pr create --repo homebrew/homebrew-core --title "${name} ${releaseCtx.version}" --body "Update ${name} formula to version ${releaseCtx.version}"`,
+            ].join(" && "),
+            { encoding: "utf-8", ...ghEnv },
+          ).trim();
 
-        const prNumber = prUrl.match(/\/pull\/(\d+)/)?.[1];
-        if (prNumber) {
-          ctx.runtime.rollback.add({
-            label: `Close homebrew-core PR #${prNumber}`,
-            fn: async () => {
-              const { execSync: execSyncRb } = await import(
-                "node:child_process"
-              );
-              execSyncRb(
-                `gh pr close ${prNumber} --repo homebrew/homebrew-core --comment "Closed by pubm rollback"`,
-                { stdio: "inherit", ...ghEnv },
-              );
-            },
-            confirm: true,
-          });
+          const prNumber = prUrl.match(/\/pull\/(\d+)/)?.[1];
+          if (prNumber) {
+            ctx.runtime.rollback.add({
+              label: `Close homebrew-core PR #${prNumber}`,
+              fn: async () => {
+                const { execSync: execSyncRb } = await import(
+                  "node:child_process"
+                );
+                execSyncRb(
+                  `gh pr close ${prNumber} --repo homebrew/homebrew-core --comment "Closed by pubm rollback"`,
+                  { stdio: "inherit", ...ghEnv },
+                );
+              },
+              confirm: true,
+            });
+          }
+
+          console.log(
+            `PR created to homebrew/homebrew-core for ${name} ${releaseCtx.version}`,
+          );
+        } catch {
+          console.warn(
+            `⚠ Failed to create PR. Push succeeded to branch: ${branchName}`,
+          );
         }
-
-        console.log(
-          `PR created to homebrew/homebrew-core for ${name} ${releaseCtx.version}`,
-        );
       },
     },
   };

@@ -274,6 +274,69 @@ describe("brewTap", () => {
     );
   });
 
+  it("retries push after git pull --rebase when initial push fails", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    let pushCount = 0;
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "git push") {
+        pushCount++;
+        if (pushCount === 1) {
+          throw new Error("rejected");
+        }
+      }
+      return Buffer.from("");
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const plugin = brewTap({ formula: "Formula/pubm.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { rollback: { add: vi.fn() } } } as never,
+      { version: "2.0.0", assets: [] } as never,
+    );
+
+    expect(mockedExecSync).toHaveBeenCalledWith("git pull --rebase", {
+      stdio: "inherit",
+    });
+    expect(mockedExecSync).not.toHaveBeenCalledWith(
+      expect.stringContaining("git checkout -b"),
+      expect.anything(),
+    );
+    expect(logSpy).toHaveBeenCalledWith("Formula updated at Formula/pubm.rb");
+  });
+
+  it("warns instead of throwing when PR creation fails on same repo", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "git push" || command === "git pull --rebase") {
+        throw new Error("failed");
+      }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        throw new Error("Resource not accessible by integration");
+      }
+      return Buffer.from("");
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const plugin = brewTap({ formula: "Formula/pubm.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { rollback: { add: vi.fn() } } } as never,
+      { version: "2.0.0", assets: [] } as never,
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "⚠ Failed to create PR. Push succeeded to branch: pubm/brew-formula-v2.0.0",
+    );
+  });
+
   it("separate repo PR fallback registers rollback that closes the PR", async () => {
     writeFileSync(
       resolve(tmpRoot, "package.json"),
@@ -537,6 +600,85 @@ describe("brewTap", () => {
     );
     expect(logSpy).toHaveBeenCalledWith(
       "Created PR on branch pubm/brew-formula-v6.0.0",
+    );
+  });
+
+  it("retries push after git pull --rebase when pushing to tap repo fails", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+
+    let pushCount = 0;
+    mockedExecSync.mockImplementation((command) => {
+      if (command === `cd ${tmpDir} && git push`) {
+        pushCount++;
+        if (pushCount === 1) {
+          throw new Error("rejected");
+        }
+      }
+      return Buffer.from("");
+    });
+
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
+      { version: "6.0.0", assets: [] } as never,
+    );
+
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      `cd ${tmpDir} && git pull --rebase`,
+      { stdio: "inherit" },
+    );
+    expect(mockedExecSync).not.toHaveBeenCalledWith(
+      expect.stringContaining("git checkout -b"),
+      expect.anything(),
+    );
+    expect(logSpy).toHaveBeenCalledWith("Formula updated at Formula/pubm.rb");
+  });
+
+  it("warns instead of throwing when PR creation fails on tap repo", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "pubm" }, null, 2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tmpDir = join(tmpdir(), "pubm-brew-tap-123456");
+
+    mockedExecSync.mockImplementation((command) => {
+      if (
+        command === `cd ${tmpDir} && git push` ||
+        command === `cd ${tmpDir} && git pull --rebase`
+      ) {
+        throw new Error("failed");
+      }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        throw new Error("Resource not accessible by integration");
+      }
+      return Buffer.from("");
+    });
+
+    const plugin = brewTap({
+      formula: "Formula/pubm.rb",
+      repo: "syi0808/homebrew-pubm",
+    });
+
+    await plugin.hooks?.afterRelease?.(
+      { runtime: { pluginTokens: {}, rollback: { add: vi.fn() } } } as never,
+      { version: "6.0.0", assets: [] } as never,
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "⚠ Failed to create PR. Push succeeded to branch: pubm/brew-formula-v6.0.0",
     );
   });
 

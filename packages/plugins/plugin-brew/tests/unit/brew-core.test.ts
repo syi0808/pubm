@@ -275,6 +275,42 @@ describe("brewCore", () => {
     );
   });
 
+  it("warns instead of throwing when PR creation fails", async () => {
+    writeFileSync(
+      resolve(tmpRoot, "package.json"),
+      JSON.stringify({ name: "my-tool" }, null, 2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(123456);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    mockedExecSync.mockImplementation((command) => {
+      if (command === "gh api user --jq .login") {
+        return "octocat\n" as never;
+      }
+      if (typeof command === "string" && command.includes("gh pr create")) {
+        throw new Error("Resource not accessible by integration");
+      }
+      return Buffer.from("");
+    });
+
+    const plugin = brewCore({ formula: "Formula/my-tool.rb" });
+
+    await plugin.hooks?.afterRelease?.(
+      {
+        runtime: {
+          pluginTokens: { "brew-github-token": "tkn" },
+          rollback: { add: vi.fn() },
+        },
+      } as never,
+      { version: "1.0.0", assets: [] } as never,
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "⚠ Failed to create PR. Push succeeded to branch: my-tool-1.0.0",
+    );
+  });
+
   it("creates a new default formula when the workspace has no package.json", async () => {
     vi.spyOn(Date, "now").mockReturnValue(333333);
     mockedExecSync.mockImplementation((command) => {
