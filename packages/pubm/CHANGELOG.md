@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.10
+
+### Patch Changes
+
+- Unify version bump commit message to Version Packages format across all modes
+
 ## 0.4.4
 
 ### Patch Changes
