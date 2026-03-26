@@ -1094,7 +1094,10 @@ export async function run(ctx: PubmContext): Promise<void> {
               }
 
               task.output = `Creating release commit ${tagName}...`;
-              const commit = await git.commit(tagName);
+              const singleCommitMsg = `Version Packages\n\n${ctx.config.packages
+                .map((pkg) => `- ${pkg.name}: ${plan.version}`)
+                .join("\n")}`;
+              const commit = await git.commit(singleCommitMsg);
               registerCommitRollback(ctx);
               task.output = "Creating tag...";
               await git.createTag(tagName, commit);
@@ -1171,7 +1174,13 @@ export async function run(ctx: PubmContext): Promise<void> {
               }
 
               task.output = `Creating release commit ${tagName}...`;
-              const commit = await git.commit(tagName);
+              const fixedCommitMsg = `Version Packages\n\n${[...plan.packages]
+                .map(
+                  ([pkgPath]) =>
+                    `- ${getPackageName(ctx, pkgPath)}: ${plan.version}`,
+                )
+                .join("\n")}`;
+              const commit = await git.commit(fixedCommitMsg);
               registerCommitRollback(ctx);
               task.output = "Creating tag...";
               await git.createTag(tagName, commit);

@@ -26,7 +26,9 @@ const fixture = isSingle ? "single" : "monorepo";
 // Forward extra CLI args to pubm (e.g., --dry-run, patch, minor, etc.)
 const pubmArgs = process.argv
   .slice(2)
-  .filter((arg) => arg !== "--single" && arg !== "--keep" && arg !== "--verbose");
+  .filter(
+    (arg) => arg !== "--single" && arg !== "--keep" && arg !== "--verbose",
+  );
 
 const log = verbose ? console.log.bind(console) : () => {};
 
