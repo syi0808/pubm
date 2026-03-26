@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.11
+
+### Patch Changes
+
+- Add Cluvo SDK integration for error reporting and telemetry
+
 ## 0.4.10
 
 ### Patch Changes
