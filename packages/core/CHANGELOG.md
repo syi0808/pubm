@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.9
+
+### Patch Changes
+
+- Add plugin credentials and checks interface — plugins can now declare required credentials and preflight checks
+- overhaul rollback system: class-based RollbackTracker with per-action registration, LIFO execution, registry unpublish support, and removal of onRollback plugin hook
+- Support deno.json and deno.jsonc as JSR manifest sources alongside jsr.json, with multi-file consistency validation, registry-driven inference, and Deno-only project detection
+
 ## 0.4.6
 
 ### Patch Changes
