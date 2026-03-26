@@ -1,6 +1,6 @@
 {
   "name": "@pubm/linux-x64-musl-baseline",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "pubm binary for linux-x64-musl-baseline",
   "license": "Apache-2.0",
   "author": "Yein Sung",

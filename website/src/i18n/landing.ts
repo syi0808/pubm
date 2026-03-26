@@ -71,7 +71,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "Docs", github: "GitHub", cta: "Get Started" },
     hero: {
-      badge: "v0.4.10 available",
+      badge: "v0.4.11 available",
       titleLine1: "One command.",
       titleLine2: "Every registry.",
       description:
@@ -187,7 +187,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "문서", github: "GitHub", cta: "시작하기" },
     hero: {
-      badge: "v0.4.10 사용 가능",
+      badge: "v0.4.11 사용 가능",
       titleLine1: "명령은 하나.",
       titleLine2: "배포 대상은 전부.",
       description:
@@ -303,7 +303,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "文档", github: "GitHub", cta: "开始使用" },
     hero: {
-      badge: "v0.4.10 已可用",
+      badge: "v0.4.11 已可用",
       titleLine1: "一条命令。",
       titleLine2: "所有仓库。",
       description:
@@ -416,7 +416,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "Docs", github: "GitHub", cta: "Commencer" },
     hero: {
-      badge: "v0.4.10 disponible",
+      badge: "v0.4.11 disponible",
       titleLine1: "Une commande.",
       titleLine2: "Tous les registres.",
       description:
@@ -532,7 +532,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "Docs", github: "GitHub", cta: "Loslegen" },
     hero: {
-      badge: "v0.4.10 verfügbar",
+      badge: "v0.4.11 verfügbar",
       titleLine1: "Ein Befehl.",
       titleLine2: "Jede Registry.",
       description:
@@ -648,7 +648,7 @@ export const landingCopy: Record<SiteLocale, LandingDictionary> = {
     },
     nav: { docs: "Docs", github: "GitHub", cta: "Empezar" },
     hero: {
-      badge: "v0.4.10 disponible",
+      badge: "v0.4.11 disponible",
       titleLine1: "Un comando.",
       titleLine2: "Todos los registros.",
       description:
