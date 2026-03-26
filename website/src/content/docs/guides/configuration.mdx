@@ -3,9 +3,9 @@ title: Configuration
 description: Set defaults for your release pipeline, package layout, plugins, and version planning.
 ---
 
-`pubm` is intentionally CLI-first, but real projects quickly outgrow flag-only configuration. `pubm.config.*` is where you keep repository-level publish targets, package layout, plugins, and changeset-related versioning rules.
+`pubm` is CLI-first by design, but real projects quickly outgrow flag-only configuration. `pubm.config.*` is where you keep repository-level publish targets, package layout, plugins, and changeset-related versioning rules.
 
-Run `pubm init` to interactively generate this configuration file. The wizard only creates a config file when your choices differ from the defaults shown below.
+Run `pubm init` to generate this configuration file interactively. The wizard only writes a config file when your choices differ from the defaults shown below.
 
 ## Supported config files
 
@@ -157,7 +157,7 @@ Whether the publish flow should create a GitHub Release. When disabled, the rele
 
 Glob patterns for packages that should be versioned and published but excluded from git tag creation and GitHub Release drafts. Applies only when `versioning` is `"independent"`.
 
-Use this for internal build artifacts — such as platform-specific binaries — that are published to a registry but should not appear as standalone releases.
+Use this for internal build artifacts, such as platform-specific binaries, that are published to a registry but should not appear as standalone releases.
 
 ```ts
 export default defineConfig({
@@ -175,7 +175,7 @@ export default defineConfig({
 
 - Type: `ValidateConfig`
 
-These fields are part of the public schema, but they are not yet active toggles across every publish path. Treat them as typed config surface, not as guaranteed runtime switches.
+These fields are part of the public schema, but they are not yet active toggles across every publish path. Treat them as typed config surface, not guaranteed runtime switches.
 
 ### `snapshotTemplate`
 

@@ -21,7 +21,7 @@ Strip `@scope/` prefix from `package.json` name:
 
 ## Crate Type
 
-If neither `src/lib.rs` nor `src/main.rs` exists, ask the user whether this is a library or binary crate, then create the corresponding file:
+If neither `src/lib.rs` nor `src/main.rs` exists, ask whether this is a library or binary crate, then create the matching file:
 - Library: `src/lib.rs`
 - Binary: `src/main.rs`
 

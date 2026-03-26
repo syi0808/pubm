@@ -1,10 +1,10 @@
 # pubm Plugin Installation
 
-This file explains how to obtain the `pubm plugin` bundle when your coding agent does not support a plugin marketplace.
+Use this file when your coding agent cannot install plugins from a marketplace.
 
 ## Download the plugin bundle
 
-The statically deployed plugin bundle is available under the website's `/plugins/pubm-plugin/` path.
+The deployed plugin bundle lives under the website's `/plugins/pubm-plugin/` path.
 
 Download these files and directories together:
 
@@ -15,9 +15,9 @@ Download these files and directories together:
 - `skills/version-sync/`
 - `skills/create-plugin/`
 
-Keep the directory structure unchanged after download.
+Keep the directory structure unchanged.
 
-## Why this exists
+## Why it exists
 
 Some coding agents support marketplace installation. Others only support:
 
@@ -25,9 +25,9 @@ Some coding agents support marketplace installation. Others only support:
 - loading local skill directories
 - importing checked-in prompt assets from a repository
 
-This bundle is published so those agents can consume the same checked-in `pubm` workflow without depending on a marketplace.
+This bundle exists so those agents can use the same checked-in `pubm` workflow without a marketplace.
 
-## What the bundle contains
+## Bundle Contents
 
 - `publish-setup`: sets up `pubm`, config, registries, CI, and changesets
 - `publish-preview`: inspects the release plan before publishing
@@ -35,7 +35,7 @@ This bundle is published so those agents can consume the same checked-in `pubm` 
 - `version-sync`: helps wire non-manifest version references
 - `create-plugin`: scaffolds a new `pubm` plugin package
 
-## Installation model
+## Installation Steps
 
 1. download the `pubm-plugin` bundle from the deployed `/plugins/pubm-plugin/` path
 2. place the files into the location your coding agent uses for local plugins, skills, or prompt bundles
@@ -44,7 +44,7 @@ This bundle is published so those agents can consume the same checked-in `pubm` 
 
 ## Usage notes
 
-- use the checked-in skill bundle as the source of truth for agent-driven release work
-- let the skills orchestrate `pubm` commands instead of replacing them
-- inspect changesets and repository state before publishing
-- use preview and validation flows before irreversible actions
+- Treat the checked-in skill bundle as the source of truth for release work.
+- Let the skills drive `pubm` commands instead of replacing them.
+- Check changesets and repository state before publishing.
+- Use preview and validation flows before irreversible actions.

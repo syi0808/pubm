@@ -3,26 +3,26 @@ title: CLI-Referenz
 description: "Befehle, Flags und Ausführungsmodi für die `pubm`-CLI."
 ---
 
-Diese Referenz ist nach Befehlsform gegliedert:
+Diese Referenz ist nach Befehlen gegliedert:
 
 - der top-level Publish-Befehl: `pubm [version]`
 - Verwaltungsbefehle wie `init`, `secrets` und `sync`
 - Changeset-Workflows unter `pubm changesets ...`
 
-Für den taeglichen Gebrauch ist der wichtigste Befehl einfach:
+Für den Alltag ist der wichtigste Befehl:
 
 ```bash
 pubm
 ```
 
-Wenn du `pubm` ohne Versionsargument aufrufst, landest du im interaktiven Standardpfad. Dort kannst du im Terminal die nächste Version waehlen, bevor die Release-Pipeline weiterlaeuft.
+Wenn du `pubm` ohne Versionsargument aufrufst, landest du im interaktiven Ablauf. Dort kannst du im Terminal die nächste Version waehlen, bevor die Release-Pipeline weiterlaeuft.
 
 ## Befehlsuebersicht
 
 | Befehl | Zweck |
 |---------|-------|
 | `pubm [version]` | Fuehrt die Publish-Pipeline mit einem Release-Typ oder einer expliziten SemVer aus. |
-| `pubm init` | Interaktiver Setup-Wizard — Paketerkennung, Konfiguration, Changesets, CI-Workflows und Coding-Agent-Skills. |
+| `pubm init` | Interaktiver Setup-Wizard für Paketerkennung, Konfiguration, Changesets, CI-Workflows und Coding-Agent-Skills. |
 | `pubm setup-skills` | Coding-Agent-Skills herunterladen und installieren (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Schiebt lokal gespeicherte Tokens über `gh` in GitHub Secrets. |
 | `pubm sync --discover` | Durchsucht das Repository nach Versionsverweisen außerhalb von Manifest-Dateien. |
@@ -51,8 +51,6 @@ Wenn du die Version weglässt:
 
 - interaktive Terminals koennen nach der nächsten Version fragen
 - CI-Laeufe verlangen, dass die Version nicht interaktiv aufgeloest wird
-
-Wenn du die Version weglässt, kann `pubm` in einem interaktiven Terminal nach der nächsten Version fragen.
 
 ### Interaktive Nutzung
 
@@ -168,19 +166,19 @@ Prompts werden automatisch deaktiviert, wenn:
 
 ## `pubm init`
 
-Interaktiver Setup-Wizard für `pubm`. Erfordert ein TTY (interaktives Terminal).
+Interaktiver Setup-Wizard für `pubm`. Erfordert ein TTY.
 
 ```bash
 pubm init
 ```
 
-Der Wizard fuehrt der Reihe nach durch jeden Schritt:
+Der Wizard führt diese Schritte der Reihe nach aus:
 
 1. **Paketerkennung** — durchsucht das Repository nach Manifest-Dateien (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) und Workspace-Konfiguration, bestaetigt dann die erkannten Pakete und Registries.
 2. **Grundkonfiguration** — fragt nach dem Release-Branch und der Versionierungsstrategie (`independent` oder `fixed`).
 3. **Release-Optionen** — fragt nach Changelog-Erzeugung und GitHub-Release-Entwuerfen.
 4. **Workflow-Setup** — bietet an, den Changesets-Workflow zu aktivieren (erstellt `.pubm/changesets/`, `.github/workflows/changeset-check.yml` und aktualisiert `.gitignore`) und CI-Release-Workflows zu erzeugen (`.github/workflows/release.yml`).
-5. **Coding-Agent-Skills** — bietet an, Coding-Agent-Skills für Claude Code, Codex CLI oder Gemini CLI herunterzuladen und zu installieren (entspricht `pubm setup-skills`).
+5. **Coding-Agent-Skills** — bietet an, Coding-Agent-Skills für Claude Code, Codex CLI oder Gemini CLI herunterzuladen und zu installieren. Das entspricht `pubm setup-skills`.
 
 Eine `pubm.config.ts`-Datei wird nur erstellt, wenn deine Auswahl von den Standardwerten abweicht. Wenn alle Werte den Standardwerten entsprechen, wird keine Config-Datei geschrieben.
 

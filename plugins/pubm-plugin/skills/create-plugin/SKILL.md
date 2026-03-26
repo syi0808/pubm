@@ -13,13 +13,13 @@ allowed-tools:
 
 # Create pubm Plugin
 
-Guide creation of a new pubm plugin — from a simple inline function to a full publishable package.
+Create a new pubm plugin, from an inline hook to a full publishable package.
 
 ## Workflow
 
 ### 1. Gather Plugin Info
 
-Use AskUserQuestion to collect:
+Use `AskUserQuestion` to collect:
 
 1. **Plugin name** (kebab-case, without `plugin-` prefix). Example: `slack-notify`, `sentry-release`
 2. **One-line description** of what the plugin does
@@ -46,15 +46,15 @@ Available hooks (see `references/plugin-api.md` for details):
 
 ### 2. Choose Plugin Form
 
-Use AskUserQuestion to ask the user which form they want:
+Use `AskUserQuestion` to ask which form they want:
 
 | Form | When to use | What gets created |
 |------|-------------|-------------------|
 | **Config inline** | Simple one-off hook logic | Plugin function added directly in `pubm.config.ts` |
-| **Single file** | Reusable but lightweight | A single `.ts` file with factory function, imported in `pubm.config.ts` |
+| **Single file** | Reusable but lightweight | A single `.ts` file with a factory function, imported in `pubm.config.ts` |
 | **Package** | Publishable, has deps/tests | Full `packages/plugins/plugin-{name}/` scaffold |
 
-Then follow the corresponding section below.
+Then follow the matching section below.
 
 ---
 
@@ -104,7 +104,7 @@ After adding, skip to **Step: Present Next Steps**.
 
 ## Form B: Single File
 
-Create a single `.ts` file with the factory function. The user chooses the file location (suggest `plugins/{name}.ts` or `src/plugins/{name}.ts`).
+Create a single `.ts` file with the factory function. Let the user choose the file location; suggest `plugins/{name}.ts` or `src/plugins/{name}.ts`.
 
 #### `plugins/{name}.ts`
 
@@ -349,7 +349,7 @@ describe("{name} plugin", () => {
 
 ### Package-only: Register in Workspace
 
-Check root `package.json` for the `workspaces` field. If it uses a glob pattern like `packages/plugins/*`, it's already covered. Otherwise, add the new plugin path.
+Check the root `package.json` for the `workspaces` field. If it uses a glob like `packages/plugins/*`, the new package is already covered. Otherwise, add the plugin path.
 
 ### Package-only: Install Dependencies
 

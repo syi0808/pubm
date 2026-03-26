@@ -3,7 +3,7 @@ title: Plugins API 参考
 description: 为 pubm 添加 hooks、commands、registries 和 ecosystems。
 ---
 
-插件系统可以让你在不 fork 核心发布流程的情况下扩展 `pubm`。
+插件系统让你可以在不 fork 核心发布流程的前提下扩展 `pubm`。
 
 ## `PubmPlugin`
 
@@ -19,8 +19,8 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、将其注入环境变量，并在执行 `--ci-prepare` 时同步到 GitHub Secrets。
-- `checks` - 返回与核心 prerequisite/condition 阶段一起运行的 preflight checks。每个 check 通过 `phase` 字段声明自己的执行时机。
+- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、注入环境变量，并在执行 `--ci-prepare` 时同步到 GitHub Secrets。
+- `checks` - 返回与核心 prerequisite/condition 阶段一起运行的 preflight check。每个 check 通过 `phase` 字段声明执行时机。
 
 ## Hooks
 
@@ -53,7 +53,7 @@ export interface PluginHooks {
 
 ### 资产流水线 hooks
 
-六个 hooks 让插件可以拦截发布资产流水线的每个阶段。它们运行在 build 步骤和 GitHub Release 上传之间。
+六个 hooks 让插件可以拦截发布资产流水线的每个阶段。它们运行在 build 步骤和上传到 GitHub Release 之间。
 
 | Hook | 运行时机 | 输入 → 输出 |
 |------|----------|-------------|
@@ -64,7 +64,7 @@ export interface PluginHooks {
 | `generateChecksums` | 所有资产完成命名和哈希之后 | `PreparedAsset[]` → `PreparedAsset[]` |
 | `uploadAssets` | GitHub Release 上传之后 | `PreparedAsset[]` → `UploadedAsset[]` |
 
-当多个插件注册同一个资产流水线 hook 时，它们会按注册顺序串联。`uploadAssets` 是例外：每个插件都会独立接收同一份输入，所有结果会被拼接起来。
+当多个插件注册同一个资产流水线 hook 时，它们会按注册顺序串联。`uploadAssets` 是例外：每个插件都会独立接收同一份输入，结果再统一拼接。
 
 阅读 [Asset Pipeline Hooks](/pubm/zh-cn/guides/asset-pipeline-hooks/) 了解完整签名、示例和组合规则。
 
@@ -107,7 +107,7 @@ export interface PubmContext {
 - `ctx.options`：解析后的 CLI 选项（version、tag、mode、dryRun 等）
 - `ctx.cwd`：工作目录
 - `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
-- `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，并可在后续所有 hooks 中使用。
+- `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，后续所有 hooks 都能用。
 
 ### Rollback API
 
@@ -248,7 +248,7 @@ export interface PluginSubcommand {
 
 ## 自定义 registries 和 ecosystems
 
-当你需要额外的发布目标时，使用自定义 registry。 当你需要让 `pubm` 学会读写另一种 package 类型的版本时，使用自定义 ecosystem。
+当你需要额外的发布目标时，使用自定义 registry。当你需要让 `pubm` 学会读写另一种 package 类型的版本时，使用自定义 ecosystem。
 
 ## 相关文档
 

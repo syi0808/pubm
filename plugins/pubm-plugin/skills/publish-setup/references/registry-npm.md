@@ -11,7 +11,7 @@
 }
 ```
 
-When generating `package.json` for npm publishing, the source can be either `jsr.json` or `deno.json`/`deno.jsonc`.
+When generating `package.json` for npm publishing, use either `jsr.json` or `deno.json`/`deno.jsonc` as the source.
 
 ## Exports Conversion
 
@@ -21,7 +21,7 @@ Convert `jsr.json` exports to `package.json` format:
 
 ## files Array Mapping
 
-From `jsr.json` `publish` field:
+From the `publish` field in `jsr.json`:
 - `publish.include` entries → add directly to `files`
 - `publish.exclude` entries → prefix with `!` and add to `files`
 

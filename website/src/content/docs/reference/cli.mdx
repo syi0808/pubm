@@ -3,26 +3,26 @@ title: CLI Reference
 description: Commands, flags, and execution modes for the pubm CLI.
 ---
 
-This reference is organized by command shape:
+This reference is grouped by command:
 
 - the top-level publish command: `pubm [version]`
 - management commands such as `init`, `secrets`, and `sync`
 - changeset workflow commands under `pubm changesets ...`
 
-For day-to-day human use, the most important command is simply:
+For most day-to-day use, the main command is:
 
 ```bash
 pubm
 ```
 
-Running `pubm` with no version argument is the interactive happy path. It lets you choose the next version in the terminal before the release pipeline continues.
+Running `pubm` without a version argument follows the interactive path. You choose the next version in the terminal before the release pipeline continues.
 
 ## Command overview
 
 | Command | Purpose |
 |---------|---------|
 | `pubm [version]` | Run the publish pipeline using a release type or explicit semver. |
-| `pubm init` | Interactive setup wizard — package detection, config, changesets, CI workflows, and coding agent skills. |
+| `pubm init` | Interactive setup wizard for package detection, config, changesets, CI workflows, and coding agent skills. |
 | `pubm setup-skills` | Download and install coding agent skills (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Push locally stored tokens into GitHub Secrets through `gh`. |
 | `pubm sync --discover` | Scan the repository for version references outside manifest files. |
@@ -51,8 +51,6 @@ If you omit the version:
 
 - interactive terminals can prompt for the next version
 - CI runs require the version to be resolved non-interactively
-
-If you omit the version, `pubm` can prompt for the next version in an interactive terminal.
 
 ### Interactive usage
 
@@ -131,13 +129,13 @@ pubm --dry-run
 
 Use dry-run mode when you need to inspect the task plan without side effects.
 
-## CI Preparation mode
+## CI prepare mode
 
 ```bash
 pubm --mode ci --phase prepare
 ```
 
-CI Preparation:
+CI prepare mode:
 
 - collects missing tokens interactively
 - can sync them to GitHub Secrets
@@ -145,13 +143,13 @@ CI Preparation:
 - runs prerequisite and condition checks
 - dry-runs publish for configured registries
 
-## CI Publish mode
+## CI publish mode
 
 ```bash
 pubm --mode ci --phase publish
 ```
 
-CI Publish mode publishes from the latest Git tag and creates a GitHub Release via API. Use it when the version bump and tagging already happened earlier in the pipeline. Pass `--release-draft` to create a draft release instead of a published one.
+CI publish mode publishes from the latest Git tag and creates a GitHub Release via API. Use it when the version bump and tagging already happened earlier in the pipeline. Pass `--release-draft` to create a draft release instead of a published one.
 
 ## Environment variables
 
@@ -168,19 +166,19 @@ Prompts are disabled automatically when:
 
 ## `pubm init`
 
-Interactive setup wizard for `pubm`. Requires a TTY (interactive terminal).
+Interactive setup wizard for `pubm`. Requires a TTY.
 
 ```bash
 pubm init
 ```
 
-The wizard walks through each stage in order:
+The wizard walks through these stages:
 
 1. **Package Detection** — scans the repository for manifest files (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) and workspace configuration, then confirms the detected packages and registries.
 2. **Basic Configuration** — prompts for the release branch and versioning strategy (`independent` or `fixed`).
 3. **Release Options** — asks about changelog generation and GitHub Release drafts.
 4. **Workflow Setup** — offers to enable the changesets workflow (creates `.pubm/changesets/`, `.github/workflows/changeset-check.yml`, and updates `.gitignore`) and generate CI release workflows (`.github/workflows/release.yml`).
-5. **Coding Agent Skills** — offers to download and install coding agent skills for Claude Code, Codex CLI, or Gemini CLI (same as `pubm setup-skills`).
+5. **Coding Agent Skills** — offers to download and install coding agent skills for Claude Code, Codex CLI, or Gemini CLI. This matches `pubm setup-skills`.
 
 A `pubm.config.ts` file is only created when your choices differ from the defaults. If every value matches the default, no config file is written.
 

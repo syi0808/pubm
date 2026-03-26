@@ -133,9 +133,9 @@ pubm speichert Tokens uber `@napi-rs/keyring` im nativen Keychain deines Betrieb
 
 pubm sammelt keine Telemetrie-, Analyse- oder Nutzungsdaten.
 
-- **Token-Speicherung** — Registry-Tokens werden im nativen Keychain deines Betriebssystems gespeichert (macOS Keychain, Windows Credential Manager, Linux Secret Service) mit einem AES-256-CBC-verschlusselten Fallback unter `~/.pubm/`
-- **Netzwerk** — pubm kommuniziert ausschliesslich mit den von dir konfigurierten Registries (npm, jsr, crates.io) und GitHub fur die Release-Erstellung
-- **Update-Check** — Fragt die oeffentliche npm-Registry nach neueren Versionen ab (nur lokal, in CI deaktiviert)
+- **Token-Speicherung** - Registry-Tokens werden im nativen Keychain deines Betriebssystems gespeichert (macOS Keychain, Windows Credential Manager, Linux Secret Service) mit einem AES-256-CBC-verschlusselten Fallback unter `~/.pubm/`
+- **Netzwerk** - pubm kommuniziert ausschliesslich mit den von dir konfigurierten Registries (npm, jsr, crates.io) und GitHub fur die Release-Erstellung
+- **Update-Check** - Fragt die oeffentliche npm-Registry nach neueren Versionen ab (nur lokal, in CI deaktiviert)
 
 ---
 
@@ -149,4 +149,4 @@ Dieses Projekt steht unter der Apache License 2.0. Details findest du in [LICENS
 
 ## Autor
 
-**Yein Sung** — [GitHub](https://github.com/syi0808)
+**Yein Sung** - [GitHub](https://github.com/syi0808)

@@ -2,13 +2,13 @@
 
 ## When is a config file needed?
 
-pubm auto-detects ecosystems, packages, and registries without any config file. A `pubm.config.ts` is only needed when:
+pubm auto-detects ecosystems, packages, and registries without a config file. Use `pubm.config.ts` only when:
 
 - **Overriding auto-detected registries** (e.g., adding jsr to a package that wasn't auto-detected)
 - **Using plugins** (externalVersionSync, brewTap, brewCore, etc.)
 - **Setting non-default options** (versioning strategy, changelog format, etc.)
 
-If auto-detection covers your setup, no config file is required.
+If auto-detection covers your setup, you do not need a config file.
 
 ## Config file search order
 
@@ -27,14 +27,14 @@ The file must export a config object as the default export. Use `defineConfig()`
 
 ### No config (auto-detection only)
 
-When auto-detection is sufficient, no config file is needed. pubm will:
+When auto-detection is enough, no config file is needed. pubm will:
 - Detect packages from workspace config or single-package root
 - Detect JS ecosystem (package.json, deno.json, deno.jsonc) or Rust ecosystem (Cargo.toml)
 - Infer registries: npm (default for JS), jsr (when jsr.json, deno.json, or deno.jsonc exists), crates (for Rust), private (from .npmrc or publishConfig)
 
 ### Monorepo with explicit packages and registries
 
-Use when auto-detection doesn't match your desired publish targets.
+Use this when auto-detection does not match the publish targets you want.
 
 ```typescript
 import { defineConfig } from 'pubm'
@@ -116,7 +116,7 @@ export default defineConfig({
 })
 ```
 
-For independent versioning, provide a `version` callback to select which package's version to sync:
+For independent versioning, provide a `version` callback to choose which package version to sync:
 
 ```typescript
 externalVersionSync({

@@ -28,11 +28,11 @@ If anything fails, pubm undoes the version bump, tag, and commit automatically.
 
 Most release tools assume one registry. pubm is built for projects that grow:
 
-- **npm + jsr** — ship to both JavaScript registries in one command
-- **JS + Rust** — publish `package.json` and `Cargo.toml` in a single pipeline
-- **Monorepos** — publishes packages in dependency order, no manual sequencing
-- **Automatic rollback** — if any registry fails, pubm undoes the version bump, tag, and commit (registry unpublish is best-effort — version numbers may be permanently reserved)
-- **Zero config** — registries are auto-detected from your manifest files
+- **npm + jsr** - ship to both JavaScript registries in one command
+- **JS + Rust** - publish `package.json` and `Cargo.toml` in a single pipeline
+- **Monorepos** - publishes packages in dependency order, no manual sequencing
+- **Automatic rollback** - if any registry fails, pubm undoes the version bump, tag, and commit (registry unpublish is best-effort - version numbers may be permanently reserved)
+- **Zero config** - registries are auto-detected from your manifest files
 
 Start with npm only. Add jsr next month. Move to a monorepo next year. Your release command stays the same: `pubm`.
 
@@ -55,11 +55,11 @@ Have both `package.json` and `jsr.json`? pubm publishes to both in one release. 
 
 ### Automatic rollback
 
-Registry rejected your package? pubm undoes the version bump, git tag, and commit. Note: registry unpublish is best-effort — npm reserves the version number even after unpublish, so you may need to bump to a new version.
+Registry rejected your package? pubm undoes the version bump, git tag, and commit. Note: registry unpublish is best-effort - npm reserves the version number even after unpublish, so you may need to bump to a new version.
 
 ### Preflight checks
 
-Branch, working tree, remote sync, login status, publish permissions — all verified **before** pubm touches anything. In CI mode, pubm validates tokens and runs publish dry-runs to catch issues before the real publish:
+Branch, working tree, remote sync, login status, publish permissions - all verified **before** pubm touches anything. In CI mode, pubm validates tokens and runs publish dry-runs to catch issues before the real publish:
 
 ```bash
 pubm --mode ci --phase prepare
@@ -87,10 +87,10 @@ npm i -g pubm
 brew tap syi0808/pubm
 brew install pubm
 
-# Interactive setup wizard — detects packages, configures registries, CI, and more
+# Interactive setup wizard - detects packages, configures registries, CI, and more
 pubm init
 
-# Just run pubm — that's it
+# Just run pubm - that's it
 pubm
 
 # Optional: install coding agent skills (Claude Code, Codex, Gemini)
@@ -133,9 +133,9 @@ pubm stores tokens in your OS native keychain (macOS Keychain, Windows Credentia
 
 pubm does not collect telemetry, analytics, or usage data.
 
-- **Token storage** — Registry tokens are stored in your OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) with an AES-256-CBC encrypted fallback at `~/.pubm/`
-- **Network** — pubm only communicates with registries you configure (npm, jsr, crates.io) and GitHub for release creation
-- **Update check** — Queries the npm public registry for newer versions (local only, disabled in CI)
+- **Token storage** - Registry tokens are stored in your OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) with an AES-256-CBC encrypted fallback at `~/.pubm/`
+- **Network** - pubm only communicates with registries you configure (npm, jsr, crates.io) and GitHub for release creation
+- **Update check** - Queries the npm public registry for newer versions (local only, disabled in CI)
 
 ---
 
@@ -149,4 +149,4 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 
 ## Author
 
-**Yein Sung** — [GitHub](https://github.com/syi0808)
+**Yein Sung** - [GitHub](https://github.com/syi0808)

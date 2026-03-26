@@ -3,13 +3,13 @@ title: Changesets
 description: Record release intent, generate changelogs, and control version bumps.
 ---
 
-`pubm` uses changesets as the durable record of "what should be released next." Instead of inferring versions from commit messages or branch names, it reads checked-in files from `.pubm/changesets/` and turns them into version bumps and changelog entries.
+`pubm` uses changesets as the checked-in record of what should be released next. Instead of inferring versions from commit messages or branch names, it reads files from `.pubm/changesets/` and turns them into version bumps and changelog entries.
 
 ## Why changesets matter
 
-- a reviewable release plan inside each pull request
+- a reviewable release plan in each pull request
 - deterministic version bump calculation across packages
-- changelog content that is written before release day, not after it
+- changelog content written before release day, not after it
 
 ## File location
 
@@ -25,7 +25,7 @@ Initialize that directory by running the interactive setup wizard:
 pubm init
 ```
 
-During setup, `pubm init` asks whether to enable the changesets workflow. Selecting yes creates the `.pubm/changesets/` directory, generates `.github/workflows/changeset-check.yml` for PR enforcement, and updates `.gitignore` to track changeset files while ignoring other `.pubm/` contents.
+During setup, `pubm init` asks whether to enable the changesets workflow. If you choose yes, it creates the `.pubm/changesets/` directory, generates `.github/workflows/changeset-check.yml` for PR enforcement, and updates `.gitignore` so changeset files are tracked while other `.pubm/` contents stay ignored.
 
 ## Creating a changeset
 
@@ -59,7 +59,7 @@ The metadata controls version calculation. The body becomes the changelog summar
 
 ## Inspecting pending changes
 
-Before consuming changesets, inspect them:
+Inspect changesets before `pubm` consumes them:
 
 ```bash
 pubm changesets status
@@ -71,7 +71,7 @@ pubm changesets version --dry-run
 
 When you run the normal release pipeline with `pubm`, pending changesets are consumed during the version step.
 
-That flow:
+The flow is:
 
 1. reads pending `.pubm/changesets/*.md` files
 2. calculates the resulting package versions
@@ -80,7 +80,7 @@ That flow:
 5. deletes consumed changeset files
 6. creates the release commit and tags
 
-If you want to perform only the versioning part ahead of time, you can still run:
+If you want to run only the versioning step ahead of time, you can still use:
 
 ```bash
 pubm changesets version

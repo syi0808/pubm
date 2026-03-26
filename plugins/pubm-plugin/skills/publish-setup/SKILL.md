@@ -13,43 +13,43 @@ allowed-tools:
 
 # Set Up pubm
 
-Interactive setup wizard for pubm in the current project.
+Set up pubm in the current project.
 
-pubm publishes packages to multiple registries (npm, jsr, crates.io, private registries) simultaneously. It supports JavaScript/TypeScript and Rust ecosystems with automatic detection.
+pubm can publish to npm, jsr, crates.io, and private registries in one run. It supports JavaScript/TypeScript and Rust projects with automatic detection.
 
 ## Workflow
 
 ### 1. Analyze project structure
 
-Before anything else, thoroughly analyze the project to understand what we're working with.
+Start by mapping out the project layout so the rest of the setup matches the repo.
 
 **Scan the following:**
-- **Manifest files**: `package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml` — detect ecosystem (JS/Rust/both)
-- **Workspace config**: `pnpm-workspace.yaml`, `package.json` workspaces, `Cargo.toml [workspace]` — detect monorepo structure
-- **Package manager**: lock files (`bun.lockb`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`) — determines install commands
-- **Existing config**: `pubm.config.ts` / `.js` / `.mjs` — check if pubm is already configured
-- **CI/CD**: `.github/workflows/`, `.gitlab-ci.yml`, etc. — existing CI setup
-- **Version references**: files outside manifests that contain version strings (README badges, plugin.json, etc.)
-- **Build artifacts**: `dist/`, `build/`, `bin/` — understand build outputs
-- **Release workflow**: existing release scripts in `package.json`, `Makefile`, etc.
+- **Manifest files**: `package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml` to detect the ecosystem (JS, Rust, or both)
+- **Workspace config**: `pnpm-workspace.yaml`, `package.json` workspaces, `Cargo.toml [workspace]` to detect monorepo structure
+- **Package manager**: lock files (`bun.lockb`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`) to determine install commands
+- **Existing config**: `pubm.config.ts` / `.js` / `.mjs` to check if pubm is already configured
+- **CI/CD**: `.github/workflows/`, `.gitlab-ci.yml`, etc. for existing CI setup
+- **Version references**: files outside manifests that contain version strings, such as README badges or `plugin.json`
+- **Build artifacts**: `dist/`, `build/`, `bin/` to understand build outputs
+- **Release workflow**: existing release scripts in `package.json`, `Makefile`, and similar files
 
 **Present findings to the user:**
-- Project type (single-package / monorepo / multi-ecosystem)
+- Project type: single-package, monorepo, or multi-ecosystem
 - Detected packages and their ecosystems
-- Current release workflow (if any)
-- Potential needs (version sync, Homebrew, CI automation, etc.)
+- Current release workflow, if there is one
+- Likely needs such as version sync, Homebrew, or CI automation
 
-This analysis informs all subsequent steps — which registries to suggest, whether a config file is needed, and whether custom plugins are required.
+Use this analysis to decide which registries to suggest, whether a config file is needed, and whether custom plugins are required.
 
 ### 2. Check if pubm is installed
 
-Check `package.json` devDependencies for `pubm`. If not installed, ask whether to install:
+Check `package.json` devDependencies for `pubm`. If it is missing, ask whether to install:
 - `npm install -D pubm` or `pnpm add -D pubm` (detect package manager from lock files)
 - pubm itself is an npm package, so even Rust projects need Node.js and npm to use it
 
 ### 3. Review auto-detected packages and registries
 
-Run `pubm inspect packages` to show the auto-detected ecosystem, packages, and target registries.
+Run `pubm inspect packages` to show the detected ecosystem, packages, and target registries.
 
 pubm auto-detects:
 - **Ecosystem**: JavaScript (package.json, deno.json, deno.jsonc) or Rust (Cargo.toml)
@@ -58,15 +58,15 @@ pubm auto-detects:
   - JS: npm (default when package.json exists), jsr (when jsr.json or deno.json/deno.jsonc exists), private registry (from publishConfig.registry or .npmrc)
   - Rust: crates (always)
 
-Show the output and ask the user:
-1. **"이 감지 결과가 맞나요?"** — Confirm the detected packages and registries are correct
-2. **"추가로 배포할 registry가 있나요?"** — e.g., adding jsr to a package that only has npm, adding a private registry URL
+Show the output and ask:
+1. Is this detection correct?
+2. Is there any additional registry to publish to, such as adding jsr to a package that only has npm or adding a private registry URL?
 
 If the user wants changes (add/remove registries, add/remove packages), note them for config generation in Step 6.
 
 ### 4. Ask about official plugins
 
-Present the available official plugins and ask which (if any) to use:
+Show the available official plugins and ask which, if any, to use:
 
 | Plugin | Package | Description |
 |--------|---------|-------------|
@@ -93,9 +93,9 @@ Present the available official plugins and ask which (if any) to use:
 
 ### 4.1. Evaluate need for custom plugins
 
-Based on the project analysis in Step 1, if the user has requirements that **cannot** be met by pubm's built-in features or the official plugins above, guide them to create a custom plugin.
+Based on the project analysis in Step 1, if the user needs something that pubm's built-in features or official plugins do not cover, guide them to create a custom plugin.
 
-**Indicators that a custom plugin is needed:**
+**Signals that a custom plugin is needed:**
 - Post-release notifications (Slack, Discord, email, etc.)
 - Custom artifact publishing (S3, CDN, etc.)
 - Integration with external services (Sentry release tracking, deployment triggers, etc.)
@@ -106,7 +106,7 @@ Based on the project analysis in Step 1, if the user has requirements that **can
 1. Explain which hook(s) would be appropriate for the requirement
 2. Ask the user: **"이 기능을 위해 커스텀 플러그인을 만들까요?"**
 3. If yes, invoke the `/create-plugin` skill to scaffold the plugin
-4. After the plugin is created, return to this setup flow and include it in the config generation (Step 6)
+4. After the plugin is created, return to this setup flow and include it in config generation in Step 6
 
 ### 5. Ask about CI/CD and changesets
 
@@ -122,12 +122,12 @@ If any package targets jsr, check `package.json` devDependencies for `jsr`. If n
 
 ### 6. Generate pubm config file (conditional)
 
-**Only create `pubm.config.ts` when needed.** A config file is needed when:
+**Only create `pubm.config.ts` when needed.** Create one when:
 - User overrode auto-detected registries (explicit packages config required)
 - User selected plugins
 - User needs non-default config (versioning strategy, etc.)
 
-**When config is NOT needed:** Inform the user that pubm's auto-detection covers their setup and no config file is required.
+**When config is NOT needed:** Tell the user that pubm's auto-detection covers the setup and no config file is required.
 
 **When creating config:**
 
@@ -155,7 +155,7 @@ export default defineConfig({
 
 ### 7. Generate missing registry config files
 
-For each registry that a package targets, check if its required config file exists. If missing, generate it from whichever source file is available.
+For each registry a package targets, check whether its required config file exists. If not, generate it from whichever source file is available.
 
 **Generation rules:**
 
@@ -170,7 +170,7 @@ Read the corresponding registry reference file for the template and constraints.
 **Behavior:**
 - If the required file already exists, skip silently.
 - If neither source file nor target file exists, inform the user and ask them to create one manually.
-- Before writing any generated file, show the user the content and ask for confirmation.
+- Before writing any generated file, show the content and ask for confirmation.
 
 ### 8. Update .gitignore
 
@@ -189,7 +189,7 @@ Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory 
 3. **Determine registries**: Use the registries confirmed in Step 3.
 4. **Generate workflow file**: Read `references/ci-templates.md` for the appropriate template. Create `.github/workflows/publish.yml`.
 5. **List required secrets**: Based on the target registries:
-   - `GITHUB_TOKEN` for GitHub Releases (automatically available as `secrets.GITHUB_TOKEN` — no manual setup needed)
+   - `GITHUB_TOKEN` for GitHub Releases (automatically available as `secrets.GITHUB_TOKEN`; no manual setup needed)
    - `NODE_AUTH_TOKEN` for npm (create at npmjs.com > Access Tokens > Automation)
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
@@ -203,10 +203,10 @@ pubm init
 ```
 
 This creates:
-- `.github/workflows/changeset-check.yml` — PR changeset detection with bot comments
+- `.github/workflows/changeset-check.yml` - PR changeset detection with bot comments
 - Updates `.gitignore` to track `.pubm/changesets/` while ignoring other `.pubm/` contents
 
-After running, inform the user about the workflow:
+After running, tell the user:
 - Every PR with code changes needs a changeset (`pubm changesets add`)
 - `no-changeset` label skips the check for docs/CI-only changes
 - On release, pubm consumes changesets to determine version bumps and generate CHANGELOG
@@ -227,7 +227,7 @@ This project uses pubm changesets to track changes and automate versioning.
 
 ### Workflow
 1. Make changes on a feature branch
-2. Run `pubm changesets add` — select packages, bump type, and summary
+2. Run `pubm changesets add` to select packages, bump type, and summary
 3. Commit the generated `.pubm/changesets/<id>.md` file with your PR
 4. On merge, changesets accumulate on main
 5. When releasing, `pubm` consumes pending changesets to determine versions and generate CHANGELOG
@@ -269,25 +269,25 @@ Add to `package.json`. The `release` script depends on whether CI was set up:
 
 ### 11. Present summary
 
-List all files created/modified and remind about required authentication. Show only lines for registries the user selected:
+List all files created or modified and remind them about required authentication. Show only the lines for registries the user selected:
 
 - **npm**: Run `npm login` locally, or set `NODE_AUTH_TOKEN` secret in GitHub
 - **jsr**: Run `pubm` locally (interactive token prompt), or set `JSR_TOKEN` secret in GitHub
 - **crates.io**: Run `cargo login` locally, or set `CARGO_REGISTRY_TOKEN` secret in GitHub
 
-Remind the user they can run `pubm inspect packages` at any time to verify their detected setup.
+Remind the user they can run `pubm inspect packages` at any time to check the detected setup.
 
 ## Constraints
 
 - Always use `defineConfig()` from `pubm` for type safety in config files.
-- Config uses `packages` array with per-package `registries` — there is no top-level `registries` field on `PubmConfig`.
-- Config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
-- Always add `.pubm/` to `.gitignore` (unless changesets workflow handles it via `pubm init`).
-- If unsure which registries the user wants, ask. Do not assume.
-- When suggesting npm scripts: use `"release": "pubm --mode ci --phase prepare"` if CI is configured (collects tokens and validates registry access), or `"release": "pubm"` if no CI. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
-- In CI, use `--mode ci --phase publish` (publish + GitHub Release) or `--phase publish` (publish only).
-- When changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly — `pubm init` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
-- When the project analysis (Step 1) reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
+- Config uses a `packages` array with per-package `registries`; there is no top-level `registries` field on `PubmConfig`.
+- The config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
+- Always add `.pubm/` to `.gitignore`, unless the changesets workflow handles it via `pubm init`.
+- If you are not sure which registries the user wants, ask.
+- When suggesting npm scripts, use `"release": "pubm --mode ci --phase prepare"` if CI is configured, or `"release": "pubm"` if it is not. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
+- In CI, use `--mode ci --phase publish` for publish plus GitHub Release, or `--phase publish` for publish only.
+- When the changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly. `pubm init` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
+- When Step 1 reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
 
 ## References
 

@@ -3,19 +3,19 @@ title: 官方插件
 description: 由 pubm 项目维护的受支持插件。
 ---
 
-官方插件与 `pubm` 一起维护，并且遵循和核心项目相同的发布与兼容性预期。当你想要一个有良好支持的集成，但又不想从零编写自己的 plugin 时，就使用它们。
+官方插件由 `pubm` 团队一起维护，发布节奏和兼容性要求也与核心项目一致。如果你想直接接入一个维护良好的集成，而不是从头写自己的 plugin，就选它们。
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` 帮助 CLI 项目在每次发布时同步 Homebrew formula。如果管道在 PR 创建后失败，会注册回滚操作来关闭已创建的 Homebrew PR。
+`@pubm/plugin-brew` 帮助 CLI 项目在每次发布时同步 Homebrew formula。若 PR 已经创建而流水线随后失败，它会登记回滚操作，把那条 Homebrew PR 关掉。
 
-### 适用场景
+### 适合的场景
 
 - 通过 Homebrew 分发 CLI 二进制
 - 自动更新独立的 tap 仓库
 - 保持 formula 的 checksum 与 release assets 对齐
 
-### 典型配置
+### 常见配置
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -51,11 +51,11 @@ export default defineConfig({
 | `linux-arm64` | `asset.platform.os === "linux" && asset.platform.arch === "arm64"` |
 | `linux-x64` | `asset.platform.os === "linux" && asset.platform.arch === "x64"` |
 
-这取代了之前基于字符串匹配资产名称的做法，例如 `asset.name.includes("darwin-arm64")`。旧方式在名称变化时很脆弱。
+这取代了之前靠字符串去猜 asset 名称的做法，例如 `asset.name.includes("darwin-arm64")`。一旦名称改动，旧方法就很容易失效。
 
 ### 自定义平台匹配器
 
-当默认的 `os + arch` 匹配不够用时，可以使用 `assetPlatforms`。例如，你只想让 Linux 使用 musl 构建：
+默认的 `os + arch` 匹配不够用时，就用 `assetPlatforms`。例如，你只想让 Linux 走 musl 构建：
 
 ```ts
 brewTap({
@@ -73,9 +73,9 @@ brewTap({
 
 每个谓词都会接收一个 `ReleaseAsset`，并在该 formula 条目应该使用该资产时返回 `true`。
 
-### 凭证与 preflight checks
+### 凭证与 preflight 检查
 
-`@pubm/plugin-brew` 会自动声明自己需要的凭证和 checks，你不需要手动配置。
+`@pubm/plugin-brew` 会自动声明它需要的凭证和检查，不必手动补配置。
 
 **必需凭证：**
 
@@ -83,11 +83,11 @@ brewTap({
 |----------|--------------------|------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | 带有 `repo` scope 的 GitHub Personal Access Token，用于推送 formula 更新并创建 pull request。 |
 
-在本地运行时，pubm 会提示输入这个 token，并将其保存到系统 keyring。在 CI 中，请通过 `PUBM_BREW_GITHUB_TOKEN` 环境变量提供该 token。运行 `pubm --mode ci --phase prepare` 或 `pubm secrets sync`，即可把已保存的 token 同步到仓库的 GitHub Secrets，让 CI workflow 自动使用。
+本地运行时，pubm 会提示输入这个 token，并把它存到系统 keyring。CI 中则通过 `PUBM_BREW_GITHUB_TOKEN` 环境变量提供。运行 `pubm --mode ci --phase prepare` 或 `pubm secrets sync`，可以把已保存的 token 同步到仓库的 GitHub Secrets，供 CI workflow 自动使用。
 
 该插件还会注册一个 preflight check，在 publish 阶段开始前验证 token 是否存在以及是否具备所需的仓库访问权限。
 
-### 行为
+### 功能
 
 这个插件可以：
 
@@ -102,11 +102,11 @@ brewTap({
 pubm brew init
 ```
 
-可用它从 package metadata 生成一个起始 formula 骨架。
+可用它根据 package metadata 生成一个起始 formula 骨架。
 
 ### `brewCore`
 
-如果你要贡献到 homebrew-core（默认的 Homebrew 仓库），请使用 `brewCore` 而不是 `brewTap`：
+如果你要向 homebrew-core 贡献内容，也就是默认的 Homebrew 仓库，请用 `brewCore`，不要用 `brewTap`：
 
 ```ts
 import { brewCore } from "@pubm/plugin-brew";
@@ -126,13 +126,13 @@ export default defineConfig({
 | `packageName` | `string` | monorepo 的可选 package 名称过滤器。 |
 | `assetPlatforms` | `Record<string, (asset: ReleaseAsset) => boolean>` | 可选的自定义平台匹配器。 |
 
-`brewCore` 会 fork `homebrew/homebrew-core`，更新 formula，并自动打开 PR。和 `brewTap` 一样，它也会自动声明 `PUBM_BREW_GITHUB_TOKEN` 凭证以及对应的 preflight check。
+`brewCore` 会 fork `homebrew/homebrew-core`，更新 formula，然后自动打开 PR。和 `brewTap` 一样，它也会自动声明 `PUBM_BREW_GITHUB_TOKEN` 凭证和对应的 preflight 检查。
 
 ## `@pubm/plugin-external-version-sync`
 
-这个插件用于让非 manifest 文件和你的 package 版本保持一致。如果管道在版本同步后失败，会注册回滚操作来恢复原始文件内容。
+这个插件用于让非 manifest 文件和 package 版本保持一致。若版本同步后流水线失败，它会登记回滚操作，恢复原始文件内容。
 
-当发布还需要同时更新以下内容时，就使用它：
+当一次发布还要顺带更新这些内容时，就用它：
 
 - `README.md` 中的安装片段
 - 文档示例
@@ -140,7 +140,7 @@ export default defineConfig({
 - 源码常量
 - 元数据 JSON 文件
 
-### 典型配置
+### 常见配置
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -183,8 +183,8 @@ export default defineConfig({
 
 要求：
 
-- 模式必须通过恰好一个 capturing group 把版本隔离出来
-- 文件格式应当稳定，这样发布自动化才能安全更新它
+- 模式必须用且只用一个 capturing group 把版本提取出来
+- 文件格式要稳定，这样发布自动化才能安全更新
 
 #### `json`
 
@@ -205,33 +205,33 @@ export default defineConfig({
 pubm sync --discover
 ```
 
-这个命令会扫描可能的版本引用，并打印候选文件和路径，供你改写成 plugin 配置。
+这个命令会扫描可能的版本引用，并输出可用的候选文件和路径，方便你改成 plugin 配置。
 
-## 何时选择官方插件，何时选择自定义插件
+## 何时选官方插件，何时选自定义插件
 
-在以下情况下使用官方插件：
+在这些情况下，优先用官方插件：
 
 - 你的需求已经有现成的集成
 - 你希望维护成本更低
 - 发布路径足够常见，值得标准化
 
-在以下情况下编写自定义插件：
+在这些情况下，再编写自定义插件：
 
 - 你的 registry 或发布后工作流是组织特定的
 - 你需要自定义 policy 或部署逻辑
 - 你想为操作人员提供额外的 CLI 命令
 
-如果你需要超出官方集合的扩展，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
+如果你想扩展到官方集合之外，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
 
-## 面向 coding agent 的 setup automation
+## 面向 coding agent 的设置自动化
 
-运行时插件只是一部分。这个仓库还在 `plugins/pubm-plugin/skills/*` 下提供了一个 `pubm plugin` bundle，供 coding-agent 工作流使用，例如：
+运行时插件只是其中一部分。这个仓库还在 `plugins/pubm-plugin/skills/*` 下提供了一个 `pubm plugin` bundle，供 coding-agent 工作流使用，例如：
 
 - 发布 setup
 - preview-first 的发布辅助
 - version-sync 发现
 - plugin 搭建
 
-如果你正在把 `pubm` 集成到 agent 环境中，可以把运行时插件和这些 skill 风格的资产配合使用，这样 setup 和 publish 流程会保持明确且可重复。
+如果你正在把 `pubm` 接到 agent 环境里，就把运行时插件和这些 skill 风格的资源一起用，这样 setup 和 publish 流程会更明确，也更容易重复。
 
 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 指南了解集成布局。

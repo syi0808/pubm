@@ -3,13 +3,13 @@ title: Core SDK Reference
 description: Public functions, classes, and exported types available from @pubm/core.
 ---
 
-`@pubm/core` is the programmatic API behind the `pubm` CLI. This page covers the public identifiers exported from the package root:
+`@pubm/core` is the programmatic API for the `pubm` CLI. This page lists the public exports from the package root:
 
 ```ts
 import { ... } from "@pubm/core";
 ```
 
-The package ships type declarations and both ESM/CJS entry points. The current package metadata declares `node >= 24`.
+The package includes type declarations and both ESM/CJS entry points. Package metadata currently requires `node >= 24`.
 
 ## Install
 
@@ -35,7 +35,7 @@ await pubm({
 });
 ```
 
-`pubm()` accepts an `Options` object. The most important fields are:
+`pubm()` accepts an `Options` object. The key fields are:
 
 | Field | Type | Purpose |
 |------|------|---------|
@@ -51,11 +51,11 @@ await pubm({
 | `snapshot` | `string \| boolean` | Build a snapshot version using the configured template. |
 | `packages` | `PackageConfig[]` | Override auto-discovered packages. |
 
-For config-driven releases, `pubm()` automatically loads `pubm.config.*`, resolves package discovery, and wires plugins before running the task graph.
+For config-driven releases, `pubm()` loads `pubm.config.*`, resolves package discovery, and wires plugins before it runs the task graph.
 
 ## Config helpers
 
-These helpers are the main entry points for code that wants to read or validate `pubm.config.*`.
+Use these helpers to read or validate `pubm.config.*`.
 
 | Export | Kind | Purpose |
 |------|------|---------|
@@ -77,7 +77,7 @@ const config = await loadConfig(process.cwd());
 const resolved = config ? await resolveConfig(config, process.cwd()) : null;
 ```
 
-`PackageConfig` is the place to override per-package registries, ecosystem, build command, or test command:
+Use `PackageConfig` to override per-package registries, ecosystem, build command, or test command:
 
 ```ts
 type PackageConfig = {
@@ -91,7 +91,7 @@ type PackageConfig = {
 
 ## Plugin API
 
-Use the plugin exports when you want to extend the publish pipeline with custom registries, ecosystems, lifecycle hooks, or CLI commands.
+Use the plugin exports to extend the publish pipeline with custom registries, ecosystems, lifecycle hooks, or CLI commands.
 
 | Export | Kind | Purpose |
 |------|------|---------|
@@ -134,7 +134,7 @@ export default defineConfig({
 
 ## Asset pipeline
 
-These exports power the release asset pipeline and are useful for plugin authors and custom tooling.
+These exports support the release asset pipeline and are useful for plugin authors and custom tooling.
 
 | Export | Kind | Purpose |
 |------|------|---------|
@@ -171,7 +171,7 @@ See [Release Assets](/pubm/guides/release-assets/) and [Asset Pipeline Hooks](/p
 
 ## Changeset and versioning helpers
 
-The changeset exports let you build custom tooling around `.pubm/changesets`.
+These exports help you build custom tooling around `.pubm/changesets`.
 
 | Export | Kind | Purpose |
 |------|------|---------|
@@ -262,7 +262,7 @@ const ordered = topologicalSort(graph);
 
 ## Validation and utility helpers
 
-The package root also exports the helpers below for tooling integrations.
+The package root also exports these helpers for tooling integrations.
 
 | Export | Kind | Purpose |
 |------|------|---------|
@@ -317,4 +317,4 @@ const tokens = loadTokensFromDb(["npm", "jsr"]);
 
 ## Export policy
 
-This page documents the stable surface exported from the package root today. Internal files under `packages/core/src/**` may exist, but if they are not re-exported from `@pubm/core`, they should be treated as private implementation details.
+This page documents the stable surface exported from the package root. Internal files under `packages/core/src/**` may exist, but if they are not re-exported from `@pubm/core`, they should be treated as private implementation details.

@@ -3,7 +3,7 @@ title: Plugins API Reference
 description: Add hooks, commands, registries, and ecosystems to pubm.
 ---
 
-The plugin system lets you extend `pubm` without forking the core publish pipeline.
+The plugin system extends `pubm` without forking the core publish pipeline.
 
 ## `PubmPlugin`
 
@@ -19,8 +19,8 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` — returns the list of tokens this plugin needs. Called once during initialization so pubm can prompt for missing tokens, inject them into the environment, and sync them to GitHub Secrets when running `--ci-prepare`.
-- `checks` — returns preflight checks that run alongside the core prerequisite and condition phases. Each check declares when it should run via its `phase` field.
+- `credentials` returns the list of tokens this plugin needs. Pubm calls it once during initialization so it can prompt for missing tokens, inject them into the environment, and sync them to GitHub Secrets when running `--ci-prepare`.
+- `checks` returns preflight checks that run alongside the core prerequisite and condition phases. Each check uses its `phase` field to choose when it runs.
 
 ## Hooks
 
@@ -53,7 +53,7 @@ export interface PluginHooks {
 
 ### Asset pipeline hooks
 
-Six hooks let plugins intercept every stage of the release asset pipeline. They run between the build step and the GitHub Release upload.
+These hooks let plugins intercept each stage of the release asset pipeline. They run between the build step and the GitHub Release upload.
 
 | Hook | When it runs | Input → Output |
 |------|-------------|----------------|
@@ -111,9 +111,9 @@ Key fields:
 
 ### Rollback API
 
-Plugins can register rollback actions that execute automatically when the publish pipeline fails. Actions are executed in LIFO (last-in, first-out) order.
+Plugins can register rollback actions that execute automatically when the publish pipeline fails. Actions run in LIFO (last-in, first-out) order.
 
-Register rollback actions using `ctx.runtime.rollback.add()` inside any hook:
+Register rollback actions with `ctx.runtime.rollback.add()` inside any hook:
 
 ```typescript
 hooks: {
@@ -137,7 +137,7 @@ hooks: {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `label` | `string` | Human-readable description shown during rollback |
+| `label` | `string` | Label shown during rollback |
 | `fn` | `(ctx: PubmContext) => Promise<void>` | Async function that reverses the side effect |
 | `confirm` | `boolean?` | If `true`, prompts for confirmation in TTY mode before executing. Auto-executes in CI. |
 
@@ -207,9 +207,9 @@ export interface PluginTaskContext {
 }
 ```
 
-- `output` — display a status line beneath the check title in the task list UI.
-- `title` — modify the task title dynamically.
-- `prompt()` — run an enquirer prompt (available in interactive mode).
+- `output` displays a status line beneath the check title in the task list UI.
+- `title` changes the task title dynamically.
+- `prompt()` runs an enquirer prompt, available in interactive mode.
 
 ## Example
 
@@ -248,7 +248,7 @@ export interface PluginSubcommand {
 
 ## Custom registries and ecosystems
 
-Use custom registries when you need another publish destination. Use custom ecosystems when you need to teach `pubm` how to read and write versions for another package type.
+Use custom registries when you need another publish destination. Use custom ecosystems when you need `pubm` to read and write versions for another package type.
 
 ## Related docs
 

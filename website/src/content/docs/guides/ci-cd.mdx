@@ -3,9 +3,9 @@ title: CI/CD
 description: Set up CI preparation, token handling, and release automation for pubm.
 ---
 
-`pubm` is designed to behave well in both local terminals and CI runners. The key point is that the normal `pubm` pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
+`pubm` is designed to behave well in both local terminals and CI runners. The normal pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
 
-`pubm init` can generate CI workflows for you during setup. The wizard offers to create `.github/workflows/release.yml` (tag-triggered publish) and `.github/workflows/changeset-check.yml` (PR changeset enforcement) so you do not need to write them by hand.
+`pubm init` can generate CI workflows during setup. The wizard offers to create `.github/workflows/release.yml` for tag-triggered publish and `.github/workflows/changeset-check.yml` for PR changeset enforcement, so you do not need to write them by hand.
 
 ## Recommended release model
 
@@ -24,7 +24,7 @@ pubm --mode ci --phase publish
 
 ## What CI preparation does
 
-`pubm --mode ci --phase prepare` is not just a token check. It runs the release pipeline up to the point right before real publish:
+`pubm --mode ci --phase prepare` is more than a token check. It runs the release pipeline up to the point right before the real publish:
 
 - collects registry tokens and plugin credentials
 - optionally syncs them to GitHub Secrets
@@ -46,7 +46,7 @@ In CI, provide registry tokens with environment variables:
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
 
-Plugins can also declare their own required credentials. pubm collects and resolves these automatically — during `--ci-prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
+Plugins can also declare their own required credentials. pubm collects and resolves these automatically. During `--ci-prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
 
 For example, `@pubm/plugin-brew` requires:
 
@@ -129,7 +129,7 @@ GitHub Release creation and asset upload use the GitHub API. Provide `GITHUB_TOK
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run. You do not need to create it manually — just pass it through the environment.
+GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run. You do not need to create it manually, just pass it through the environment.
 
 ### Build outputs must exist before upload
 

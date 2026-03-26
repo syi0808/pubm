@@ -3,15 +3,15 @@ title: 平台检测
 description: 供自动平台解析使用的内建 OS、architecture、ABI 和 variant 表。
 ---
 
-`pubm` 内置了一个平台检测引擎，用来从文件路径中解析 OS、architecture、ABI 和 variant。这为自动资产命名、按 OS 决定的压缩默认值，以及插件（例如 `@pubm/plugin-brew`）使用的结构化 `ParsedPlatform` 对象提供支持。
+`pubm` 内置了一个平台检测引擎，会从文件路径里解析 OS、architecture、ABI 和 variant。它支撑自动资产命名、按 OS 调整的压缩默认值，以及 `@pubm/plugin-brew` 这类插件使用的结构化 `ParsedPlatform` 对象。
 
 ## 解析方式
 
 当你配置一个 `releaseAssets` 条目时，`pubm` 会检查每个匹配到的文件路径来判断它的平台。
 
-这里有两种模式：
+它有两种工作方式：
 
-**在路径模式中捕获变量。** 如果模式包含 `{os}`、`{arch}`、`{abi}`、`{variant}` 或 `{platform}`，`pubm` 会直接从这些位置提取值：
+**在路径模式中捕获变量。** 如果模式里包含 `{os}`、`{arch}`、`{abi}`、`{variant}` 或 `{platform}`，`pubm` 会直接从这些位置提取值：
 
 ```ts
 // Rust 风格 triple：从路径中捕获 arch、vendor、os、abi
@@ -21,7 +21,7 @@ description: 供自动平台解析使用的内建 OS、architecture、ABI 和 va
 { path: "platforms/{platform}/bin/mytool" }
 ```
 
-**自动 segment 扫描。** 当没有使用 capture 变量时，`pubm` 会先按 `/` 把路径拆成 segments，再按 `-` 拆分每个 segment。然后每个 token 会按顺序在 OS、arch、ABI、variant 和 vendor 表中测试。每个类别第一个匹配项获胜。
+**自动 segment 扫描。** 没有使用 capture 变量时，`pubm` 会先按 `/` 把路径拆成 segments，再按 `-` 拆开每个 segment。随后每个 token 会按顺序去匹配 OS、arch、ABI、variant 和 vendor 表，每一类都取第一个命中的值。
 
 ```ts
 // Path: platforms/darwin-arm64/bin/pubm
@@ -30,7 +30,7 @@ description: 供自动平台解析使用的内建 OS、architecture、ABI 和 va
 { path: "platforms/*/bin/pubm" }
 ```
 
-不匹配任何表的 token 会被忽略。
+没有匹配到任何表的 token 会被忽略。
 
 ### `{platform}` 变量
 
@@ -40,7 +40,7 @@ description: 供自动平台解析使用的内建 OS、architecture、ABI 和 va
 - 如果使用了单独的 capture 变量（`{os}`、`{arch}`）：则组合为 `{os}-{arch}`
 - 如果使用了自动检测：则为匹配到的路径 segment（`darwin-arm64`）
 
-vendor、ABI 和 variant 会刻意排除在 `{platform}` 之外，以保持常见情况简短且易读。它们可以通过 `{vendor}`、`{abi}` 和 `{variant}` 单独访问。
+vendor、ABI 和 variant 会刻意排除在 `{platform}` 外，这样常见场景更短也更好读。它们可以通过 `{vendor}`、`{abi}` 和 `{variant}` 单独访问。
 
 ## `ParsedPlatform` 类型
 
@@ -56,11 +56,11 @@ interface ParsedPlatform {
 }
 ```
 
-这个对象会附加到流经流水线的每个资产上，并在 `afterRelease` hook 中通过 `ReleaseAsset.platform` 暴露给插件。
+这个对象会附加到流水线中的每个资产上，并在 `afterRelease` hook 里通过 `ReleaseAsset.platform` 暴露给插件。
 
 ## OS 表
 
-canonical 值会用于模板变量和插件比较。解析路径时会识别别名。
+canonical 值会用于模板变量和插件比较。解析路径时也会识别别名。
 
 | Canonical | Aliases |
 |-----------|---------|
@@ -194,7 +194,7 @@ releaseAssets: [
 
 ### 别名归一化
 
-所有别名都会在模板替换之前解析为 canonical 形式：
+所有别名都会在模板替换之前归一成 canonical 形式：
 
 ```
 bin/myapp-amd64-macos → os: "darwin", arch: "x64"

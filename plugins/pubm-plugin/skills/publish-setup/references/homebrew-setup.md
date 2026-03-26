@@ -2,9 +2,9 @@
 
 ## Overview
 
-pubm distributes pre-built native binaries via Homebrew. This is the recommended way to install pubm for **Rust-only projects** or any environment where Node.js is not available.
+pubm distributes pre-built native binaries through Homebrew. This is the recommended install path for **Rust-only projects** or any environment without Node.js.
 
-For JS/TS projects, installing pubm as a devDependency (`npm install -D pubm`) is preferred because it pins the version in the lockfile and runs via `npx`/`bunx`/`pnpm exec`.
+For JS/TS projects, installing pubm as a devDependency (`npm install -D pubm`) is usually better because it pins the version in the lockfile and runs via `npx`, `bunx`, or `pnpm exec`.
 
 ## Installing pubm via Homebrew
 
@@ -13,7 +13,7 @@ brew tap syi0808/tap
 brew install pubm
 ```
 
-This installs the `pubm` binary globally. Verify:
+This installs the `pubm` binary globally. Verify it with:
 
 ```bash
 pubm --version
@@ -34,7 +34,7 @@ For Rust-only projects that use pubm in CI, the `@pubm/plugin-brew` plugin must 
           brew install pubm
 ```
 
-**Note:** GitHub Actions `ubuntu-latest` runners have Homebrew pre-installed. macOS runners also have it. No additional setup is needed.
+**Note:** GitHub Actions `ubuntu-latest` runners already have Homebrew. macOS runners do too. No extra setup is needed.
 
 ### When to use Homebrew vs npm in CI
 
@@ -46,18 +46,18 @@ For Rust-only projects that use pubm in CI, the `@pubm/plugin-brew` plugin must 
 
 ## Setting up Homebrew distribution for your own project
 
-If the user wants to distribute their CLI tool via Homebrew, they need the `@pubm/plugin-brew` plugin. See `references/official-plugins.md` for details.
+If the user wants to distribute a CLI tool through Homebrew, they need the `@pubm/plugin-brew` plugin. See `references/official-plugins.md` for details.
 
 ### Prerequisites
 
 1. The project must produce **platform binary assets** that are uploaded to GitHub Releases.
    - Configure `releaseAssets` in `pubm.config.ts` to specify which files to upload.
-   - Or use the `compress` option to automatically compress and upload binaries.
+   - Or use the `compress` option to compress and upload binaries automatically.
 
-2. The formula file must exist in the repository (or a tap repository).
+2. The formula file must exist in the repository or in a tap repository.
    - Run `pubm brew init` to scaffold a formula from package metadata.
 
-### brewTap (custom tap — recommended)
+### brewTap (custom tap, recommended)
 
 Maintains a formula in a dedicated Homebrew tap repository (e.g., `user/homebrew-tap`).
 
@@ -80,7 +80,7 @@ After release, the plugin:
 2. Updates the formula with new version, URLs, and SHA256 checksums
 3. Commits and pushes the change
 
-Users install via:
+Users install with:
 ```bash
 brew tap user/tap
 brew install my-tool
@@ -162,7 +162,7 @@ The plugin matches release assets to formula platforms using structured `ParsedP
 | `linux-arm64` | `os === "linux" && arch === "arm64"` |
 | `linux-x64` | `os === "linux" && arch === "x64"` |
 
-Override with `assetPlatforms` for custom matching (e.g., musl-only Linux builds):
+Override with `assetPlatforms` for custom matching, such as musl-only Linux builds:
 
 ```typescript
 brewTap({
@@ -182,4 +182,4 @@ brewTap({
 |---|---|---|
 | `GITHUB_TOKEN` | Always | Used to push formula changes and create PRs |
 
-The `GITHUB_TOKEN` provided by GitHub Actions (`secrets.GITHUB_TOKEN`) is sufficient for `brewTap`. For `brewCore`, the token needs permission to fork repos and create PRs — use a personal access token if needed.
+The `GITHUB_TOKEN` provided by GitHub Actions (`secrets.GITHUB_TOKEN`) is enough for `brewTap`. For `brewCore`, the token needs permission to fork repos and create PRs, so a personal access token may be needed.

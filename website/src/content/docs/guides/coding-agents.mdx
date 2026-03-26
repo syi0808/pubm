@@ -3,7 +3,7 @@ title: Coding Agent Integration
 description: Integrate the pubm plugin into coding agents you already use, starting with setup automation.
 ---
 
-This guide is for teams that already use coding agents such as Claude Code or Codex and want to add `pubm` release workflows into that existing setup.
+This guide is for teams that already use coding agents such as Claude Code or Codex and want to add `pubm` release workflows to that setup.
 
 ## Quick install with `pubm setup-skills`
 
@@ -13,11 +13,11 @@ The fastest way to install coding agent skills is:
 pubm setup-skills
 ```
 
-This downloads the skill bundle for your agent (Claude Code, Codex CLI, or Gemini CLI) from the pubm GitHub repository and places it in the correct directory. It is also available as the final step of `pubm init`.
+This downloads the skill bundle for your agent, whether that is Claude Code, Codex CLI, or Gemini CLI, from the pubm GitHub repository and places it in the correct directory. It is also available as the last step of `pubm init`.
 
 ## Start with setup automation
 
-If a repository is not wired yet, the most important agent action is not publish. It is setup.
+If a repository is not wired yet, the most important agent action is setup, not publish.
 
 Use `publish-setup` first. That skill handles:
 
@@ -33,7 +33,7 @@ Give the agent the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) 
 
 The repository ships an agent-facing bundle under `plugins/pubm-plugin/`.
 
-Today that bundle contains:
+The bundle currently contains:
 
 - a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
 - a checked-in skill bundle under `plugins/pubm-plugin/skills/`
@@ -46,7 +46,7 @@ Use this first when wiring `pubm` into a repository through an agent.
 
 ### `publish-preview`
 
-Use this when the agent should explain the release plan before it mutates git state or publishes anything.
+Use this when the agent should explain the release plan before it changes git state or publishes anything.
 
 ### `publish`
 
@@ -75,7 +75,7 @@ Typical flow:
 /plugin install plugin-name@marketplace-name
 ```
 
-If you are not using a marketplace, provide the agent with the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) link instead.
+If you are not using a marketplace, give the agent the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) link instead.
 
 ## Integration model
 
@@ -96,7 +96,7 @@ Skills should orchestrate the CLI, not replace it.
 - preview before publish in existing repositories
 - explicit approval before irreversible actions
 - plain-language summaries of versions, registries, and side effects
-- stopping when git state, auth, or CI assumptions are not ready
+- stop when git state, auth, or CI assumptions are not ready
 
 ## Practical advice
 
