@@ -3,11 +3,11 @@ title: 공식 플러그인
 description: pubm 프로젝트가 직접 유지보수하는 지원 플러그인입니다.
 ---
 
-공식 플러그인은 `pubm`와 함께 유지보수되며, 핵심 프로젝트와 같은 릴리스 및 호환성 기대치를 따릅니다. 직접 플러그인을 처음부터 만들지 않고도 잘 지원되는 통합이 필요할 때 사용합니다.
+공식 플러그인은 `pubm`와 함께 유지보수되며, 핵심 프로젝트와 같은 릴리스 및 호환성 기대치를 따릅니다. 처음부터 직접 플러그인을 만들지 않고도 안정적으로 지원되는 통합이 필요할 때 사용합니다.
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew`는 CLI 프로젝트가 각 릴리스와 함께 Homebrew formula를 동기화하는 데 도움을 줍니다. PR 생성 후 파이프라인이 실패하면 생성된 Homebrew PR을 닫는 롤백 액션을 등록합니다.
+`@pubm/plugin-brew`는 CLI 프로젝트가 각 릴리스와 함께 Homebrew formula를 동기화하는 데 도움을 줍니다. PR을 연 뒤 파이프라인이 실패하면 해당 Homebrew PR을 닫는 롤백 액션을 등록합니다.
 
 ### 잘 맞는 경우
 
@@ -83,7 +83,7 @@ brewTap({
 |-----------|--------------------|------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | Homebrew formula 업데이트를 push하고 pull request를 열기 위한 `repo` 스코프의 GitHub Personal Access Token입니다. |
 
-로컬 실행에서는 pubm이 이 토큰을 프롬프트하고 시스템 keyring에 저장합니다. CI에서는 `PUBM_BREW_GITHUB_TOKEN` 환경 변수로 토큰을 제공합니다. `pubm --mode ci --phase prepare` 또는 `pubm secrets sync`를 실행하면 저장된 토큰을 저장소의 GitHub Secrets로 동기화해 CI workflow가 자동으로 사용할 수 있습니다.
+로컬 실행에서는 pubm이 이 토큰을 프롬프트하고 시스템 keyring에 저장합니다. CI에서는 `PUBM_BREW_GITHUB_TOKEN` 환경 변수로 제공합니다. `pubm --mode ci --phase prepare` 또는 `pubm secrets sync`를 실행하면 저장된 토큰을 저장소의 GitHub Secrets로 동기화해 CI workflow가 바로 사용할 수 있게 됩니다.
 
 이 플러그인은 또한 publish 단계가 시작되기 전에 토큰 존재 여부와 필요한 저장소 접근 권한을 검증하는 preflight check를 등록합니다.
 
@@ -102,7 +102,7 @@ brewTap({
 pubm brew init
 ```
 
-패키지 메타데이터로 시작 formula를 스캐폴딩할 때 사용합니다.
+패키지 메타데이터를 바탕으로 시작 formula를 스캐폴딩할 때 사용합니다.
 
 ### `brewCore`
 

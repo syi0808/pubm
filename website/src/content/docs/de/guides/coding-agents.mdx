@@ -3,23 +3,23 @@ title: Coding Agent Integration
 description: Das pubm-Plugin in vorhandene Coding Agents integrieren, beginnend mit Setup-Automatisierung.
 ---
 
-Dieser Leitfaden ist für Teams gedacht, die bereits Coding Agents wie Claude Code oder Codex nutzen und `pubm`-Release-Workflows in dieses Setup einbinden wollen.
+Dieser Leitfaden richtet sich an Teams, die bereits Coding Agents wie Claude Code oder Codex nutzen und `pubm`-Release-Workflows in dieses Setup einbinden möchten.
 
 ## Schnellinstallation mit `pubm setup-skills`
 
-Der schnellste Weg, Coding-Agent-Skills zu installieren:
+Der schnellste Weg, Coding-Agent-Skills zu installieren, ist:
 
 ```bash
 pubm setup-skills
 ```
 
-Das laedt das Skill-Bundle für deinen Agenten (Claude Code, Codex CLI oder Gemini CLI) aus dem pubm-GitHub-Repository herunter und legt es im richtigen Verzeichnis ab. Es ist auch als letzter Schritt von `pubm init` verfügbar.
+Das lädt das Skill-Bundle für deinen Agenten (Claude Code, Codex CLI oder Gemini CLI) aus dem pubm-GitHub-Repository herunter und legt es im richtigen Verzeichnis ab. Es steht auch als letzter Schritt von `pubm init` zur Verfügung.
 
-## Start with setup automation
+## Mit Setup-Automatisierung anfangen
 
-Wenn ein Repository noch nicht angebunden ist, ist die wichtigste Agenten-Aktion nicht das Veröffentlichen, sondern das Setup.
+Wenn ein Repository noch nicht angebunden ist, sollte der Agent zuerst das Setup erledigen und nicht direkt veröffentlichen.
 
-Use `publish-setup` first. That skill handles:
+Verwende zuerst `publish-setup`. Dieser Skill übernimmt:
 
 - Installation des `pubm plugin`-Bundles
 - Erzeugung oder Aktualisierung der `pubm`-Konfiguration
@@ -29,16 +29,16 @@ Use `publish-setup` first. That skill handles:
 
 Gib dem Agenten den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md), damit er das Bundle abrufen und dem eingecheckten Setup-Flow folgen kann.
 
-## What the `pubm plugin` gives your agent
+## Was das `pubm plugin` dem Agenten liefert
 
 Das Repository liefert unter `plugins/pubm-plugin/` ein Bundle für Agenten aus.
 
-Today that bundle contains:
+Dieses Bundle enthält derzeit:
 
-- a Claude Code plugin manifest at `plugins/pubm-plugin/.claude-plugin/plugin.json`
-- a checked-in skill bundle under `plugins/pubm-plugin/skills/`
+- ein Claude-Code-Plugin-Manifest unter `plugins/pubm-plugin/.claude-plugin/plugin.json`
+- ein eingechecktes Skill-Bundle unter `plugins/pubm-plugin/skills/`
 
-## Included skills
+## Enthaltene Skills
 
 ### `publish-setup`
 
@@ -46,11 +46,11 @@ Nutze dies zuerst, wenn du `pubm` über einen Agenten in ein Repository einbinde
 
 ### `publish-preview`
 
-Nutze dies, wenn der Agent den Release-Plan erklaeren soll, bevor er den Git-Zustand ändert oder etwas veröffentlicht.
+Nutze dies, wenn der Agent den Release-Plan erklären soll, bevor er den Git-Zustand ändert oder etwas veröffentlicht.
 
 ### `publish`
 
-Dies ist der abgesicherte Veröffentlichungspfad. Er ist zuerst ein Preview und verlangt eine Bestaetigung, bevor der eigentliche Publish-Befehl ausgeführt wird.
+Dies ist der abgesicherte Veröffentlichungspfad. Er beginnt mit einer Vorschau und verlangt eine Bestätigung, bevor der eigentliche Publish-Befehl ausgeführt wird.
 
 ### `version-sync`
 
@@ -60,15 +60,15 @@ Nutze dies, um Versionsverweise außerhalb von Paket-Manifests zu finden und anz
 
 Nutze dies, wenn der Agent ein neues `pubm`-Plugin-Paket mit Hooks, Befehlen und Tests anlegen soll.
 
-## Claude Code installation
+## Claude-Code-Installation
 
-Claude Code nutzt ein Marketplace-basiertes Plugin-Modell.
+Claude Code nutzt ein marketplace-basiertes Plugin-Modell.
 
 Typischer Ablauf:
 
-1. add the marketplace
-2. install the plugin from that marketplace
-3. choose the installation scope in Claude Code
+1. den Marketplace hinzufügen
+2. das Plugin aus diesem Marketplace installieren
+3. in Claude Code den Installationsbereich wählen
 
 ```text
 /plugin marketplace add your-org/claude-plugins
@@ -77,30 +77,30 @@ Typischer Ablauf:
 
 Wenn du keinen Marketplace nutzt, gib dem Agenten stattdessen den Link [INSTALLATION.md](/pubm/de/plugins/pubm-plugin/INSTALLATION.md).
 
-## Integration model
+## Integrationsmodell
 
 - halte das Laufzeitverhalten der Releases in `pubm` selbst oder in einem `pubm`-Plugin
 - halte Agent-Workflows und Freigaberichtlinien in eingecheckten Skills
-- halte die Setup-Automatisierung für das Onboarding des Repositories massgeblich
+- halte die Setup-Automatisierung für das Onboarding des Repositories maßgeblich
 
-## Skills and command surface
+## Skills und Befehlsoberfläche
 
 Skills sollen die CLI orchestrieren, nicht ersetzen.
 
 - verwende `pubm`-Befehle für deterministische Release-Operationen
 - verwende Skills für Setup-Reihenfolge, Projektinspektion, Sicherheitsprüfungen und Freigaben
 
-## Safety rules to encode
+## Sicherheitsregeln
 
 - Setup vor dem Veröffentlichen in neuen Repositories
 - Preview vor dem Veröffentlichen in bestehenden Repositories
-- ausdrueckliche Freigabe vor irreversiblen Aktionen
-- Zusammenfassungen in Klartext für Versionen, Registries und Nebenwirkungen
-- Stoppen, wenn Git-Zustand, Authentifizierung oder CI-Annahmen noch nicht bereit sind
+- ausdrückliche Freigabe vor irreversiblen Aktionen
+- Klartext-Zusammenfassungen für Versionen, Registries und Nebenwirkungen
+- stoppen, wenn Git-Zustand, Authentifizierung oder CI-Annahmen noch nicht bereit sind
 
-## Practical advice
+## Praktische Hinweise
 
-- behandle `publish-setup` als die primaere Integrationsflaeche
+- behandle `publish-setup` als die primäre Integrationsfläche
 - halte Setup- und Publish-Automatisierung im selben eingecheckten Bundle
-- stelle `pubm`-Befehle direkt bereit, statt sie in vage Natursprache zu uebersetzen
+- stelle `pubm`-Befehle direkt bereit, statt sie in vage Natursprache zu übersetzen
 - behandle `pubm` als letzten Schritt, nicht als Standard-Schritt

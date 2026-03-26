@@ -1,14 +1,14 @@
 # pubm Plugin Installation
 
-> **Note:** This file is for coding agents that do **not** support a plugin marketplace (e.g., Codex, custom agents). If you use **Claude Code**, install the pubm plugin directly from the Claude Code marketplace instead.
+> **Note:** Use this file for coding agents that do **not** support a plugin marketplace, such as Codex or custom agents. If you use **Claude Code**, install the pubm plugin from the Claude Code marketplace instead.
 
-This file explains how to obtain the `pubm plugin` bundle when your coding agent does not support a plugin marketplace.
+Use this file to get the `pubm plugin` bundle when your coding agent does not support a plugin marketplace.
 
-## Give this link to the agent
+## Give This Link to the Agent
 
-When your coding agent can accept repository docs or setup links, give it the deployed `INSTALLATION.md` URL first.
+If your coding agent can read repository docs or setup links, give it the deployed `INSTALLATION.md` URL first.
 
-That page tells the agent where the statically deployed plugin bundle lives under the website's `/plugins/pubm-plugin/` path.
+That page points to the deployed plugin bundle under the website's `/plugins/pubm-plugin/` path.
 
 The agent should fetch these files and directories together:
 
@@ -19,9 +19,9 @@ The agent should fetch these files and directories together:
 - `skills/version-sync/`
 - `skills/create-plugin/`
 
-The directory structure must stay unchanged after download.
+Keep the directory structure unchanged.
 
-## Why this exists
+## Why It Exists
 
 Some coding agents support marketplace installation. Others only support:
 
@@ -29,9 +29,9 @@ Some coding agents support marketplace installation. Others only support:
 - loading local skill directories
 - importing checked-in prompt assets from a repository
 
-This bundle is published so those agents can consume the same checked-in `pubm` workflow without depending on a marketplace.
+This bundle lets those agents use the same checked-in `pubm` workflow without a marketplace.
 
-## What the bundle contains
+## Bundle Contents
 
 - `publish-setup`: sets up `pubm`, config, registries, CI, and changesets
 - `publish-preview`: inspects the release plan before publishing
@@ -39,7 +39,7 @@ This bundle is published so those agents can consume the same checked-in `pubm` 
 - `version-sync`: helps wire non-manifest version references
 - `create-plugin`: scaffolds a new `pubm` plugin package
 
-## Installation model
+## Installation Steps
 
 1. provide the deployed `INSTALLATION.md` link to the coding agent
 2. let the agent fetch the `pubm-plugin` bundle from the `/plugins/pubm-plugin/` path
@@ -49,17 +49,17 @@ This bundle is published so those agents can consume the same checked-in `pubm` 
 
 ## Alternative: `pubm setup-skills`
 
-If `pubm` is already installed in the project, you can skip the manual bundle download and run:
+If `pubm` is already installed in the project, skip the manual bundle download and run:
 
 ```bash
 pubm setup-skills
 ```
 
-This downloads the skill bundle from the pubm GitHub repository and installs it into the correct directory for your agent (Claude Code, Codex CLI, or Gemini CLI). It is also offered as the final step of `pubm init`.
+This downloads the skill bundle from the pubm GitHub repository and installs it in the right directory for your agent, whether that is Claude Code, Codex CLI, or Gemini CLI. It is also available as the final step of `pubm init`.
 
 ## Usage notes
 
-- use the checked-in skill bundle as the source of truth for agent-driven release work
-- let the skills orchestrate `pubm` commands instead of replacing them
-- inspect changesets and repository state before publishing
-- use preview and validation flows before irreversible actions
+- Treat the checked-in skill bundle as the source of truth for release work.
+- Let the skills orchestrate `pubm` commands instead of replacing them.
+- Inspect changesets and repository state before publishing.
+- Use preview and validation flows before irreversible actions.

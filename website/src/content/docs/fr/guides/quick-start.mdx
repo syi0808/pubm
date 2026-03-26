@@ -3,7 +3,7 @@ title: Démarrage rapide
 description: Installer pubm, initialiser un projet et publier votre première release.
 ---
 
-`pubm` est un orchestrateur de release pour les projets qui publient vers plus d'un registry, plus d'un package ou plus d'un écosystème.
+`pubm` est un orchestrateur de publication pour les projets qui publient vers plus d'un registry, plus d'un package ou plus d'un écosystème.
 
 ## Avant de commencer
 
@@ -31,7 +31,7 @@ brew install pubm
 Si vous raccordez `pubm` via Claude Code, Codex ou un autre agent de code, commencez par l'automatisation de configuration au lieu d'écrire les invites de release à la main.
 
 - Exécutez `pubm setup-skills` pour télécharger et installer les skills pour agents de code directement, ou laissez `pubm init` proposer l'installation des skills comme dernière étape.
-- Utilisez alternativement le skill `publish-setup` du bundle `pubm plugin` pour installer le workflow de release, générer la config, raccorder la CI et activer les changesets.
+- Utilisez alternativement le skill `publish-setup` du bundle `pubm plugin` pour installer le workflow de publication, générer la config, raccorder la CI et activer les changesets.
 - Donnez à votre agent le lien [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) pour qu'il puisse récupérer le bundle et commencer par `publish-setup`.
 - Lisez [Intégration des agents de code](/pubm/fr/guides/coding-agents/) pour le modèle d'intégration et les rôles des skills.
 

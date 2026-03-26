@@ -3,7 +3,7 @@ title: Asset Pipeline Hooks
 description: Intercept each stage of the release asset pipeline with plugin hooks.
 ---
 
-The asset pipeline runs after the build step and before GitHub Release upload. Plugins can intercept every stage through six hooks that mirror the pipeline's internal structure.
+The asset pipeline runs after the build step and before GitHub Release upload. Plugins can intercept every stage through six hooks that mirror the pipeline structure.
 
 ## Pipeline stages
 
@@ -169,7 +169,7 @@ const customArchivePlugin: PubmPlugin = {
 
 ### `nameAsset`
 
-Returns the final upload filename (without extension — the extension is appended from `compressFormat`). Use this hook when the name template system is not expressive enough.
+Returns the final upload filename without the extension. The extension is appended from `compressFormat`. Use this hook when the name template system is not expressive enough.
 
 **Input:** `CompressedAsset`
 **Output:** `string` — the filename without extension

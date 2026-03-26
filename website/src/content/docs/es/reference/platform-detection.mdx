@@ -3,13 +3,13 @@ title: Detección de plataformas
 description: Tablas integradas de OS, arquitectura, ABI y variant usadas para el análisis automático de plataformas.
 ---
 
-`pubm` incluye un motor integrado de detección de plataformas que analiza OS, arquitectura, ABI y variant a partir de rutas de archivo. Esto impulsa el nombrado automático de assets, los valores por defecto de compresión según el sistema operativo y el objeto estructurado `ParsedPlatform` que consumen plugins como `@pubm/plugin-brew`.
+`pubm` incluye un motor integrado de detección de plataformas que analiza OS, arquitectura, ABI y variant a partir de rutas de archivo. Eso alimenta el nombre automático de assets, los valores por defecto de compresión según el sistema operativo y el objeto estructurado `ParsedPlatform` que consumen plugins como `@pubm/plugin-brew`.
 
 ## Cómo funciona el análisis
 
 Cuando configuras una entrada `releaseAssets`, `pubm` inspecciona cada ruta coincidente para determinar su plataforma.
 
-Hay dos modos:
+Hay dos modos de funcionamiento:
 
 **Variables de captura en el patrón de ruta.** Si el patrón contiene `{os}`, `{arch}`, `{abi}`, `{variant}` o `{platform}`, `pubm` extrae directamente los valores desde esas posiciones:
 
@@ -21,7 +21,7 @@ Hay dos modos:
 { path: "platforms/{platform}/bin/mytool" }
 ```
 
-**Escaneo automático de segmentos.** Cuando no se usan variables de captura, `pubm` divide la ruta en segmentos con `/` y luego cada segmento en `-`. Cada token resultante se prueba contra las tablas de OS, arch, ABI, variant y vendor en ese orden. El primer match de cada categoría gana.
+**Escaneo automático de segmentos.** Cuando no se usan variables de captura, `pubm` divide la ruta en segmentos con `/` y luego cada segmento en `-`. Cada token resultante se prueba contra las tablas de OS, arch, ABI, variant y vendor en ese orden. El primer match de cada categoría es el que cuenta.
 
 ```ts
 // Ruta: platforms/darwin-arm64/bin/pubm
@@ -40,7 +40,7 @@ La variable de plantilla `{platform}` contiene la cadena de plataforma en bruto:
 - Si se usaron variables de captura individuales (`{os}`, `{arch}`): se construye como `{os}-{arch}`
 - Si se usó detección automática: el segmento de ruta coincidente (`darwin-arm64`)
 
-Vendor, ABI y variant se excluyen intencionalmente de `{platform}` para mantener el caso común corto y legible. Se pueden acceder individualmente mediante `{vendor}`, `{abi}` y `{variant}`.
+Vendor, ABI y variant se excluyen a propósito de `{platform}` para que el caso común quede corto y legible. Se accede a ellos por separado con `{vendor}`, `{abi}` y `{variant}`.
 
 ## Tipo `ParsedPlatform`
 

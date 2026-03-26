@@ -2,13 +2,13 @@
 
 ## Overview
 
-Official plugins are maintained alongside pubm and follow the same release cycle. Use them for well-supported integrations without building custom plugins.
+Official plugins are maintained alongside pubm and follow the same release cycle. Use them when the integration already exists and you do not need a custom plugin.
 
 | Plugin | Package | Hook | Description |
 |---|---|---|---|
 | `externalVersionSync()` | `@pubm/plugin-external-version-sync` | `afterVersion` | Sync version to non-manifest files. Rolls back file contents on failure. |
-| `brewTap()` | `@pubm/plugin-brew` | `afterRelease` | Update formula in a custom Homebrew tap. Rolls back by closing created PRs on failure. |
-| `brewCore()` | `@pubm/plugin-brew` | `afterRelease` | Open PR to homebrew-core. Rolls back by closing created PRs on failure. |
+| `brewTap()` | `@pubm/plugin-brew` | `afterRelease` | Update a formula in a custom Homebrew tap. Rolls back by closing created PRs on failure. |
+| `brewCore()` | `@pubm/plugin-brew` | `afterRelease` | Open a PR to homebrew-core. Rolls back by closing created PRs on failure. |
 
 ## `@pubm/plugin-external-version-sync`
 
@@ -36,25 +36,25 @@ Run `pubm sync --discover` to scan the repository for likely version references:
 pubm sync --discover
 ```
 
-Show discovered files and ask the user which to include as sync targets.
+Show the discovered files and ask which ones to include as sync targets.
 
 ### Config
 
-**JSON target** — updates a value at a JSON path:
+**JSON target**: updates a value at a JSON path:
 
 ```typescript
 { file: 'manifest.json', jsonPath: 'version' }
 { file: 'plugin.json', jsonPath: 'metadata.version' }
 ```
 
-**Regex target** — replaces the first capture group:
+**Regex target**: replaces the first capture group:
 
 ```typescript
 { file: 'README.md', pattern: /pubm@([\w.-]+)/g }
 { file: 'src/version.ts', pattern: /export const VERSION = "([^"]+)"/ }
 ```
 
-The regex pattern must have exactly one capture group containing the version string.
+The regex pattern must have exactly one capture group that contains the version string.
 
 ### Independent versioning (monorepo)
 
@@ -119,7 +119,7 @@ interface ExternalVersionSyncOptions {
 
 ## `@pubm/plugin-brew`
 
-Automates Homebrew formula updates on release. Provides two functions: `brewTap` (custom tap) and `brewCore` (homebrew-core PR).
+Automates Homebrew formula updates on release. It provides two functions: `brewTap` for custom taps and `brewCore` for homebrew-core PRs.
 
 See `references/homebrew-setup.md` for detailed Homebrew setup instructions, formula structure, and platform matching.
 
@@ -130,7 +130,7 @@ npm install -D @pubm/plugin-brew
 # or: pnpm add -D / bun add -D
 ```
 
-### `brewTap` — Custom tap
+### `brewTap` - Custom tap
 
 Maintains a formula in a dedicated tap repository.
 
@@ -151,15 +151,15 @@ export default defineConfig({
 | Option | Type | Required | Description |
 |---|---|---|---|
 | `formula` | `string` | Yes | Formula path relative to repo root |
-| `repo` | `string` | No | Remote tap repo URL. If omitted, updates formula in the current repo. |
+| `repo` | `string` | No | Remote tap repo URL. If omitted, updates the formula in the current repo. |
 | `packageName` | `string` | No | Only run for releases matching this package name (monorepo filter) |
 | `assetPlatforms` | `Record<string, (asset) => boolean>` | No | Custom platform matchers |
 
 **Behavior:**
-- If `repo` is set: clones the tap repo, updates formula, commits and pushes
-- If `repo` is omitted: updates formula in the current repo, commits and pushes (falls back to PR if push fails)
+- If `repo` is set: clones the tap repo, updates the formula, commits, and pushes
+- If `repo` is omitted: updates the formula in the current repo, commits, and pushes, then falls back to a PR if push fails
 
-### `brewCore` — homebrew-core PR
+### `brewCore` - homebrew-core PR
 
 Opens a PR to `homebrew/homebrew-core` for each release.
 
@@ -202,12 +202,12 @@ Both plugins require:
 
 **Use official plugins when:**
 - Your need matches an existing integration
-- You want lower maintenance — official plugins are tested and updated with pubm
+- You want lower maintenance; official plugins are tested and updated with pubm
 
 **Build a custom plugin when:**
-- Post-release notifications (Slack, Discord, email)
-- Custom artifact publishing (S3, CDN)
-- Organization-specific deployment triggers
-- External service integrations (Sentry, Datadog)
+- You need post-release notifications such as Slack, Discord, or email
+- You need custom artifact publishing such as S3 or CDN
+- You need organization-specific deployment triggers
+- You need external service integrations such as Sentry or Datadog
 
 To scaffold a custom plugin, use the `/create-plugin` skill.

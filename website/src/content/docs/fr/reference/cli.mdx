@@ -3,26 +3,26 @@ title: Référence CLI
 description: Commandes, flags et modes d'exécution pour la CLI pubm.
 ---
 
-Cette référence est organisée par forme de commande :
+Cette référence est regroupée par type de commande :
 
 - la commande de publication principale : `pubm [version]`
 - les commandes de gestion comme `init`, `secrets` et `sync`
 - les commandes du workflow de changesets sous `pubm changesets ...`
 
-Pour une utilisation humaine au quotidien, la commande la plus importante est simplement :
+Au quotidien, la commande principale est :
 
 ```bash
 pubm
 ```
 
-Lancer `pubm` sans argument de version suit le chemin interactif habituel. Cela vous permet de choisir la prochaine version dans le terminal avant que le pipeline de release ne continue.
+Lancer `pubm` sans argument de version suit le flux interactif normal. Cela vous permet de choisir la prochaine version dans le terminal avant que le pipeline de release ne continue.
 
 ## Vue d'ensemble des commandes
 
 | Commande | But |
 |---------|-----|
 | `pubm [version]` | Exécuter le pipeline de publication à l'aide d'un type de release ou d'une version semver explicite. |
-| `pubm init` | Assistant de configuration interactif — détection des packages, config, changesets, workflows CI et skills pour agents de code. |
+| `pubm init` | Assistant de configuration interactif pour la détection des packages, la config, les changesets, les workflows CI et les skills pour agents de code. |
 | `pubm setup-skills` | Télécharger et installer les skills pour agents de code (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Pousser les tokens stockés localement vers GitHub Secrets via `gh`. |
 | `pubm sync --discover` | Analyser le dépôt pour trouver les références de version en dehors des manifests. |
@@ -51,8 +51,6 @@ Si vous omettez la version :
 
 - les terminaux interactifs peuvent demander la prochaine version
 - les exécutions CI exigent que la version soit résolue de manière non interactive
-
-Si vous omettez la version, `pubm` peut demander la prochaine version dans un terminal interactif.
 
 ### Utilisation interactive
 
@@ -168,19 +166,19 @@ Les invites sont désactivées automatiquement lorsque :
 
 ## `pubm init`
 
-Assistant de configuration interactif pour `pubm`. Nécessite un TTY (terminal interactif).
+Assistant de configuration interactif pour `pubm`. Nécessite un TTY.
 
 ```bash
 pubm init
 ```
 
-L'assistant parcourt chaque étape dans l'ordre :
+L'assistant déroule ces étapes :
 
 1. **Détection des packages** — analyse le dépôt à la recherche de fichiers manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) et de la configuration workspace, puis confirme les packages et registries détectés.
 2. **Configuration de base** — demande la branche de release et la stratégie de versioning (`independent` ou `fixed`).
 3. **Options de release** — pose des questions sur la génération de changelog et les drafts de GitHub Release.
 4. **Configuration du workflow** — propose d'activer le workflow de changesets (crée `.pubm/changesets/`, `.github/workflows/changeset-check.yml` et met à jour `.gitignore`) et de générer les workflows de release CI (`.github/workflows/release.yml`).
-5. **Skills pour agents de code** — propose de télécharger et d'installer les skills pour agents de code pour Claude Code, Codex CLI ou Gemini CLI (identique à `pubm setup-skills`).
+5. **Skills pour agents de code** — propose de télécharger et d'installer les skills pour agents de code pour Claude Code, Codex CLI ou Gemini CLI. Cela correspond à `pubm setup-skills`.
 
 Un fichier `pubm.config.ts` n'est créé que si vos choix diffèrent des valeurs par défaut. Si toutes les valeurs correspondent aux valeurs par défaut, aucun fichier de config n'est écrit.
 

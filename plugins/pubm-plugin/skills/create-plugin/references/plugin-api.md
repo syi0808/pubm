@@ -16,12 +16,12 @@ interface PubmPlugin {
 }
 ```
 
-- `credentials` — declare tokens or secrets this plugin requires. pubm resolves them via env → `resolve()` → keyring → interactive prompt, injects them into `ctx.runtime.pluginTokens`, and syncs them to GitHub Secrets during `--ci-prepare`.
-- `checks` — declare preflight checks that run alongside the core prerequisite and condition phases.
+- `credentials`: declare the tokens or secrets this plugin needs. pubm resolves them through env, `resolve()`, keyring, then an interactive prompt. It stores the values in `ctx.runtime.pluginTokens` and syncs them to GitHub Secrets during `--ci-prepare`.
+- `checks`: declare preflight checks that run with the core prerequisite and condition phases.
 
 ## PluginCredential
 
-Declare tokens or secrets required by a plugin. pubm resolves each credential via the following chain: env var → `resolve()` → keyring (SecureStore) → interactive prompt.
+Declare the tokens or secrets required by a plugin. pubm resolves each credential in this order: env var, `resolve()`, keyring (`SecureStore`), then interactive prompt.
 
 ```typescript
 interface PluginCredential {
@@ -67,10 +67,10 @@ interface PluginCheck {
 }
 ```
 
-- `phase: "prerequisites"` — runs before network calls, suitable for local environment validation.
-- `phase: "conditions"` — runs after registry connectivity is confirmed, suitable for permission checks.
+- `phase: "prerequisites"`: runs before network calls and fits local environment validation.
+- `phase: "conditions"`: runs after registry connectivity is confirmed and fits permission checks.
 
-Throw from `task` to fail the check and halt the pipeline.
+Throw from `task` to fail the check and stop the pipeline.
 
 ## PluginTaskContext
 
@@ -88,13 +88,13 @@ interface PluginTaskContext {
 }
 ```
 
-- `output` — display a status line beneath the check title in the terminal UI.
-- `title` — modify the task title dynamically.
-- `prompt()` — run an enquirer prompt (available in interactive mode).
+- `output`: display a status line beneath the check title in the terminal UI.
+- `title`: change the task title dynamically.
+- `prompt()`: run an enquirer prompt in interactive mode.
 
 ## Plugin Hooks
 
-All hooks receive `PubmContext` (the publish pipeline context). Hooks are optional and run sequentially across plugins.
+All hooks receive `PubmContext`, the publish pipeline context. Hooks are optional and run sequentially across plugins.
 
 ```typescript
 type HookFn = (ctx: PubmContext) => Promise<void> | void;
@@ -115,7 +115,7 @@ type AfterReleaseHookFn = (ctx: PubmContext, releaseCtx: ReleaseContext) => Prom
 8. beforePush → Push → afterPush
 9. afterRelease (GitHub release)
 10. onSuccess
-    ── or on failure ──
+    or, on failure,
     onError
 ```
 
@@ -134,7 +134,7 @@ type AfterReleaseHookFn = (ctx: PubmContext, releaseCtx: ReleaseContext) => Prom
 | `beforePush` | `HookFn` | Pre-push validation |
 | `afterPush` | `HookFn` | Post-push actions (deploy triggers) |
 | `afterRelease` | `AfterReleaseHookFn` | Post-release actions (Homebrew, notifications) |
-| `onError` | `ErrorHookFn` | Error reporting, cleanup. Use `ctx.runtime.rollback.add()` to register rollback actions. |
+| `onError` | `ErrorHookFn` | Error reporting and cleanup. Use `ctx.runtime.rollback.add()` to register rollback actions. |
 | `onSuccess` | `HookFn` | Success notifications, metrics |
 
 ## PubmContext
@@ -193,7 +193,7 @@ interface PubmContext {
 
 ### Rollback API
 
-Plugins can register rollback actions that execute automatically when the publish pipeline fails. Actions are executed in LIFO (last-in, first-out) order.
+Plugins can register rollback actions that run automatically when the publish pipeline fails. Actions run in LIFO order.
 
 Register rollback actions using `ctx.runtime.rollback.add()` inside any hook:
 
@@ -249,7 +249,7 @@ type VersionPlan = SingleVersionPlan | FixedVersionPlan | IndependentVersionPlan
 
 ## ReleaseContext
 
-Available in `afterRelease` hook:
+Available in the `afterRelease` hook:
 
 ```typescript
 interface ReleaseContext {

@@ -1,10 +1,10 @@
 # Contributing to pubm
 
-Thank you for your interest in contributing to pubm. This guide explains how to report issues, suggest improvements, and submit code changes.
+Thank you for your interest in contributing to pubm. This guide covers bug reports, enhancement requests, and code changes.
 
 ## Code of Conduct
 
-Please be respectful and constructive in all interactions. We are committed to providing a welcoming and inclusive experience for everyone.
+Be respectful and constructive in all interactions.
 
 ## How to Contribute
 
@@ -81,11 +81,11 @@ Key conventions:
 
 This project follows [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat:` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation changes
-- `chore:` — maintenance tasks
-- `refactor:` — code refactoring
+- `feat:`: new feature
+- `fix:`: bug fix
+- `docs:`: documentation changes
+- `chore:`: maintenance tasks
+- `refactor:`: code refactoring
 
 Keep the first line under 72 characters. Reference issue numbers when applicable.
 
@@ -105,13 +105,13 @@ To run a specific test file:
 cd packages/core && bun vitest --run tests/unit/utils/rollback.test.ts
 ```
 
-Coverage thresholds are strict (95% lines/functions/statements, 90% branches).
+Coverage thresholds are 95% lines/functions/statements and 90% branches.
 
 ## Pre-commit Checklist
 
 Before submitting a pull request, run these checks in order and fix any failures:
 
-1. `bun run format` — auto-fix lint and formatting issues
-2. `bun run typecheck` — ensure no type errors
-3. `bun run test` — ensure all tests pass
-4. `bun run coverage` — ensure coverage thresholds are met
+1. `bun run format`: auto-fix lint and formatting issues
+2. `bun run typecheck`: ensure no type errors
+3. `bun run test`: ensure all tests pass
+4. `bun run coverage`: ensure coverage thresholds are met

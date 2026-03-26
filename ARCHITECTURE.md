@@ -1,8 +1,8 @@
 # pubm Architecture Documentation
 
-> **pubm** — A CLI tool for publishing packages to multiple registries simultaneously, with automatic rollback on failure.
+> **pubm**: A CLI tool for publishing packages to multiple registries simultaneously, with automatic rollback on failure.
 
-This document provides a comprehensive architectural overview of pubm, including monorepo structure, package dependencies, internal module organization, design patterns, and data flows.
+This document covers pubm's architecture, including the monorepo, package dependencies, module layout, design patterns, and data flow.
 
 ---
 
@@ -28,7 +28,7 @@ This document provides a comprehensive architectural overview of pubm, including
 
 ## System Overview
 
-### High-Level Architecture
+### Architecture Overview
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -65,11 +65,11 @@ $ pubm           ─→  Commander      ─→  Task Runner    ─→  npm regis
 
 ### Design Principles
 
-1. **Multi-Registry First**: Publish to npm, jsr, crates.io, and custom registries in a single command
-2. **Automatic Rollback**: Git operations are tracked and reversed on publish failure
-3. **TTY/CI Duality**: Interactive prompts in TTY mode, fully automated in CI
-4. **Ecosystem Extensibility**: Abstract base classes for adding new languages/registries
-5. **Plugin Hooks**: Lifecycle hooks let plugins extend every phase of the pipeline
+1. **Multi-Registry First**: Publish to npm, jsr, crates.io, and custom registries in one command.
+2. **Automatic Rollback**: Track git operations and reverse them on publish failure.
+3. **TTY/CI Duality**: Use interactive prompts in TTY mode and automation in CI.
+4. **Ecosystem Extensibility**: Add new languages and registries through abstract base classes.
+5. **Plugin Hooks**: Let plugins extend each phase of the pipeline.
 
 ---
 

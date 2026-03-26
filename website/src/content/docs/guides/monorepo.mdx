@@ -3,7 +3,7 @@ title: Monorepo
 description: Publish workspace packages in the right order with the right version strategy.
 ---
 
-`pubm` treats monorepos as a core use case, not a plugin scenario. It discovers packages, understands dependency order, and can release JavaScript, Rust, and Deno-oriented workspaces from the same repository.
+`pubm` treats monorepos as a core use case. It discovers packages, understands dependency order, and can release JavaScript, Rust, and Deno workspaces from the same repository.
 
 ## What pubm detects automatically
 
@@ -140,7 +140,7 @@ export default defineConfig({
 });
 ```
 
-Packages matched by `excludeRelease` are still bumped and published to their registries — they are only skipped for git tag creation and GitHub Release drafts.
+Packages matched by `excludeRelease` are still bumped and published to their registries. They are only skipped for git tag creation and GitHub Release drafts.
 
 ## Next steps
 

@@ -3,39 +3,39 @@ title: Changesets
 description: Release-Vorhaben festhalten, Changelogs erzeugen und Versionsspruenge steuern.
 ---
 
-`pubm` nutzt Changesets als dauerhafte Aufzeichnung dafür, was als Nächstes veröffentlicht werden soll. Statt Versionen aus Commit-Meldungen oder Branch-Namen abzuleiten, liest es versionierte Dateien aus `.pubm/changesets/` und wandelt sie in Versionsspruenge und Changelog-Eintraege um.
+`pubm` nutzt Changesets als dauerhafte Aufzeichnung dafür, was als Nächstes veröffentlicht werden soll. Statt Versionen aus Commit-Meldungen oder Branch-Namen abzuleiten, liest es versionierte Dateien aus `.pubm/changesets/` und wandelt sie in Versionssprünge und Changelog-Einträge um.
 
-## Why changesets matter
+## Warum Changesets wichtig sind
 
 - ein prüfbarer Release-Plan in jedem Pull Request
-- deterministische Berechnung von Versionsspruengen über mehrere Pakete hinweg
+- eine deterministische Berechnung von Versionsspruengen über mehrere Pakete hinweg
 - Changelog-Inhalte, die vor dem Release-Tag geschrieben werden, nicht erst danach
 
-## File location
+## Speicherort
 
-Pending changesets live in:
+Ausstehende Changesets liegen hier:
 
 ```text
 .pubm/changesets/
 ```
 
-Initialisiere dieses Verzeichnis, indem du den interaktiven Setup-Wizard ausführst:
+Initialisiere dieses Verzeichnis mit dem interaktiven Setup-Wizard:
 
 ```bash
 pubm init
 ```
 
-Während des Setups fragt `pubm init`, ob der Changesets-Workflow aktiviert werden soll. Bei Ja erstellt es das Verzeichnis `.pubm/changesets/`, erzeugt `.github/workflows/changeset-check.yml` für die PR-Durchsetzung und aktualisiert `.gitignore`, damit Changeset-Dateien nachverfolgt, andere `.pubm/`-Inhalte aber ignoriert werden.
+Während des Setups fragt `pubm init`, ob der Changesets-Workflow aktiviert werden soll. Bei Ja erstellt es das Verzeichnis `.pubm/changesets/`, erzeugt `.github/workflows/changeset-check.yml` für die PR-Durchsetzung und aktualisiert `.gitignore`, damit Changeset-Dateien nachverfolgt und andere `.pubm/`-Inhalte ignoriert werden.
 
-## Creating a changeset
+## Ein Changeset anlegen
 
 ```bash
 pubm changesets add
 ```
 
-In a monorepo, `pubm` also asks which packages are affected and what bump type each one should receive.
+In einem Monorepo fragt `pubm` auch ab, welche Pakete betroffen sind und welchen Versionssprung jedes Paket bekommen soll.
 
-For non-interactive use:
+Für die nicht-interaktive Nutzung:
 
 ```bash
 pubm changesets add \
@@ -44,7 +44,7 @@ pubm changesets add \
   --message "Add token-based auth to the public client."
 ```
 
-## What a changeset file contains
+## Inhalt einer Changeset-Datei
 
 ```md
 ---
@@ -55,11 +55,11 @@ pubm changesets add \
 Add token-based auth to the public client.
 ```
 
-The metadata controls version calculation. The body becomes the changelog summary.
+Die Metadaten steuern die Versionsberechnung. Der Inhalt wird zur Changelog-Zusammenfassung.
 
-## Inspecting pending changes
+## Ausstehende Änderungen prüfen
 
-Before consuming changesets, inspect them:
+Bevor du Changesets verarbeitest, solltest du sie prüfen:
 
 ```bash
 pubm changesets status
@@ -67,11 +67,11 @@ pubm changesets status --verbose
 pubm changesets version --dry-run
 ```
 
-## How changesets are consumed
+## Wie Changesets verarbeitet werden
 
-Wenn du die normale Release-Pipeline mit `pubm` startest, werden ausstehende Changesets während des Versionsschritts verbraucht.
+Wenn du die normale Release-Pipeline mit `pubm` startest, werden ausstehende Changesets während des Versionsschritts verarbeitet.
 
-That flow:
+Der Ablauf sieht so aus:
 
 1. liest ausstehende `.pubm/changesets/*.md`-Dateien
 2. berechnet die resultierenden Paketversionen
@@ -80,27 +80,27 @@ That flow:
 5. löscht verbrauchte Changeset-Dateien
 6. erstellt den Release-Commit und die Tags
 
-If you want to perform only the versioning part ahead of time, you can still run:
+Wenn du nur den Versionsschritt vorab ausführen möchtest, kannst du weiterhin dies laufen lassen:
 
 ```bash
 pubm changesets version
 ```
 
-Der Befehl ist für redaktionelle oder kontrollierte Workflows nuetzlich, aber nicht erforderlich vor `pubm` oder `pubm --mode ci --phase publish`.
+Der Befehl ist für redaktionelle oder kontrollierte Workflows nützlich, aber nicht nötig vor `pubm` oder `pubm --mode ci --phase publish`.
 
-## Changelog generation
+## Changelog erzeugen
 
-If you want to generate changelog text without consuming versions yet:
+Wenn du Changelog-Text erzeugen willst, ohne die Versionen schon zu verbrauchen:
 
 ```bash
 pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Migration from `.changeset/`
+## Migration von `.changeset/`
 
 ```bash
 pubm changesets migrate
 ```
 
-This migrates pending files from `.changeset/` into `.pubm/`.
+Damit werden ausstehende Dateien von `.changeset/` nach `.pubm/` migriert.

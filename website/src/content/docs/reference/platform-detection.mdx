@@ -3,15 +3,15 @@ title: Platform Detection
 description: Built-in OS, architecture, ABI, and variant tables used for automatic platform parsing.
 ---
 
-`pubm` ships a built-in platform detection engine that parses OS, architecture, ABI, and variant from file paths. This powers automatic asset naming, OS-aware compression defaults, and the structured `ParsedPlatform` object consumed by plugins such as `@pubm/plugin-brew`.
+`pubm` ships a built-in platform detection engine that parses OS, architecture, ABI, and variant from file paths. It feeds automatic asset naming, OS-aware compression defaults, and the structured `ParsedPlatform` object used by plugins such as `@pubm/plugin-brew`.
 
 ## How parsing works
 
 When you configure a `releaseAssets` entry, `pubm` inspects each matched file path to determine its platform.
 
-There are two modes:
+Two modes are available:
 
-**Capture variables in the path pattern.** If the pattern contains `{os}`, `{arch}`, `{abi}`, `{variant}`, or `{platform}`, `pubm` extracts values from those positions directly:
+**Use capture variables in the path pattern.** If the pattern contains `{os}`, `{arch}`, `{abi}`, `{variant}`, or `{platform}`, `pubm` extracts values from those positions directly:
 
 ```ts
 // Rust-style triple: captures arch, vendor, os, abi from the path
@@ -21,7 +21,7 @@ There are two modes:
 { path: "platforms/{platform}/bin/mytool" }
 ```
 
-**Automatic segment scanning.** When no capture variables are used, `pubm` splits the path into segments on `/`, then splits each segment on `-`. Each resulting token is tested against the OS, arch, ABI, variant, and vendor tables in order. The first match per category wins.
+**Use automatic segment scanning.** When no capture variables are used, `pubm` splits the path into segments on `/`, then splits each segment on `-`. Each token is tested against the OS, arch, ABI, variant, and vendor tables in order. The first match per category wins.
 
 ```ts
 // Path: platforms/darwin-arm64/bin/pubm
@@ -40,7 +40,7 @@ The `{platform}` template variable holds the raw platform string:
 - If individual capture variables were used (`{os}`, `{arch}`): assembled as `{os}-{arch}`
 - If automatic detection was used: the matched path segment (`darwin-arm64`)
 
-Vendor, ABI, and variant are intentionally excluded from `{platform}` to keep the common case short and readable. They are accessible individually via `{vendor}`, `{abi}`, and `{variant}`.
+Vendor, ABI, and variant are intentionally excluded from `{platform}` to keep the common case short. They are accessible individually via `{vendor}`, `{abi}`, and `{variant}`.
 
 ## `ParsedPlatform` type
 
@@ -204,5 +204,5 @@ bin/myapp-armv7l      → arch: "arm"
 
 ## Related docs
 
-- [Release Assets](/pubm/guides/release-assets/) — configuration guide
-- [Asset Pipeline Hooks](/pubm/guides/asset-pipeline-hooks/) — plugin hook reference
+- [Release Assets](/pubm/guides/release-assets/) - configuration guide
+- [Asset Pipeline Hooks](/pubm/guides/asset-pipeline-hooks/) - plugin hook reference

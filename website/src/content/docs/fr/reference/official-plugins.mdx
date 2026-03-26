@@ -3,19 +3,19 @@ title: Plugins officiels
 description: Plugins pris en charge maintenus par le projet pubm.
 ---
 
-Les plugins officiels sont maintenus aux côtés de `pubm` et suivent les mêmes attentes de release et de compatibilité que le projet central. Utilisez-les quand vous voulez une intégration bien prise en charge sans avoir à construire votre propre plugin de zéro.
+Les plugins officiels sont maintenus aux côtés de `pubm` et suivent les mêmes attentes de release et de compatibilité que le projet central. Utilisez-les quand vous voulez une intégration solide et bien prise en charge sans repartir de zéro.
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` aide les projets CLI à maintenir les formules Homebrew synchronisées avec chaque release. Enregistre des actions de rollback pour fermer les PRs Homebrew créées si le pipeline échoue après la création de la PR.
+`@pubm/plugin-brew` aide les projets CLI à maintenir les formules Homebrew synchronisées avec chaque release. Si le pipeline échoue après l'ouverture de la PR, il enregistre des actions de rollback pour fermer cette PR Homebrew.
 
-### Ce pour quoi il est utile
+### Quand l'utiliser
 
 - distribuer un binaire CLI via Homebrew
 - mettre à jour automatiquement un dépôt tap dédié
 - garder les checksums des formules alignés avec les artefacts de release
 
-### Configuration typique
+### Configuration courante
 
 ```ts
 import { defineConfig } from "@pubm/core";
@@ -83,7 +83,7 @@ Chaque prédicat reçoit un `ReleaseAsset` et renvoie `true` si l'artefact doit 
 |--------------------------|----------------------|------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | GitHub Personal Access Token avec la portée `repo`, utilisé pour pousser les mises à jour de formula et ouvrir des pull requests. |
 
-En local, pubm demande ce token et le stocke dans le keyring du système. En CI, fournissez le token via la variable d'environnement `PUBM_BREW_GITHUB_TOKEN`. Exécutez `pubm --mode ci --phase prepare` ou `pubm secrets sync` pour synchroniser le token stocké vers les GitHub Secrets de votre dépôt afin que les workflows CI puissent l'utiliser automatiquement.
+En local, pubm demande ce token et le stocke dans le keyring du système. En CI, passez-le via la variable d'environnement `PUBM_BREW_GITHUB_TOKEN`. Exécutez `pubm --mode ci --phase prepare` ou `pubm secrets sync` pour synchroniser le token stocké vers les GitHub Secrets du dépôt et le rendre disponible aux workflows CI.
 
 Le plugin enregistre aussi un check de preflight qui vérifie que le token est présent et qu'il dispose de l'accès dépôt nécessaire avant le début de la phase de publish.
 
@@ -102,7 +102,7 @@ Le plugin peut :
 pubm brew init
 ```
 
-Utilisez-la pour scaffolder une formula de départ à partir des métadonnées du package.
+Utilisez-la pour générer une formula de départ à partir des métadonnées du package.
 
 ### `brewCore`
 

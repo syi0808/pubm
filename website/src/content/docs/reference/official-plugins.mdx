@@ -3,13 +3,13 @@ title: Official Plugins
 description: Supported plugins maintained by the pubm project.
 ---
 
-Official plugins are maintained alongside `pubm` and follow the same release and compatibility expectations as the core project. Use them when you want a well-supported integration without building your own plugin from scratch.
+Official plugins live alongside `pubm` and follow the same release and compatibility expectations as the core project. Use them when you want a supported integration without building your own plugin from scratch.
 
 ## `@pubm/plugin-brew`
 
-`@pubm/plugin-brew` helps CLI projects keep Homebrew formulae in sync with each release. Registers rollback actions to close any Homebrew PRs created if the pipeline fails after PR creation.
+`@pubm/plugin-brew` helps CLI projects keep Homebrew formulae in sync with each release. It registers rollback actions that close any Homebrew PRs created if the pipeline fails after the PR is opened.
 
-### What it is good for
+### Good for
 
 - shipping a CLI binary through Homebrew
 - updating a dedicated tap repository automatically
@@ -55,7 +55,7 @@ This replaces the previous approach of string-matching asset names (e.g., `asset
 
 ### Custom platform matchers
 
-Use `assetPlatforms` when the default `os + arch` matching is insufficient — for example, when you only want musl builds for Linux:
+Use `assetPlatforms` when the default `os + arch` matching is not enough, for example when you only want musl builds for Linux:
 
 ```ts
 brewTap({
@@ -83,7 +83,7 @@ Each predicate receives a `ReleaseAsset` and returns `true` if the asset should 
 |----------------------|--------------------|---------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | GitHub Personal Access Token with `repo` scope, used to push formula updates and open pull requests. |
 
-In local runs, pubm prompts for this token and stores it in the system keyring. In CI, provide the token via the `PUBM_BREW_GITHUB_TOKEN` environment variable. Run `pubm --mode ci --phase prepare` (or `pubm secrets sync`) to sync the stored token into your repository's GitHub Secrets so CI workflows can consume it automatically.
+In local runs, pubm prompts for this token and stores it in the system keyring. In CI, provide the token via the `PUBM_BREW_GITHUB_TOKEN` environment variable. Run `pubm --mode ci --phase prepare` or `pubm secrets sync` to sync the stored token into your repository's GitHub Secrets so CI workflows can consume it automatically.
 
 The plugin also registers a preflight check that verifies the token is present and has the required repository access before the publish phase begins.
 
@@ -130,7 +130,7 @@ export default defineConfig({
 
 ## `@pubm/plugin-external-version-sync`
 
-This plugin keeps non-manifest files aligned with your package version. Registers rollback actions to restore original file contents if the pipeline fails after version sync.
+This plugin keeps non-manifest files aligned with your package version. It registers rollback actions to restore original file contents if the pipeline fails after version sync.
 
 Use it when a release should also update:
 

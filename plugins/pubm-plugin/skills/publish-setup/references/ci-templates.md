@@ -2,7 +2,7 @@
 
 ## How pubm Works in CI
 
-pubm uses a **two-phase model** in CI: **prepare** and **publish**.
+pubm uses a two-phase CI flow: **prepare** and **publish**.
 
 | Phase | Command | What it does |
 |---|---|---|
@@ -11,7 +11,7 @@ pubm uses a **two-phase model** in CI: **prepare** and **publish**.
 
 CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase publish`. Omitting the phase is an error.
 
-### What `--mode ci --phase publish` Does
+### What `--mode ci --phase publish` does
 
 - Skips prerequisites check (branch, remote, working tree).
 - Skips conditions check (registry ping, login validation).
@@ -21,12 +21,12 @@ CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase 
 - Creates a GitHub Release with release notes and uploads release assets.
 - In monorepo independent mode, each package version is read independently. Fixed mode uses a shared version.
 
-### What `--mode ci --phase prepare` Does
+### What `--mode ci --phase prepare` does
 
 - Collects required tokens and validates registry access.
 - Useful as a pre-publish validation step or for interactive CI setups where tokens are gathered first.
 
-### Local workflow (triggers CI)
+### Local workflow that triggers CI
 
 Run `pubm --mode ci --phase prepare` locally to collect tokens and validate registry access, then push. This push triggers the CI workflow.
 
@@ -46,7 +46,7 @@ Run `pubm --mode ci --phase prepare` locally to collect tokens and validate regi
 
 ## Setup Blocks by Package Manager / Ecosystem
 
-Pick the block matching the user's package manager. These are **composable building blocks** — insert them into the templates below.
+Pick the block that matches the user's package manager. These are **composable building blocks**; insert them into the templates below.
 
 ### npm
 
@@ -132,13 +132,13 @@ Publish step: `yarn pubm --mode ci --phase publish`
 
 Publish step: `bunx pubm --mode ci --phase publish`
 
-**Note:** `actions/setup-node` with `registry-url` is still required even with bun — `NODE_AUTH_TOKEN` is only picked up by npm when registry-url is configured.
+**Note:** `actions/setup-node` with `registry-url` is still required even with bun; `NODE_AUTH_TOKEN` is only picked up by npm when registry-url is configured.
 
 ### Rust (crates.io)
 
-For Rust-only projects, install pubm via Homebrew tap instead of npm. This requires that pubm's Homebrew formula is already published — see `references/homebrew-setup.md` for details.
+For Rust-only projects, install pubm via Homebrew instead of npm. This requires that pubm's Homebrew formula is already published; see `references/homebrew-setup.md` for details.
 
-If the user also has `@pubm/plugin-brew` configured, installing pubm via Homebrew in CI creates a nice symmetry: pubm publishes their tool to Homebrew, and they install pubm itself from Homebrew.
+If the user also has `@pubm/plugin-brew` configured, installing pubm via Homebrew in CI keeps the setup symmetrical: pubm publishes their tool to Homebrew, and they install pubm itself from Homebrew.
 
 ```yaml
       - uses: dtolnay/rust-toolchain@stable
@@ -157,11 +157,11 @@ Publish step: `pubm --mode ci --phase publish`
 
 | Project type | Trigger | Why |
 |---|---|---|
-| **Single-package** | Tag-based (`v*` push) | Simplest — one tag, one version, one publish |
-| **Monorepo** | Commit-based ("Version Packages" on main) | Each package may have a different version; no single tag |
+| **Single-package** | Tag-based (`v*` push) | Simplest: one tag, one version, one publish |
+| **Monorepo** | Commit-based ("Version Packages" on main) | Each package may have a different version, so there is no single tag |
 | **Manual** | `workflow_dispatch` | For controlled, on-demand releases |
 
-## Template: Single Package — Tag-Based
+## Template: Single Package - Tag-Based
 
 ```yaml
 # .github/workflows/release.yml
@@ -200,11 +200,11 @@ Replace `<runner>` with `npx`, `pnpm exec`, `yarn`, `bunx`, or remove it for Hom
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm --mode ci --phase prepare` locally — collects tokens, validates registry access, pushes.
+2. Run `pubm --mode ci --phase prepare` locally. It collects tokens, validates registry access, and pushes.
 3. The pushed `v*` tag triggers this workflow.
-4. `--mode ci --phase publish` reads the tag version, publishes, creates GitHub Release.
+4. `--mode ci --phase publish` reads the tag version, publishes, and creates the GitHub Release.
 
-## Template: Monorepo — Commit-Based
+## Template: Monorepo - Commit-Based
 
 ```yaml
 # .github/workflows/release.yml
@@ -242,10 +242,10 @@ jobs:
 
 1. Develop and merge to main.
 2. When ready to release, merge the "Version Packages" PR (created by pubm's changeset workflow).
-3. The commit message starts with "Version Packages", triggering this workflow.
-4. `--mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, creates GitHub Releases.
+3. The commit message starts with "Version Packages", which triggers this workflow.
+4. `--mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
 
-**Important:** Requires **merge commit or fast-forward merge** strategy. Squash merges alter the commit message and break the trigger.
+**Important:** This requires a **merge commit or fast-forward merge** strategy. Squash merges change the commit message and break the trigger.
 
 ## Template: Manual Trigger (workflow_dispatch)
 
@@ -278,7 +278,7 @@ jobs:
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
 
-**Note:** Version must already be bumped and tagged before triggering. Use `pubm --mode ci --phase prepare` locally first.
+**Note:** The version must already be bumped and tagged before triggering. Use `pubm --mode ci --phase prepare` locally first.
 
 ## Full Examples
 
@@ -418,9 +418,9 @@ jobs:
 
 ## Template: Changeset Check (PR Validation)
 
-Generated by `pubm init --changesets`. Uses the [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action to validate that every PR includes a properly formatted changeset file.
+Generated by `pubm init --changesets`. Uses the [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action to check that every PR includes a properly formatted changeset file.
 
-### How It Works
+### How it works
 
 - Triggers on pull_request events (opened, synchronize, reopened, labeled, unlabeled)
 - Detects new `.pubm/changesets/*.md` files in the PR diff
@@ -431,7 +431,7 @@ Generated by `pubm init --changesets`. Uses the [`syi0808/pubm-actions`](https:/
 
 ### Generated File
 
-`.github/workflows/changeset-check.yml` — default branch is auto-detected from the git remote.
+`.github/workflows/changeset-check.yml` - default branch is auto-detected from the git remote.
 
 ```yaml
 name: Changeset Check
@@ -458,7 +458,7 @@ jobs:
           skip-label: no-changeset
 ```
 
-### Comment Behavior
+### Comment behavior
 
 Posts a single PR comment (identified by `<!-- pubm:changeset-check -->`). Updated on each push, not duplicated.
 
@@ -469,7 +469,7 @@ Posts a single PR comment (identified by `<!-- pubm:changeset-check -->`). Updat
 | No changeset files | ❌ No changeset found (with `pubm changesets add` instructions) | Fail |
 | `no-changeset` label | ⚠️ Check skipped | Pass |
 
-### Action Inputs
+### Action inputs
 
 | Input | Description | Default |
 |-------|-------------|---------|
@@ -478,7 +478,7 @@ Posts a single PR comment (identified by `<!-- pubm:changeset-check -->`). Updat
 | `token` | GitHub token for posting comments | `${{ github.token }}` |
 | `working-directory` | Root of the project (if not repo root) | `.` |
 
-### Required Permissions
+### Required permissions
 
 ```yaml
 permissions:
@@ -486,14 +486,14 @@ permissions:
   pull-requests: write
 ```
 
-No additional secrets required — `GITHUB_TOKEN` is automatically available.
+No additional secrets required; `GITHUB_TOKEN` is automatically available.
 
 ## Notes
 
-- **CI mode requires a phase flag.** `pubm --mode ci` alone is an error — always specify `--phase prepare` or `--phase publish`.
-- **`id-token: write`** is needed for npm provenance (`npm publish --provenance`). Not needed for Rust-only projects.
+- **CI mode requires a phase flag.** `pubm --mode ci` alone is an error. Always specify `--phase prepare` or `--phase publish`.
+- **`id-token: write`** is needed for npm provenance (`npm publish --provenance`). It is not needed for Rust-only projects.
 - **`fetch-depth: 0`** is required for GitHub Release note generation and tag lookup.
 - **`registry-url` on `actions/setup-node`** is required for `NODE_AUTH_TOKEN` to be picked up by npm.
-- **jsr CLI dependency:** Ensure `jsr` is listed as a devDependency for jsr publishing.
+- **jsr CLI dependency:** Make sure `jsr` is listed as a devDependency for jsr publishing.
 - **`--registry` flag** defaults to `npm,jsr`. Use `--registry npm`, `--registry jsr`, or `--registry npm,jsr,crates`.
-- **crates.io** uses `cargo publish` — `CARGO_REGISTRY_TOKEN` is read by cargo automatically.
+- **crates.io** uses `cargo publish`; `CARGO_REGISTRY_TOKEN` is read by cargo automatically.
