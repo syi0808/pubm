@@ -36,4 +36,4 @@ packages/pubm/platforms/*/bin/
 # Turbo
 .turbo/
 
-bib/.pubm
+**/bin/.pubm
