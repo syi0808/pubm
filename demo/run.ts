@@ -10,6 +10,7 @@
  *   bun demo/run.ts              # Monorepo demo (default)
  *   bun demo/run.ts --single     # Single package demo
  *   bun demo/run.ts --keep       # Preserve temp dir after demo
+ *   bun demo/run.ts --verbose    # Show detailed setup logs
  */
 
 import path from "node:path";
@@ -19,24 +20,27 @@ import { type DemoEnvironment, setup, teardown } from "./setup.js";
 // ── Parse args ─────────────────────────────────────────────────
 const isSingle = process.argv.includes("--single");
 const keepEnv = process.argv.includes("--keep");
+const verbose = process.argv.includes("--verbose");
 const fixture = isSingle ? "single" : "monorepo";
 
 // Forward extra CLI args to pubm (e.g., --dry-run, patch, minor, etc.)
 const pubmArgs = process.argv
   .slice(2)
-  .filter((arg) => arg !== "--single" && arg !== "--keep");
+  .filter((arg) => arg !== "--single" && arg !== "--keep" && arg !== "--verbose");
 
-console.log(`\n  pubm Demo Environment`);
-console.log(`  ─────────────────────`);
-console.log(`  Fixture: ${fixture}`);
-console.log(`  Mode:    interactive (local)`);
+const log = verbose ? console.log.bind(console) : () => {};
+
+log(`\n  pubm Demo Environment`);
+log(`  ─────────────────────`);
+log(`  Fixture: ${fixture}`);
+log(`  Mode:    interactive (local)`);
 if (pubmArgs.length > 0) {
-  console.log(`  Args:    ${pubmArgs.join(" ")}`);
+  log(`  Args:    ${pubmArgs.join(" ")}`);
 }
-console.log();
+log();
 
 // ── Setup ──────────────────────────────────────────────────────
-console.log("  Setting up isolated environment...");
+log("  Setting up isolated environment...");
 let env: DemoEnvironment;
 
 try {
@@ -46,8 +50,8 @@ try {
   process.exit(1);
 }
 
-console.log(`  Workspace: ${env.workDir}`);
-console.log(`  Remote:    ${env.bareDir}\n`);
+log(`  Workspace: ${env.workDir}`);
+log(`  Remote:    ${env.bareDir}\n`);
 
 // ── Build environment for the CLI process ──────────────────────
 const demoBinDir = path.join(import.meta.dirname, "bin");
@@ -72,7 +76,7 @@ const childEnv: Record<string, string> = {
 };
 
 // ── Spawn the CLI ──────────────────────────────────────────────
-console.log("  Launching pubm CLI...\n");
+log("  Launching pubm CLI...\n");
 
 const child = Bun.spawn(
   ["bun", "--preload", preloadScript, cliEntryPoint, ...pubmArgs],
@@ -89,8 +93,8 @@ const exitCode = await child.exited;
 
 // ── Cleanup ────────────────────────────────────────────────────
 if (keepEnv) {
-  console.log(`\n  Demo workspace preserved at: ${env.workDir}`);
-  console.log(`  Inspect: git -C ${env.workDir} log --oneline --all --graph\n`);
+  log(`\n  Demo workspace preserved at: ${env.workDir}`);
+  log(`  Inspect: git -C ${env.workDir} log --oneline --all --graph\n`);
 } else {
   teardown(env);
 }
