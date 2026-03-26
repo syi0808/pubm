@@ -22,7 +22,7 @@
     "coverage": "vitest --run --coverage"
   },
   "peerDependencies": {
-    "@pubm/core": "workspace:>=0.4.3"
+    "@pubm/core": "workspace:>=0.4.8"
   },
   "license": "Apache-2.0",
   "publishConfig": {
