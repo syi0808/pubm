@@ -376,7 +376,6 @@ export function createProgram(): Command {
             await requiredMissingInformationTasks().run(ctx);
           }
 
-
           await pubm(ctx);
         } catch (e) {
           consoleError(e as Error);
