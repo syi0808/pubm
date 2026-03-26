@@ -1,3 +1,4 @@
+import { Reporter } from "@cluvo/sdk";
 import type { Options, ResolvedPubmConfig } from "@pubm/core";
 import {
   calculateVersionBumps,
@@ -29,6 +30,13 @@ import { registerVersionCommand } from "./commands/version-cmd.js";
 import { showSplash } from "./splash.js";
 
 const { RELEASE_TYPES } = semver;
+
+/* istanbul ignore next -- IIFE bootstrap: covered by e2e tests */
+const reporter = new Reporter({
+  repo: "syi0808/pubm",
+  app: { name: "pubm", version: PUBM_VERSION },
+  prompt: { spacing: 0 },
+});
 
 interface CliOptions {
   version: string;
@@ -368,9 +376,13 @@ export function createProgram(): Command {
             await requiredMissingInformationTasks().run(ctx);
           }
 
+
           await pubm(ctx);
         } catch (e) {
           consoleError(e as Error);
+
+          await reporter.reportError(e);
+
           process.exitCode = 1;
         }
       },
@@ -383,8 +395,7 @@ export function createProgram(): Command {
   return program;
 }
 
-/* istanbul ignore next -- IIFE bootstrap: covered by e2e tests */
-(async () => {
+await reporter.wrapCommand(async () => {
   const program = createProgram();
   const cwd = process.cwd();
 
@@ -421,4 +432,7 @@ export function createProgram(): Command {
   resolvedConfig = config;
 
   await program.parseAsync();
-})();
+});
+
+reporter.installGlobalHandlers();
+reporter.installExitHandler();
