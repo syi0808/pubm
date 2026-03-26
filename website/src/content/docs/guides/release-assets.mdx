@@ -136,7 +136,7 @@ Do not put an extension in the `name` template. `pubm` appends it based on `comp
 Instead of relying on automatic detection from path segments, you can place capture variables directly in the `path` pattern:
 
 ```ts
-// Explicit capture — extracts arch and os directly
+// Explicit capture: extracts arch and os directly
 { path: "target/{arch}-{vendor}-{os}/release/mytool" }
 
 // Capture {platform} as a whole token

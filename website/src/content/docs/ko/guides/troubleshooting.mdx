@@ -226,12 +226,12 @@ pubm --test-script test:ci --build-script build:release
 
 무슨 일이 일어났는가:
 
-npm unpublish는 패키지 tarball을 삭제하지만 버전 번호는 **영구적으로 예약됩니다** — 재사용할 수 없습니다. crates.io의 `cargo yank`도 해당 버전을 사용 불가로 표시합니다.
+npm unpublish는 패키지 tarball을 삭제하지만 버전 번호는 **영구적으로 예약됩니다**. 재사용할 수 없습니다. crates.io의 `cargo yank`도 해당 버전을 사용 불가로 표시합니다.
 
 할 일:
 
 - 새 버전으로 올리고(예: `1.2.3` 대신 `1.2.4`) 다시 publish합니다.
-- CI에서는 버전 소진을 방지하기 위해 unpublish가 기본적으로 건너뜁니다 — `--dangerously-allow-unpublish`를 사용하거나 config에서 `rollback.dangerouslyAllowUnpublish: true`로 설정하면 활성화됩니다.
+- CI에서는 버전 소진을 방지하기 위해 unpublish가 기본적으로 건너뜁니다. `--dangerously-allow-unpublish`를 사용하거나 config에서 `rollback.dangerouslyAllowUnpublish: true`로 설정하면 활성화됩니다.
 
 ## 이슈를 열어야 할 때
 

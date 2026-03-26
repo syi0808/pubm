@@ -103,11 +103,11 @@ export interface PubmContext {
 
 Key fields:
 
-- `ctx.config` — resolved pubm config (packages, registries, plugins, releaseAssets, etc.)
-- `ctx.options` — resolved CLI options (version, tag, mode, dryRun, etc.)
-- `ctx.cwd` — working directory
-- `ctx.runtime` — mutable runtime state (version plan, temp directory, etc.)
-- `ctx.runtime.pluginTokens` — map of resolved plugin credential values keyed by `PluginCredential.key`. Populated after the credential collection step and available in all subsequent hooks.
+- `ctx.config`: resolved pubm config (packages, registries, plugins, releaseAssets, etc.)
+- `ctx.options`: resolved CLI options (version, tag, mode, dryRun, etc.)
+- `ctx.cwd`: working directory
+- `ctx.runtime`: mutable runtime state (version plan, temp directory, etc.)
+- `ctx.runtime.pluginTokens`: map of resolved plugin credential values keyed by `PluginCredential.key`. Populated after the credential collection step and available in all subsequent hooks.
 
 ### Rollback API
 

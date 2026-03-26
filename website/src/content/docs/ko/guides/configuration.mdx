@@ -198,7 +198,7 @@ publish 실패 시 롤백 동작을 제어합니다.
 | 키 | 타입 | 기본값 | 설명 |
 |----|------|--------|------|
 | `strategy` | `"individual"` \| `"all"` | `"individual"` | 롤백 단위입니다. 더 이상 사용되지 않는 최상위 `rollbackStrategy`를 대체합니다. |
-| `dangerouslyAllowUnpublish` | `boolean` | `false` | 비-TTY(CI) 환경에서 롤백 중 레지스트리 unpublish/yank를 허용합니다. unpublish 후에도 npm은 버전 번호를 영구적으로 예약합니다 — 재사용할 수 없습니다. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | 비-TTY(CI) 환경에서 롤백 중 레지스트리 unpublish/yank를 허용합니다. unpublish 후에도 npm은 버전 번호를 영구적으로 예약합니다. 재사용할 수 없습니다. |
 
 ```ts
 export default defineConfig({

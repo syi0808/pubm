@@ -157,7 +157,7 @@ npm 还适用两条额外规则：
 
 用于指定包的 glob 模式，这些包会被版本化和发布，但会被排除在 git tag 创建和 GitHub Release 草稿之外。仅在 `versioning` 为 `"independent"` 时生效。
 
-适用于内部构建产物——例如平台特定的二进制文件——它们需要发布到注册表，但不应以独立 release 的形式出现。
+适用于内部构建产物，例如平台特定的二进制文件，它们需要发布到注册表，但不应以独立 release 的形式出现。
 
 ```ts
 export default defineConfig({
@@ -198,7 +198,7 @@ export default defineConfig({
 | 键 | 类型 | 默认值 | 描述 |
 |----|------|--------|------|
 | `strategy` | `"individual"` \| `"all"` | `"individual"` | 回滚粒度。取代已废弃的顶层字段 `rollbackStrategy`。 |
-| `dangerouslyAllowUnpublish` | `boolean` | `false` | 允许在非 TTY（CI）环境中的回滚期间对 registry 执行 unpublish/yank。即使 unpublish 后，npm 也会永久保留该版本号——无法被重用。 |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | 允许在非 TTY（CI）环境中的回滚期间对 registry 执行 unpublish/yank。即使 unpublish 后，npm 也会永久保留该版本号，无法被重用。 |
 
 ```ts
 export default defineConfig({

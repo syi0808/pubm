@@ -198,7 +198,7 @@ Controls rollback behavior when publish fails.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `strategy` | `"individual"` \| `"all"` | `"individual"` | Rollback granularity. Replaces the deprecated top-level `rollbackStrategy`. |
-| `dangerouslyAllowUnpublish` | `boolean` | `false` | Allow registry unpublish/yank during rollback in non-TTY (CI) environments. Even after unpublish, npm permanently reserves the version number — it cannot be reused. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | Allow registry unpublish/yank during rollback in non-TTY (CI) environments. Even after unpublish, npm permanently reserves the version number: it cannot be reused. |
 
 ```ts
 export default defineConfig({
@@ -368,7 +368,7 @@ Read the [Plugins API Reference](/pubm/reference/plugins/) for hook order, comma
 
 ### Simple library
 
-If the package has `package.json` and `jsr.json` (or `deno.json` / `deno.jsonc`), registries are inferred automatically. No config file is needed — `pubm.config.ts` is optional. Only create it when you need to override a default (custom branch, plugins, release assets, etc.).
+If the package has `package.json` and `jsr.json` (or `deno.json` / `deno.jsonc`), registries are inferred automatically. No config file is needed. `pubm.config.ts` is optional. Only create it when you need to override a default (custom branch, plugins, release assets, etc.).
 
 ### App monorepo
 

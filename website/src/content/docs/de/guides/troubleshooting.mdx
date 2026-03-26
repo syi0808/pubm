@@ -226,12 +226,12 @@ Symptome:
 
 Was passiert ist:
 
-npm unpublish entfernt den Paket-Tarball, aber die Versionsnummer ist **dauerhaft reserviert** — sie kann nicht wiederverwendet werden. crates.io `cargo yank` markiert die Version ebenfalls als nicht mehr verwendbar.
+npm unpublish entfernt den Paket-Tarball, aber die Versionsnummer ist **dauerhaft reserviert**: sie kann nicht wiederverwendet werden. crates.io `cargo yank` markiert die Version ebenfalls als nicht mehr verwendbar.
 
 Was zu tun ist:
 
 - auf eine neue Version hochsetzen (z. B. `1.2.4` statt `1.2.3`) und erneut veröffentlichen
-- in CI wird Unpublish standardmaessig uebersprungen, um Versionsnummern nicht zu verbrauchen — aktiviere `--dangerously-allow-unpublish` oder setze `rollback.dangerouslyAllowUnpublish: true` in der Config, um es zu erlauben
+- in CI wird Unpublish standardmaessig uebersprungen, um Versionsnummern nicht zu verbrauchen: aktiviere `--dangerously-allow-unpublish` oder setze `rollback.dangerouslyAllowUnpublish: true` in der Config, um es zu erlauben
 
 ## Wann du ein Issue melden solltest
 

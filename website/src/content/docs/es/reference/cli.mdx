@@ -80,12 +80,12 @@ pubm --tag beta
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | Muestra el grafo de tareas sin mutar el estado de Git ni publicar. |
 | `--mode <mode>` | `local` | Modo de ejecución: `local` (interactivo) o `ci` (no interactivo, basado en tags). |
-| `--phase <phase>` | — | Fase del pipeline: `prepare` (validar y dry-run) o `publish` (publicar desde el último tag). |
+| `--phase <phase>` | - | Fase del pipeline: `prepare` (validar y dry-run) o `publish` (publicar desde el último tag). |
 | `--release-draft` | `false` | Crea un GitHub Release en borrador en lugar de uno publicado. |
 | `-b, --branch <name>` | `main` | Exige que el branch actual coincida antes de publicar. |
 | `-a, --any-branch` | `false` | Desactiva la protección por branch para la ejecución actual. |
 | `-t, --tag <name>` | `latest` | Usa un dist-tag específico como `beta` o `next`. |
-| `--snapshot [tag]` | — | Publica una versión snapshot temporal (tag por defecto: `snapshot`). |
+| `--snapshot [tag]` | - | Publica una versión snapshot temporal (tag por defecto: `snapshot`). |
 | `-c, --contents <path>` | none | Cambia a un subdirectorio antes de ejecutar el pipeline de release. |
 | `--registry <registries>` | `npm,jsr` | Registries destino separados por coma. Soporta `npm`, `jsr`, `crates` o URLs personalizadas de registry. |
 | `--test-script <script>` | `test` | Nombre del script usado para el paso de test. |
@@ -174,11 +174,11 @@ pubm init
 
 El asistente pasa por estas etapas:
 
-1. **Detección de paquetes** — escanea el repositorio en busca de archivos manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) y la configuración del workspace, y confirma los paquetes y registries detectados.
-2. **Configuración básica** — solicita el branch de release y la estrategia de versionado (`independent` o `fixed`).
-3. **Opciones de release** — pregunta sobre la generación de changelog y los borradores de GitHub Release.
-4. **Configuración de workflows** — ofrece activar el workflow de changesets (crea `.pubm/changesets/`, `.github/workflows/changeset-check.yml` y actualiza `.gitignore`) y generar workflows de release para CI (`.github/workflows/release.yml`).
-5. **Skills de agentes de código** — ofrece descargar e instalar skills de agentes de código para Claude Code, Codex CLI o Gemini CLI. Esto equivale a `pubm setup-skills`.
+1. **Detección de paquetes**: escanea el repositorio en busca de archivos manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) y la configuración del workspace, y confirma los paquetes y registries detectados.
+2. **Configuración básica**: solicita el branch de release y la estrategia de versionado (`independent` o `fixed`).
+3. **Opciones de release**: pregunta sobre la generación de changelog y los borradores de GitHub Release.
+4. **Configuración de workflows**: ofrece activar el workflow de changesets (crea `.pubm/changesets/`, `.github/workflows/changeset-check.yml` y actualiza `.gitignore`) y generar workflows de release para CI (`.github/workflows/release.yml`).
+5. **Skills de agentes de código**: ofrece descargar e instalar skills de agentes de código para Claude Code, Codex CLI o Gemini CLI. Esto equivale a `pubm setup-skills`.
 
 El archivo `pubm.config.ts` solo se crea cuando tus elecciones difieren de los valores por defecto. Si todos los valores coinciden con el comportamiento por defecto, no se escribe ningún archivo de configuración.
 
