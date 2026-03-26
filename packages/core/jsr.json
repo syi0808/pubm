@@ -1,6 +1,6 @@
 {
   "name": "@pubm/pubm",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "exports": "./src/index.ts",
   "publish": {
     "include": ["README.md", "jsr.json", "LICENSE", "package.json", "src/**/*"]
