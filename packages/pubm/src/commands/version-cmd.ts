@@ -132,10 +132,13 @@ export async function runVersionCommand(
   // 8. Create a git commit for the version bump
   const git = new Git();
   await git.stage(".");
-  const bumpedNames = [...bumps.keys()]
-    .map((p) => config.packages.find((pkg) => pkg.path === p)?.name ?? p)
-    .join(", ");
-  await git.commit(`chore: version ${bumpedNames}`);
+  const versionCommitMsg = `Version Packages\n\n${[...bumps]
+    .map(
+      ([p, bump]) =>
+        `- ${config.packages.find((pkg) => pkg.path === p)?.name ?? p}: ${bump.newVersion}`,
+    )
+    .join("\n")}`;
+  await git.commit(versionCommitMsg);
   ui.success(
     `Consumed ${changesets.length} changeset(s) and committed version bump.`,
   );

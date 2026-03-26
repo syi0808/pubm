@@ -871,7 +871,9 @@ describe("runner coverage scenarios", () => {
       "root changelog",
     );
     const gitInstance = mockedGit.mock.results.at(-1)?.value as any;
-    expect(gitInstance.commit).toHaveBeenCalledWith("v3.0.0");
+    expect(gitInstance.commit).toHaveBeenCalledWith(
+      "Version Packages\n\n- @pubm/core: 3.0.0\n- pubm: 3.0.0\n- missing: 3.0.0",
+    );
     expect(gitInstance.createTag).toHaveBeenCalledWith("v3.0.0", "commit-sha");
   });
 

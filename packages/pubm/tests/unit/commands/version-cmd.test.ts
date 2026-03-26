@@ -376,7 +376,7 @@ describe("runVersionCommand", () => {
       "## 1.1.0\n",
     );
     expect(mockGitInstance.commit).toHaveBeenCalledWith(
-      "chore: version pkg-a, pkg-b",
+      "Version Packages\n\n- pkg-a: 1.1.0\n- pkg-b: 1.1.0",
     );
   });
 });
