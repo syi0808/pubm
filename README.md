@@ -139,6 +139,18 @@ pubm does not collect telemetry, analytics, or usage data.
 
 ---
 
+## Used By
+
+Projects using pubm for their release workflow:
+
+| Project | Description |
+|---------|-------------|
+| [cluvo](https://github.com/syi0808/cluvo) | Local-first bug reporting SDK for open-source CLIs and SDKs |
+
+> Using pubm? [Open a PR](https://github.com/syi0808/pubm/pulls) to add your project!
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
