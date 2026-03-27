@@ -2,6 +2,7 @@ import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
+import { registryCatalog } from "../registry/catalog.js";
 import {
   CratesConnector,
   type CratesPackageRegistry,
@@ -97,16 +98,18 @@ function registerYankRollback(
   const canYank =
     ctx.runtime.promptEnabled || ctx.config.rollback.dangerouslyAllowUnpublish;
 
+  const verb = registryCatalog.get("crates")?.unpublishLabel ?? "Yank";
+
   if (!canYank) {
     ctx.runtime.rollback.add({
-      label: `Yank ${packageName}@${version} from crates (skipped — use --dangerously-allow-unpublish to enable)`,
+      label: `${verb} ${packageName}@${version} from crates (skipped — use --dangerously-allow-unpublish to enable)`,
       fn: async () => {},
     });
     return;
   }
 
   ctx.runtime.rollback.add({
-    label: `Yank ${packageName}@${version} from crates (⚠ version will be permanently burned)`,
+    label: `${verb} ${packageName}@${version} from crates (⚠ version will be permanently burned)`,
     fn: async () => {
       await registry.unpublish(packageName, version);
       console.log(

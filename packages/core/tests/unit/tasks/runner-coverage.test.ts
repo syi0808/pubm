@@ -64,12 +64,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
   const descriptors: Record<string, any> = {
     js: {
       key: "js",
-      label: "JavaScript ecosystem",
+      label: "JavaScript",
       ecosystemClass: MockJsEcosystem,
     },
     rust: {
       key: "rust",
-      label: "Rust ecosystem",
+      label: "Rust",
       ecosystemClass: MockRustEcosystem,
     },
   };
@@ -77,6 +77,8 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     ecosystemCatalog: {
       get: vi.fn((key: string) => descriptors[key]),
       all: vi.fn(() => Object.values(descriptors)),
+      register: vi.fn(),
+      remove: vi.fn(),
     },
   };
 });
@@ -118,41 +120,7 @@ vi.mock("../../../src/tasks/preflight.js", () => ({
   collectPluginCredentials: vi.fn().mockResolvedValue({}),
   promptGhSecretsSync: vi.fn(),
 }));
-vi.mock("../../../src/tasks/npm.js", () => ({
-  npmPublishTasks: {
-    title: "npm publish",
-    task: vi.fn(),
-  },
-}));
-vi.mock("../../../src/tasks/jsr.js", () => ({
-  createJsrPublishTask: vi.fn(() => ({
-    title: "jsr publish",
-    task: vi.fn(),
-  })),
-}));
-vi.mock("../../../src/tasks/crates.js", () => ({
-  createCratesPublishTask: vi.fn((packagePath: string) => ({
-    title: `crates publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-}));
-vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
-  createNpmDryRunPublishTask: vi.fn((packagePath: string) => ({
-    title: `Dry-run npm publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-  createJsrDryRunPublishTask: vi.fn((packagePath: string) => ({
-    title: `Dry-run jsr publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-  createCratesDryRunPublishTask: vi.fn(
-    (packagePath: string, siblingPaths?: string[]) => ({
-      title: `Dry-run crates publish (${packagePath})`,
-      siblingPaths,
-      task: vi.fn(),
-    }),
-  ),
-}));
+
 vi.mock("../../../src/utils/cli.js", () => ({
   link: vi.fn((_text: string, url: string) => url),
 }));
@@ -173,6 +141,18 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "npm",
       needsPackageScripts: true,
       concurrentPublish: true,
+      unpublishLabel: "Unpublish",
+      requiresEarlyAuth: false,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `npm publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string) => ({
+          title: `Dry-run npm publish (${p})`,
+          task: vi.fn(),
+        })),
+      },
       tokenConfig: {
         envVar: "NODE_AUTH_TOKEN",
         dbKey: "npm-token",
@@ -191,6 +171,18 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "jsr",
       needsPackageScripts: false,
       concurrentPublish: true,
+      unpublishLabel: "Unpublish",
+      requiresEarlyAuth: true,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `jsr publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string) => ({
+          title: `Dry-run jsr publish (${p})`,
+          task: vi.fn(),
+        })),
+      },
       tokenConfig: {
         envVar: "JSR_TOKEN",
         dbKey: "jsr-token",
@@ -208,6 +200,19 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "crates.io",
       needsPackageScripts: false,
       concurrentPublish: false,
+      unpublishLabel: "Yank",
+      requiresEarlyAuth: false,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `crates publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string, _siblingPaths?: string[]) => ({
+          title: `Dry-run crates publish (${p})`,
+          siblingPaths: _siblingPaths,
+          task: vi.fn(),
+        })),
+      },
       orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
       tokenConfig: {
         envVar: "CARGO_REGISTRY_TOKEN",
@@ -230,6 +235,9 @@ vi.mock("../../../src/registry/catalog.js", () => {
     registryCatalog: {
       get: vi.fn((key: string) => descriptors[key]),
       all: vi.fn(() => Object.values(descriptors)),
+      register: vi.fn(),
+      keys: vi.fn(() => Object.keys(descriptors)),
+      remove: vi.fn(),
     },
     __mockCratesDescriptor: descriptors.crates,
   };
@@ -266,7 +274,6 @@ import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
-import { createCratesDryRunPublishTask } from "../../../src/tasks/dry-run-publish.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import {
   collectTokens,
@@ -302,9 +309,6 @@ const mockedDetectEcosystem = vi.mocked(detectEcosystem);
 const mockedCratesDescriptor = (
   (await import("../../../src/registry/catalog.js")) as any
 ).__mockCratesDescriptor;
-const mockedCreateCratesDryRunPublishTask = vi.mocked(
-  createCratesDryRunPublishTask,
-);
 const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
@@ -535,55 +539,8 @@ describe("runner coverage scenarios", () => {
     );
   });
 
-  it("includes plugin publish targets and creates no-op for unknown registries", async () => {
-    const pluginPublish = vi.fn().mockResolvedValue(undefined);
-    const pluginRunner = new PluginRunner([
-      {
-        name: "custom-publisher",
-        registries: [
-          { packageName: "acme-release", publish: pluginPublish } as any,
-        ],
-      },
-    ]);
-
-    await run(
-      createOptions({
-        options: { mode: "ci" as const, publish: true },
-        config: {
-          packages: [{ path: ".", registries: ["custom-registry"] as any }],
-        },
-        runtime: { pluginRunner },
-      }),
-    );
-
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
-    const publishTask = tasks[3]; // "Publishing" in flat task list
-    const parentTask = createParentTask();
-    const ctx: any = {
-      config: { packages: [{ path: ".", registries: ["custom-registry"] }] },
-      runtime: { pluginRunner },
-    };
-
-    await publishTask.task(ctx, parentTask);
-
-    const subtasks = parentTask.newListr.mock.calls[0][0];
-    expect(parentTask.title).toBe("Publishing (2 targets)");
-    expect(parentTask.output).toContain("Plugin registry > acme-release");
-
-    const ecosystemParent = createParentTask();
-    await subtasks[0].task(ctx, ecosystemParent);
-    const registryWrapperTask = ecosystemParent.newListr.mock.calls[0][0][0];
-    expect(registryWrapperTask.title).toBe("Running custom-registry publish");
-
-    const innerParent = createParentTask();
-    registryWrapperTask.task(ctx, innerParent);
-    expect(innerParent.newListr.mock.calls[0][0][0].title).toBe(
-      "Publish to custom-registry",
-    );
-
-    await subtasks[1].task();
-    expect(pluginPublish).toHaveBeenCalledOnce();
-  });
+  // Removed: "includes plugin publish targets" — pluginPublishTasks was deleted;
+  // plugin registries now register into the catalog via PluginRegistryDefinition.
 
   it("builds dry-run crates tasks sequentially during CI prepare validation", async () => {
     mockedCratesDescriptor.orderPackages.mockResolvedValue([
@@ -652,10 +609,12 @@ describe("runner coverage scenarios", () => {
     const innerParent = createParentTask();
     registryTasks[0].task(ctx, innerParent);
 
-    expect(mockedCreateCratesDryRunPublishTask).toHaveBeenCalledWith(
+    expect(
+      mockedCratesDescriptor.taskFactory.createDryRunTask,
+    ).toHaveBeenCalledWith("rust/crates/lib-b", [
+      "rust/crates/lib-a",
       "rust/crates/lib-b",
-      ["rust/crates/lib-a", "rust/crates/lib-b"],
-    );
+    ]);
     expect(innerParent.newListr.mock.calls[0][1]).toEqual({
       concurrent: false,
     });
@@ -4790,7 +4749,7 @@ describe("local mode JSR token collection", () => {
     const jsrTokenCall = mockedCreateListr.mock.calls.find(
       (call) =>
         !Array.isArray(call[0]) &&
-        call[0]?.title === "Ensuring JSR authentication",
+        call[0]?.title === "Ensuring registry authentication",
     );
 
     if (jsrTokenCall) {

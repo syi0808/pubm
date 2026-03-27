@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   CompressedAsset,
   PreparedAsset,
@@ -6,10 +6,16 @@ import type {
   TransformedAsset,
   UploadedAsset,
 } from "../../../src/assets/types.js";
-import type { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
+import {
+  type EcosystemDescriptor,
+  ecosystemCatalog,
+} from "../../../src/ecosystem/catalog.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
-import type { PubmPlugin } from "../../../src/plugin/types.js";
-import type { PackageRegistry } from "../../../src/registry/package-registry.js";
+import type {
+  PluginRegistryDefinition,
+  PubmPlugin,
+} from "../../../src/plugin/types.js";
+import { registryCatalog } from "../../../src/registry/catalog.js";
 
 function makeCtx() {
   return {
@@ -75,38 +81,6 @@ describe("PluginRunner", () => {
     expect(errorSpy).toHaveBeenCalledWith(ctx, error);
   });
 
-  it("collects registries from plugins", () => {
-    const reg1 = { name: "npm" } as unknown as PackageRegistry;
-    const reg2 = { name: "jsr" } as unknown as PackageRegistry;
-    const plugin1: PubmPlugin = {
-      name: "plugin-1",
-      registries: [reg1],
-    };
-    const plugin2: PubmPlugin = {
-      name: "plugin-2",
-      registries: [reg2],
-    };
-
-    const runner = new PluginRunner([plugin1, plugin2]);
-    expect(runner.collectRegistries()).toEqual([reg1, reg2]);
-  });
-
-  it("collects ecosystems from plugins", () => {
-    const eco1 = { name: "js" } as unknown as Ecosystem;
-    const eco2 = { name: "rust" } as unknown as Ecosystem;
-    const plugin1: PubmPlugin = {
-      name: "plugin-1",
-      ecosystems: [eco1],
-    };
-    const plugin2: PubmPlugin = {
-      name: "plugin-2",
-      ecosystems: [eco2],
-    };
-
-    const runner = new PluginRunner([plugin1, plugin2]);
-    expect(runner.collectEcosystems()).toEqual([eco1, eco2]);
-  });
-
   it("handles plugins without hooks gracefully", async () => {
     const plugin: PubmPlugin = {
       name: "no-hooks",
@@ -119,8 +93,6 @@ describe("PluginRunner", () => {
     await expect(
       runner.runErrorHook(makeCtx(), new Error("fail")),
     ).resolves.toBeUndefined();
-    expect(runner.collectRegistries()).toEqual([]);
-    expect(runner.collectEcosystems()).toEqual([]);
   });
 
   it("propagates hook errors", async () => {
@@ -171,8 +143,6 @@ describe("PluginRunner", () => {
     await expect(
       runner.runErrorHook(makeCtx(), new Error("fail")),
     ).resolves.toBeUndefined();
-    expect(runner.collectRegistries()).toEqual([]);
-    expect(runner.collectEcosystems()).toEqual([]);
   });
 
   it("passes release context to afterRelease hooks", async () => {
@@ -694,6 +664,102 @@ describe("PluginRunner", () => {
       const runner = new PluginRunner([plugin]);
 
       expect(runner.collectChecks(makeCtx(), "prerequisites")).toEqual([]);
+    });
+  });
+
+  describe("descriptor registration", () => {
+    function createTestPluginRegistryDef(
+      overrides: Partial<PluginRegistryDefinition> = {},
+    ): PluginRegistryDefinition {
+      return {
+        key: "test-registry",
+        ecosystem: "js",
+        label: "Test",
+        tokenConfig: {
+          envVar: "TEST_TOKEN",
+          dbKey: "test-token",
+          ghSecretName: "TEST_TOKEN",
+          promptLabel: "test",
+          tokenUrl: "https://example.com",
+          tokenUrlLabel: "example.com",
+        },
+        needsPackageScripts: false,
+        concurrentPublish: true,
+        unpublishLabel: "Unpublish",
+        requiresEarlyAuth: false,
+        connector: () => ({}) as any,
+        factory: async () => ({}) as any,
+        ...overrides,
+      };
+    }
+
+    afterEach(() => {
+      registryCatalog.remove("plugin-reg");
+      registryCatalog.remove("plugin-reg-with-tasks");
+      ecosystemCatalog.remove("test-eco");
+    });
+
+    it("registers plugin registry definitions into registryCatalog", () => {
+      const def = createTestPluginRegistryDef({ key: "plugin-reg" });
+      const plugin: PubmPlugin = {
+        name: "test-plugin",
+        registries: [def],
+      };
+
+      new PluginRunner([plugin]);
+      const registered = registryCatalog.get("plugin-reg");
+      expect(registered).toBeDefined();
+      expect(registered?.key).toBe("plugin-reg");
+      expect(registered?.label).toBe("Test");
+    });
+
+    it("maps createPublishTask/createDryRunTask to internal taskFactory", () => {
+      const publishFn = vi.fn();
+      const dryRunFn = vi.fn();
+      const def = createTestPluginRegistryDef({
+        key: "plugin-reg-with-tasks",
+        createPublishTask: publishFn,
+        createDryRunTask: dryRunFn,
+      });
+      const plugin: PubmPlugin = {
+        name: "test-plugin",
+        registries: [def],
+      };
+
+      new PluginRunner([plugin]);
+      const registered = registryCatalog.get("plugin-reg-with-tasks");
+      expect(registered?.taskFactory).toBeDefined();
+      expect(registered?.taskFactory?.createPublishTask).toBe(publishFn);
+      expect(registered?.taskFactory?.createDryRunTask).toBe(dryRunFn);
+    });
+
+    it("sets taskFactory to undefined when createPublishTask not provided", () => {
+      const def = createTestPluginRegistryDef({ key: "plugin-reg" });
+      const plugin: PubmPlugin = {
+        name: "test-plugin",
+        registries: [def],
+      };
+
+      new PluginRunner([plugin]);
+      const registered = registryCatalog.get("plugin-reg");
+      expect(registered?.taskFactory).toBeUndefined();
+    });
+
+    it("registers plugin ecosystem descriptors into ecosystemCatalog", () => {
+      const desc: EcosystemDescriptor = {
+        key: "test-eco",
+        label: "Test Ecosystem",
+        defaultRegistries: [],
+        ecosystemClass: class {} as any,
+        detect: async () => false,
+      };
+      const plugin: PubmPlugin = {
+        name: "test-plugin",
+        ecosystems: [desc],
+      };
+
+      new PluginRunner([plugin]);
+      expect(ecosystemCatalog.get("test-eco")).toBe(desc);
     });
   });
 });

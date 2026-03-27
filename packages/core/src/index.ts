@@ -90,6 +90,8 @@ export type {
 } from "./context.js";
 // Context
 export { createContext, getPackageVersion, resolveVersion } from "./context.js";
+// Registry catalog
+export type { EcosystemKey } from "./ecosystem/catalog.js";
 export { ecosystemCatalog } from "./ecosystem/catalog.js";
 // Ecosystem
 export { EcosystemDescriptor } from "./ecosystem/descriptor.js";
@@ -143,10 +145,19 @@ export type {
   PubmPlugin,
 } from "./plugin/index.js";
 export { PluginRunner } from "./plugin/index.js";
+// Plugin registry definition (external interface)
+export type { PluginRegistryDefinition } from "./plugin/types.js";
+export type {
+  RegistryDescriptor,
+  TokenEntry,
+} from "./registry/catalog.js";
+export { RegistryCatalog, registryCatalog } from "./registry/catalog.js";
 export type { GhSecretEntry } from "./tasks/preflight.js";
 export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";
 // Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
+// Task factory
+export type { RegistryTaskFactory } from "./tasks/task-factory.js";
 export type { Options, ReleaseMode, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";

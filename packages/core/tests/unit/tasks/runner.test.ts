@@ -52,12 +52,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
   const descriptors: Record<string, any> = {
     js: {
       key: "js",
-      label: "JavaScript ecosystem",
+      label: "JavaScript",
       ecosystemClass: MockJsEcosystem,
     },
     rust: {
       key: "rust",
-      label: "Rust ecosystem",
+      label: "Rust",
       ecosystemClass: MockRustEcosystem,
     },
   };
@@ -89,38 +89,7 @@ vi.mock("../../../src/tasks/prerequisites-check.js", () => ({
 vi.mock("../../../src/tasks/required-conditions-check.js", () => ({
   requiredConditionsCheckTask: vi.fn(),
 }));
-vi.mock("../../../src/tasks/npm.js", () => ({
-  npmPublishTasks: {
-    title: "npm publish",
-    task: vi.fn(),
-  },
-}));
-vi.mock("../../../src/tasks/jsr.js", () => ({
-  createJsrPublishTask: vi.fn(() => ({
-    title: "jsr publish",
-    task: vi.fn(),
-  })),
-}));
-vi.mock("../../../src/tasks/crates.js", () => ({
-  createCratesPublishTask: vi.fn((packagePath: string) => ({
-    title: `crates publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-}));
-vi.mock("../../../src/tasks/dry-run-publish.js", () => ({
-  createNpmDryRunPublishTask: vi.fn((packagePath: string) => ({
-    title: `Dry-run npm publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-  createJsrDryRunPublishTask: vi.fn((packagePath: string) => ({
-    title: `Dry-run jsr publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-  createCratesDryRunPublishTask: vi.fn((packagePath: string) => ({
-    title: `Dry-run crates publish (${packagePath})`,
-    task: vi.fn(),
-  })),
-}));
+
 vi.mock("../../../src/tasks/preflight.js", () => ({
   collectTokens: vi.fn(),
   collectPluginCredentials: vi.fn().mockResolvedValue({}),
@@ -205,6 +174,18 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "npm",
       needsPackageScripts: true,
       concurrentPublish: true,
+      unpublishLabel: "Unpublish",
+      requiresEarlyAuth: false,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `npm publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string) => ({
+          title: `Dry-run npm publish (${p})`,
+          task: vi.fn(),
+        })),
+      },
       resolveDisplayName: vi.fn(async () => ["my-package"]),
     },
     jsr: {
@@ -213,6 +194,18 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "jsr",
       needsPackageScripts: false,
       concurrentPublish: true,
+      unpublishLabel: "Unpublish",
+      requiresEarlyAuth: true,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `jsr publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string) => ({
+          title: `Dry-run jsr publish (${p})`,
+          task: vi.fn(),
+        })),
+      },
       resolveDisplayName: vi.fn(async () => ["@scope/my-package"]),
     },
     crates: {
@@ -221,6 +214,18 @@ vi.mock("../../../src/registry/catalog.js", () => {
       label: "crates.io",
       needsPackageScripts: false,
       concurrentPublish: false,
+      unpublishLabel: "Yank",
+      requiresEarlyAuth: false,
+      taskFactory: {
+        createPublishTask: vi.fn((p: string) => ({
+          title: `crates publish (${p})`,
+          task: vi.fn(),
+        })),
+        createDryRunTask: vi.fn((p: string, _siblingPaths?: string[]) => ({
+          title: `Dry-run crates publish (${p})`,
+          task: vi.fn(),
+        })),
+      },
       orderPackages: vi.fn((paths: string[]) => Promise.resolve(paths)),
       resolveDisplayName: vi.fn(
         async (config: any) =>
@@ -1804,7 +1809,7 @@ describe("run", () => {
       const jsrAuthCall = createListrCalls.find(
         (call) =>
           !Array.isArray(call[0]) &&
-          call[0]?.title === "Ensuring JSR authentication",
+          call[0]?.title === "Ensuring registry authentication",
       );
       expect(jsrAuthCall).toBeUndefined();
       expect(mockedCollectTokens).not.toHaveBeenCalledWith(
@@ -1832,7 +1837,7 @@ describe("run", () => {
       const jsrAuthCall = createListrCalls.find(
         (call) =>
           !Array.isArray(call[0]) &&
-          call[0]?.title === "Ensuring JSR authentication",
+          call[0]?.title === "Ensuring registry authentication",
       );
       expect(jsrAuthCall).toBeUndefined();
       expect(mockedCollectTokens).not.toHaveBeenCalledWith(

@@ -1,4 +1,10 @@
-import { consoleError, loadTokensFromDb, syncGhSecrets, ui } from "@pubm/core";
+import {
+  consoleError,
+  loadTokensFromDb,
+  registryCatalog,
+  syncGhSecrets,
+  ui,
+} from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerSecretsCommand(parent: Command): void {
@@ -12,7 +18,7 @@ export function registerSecretsCommand(parent: Command): void {
       try {
         const registries = options.registry
           ? options.registry.split(",")
-          : ["npm", "jsr", "crates"];
+          : registryCatalog.keys();
 
         const tokens = loadTokensFromDb(registries);
 

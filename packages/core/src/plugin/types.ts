@@ -1,6 +1,10 @@
+import type { ListrTask } from "listr2";
 import type { AssetPipelineHooks, ReleaseContext } from "../assets/types.js";
+import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
-import type { Ecosystem } from "../ecosystem/ecosystem.js";
+import type { EcosystemDescriptor } from "../ecosystem/catalog.js";
+import type { TokenEntry } from "../registry/catalog.js";
+import type { RegistryConnector } from "../registry/connector.js";
 import type { PackageRegistry } from "../registry/package-registry.js";
 
 export type HookFn = (ctx: PubmContext) => Promise<void> | void;
@@ -100,10 +104,38 @@ export interface PluginCheck {
   task: (ctx: PubmContext, task: PluginTaskContext) => Promise<void>;
 }
 
+/** External plugin-facing interface for registry registration.
+ *  Flat structure — PluginRunner maps to internal RegistryDescriptor + RegistryTaskFactory.
+ */
+export interface PluginRegistryDefinition {
+  key: string;
+  ecosystem: string;
+  label: string;
+  tokenConfig: TokenEntry;
+  unpublishLabel: string;
+  requiresEarlyAuth: boolean;
+  needsPackageScripts: boolean;
+  concurrentPublish: boolean;
+  additionalEnvVars?: (token: string) => Record<string, string>;
+  validateToken?: (token: string) => Promise<boolean>;
+  resolveTokenUrl?: (baseUrl: string) => Promise<string>;
+  resolveDisplayName?: (ctx: {
+    packages?: ResolvedPackageConfig[];
+  }) => Promise<string[]>;
+  orderPackages?: (paths: string[]) => Promise<string[]>;
+  connector: () => RegistryConnector;
+  factory: (packagePath: string) => Promise<PackageRegistry>;
+  createPublishTask?: (packagePath: string) => ListrTask<PubmContext>;
+  createDryRunTask?: (
+    packagePath: string,
+    siblingPaths?: string[],
+  ) => ListrTask<PubmContext>;
+}
+
 export interface PubmPlugin {
   name: string;
-  registries?: PackageRegistry[];
-  ecosystems?: Ecosystem[];
+  registries?: PluginRegistryDefinition[];
+  ecosystems?: EcosystemDescriptor[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   /** Declare credentials this plugin needs */

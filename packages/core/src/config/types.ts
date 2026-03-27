@@ -10,7 +10,7 @@ export interface PrivateRegistryConfig {
 export interface PackageConfig {
   path: string;
   registries?: (RegistryType | PrivateRegistryConfig)[];
-  ecosystem?: "js" | "rust";
+  ecosystem?: string;
   buildCommand?: string;
   testCommand?: string;
 }

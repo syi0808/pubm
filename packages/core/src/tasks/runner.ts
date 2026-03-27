@@ -26,7 +26,7 @@ import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import type { Changeset } from "../changeset/parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
-import { getPackageVersion, type PubmContext } from "../context.js";
+import type { PubmContext } from "../context.js";
 import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -37,7 +37,6 @@ import {
 } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { JsrClient } from "../registry/jsr.js";
-import type { PackageRegistry } from "../registry/package-registry.js";
 import { exec } from "../utils/exec.js";
 import { resolveGitHubToken, saveGitHubToken } from "../utils/github-token.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
@@ -49,12 +48,6 @@ import { resolvePhases } from "../utils/resolve-phases.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
 import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
-import { createCratesPublishTask } from "./crates.js";
-import {
-  createCratesDryRunPublishTask,
-  createJsrDryRunPublishTask,
-  createNpmDryRunPublishTask,
-} from "./dry-run-publish.js";
 import { createGitHubRelease, deleteGitHubRelease } from "./github-release.js";
 import {
   collectEcosystemRegistryGroups,
@@ -62,8 +55,6 @@ import {
   ecosystemLabel,
   registryLabel,
 } from "./grouping.js";
-import { createJsrPublishTask } from "./jsr.js";
-import { createNpmPublishTask } from "./npm.js";
 import {
   collectPluginCredentials,
   collectTokens,
@@ -192,24 +183,15 @@ type NewListrParentTask<Context extends object> = ListrTaskWrapper<
   typeof ListrRenderer
 >;
 
-// Registry key → publish task mapping (kept in runner for listr2 orchestration)
-const publishTaskMap: Record<
-  string,
-  (packagePath: string) => ListrTask<PubmContext>
-> = {
-  npm: (p) => createNpmPublishTask(p),
-  jsr: (p) => createJsrPublishTask(p),
-  crates: (p) => createCratesPublishTask(p),
-};
-
 function createPublishTaskForPath(
   registryKey: string,
   packagePath: string,
 ): ListrTask<PubmContext> {
-  const factory = publishTaskMap[registryKey];
-  if (!factory)
+  const descriptor = registryCatalog.get(registryKey);
+  if (!descriptor?.taskFactory?.createPublishTask) {
     return { title: `Publish to ${registryKey}`, task: async () => {} };
-  return factory(packagePath);
+  }
+  return descriptor.taskFactory.createPublishTask(packagePath);
 }
 
 async function resolveWorkspaceProtocols(ctx: PubmContext): Promise<void> {
@@ -305,52 +287,19 @@ async function collectPublishTasks(ctx: PubmContext) {
     }),
   );
 
-  return [...ecosystemTasks, ...pluginPublishTasks(ctx)];
+  return ecosystemTasks;
 }
-
-function pluginPublishTasks(ctx: PubmContext) {
-  const pluginRegistries = ctx.runtime.pluginRunner.collectRegistries();
-  return pluginRegistries.map((registry) => ({
-    title: `Publishing to ${registry.packageName} (plugin)`,
-    task: async (): Promise<void> => {
-      await registry.publish();
-
-      if (registry.supportsUnpublish) {
-        const version = getPackageVersion(ctx, registry.packagePath);
-        const registryType = (registry.constructor as typeof PackageRegistry)
-          .registryType;
-        const label = registryType === "crates" ? "Yank" : "Unpublish";
-        ctx.runtime.rollback.add({
-          label: `${label} ${registry.packageName}@${version} from ${registryType}`,
-          fn: async () => {
-            await registry.unpublish(registry.packageName, version);
-          },
-          confirm: true,
-        });
-      }
-    },
-  }));
-}
-
-// Registry key → dry-run task mapping
-const dryRunTaskMap: Record<
-  string,
-  (packagePath: string, siblingPaths?: string[]) => ListrTask<PubmContext>
-> = {
-  npm: (p) => createNpmDryRunPublishTask(p),
-  jsr: (p) => createJsrDryRunPublishTask(p),
-  crates: (p, siblingPaths) => createCratesDryRunPublishTask(p, siblingPaths),
-};
 
 function createDryRunTaskForPath(
   registryKey: string,
   packagePath: string,
   siblingPaths?: string[],
 ): ListrTask<PubmContext> {
-  const factory = dryRunTaskMap[registryKey];
-  if (!factory)
+  const descriptor = registryCatalog.get(registryKey);
+  if (!descriptor?.taskFactory?.createDryRunTask) {
     return { title: `Dry-run ${registryKey}`, task: async () => {} };
-  return factory(packagePath, siblingPaths);
+  }
+  return descriptor.taskFactory.createDryRunTask(packagePath, siblingPaths);
 }
 
 async function collectDryRunPublishTasks(ctx: PubmContext) {
@@ -399,11 +348,7 @@ async function collectDryRunPublishTasks(ctx: PubmContext) {
   );
 }
 
-function formatRegistryGroupSummary(
-  heading: string,
-  ctx: PubmContext,
-  includePluginTargets = false,
-): string {
+function formatRegistryGroupSummary(heading: string, ctx: PubmContext): string {
   const lines = collectEcosystemRegistryGroups(ctx.config).flatMap((group) =>
     group.registries.map(({ registry, packagePaths }) => {
       const packageSummary =
@@ -411,12 +356,6 @@ function formatRegistryGroupSummary(
       return `- ${ecosystemLabel(group.ecosystem)} > ${registryLabel(registry)}${packageSummary}`;
     }),
   );
-
-  if (includePluginTargets) {
-    for (const registry of ctx.runtime.pluginRunner.collectRegistries()) {
-      lines.push(`- Plugin registry > ${registry.packageName}`);
-    }
-  }
 
   if (lines.length === 0) {
     return heading;
@@ -426,10 +365,7 @@ function formatRegistryGroupSummary(
 }
 
 function countPublishTargets(ctx: PubmContext): number {
-  return (
-    countRegistryTargets(collectEcosystemRegistryGroups(ctx.config)) +
-    ctx.runtime.pluginRunner.collectRegistries().length
-  );
+  return countRegistryTargets(collectEcosystemRegistryGroups(ctx.config));
 }
 
 function formatVersionSummary(ctx: PubmContext): string {
@@ -871,14 +807,20 @@ export async function run(ctx: PubmContext): Promise<void> {
         skip: ctx.options.skipPrerequisitesCheck,
       }).run(ctx);
 
-      // Collect JSR token early if JSR registry is configured
+      // Collect tokens early for registries that require early auth
       const registries = collectRegistries(ctx.config);
-      if (registries.includes("jsr") && ctx.runtime.promptEnabled) {
+      const earlyAuthRegistries = registries.filter((r) => {
+        const desc = registryCatalog.get(r);
+        return desc?.requiresEarlyAuth;
+      });
+
+      if (earlyAuthRegistries.length > 0 && ctx.runtime.promptEnabled) {
         await createListr<PubmContext>({
-          title: "Ensuring JSR authentication",
+          title: "Ensuring registry authentication",
           task: async (_ctx, task): Promise<void> => {
-            const tokens = await collectTokens(["jsr"], task);
+            const tokens = await collectTokens(earlyAuthRegistries, task);
             cleanupEnv = injectTokensToEnv(tokens);
+            // TODO(extensibility): replace with descriptor-driven client injection (e.g., onTokenCollected callback)
             if (tokens.jsr) {
               JsrClient.token = tokens.jsr;
             }
@@ -1316,7 +1258,6 @@ export async function run(ctx: PubmContext): Promise<void> {
             parentTask.output = formatRegistryGroupSummary(
               "Concurrent publish tasks",
               ctx,
-              true,
             );
 
             return parentTask.newListr(publishTasks, {

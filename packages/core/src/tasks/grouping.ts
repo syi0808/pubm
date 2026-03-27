@@ -39,7 +39,8 @@ function dedupeRegistries(registries: RegistryType[]): RegistryType[] {
 }
 
 export function ecosystemLabel(ecosystem: EcosystemKey): string {
-  return ecosystemCatalog.get(ecosystem)?.label ?? `${ecosystem} ecosystem`;
+  const label = ecosystemCatalog.get(ecosystem)?.label ?? ecosystem;
+  return `${label} ecosystem`;
 }
 
 export function registryLabel(registry: RegistryType): string {

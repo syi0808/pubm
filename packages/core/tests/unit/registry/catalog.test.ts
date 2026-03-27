@@ -12,6 +12,7 @@ import {
 import { JsrPackageRegistry } from "../../../src/registry/jsr.js";
 import { NpmPackageRegistry } from "../../../src/registry/npm.js";
 import { PackageRegistry } from "../../../src/registry/package-registry.js";
+import type { RegistryTaskFactory } from "../../../src/tasks/task-factory.js";
 import { exec } from "../../../src/utils/exec.js";
 
 const mockedExec = vi.mocked(exec);
@@ -33,6 +34,8 @@ function createDescriptor(
     },
     needsPackageScripts: false,
     concurrentPublish: true,
+    unpublishLabel: "Unpublish",
+    requiresEarlyAuth: false,
     connector: () => ({}) as any,
     factory: async () => ({}) as any,
     ...overrides,
@@ -72,6 +75,49 @@ describe("RegistryCatalog", () => {
     const jsRegistries = catalog.getByEcosystem("js");
     expect(jsRegistries).toHaveLength(1);
     expect(jsRegistries[0].key).toBe("npm");
+  });
+
+  it("returns all registered keys", () => {
+    const catalog = new RegistryCatalog();
+    catalog.register(createDescriptor({ key: "npm" }));
+    catalog.register(createDescriptor({ key: "jsr" }));
+    expect(catalog.keys()).toEqual(["npm", "jsr"]);
+  });
+
+  it("removes a registered descriptor", () => {
+    const catalog = new RegistryCatalog();
+    catalog.register(createDescriptor({ key: "test" }));
+    expect(catalog.remove("test")).toBe(true);
+    expect(catalog.get("test")).toBeUndefined();
+  });
+
+  it("stores unpublishLabel and requiresEarlyAuth", () => {
+    const catalog = new RegistryCatalog();
+    const desc = createDescriptor({
+      key: "crates",
+      unpublishLabel: "Yank",
+      requiresEarlyAuth: false,
+    });
+    catalog.register(desc);
+    expect(catalog.get("crates")?.unpublishLabel).toBe("Yank");
+    expect(catalog.get("crates")?.requiresEarlyAuth).toBe(false);
+  });
+
+  it("stores optional taskFactory with createPublishTask and createDryRunTask", () => {
+    const taskFactory: RegistryTaskFactory = {
+      createPublishTask: vi.fn(),
+      createDryRunTask: vi.fn(),
+    };
+    const catalog = new RegistryCatalog();
+    catalog.register(createDescriptor({ key: "test", taskFactory }));
+    const desc = catalog.get("test");
+    expect(desc?.taskFactory).toBe(taskFactory);
+    expect(desc?.taskFactory?.createPublishTask).toBe(
+      taskFactory.createPublishTask,
+    );
+    expect(desc?.taskFactory?.createDryRunTask).toBe(
+      taskFactory.createDryRunTask,
+    );
   });
 });
 
@@ -176,6 +222,32 @@ describe("default registrations", () => {
     const crates = registryCatalog.get("crates")!;
 
     await expect(crates.resolveDisplayName?.({})).resolves.toEqual(["crate"]);
+  });
+
+  it("all built-in registries have taskFactory defined", () => {
+    for (const key of ["npm", "jsr", "crates"]) {
+      const desc = registryCatalog.get(key);
+      expect(desc?.taskFactory).toBeDefined();
+      expect(desc?.taskFactory?.createPublishTask).toBeTypeOf("function");
+      expect(desc?.taskFactory?.createDryRunTask).toBeTypeOf("function");
+    }
+  });
+
+  it("npm has unpublishLabel 'Unpublish' and requiresEarlyAuth false", () => {
+    const npm = registryCatalog.get("npm");
+    expect(npm?.unpublishLabel).toBe("Unpublish");
+    expect(npm?.requiresEarlyAuth).toBe(false);
+  });
+
+  it("jsr has requiresEarlyAuth true", () => {
+    const jsr = registryCatalog.get("jsr");
+    expect(jsr?.requiresEarlyAuth).toBe(true);
+  });
+
+  it("crates has unpublishLabel 'Yank'", () => {
+    const crates = registryCatalog.get("crates");
+    expect(crates?.unpublishLabel).toBe("Yank");
+    expect(crates?.requiresEarlyAuth).toBe(false);
   });
 });
 
@@ -328,6 +400,127 @@ describe("validateToken", () => {
     expect(await crates.validateToken!("")).toBe(false);
     expect(await crates.validateToken!("tooshort")).toBe(false);
     expect(await crates.validateToken!("   ")).toBe(false);
+  });
+});
+
+describe("built-in taskFactory lazy loading", () => {
+  it("npm createPublishTask returns a task wrapper with correct title", () => {
+    const npm = registryCatalog.get("npm")!;
+    const task = npm.taskFactory!.createPublishTask("packages/core");
+    expect(task.title).toBe("packages/core");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("npm createDryRunTask returns a task wrapper with correct title", () => {
+    const npm = registryCatalog.get("npm")!;
+    const task = npm.taskFactory!.createDryRunTask("packages/core");
+    expect(task.title).toBe("packages/core");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("jsr createPublishTask returns a task wrapper with correct title", () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const task = jsr.taskFactory!.createPublishTask("packages/core");
+    expect(task.title).toBe("packages/core");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("jsr createDryRunTask returns a task wrapper with correct title", () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const task = jsr.taskFactory!.createDryRunTask("packages/core");
+    expect(task.title).toBe("packages/core");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("crates createPublishTask returns a task wrapper with correct title", () => {
+    const crates = registryCatalog.get("crates")!;
+    const task = crates.taskFactory!.createPublishTask("rust/crates/lib");
+    expect(task.title).toBe("rust/crates/lib");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("crates createDryRunTask returns a task wrapper that accepts siblingPaths", () => {
+    const crates = registryCatalog.get("crates")!;
+    const task = crates.taskFactory!.createDryRunTask("rust/crates/lib", [
+      "rust/crates/dep",
+    ]);
+    expect(task.title).toContain("rust/crates/lib");
+    expect(task.task).toBeTypeOf("function");
+  });
+
+  it("npm lazy publish task loads real task and forwards title", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const task = npm.taskFactory!.createPublishTask("packages/core");
+    const mockTask = { title: "", skip: vi.fn() };
+    // The inner task.task will run the real npm publish task which calls exec
+    // So we just verify that the loader runs and delegates
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected: real task will throw without full ctx
+    }
+    // Title should have been forwarded from the loaded inner task
+    expect(mockTask.title).toContain("packages/core");
+  });
+
+  it("jsr lazy publish task loads real task and forwards title", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const task = jsr.taskFactory!.createPublishTask("packages/core");
+    const mockTask = { title: "", skip: vi.fn() };
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected: real task will throw without full ctx
+    }
+    expect(mockTask.title).toContain("packages/core");
+  });
+
+  it("crates lazy publish task loads real task and forwards title", async () => {
+    const crates = registryCatalog.get("crates")!;
+    const task = crates.taskFactory!.createPublishTask("rust/lib");
+    const mockTask = { title: "", skip: vi.fn() };
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected: real task will throw without full ctx
+    }
+    expect(mockTask.title).toContain("rust/lib");
+  });
+
+  it("npm lazy dry-run task loads real task and forwards title", async () => {
+    const npm = registryCatalog.get("npm")!;
+    const task = npm.taskFactory!.createDryRunTask("packages/core");
+    const mockTask = { title: "", skip: vi.fn() };
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected
+    }
+    expect(mockTask.title).toContain("packages/core");
+  });
+
+  it("jsr lazy dry-run task loads real task and forwards title", async () => {
+    const jsr = registryCatalog.get("jsr")!;
+    const task = jsr.taskFactory!.createDryRunTask("packages/core");
+    const mockTask = { title: "", skip: vi.fn() };
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected
+    }
+    expect(mockTask.title).toContain("packages/core");
+  });
+
+  it("crates lazy dry-run task loads real task and forwards title", async () => {
+    const crates = registryCatalog.get("crates")!;
+    const task = crates.taskFactory!.createDryRunTask("rust/lib", ["rust/dep"]);
+    const mockTask = { title: "", skip: vi.fn() };
+    try {
+      await task.task({} as any, mockTask as any);
+    } catch {
+      // Expected
+    }
+    expect(mockTask.title).toContain("rust/lib");
   });
 });
 

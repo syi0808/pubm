@@ -4,6 +4,9 @@ vi.mock("@pubm/core", () => ({
   loadTokensFromDb: vi.fn(),
   syncGhSecrets: vi.fn(),
   consoleError: vi.fn(),
+  registryCatalog: {
+    keys: () => ["npm", "jsr", "crates"],
+  },
   ui: {
     success: vi.fn(),
     info: vi.fn(),
