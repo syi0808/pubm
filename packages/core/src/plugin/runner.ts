@@ -4,8 +4,8 @@ import type {
   TransformedAsset,
 } from "../assets/types.js";
 import type { PubmContext } from "../context.js";
-import type { Ecosystem } from "../ecosystem/ecosystem.js";
-import type { PackageRegistry } from "../registry/package-registry.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { registryCatalog } from "../registry/catalog.js";
 
 import type {
   HookName,
@@ -19,7 +19,22 @@ function isDefined<T>(value: T | undefined): value is T {
 }
 
 export class PluginRunner {
-  constructor(private plugins: PubmPlugin[]) {}
+  constructor(private plugins: PubmPlugin[]) {
+    for (const plugin of plugins) {
+      for (const def of plugin.registries ?? []) {
+        const { createPublishTask, createDryRunTask, ...rest } = def;
+        registryCatalog.register({
+          ...rest,
+          taskFactory: createPublishTask
+            ? { createPublishTask, createDryRunTask: createDryRunTask! }
+            : undefined,
+        });
+      }
+      for (const desc of plugin.ecosystems ?? []) {
+        ecosystemCatalog.register(desc);
+      }
+    }
+  }
 
   async runHook(
     hookName: Exclude<HookName, "onError" | "afterRelease">,
@@ -52,14 +67,6 @@ export class PluginRunner {
         await hook(ctx, releaseCtx);
       }
     }
-  }
-
-  collectRegistries(): PackageRegistry[] {
-    return this.plugins.flatMap((p) => p.registries ?? []);
-  }
-
-  collectEcosystems(): Ecosystem[] {
-    return this.plugins.flatMap((p) => p.ecosystems ?? []);
   }
 
   collectCredentials(ctx: PubmContext): PluginCredential[] {

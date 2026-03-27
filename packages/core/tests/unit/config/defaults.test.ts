@@ -173,6 +173,40 @@ describe("resolveConfig", () => {
     expect(resolved.rollback.dangerouslyAllowUnpublish).toBe(true);
   });
 
+  it("throws when ecosystem cannot be inferred from private registry", async () => {
+    const config: PubmConfig = {
+      packages: [
+        {
+          path: ".",
+          registries: [
+            {
+              url: "https://private.registry.com",
+              token: { envVar: "PRIV_TOKEN" },
+            },
+          ],
+        },
+      ],
+    };
+    await expect(resolveConfig(config)).rejects.toThrow(
+      /Cannot infer ecosystem/,
+    );
+  });
+
+  it("throws for unregistered ecosystem key", async () => {
+    const config: PubmConfig = {
+      packages: [
+        {
+          path: ".",
+          ecosystem: "python",
+          registries: ["npm"],
+        },
+      ],
+    };
+    await expect(resolveConfig(config)).rejects.toThrow(
+      /Unknown ecosystem "python"/,
+    );
+  });
+
   describe("private registry normalization", () => {
     it("normalizes PrivateRegistryConfig objects to string keys in packages", async () => {
       mockedDiscoverPackages.mockResolvedValue([
@@ -214,6 +248,7 @@ describe("resolveConfig", () => {
         packages: [
           {
             path: "packages/a",
+            ecosystem: "js",
             registries: [
               {
                 url: "https://npm.internal.com",

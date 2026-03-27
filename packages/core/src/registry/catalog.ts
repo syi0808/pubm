@@ -1,7 +1,11 @@
+import type { ListrTask } from "listr2";
 import type {
   PrivateRegistryConfig,
   ResolvedPackageConfig,
 } from "../config/types.js";
+import type { PubmContext } from "../context.js";
+import type { EcosystemKey } from "../ecosystem/catalog.js";
+import type { RegistryTaskFactory } from "../tasks/task-factory.js";
 import { sortCratesByDependencyOrder } from "../utils/crate-graph.js";
 import { exec } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
@@ -10,8 +14,6 @@ import { CratesConnector, cratesPackageRegistry } from "./crates.js";
 import { jsrConnector, jsrPackageRegistry } from "./jsr.js";
 import { NpmPackageRegistry, npmConnector, npmPackageRegistry } from "./npm.js";
 import type { PackageRegistry } from "./package-registry.js";
-
-export type EcosystemKey = "js" | "rust" | string;
 
 export interface TokenEntry {
   envVar: string;
@@ -38,6 +40,12 @@ export interface RegistryDescriptor {
   orderPackages?: (paths: string[]) => Promise<string[]>;
   connector: () => RegistryConnector;
   factory: (packagePath: string) => Promise<PackageRegistry>;
+  /** Label for rollback UI, e.g. "Unpublish" or "Yank" */
+  unpublishLabel: string;
+  /** If true, token is collected early in prepare phase */
+  requiresEarlyAuth: boolean;
+  /** Task factory for listr2 publish/dry-run task creation */
+  taskFactory?: RegistryTaskFactory;
 }
 
 export class RegistryCatalog {
@@ -60,9 +68,52 @@ export class RegistryCatalog {
   all(): RegistryDescriptor[] {
     return [...this.descriptors.values()];
   }
+
+  keys(): string[] {
+    return [...this.descriptors.keys()];
+  }
+
+  remove(key: string): boolean {
+    return this.descriptors.delete(key);
+  }
 }
 
 export const registryCatalog = new RegistryCatalog();
+
+/**
+ * Creates a ListrTask wrapper that lazily imports the actual task creator
+ * to break circular dependencies between catalog.ts and task modules.
+ */
+function lazyTask(
+  title: string,
+  loader: () => Promise<ListrTask<PubmContext>>,
+): ListrTask<PubmContext> {
+  return {
+    title,
+    task: async (ctx, task) => {
+      const inner = await loader();
+      if (inner.title) {
+        task.title = inner.title;
+      }
+      if (inner.skip) {
+        const skipResult = await (typeof inner.skip === "function"
+          ? inner.skip(ctx)
+          : inner.skip);
+        if (skipResult) {
+          return task.skip(
+            typeof skipResult === "string" ? skipResult : undefined,
+          );
+        }
+      }
+      return (
+        inner.task as (
+          ctx: PubmContext,
+          task: Parameters<ListrTask<PubmContext>["task"]>[1],
+        ) => Promise<void>
+      )(ctx, task);
+    },
+  };
+}
 
 registryCatalog.register({
   key: "npm",
@@ -101,6 +152,22 @@ registryCatalog.register({
     );
   },
   concurrentPublish: true,
+  unpublishLabel: "Unpublish",
+  requiresEarlyAuth: false,
+  taskFactory: {
+    createPublishTask: (packagePath) =>
+      lazyTask(packagePath, async () => {
+        const { createNpmPublishTask } = await import("../tasks/npm.js");
+        return createNpmPublishTask(packagePath);
+      }),
+    createDryRunTask: (packagePath) =>
+      lazyTask(packagePath, async () => {
+        const { createNpmDryRunPublishTask } = await import(
+          "../tasks/dry-run-publish.js"
+        );
+        return createNpmDryRunPublishTask(packagePath);
+      }),
+  },
   connector: () => npmConnector(),
   factory: (packagePath) => npmPackageRegistry(packagePath),
 });
@@ -132,6 +199,22 @@ registryCatalog.register({
     );
   },
   concurrentPublish: true,
+  unpublishLabel: "Unpublish",
+  requiresEarlyAuth: true,
+  taskFactory: {
+    createPublishTask: (packagePath) =>
+      lazyTask(packagePath, async () => {
+        const { createJsrPublishTask } = await import("../tasks/jsr.js");
+        return createJsrPublishTask(packagePath);
+      }),
+    createDryRunTask: (packagePath) =>
+      lazyTask(packagePath, async () => {
+        const { createJsrDryRunPublishTask } = await import(
+          "../tasks/dry-run-publish.js"
+        );
+        return createJsrDryRunPublishTask(packagePath);
+      }),
+  },
   connector: () => jsrConnector(),
   factory: (packagePath) => jsrPackageRegistry(packagePath),
 });
@@ -160,6 +243,22 @@ registryCatalog.register({
     );
   },
   concurrentPublish: false,
+  unpublishLabel: "Yank",
+  requiresEarlyAuth: false,
+  taskFactory: {
+    createPublishTask: (packagePath) =>
+      lazyTask(packagePath, async () => {
+        const { createCratesPublishTask } = await import("../tasks/crates.js");
+        return createCratesPublishTask(packagePath);
+      }),
+    createDryRunTask: (packagePath, siblingPaths) =>
+      lazyTask(`Dry-run crates.io publish (${packagePath})`, async () => {
+        const { createCratesDryRunPublishTask } = await import(
+          "../tasks/dry-run-publish.js"
+        );
+        return createCratesDryRunPublishTask(packagePath, siblingPaths);
+      }),
+  },
   orderPackages: (paths) => sortCratesByDependencyOrder(paths),
   connector: () => new CratesConnector(),
   factory: (name) => cratesPackageRegistry(name),
@@ -188,6 +287,8 @@ export function registerPrivateRegistry(
     },
     needsPackageScripts: false,
     concurrentPublish: true,
+    unpublishLabel: "Unpublish",
+    requiresEarlyAuth: false,
     connector: () => npmConnector(),
     factory: async (packagePath) => {
       // Lazy import to break circular dependency:

@@ -1,3 +1,4 @@
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { discoverPackages } from "../monorepo/discover.js";
 import {
   registerPrivateRegistry,
@@ -51,6 +52,20 @@ export async function resolveConfig(
   const resolvedCwd = cwd ?? process.cwd();
   let discoveryEmpty: boolean | undefined;
 
+  // Validate explicit ecosystem keys against catalog
+  if (config.packages) {
+    for (const pkg of config.packages) {
+      if (pkg.ecosystem && !ecosystemCatalog.get(pkg.ecosystem)) {
+        throw new Error(
+          `Unknown ecosystem "${pkg.ecosystem}". Registered: ${ecosystemCatalog
+            .all()
+            .map((d) => d.key)
+            .join(", ")}`,
+        );
+      }
+    }
+  }
+
   // Normalize private registries in config packages before passing to discover
   const configPackages = config.packages?.map((pkg) => {
     if (!pkg.registries) return pkg;
@@ -78,7 +93,7 @@ export async function resolveConfig(
       name: pkg.name,
       version: pkg.version,
       dependencies: pkg.dependencies,
-      ecosystem: pkg.ecosystem as "js" | "rust",
+      ecosystem: pkg.ecosystem,
       registries: pkg.registries as RegistryType[],
       ...(pkg.registryVersions
         ? { registryVersions: pkg.registryVersions }
@@ -116,5 +131,7 @@ function resolveEcosystemKey(
     if (descriptor) return descriptor.ecosystem;
   }
 
-  return "js";
+  throw new Error(
+    `Cannot infer ecosystem for package. Specify "ecosystem" explicitly.`,
+  );
 }

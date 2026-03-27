@@ -10,7 +10,7 @@ function createDescriptor(
 ): EcosystemDescriptor {
   return {
     key: "js",
-    label: "JavaScript ecosystem",
+    label: "JavaScript",
     defaultRegistries: ["npm", "jsr"],
     ecosystemClass: class {} as any,
     detect: vi.fn().mockResolvedValue(false),
@@ -40,6 +40,18 @@ describe("EcosystemCatalog", () => {
     expect(catalog.all()).toEqual([js, rust]);
   });
 
+  it("removes a registered descriptor", () => {
+    const catalog = new EcosystemCatalog();
+    catalog.register(createDescriptor({ key: "test" }));
+    expect(catalog.remove("test")).toBe(true);
+    expect(catalog.get("test")).toBeUndefined();
+  });
+
+  it("returns false when removing a non-existent key", () => {
+    const catalog = new EcosystemCatalog();
+    expect(catalog.remove("nonexistent")).toBe(false);
+  });
+
   it("detects ecosystem by calling detect functions in order", async () => {
     const catalog = new EcosystemCatalog();
     const jsDetect = vi.fn().mockResolvedValue(false);
@@ -65,14 +77,14 @@ describe("default registrations", () => {
   it("has js ecosystem registered", () => {
     const js = ecosystemCatalog.get("js");
     expect(js).toBeDefined();
-    expect(js!.label).toBe("JavaScript ecosystem");
+    expect(js!.label).toBe("JavaScript");
     expect(js!.defaultRegistries).toEqual(["npm", "jsr"]);
   });
 
   it("has rust ecosystem registered", () => {
     const rust = ecosystemCatalog.get("rust");
     expect(rust).toBeDefined();
-    expect(rust!.label).toBe("Rust ecosystem");
+    expect(rust!.label).toBe("Rust");
     expect(rust!.defaultRegistries).toEqual(["crates"]);
   });
 

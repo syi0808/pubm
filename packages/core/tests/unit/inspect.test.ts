@@ -33,7 +33,7 @@ describe("inspectPackages", () => {
     const result = inspectPackages(config, "/project");
 
     expect(result).toEqual({
-      ecosystem: "javascript",
+      ecosystem: "JavaScript",
       workspace: { type: "single", monorepo: false },
       packages: [
         {
@@ -73,7 +73,7 @@ describe("inspectPackages", () => {
     const result = inspectPackages(config, "/project");
 
     expect(result).toEqual({
-      ecosystem: "javascript",
+      ecosystem: "JavaScript",
       workspace: { type: "pnpm", monorepo: true },
       packages: [
         {
@@ -109,7 +109,7 @@ describe("inspectPackages", () => {
 
     const result = inspectPackages(config, "/project");
 
-    expect(result.ecosystem).toBe("rust");
+    expect(result.ecosystem).toBe("Rust");
   });
 
   it("returns mixed ecosystem when both JS and Rust packages exist", () => {
@@ -136,7 +136,7 @@ describe("inspectPackages", () => {
 
     const result = inspectPackages(config, "/project");
 
-    expect(result.ecosystem).toBe("javascript, rust");
+    expect(result.ecosystem).toBe("JavaScript, Rust");
   });
 
   it("returns empty packages when discoveryEmpty is true", () => {
@@ -216,6 +216,25 @@ describe("inspectPackages", () => {
     const result = inspectPackages(config, "/project");
 
     expect(result.workspace.type).toBe("pnpm");
+  });
+
+  it("returns 'unknown' for unregistered registry types", () => {
+    mockedDetectWorkspace.mockReturnValue([]);
+
+    const config = {
+      packages: [
+        {
+          name: "my-pkg",
+          version: "1.0.0",
+          path: ".",
+          registries: ["totally-unknown-registry"],
+          dependencies: [],
+        },
+      ],
+    } as unknown as ResolvedPubmConfig;
+
+    const result = inspectPackages(config, "/project");
+    expect(result.ecosystem).toBe("unknown");
   });
 
   it("detects monorepo even with single package in workspace", () => {

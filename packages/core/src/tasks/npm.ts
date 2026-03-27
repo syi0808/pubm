@@ -3,6 +3,7 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
+import { registryCatalog } from "../registry/catalog.js";
 import type { NpmPackageRegistry } from "../registry/npm.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 import { ui } from "../utils/ui.js";
@@ -135,9 +136,11 @@ function registerUnpublishRollback(
   const canUnpublish =
     ctx.runtime.promptEnabled || ctx.config.rollback.dangerouslyAllowUnpublish;
 
+  const verb = registryCatalog.get("npm")?.unpublishLabel ?? "Unpublish";
+
   if (!canUnpublish) {
     ctx.runtime.rollback.add({
-      label: `Unpublish ${registry.packageName}@${version} from npm (skipped — use --dangerously-allow-unpublish to enable)`,
+      label: `${verb} ${registry.packageName}@${version} from npm (skipped — use --dangerously-allow-unpublish to enable)`,
       fn: async () => {},
     });
     return;
@@ -147,7 +150,7 @@ function registerUnpublishRollback(
   // non-interactive mode executes confirm actions without prompting.
   // On SIGINT, confirm actions are safely skipped regardless of dangerouslyAllowUnpublish.
   ctx.runtime.rollback.add({
-    label: `Unpublish ${registry.packageName}@${version} from npm (⚠ version will be permanently burned)`,
+    label: `${verb} ${registry.packageName}@${version} from npm (⚠ version will be permanently burned)`,
     fn: async () => {
       await registry.unpublish(registry.packageName, version);
       console.log(

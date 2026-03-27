@@ -36,13 +36,17 @@ export class EcosystemCatalog {
   all(): EcosystemDescriptor[] {
     return [...this.descriptors.values()];
   }
+
+  remove(key: EcosystemKey): boolean {
+    return this.descriptors.delete(key);
+  }
 }
 
 export const ecosystemCatalog: EcosystemCatalog = new EcosystemCatalog();
 
 ecosystemCatalog.register({
   key: "js",
-  label: "JavaScript ecosystem",
+  label: "JavaScript",
   defaultRegistries: ["npm", "jsr"],
   ecosystemClass: JsEcosystem,
   detect: (path) => JsEcosystem.detect(path),
@@ -50,7 +54,7 @@ ecosystemCatalog.register({
 
 ecosystemCatalog.register({
   key: "rust",
-  label: "Rust ecosystem",
+  label: "Rust",
   defaultRegistries: ["crates"],
   ecosystemClass: RustEcosystem,
   detect: (path) => RustEcosystem.detect(path),

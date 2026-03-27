@@ -1,5 +1,7 @@
 import type { ResolvedPubmConfig } from "./config/types.js";
+import { ecosystemCatalog } from "./ecosystem/catalog.js";
 import { detectWorkspace } from "./monorepo/workspace.js";
+import { registryCatalog } from "./registry/catalog.js";
 
 export interface InspectPackagesResult {
   ecosystem: string;
@@ -16,9 +18,16 @@ export interface InspectPackagesResult {
 }
 
 function inferEcosystem(registries: string[]): string {
-  if (registries.some((r) => r === "npm" || r === "jsr")) return "javascript";
-  if (registries.includes("crates")) return "rust";
-  return "unknown";
+  const ecosystems = new Set<string>();
+  for (const reg of registries) {
+    const descriptor = registryCatalog.get(reg);
+    if (descriptor) {
+      const ecoDesc = ecosystemCatalog.get(descriptor.ecosystem);
+      ecosystems.add(ecoDesc?.label ?? descriptor.ecosystem);
+    }
+  }
+  const list = [...ecosystems];
+  return list.length > 0 ? list.join(", ") : "unknown";
 }
 
 export function inspectPackages(
