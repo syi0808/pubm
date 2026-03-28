@@ -1418,8 +1418,8 @@ describe("snapshot pipeline", () => {
       },
     });
 
-    // skip should not skip when dryRun is not set
-    expect(tagTask.skip(ctx)).toBe(false);
+    // enabled should be true when dryRun is not set
+    expect(tagTask.enabled).toBe(true);
 
     // The tag task creates its own Git instance internally
     const tagGitInstance = {
@@ -1440,7 +1440,7 @@ describe("snapshot pipeline", () => {
     expect(tagGitInstance.push).toHaveBeenCalledWith("--tags");
   });
 
-  it("skips tag creation when dryRun is set", async () => {
+  it("disables tag creation when dryRun is set", async () => {
     await run(
       createOptions({
         options: { snapshot: true, dryRun: true },
@@ -1461,11 +1461,8 @@ describe("snapshot pipeline", () => {
 
     const snapshotTasks = mockedCreateListr.mock.calls[0][0] as any[];
     const tagTask = snapshotTasks[3];
-    const ctx = createOptions({
-      options: { snapshot: true, dryRun: true },
-    });
 
-    expect(tagTask.skip(ctx)).toBe(true);
+    expect(tagTask.enabled).toBe(false);
   });
 });
 
@@ -3093,8 +3090,8 @@ describe("version plan formatting fallbacks", () => {
   });
 });
 
-describe("skip conditions", () => {
-  it("does not skip version bump task when dryRun is set (dry-run handled internally)", async () => {
+describe("enabled/skip conditions", () => {
+  it("enables version bump task when dryRun is set (dry-run handled internally)", async () => {
     await run(
       createOptions({
         options: { dryRun: true },
@@ -3105,11 +3102,11 @@ describe("skip conditions", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const versionTask = tasks[2];
 
-    // In the new design, dryRun does not skip version bump — the task handles it internally
-    expect(versionTask.skip).toBe(false);
+    // In the new design, dryRun does not disable version bump — the task handles it internally
+    expect(versionTask.enabled).toBe(true);
   });
 
-  it("skips publish task when skipPublish is set", async () => {
+  it("disables publish task when skipPublish is set", async () => {
     await run(
       createOptions({
         options: { skipPublish: true },
@@ -3119,17 +3116,15 @@ describe("skip conditions", () => {
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const publishTask = tasks.find(
-      (t: any) => t.title === "Publishing" && typeof t.skip === "function",
+      (t: any) =>
+        typeof t.title === "string" &&
+        t.title.includes("Publishing") &&
+        t.enabled === false,
     );
     expect(publishTask).toBeDefined();
-
-    const ctx: any = {
-      options: { skipPublish: true },
-    };
-    expect(publishTask.skip(ctx)).toBe(true);
   });
 
-  it("skips release draft when skipReleaseDraft is set", async () => {
+  it("disables release draft when skipReleaseDraft is set", async () => {
     await run(
       createOptions({
         options: { skipReleaseDraft: true },
@@ -3144,13 +3139,10 @@ describe("skip conditions", () => {
     );
     expect(releaseDraftTask).toBeDefined();
 
-    const ctx: any = {
-      options: { skipReleaseDraft: true },
-    };
-    expect(releaseDraftTask.skip(ctx)).toBe(true);
+    expect(releaseDraftTask.enabled).toBe(false);
   });
 
-  it("skips push tags task when dryRun is set", async () => {
+  it("disables push tags task when dryRun is set", async () => {
     await run(
       createOptions({
         options: { dryRun: true },
@@ -3165,8 +3157,8 @@ describe("skip conditions", () => {
     );
     expect(pushTask).toBeDefined();
 
-    // Push tags skip is a static boolean: !hasPrepare || dryRun
-    expect(pushTask.skip).toBe(true);
+    // Push tags enabled is a static boolean: hasPrepare && !dryRun
+    expect(pushTask.enabled).toBe(false);
   });
 });
 

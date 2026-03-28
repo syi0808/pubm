@@ -868,7 +868,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
           {
             title: t("task.snapshot.createTag"),
-            skip: () => dryRun,
+            enabled: !dryRun,
             task: async (ctx, task): Promise<void> => {
               const git = new Git();
               const snapshotPlan = requireVersionPlan(ctx);
@@ -1044,7 +1044,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       [
         // === PREPARE PHASE ===
         {
-          skip: !hasPrepare || ctx.options.skipTests,
+          enabled: hasPrepare && !ctx.options.skipTests,
           title: t("task.test.title"),
           task: async (ctx, task): Promise<void> => {
             task.output = t("task.test.runningBeforeHooks");
@@ -1080,7 +1080,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: !hasPrepare || ctx.options.skipBuild,
+          enabled: hasPrepare && !ctx.options.skipBuild,
           title: t("task.build.title"),
           task: async (ctx, task): Promise<void> => {
             task.output = t("task.build.runningBeforeHooks");
@@ -1117,7 +1117,7 @@ export async function run(ctx: PubmContext): Promise<void> {
         },
         {
           title: t("task.version.title"),
-          skip: !hasPrepare,
+          enabled: hasPrepare,
           task: async (ctx, task): Promise<void> => {
             task.title = t("task.version.titleWithSummary", {
               summary: formatVersionSummary(ctx),
@@ -1415,7 +1415,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
         // === PUBLISH PHASE ===
         {
-          skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
+          enabled: hasPublish && !ctx.options.skipPublish && !dryRun,
           title: t("task.publish.title"),
           task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
             parentTask.output = "Running plugin beforePublish hooks...";
@@ -1437,11 +1437,8 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: (ctx) =>
-            !hasPublish ||
-            !!ctx.options.skipPublish ||
-            dryRun ||
-            !ctx.runtime.workspaceBackups?.size,
+          enabled: hasPublish && !ctx.options.skipPublish && !dryRun,
+          skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
           title: t("task.publish.restoreProtocols"),
           task: (ctx) => {
             const backups = ctx.runtime.workspaceBackups;
@@ -1453,7 +1450,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
+          enabled: hasPublish && !ctx.options.skipPublish && !dryRun,
           title: t("task.publish.runningAfterHooks"),
           task: async (ctx, task): Promise<void> => {
             task.output = t("task.publish.runningAfterHooksDetail");
@@ -1464,7 +1461,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
         // === DRY-RUN PUBLISH VALIDATION (for --dry-run OR ci prepare) ===
         {
-          skip: !dryRun && !(mode === "ci" && hasPrepare),
+          enabled: dryRun || (mode === "ci" && hasPrepare),
           title: t("task.dryRunValidation.title"),
           task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
             await resolveWorkspaceProtocols(ctx);
@@ -1487,9 +1484,8 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: (ctx) =>
-            (!dryRun && !(mode === "ci" && hasPrepare)) ||
-            !ctx.runtime.workspaceBackups?.size,
+          enabled: dryRun || (mode === "ci" && hasPrepare),
+          skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
           title: t("task.dryRunValidation.restoreProtocols"),
           task: async (ctx) => {
             const backups = ctx.runtime.workspaceBackups;
@@ -1517,7 +1513,8 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: (ctx) => !dryRun || !ctx.runtime.dryRunVersionBackup?.size,
+          enabled: dryRun,
+          skip: (ctx) => !ctx.runtime.dryRunVersionBackup?.size,
           title: t("task.dryRunValidation.restoringVersions"),
           task: async (ctx): Promise<void> => {
             const backupVersions = ctx.runtime.dryRunVersionBackup;
@@ -1534,7 +1531,7 @@ export async function run(ctx: PubmContext): Promise<void> {
         // === PUSH & RELEASE ===
         {
           title: t("task.push.title"),
-          skip: !hasPrepare || dryRun,
+          enabled: hasPrepare && !dryRun,
           task: async (ctx, task): Promise<void> => {
             task.output = t("task.push.runningBeforeHooks");
             await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
@@ -1573,8 +1570,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
         },
         {
-          skip: (ctx) =>
-            !hasPublish || !!ctx.options.skipReleaseDraft || dryRun,
+          enabled: hasPublish && !ctx.options.skipReleaseDraft && !dryRun,
           title: t("task.release.title"),
           task: async (ctx, task): Promise<void> => {
             const plan = requireVersionPlan(ctx);
