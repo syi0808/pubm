@@ -52,6 +52,7 @@ export default defineConfig({
     extraneousFiles: true,
   },
   snapshotTemplate: "{tag}-{timestamp}",
+  locale: "en",
 });
 ```
 
@@ -190,6 +191,13 @@ Available template variables:
 - `{tag}`: snapshot tag, defaulting to `snapshot`
 - `{timestamp}`: UTC timestamp in `YYYYMMDDTHHmmss` format
 - `{commit}`: current git commit SHA
+
+### `locale`
+
+- Type: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`
+- Default: `"en"`
+
+CLI output language. Can also be set via the `--locale` flag or the `PUBM_LOCALE` environment variable. Resolution order: `--locale` flag → `PUBM_LOCALE` env → config → system locale → `"en"`.
 
 ### `rollback`
 

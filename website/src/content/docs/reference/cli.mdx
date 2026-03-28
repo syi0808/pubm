@@ -92,6 +92,7 @@ pubm --tag beta
 | `--build-script <script>` | `build` | Script name used for the build step. |
 | `--no-save-token` | `false` | Do not persist supported tokens for later runs. |
 | `--dangerously-allow-unpublish` | `false` | Allow registry unpublish/yank during rollback in non-TTY environments. |
+| `--locale <locale>` | `en` | Set CLI output language. Supported: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
 
 ## Pipeline-control flags
 
@@ -158,6 +159,7 @@ CI publish mode publishes from the latest Git tag and creates a GitHub Release v
 | `NODE_AUTH_TOKEN` | npm authentication in CI |
 | `JSR_TOKEN` | jsr authentication |
 | `CARGO_REGISTRY_TOKEN` | crates.io authentication |
+| `PUBM_LOCALE` | CLI output language (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 Prompts are disabled automatically when:
 

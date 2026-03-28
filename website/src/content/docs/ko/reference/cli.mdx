@@ -92,6 +92,7 @@ pubm --tag beta
 | `--build-script <script>` | `build` | 빌드 단계에서 사용할 스크립트 이름입니다. |
 | `--no-save-token` | `false` | 지원되는 토큰을 이후 실행을 위해 저장하지 않습니다. |
 | `--dangerously-allow-unpublish` | `false` | 비-TTY 환경에서 롤백 중 레지스트리 unpublish/yank를 허용합니다. |
+| `--locale <locale>` | `en` | CLI 출력 언어를 설정합니다. 지원 언어: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
 
 ## 파이프라인 제어 플래그
 
@@ -158,6 +159,7 @@ CI publish 모드는 최신 Git tag에서 publish하고 GitHub Release를 API로
 | `NODE_AUTH_TOKEN` | CI에서 npm 인증 |
 | `JSR_TOKEN` | jsr 인증 |
 | `CARGO_REGISTRY_TOKEN` | crates.io 인증 |
+| `PUBM_LOCALE` | CLI 출력 언어 (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 프롬프트는 다음 경우 자동으로 비활성화됩니다.
 

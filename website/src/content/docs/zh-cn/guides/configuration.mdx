@@ -52,6 +52,7 @@ export default defineConfig({
     extraneousFiles: true,
   },
   snapshotTemplate: "{tag}-{timestamp}",
+  locale: "en",
 });
 ```
 
@@ -190,6 +191,13 @@ export default defineConfig({
 - `{tag}`：snapshot tag，默认是 `snapshot`
 - `{timestamp}`：格式为 `YYYYMMDDTHHmmss` 的 UTC 时间戳
 - `{commit}`：当前 git commit SHA
+
+### `locale`
+
+- 类型：`"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`
+- 默认值：`"en"`
+
+CLI 输出语言。也可通过 `--locale` flag 或 `PUBM_LOCALE` 环境变量设置。解析顺序：`--locale` flag → `PUBM_LOCALE` 环境变量 → config → 系统语言 → `"en"`。
 
 ### `rollback`
 

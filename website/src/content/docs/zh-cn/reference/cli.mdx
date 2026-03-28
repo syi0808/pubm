@@ -92,6 +92,7 @@ pubm --tag beta
 | `--build-script <script>` | `build` | 构建步骤使用的脚本名。 |
 | `--no-save-token` | `false` | 不保存受支持的 token 供后续运行使用。 |
 | `--dangerously-allow-unpublish` | `false` | 允许在非 TTY 环境中的回滚期间对 registry 执行 unpublish/yank。 |
+| `--locale <locale>` | `en` | 设置 CLI 输出语言。支持：`en`, `ko`, `zh-cn`, `fr`, `de`, `es`。 |
 
 ## 流程控制 flags
 
@@ -158,6 +159,7 @@ CI Publish 模式会从最新的 Git tag 发布，并通过 API 创建 GitHub Re
 | `NODE_AUTH_TOKEN` | CI 中的 npm 认证 |
 | `JSR_TOKEN` | jsr 认证 |
 | `CARGO_REGISTRY_TOKEN` | crates.io 认证 |
+| `PUBM_LOCALE` | CLI 输出语言（`en`、`ko`、`zh-cn`、`fr`、`de`、`es`） |
 
 当以下情况成立时，提示会自动禁用：
 

@@ -52,6 +52,7 @@ export default defineConfig({
     extraneousFiles: true,
   },
   snapshotTemplate: "{tag}-{timestamp}",
+  locale: "en",
 });
 ```
 
@@ -190,6 +191,13 @@ Variables de modèle disponibles :
 - `{tag}` : tag de snapshot, par défaut `snapshot`
 - `{timestamp}` : timestamp UTC au format `YYYYMMDDTHHmmss`
 - `{commit}` : SHA du commit Git courant
+
+### `locale`
+
+- Type : `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`
+- Par défaut : `"en"`
+
+Langue de sortie de la CLI. Peut également être définie via le flag `--locale` ou la variable d'environnement `PUBM_LOCALE`. Ordre de résolution : flag `--locale` → variable d'environnement `PUBM_LOCALE` → config → locale système → `"en"`.
 
 ### `rollback`
 

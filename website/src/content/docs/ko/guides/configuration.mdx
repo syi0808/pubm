@@ -52,6 +52,7 @@ export default defineConfig({
     extraneousFiles: true,
   },
   snapshotTemplate: "{tag}-{timestamp}",
+  locale: "en",
 });
 ```
 
@@ -190,6 +191,13 @@ export default defineConfig({
 - `{tag}`: snapshot 태그, 기본값은 `snapshot`
 - `{timestamp}`: `YYYYMMDDTHHmmss` 형식의 UTC 타임스탬프
 - `{commit}`: 현재 git 커밋 SHA
+
+### `locale`
+
+- 타입: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`
+- 기본값: `"en"`
+
+CLI 출력 언어입니다. `--locale` 플래그 또는 `PUBM_LOCALE` 환경 변수로도 설정할 수 있습니다. 적용 우선순위: `--locale` 플래그 → `PUBM_LOCALE` 환경 변수 → config → 시스템 로케일 → `"en"`.
 
 ### `rollback`
 
