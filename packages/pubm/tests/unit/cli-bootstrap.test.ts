@@ -17,7 +17,8 @@ describe("CLI bootstrap", () => {
 
     vi.doMock("std-env", () => ({ isCI: false }));
     vi.doMock("@pubm/core", async () => {
-      const actual = await vi.importActual<typeof import("@pubm/core")>("@pubm/core");
+      const actual =
+        await vi.importActual<typeof import("@pubm/core")>("@pubm/core");
       return {
         ...actual,
         calculateVersionBumps: vi.fn(),
