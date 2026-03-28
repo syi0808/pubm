@@ -369,6 +369,8 @@ function setupCreateListrMock() {
     return {
       run: vi.fn(async (ctx: any) => {
         for (const task of tasks) {
+          if (typeof task.enabled === "function" && !task.enabled(ctx)) continue;
+          if (typeof task.enabled === "boolean" && !task.enabled) continue;
           if (typeof task.skip === "function" && task.skip(ctx)) continue;
           if (typeof task.skip === "boolean" && task.skip) continue;
           if (task.task) {
@@ -734,102 +736,98 @@ describe("run", () => {
   });
 
   describe("task skip flags", () => {
-    it("skips tests when skipTests is true", async () => {
+    it("disables tests when skipTests is true", async () => {
       const options = createOptions({ options: { skipTests: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
 
-      expect(tasks[0].skip).toBe(true);
+      expect(tasks[0].enabled).toBe(false);
     });
 
-    it("skips build when skipBuild is true", async () => {
+    it("disables build when skipBuild is true", async () => {
       const options = createOptions({ options: { skipBuild: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
 
-      expect(tasks[1].skip).toBe(true);
+      expect(tasks[1].enabled).toBe(false);
     });
 
-    it("does not skip version bump in dryRun mode (dry-run logic is internal)", async () => {
+    it("enables version bump in dryRun mode (dry-run logic is internal)", async () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
 
-      // Version bump skip is `!hasPrepare`, which is false for full pipeline
-      expect(tasks[2].skip).toBe(false);
+      // Version bump enabled is `hasPrepare`, which is true for full pipeline
+      expect(tasks[2].enabled).toBe(true);
     });
 
-    it("does not skip version bump in normal mode", async () => {
+    it("enables version bump in normal mode", async () => {
       const options = createOptions();
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
 
-      expect(tasks[2].skip).toBe(false);
+      expect(tasks[2].enabled).toBe(true);
     });
 
-    it("skips publish when skipPublish is true", async () => {
+    it("disables publish when skipPublish is true", async () => {
       const options = createOptions({ options: { skipPublish: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[3].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { skipPublish: true } })).toBe(true);
+      expect(tasks[3].enabled).toBe(false);
     });
 
-    it("skips publish when dryRun is set", async () => {
-      const options = createOptions({ options: { dryRun: true } });
-      await run(options);
-
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
-      const skipFn = tasks[3].skip as (ctx: any) => boolean;
-
-      // dryRun causes publish to be skipped via the static `dryRun` closure
-      expect(skipFn({ options: { skipPublish: false } })).toBe(true);
-    });
-
-    it("skips pushing tags when dryRun is set", async () => {
+    it("disables publish when dryRun is set", async () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
 
-      // Push tags skip is static: `!hasPrepare || dryRun`
-      expect(tasks[9].skip).toBe(true);
+      // dryRun causes publish to be disabled via the static `dryRun` closure
+      expect(tasks[3].enabled).toBe(false);
     });
 
-    it("skips release draft when skipReleaseDraft is true", async () => {
+    it("disables pushing tags when dryRun is set", async () => {
+      const options = createOptions({ options: { dryRun: true } });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+
+      // Push tags enabled is static: `hasPrepare && !dryRun`
+      expect(tasks[9].enabled).toBe(false);
+    });
+
+    it("disables release draft when skipReleaseDraft is true", async () => {
       const options = createOptions({ options: { skipReleaseDraft: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[10].skip as (ctx: any) => boolean;
 
-      expect(skipFn({ options: { skipReleaseDraft: true } })).toBe(true);
+      expect(tasks[10].enabled).toBe(false);
     });
 
-    it("skips release draft when dryRun is set", async () => {
+    it("disables release draft when dryRun is set", async () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
       const callArgs = mockedCreateListr.mock.calls[0];
       const tasks = callArgs[0] as any[];
-      const skipFn = tasks[10].skip as (ctx: any) => boolean;
 
-      // dryRun causes release draft to be skipped
-      expect(skipFn({ options: { skipReleaseDraft: false } })).toBe(true);
+      // dryRun causes release draft to be disabled
+      expect(tasks[10].enabled).toBe(false);
     });
   });
 
@@ -2118,12 +2116,11 @@ describe("run", () => {
       );
       const tasks = pipelineCall![0] as any[];
 
-      // Publishing should be skipped (hasPublish=false)
-      const publishSkipFn = tasks[3].skip as (ctx: any) => boolean;
-      expect(publishSkipFn({ options: { skipPublish: false } })).toBe(true);
+      // Publishing should be disabled (hasPublish=false)
+      expect(tasks[3].enabled).toBe(false);
 
-      // Dry-run validation should NOT be skipped in CI prepare
-      expect(tasks[6].skip).toBe(false);
+      // Dry-run validation should be enabled in CI prepare
+      expect(tasks[6].enabled).toBe(true);
     });
 
     it("shows CI prepare success message", async () => {
