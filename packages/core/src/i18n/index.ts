@@ -8,7 +8,7 @@ import es from "./locales/es.json" with { type: "json" };
 import fr from "./locales/fr.json" with { type: "json" };
 import ko from "./locales/ko.json" with { type: "json" };
 import zhCn from "./locales/zh-cn.json" with { type: "json" };
-import type { SupportedLocale } from "./types.js"
+import type { SupportedLocale } from "./types.js";
 
 const allMessages: Record<string, Record<string, string>> = {
   en,
