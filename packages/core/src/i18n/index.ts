@@ -1,14 +1,14 @@
 import { createIntl, createIntlCache } from "@formatjs/intl";
 import { resolveLocale } from "./locale-resolver.js";
-import de from "./locales/de.json";
 
 // Static imports — bundled by Bun.build
-import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import ko from "./locales/ko.json";
-import zhCn from "./locales/zh-cn.json";
-import type { SupportedLocale } from "./types.js";
+import de from "./locales/de.json" with { type: "json" };
+import en from "./locales/en.json" with { type: "json" };
+import es from "./locales/es.json" with { type: "json" };
+import fr from "./locales/fr.json" with { type: "json" };
+import ko from "./locales/ko.json" with { type: "json" };
+import zhCn from "./locales/zh-cn.json" with { type: "json" };
+import type { SupportedLocale } from "./types.js"
 
 const allMessages: Record<string, Record<string, string>> = {
   en,
