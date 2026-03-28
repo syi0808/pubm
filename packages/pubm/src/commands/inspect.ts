@@ -1,5 +1,5 @@
 import type { ResolvedPubmConfig } from "@pubm/core";
-import { consoleError, inspectPackages } from "@pubm/core";
+import { consoleError, inspectPackages, t } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerInspectCommand(
@@ -8,12 +8,12 @@ export function registerInspectCommand(
 ): void {
   const inspect = parent
     .command("inspect")
-    .description("Inspect project configuration");
+    .description(t("cmd.inspect.description"));
 
   inspect
     .command("packages")
-    .description("Show detected packages and registries")
-    .option("--json", "Output as JSON")
+    .description(t("cmd.inspect.packages"))
+    .option("--json", t("cmd.inspect.optionJson"))
     .action(async (options: { json?: boolean }) => {
       try {
         const config = getConfig();
@@ -24,22 +24,24 @@ export function registerInspectCommand(
           return;
         }
 
-        console.log(`Ecosystem: ${result.ecosystem}`);
+        console.log(
+          t("cmd.inspect.ecosystem", { ecosystem: result.ecosystem }),
+        );
 
         const workspaceLabel = result.workspace.monorepo
-          ? `${result.workspace.type} (monorepo)`
+          ? t("cmd.inspect.monorepo", { type: result.workspace.type })
           : result.workspace.type;
         console.log(`Workspace: ${workspaceLabel}`);
 
         if (result.packages.length === 0) {
-          console.log("\nNo publishable packages found.");
+          console.log(`\n${t("cmd.inspect.noPackages")}`);
           return;
         }
 
-        console.log("\nPackages:");
+        console.log(`\n${t("cmd.inspect.packagesHeader")}`);
         for (const pkg of result.packages) {
           console.log(
-            `  ${pkg.name} (${pkg.version}) → ${pkg.registries.join(", ")}`,
+            `  ${t("cmd.inspect.packageLine", { name: pkg.name, version: pkg.version, registries: pkg.registries.join(", ") })}`,
           );
         }
       } catch (e) {

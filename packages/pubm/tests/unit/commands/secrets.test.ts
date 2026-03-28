@@ -1,21 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@pubm/core", () => ({
-  loadTokensFromDb: vi.fn(),
-  syncGhSecrets: vi.fn(),
-  consoleError: vi.fn(),
-  registryCatalog: {
-    keys: () => ["npm", "jsr", "crates"],
-  },
-  ui: {
-    success: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    hint: vi.fn(),
-    labels: { DRY_RUN: "[dry-run]" },
-  },
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    loadTokensFromDb: vi.fn(),
+    syncGhSecrets: vi.fn(),
+    consoleError: vi.fn(),
+    registryCatalog: {
+      keys: () => ["npm", "jsr", "crates"],
+    },
+    ui: {
+      success: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      hint: vi.fn(),
+      labels: { DRY_RUN: "[dry-run]" },
+    },
+  };
+});
 
 import { consoleError, loadTokensFromDb, syncGhSecrets, ui } from "@pubm/core";
 import { Command } from "commander";

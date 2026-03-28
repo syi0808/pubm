@@ -2,6 +2,7 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
+import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { cratesPackageRegistry } from "../registry/crates.js";
 import { jsrPackageRegistry } from "../registry/jsr.js";
@@ -42,12 +43,16 @@ async function withTokenRetry(
     ctx.runtime.tokenRetryPromises = retryPromises;
     if (!retryPromises[registryKey]) {
       retryPromises[registryKey] = (async () => {
-        task.output = `Auth failed. Re-enter ${config.promptLabel}`;
+        task.output = t("task.preflight.authFailed", {
+          label: config.promptLabel,
+        });
         const newToken: string = await task
           .prompt(ListrEnquirerPromptAdapter)
           .run({
             type: "password",
-            message: `Re-enter ${config.promptLabel}`,
+            message: t("prompt.preflight.reenter", {
+              label: config.promptLabel,
+            }),
           });
         new SecureStore().set(config.dbKey, newToken);
         process.env[config.envVar] = newToken;
@@ -71,12 +76,15 @@ export function createNpmDryRunPublishTask(
       const version = getPackageVersion(ctx, packagePath);
 
       if (await npm.isVersionPublished(version)) {
-        task.title = `[SKIPPED] Dry-run npm publish: v${version} already published`;
-        task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
+        task.title = t("task.dryRun.npm.skipped", { version });
+        task.output = t("task.npm.alreadyPublished", {
+          name: npm.packageName,
+          version,
+        });
         return task.skip();
       }
 
-      task.output = "Running npm publish --dry-run...";
+      task.output = t("task.dryRun.npm.running");
       await withTokenRetry("npm", ctx, task, async () => {
         await npm.dryRunPublish();
       });
@@ -95,12 +103,15 @@ export function createJsrDryRunPublishTask(
       const version = getPackageVersion(ctx, packagePath);
 
       if (await jsr.isVersionPublished(version)) {
-        task.title = `[SKIPPED] Dry-run jsr publish: v${version} already published`;
-        task.output = `⚠ ${jsr.packageName}@${version} is already published on jsr`;
+        task.title = t("task.dryRun.jsr.skipped", { version });
+        task.output = t("task.jsr.alreadyPublished", {
+          name: jsr.packageName,
+          version,
+        });
         return task.skip();
       }
 
-      task.output = "Running jsr publish --dry-run...";
+      task.output = t("task.dryRun.jsr.running");
       await withTokenRetry("jsr", ctx, task, async () => {
         await jsr.dryRunPublish();
       });
@@ -152,7 +163,7 @@ export function createCratesDryRunPublishTask(
   siblingPaths?: string[],
 ): ListrTask<PubmContext> {
   return {
-    title: `Dry-run crates.io publish (${packagePath})`,
+    title: t("task.dryRun.crates.title", { path: packagePath }),
     task: async (ctx, task): Promise<void> => {
       // Pre-check: skip if version already published
       const registry = await cratesPackageRegistry(packagePath);
@@ -160,8 +171,14 @@ export function createCratesDryRunPublishTask(
       const version = getPackageVersion(ctx, packagePath);
 
       if (await registry.isVersionPublished(version)) {
-        task.title = `[SKIPPED] Dry-run crates.io publish (${packagePath}): v${version} already published`;
-        task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
+        task.title = t("task.dryRun.crates.skipped", {
+          path: packagePath,
+          version,
+        });
+        task.output = t("task.crates.alreadyPublished", {
+          name: packageName,
+          version,
+        });
         return task.skip();
       }
 
@@ -172,12 +189,15 @@ export function createCratesDryRunPublishTask(
           siblingPaths,
         );
         if (unpublished.length > 0) {
-          task.title = `Dry-run crates.io publish (${packagePath}) [skipped: sibling crate \`${unpublished.join("`, `")}\` not yet published]`;
+          task.title = t("task.dryRun.crates.skippedSibling", {
+            path: packagePath,
+            crate: unpublished.join("`, `"),
+          });
           return;
         }
       }
 
-      task.output = "Running cargo publish --dry-run...";
+      task.output = t("task.dryRun.crates.running");
       try {
         await withTokenRetry("crates", ctx, task, async () => {
           const reg = await cratesPackageRegistry(packagePath);
@@ -192,7 +212,10 @@ export function createCratesDryRunPublishTask(
             siblingPaths.map((p) => getCrateName(p)),
           );
           if (siblingNames.includes(match[1])) {
-            task.title = `Dry-run crates.io publish (${packagePath}) [skipped: sibling crate \`${match[1]}\` not yet published]`;
+            task.title = t("task.dryRun.crates.skippedSibling", {
+              path: packagePath,
+              crate: match[1],
+            });
             return;
           }
         }

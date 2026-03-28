@@ -1,6 +1,7 @@
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { EcosystemKey } from "../ecosystem/catalog.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
 
@@ -40,7 +41,7 @@ function dedupeRegistries(registries: RegistryType[]): RegistryType[] {
 
 export function ecosystemLabel(ecosystem: EcosystemKey): string {
   const label = ecosystemCatalog.get(ecosystem)?.label ?? ecosystem;
-  return `${label} ecosystem`;
+  return t("task.grouping.ecosystem", { label });
 }
 
 export function registryLabel(registry: RegistryType): string {

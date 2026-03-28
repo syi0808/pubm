@@ -36,6 +36,7 @@
       "name": "@pubm/core",
       "version": "0.4.12",
       "dependencies": {
+        "@formatjs/intl": "^4.1.5",
         "@listr2/prompt-adapter-enquirer": "^4.2.1",
         "@napi-rs/keyring": "^1.2.0",
         "chalk": "^5.6.2",
@@ -308,6 +309,20 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.3", "", { "os": "win32", "cpu": "x64" }, "sha512-4uJGhsxuptu3OcpVAzli+/gWusVGwZZHTlS63hh++ehExkVT8SgiEf7/uC/PclrPPkLhZqGgCTjd0VWLo6xMqA=="],
 
+    "@formatjs/bigdecimal": ["@formatjs/bigdecimal@0.2.0", "", {}, "sha512-GeaxHZbUoYvHL9tC5eltHLs+1zU70aPw0s7LwqgktIzF5oMhNY4o4deEtusJMsq7WFJF3Ye2zQEzdG8beVk73w=="],
+
+    "@formatjs/ecma402-abstract": ["@formatjs/ecma402-abstract@3.2.0", "", { "dependencies": { "@formatjs/bigdecimal": "0.2.0", "@formatjs/fast-memoize": "3.1.1", "@formatjs/intl-localematcher": "0.8.2" } }, "sha512-dHnqHgBo6GXYGRsepaE1wmsC2etaivOWd5VaJstZd+HI2zR3DCUjbDVZRtoPGkkXZmyHvBwrdEUuqfvzhF/DtQ=="],
+
+    "@formatjs/fast-memoize": ["@formatjs/fast-memoize@3.1.1", "", {}, "sha512-CbNbf+tlJn1baRnPkNePnBqTLxGliG6DDgNa/UtV66abwIjwsliPMOt0172tzxABYzSuxZBZfcp//qI8AvBWPg=="],
+
+    "@formatjs/icu-messageformat-parser": ["@formatjs/icu-messageformat-parser@3.5.3", "", { "dependencies": { "@formatjs/ecma402-abstract": "3.2.0", "@formatjs/icu-skeleton-parser": "2.1.3" } }, "sha512-HJWZ9S6JWey6iY5+YXE3Kd0ofWU1sC2KTTp56e1168g/xxWvVvr8k9G4fexIgwYV9wbtjY7kGYK5FjoWB3B2OQ=="],
+
+    "@formatjs/icu-skeleton-parser": ["@formatjs/icu-skeleton-parser@2.1.3", "", { "dependencies": { "@formatjs/ecma402-abstract": "3.2.0" } }, "sha512-9mFp8TJ166ZM2pcjKwsBWXrDnOJGT7vMEScVgLygUODPOsE8S6f/FHoacvrlHK1B4dYZk8vSCNruyPU64AfgJQ=="],
+
+    "@formatjs/intl": ["@formatjs/intl@4.1.5", "", { "dependencies": { "@formatjs/ecma402-abstract": "3.2.0", "@formatjs/fast-memoize": "3.1.1", "@formatjs/icu-messageformat-parser": "3.5.3", "intl-messageformat": "11.2.0" } }, "sha512-ybF/NIB/sIgP2oAq6KdJD6TQgUEJQL7F/ry4d4AbJ6zV0dfkwpQqycnIgpvChM9wRQ6IMr3XEdFevNjMNlC4WA=="],
+
+    "@formatjs/intl-localematcher": ["@formatjs/intl-localematcher@0.8.2", "", { "dependencies": { "@formatjs/fast-memoize": "3.1.1" } }, "sha512-q05KMYGJLyqFNFtIb8NhWLF5X3aK/k0wYt7dnRFuy6aLQL+vUwQ1cg5cO4qawEiINybeCPXAWlprY2mSBjSXAQ=="],
+
     "@istanbuljs/schema": ["@istanbuljs/schema@0.1.3", "", {}, "sha512-ZXRY4jNvVgSVQ8DL3LTcakaAtXwTVUxE81hslsyD2AtoXW/wVob10HkOJ1X/pAlcI7D+2YoZKg5do8G/w6RYgA=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
@@ -529,6 +544,8 @@
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 
     "html-escaper": ["html-escaper@2.0.2", "", {}, "sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg=="],
+
+    "intl-messageformat": ["intl-messageformat@11.2.0", "", { "dependencies": { "@formatjs/ecma402-abstract": "3.2.0", "@formatjs/fast-memoize": "3.1.1", "@formatjs/icu-messageformat-parser": "3.5.3" } }, "sha512-IhghAA8n4KSlXuWKzYsWyWb82JoYTzShfyvdSF85oJPnNOjvv4kAo7S7Jtkm3/vJ53C7dQNRO+Gpnj3iWgTjBQ=="],
 
     "is-fullwidth-code-point": ["is-fullwidth-code-point@5.1.0", "", { "dependencies": { "get-east-asian-width": "^1.3.1" } }, "sha512-5XHYaSyiqADb4RnZ1Bdad6cPp8Toise4TzEjcOYDHZkTCbKgiUl7WTUCpNWHuxmDt91wnsZBc9xinNzopv3JMQ=="],
 

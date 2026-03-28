@@ -3,6 +3,7 @@ import type { ChangelogEntry } from "@pubm/core";
 import {
   generateChangelog,
   readChangesets,
+  t,
   ui,
   writeChangelogToFile,
 } from "@pubm/core";
@@ -58,21 +59,21 @@ export function runChangelogCommand(
 export function registerChangelogCommand(parent: Command): void {
   parent
     .command("changelog")
-    .description("Generate CHANGELOG from pending changesets")
-    .option("--dry-run", "Preview without writing to file")
-    .option("--version <ver>", "Version header for the changelog section")
+    .description(t("cmd.changelog.description"))
+    .option("--dry-run", t("cmd.changelog.optionDryRun"))
+    .option("--version <ver>", t("cmd.changelog.optionVersion"))
     .action((options: { dryRun?: boolean; version?: string }) => {
       const result = runChangelogCommand(process.cwd(), options);
 
       if (!result) {
-        ui.info("No pending changesets to generate changelog from.");
+        ui.info(t("cmd.changelog.noChangesets"));
         return;
       }
 
       console.log(result);
 
       if (!options.dryRun) {
-        ui.success("Changelog written to CHANGELOG.md");
+        ui.success(t("cmd.changelog.written"));
       }
     });
 }

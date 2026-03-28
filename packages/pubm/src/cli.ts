@@ -5,6 +5,7 @@ import {
   consoleError,
   createContext,
   getStatus,
+  initI18n,
   loadConfig,
   notifyNewVersion,
   PUBM_VERSION,
@@ -13,6 +14,7 @@ import {
   resolveConfig,
   resolveOptions,
   resolvePhases,
+  t,
   ui,
   validateOptions,
 } from "@pubm/core";
@@ -60,6 +62,7 @@ interface CliOptions {
   registry?: string;
   saveToken: boolean;
   dangerouslyAllowUnpublish?: boolean;
+  locale?: string;
 }
 
 type ResolvedCliOptionsInput = Omit<CliOptions, "version">;
@@ -97,14 +100,21 @@ export function resolveCliOptions(
 
 let resolvedConfig: ResolvedPubmConfig;
 
+/* istanbul ignore next -- argv parsing for early locale init before Commander parses */
+function parseArgvForLocale(argv: string[]): string | undefined {
+  const idx = argv.indexOf("--locale");
+  return idx !== -1 && idx + 1 < argv.length ? argv[idx + 1] : undefined;
+}
+
 export function createProgram(): Command {
   const program = new Command("pubm");
 
-  program.description("Publish packages to registries");
+  program.description(t("cli.description"));
   program.version(PUBM_VERSION);
   program.enablePositionalOptions();
-  program.option("--no-color", "Disable colored output");
-  program.option("--config <path>", "Path to config file");
+  program.option("--no-color", t("cli.option.noColor"));
+  program.option("--config <path>", t("cli.option.config"));
+  program.option("--locale <locale>", t("cli.option.locale"));
   program.hook("preAction", (thisCommand) => {
     if (!thisCommand.opts().color) {
       process.env.NO_COLOR = "1";
@@ -124,54 +134,33 @@ export function createProgram(): Command {
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program
-    .argument("[version]", `Version: ${RELEASE_TYPES.join(" | ")} | 1.2.3`)
-    .option(
-      "--test-script <script>",
-      "The npm script to run tests before publishing",
-      "test",
+    .argument(
+      "[version]",
+      t("cli.argument.version", { types: RELEASE_TYPES.join(" | ") }),
     )
-    .option(
-      "--build-script <script>",
-      "The npm script to run build before publishing",
-      "build",
-    )
-    .option("--mode <mode>", "Release mode: local (default) or ci")
-    .option(
-      "--phase <phase>",
-      "Pipeline phase: prepare or publish (local mode runs both by default)",
-    )
-    .option(
-      "-d, --dry-run",
-      "Validate without side effects (version bump rolls back, publish uses registry dry-run)",
-    )
-    .option("--release-draft", "Create GitHub Release as draft (not published)")
-    .option("-b, --branch <name>", "Name of the release branch", "main")
-    .option("-a, --any-branch", "Allow publishing from any branch")
-    .option("--no-pre-check", "Skip prerequisites check task")
-    .option("--no-condition-check", "Skip required conditions check task")
-    .option("--no-tests", "Skip running tests before publishing")
-    .option("--no-build", "Skip build before publishing")
-    .option("--no-publish", "Skip publishing task")
-    .option("--skip-release", "Skip GitHub Release creation")
-    .option(
-      "--snapshot [tag]",
-      "Publish a temporary snapshot version (default tag: snapshot)",
-    )
-    .option("-t, --tag <name>", "Publish under a specific dist-tag", "latest")
-    .option("-c, --contents <path>", "Subdirectory to publish")
-    .option(
-      "--no-save-token",
-      "Do not save jsr tokens (request the token each time)",
-    )
+    .option("--test-script <script>", t("cli.option.testScript"), "test")
+    .option("--build-script <script>", t("cli.option.buildScript"), "build")
+    .option("--mode <mode>", t("cli.option.mode"))
+    .option("--phase <phase>", t("cli.option.phase"))
+    .option("-d, --dry-run", t("cli.option.dryRun"))
+    .option("--release-draft", t("cli.option.releaseDraft"))
+    .option("-b, --branch <name>", t("cli.option.branch"), "main")
+    .option("-a, --any-branch", t("cli.option.anyBranch"))
+    .option("--no-pre-check", t("cli.option.noPreCheck"))
+    .option("--no-condition-check", t("cli.option.noConditionCheck"))
+    .option("--no-tests", t("cli.option.noTests"))
+    .option("--no-build", t("cli.option.noBuild"))
+    .option("--no-publish", t("cli.option.noPublish"))
+    .option("--skip-release", t("cli.option.skipRelease"))
+    .option("--snapshot [tag]", t("cli.option.snapshot"))
+    .option("-t, --tag <name>", t("cli.option.tag"), "latest")
+    .option("-c, --contents <path>", t("cli.option.contents"))
+    .option("--no-save-token", t("cli.option.noSaveToken"))
     .option(
       "--dangerously-allow-unpublish",
-      "Allow registry unpublish/yank during rollback in non-TTY environments",
+      t("cli.option.dangerouslyAllowUnpublish"),
     )
-    .option(
-      "--registry <registries>",
-      "Target registries for publish\n        registry can be npm | jsr | https://url.for.private-registries",
-      "npm,jsr",
-    )
+    .option("--registry <registries>", t("cli.option.registry"), "npm,jsr")
     .action(
       async (
         nextVersion: string | undefined,
@@ -367,9 +356,7 @@ export function createProgram(): Command {
             }
 
             if (!ctx.runtime.versionPlan) {
-              throw new Error(
-                "Version must be set in the CI environment. Please define the version before proceeding.",
-              );
+              throw new Error(t("error.cli.versionRequired"));
             }
           } else {
             // Local mode: interactive prompts
@@ -388,13 +375,17 @@ export function createProgram(): Command {
     );
 
   program.addHelpText("after", () => {
-    return `\n  Version can be:\n    ${RELEASE_TYPES.join(" | ")} | 1.2.3\n`;
+    return t("cli.helpText.version", { types: RELEASE_TYPES.join(" | ") });
   });
 
   return program;
 }
 
 await reporter.wrapCommand(async () => {
+  // Early locale init so Commander help text can be translated
+  /* istanbul ignore next -- bootstrap: covered by e2e tests */
+  initI18n({ flag: parseArgvForLocale(process.argv) });
+
   const program = createProgram();
   const cwd = process.cwd();
 
@@ -406,6 +397,13 @@ await reporter.wrapCommand(async () => {
   // Single config load + resolve for entire CLI session
   const raw = await loadConfig(cwd, configPath);
   const config = await resolveConfig(raw ?? {}, cwd);
+
+  // Full locale init with config-level locale override
+  /* istanbul ignore next -- bootstrap: covered by e2e tests */
+  initI18n({
+    flag: parseArgvForLocale(process.argv),
+    configLocale: config?.locale,
+  });
 
   // Register plugin commands
   for (const plugin of config.plugins) {

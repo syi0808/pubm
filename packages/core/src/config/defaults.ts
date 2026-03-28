@@ -1,4 +1,5 @@
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
+import { t } from "../i18n/index.js";
 import { discoverPackages } from "../monorepo/discover.js";
 import {
   registerPrivateRegistry,
@@ -57,10 +58,13 @@ export async function resolveConfig(
     for (const pkg of config.packages) {
       if (pkg.ecosystem && !ecosystemCatalog.get(pkg.ecosystem)) {
         throw new Error(
-          `Unknown ecosystem "${pkg.ecosystem}". Registered: ${ecosystemCatalog
-            .all()
-            .map((d) => d.key)
-            .join(", ")}`,
+          t("error.config.unknownEcosystem", {
+            ecosystem: pkg.ecosystem,
+            list: ecosystemCatalog
+              .all()
+              .map((d) => d.key)
+              .join(", "),
+          }),
         );
       }
     }
@@ -131,7 +135,5 @@ function resolveEcosystemKey(
     if (descriptor) return descriptor.ecosystem;
   }
 
-  throw new Error(
-    `Cannot infer ecosystem for package. Specify "ecosystem" explicitly.`,
-  );
+  throw new Error(t("error.config.cannotInferEcosystem"));
 }

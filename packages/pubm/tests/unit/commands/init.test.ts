@@ -49,14 +49,18 @@ vi.mock("../../../src/commands/setup-skills.js", () => ({
   runSetupSkills: vi.fn(),
 }));
 
-vi.mock("@pubm/core", () => ({
-  ui: {
-    warn: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-    info: vi.fn(),
-  },
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    ui: {
+      warn: vi.fn(),
+      error: vi.fn(),
+      success: vi.fn(),
+      info: vi.fn(),
+    },
+  };
+});
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 

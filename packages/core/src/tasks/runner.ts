@@ -30,6 +30,7 @@ import type { PubmContext } from "../context.js";
 import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
+import { t } from "../i18n/index.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
 import {
   collectWorkspaceVersions,
@@ -189,7 +190,10 @@ function createPublishTaskForPath(
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createPublishTask) {
-    return { title: `Publish to ${registryKey}`, task: async () => {} };
+    return {
+      title: t("task.publish.registryLabel", { registry: registryKey }),
+      task: async () => {},
+    };
   }
   return descriptor.taskFactory.createPublishTask(packagePath);
 }
@@ -297,7 +301,10 @@ function createDryRunTaskForPath(
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createDryRunTask) {
-    return { title: `Dry-run ${registryKey}`, task: async () => {} };
+    return {
+      title: t("task.dryRun.registryLabel", { registry: registryKey }),
+      task: async () => {},
+    };
   }
   return descriptor.taskFactory.createDryRunTask(packagePath, siblingPaths);
 }
@@ -607,11 +614,11 @@ export async function run(ctx: PubmContext): Promise<void> {
         [
           {
             skip: ctx.options.skipTests,
-            title: "Running tests",
+            title: t("task.test.title"),
             task: async (ctx, task): Promise<void> => {
               const packageManager = await getPackageManager();
               const command = `${packageManager} run ${ctx.options.testScript}`;
-              task.title = `Running tests (${command})`;
+              task.title = t("task.test.titleWithCommand", { command });
               task.output = `Executing \`${command}\``;
               try {
                 await exec(packageManager, ["run", ctx.options.testScript], {
@@ -619,7 +626,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 });
               } catch (error) {
                 throw new AbstractError(
-                  `Test script '${ctx.options.testScript}' failed.`,
+                  t("error.test.failed", { script: ctx.options.testScript }),
                   { cause: error },
                 );
               }
@@ -627,11 +634,11 @@ export async function run(ctx: PubmContext): Promise<void> {
           },
           {
             skip: ctx.options.skipBuild,
-            title: "Building the project",
+            title: t("task.build.title"),
             task: async (ctx, task): Promise<void> => {
               const packageManager = await getPackageManager();
               const command = `${packageManager} run ${ctx.options.buildScript}`;
-              task.title = `Building the project (${command})`;
+              task.title = t("task.build.titleWithCommand", { command });
               task.output = `Executing \`${command}\``;
               try {
                 await exec(packageManager, ["run", ctx.options.buildScript], {
@@ -639,14 +646,14 @@ export async function run(ctx: PubmContext): Promise<void> {
                 });
               } catch (error) {
                 throw new AbstractError(
-                  `Build script '${ctx.options.buildScript}' failed.`,
+                  t("error.build.failed", { script: ctx.options.buildScript }),
                   { cause: error },
                 );
               }
             },
           },
           {
-            title: "Publishing snapshot",
+            title: t("task.snapshot.title"),
             task: async (ctx, task): Promise<void> => {
               const snapshotTag =
                 typeof ctx.options.snapshot === "string"
@@ -675,8 +682,12 @@ export async function run(ctx: PubmContext): Promise<void> {
                 version: snapshotVersion,
                 packagePath: ctx.config.packages[0].path,
               };
-              task.title = `Publishing snapshot (${snapshotVersion})`;
-              task.output = `Snapshot version: ${snapshotVersion}`;
+              task.title = t("task.snapshot.titleWithVersion", {
+                version: snapshotVersion,
+              });
+              task.output = t("task.snapshot.version", {
+                version: snapshotVersion,
+              });
 
               // Temporarily replace manifest version
               const snapshotVersions = new Map([
@@ -686,7 +697,9 @@ export async function run(ctx: PubmContext): Promise<void> {
 
               try {
                 // Publish with snapshot tag
-                task.output = `Publishing to registries with tag "${snapshotTag}"...`;
+                task.output = t("task.snapshot.publishing", {
+                  tag: snapshotTag,
+                });
                 ctx.runtime.tag = snapshotTag;
 
                 const publishTasks = await collectPublishTasks(ctx);
@@ -702,24 +715,26 @@ export async function run(ctx: PubmContext): Promise<void> {
                 await writeVersions(ctx, restoreVersions);
               }
 
-              task.output = `Published ${snapshotVersion}`;
+              task.output = t("task.snapshot.published", {
+                version: snapshotVersion,
+              });
             },
           },
           {
-            title: "Creating and pushing snapshot tag",
+            title: t("task.snapshot.createTag"),
             skip: () => dryRun,
             task: async (ctx, task): Promise<void> => {
               const git = new Git();
               const snapshotPlan = requireVersionPlan(ctx);
               const tagName = `v${snapshotPlan.mode !== "independent" ? snapshotPlan.version : ""}`;
-              task.output = `Creating tag ${tagName}...`;
+              task.output = t("task.snapshot.creatingTag", { tag: tagName });
 
               const headCommit = await git.latestCommit();
               await git.createTag(tagName, headCommit);
 
-              task.output = `Pushing tag ${tagName}...`;
+              task.output = t("task.snapshot.pushingTag", { tag: tagName });
               await git.push("--tags");
-              task.output = `Tag ${tagName} pushed.`;
+              task.output = t("task.snapshot.tagPushed", { tag: tagName });
             },
           },
         ],
@@ -738,7 +753,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       }
 
       console.log(
-        `\n\n📸 Successfully published snapshot ${parts.join(", ")} ${ui.chalk.blueBright(ctx.runtime.versionPlan?.mode !== "independent" ? (ctx.runtime.versionPlan?.version ?? "") : "")} 📸\n`,
+        `\n\n📸 ${t("task.snapshot.success", { parts: parts.join(", "), version: ui.chalk.blueBright(ctx.runtime.versionPlan?.mode !== "independent" ? (ctx.runtime.versionPlan?.version ?? "") : "") })} 📸\n`,
       );
 
       return;
@@ -747,7 +762,7 @@ export async function run(ctx: PubmContext): Promise<void> {
     if (mode === "ci" && hasPrepare) {
       // CI prepare: Collect tokens (interactive)
       await createListr<PubmContext>({
-        title: "Collecting registry tokens",
+        title: t("task.tokens.collecting"),
         task: async (ctx, task): Promise<void> => {
           const registries = collectRegistries(ctx.config);
           const tokens = await collectTokens(registries, task);
@@ -816,7 +831,7 @@ export async function run(ctx: PubmContext): Promise<void> {
 
       if (earlyAuthRegistries.length > 0 && ctx.runtime.promptEnabled) {
         await createListr<PubmContext>({
-          title: "Ensuring registry authentication",
+          title: t("task.tokens.ensuring"),
           task: async (_ctx, task): Promise<void> => {
             const tokens = await collectTokens(earlyAuthRegistries, task);
             cleanupEnv = injectTokensToEnv(tokens);
@@ -832,7 +847,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
       if (pluginCreds.length > 0) {
         await createListr<PubmContext>({
-          title: "Collecting plugin credentials",
+          title: t("task.tokens.collectingPlugin"),
           task: async (ctx, task): Promise<void> => {
             const pluginTokens = await collectPluginCredentials(
               pluginCreds,
@@ -858,7 +873,7 @@ export async function run(ctx: PubmContext): Promise<void> {
       const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
       if (pluginCreds.length > 0) {
         await createListr<PubmContext>({
-          title: "Collecting plugin credentials",
+          title: t("task.tokens.collectingPlugin"),
           task: async (ctx, task): Promise<void> => {
             const pluginTokens = await collectPluginCredentials(
               pluginCreds,
@@ -884,13 +899,13 @@ export async function run(ctx: PubmContext): Promise<void> {
         // === PREPARE PHASE ===
         {
           skip: !hasPrepare || ctx.options.skipTests,
-          title: "Running tests",
+          title: t("task.test.title"),
           task: async (ctx, task): Promise<void> => {
-            task.output = "Running plugin beforeTest hooks...";
+            task.output = t("task.test.runningBeforeHooks");
             await ctx.runtime.pluginRunner.runHook("beforeTest", ctx);
             const packageManager = await getPackageManager();
             const command = `${packageManager} run ${ctx.options.testScript}`;
-            task.title = `Running tests (${command})`;
+            task.title = t("task.test.titleWithCommand", { command });
             const liveOutput = shouldRenderLiveCommandOutput(ctx)
               ? createLiveCommandOutput(task, command)
               : undefined;
@@ -905,25 +920,28 @@ export async function run(ctx: PubmContext): Promise<void> {
             } catch (error) {
               liveOutput?.finish();
               throw new AbstractError(
-                `Test script '${ctx.options.testScript}' failed. Run \`${command}\` locally to see full output.`,
+                t("error.test.failedWithHint", {
+                  script: ctx.options.testScript,
+                  command,
+                }),
                 { cause: error },
               );
             }
             liveOutput?.finish();
-            task.output = "Running plugin afterTest hooks...";
+            task.output = t("task.test.runningAfterHooks");
             await ctx.runtime.pluginRunner.runHook("afterTest", ctx);
-            task.output = `Completed \`${command}\``;
+            task.output = t("task.test.completed", { command });
           },
         },
         {
           skip: !hasPrepare || ctx.options.skipBuild,
-          title: "Building the project",
+          title: t("task.build.title"),
           task: async (ctx, task): Promise<void> => {
-            task.output = "Running plugin beforeBuild hooks...";
+            task.output = t("task.build.runningBeforeHooks");
             await ctx.runtime.pluginRunner.runHook("beforeBuild", ctx);
             const packageManager = await getPackageManager();
             const command = `${packageManager} run ${ctx.options.buildScript}`;
-            task.title = `Building the project (${command})`;
+            task.title = t("task.build.titleWithCommand", { command });
             const liveOutput = shouldRenderLiveCommandOutput(ctx)
               ? createLiveCommandOutput(task, command)
               : undefined;
@@ -938,22 +956,27 @@ export async function run(ctx: PubmContext): Promise<void> {
             } catch (error) {
               liveOutput?.finish();
               throw new AbstractError(
-                `Build script '${ctx.options.buildScript}' failed. Run \`${command}\` locally to see full output.`,
+                t("error.build.failedWithHint", {
+                  script: ctx.options.buildScript,
+                  command,
+                }),
                 { cause: error },
               );
             }
             liveOutput?.finish();
-            task.output = "Running plugin afterBuild hooks...";
+            task.output = t("task.build.runningAfterHooks");
             await ctx.runtime.pluginRunner.runHook("afterBuild", ctx);
-            task.output = `Completed \`${command}\``;
+            task.output = t("task.build.completed", { command });
           },
         },
         {
-          title: "Bumping version",
+          title: t("task.version.title"),
           skip: !hasPrepare,
           task: async (ctx, task): Promise<void> => {
-            task.title = `Bumping version (${formatVersionSummary(ctx)})`;
-            task.output = "Running plugin beforeVersion hooks...";
+            task.title = t("task.version.titleWithSummary", {
+              summary: formatVersionSummary(ctx),
+            });
+            task.output = t("task.version.runningBeforeHooks");
             await ctx.runtime.pluginRunner.runHook("beforeVersion", ctx);
             const git = new Git();
 
@@ -1017,7 +1040,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                     .prompt(ListrEnquirerPromptAdapter)
                     .run<boolean>({
                       type: "toggle",
-                      message: `The Git tag '${tagName}' already exists. Delete it?`,
+                      message: t("task.version.tagExists", { tag: tagName }),
                       enabled: "Yes",
                       disabled: "No",
                     });
@@ -1025,23 +1048,23 @@ export async function run(ctx: PubmContext): Promise<void> {
                     await git.deleteTag(tagName);
                   } else {
                     throw new AbstractError(
-                      `Git tag '${tagName}' already exists.`,
+                      t("error.version.tagExists", { tag: tagName }),
                     );
                   }
                 } else {
                   throw new AbstractError(
-                    `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                    t("error.version.tagExistsManual", { tag: tagName }),
                   );
                 }
               }
 
-              task.output = `Creating release commit ${tagName}...`;
+              task.output = t("task.version.creatingCommit", { tag: tagName });
               const singleCommitMsg = `Version Packages\n\n${ctx.config.packages
                 .map((pkg) => `- ${pkg.name}: ${plan.version}`)
                 .join("\n")}`;
               const commit = await git.commit(singleCommitMsg);
               registerCommitRollback(ctx);
-              task.output = "Creating tag...";
+              task.output = t("task.version.creatingTags");
               await git.createTag(tagName, commit);
               registerTagRollback(ctx, tagName);
             } else if (plan.mode === "fixed") {
@@ -1097,7 +1120,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                     .prompt(ListrEnquirerPromptAdapter)
                     .run<boolean>({
                       type: "toggle",
-                      message: `The Git tag '${tagName}' already exists. Delete it?`,
+                      message: t("task.version.tagExists", { tag: tagName }),
                       enabled: "Yes",
                       disabled: "No",
                     });
@@ -1105,17 +1128,17 @@ export async function run(ctx: PubmContext): Promise<void> {
                     await git.deleteTag(tagName);
                   } else {
                     throw new AbstractError(
-                      `Git tag '${tagName}' already exists.`,
+                      t("error.version.tagExists", { tag: tagName }),
                     );
                   }
                 } else {
                   throw new AbstractError(
-                    `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                    t("error.version.tagExistsManual", { tag: tagName }),
                   );
                 }
               }
 
-              task.output = `Creating release commit ${tagName}...`;
+              task.output = t("task.version.creatingCommit", { tag: tagName });
               const fixedCommitMsg = `Version Packages\n\n${[...plan.packages]
                 .map(
                   ([pkgPath]) =>
@@ -1124,7 +1147,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 .join("\n")}`;
               const commit = await git.commit(fixedCommitMsg);
               registerCommitRollback(ctx);
-              task.output = "Creating tag...";
+              task.output = t("task.version.creatingTags");
               await git.createTag(tagName, commit);
               registerTagRollback(ctx, tagName);
             } else {
@@ -1201,7 +1224,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       .prompt(ListrEnquirerPromptAdapter)
                       .run<boolean>({
                         type: "toggle",
-                        message: `The Git tag '${tagName}' already exists. Delete it?`,
+                        message: t("task.version.tagExists", { tag: tagName }),
                         enabled: "Yes",
                         disabled: "No",
                       });
@@ -1209,12 +1232,12 @@ export async function run(ctx: PubmContext): Promise<void> {
                       await git.deleteTag(tagName);
                     } else {
                       throw new AbstractError(
-                        `Git tag '${tagName}' already exists.`,
+                        t("error.version.tagExists", { tag: tagName }),
                       );
                     }
                   } else {
                     throw new AbstractError(
-                      `Git tag '${tagName}' already exists. Remove it manually or use a different version.`,
+                      t("error.version.tagExistsManual", { tag: tagName }),
                     );
                   }
                 }
@@ -1227,12 +1250,12 @@ export async function run(ctx: PubmContext): Promise<void> {
                     `- ${getPackageName(ctx, pkgPath)}: ${ver}`,
                 )
                 .join("\n")}`;
-              task.output = "Creating release commit...";
+              task.output = t("task.version.creatingCommitGeneric");
               const commit = await git.commit(commitMsg);
               registerCommitRollback(ctx);
 
               // Create per-package tags
-              task.output = "Creating tags...";
+              task.output = t("task.version.creatingTags");
               for (const [pkgPath, pkgVersion] of plan.packages) {
                 if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                 const pkgName = getPackageName(ctx, pkgPath);
@@ -1247,16 +1270,18 @@ export async function run(ctx: PubmContext): Promise<void> {
         // === PUBLISH PHASE ===
         {
           skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
-          title: "Publishing",
+          title: t("task.publish.title"),
           task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
             parentTask.output = "Running plugin beforePublish hooks...";
             await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
             await resolveWorkspaceProtocols(ctx);
 
             const publishTasks = await collectPublishTasks(ctx);
-            parentTask.title = `Publishing (${countPublishTargets(ctx)} targets)`;
+            parentTask.title = t("task.publish.titleWithTargets", {
+              count: countPublishTargets(ctx),
+            });
             parentTask.output = formatRegistryGroupSummary(
-              "Concurrent publish tasks",
+              t("task.publish.concurrent"),
               ctx,
             );
 
@@ -1271,7 +1296,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             !!ctx.options.skipPublish ||
             dryRun ||
             !ctx.runtime.workspaceBackups?.size,
-          title: "Restoring workspace protocols",
+          title: t("task.publish.restoreProtocols"),
           task: (ctx) => {
             const backups = ctx.runtime.workspaceBackups;
             if (!backups) {
@@ -1283,28 +1308,30 @@ export async function run(ctx: PubmContext): Promise<void> {
         },
         {
           skip: (ctx) => !hasPublish || !!ctx.options.skipPublish || dryRun,
-          title: "Running post-publish hooks",
+          title: t("task.publish.runningAfterHooks"),
           task: async (ctx, task): Promise<void> => {
-            task.output = "Running plugin afterPublish hooks...";
+            task.output = t("task.publish.runningAfterHooksDetail");
             await ctx.runtime.pluginRunner.runHook("afterPublish", ctx);
-            task.output = "Completed plugin afterPublish hooks.";
+            task.output = t("task.publish.completedAfterHooks");
           },
         },
 
         // === DRY-RUN PUBLISH VALIDATION (for --dry-run OR ci prepare) ===
         {
           skip: !dryRun && !(mode === "ci" && hasPrepare),
-          title: "Validating publish (dry-run)",
+          title: t("task.dryRunValidation.title"),
           task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
             await resolveWorkspaceProtocols(ctx);
             await applyVersionsForDryRun(ctx);
 
             const dryRunTasks = await collectDryRunPublishTasks(ctx);
-            parentTask.title = `Validating publish (${countRegistryTargets(
-              collectEcosystemRegistryGroups(ctx.config),
-            )} targets)`;
+            parentTask.title = t("task.dryRunValidation.titleWithTargets", {
+              count: countRegistryTargets(
+                collectEcosystemRegistryGroups(ctx.config),
+              ),
+            });
             parentTask.output = formatRegistryGroupSummary(
-              "Dry-run publish tasks",
+              t("task.dryRunValidation.concurrent"),
               ctx,
             );
 
@@ -1317,7 +1344,7 @@ export async function run(ctx: PubmContext): Promise<void> {
           skip: (ctx) =>
             (!dryRun && !(mode === "ci" && hasPrepare)) ||
             !ctx.runtime.workspaceBackups?.size,
-          title: "Restoring workspace protocols",
+          title: t("task.dryRunValidation.restoreProtocols"),
           task: async (ctx) => {
             const backups = ctx.runtime.workspaceBackups;
             if (!backups) {
@@ -1345,7 +1372,7 @@ export async function run(ctx: PubmContext): Promise<void> {
         },
         {
           skip: (ctx) => !dryRun || !ctx.runtime.dryRunVersionBackup?.size,
-          title: "Restoring original versions (dry-run)",
+          title: t("task.dryRunValidation.restoringVersions"),
           task: async (ctx): Promise<void> => {
             const backupVersions = ctx.runtime.dryRunVersionBackup;
             if (!backupVersions) {
@@ -1360,22 +1387,20 @@ export async function run(ctx: PubmContext): Promise<void> {
 
         // === PUSH & RELEASE ===
         {
-          title: "Pushing tags to GitHub",
+          title: t("task.push.title"),
           skip: !hasPrepare || dryRun,
           task: async (ctx, task): Promise<void> => {
-            task.output = "Running plugin beforePush hooks...";
+            task.output = t("task.push.runningBeforeHooks");
             await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
             const git = new Git();
             const prePushSha = await git.revParse("HEAD~1");
-            task.output = "Executing `git push --follow-tags`...";
+            task.output = t("task.push.executing");
 
             const result = await git.push("--follow-tags");
 
             if (!result) {
-              task.title +=
-                " (Only tags were pushed because the release branch is protected. Please push the branch manually.)";
-              task.output =
-                "Protected branch detected. Falling back to `git push --tags`.";
+              task.title += t("task.push.protectedBranch");
+              task.output = t("task.push.protectedFallback");
 
               await git.push("--tags");
             }
@@ -1388,7 +1413,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const pkgName = getPackageName(ctx, pkgPath);
                 const tag = `${pkgName}@${pkgVersion}`;
                 ctx.runtime.rollback.add({
-                  label: `Delete remote tag ${tag}`,
+                  label: t("task.push.deleteRemoteTag", { tag }),
                   fn: async () => {
                     const g = new Git();
                     await g.pushDelete("origin", tag);
@@ -1398,7 +1423,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             } else {
               const tagName = `v${plan.version}`;
               ctx.runtime.rollback.add({
-                label: `Delete remote tag ${tagName}`,
+                label: t("task.push.deleteRemoteTag", { tag: tagName }),
                 fn: async () => {
                   const g = new Git();
                   await g.pushDelete("origin", tagName);
@@ -1410,7 +1435,7 @@ export async function run(ctx: PubmContext): Promise<void> {
             if (result) {
               const branch = await git.branch();
               ctx.runtime.rollback.add({
-                label: `Force push to revert remote ${branch}`,
+                label: t("task.push.forceRevert", { branch }),
                 fn: async () => {
                   const g = new Git();
                   await g.forcePush("origin", `${prePushSha}:${branch}`);
@@ -1419,15 +1444,15 @@ export async function run(ctx: PubmContext): Promise<void> {
               });
             }
 
-            task.output = "Running plugin afterPush hooks...";
+            task.output = t("task.push.runningAfterHooks");
             await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
-            task.output = "Push step completed.";
+            task.output = t("task.push.completed");
           },
         },
         {
           skip: (ctx) =>
             !hasPublish || !!ctx.options.skipReleaseDraft || dryRun,
-          title: "Creating GitHub Release",
+          title: t("task.release.title"),
           task: async (ctx, task): Promise<void> => {
             const plan = requireVersionPlan(ctx);
 
@@ -1443,15 +1468,14 @@ export async function run(ctx: PubmContext): Promise<void> {
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<string>({
                   type: "select",
-                  message:
-                    "No GitHub token found. How would you like to create the release?",
+                  message: t("task.release.noTokenPrompt"),
                   choices: [
-                    { name: "enter", message: "Enter a GitHub token" },
+                    { name: "enter", message: t("task.release.enterToken") },
                     {
                       name: "browser",
-                      message: "Open release draft in browser",
+                      message: t("task.release.openDraft"),
                     },
-                    { name: "skip", message: "Skip release creation" },
+                    { name: "skip", message: t("task.release.skip") },
                   ],
                 });
 
@@ -1460,7 +1484,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   .prompt(ListrEnquirerPromptAdapter)
                   .run<string>({
                     type: "password",
-                    message: "GitHub personal access token:",
+                    message: t("task.release.tokenPrompt"),
                   });
                 if (token) {
                   process.env.GITHUB_TOKEN = token;
@@ -1468,7 +1492,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   hasToken = true;
                 }
               } else if (answer === "skip") {
-                task.skip("Skipped by user.");
+                task.skip(t("task.release.skippedByUser"));
                 return;
               }
               // "browser" falls through to browser fallback below
@@ -1476,7 +1500,9 @@ export async function run(ctx: PubmContext): Promise<void> {
 
             if (hasToken) {
               // Create GitHub Release via API
-              task.title = `Creating GitHub Release (${formatVersionSummary(ctx)})`;
+              task.title = t("task.release.titleWithVersion", {
+                summary: formatVersionSummary(ctx),
+              });
 
               if (plan.mode === "independent") {
                 // Per-package releases
@@ -1484,7 +1510,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   if (isReleaseExcluded(ctx.config, pkgPath)) continue;
                   const pkgName = getPackageName(ctx, pkgPath);
                   const tag = `${pkgName}@${pkgVersion}`;
-                  task.output = `Creating release for ${tag}...`;
+                  task.output = t("task.release.creating", { tag });
 
                   let changelogBody: string | undefined;
                   const pkgConfig = ctx.config.packages.find(
@@ -1538,11 +1564,13 @@ export async function run(ctx: PubmContext): Promise<void> {
                         })),
                       );
                     }
-                    task.output = `Release created: ${result.releaseUrl}`;
+                    task.output = t("task.release.created", {
+                      url: result.releaseUrl,
+                    });
                     if (result.releaseId) {
                       const releaseId = result.releaseId;
                       ctx.runtime.rollback.add({
-                        label: `Delete GitHub Release ${tag}`,
+                        label: t("task.release.deleteRelease", { tag }),
                         fn: async () => {
                           await deleteGitHubRelease(releaseId);
                         },
@@ -1553,7 +1581,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                       result,
                     );
                   } else {
-                    task.output = `Release already exists for ${tag}, skipped.`;
+                    task.output = t("task.release.alreadyExists", { tag });
                   }
                   if (tempDir)
                     rmSync(tempDir, { recursive: true, force: true });
@@ -1666,9 +1694,10 @@ export async function run(ctx: PubmContext): Promise<void> {
             } else {
               // No token available: open release draft URL in the browser
               const git = new Git();
-              task.title = `Creating release draft on GitHub (${formatVersionSummary(ctx)})`;
-              task.output =
-                "Resolving repository metadata for the release draft...";
+              task.title = t("task.release.draftTitle", {
+                summary: formatVersionSummary(ctx),
+              });
+              task.output = t("task.release.resolvingMetadata");
 
               const repositoryUrl = await git.repository();
 
@@ -1704,7 +1733,7 @@ export async function run(ctx: PubmContext): Promise<void> {
                   task.title += ` ${linkUrl}`;
 
                   if (first) {
-                    task.output = `Opening release draft for ${tag}...`;
+                    task.output = t("task.release.openingDraft", { tag });
                     await openUrl(releaseDraftUrl.toString());
                     first = false;
                   }
@@ -1715,7 +1744,10 @@ export async function run(ctx: PubmContext): Promise<void> {
                 const lastRev =
                   (await git.previousTag(tag)) || (await git.firstCommit());
                 const commits = (await git.commits(lastRev, tag)).slice(1);
-                task.output = `Collected ${commits.length} commits for ${tag}.`;
+                task.output = t("task.release.collectedCommits", {
+                  count: commits.length,
+                  tag,
+                });
 
                 let body = commits
                   .map(
@@ -1763,14 +1795,12 @@ export async function run(ctx: PubmContext): Promise<void> {
 
     if (mode === "ci" && hasPrepare && !hasPublish) {
       cleanupEnv?.();
-      console.log(
-        `\n\n✅ CI prepare completed. Release tags pushed — CI should pick up the publish.\n`,
-      );
+      console.log(`\n\n✅ ${t("output.ciPrepareComplete")}\n`);
     } else if (dryRun) {
-      console.log(`\n\n✅ Dry-run completed. No side effects were applied.\n`);
+      console.log(`\n\n✅ ${t("output.dryRunComplete")}\n`);
     } else {
       console.log(
-        `\n\n🚀 Successfully published ${parts.join(", ")} ${ui.chalk.blueBright(formatVersionSummary(ctx))} 🚀\n`,
+        `\n\n🚀 ${t("output.publishSuccess", { parts: parts.join(", "), version: ui.chalk.blueBright(formatVersionSummary(ctx)) })} 🚀\n`,
       );
     }
 

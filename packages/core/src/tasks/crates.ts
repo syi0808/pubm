@@ -2,6 +2,7 @@ import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
+import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import {
   CratesConnector,
@@ -11,7 +12,7 @@ import {
 import { ui } from "../utils/ui.js";
 
 class CratesError extends AbstractError {
-  name = "crates.io Error";
+  name = t("error.crates.name");
 
   constructor(message: string, { cause }: { cause?: unknown } = {}) {
     super(message, { cause });
@@ -28,21 +29,17 @@ export function createCratesAvailableCheckTask(
   packagePath: string,
 ): ListrTask<PubmContext> {
   return {
-    title: `Checking crates.io availability (${packagePath})`,
+    title: t("task.crates.checkAvailability", { path: packagePath }),
     task: async (): Promise<void> => {
       const registry = await cratesPackageRegistry(packagePath);
       const connector = new CratesConnector();
 
       if (!(await connector.isInstalled())) {
-        throw new CratesError(
-          "cargo is not installed. Please install Rust toolchain to proceed.",
-        );
+        throw new CratesError(t("error.crates.cargoNotInstalled"));
       }
 
       if (!(await registry.hasPermission())) {
-        throw new CratesError(
-          "No crates.io credentials found. Run `cargo login` or set CARGO_REGISTRY_TOKEN.",
-        );
+        throw new CratesError(t("error.crates.noCredentials"));
       }
     },
   };
@@ -52,7 +49,7 @@ export function createCratesPublishTask(
   packagePath: string,
 ): ListrTask<PubmContext> {
   return {
-    title: `Publishing to crates.io (${packagePath})`,
+    title: t("task.crates.publishing", { path: packagePath }),
     task: async (ctx, task): Promise<void> => {
       const packageName = await getCrateName(packagePath);
       const registry = await cratesPackageRegistry(packagePath);
@@ -61,13 +58,19 @@ export function createCratesPublishTask(
 
       // Pre-check: skip if version already published
       if (await registry.isVersionPublished(version)) {
-        task.title = `[SKIPPED] crates.io (${packagePath}): v${version} already published`;
-        task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
+        task.title = t("task.crates.skipped", { path: packagePath, version });
+        task.output = t("task.crates.alreadyPublished", {
+          name: packageName,
+          version,
+        });
         return task.skip();
       }
 
       try {
-        task.output = `Publishing ${packageName}@${version} on crates.io...`;
+        task.output = t("task.crates.publishingVersion", {
+          name: packageName,
+          version,
+        });
         await registry.publish();
       } catch (error) {
         // Fallback: catch "already uploaded" errors
@@ -75,8 +78,11 @@ export function createCratesPublishTask(
           error instanceof Error &&
           error.message.includes("is already uploaded")
         ) {
-          task.title = `[SKIPPED] crates.io (${packagePath}): v${version} already published`;
-          task.output = `⚠ ${packageName}@${version} is already published on crates.io`;
+          task.title = t("task.crates.skipped", { path: packagePath, version });
+          task.output = t("task.crates.alreadyPublished", {
+            name: packageName,
+            version,
+          });
           return task.skip();
         }
         throw error;
@@ -102,18 +108,26 @@ function registerYankRollback(
 
   if (!canYank) {
     ctx.runtime.rollback.add({
-      label: `${verb} ${packageName}@${version} from crates (skipped — use --dangerously-allow-unpublish to enable)`,
+      label: t("task.crates.rollbackSkipped", {
+        verb,
+        name: packageName,
+        version,
+      }),
       fn: async () => {},
     });
     return;
   }
 
   ctx.runtime.rollback.add({
-    label: `${verb} ${packageName}@${version} from crates (⚠ version will be permanently burned)`,
+    label: t("task.crates.rollbackBurned", {
+      verb,
+      name: packageName,
+      version,
+    }),
     fn: async () => {
       await registry.unpublish(packageName, version);
       console.log(
-        `    ${ui.chalk.yellow("⚠")} v${version} is permanently reserved on crates.io — this version cannot be reused`,
+        `    ${ui.chalk.yellow("⚠")} ${t("task.crates.versionReserved", { version })}`,
       );
     },
     confirm: true,

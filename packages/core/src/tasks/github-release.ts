@@ -8,12 +8,13 @@ import type {
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { t } from "../i18n/index.js";
 import { parseOwnerRepo } from "../utils/parse-owner-repo.js";
 
 const { prerelease } = SemVer;
 
 class GitHubReleaseError extends AbstractError {
-  name = "GitHub Release Error";
+  name = t("error.githubRelease.name");
 }
 
 /**
@@ -54,9 +55,7 @@ export async function createGitHubRelease(
 ): Promise<ReleaseContext | null> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    throw new GitHubReleaseError(
-      "GITHUB_TOKEN environment variable is required to create a GitHub Release",
-    );
+    throw new GitHubReleaseError(t("error.githubRelease.tokenRequired"));
   }
 
   const git = new Git();
@@ -107,7 +106,10 @@ export async function createGitHubRelease(
   if (!createResponse.ok) {
     const errorBody = await createResponse.text();
     throw new GitHubReleaseError(
-      `Failed to create GitHub Release (${createResponse.status}): ${errorBody}`,
+      t("error.githubRelease.createFailed", {
+        status: createResponse.status,
+        body: errorBody,
+      }),
     );
   }
 
@@ -141,7 +143,11 @@ export async function createGitHubRelease(
     if (!uploadResponse.ok) {
       const errorBody = await uploadResponse.text();
       throw new GitHubReleaseError(
-        `Failed to upload asset ${asset.name} (${uploadResponse.status}): ${errorBody}`,
+        t("error.githubRelease.uploadFailed", {
+          name: asset.name,
+          status: uploadResponse.status,
+          body: errorBody,
+        }),
       );
     }
 
@@ -173,9 +179,7 @@ export async function createGitHubRelease(
 export async function deleteGitHubRelease(releaseId: number): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    throw new GitHubReleaseError(
-      "GITHUB_TOKEN environment variable is required to delete a GitHub Release",
-    );
+    throw new GitHubReleaseError(t("error.githubRelease.tokenRequiredDelete"));
   }
 
   const git = new Git();
@@ -197,7 +201,11 @@ export async function deleteGitHubRelease(releaseId: number): Promise<void> {
   if (!response.ok && response.status !== 404) {
     const errorBody = await response.text();
     throw new GitHubReleaseError(
-      `Failed to delete GitHub Release ${releaseId} (${response.status}): ${errorBody}`,
+      t("error.githubRelease.deleteFailed", {
+        id: releaseId,
+        status: response.status,
+        body: errorBody,
+      }),
     );
   }
 }

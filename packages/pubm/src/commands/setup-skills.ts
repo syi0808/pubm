@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { ui } from "@pubm/core";
+import { t, ui } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
@@ -102,17 +102,17 @@ export async function runSetupSkills(cwd: string): Promise<{
   });
 
   if (agents.length === 0) {
-    ui.info("No agents selected. Skipping skills installation.");
+    ui.info(t("cmd.setupSkills.noAgents"));
     return { agents: [], skillCount: 0 };
   }
 
-  ui.info("Downloading skills from GitHub...");
+  ui.info(t("cmd.setupSkills.downloading"));
 
   const ref = await fetchLatestRef();
   const files = await fetchSkillsTree(ref);
 
   if (files.length === 0) {
-    throw new Error("No skill files found in repository.");
+    throw new Error(t("error.setupSkills.noSkills"));
   }
 
   const skillCount = files.filter((f) =>
@@ -121,7 +121,7 @@ export async function runSetupSkills(cwd: string): Promise<{
 
   for (const agent of agents) {
     const installPath = getInstallPath(agent, cwd);
-    ui.info(`Installing for ${AGENT_LABELS[agent]}...`);
+    ui.info(t("cmd.setupSkills.installing", { label: AGENT_LABELS[agent] }));
     await downloadAndInstall(files, installPath);
 
     for (const file of files) {
@@ -135,13 +135,11 @@ export async function runSetupSkills(cwd: string): Promise<{
 export function registerSetupSkillsCommand(parent: Command): void {
   parent
     .command("setup-skills")
-    .description("Download and install coding agent skills")
+    .description(t("cmd.setupSkills.description"))
     .action(async () => {
       try {
         if (!process.stdin.isTTY) {
-          throw new Error(
-            "pubm setup-skills requires an interactive terminal.",
-          );
+          throw new Error(t("error.setupSkills.requiresTty"));
         }
 
         const cwd = process.cwd();
@@ -149,13 +147,18 @@ export function registerSetupSkillsCommand(parent: Command): void {
 
         if (agents.length > 0) {
           ui.success(
-            `${skillCount} skills installed for ${agents.map((a) => AGENT_LABELS[a]).join(", ")}.`,
+            t("cmd.setupSkills.installed", {
+              count: skillCount,
+              agents: agents.map((a) => AGENT_LABELS[a]).join(", "),
+            }),
           );
         }
       } catch (e) {
         ui.error((e as Error).message);
         ui.info(
-          `Manual installation: https://github.com/${REPO}/tree/main/${SKILLS_PATH}`,
+          t("cmd.setupSkills.manualInstall", {
+            url: `https://github.com/${REPO}/tree/main/${SKILLS_PATH}`,
+          }),
         );
         process.exitCode = 1;
       }

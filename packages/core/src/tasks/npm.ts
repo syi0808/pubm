@@ -3,13 +3,14 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
+import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import type { NpmPackageRegistry } from "../registry/npm.js";
 import { npmPackageRegistry } from "../registry/npm.js";
 import { ui } from "../utils/ui.js";
 
 class NpmAvailableError extends AbstractError {
-  name = "npm is unavailable for publishing.";
+  name = t("error.npm.unavailable");
 
   constructor(message: string, { cause }: { cause?: unknown } = {}) {
     super(message, { cause });
@@ -32,12 +33,15 @@ export function createNpmPublishTask(
 
       // Pre-check: skip if version already published
       if (await npm.isVersionPublished(version)) {
-        task.title = `[SKIPPED] npm: v${version} already published`;
-        task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
+        task.title = t("task.npm.skipped", { version });
+        task.output = t("task.npm.alreadyPublished", {
+          name: npm.packageName,
+          version,
+        });
         return task.skip();
       }
 
-      task.output = "Publishing on npm...";
+      task.output = t("task.npm.publishing");
 
       try {
         if (ctx.runtime.promptEnabled) {
@@ -48,7 +52,7 @@ export function createNpmPublishTask(
             // EOTP — use shared promise to avoid multiple prompts
             if (!ctx.runtime.npmOtpPromise) {
               ctx.runtime.npmOtpPromise = (async () => {
-                task.title = `${npm.packageName} (OTP code needed)`;
+                task.title = t("task.npm.otpTitle", { name: npm.packageName });
                 const maxAttempts = 3;
 
                 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -56,24 +60,32 @@ export function createNpmPublishTask(
                     .prompt(ListrEnquirerPromptAdapter)
                     .run<string>({
                       type: "password",
-                      message: `npm OTP code${attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}`,
+                      message: t("prompt.npm.otp", {
+                        attempt:
+                          attempt > 1
+                            ? t("prompt.npm.otpAttempt", {
+                                current: attempt,
+                                max: maxAttempts,
+                              })
+                            : "",
+                      }),
                     });
 
                   const success = await npm.publish(otp);
                   if (success) {
                     ctx.runtime.npmOtp = otp;
-                    task.title = `${npm.packageName} (2FA passed)`;
+                    task.title = t("task.npm.otpPassed", {
+                      name: npm.packageName,
+                    });
                     return otp;
                   }
 
                   if (attempt < maxAttempts) {
-                    task.output = "2FA failed. Please try again.";
+                    task.output = t("task.npm.otpFailed");
                   }
                 }
 
-                throw new NpmAvailableError(
-                  "OTP verification failed after 3 attempts.",
-                );
+                throw new NpmAvailableError(t("error.npm.otpFailed"));
               })();
             }
 
@@ -88,18 +100,14 @@ export function createNpmPublishTask(
           const npmTokenEnv = process.env.NODE_AUTH_TOKEN;
 
           if (!npmTokenEnv) {
-            throw new NpmAvailableError(
-              "NODE_AUTH_TOKEN not found in environment variables. Set it in your CI configuration:\n" +
-                "  GitHub Actions: Add NODE_AUTH_TOKEN as a repository secret\n" +
-                "  Other CI: Export NODE_AUTH_TOKEN with your npm access token",
-            );
+            throw new NpmAvailableError(t("error.npm.noAuthToken"));
           }
 
           const result = await npm.publishProvenance();
 
           if (!result) {
             throw new NpmAvailableError(
-              `In CI environment, publishing with 2FA is not allowed. Please disable 2FA when accessing with a token from https://www.npmjs.com/package/${npm.packageName}/access `,
+              t("error.npm.2faInCi", { name: npm.packageName }),
             );
           }
         }
@@ -114,8 +122,11 @@ export function createNpmPublishTask(
               "You cannot publish over the previously published",
             ))
         ) {
-          task.title = `[SKIPPED] npm: v${version} already published`;
-          task.output = `⚠ ${npm.packageName}@${version} is already published on npm`;
+          task.title = t("task.npm.skipped", { version });
+          task.output = t("task.npm.alreadyPublished", {
+            name: npm.packageName,
+            version,
+          });
           return task.skip();
         }
         throw error;
@@ -140,7 +151,11 @@ function registerUnpublishRollback(
 
   if (!canUnpublish) {
     ctx.runtime.rollback.add({
-      label: `${verb} ${registry.packageName}@${version} from npm (skipped — use --dangerously-allow-unpublish to enable)`,
+      label: t("task.npm.rollbackSkipped", {
+        verb,
+        name: registry.packageName,
+        version,
+      }),
       fn: async () => {},
     });
     return;
@@ -150,11 +165,15 @@ function registerUnpublishRollback(
   // non-interactive mode executes confirm actions without prompting.
   // On SIGINT, confirm actions are safely skipped regardless of dangerouslyAllowUnpublish.
   ctx.runtime.rollback.add({
-    label: `${verb} ${registry.packageName}@${version} from npm (⚠ version will be permanently burned)`,
+    label: t("task.npm.rollbackBurned", {
+      verb,
+      name: registry.packageName,
+      version,
+    }),
     fn: async () => {
       await registry.unpublish(registry.packageName, version);
       console.log(
-        `    ${ui.chalk.yellow("⚠")} v${version} is permanently reserved on npm — this version cannot be reused`,
+        `    ${ui.chalk.yellow("⚠")} ${t("task.npm.versionReserved", { version })}`,
       );
     },
     confirm: true,

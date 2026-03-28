@@ -1,3 +1,4 @@
+import { t } from "./i18n/index.js";
 import { NonZeroExitError } from "./utils/exec.js";
 import { ui } from "./utils/ui.js";
 
@@ -73,7 +74,7 @@ function formatError(error: AbstractError | string): string {
     const causeMsg =
       error.cause instanceof Error ? error.cause.message : String(error.cause);
     if (causeMsg !== summary) {
-      result += `\n${ui.chalk.dim("Caused by:")} `;
+      result += `\n${ui.chalk.dim(t("error.causedBy"))}`;
       result += formatError(error.cause as AbstractError);
     }
   }

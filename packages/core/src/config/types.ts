@@ -64,6 +64,7 @@ export interface PubmConfig {
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
   excludeRelease?: string[];
+  locale?: "en" | "ko" | "zh-cn" | "fr" | "de" | "es";
 }
 
 export interface ResolvedPubmConfig
@@ -78,11 +79,13 @@ export interface ResolvedPubmConfig
       | "excludeRelease"
       | "rollbackStrategy"
       | "rollback"
+      | "locale"
     >
   > {
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
   excludeRelease?: string[];
+  locale?: "en" | "ko" | "zh-cn" | "fr" | "de" | "es";
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   rollback: Required<RollbackConfig>;

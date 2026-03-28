@@ -1,14 +1,20 @@
 import { createInterface } from "node:readline";
+import { t } from "../i18n/index.js";
 import { ui } from "./ui.js";
 
 async function promptConfirm(label: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise<boolean>((resolve) => {
-    rl.question(`  ${ui.chalk.yellow("?")} ${label} [Y/n] `, (answer) => {
-      rl.close();
-      const normalized = answer.trim().toLowerCase();
-      resolve(normalized === "" || normalized === "y" || normalized === "yes");
-    });
+    rl.question(
+      `  ${ui.chalk.yellow("?")} ${label} ${t("rollback.confirmSuffix")} `,
+      (answer) => {
+        rl.close();
+        const normalized = answer.trim().toLowerCase();
+        resolve(
+          normalized === "" || normalized === "y" || normalized === "yes",
+        );
+      },
+    );
   });
 }
 
@@ -66,7 +72,7 @@ export class RollbackTracker<Ctx> {
     process.on("SIGINT", onSigint);
 
     console.log(
-      `\n${ui.chalk.yellow("⟲")} ${ui.chalk.yellow("Rolling back...")}`,
+      `\n${ui.chalk.yellow("⟲")} ${ui.chalk.yellow(t("rollback.rolling"))}`,
     );
 
     const reversed = [...this.actions].reverse();
@@ -81,7 +87,7 @@ export class RollbackTracker<Ctx> {
       // Skip confirm actions on SIGINT-triggered rollback (no prompt possible)
       if (action.confirm && options.sigint) {
         console.log(
-          `  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (requires confirmation)`,
+          `  ${ui.chalk.dim("⊘")} ${t("rollback.skippedConfirmation", { label: action.label })}`,
         );
         result.skipped++;
         result.manualRecovery.push(action.label);
@@ -93,7 +99,7 @@ export class RollbackTracker<Ctx> {
         const confirmed = await promptConfirm(action.label);
         if (!confirmed) {
           console.log(
-            `  ${ui.chalk.dim("⊘")} Skipped: ${action.label} (user declined)`,
+            `  ${ui.chalk.dim("⊘")} ${t("rollback.skippedDeclined", { label: action.label })}`,
           );
           result.skipped++;
           result.manualRecovery.push(action.label);
@@ -102,13 +108,19 @@ export class RollbackTracker<Ctx> {
       }
 
       try {
-        console.log(`  ${ui.chalk.yellow("↩")} ${action.label}`);
+        console.log(
+          `  ${ui.chalk.yellow("↩")} ${t("rollback.starting", { label: action.label })}`,
+        );
         await action.fn(ctx);
-        console.log(`  ${ui.chalk.green("✓")} ${action.label}`);
+        console.log(
+          `  ${ui.chalk.green("✓")} ${t("rollback.completed", { label: action.label })}`,
+        );
         result.succeeded++;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error(`  ${ui.chalk.red("✖")} ${action.label} — ${msg}`);
+        console.error(
+          `  ${ui.chalk.red("✖")} ${t("rollback.failed", { label: action.label, message: msg })}`,
+        );
         result.failed++;
         result.manualRecovery.push(action.label);
       }
@@ -121,18 +133,19 @@ export class RollbackTracker<Ctx> {
     if (result.failed > 0 || result.skipped > 0) {
       const parts = [`${result.succeeded}/${total}`];
       if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+      const parts_str = parts.join(", ");
       console.log(
-        `${ui.chalk.red("✖")} ${ui.chalk.red("Rollback completed with errors")} (${parts.join(", ")})`,
+        `${ui.chalk.red("✖")} ${ui.chalk.red(t("rollback.completedWithErrors", { parts: parts_str }))}`,
       );
       if (result.manualRecovery.length > 0) {
-        console.log("  Manual recovery needed:");
+        console.log(`  ${t("rollback.manualRecovery")}`);
         for (const item of result.manualRecovery) {
           console.log(`    • ${item}`);
         }
       }
     } else {
       console.log(
-        `${ui.chalk.green("✓")} Rollback completed (${result.succeeded}/${total})`,
+        `${ui.chalk.green("✓")} ${t("rollback.success", { succeeded: result.succeeded, total })}`,
       );
     }
 

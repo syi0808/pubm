@@ -1,28 +1,28 @@
-import { getStatus, ui } from "@pubm/core";
+import { getStatus, t, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerStatusCommand(parent: Command): void {
   parent
     .command("status")
-    .description("Show pending changeset status")
-    .option("--verbose", "Show full changeset contents")
-    .option("--since <ref>", "Only check changesets since git ref")
+    .description(t("cmd.status.description"))
+    .option("--verbose", t("cmd.status.optionVerbose"))
+    .option("--since <ref>", t("cmd.status.optionSince"))
     .action(async (options: { verbose?: boolean; since?: string }) => {
       const status = getStatus();
 
       if (!status.hasChangesets) {
         if (options.since) {
-          ui.info("No changesets found.");
+          ui.info(t("cmd.status.noChangesets"));
           process.exit(1);
         }
-        ui.info("No pending changesets.");
+        ui.info(t("cmd.status.noPending"));
         return;
       }
 
-      ui.info("Pending changesets:");
+      ui.info(t("cmd.status.pending"));
       for (const [name, info] of status.packages) {
         console.log(
-          `  ${name}: ${info.bumpType} (${info.changesetCount} changeset${info.changesetCount > 1 ? "s" : ""})`,
+          `  ${t("cmd.status.packageLine", { name, type: info.bumpType, count: info.changesetCount })}`,
         );
         if (options.verbose) {
           for (const summary of info.summaries) {

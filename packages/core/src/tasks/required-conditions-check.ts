@@ -5,6 +5,7 @@ import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { t } from "../i18n/index.js";
 import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { getConnector } from "../registry/index.js";
@@ -24,7 +25,7 @@ function needsPackageScripts(registries: string[]): boolean {
 }
 
 class RequiredConditionCheckError extends AbstractError {
-  name = "Failed required condition check";
+  name = t("error.conditions.name");
 
   constructor(message: string, { cause }: { cause?: unknown } = {}) {
     super(message, { cause });
@@ -45,7 +46,9 @@ export const requiredConditionsCheckTask = (
 
     if (packagePaths.length <= 1) {
       return {
-        title: `Checking ${descriptor.label} availability`,
+        title: t("task.conditions.checkAvailability", {
+          label: descriptor.label,
+        }),
         task: async (ctx, task): Promise<void> => {
           const registry = await descriptor.factory(packagePaths[0]);
           await registry.checkAvailability(task, ctx);
@@ -54,7 +57,9 @@ export const requiredConditionsCheckTask = (
     }
 
     return {
-      title: `Checking ${descriptor.label} availability`,
+      title: t("task.conditions.checkAvailability", {
+        label: descriptor.label,
+      }),
       task: (_ctx, parentTask): Listr<PubmContext> =>
         parentTask.newListr(
           packagePaths.map((packagePath) => ({
@@ -71,12 +76,12 @@ export const requiredConditionsCheckTask = (
 
   const taskDef: ListrTask<PubmContext> = {
     ...options,
-    title: "Required conditions check (for pubm tasks)",
+    title: t("task.conditions.title"),
     task: (ctx, parentTask): Listr<PubmContext> =>
       parentTask.newListr(
         [
           {
-            title: "Ping registries",
+            title: t("task.conditions.pingRegistries"),
             task: (ctx, parentTask): Listr<PubmContext> =>
               parentTask.newListr(
                 collectEcosystemRegistryGroups(ctx.config).map((group) => ({
@@ -84,7 +89,9 @@ export const requiredConditionsCheckTask = (
                   task: (_ctx, ecosystemTask): Listr<PubmContext> =>
                     ecosystemTask.newListr(
                       group.registries.map(({ registry }) => ({
-                        title: `Ping ${registryLabel(registry)}`,
+                        title: t("task.conditions.pingRegistry", {
+                          registry: registryLabel(registry),
+                        }),
                         task: async (): Promise<void> => {
                           const connector = getConnector(registry);
 
@@ -102,7 +109,7 @@ export const requiredConditionsCheckTask = (
               ),
           },
           {
-            title: "Checking if test and build scripts exist",
+            title: t("task.conditions.checkScripts"),
             skip: (ctx) => !needsPackageScripts(collectRegistries(ctx.config)),
             task: async (ctx): Promise<void> => {
               const raw = await readFile(
@@ -118,7 +125,9 @@ export const requiredConditionsCheckTask = (
                 !scripts?.[ctx.options.testScript]
               ) {
                 errors.push(
-                  `Test script '${ctx.options.testScript}' does not exist.`,
+                  t("error.conditions.testScriptMissing", {
+                    script: ctx.options.testScript,
+                  }),
                 );
               }
 
@@ -127,19 +136,23 @@ export const requiredConditionsCheckTask = (
                 !scripts?.[ctx.options.buildScript]
               ) {
                 errors.push(
-                  `Build script '${ctx.options.buildScript}' does not exist.`,
+                  t("error.conditions.buildScriptMissing", {
+                    script: ctx.options.buildScript,
+                  }),
                 );
               }
 
               if (errors.length) {
                 throw new RequiredConditionCheckError(
-                  `${errors.join(" and ")} Please check your configuration.`,
+                  t("error.conditions.scriptsMissing", {
+                    errors: errors.join(" and "),
+                  }),
                 );
               }
             },
           },
           {
-            title: "Checking git version",
+            title: t("task.conditions.checkGitVersion"),
             task: async (): Promise<void> => {
               const git = new Git();
 
@@ -147,7 +160,7 @@ export const requiredConditionsCheckTask = (
             },
           },
           {
-            title: "Checking available registries for publishing",
+            title: t("task.conditions.checkRegistries"),
             task: (ctx, parentTask): Listr<PubmContext> => {
               return parentTask.newListr(
                 collectEcosystemRegistryGroups(ctx.config).map((group) => ({

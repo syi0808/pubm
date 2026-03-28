@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color } from "listr2";
 import { AbstractError } from "../error.js";
+import { t } from "../i18n/index.js";
 import type { PluginCredential } from "../plugin/types.js";
 import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { registryCatalog } from "../registry/catalog.js";
@@ -15,7 +16,7 @@ import { loadTokensFromDb } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
 
 class PreflightError extends AbstractError {
-  name = "Preflight Error";
+  name = t("error.preflight.name");
 }
 
 export async function collectTokens(
@@ -33,19 +34,23 @@ export async function collectTokens(
 
     // Validate existing token (from env or SecureStore)
     if (tokens[registry] && descriptor.validateToken) {
-      task.output = `Validating stored ${config.promptLabel}...`;
+      task.output = t("task.preflight.validatingStored", {
+        label: config.promptLabel,
+      });
       const isValid = await descriptor.validateToken(tokens[registry]);
 
       if (!isValid) {
         // Check if token came from environment variable
         if (process.env[config.envVar]) {
           throw new PreflightError(
-            `${config.envVar} is set but invalid. Please update the environment variable.`,
+            t("error.preflight.envInvalid", { env: config.envVar }),
           );
         }
 
         // Token from SecureStore — delete and re-prompt
-        task.output = `Stored ${config.promptLabel} is invalid`;
+        task.output = t("task.preflight.storedInvalid", {
+          label: config.promptLabel,
+        });
         new SecureStore().delete(config.dbKey);
         delete tokens[registry];
       }
@@ -60,25 +65,31 @@ export async function collectTokens(
 
     // Prompt loop (infinite until valid token or Ctrl+C)
     while (true) {
-      task.output = `Enter ${config.promptLabel}`;
+      task.output = t("task.preflight.enter", { label: config.promptLabel });
       const token = await task.prompt(ListrEnquirerPromptAdapter).run({
         type: "password",
-        message: `Enter ${config.promptLabel}`,
-        footer: `\nGenerate a token from ${color.bold(ui.link(config.tokenUrlLabel, tokenUrl))}`,
+        message: t("task.preflight.enter", { label: config.promptLabel }),
+        footer: t("task.preflight.tokenUrl", {
+          url: color.bold(ui.link(config.tokenUrlLabel, tokenUrl)),
+        }),
       });
 
       if (!`${token}`.trim()) {
         throw new PreflightError(
-          `${config.promptLabel} is required to continue.`,
+          t("error.preflight.required", { label: config.promptLabel }),
         );
       }
 
       if (descriptor.validateToken) {
-        task.output = `Validating ${config.promptLabel}...`;
+        task.output = t("task.preflight.validating", {
+          label: config.promptLabel,
+        });
         const isValid = await descriptor.validateToken(token);
 
         if (!isValid) {
-          task.output = `${config.promptLabel} is invalid. Please try again.`;
+          task.output = t("task.preflight.invalid", {
+            label: config.promptLabel,
+          });
           continue;
         }
       }
@@ -148,35 +159,33 @@ export async function promptGhSecretsSync(
   const storedHash = readGhSecretsSyncHash(repoSlug);
 
   if (storedHash === currentHash) {
-    task.output =
-      "GitHub Secrets sync already acknowledged for the current tokens.";
+    task.output = t("task.preflight.syncAlreadyAcked");
     return;
   }
 
   const shouldSync = await task.prompt(ListrEnquirerPromptAdapter).run({
     type: "toggle",
-    message: "Sync tokens to GitHub Secrets?",
+    message: t("prompt.preflight.syncSecrets"),
     enabled: "Yes",
     disabled: "No",
   });
 
   if (shouldSync) {
-    task.output = "Syncing tokens to GitHub Secrets...";
+    task.output = t("task.preflight.syncing");
     try {
       await syncGhSecrets(tokens, pluginSecrets);
-      task.output = "Tokens synced to GitHub Secrets.";
+      task.output = t("task.preflight.synced");
     } catch (error) {
-      throw new PreflightError(
-        "Failed to sync tokens to GitHub Secrets. Ensure `gh` CLI is installed and authenticated (`gh auth login`).",
-        { cause: error },
-      );
+      throw new PreflightError(t("error.preflight.syncFailed"), {
+        cause: error,
+      });
     }
   }
 
   try {
     writeGhSecretsSyncHash(repoSlug, currentHash);
   } catch (error) {
-    throw new PreflightError("Failed to save GitHub Secrets sync state.", {
+    throw new PreflightError(t("error.preflight.saveSyncState"), {
       cause: error,
     });
   }
@@ -199,11 +208,13 @@ export async function collectPluginCredentials(
     const envValue = process.env[credential.env];
     if (envValue) {
       if (credential.validate) {
-        wrappedTask.output = `Validating ${credential.label}...`;
+        wrappedTask.output = t("task.preflight.validating", {
+          label: credential.label,
+        });
         const isValid = await credential.validate(envValue, wrappedTask);
         if (!isValid) {
           throw new PreflightError(
-            `${credential.env} is set but invalid. Please update the environment variable.`,
+            t("error.preflight.envInvalid", { env: credential.env }),
           );
         }
       }
@@ -216,7 +227,9 @@ export async function collectPluginCredentials(
       const resolved = await credential.resolve();
       if (resolved) {
         if (credential.validate) {
-          wrappedTask.output = `Validating ${credential.label}...`;
+          wrappedTask.output = t("task.preflight.validating", {
+            label: credential.label,
+          });
           if (await credential.validate(resolved, wrappedTask)) {
             tokens[credential.key] = resolved;
             store.set(credential.key, resolved);
@@ -234,10 +247,14 @@ export async function collectPluginCredentials(
     const stored = store.get(credential.key);
     if (stored) {
       if (credential.validate) {
-        wrappedTask.output = `Validating stored ${credential.label}...`;
+        wrappedTask.output = t("task.preflight.validatingStored", {
+          label: credential.label,
+        });
         const isValid = await credential.validate(stored, wrappedTask);
         if (!isValid) {
-          wrappedTask.output = `Stored ${credential.label} is invalid`;
+          wrappedTask.output = t("task.preflight.storedInvalid", {
+            label: credential.label,
+          });
           store.delete(credential.key);
         } else {
           tokens[credential.key] = stored;
@@ -253,7 +270,10 @@ export async function collectPluginCredentials(
     if (!promptEnabled) {
       if (required) {
         throw new PreflightError(
-          `${credential.label} is required. Set ${credential.env} environment variable.`,
+          t("error.preflight.envRequired", {
+            label: credential.label,
+            env: credential.env,
+          }),
         );
       }
       continue;
@@ -261,30 +281,43 @@ export async function collectPluginCredentials(
 
     // Prompt loop
     while (true) {
-      wrappedTask.output = `Enter ${credential.label}`;
+      wrappedTask.output = t("task.preflight.enter", {
+        label: credential.label,
+      });
       const tokenUrlInfo = credential.tokenUrl
-        ? `\nGenerate a token from ${color.bold(ui.link(credential.tokenUrlLabel ?? credential.tokenUrl, credential.tokenUrl))}`
+        ? t("task.preflight.tokenUrl", {
+            url: color.bold(
+              ui.link(
+                credential.tokenUrlLabel ?? credential.tokenUrl,
+                credential.tokenUrl,
+              ),
+            ),
+          })
         : "";
       const token = await wrappedTask.prompt({
         type: "password",
-        message: `Enter ${credential.label}`,
+        message: t("task.preflight.enter", { label: credential.label }),
         ...(tokenUrlInfo ? { footer: tokenUrlInfo } : {}),
       });
 
       if (!`${token}`.trim()) {
         if (required) {
           throw new PreflightError(
-            `${credential.label} is required to continue.`,
+            t("error.preflight.required", { label: credential.label }),
           );
         }
         break;
       }
 
       if (credential.validate) {
-        wrappedTask.output = `Validating ${credential.label}...`;
+        wrappedTask.output = t("task.preflight.validating", {
+          label: credential.label,
+        });
         const isValid = await credential.validate(token as string, wrappedTask);
         if (!isValid) {
-          wrappedTask.output = `${credential.label} is invalid. Please try again.`;
+          wrappedTask.output = t("task.preflight.invalid", {
+            label: credential.label,
+          });
           continue;
         }
       }

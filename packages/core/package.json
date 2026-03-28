@@ -24,6 +24,7 @@
     "coverage": "vitest --run --coverage"
   },
   "dependencies": {
+    "@formatjs/intl": "^4.1.5",
     "@listr2/prompt-adapter-enquirer": "^4.2.1",
     "@napi-rs/keyring": "^1.2.0",
     "chalk": "^5.6.2",

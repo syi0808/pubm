@@ -4,12 +4,13 @@ import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
+import { t } from "../i18n/index.js";
 import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
 import { ui } from "../utils/ui.js";
 
 class PrerequisitesCheckError extends AbstractError {
-  name = "Failed prerequisite check";
+  name = t("error.prerequisites.name");
 
   constructor(message: string, { cause }: { cause?: unknown } = {}) {
     super(message, { cause });
@@ -25,97 +26,108 @@ export const prerequisitesCheckTask = (
   const taskDef: ListrTask<PubmContext> = {
     ...options,
     exitOnError: true,
-    title: "Prerequisites check (for deployment reliability)",
+    title: t("task.prerequisites.title"),
     task: (ctx, parentTask) =>
       parentTask.newListr([
         {
           skip: (ctx) => !!ctx.options.anyBranch,
-          title: "Verifying current branch is a release branch",
+          title: t("task.prerequisites.verifyBranch"),
           task: async (ctx, task): Promise<void> => {
             if ((await git.branch()) !== ctx.options.branch) {
               const swtichBranch = await task
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${ui.labels.WARNING} The current HEAD branch is not the release target branch. Do you want to switch branch to ${ctx.options.branch}?`,
+                  message: t("task.prerequisites.switchBranchPrompt", {
+                    warning: ui.labels.WARNING,
+                    branch: ctx.options.branch,
+                  }),
                   enabled: "Yes",
                   disabled: "No",
                 });
 
               if (swtichBranch) {
-                task.output = `Switching branch to ${ctx.options.branch}...`;
+                task.output = t("task.prerequisites.switchingBranch", {
+                  branch: ctx.options.branch,
+                });
                 await git.switch(ctx.options.branch);
               } else {
                 throw new PrerequisitesCheckError(
-                  "The current HEAD branch is not the release target branch. Please switch to the correct branch before proceeding.",
+                  t("error.prerequisites.wrongBranch"),
                 );
               }
             }
           },
         },
         {
-          title: "Checking if remote history is clean",
+          title: t("task.prerequisites.checkRemote"),
           task: async (_, task): Promise<void> => {
-            task.output = "Checking for updates with `git fetch`";
+            task.output = t("task.prerequisites.checkingFetch");
 
             if ((await git.dryFetch()).trim()) {
               const fetch = await task
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${ui.labels.WARNING} Local history is outdated. Do you want to run \`git fetch\`?`,
+                  message: t("task.prerequisites.outdatedFetchPrompt", {
+                    warning: ui.labels.WARNING,
+                  }),
                   enabled: "Yes",
                   disabled: "No",
                 });
 
               if (fetch) {
-                task.output = "Executing `git fetch` command...";
+                task.output = t("task.prerequisites.executingFetch");
                 await git.fetch();
               } else {
                 throw new PrerequisitesCheckError(
-                  "Local history is outdated. Please run `git fetch` to update.",
+                  t("error.prerequisites.outdatedFetch"),
                 );
               }
             }
 
-            task.output = "Checking for updates with `git pull`";
+            task.output = t("task.prerequisites.checkingPull");
             if (await git.revisionDiffsCount()) {
               const pull = await task
                 .prompt(ListrEnquirerPromptAdapter)
                 .run<boolean>({
                   type: "toggle",
-                  message: `${ui.labels.WARNING} Local history is outdated. Do you want to run \`git pull\`?`,
+                  message: t("task.prerequisites.outdatedPullPrompt", {
+                    warning: ui.labels.WARNING,
+                  }),
                   enabled: "Yes",
                   disabled: "No",
                 });
 
               if (pull) {
-                task.output = "Executing `git pull` command...";
+                task.output = t("task.prerequisites.executingPull");
                 await git.pull();
               } else {
                 throw new PrerequisitesCheckError(
-                  "Local history is outdated. Please run `git pull` to synchronize with the remote repository.",
+                  t("error.prerequisites.outdatedPull"),
                 );
               }
             }
           },
         },
         {
-          title: "Checking if the local working tree is clean",
+          title: t("task.prerequisites.checkWorkingTree"),
           task: async (ctx, task): Promise<void> => {
             if (await git.status()) {
-              task.output = "Local working tree is not clean.";
+              task.output = t("task.prerequisites.workingTreeDirty");
 
               if (
                 !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
                   type: "toggle",
-                  message: `${ui.labels.WARNING} Local working tree is not clean. Do you want to skip?`,
+                  message: t("task.prerequisites.workingTreePrompt", {
+                    warning: ui.labels.WARNING,
+                  }),
                   enabled: "Yes",
                   disabled: "No",
                 }))
               ) {
                 throw new PrerequisitesCheckError(
-                  "Local working tree is not clean. Please commit or stash your changes before proceeding.",
+                  t("error.prerequisites.workingTreeDirty"),
                 );
               }
 
@@ -127,12 +139,12 @@ export const prerequisitesCheckTask = (
           },
         },
         {
-          title: "Checking if commits exist since the last release",
+          title: t("task.prerequisites.checkCommits"),
           task: async (_, task) => {
             const latestTag = await git.latestTag();
 
             if (!latestTag) {
-              task.title += " (Tag has not been pushed to GitHub)";
+              task.title += t("task.prerequisites.tagNotPushed");
               return void 0;
             }
 
@@ -140,13 +152,15 @@ export const prerequisitesCheckTask = (
               if (
                 !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
                   type: "toggle",
-                  message: `${ui.labels.WARNING} No commits exist from the latest tag. Do you want to skip?`,
+                  message: t("task.prerequisites.noCommitsPrompt", {
+                    warning: ui.labels.WARNING,
+                  }),
                   enabled: "Yes",
                   disabled: "No",
                 }))
               ) {
                 throw new PrerequisitesCheckError(
-                  "No commits exist from the latest tag. Please ensure there are new changes before publishing.",
+                  t("error.prerequisites.noCommits"),
                 );
               }
             }

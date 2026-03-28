@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { ui } from "@pubm/core";
+import { t, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export interface DiscoveredReference {
@@ -158,8 +158,8 @@ export async function discoverVersionReferences(
 export function registerSyncCommand(parent: Command): void {
   parent
     .command("sync")
-    .description("Manage version synchronization across files")
-    .option("--discover", "Discover version references in the project")
+    .description(t("cmd.sync.description"))
+    .option("--discover", t("cmd.sync.optionDiscover"))
     .action(async (options: { discover?: boolean }) => {
       if (!options.discover) {
         console.log(
@@ -173,20 +173,20 @@ export function registerSyncCommand(parent: Command): void {
       const currentVersion = (JSON.parse(raw) as { version?: string }).version;
 
       if (!currentVersion) {
-        ui.warn("No version found in package.json.");
+        ui.warn(t("cmd.sync.noVersion"));
         return;
       }
 
-      ui.info(`Scanning for version references (v${currentVersion})...`);
+      ui.info(t("cmd.sync.scanning", { version: currentVersion }));
 
       const refs = await discoverVersionReferences(cwd, currentVersion);
 
       if (refs.length === 0) {
-        ui.info("No version references found outside of manifest files.");
+        ui.info(t("cmd.sync.noReferences"));
         return;
       }
 
-      ui.success(`Found ${refs.length} version reference(s):`);
+      ui.success(t("cmd.sync.found", { count: refs.length }));
 
       for (const ref of refs) {
         if (ref.type === "json") {
@@ -196,7 +196,7 @@ export function registerSyncCommand(parent: Command): void {
         }
       }
 
-      console.log("\nAdd these to your pubm config to keep them in sync:");
+      console.log(`\n${t("cmd.sync.addToConfig")}`);
       console.log("```json");
       console.log(
         JSON.stringify(
