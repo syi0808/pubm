@@ -165,6 +165,63 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## 基于 PR 的版本升级工作流
+
+除了直接推送版本升级提交，pubm 还可以改为创建 pull request。当基础分支受到保护或你希望在发布前增加一个审查步骤时，这非常有用。
+
+在 config 中启用：
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+或在运行时传入 flag：
+
+```bash
+pubm --create-pr
+```
+
+启用 `createPr` 后：
+
+- pubm 创建包含版本升级提交的 `pubm/version-packages-*` 分支
+- 推送该分支并向基础分支开启一个 PR
+- PR 会自动添加 `no-changeset` 标签以跳过 changeset 检查
+- PR 合并后，现有的发布工作流通过 tag push 正常触发
+
+当直接推送到受保护的分支失败时，pubm 也会自动回退到 PR 模式。如果只需要回退行为，不必显式配置 `createPr`。
+
+## Changeset 检查（PR 验证）
+
+使用 [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action 来强制每个 PR 都包含 changeset。当 changesets 启用时，`pubm init` 会自动生成此工作流。
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+该 action 检测 PR diff 中新增的 `.pubm/changesets/*.md` 文件，验证其格式，并将结果以评论形式发布。对于不需要 changeset 的 PR（如文档、CI 配置等），添加 `no-changeset` 标签可跳过检查。
+
 ## 下一步
 
 - 阅读 [Troubleshooting](/pubm/zh-cn/guides/troubleshooting/) 了解故障诊断。

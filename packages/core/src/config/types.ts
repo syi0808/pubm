@@ -56,6 +56,8 @@ export interface PubmConfig {
   saveToken?: boolean;
   releaseDraft?: boolean;
   releaseNotes?: boolean;
+  /** Create a pull request for the version bump commit instead of pushing directly. @default false */
+  createPr?: boolean;
   /** @deprecated Use `rollback.strategy` instead. */
   rollbackStrategy?: "individual" | "all";
   rollback?: RollbackConfig;

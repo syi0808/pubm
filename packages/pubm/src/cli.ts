@@ -62,6 +62,7 @@ interface CliOptions {
   registry?: string;
   saveToken: boolean;
   dangerouslyAllowUnpublish?: boolean;
+  createPr?: boolean;
   locale?: string;
 }
 
@@ -95,6 +96,7 @@ export function resolveCliOptions(
     tag: options.tag,
     contents: options.contents,
     saveToken: options.saveToken,
+    createPr: options.createPr,
   };
 }
 
@@ -160,6 +162,7 @@ export function createProgram(): Command {
       "--dangerously-allow-unpublish",
       t("cli.option.dangerouslyAllowUnpublish"),
     )
+    .option("--create-pr", t("cli.option.createPr"))
     .option("--registry <registries>", t("cli.option.registry"), "npm,jsr")
     .action(
       async (

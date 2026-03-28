@@ -165,6 +165,63 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Workflow de version bump basé sur une PR
+
+Au lieu de pousser directement les commits de version bump, pubm peut créer une pull request à la place. C'est utile lorsque votre branche de base est protégée ou que vous souhaitez une étape de revue avant la publication.
+
+Activez-le dans la configuration :
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+Ou passez le flag à l'exécution :
+
+```bash
+pubm --create-pr
+```
+
+Lorsque `createPr` est activé :
+
+- pubm crée une branche `pubm/version-packages-*` avec le commit de version bump
+- la branche est poussée et une PR est ouverte vers la branche de base
+- la PR est automatiquement étiquetée `no-changeset` pour ignorer la vérification de changeset
+- lorsque la PR est fusionnée, le workflow de release existant se déclenche normalement via le push du tag
+
+pubm bascule également automatiquement en mode PR lorsqu'un push direct vers une branche protégée échoue. Il n'est donc pas nécessaire de configurer `createPr` explicitement si vous souhaitez uniquement le comportement de repli.
+
+## Vérification de changeset (validation de PR)
+
+Utilisez l'action GitHub [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) pour exiger que chaque PR inclue un changeset. `pubm init` génère ce workflow automatiquement lorsque les changesets sont activés.
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+L'action détecte les nouveaux fichiers `.pubm/changesets/*.md` dans le diff de la PR, valide leur format et publie un commentaire avec le résultat. Ajoutez le label `no-changeset` pour ignorer la vérification sur les PR qui n'ont pas besoin de changeset (docs, config CI, etc.).
+
 ## Étapes suivantes
 
 - Lisez le guide [Dépannage](/pubm/fr/guides/troubleshooting/) pour diagnostiquer les échecs.

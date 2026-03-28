@@ -394,6 +394,37 @@ export class Git {
     }
   }
 
+  async createBranch(name: string): Promise<void> {
+    try {
+      await this.git(["checkout", "-b", name]);
+    } catch (error) {
+      throw new GitError(`Failed to run \`git checkout -b ${name}\``, {
+        cause: error,
+      });
+    }
+  }
+
+  async pushNewBranch(remote: string, branch: string): Promise<void> {
+    try {
+      await this.git(["push", "-u", remote, branch, "--follow-tags"]);
+    } catch (error) {
+      throw new GitError(
+        `Failed to run \`git push -u ${remote} ${branch} --follow-tags\``,
+        { cause: error },
+      );
+    }
+  }
+
+  async deleteBranch(name: string): Promise<void> {
+    try {
+      await this.git(["branch", "-D", name]);
+    } catch (error) {
+      throw new GitError(`Failed to run \`git branch -D ${name}\``, {
+        cause: error,
+      });
+    }
+  }
+
   async push(options?: string): Promise<boolean> {
     const args = ["push", options].filter((v) => v) as string[];
 

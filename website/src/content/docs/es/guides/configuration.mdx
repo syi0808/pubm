@@ -192,6 +192,15 @@ Variables disponibles en la plantilla:
 - `{timestamp}`: timestamp UTC en formato `YYYYMMDDTHHmmss`
 - `{commit}`: SHA del commit Git actual
 
+### `createPr`
+
+- Tipo: `boolean`
+- Por defecto: `false`
+
+Crea un pull request para el commit de version bump en lugar de hacer push directamente a la rama base. Cuando está habilitado, pubm crea una rama `pubm/version-packages-*`, hace push y abre un PR. El workflow de release se activa normalmente cuando el PR es fusionado.
+
+pubm también cae automáticamente en modo PR cuando falla un push directo a una rama protegida.
+
 ### `locale`
 
 - Tipo: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`

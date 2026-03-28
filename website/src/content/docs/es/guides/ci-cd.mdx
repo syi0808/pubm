@@ -165,6 +165,63 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Flujo de trabajo de version bump basado en PR
+
+Como alternativa a hacer push directamente de los commits de version bump, pubm puede crear un pull request en su lugar. Esto es útil cuando tu rama base está protegida o quieres un paso de revisión antes de publicar.
+
+Actívalo en la configuración:
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+O pasa el flag en tiempo de ejecución:
+
+```bash
+pubm --create-pr
+```
+
+Cuando `createPr` está habilitado:
+
+- pubm crea una rama `pubm/version-packages-*` con el commit de version bump
+- se hace push de la rama y se abre un PR contra la rama base
+- el PR se etiqueta automáticamente con `no-changeset` para omitir la comprobación de changeset
+- cuando el PR se fusiona, el workflow de release existente se activa normalmente mediante el push del tag
+
+pubm también cae automáticamente en modo PR cuando falla un push directo a una rama protegida, por lo que no es necesario configurar `createPr` explícitamente si solo quieres el comportamiento de respaldo.
+
+## Comprobación de changeset (validación de PR)
+
+Usa la GitHub Action [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) para exigir que cada PR incluya un changeset. `pubm init` genera este workflow automáticamente cuando los changesets están habilitados.
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+La action detecta nuevos archivos `.pubm/changesets/*.md` en el diff del PR, valida su formato y publica un comentario con el resultado. Añade la etiqueta `no-changeset` para omitir la comprobación en PRs que no necesitan changeset (docs, config de CI, etc.).
+
 ## Siguientes pasos
 
 - Lee la guía [Troubleshooting](/pubm/es/guides/troubleshooting/) para diagnosticar fallos.

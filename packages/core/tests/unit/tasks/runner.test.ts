@@ -431,6 +431,11 @@ beforeEach(() => {
       createTag: vi.fn().mockResolvedValue(undefined),
       deleteTag: vi.fn().mockResolvedValue(undefined),
       push: vi.fn().mockResolvedValue(true),
+      pushDelete: vi.fn().mockResolvedValue(undefined),
+      pushNewBranch: vi.fn().mockResolvedValue(undefined),
+      forcePush: vi.fn().mockResolvedValue(undefined),
+      createBranch: vi.fn().mockResolvedValue(undefined),
+      switch: vi.fn().mockResolvedValue(undefined),
       latestTag: vi.fn().mockResolvedValue("v0.9.0"),
       previousTag: vi.fn().mockResolvedValue("v0.8.0"),
       firstCommit: vi.fn().mockResolvedValue("aaa"),
@@ -1144,6 +1149,8 @@ describe("run", () => {
           createTag: vi.fn().mockResolvedValue(undefined),
           deleteTag: vi.fn().mockResolvedValue(undefined),
           push: vi.fn().mockResolvedValue(true),
+          pushDelete: vi.fn().mockResolvedValue(undefined),
+          forcePush: vi.fn().mockResolvedValue(undefined),
           latestTag: vi.fn().mockResolvedValue("v1.0.0"),
           previousTag: vi.fn().mockResolvedValue("v0.9.0"),
           firstCommit: vi.fn().mockResolvedValue("aaa"),
@@ -1168,8 +1175,12 @@ describe("run", () => {
       expect(popStash).toHaveBeenCalledOnce();
     });
 
-    it("push tags handles GH006 protected branch by pushing only tags", async () => {
-      mockedExec.mockResolvedValue({ stdout: "ok", stderr: "" } as any);
+    it("push falls back to PR creation when push returns false (protected branch)", async () => {
+      mockedExec.mockResolvedValue({
+        stdout: "https://github.com/user/repo/pull/42",
+        stderr: "",
+      } as any);
+      process.env.GITHUB_TOKEN = "mock-gh-token";
 
       // Make push return false (GH006)
       mockedGit.mockImplementation(function () {
@@ -1178,10 +1189,11 @@ describe("run", () => {
           stage: vi.fn().mockResolvedValue(undefined),
           commit: vi.fn().mockResolvedValue("abc123"),
           createTag: vi.fn().mockResolvedValue(undefined),
-          push: vi
-            .fn()
-            .mockResolvedValueOnce(false)
-            .mockResolvedValueOnce(true),
+          push: vi.fn().mockResolvedValue(false),
+          pushDelete: vi.fn().mockResolvedValue(undefined),
+          pushNewBranch: vi.fn().mockResolvedValue(undefined),
+          createBranch: vi.fn().mockResolvedValue(undefined),
+          switch: vi.fn().mockResolvedValue(undefined),
           latestTag: vi.fn().mockResolvedValue("v1.0.0"),
           previousTag: vi.fn().mockResolvedValue("v0.9.0"),
           firstCommit: vi.fn().mockResolvedValue("aaa"),
@@ -1200,8 +1212,174 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      // Should succeed (push tags fallback)
+      // Should succeed (PR fallback)
       expect(mockedConsoleError).not.toHaveBeenCalled();
+
+      delete process.env.GITHUB_TOKEN;
+    });
+
+    it("creates PR directly when createPr option is true", async () => {
+      process.env.GITHUB_TOKEN = "mock-gh-token";
+      mockedExec.mockResolvedValue({
+        stdout: "https://github.com/user/repo/pull/99",
+        stderr: "",
+      } as any);
+
+      const createBranch = vi.fn().mockResolvedValue(undefined);
+      const pushNewBranch = vi.fn().mockResolvedValue(undefined);
+      const switchFn = vi.fn().mockResolvedValue(undefined);
+      const pushFn = vi.fn().mockResolvedValue(true);
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+          push: pushFn,
+          pushDelete: vi.fn().mockResolvedValue(undefined),
+          pushNewBranch,
+          createBranch,
+          switch: switchFn,
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+          firstCommit: vi.fn().mockResolvedValue("aaa"),
+          commits: vi.fn().mockResolvedValue([{ id: "abc", message: "feat" }]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash: vi.fn().mockResolvedValue(undefined),
+          popStash: vi.fn().mockResolvedValue(undefined),
+          status: vi.fn().mockResolvedValue(""),
+          checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
+          forcePush: vi.fn().mockResolvedValue(undefined),
+        } as any;
+      });
+
+      const options = createOptions({ options: { createPr: true } });
+      await run(options);
+
+      // Push should not be called (createPr bypasses normal push)
+      expect(pushFn).not.toHaveBeenCalled();
+      expect(createBranch).toHaveBeenCalled();
+      expect(pushNewBranch).toHaveBeenCalled();
+      expect(switchFn).toHaveBeenCalled();
+
+      delete process.env.GITHUB_TOKEN;
+    });
+
+    it("throws when GITHUB_TOKEN is missing during pushViaPr", async () => {
+      const originalToken = process.env.GITHUB_TOKEN;
+      delete process.env.GITHUB_TOKEN;
+
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+          push: vi.fn().mockResolvedValue(false), // fallback to PR
+          pushDelete: vi.fn().mockResolvedValue(undefined),
+          pushNewBranch: vi.fn().mockResolvedValue(undefined),
+          createBranch: vi.fn().mockResolvedValue(undefined),
+          switch: vi.fn().mockResolvedValue(undefined),
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+          firstCommit: vi.fn().mockResolvedValue("aaa"),
+          commits: vi.fn().mockResolvedValue([{ id: "abc", message: "feat" }]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash: vi.fn().mockResolvedValue(undefined),
+          popStash: vi.fn().mockResolvedValue(undefined),
+          status: vi.fn().mockResolvedValue(""),
+          checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
+          forcePush: vi.fn().mockResolvedValue(undefined),
+        } as any;
+      });
+
+      const options = createOptions();
+      await run(options);
+
+      // Should have called consoleError because token is missing
+      expect(mockedConsoleError).toHaveBeenCalled();
+
+      if (originalToken) process.env.GITHUB_TOKEN = originalToken;
+    });
+
+    it("registers remote tag rollback for independent mode after pushViaPr", async () => {
+      process.env.GITHUB_TOKEN = "mock-gh-token";
+      mockedExec.mockResolvedValue({
+        stdout: "https://github.com/user/repo/pull/77",
+        stderr: "",
+      } as any);
+
+      const pushDelete = vi.fn().mockResolvedValue(undefined);
+      mockedGit.mockImplementation(function () {
+        return {
+          reset: vi.fn().mockResolvedValue(undefined),
+          stage: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue("abc123"),
+          createTag: vi.fn().mockResolvedValue(undefined),
+          deleteTag: vi.fn().mockResolvedValue(undefined),
+          push: vi.fn().mockResolvedValue(false), // fallback to PR
+          pushDelete,
+          pushNewBranch: vi.fn().mockResolvedValue(undefined),
+          createBranch: vi.fn().mockResolvedValue(undefined),
+          switch: vi.fn().mockResolvedValue(undefined),
+          latestTag: vi.fn().mockResolvedValue("v1.0.0"),
+          previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+          firstCommit: vi.fn().mockResolvedValue("aaa"),
+          commits: vi.fn().mockResolvedValue([{ id: "abc", message: "feat" }]),
+          repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
+          stash: vi.fn().mockResolvedValue(undefined),
+          popStash: vi.fn().mockResolvedValue(undefined),
+          status: vi.fn().mockResolvedValue(""),
+          checkTagExist: vi.fn().mockResolvedValue(false),
+          revParse: vi.fn().mockResolvedValue("abc123"),
+          branch: vi.fn().mockResolvedValue("main"),
+          forcePush: vi.fn().mockResolvedValue(undefined),
+        } as any;
+      });
+
+      const options = createOptions({
+        runtime: {
+          versionPlan: {
+            mode: "independent" as const,
+            packages: new Map([
+              ["packages/a", "1.1.0"],
+              ["packages/b", "2.0.0"],
+            ]),
+          },
+        },
+        config: {
+          packages: [
+            {
+              path: "packages/a",
+              name: "pkg-a",
+              version: "1.0.0",
+              ecosystem: "js" as const,
+              dependencies: [],
+              registries: ["npm"] as any,
+            },
+            {
+              path: "packages/b",
+              name: "pkg-b",
+              version: "1.0.0",
+              ecosystem: "js" as const,
+              dependencies: [],
+              registries: ["npm"] as any,
+            },
+          ],
+        },
+      });
+      await run(options);
+
+      // Rollback should include remote tag deletion entries for independent packages
+      expect(options.runtime.rollback.size).toBeGreaterThan(0);
+
+      delete process.env.GITHUB_TOKEN;
     });
 
     it("release draft generates body with commits and opens browser when no GH token", async () => {

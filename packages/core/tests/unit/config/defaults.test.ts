@@ -161,6 +161,11 @@ describe("resolveConfig", () => {
     expect(resolved.rollback.strategy).toBe("individual");
   });
 
+  it("defaults createPr to false", async () => {
+    const config = await resolveConfig({});
+    expect(config.createPr).toBe(false);
+  });
+
   it("defaults dangerouslyAllowUnpublish to false", async () => {
     const resolved = await resolveConfig({});
     expect(resolved.rollback.dangerouslyAllowUnpublish).toBe(false);

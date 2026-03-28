@@ -165,7 +165,64 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-## Next steps
+## PR-basierter Version-Bump-Workflow
+
+Als Alternative zum direkten Pushen von Version-Bump-Commits kann pubm stattdessen einen Pull Request erstellen. Das ist nützlich, wenn dein Basis-Branch geschützt ist oder du einen Review-Schritt vor der Veröffentlichung möchtest.
+
+In der Konfiguration aktivieren:
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+Oder als Flag zur Laufzeit übergeben:
+
+```bash
+pubm --create-pr
+```
+
+Wenn `createPr` aktiviert ist:
+
+- pubm erstellt einen `pubm/version-packages-*`-Branch mit dem Version-Bump-Commit
+- der Branch wird gepusht und ein PR gegen den Basis-Branch geöffnet
+- der PR wird automatisch mit `no-changeset` markiert, um die Changeset-Prüfung zu überspringen
+- wenn der PR gemergt wird, löst der bestehende Release-Workflow normal über den Tag-Push aus
+
+pubm fällt auch automatisch in den PR-Modus zurück, wenn ein direkter Push in einen geschützten Branch fehlschlägt. Es ist daher nicht nötig, `createPr` explizit zu konfigurieren, wenn du nur das Fallback-Verhalten möchtest.
+
+## Changeset-Prüfung (PR-Validierung)
+
+Verwende die GitHub Action [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions), um sicherzustellen, dass jeder PR ein Changeset enthält. `pubm init` generiert diesen Workflow automatisch, wenn Changesets aktiviert sind.
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+Die Action erkennt neue `.pubm/changesets/*.md`-Dateien im PR-Diff, validiert ihr Format und hinterlässt einen Kommentar mit dem Ergebnis. Füge das Label `no-changeset` hinzu, um die Prüfung für PRs zu überspringen, die kein Changeset benötigen (Docs, CI-Config usw.).
+
+## Nächste Schritte
 
 - Lies den Leitfaden [Troubleshooting](/pubm/de/guides/troubleshooting/) für die Fehleranalyse.
 - Lies die [CLI-Referenz](/pubm/de/reference/cli/) für alle in CI genutzten Ausführungsflags.
