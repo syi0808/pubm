@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.13
+
+### Patch Changes
+
+- Add createPr option for PR-based version packages workflow with gh CLI and GitHub API fallback
+
 ## 0.4.9
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.13
+
+### Patch Changes
+
+- Add --create-pr CLI flag for PR-based version packages workflow
+
 ## 0.4.11
 
 ### Patch Changes
