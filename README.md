@@ -77,6 +77,25 @@ Detects pnpm, yarn, npm, bun, deno, and Cargo workspaces automatically. Publishe
 
 JavaScript and Rust in the same pipeline. Mixed JS + Rust workspaces work out of the box.
 
+### Multilingual CLI
+
+Prompts, errors, task progress, rollback instructions: all translated into 6 languages.
+
+**English · 한국어 · 简体中文 · Français · Deutsch · Español**
+
+pubm picks up your system locale automatically. You can also set it yourself:
+
+```bash
+# CLI flag
+pubm --locale ko
+
+# Environment variable
+PUBM_LOCALE=fr pubm
+
+# Or set it in pubm.config.ts
+export default defineConfig({ locale: "zh-cn" });
+```
+
 ## Quick Start
 
 ```bash
