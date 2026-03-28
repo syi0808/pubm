@@ -165,6 +165,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## PR-based version bump workflow
+
+As an alternative to pushing version bump commits directly, pubm can create a pull request instead. This is useful when your base branch is protected or you want a review step before publishing.
+
+Enable it in config:
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+Or pass the flag at runtime:
+
+```bash
+pubm --create-pr
+```
+
+When `createPr` is enabled:
+
+- pubm creates a `pubm/version-packages-*` branch with the version bump commit
+- the branch is pushed and a PR is opened against the base branch
+- the PR is automatically labeled `no-changeset` to skip the changeset check
+- when the PR is merged, the existing release workflow triggers normally via the tag push
+
+pubm also falls back to PR mode automatically when a direct push to a protected branch fails, so you do not need to configure `createPr` explicitly if you only want the fallback behavior.
+
 ## Changeset check (PR validation)
 
 Use the [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action to enforce that every PR includes a changeset. `pubm init` generates this workflow automatically when changesets are enabled.

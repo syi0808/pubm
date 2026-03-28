@@ -192,6 +192,15 @@ Verfügbare Platzhalter:
 - `{timestamp}`: UTC-Zeitstempel im Format `YYYYMMDDTHHmmss`
 - `{commit}`: aktueller Git-Commit-SHA
 
+### `createPr`
+
+- Typ: `boolean`
+- Standard: `false`
+
+Erstellt einen Pull Request für den Version-Bump-Commit anstatt direkt in den Basis-Branch zu pushen. Wenn aktiviert, erstellt pubm einen `pubm/version-packages-*`-Branch, pusht ihn und öffnet einen PR. Der Release-Workflow wird normal ausgelöst, wenn der PR gemergt wird.
+
+pubm fällt auch automatisch in den PR-Modus zurück, wenn ein direkter Push in einen geschützten Branch fehlschlägt.
+
 ### `locale`
 
 - Typ: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`

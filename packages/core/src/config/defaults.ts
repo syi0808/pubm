@@ -43,6 +43,7 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
+  createPr: false,
   lockfileSync: "optional" as const,
 };
 

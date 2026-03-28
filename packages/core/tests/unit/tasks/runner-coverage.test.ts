@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("std-env", () => ({ isCI: false }));
 vi.mock("node:fs", async () => {
@@ -255,6 +255,13 @@ vi.mock("../../../src/assets/resolver.js", () => ({
 vi.mock("../../../src/registry/jsr.js", () => ({
   JsrClient: { token: undefined },
 }));
+vi.mock("../../../src/tasks/create-version-pr.js", () => ({
+  createVersionPr: vi.fn().mockResolvedValue({
+    url: "https://github.com/pubm/pubm/pull/1",
+    number: 1,
+  }),
+  closeVersionPr: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -281,6 +288,7 @@ import {
 } from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
+import { createVersionPr } from "../../../src/tasks/create-version-pr.js";
 import { run } from "../../../src/tasks/runner.js";
 import { exec } from "../../../src/utils/exec.js";
 import { resolveGitHubToken } from "../../../src/utils/github-token.js";
@@ -321,6 +329,7 @@ const mockedGenerateSnapshotVersion = vi.mocked(generateSnapshotVersion);
 const mockedGetPackageManager = vi.mocked(getPackageManager);
 const mockedExec = vi.mocked(exec);
 const mockedOpenUrl = vi.mocked(openUrl);
+const mockedCreateVersionPr = vi.mocked(createVersionPr);
 
 function createOptions(
   overrides: {
@@ -401,6 +410,13 @@ beforeEach(() => {
       commits: vi.fn().mockResolvedValue([{ id: "head", message: "skip" }]),
       repository: vi.fn().mockResolvedValue("https://github.com/pubm/pubm"),
       push: vi.fn().mockResolvedValue(true),
+      pushDelete: vi.fn().mockResolvedValue(undefined),
+      pushNewBranch: vi.fn().mockResolvedValue(undefined),
+      createBranch: vi.fn().mockResolvedValue(undefined),
+      switch: vi.fn().mockResolvedValue(undefined),
+      branch: vi.fn().mockResolvedValue("main"),
+      revParse: vi.fn().mockResolvedValue("abc123"),
+      forcePush: vi.fn().mockResolvedValue(undefined),
       status: vi.fn().mockResolvedValue(""),
       stash: vi.fn().mockResolvedValue(undefined),
       popStash: vi.fn().mockResolvedValue(undefined),
@@ -2217,7 +2233,7 @@ describe("CI GitHub Release", () => {
 });
 
 describe("post-publish", () => {
-  it("falls back to --tags when push --follow-tags fails (protected branch)", async () => {
+  it("falls back to PR creation when push --follow-tags fails (protected branch)", async () => {
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
@@ -2227,18 +2243,30 @@ describe("post-publish", () => {
     );
     expect(pushTask).toBeDefined();
 
+    mockedExec.mockResolvedValue({
+      stdout: "https://github.com/user/repo/pull/42",
+      stderr: "",
+    } as any);
+
     const gitInstance = {
-      push: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
+      push: vi.fn().mockResolvedValue(false),
+      pushDelete: vi.fn().mockResolvedValue(undefined),
+      pushNewBranch: vi.fn().mockResolvedValue(undefined),
+      createBranch: vi.fn().mockResolvedValue(undefined),
+      switch: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn().mockResolvedValue("abc123"),
       branch: vi.fn().mockResolvedValue("main"),
+      repository: vi.fn().mockResolvedValue("https://github.com/user/repo"),
     };
     mockedGit.mockImplementation(function () {
       return gitInstance as any;
     } as any);
 
     const task = createTask();
+    process.env.GITHUB_TOKEN = "mock-gh-token";
     const ctx: any = {
       config: {
+        branch: "main",
         packages: [
           {
             path: ".",
@@ -2250,6 +2278,7 @@ describe("post-publish", () => {
           },
         ],
       },
+      options: {},
       runtime: {
         version: "5.0.0",
         pluginRunner: new PluginRunner([]),
@@ -2261,8 +2290,10 @@ describe("post-publish", () => {
     await pushTask.task(ctx, task);
 
     expect(gitInstance.push).toHaveBeenCalledWith("--follow-tags");
-    expect(gitInstance.push).toHaveBeenCalledWith("--tags");
-    expect(task.title).toContain("protected");
+    expect(gitInstance.createBranch).toHaveBeenCalled();
+    expect(gitInstance.pushNewBranch).toHaveBeenCalled();
+
+    delete process.env.GITHUB_TOKEN;
   });
 
   it("runs afterPublish plugin hooks in post-publish task", async () => {
@@ -6185,5 +6216,354 @@ describe("empty registry group summary", () => {
 
     // formatRegistryGroupSummary with no lines should just return heading
     expect(parentTask.output).toBe("Concurrent publish tasks");
+  });
+});
+
+describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
+  const originalEnvToken = process.env.GITHUB_TOKEN;
+
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-push-via-pr-token";
+  });
+
+  afterEach(() => {
+    if (originalEnvToken) {
+      process.env.GITHUB_TOKEN = originalEnvToken;
+    } else {
+      delete process.env.GITHUB_TOKEN;
+    }
+    vi.clearAllMocks();
+  });
+
+  async function getPushTask() {
+    await run(createOptions());
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    // Push task is index 9 in the flat task list
+    return tasks[9];
+  }
+
+  it("builds PR body in single mode when changelog exists", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockImplementation((p) =>
+      String(p).endsWith("CHANGELOG.md"),
+    );
+    mockedReadFileSync.mockReturnValue("# Changelog\n## 2.0.0\n- Fix bug");
+    mockedParseChangelogSection.mockReturnValue("- Fix bug");
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "single",
+          version: "2.0.0",
+          packagePath: ".",
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    expect(mockedCreateVersionPr).toHaveBeenCalled();
+    const prArgs = mockedCreateVersionPr.mock.calls[0][0];
+    expect(prArgs.body).toContain("- Fix bug");
+  });
+
+  it("builds PR body in fixed mode with changelog for each package", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockImplementation((p) =>
+      String(p).replace(/\\/g, "/").includes("packages/core/CHANGELOG.md"),
+    );
+    mockedReadFileSync.mockReturnValue("# Changelog");
+    mockedParseChangelogSection.mockReturnValue("core changelog entry");
+
+    const packages = [
+      {
+        path: "packages/core",
+        name: "@pubm/core",
+        version: "3.0.0",
+        ecosystem: "js" as const,
+        dependencies: [],
+        registries: ["npm"] as any,
+      },
+      {
+        path: "packages/pubm",
+        name: "pubm",
+        version: "3.0.0",
+        ecosystem: "js" as const,
+        dependencies: [],
+        registries: ["npm"] as any,
+      },
+    ];
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages,
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "fixed",
+          version: "3.0.0",
+          packages: new Map([
+            ["packages/core", "3.0.0"],
+            ["packages/pubm", "3.0.0"],
+          ]),
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    expect(mockedCreateVersionPr).toHaveBeenCalled();
+    const prArgs = mockedCreateVersionPr.mock.calls[0][0];
+    expect(prArgs.body).toContain("@pubm/core");
+    expect(prArgs.body).toContain("pubm");
+  });
+
+  it("builds PR body in fixed mode without changelog", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockReturnValue(false);
+
+    const packages = [
+      {
+        path: "packages/a",
+        name: "pkg-a",
+        version: "1.0.0",
+        ecosystem: "js" as const,
+        dependencies: [],
+        registries: ["npm"] as any,
+      },
+    ];
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages,
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "fixed",
+          version: "4.0.0",
+          packages: new Map([["packages/a", "4.0.0"]]),
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    expect(mockedCreateVersionPr).toHaveBeenCalled();
+    const prArgs = mockedCreateVersionPr.mock.calls[0][0];
+    expect(prArgs.body).toContain("pkg-a");
+    expect(prArgs.body).not.toContain("## Changelog");
+  });
+
+  it("builds PR body in independent mode with changelog for packages without pkgConfig", async () => {
+    const pushTask = await getPushTask();
+
+    // existsSync returns true for any CHANGELOG.md path
+    mockedExistsSync.mockImplementation((p) =>
+      String(p).endsWith("CHANGELOG.md"),
+    );
+    mockedReadFileSync.mockReturnValue("# Changelog");
+    mockedParseChangelogSection.mockReturnValue("independent entry");
+
+    const packages = [
+      {
+        path: "packages/alpha",
+        name: "alpha",
+        version: "1.0.0",
+        ecosystem: "js" as const,
+        dependencies: [],
+        registries: ["npm"] as any,
+      },
+      {
+        path: "packages/beta",
+        name: "beta",
+        version: "2.0.0",
+        ecosystem: "js" as const,
+        dependencies: [],
+        registries: ["npm"] as any,
+      },
+    ];
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages,
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/alpha", "1.1.0"],
+            ["packages/beta", "2.1.0"],
+          ]),
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    expect(mockedCreateVersionPr).toHaveBeenCalled();
+    const prArgs = mockedCreateVersionPr.mock.calls[0][0];
+    expect(prArgs.body).toContain("alpha");
+    expect(prArgs.body).toContain("beta");
+  });
+
+  it("builds PR body in independent mode when pkgConfig is not found (uses path as name)", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockReturnValue(false);
+
+    // versionPlan references paths not in config.packages
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages: [],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([["packages/orphan", "5.0.0"]]),
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    expect(mockedCreateVersionPr).toHaveBeenCalled();
+    const prArgs = mockedCreateVersionPr.mock.calls[0][0];
+    // When pkgConfig not found, path is used as name
+    expect(prArgs.body).toContain("packages/orphan");
+  });
+
+  it("registers remote tag rollback for single mode after successful push via PR", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockReturnValue(false);
+
+    const rollback = new RollbackTracker();
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages: [
+          {
+            path: ".",
+            name: "pubm",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback,
+        versionPlan: {
+          mode: "single",
+          version: "1.0.0",
+          packagePath: ".",
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    // Rollback should have entries: remote tag + branch + close PR
+    expect(rollback.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("registers per-package remote tag rollback in independent mode after pushViaPr", async () => {
+    const pushTask = await getPushTask();
+
+    mockedExistsSync.mockReturnValue(false);
+
+    const rollback = new RollbackTracker();
+    const ctx: any = {
+      cwd: process.cwd(),
+      options: { createPr: true },
+      config: {
+        branch: "main",
+        packages: [
+          {
+            path: "packages/a",
+            name: "pkg-a",
+            version: "1.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            path: "packages/b",
+            name: "pkg-b",
+            version: "2.0.0",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        pluginRunner: new PluginRunner([]),
+        rollback,
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a", "1.1.0"],
+            ["packages/b", "2.1.0"],
+          ]),
+        },
+      },
+    };
+
+    const task = { output: "" };
+    await pushTask.task(ctx, task);
+
+    // Rollback should have per-package remote tag entries + branch + close PR
+    expect(rollback.size).toBeGreaterThanOrEqual(4);
   });
 });

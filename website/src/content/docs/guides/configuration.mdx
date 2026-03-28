@@ -192,6 +192,15 @@ Available template variables:
 - `{timestamp}`: UTC timestamp in `YYYYMMDDTHHmmss` format
 - `{commit}`: current git commit SHA
 
+### `createPr`
+
+- Type: `boolean`
+- Default: `false`
+
+Create a pull request for the version bump commit instead of pushing directly to the base branch. When enabled, pubm creates a `pubm/version-packages-*` branch, pushes it, and opens a PR. The release workflow triggers normally when the PR is merged.
+
+Can also be set as a fallback: pubm automatically falls back to PR mode when a direct push to a protected branch fails.
+
 ### `locale`
 
 - Type: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`

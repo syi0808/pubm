@@ -161,12 +161,26 @@ export type {
   TokenEntry,
 } from "./registry/catalog.js";
 export { RegistryCatalog, registryCatalog } from "./registry/catalog.js";
+export type {
+  CloseVersionPrOptions,
+  CreateVersionPrOptions,
+  CreateVersionPrResult,
+} from "./tasks/create-version-pr.js";
+// Tasks
+export {
+  closeVersionPr,
+  createVersionPr,
+} from "./tasks/create-version-pr.js";
 export type { GhSecretEntry } from "./tasks/preflight.js";
 export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";
-// Tasks
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
 // Task factory
 export type { RegistryTaskFactory } from "./tasks/task-factory.js";
+export type {
+  BuildVersionPrBodyOptions,
+  VersionPrPackageInfo,
+} from "./tasks/version-pr-body.js";
+export { buildVersionPrBody } from "./tasks/version-pr-body.js";
 export type { Options, ReleaseMode, ResolvedOptions } from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";

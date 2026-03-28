@@ -26,7 +26,7 @@ import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import type { Changeset } from "../changeset/parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
-import type { PubmContext } from "../context.js";
+import type { PubmContext, VersionPlan } from "../context.js";
 import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
@@ -49,6 +49,7 @@ import { resolvePhases } from "../utils/resolve-phases.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
 import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
+import { closeVersionPr, createVersionPr } from "./create-version-pr.js";
 import { createGitHubRelease, deleteGitHubRelease } from "./github-release.js";
 import {
   collectEcosystemRegistryGroups,
@@ -64,6 +65,7 @@ import {
 } from "./preflight.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
+import { buildVersionPrBody } from "./version-pr-body.js";
 
 const { prerelease } = SemVer;
 const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
@@ -570,6 +572,150 @@ function registerTagRollback(ctx: PubmContext, tagName: string): void {
       await g.deleteTag(tagName);
     },
   });
+}
+
+function registerRemoteTagRollback(ctx: PubmContext): void {
+  const plan = requireVersionPlan(ctx);
+  if (plan.mode === "independent") {
+    for (const [pkgPath, pkgVersion] of plan.packages) {
+      if (isReleaseExcluded(ctx.config, pkgPath)) continue;
+      const pkgName = getPackageName(ctx, pkgPath);
+      const tag = `${pkgName}@${pkgVersion}`;
+      ctx.runtime.rollback.add({
+        label: t("task.push.deleteRemoteTag", { tag }),
+        fn: async () => {
+          const g = new Git();
+          await g.pushDelete("origin", tag);
+        },
+      });
+    }
+  } else {
+    const tagName = `v${plan.version}`;
+    ctx.runtime.rollback.add({
+      label: t("task.push.deleteRemoteTag", { tag: tagName }),
+      fn: async () => {
+        const g = new Git();
+        await g.pushDelete("origin", tagName);
+      },
+    });
+  }
+}
+
+async function pushViaPr(
+  ctx: PubmContext,
+  git: Git,
+  task: { output: string },
+): Promise<void> {
+  const branchName = `pubm/version-packages-${Date.now()}`;
+
+  task.output = t("task.push.creatingBranch", { branch: branchName });
+  await git.createBranch(branchName);
+
+  task.output = t("task.push.pushingBranch", { branch: branchName });
+  await git.pushNewBranch("origin", branchName);
+
+  registerRemoteTagRollback(ctx);
+
+  const plan = requireVersionPlan(ctx);
+  const prBody = buildPrBodyFromContext(ctx, plan);
+
+  const remoteUrl = await git.repository();
+  const { owner, repo } = parseOwnerRepo(remoteUrl);
+
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    throw new AbstractError(t("error.githubRelease.tokenRequired"));
+  }
+
+  task.output = t("task.push.creatingPr");
+  const pr = await createVersionPr({
+    branch: branchName,
+    base: ctx.config.branch,
+    title: "Version Packages",
+    body: prBody,
+    token,
+    owner,
+    repo,
+    labels: ["no-changeset"],
+  });
+
+  task.output = t("task.push.prCreated", { url: pr.url });
+
+  // Rollback executes LIFO — register in reverse order of desired execution
+  // Desired: close PR → delete branch → (tags already registered earlier)
+  ctx.runtime.rollback.add({
+    label: t("task.push.deleteRemoteBranch", { branch: branchName }),
+    fn: async () => {
+      const g = new Git();
+      await g.pushDelete("origin", branchName);
+    },
+  });
+  ctx.runtime.rollback.add({
+    label: t("task.push.closePr", { number: pr.number }),
+    fn: async () => {
+      await closeVersionPr({ number: pr.number, token, owner, repo });
+    },
+  });
+
+  await git.switch(ctx.config.branch);
+}
+
+function buildPrBodyFromContext(ctx: PubmContext, plan: VersionPlan): string {
+  const packages: { name: string; version: string; bump: string }[] = [];
+  const changelogs = new Map<string, string>();
+
+  if (plan.mode === "independent") {
+    for (const [pkgPath, pkgVersion] of plan.packages) {
+      const pkgConfig = ctx.config.packages.find((p) => p.path === pkgPath);
+      const name = pkgConfig?.name ?? pkgPath;
+      packages.push({ name, version: pkgVersion, bump: "" });
+
+      const changelogDir = pkgConfig
+        ? path.resolve(process.cwd(), pkgConfig.path)
+        : process.cwd();
+      const changelogPath = path.join(changelogDir, "CHANGELOG.md");
+      if (existsSync(changelogPath)) {
+        const section = parseChangelogSection(
+          readFileSync(changelogPath, "utf-8"),
+          pkgVersion,
+        );
+        if (section) changelogs.set(name, section);
+      }
+    }
+  } else {
+    const version = plan.version;
+    for (const pkg of ctx.config.packages) {
+      packages.push({ name: pkg.name, version, bump: "" });
+    }
+
+    if (plan.mode === "single") {
+      const changelogPath = path.join(process.cwd(), "CHANGELOG.md");
+      if (existsSync(changelogPath)) {
+        const section = parseChangelogSection(
+          readFileSync(changelogPath, "utf-8"),
+          version,
+        );
+        if (section) changelogs.set(packages[0]?.name ?? "", section);
+      }
+    } else {
+      for (const pkg of ctx.config.packages) {
+        const changelogPath = path.join(
+          process.cwd(),
+          pkg.path,
+          "CHANGELOG.md",
+        );
+        if (existsSync(changelogPath)) {
+          const section = parseChangelogSection(
+            readFileSync(changelogPath, "utf-8"),
+            version,
+          );
+          if (section) changelogs.set(pkg.name, section);
+        }
+      }
+    }
+  }
+
+  return buildVersionPrBody({ packages, changelogs });
 }
 
 export async function run(ctx: PubmContext): Promise<void> {
@@ -1396,52 +1542,29 @@ export async function run(ctx: PubmContext): Promise<void> {
             const prePushSha = await git.revParse("HEAD~1");
             task.output = t("task.push.executing");
 
-            const result = await git.push("--follow-tags");
+            const createPr = ctx.options.createPr ?? ctx.config.createPr;
 
-            if (!result) {
-              task.title += t("task.push.protectedBranch");
-              task.output = t("task.push.protectedFallback");
+            if (createPr) {
+              await pushViaPr(ctx, git, task);
+            } else {
+              const result = await git.push("--follow-tags");
 
-              await git.push("--tags");
-            }
+              if (!result) {
+                task.output = t("task.push.prFallback");
+                await pushViaPr(ctx, git, task);
+              } else {
+                registerRemoteTagRollback(ctx);
 
-            // Register remote tag rollback
-            const plan = requireVersionPlan(ctx);
-            if (plan.mode === "independent") {
-              for (const [pkgPath, pkgVersion] of plan.packages) {
-                if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-                const pkgName = getPackageName(ctx, pkgPath);
-                const tag = `${pkgName}@${pkgVersion}`;
+                const branch = await git.branch();
                 ctx.runtime.rollback.add({
-                  label: t("task.push.deleteRemoteTag", { tag }),
+                  label: t("task.push.forceRevert", { branch }),
                   fn: async () => {
                     const g = new Git();
-                    await g.pushDelete("origin", tag);
+                    await g.forcePush("origin", `${prePushSha}:${branch}`);
                   },
+                  confirm: true,
                 });
               }
-            } else {
-              const tagName = `v${plan.version}`;
-              ctx.runtime.rollback.add({
-                label: t("task.push.deleteRemoteTag", { tag: tagName }),
-                fn: async () => {
-                  const g = new Git();
-                  await g.pushDelete("origin", tagName);
-                },
-              });
-            }
-
-            // Register force push rollback if commits were pushed
-            if (result) {
-              const branch = await git.branch();
-              ctx.runtime.rollback.add({
-                label: t("task.push.forceRevert", { branch }),
-                fn: async () => {
-                  const g = new Git();
-                  await g.forcePush("origin", `${prePushSha}:${branch}`);
-                },
-                confirm: true,
-              });
             }
 
             task.output = t("task.push.runningAfterHooks");

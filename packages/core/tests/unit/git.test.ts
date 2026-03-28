@@ -919,6 +919,78 @@ describe("Git", () => {
     });
   });
 
+  describe("createBranch(name)", () => {
+    it("creates and switches to a new branch", async () => {
+      mockedExec.mockResolvedValueOnce({ stdout: "", stderr: "" } as any);
+
+      await git.createBranch("pubm/version-packages-123");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["checkout", "-b", "pubm/version-packages-123"],
+        { throwOnError: true },
+      );
+    });
+
+    it("throws GitError on failure", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal: branch already exists"));
+
+      await expect(
+        git.createBranch("pubm/version-packages-123"),
+      ).rejects.toThrow(
+        "Failed to run `git checkout -b pubm/version-packages-123`",
+      );
+    });
+  });
+
+  describe("pushNewBranch(remote, branch)", () => {
+    it("pushes a new branch with upstream tracking and follow-tags", async () => {
+      mockedExec.mockResolvedValueOnce({ stdout: "", stderr: "" } as any);
+
+      await git.pushNewBranch("origin", "pubm/version-packages-123");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["push", "-u", "origin", "pubm/version-packages-123", "--follow-tags"],
+        { throwOnError: true },
+      );
+    });
+
+    it("throws GitError on failure", async () => {
+      mockedExec.mockRejectedValue(new Error("fatal: unable to access"));
+
+      await expect(
+        git.pushNewBranch("origin", "pubm/version-packages-123"),
+      ).rejects.toThrow(
+        "Failed to run `git push -u origin pubm/version-packages-123 --follow-tags`",
+      );
+    });
+  });
+
+  describe("deleteBranch(name)", () => {
+    it("deletes a local branch", async () => {
+      mockedExec.mockResolvedValueOnce({ stdout: "", stderr: "" } as any);
+
+      await git.deleteBranch("pubm/version-packages-123");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["branch", "-D", "pubm/version-packages-123"],
+        { throwOnError: true },
+      );
+    });
+
+    it("throws GitError on failure", async () => {
+      mockedExec.mockRejectedValue(new Error("error: branch not found"));
+
+      await expect(
+        git.deleteBranch("pubm/version-packages-123"),
+      ).rejects.toThrow(
+        "Failed to run `git branch -D pubm/version-packages-123`",
+      );
+    });
+  });
+
   describe("push(options?)", () => {
     it("returns true on successful push without options", async () => {
       mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);

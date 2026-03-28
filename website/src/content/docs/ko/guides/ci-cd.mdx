@@ -165,6 +165,63 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## PR 기반 version bump 워크플로
+
+직접 push하는 대신, pubm이 pull request를 생성하게 할 수도 있습니다. 베이스 브랜치가 보호되어 있거나 publish 전에 리뷰 단계를 원할 때 유용합니다.
+
+config에서 활성화:
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+또는 실행 시 플래그로 전달:
+
+```bash
+pubm --create-pr
+```
+
+`createPr`가 활성화되면:
+
+- pubm이 version bump 커밋이 담긴 `pubm/version-packages-*` 브랜치를 생성합니다.
+- 브랜치를 push하고 베이스 브랜치로의 PR을 엽니다.
+- PR에는 changeset 검사를 건너뛰기 위해 자동으로 `no-changeset` 레이블이 붙습니다.
+- PR이 병합되면 태그 push를 통해 기존 릴리스 워크플로가 정상적으로 트리거됩니다.
+
+보호된 브랜치로의 직접 push가 실패할 경우, pubm은 자동으로 PR 모드로 폴백합니다. 폴백 동작만 원한다면 `createPr`를 명시적으로 설정할 필요가 없습니다.
+
+## Changeset 검사 (PR 유효성 검사)
+
+[`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action을 사용해 모든 PR에 changeset이 포함되도록 강제할 수 있습니다. changeset이 활성화되어 있으면 `pubm init`이 이 워크플로를 자동으로 생성합니다.
+
+```yaml
+name: Changeset Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions@v1
+        with:
+          skip-label: no-changeset
+```
+
+이 action은 PR diff에서 새 `.pubm/changesets/*.md` 파일을 감지하고, 형식을 검증한 뒤 결과를 comment로 남깁니다. changeset이 필요 없는 PR(docs, CI config 등)에는 `no-changeset` 레이블을 추가하여 검사를 건너뜁니다.
+
 ## 다음 단계
 
 - 실패 원인은 [Troubleshooting](/pubm/ko/guides/troubleshooting/)에서 확인합니다.
