@@ -281,6 +281,7 @@ import { consoleError } from "../../../src/error.js";
 import { Git } from "../../../src/git.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
+import { createVersionPr } from "../../../src/tasks/create-version-pr.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import {
   collectTokens,
@@ -288,7 +289,6 @@ import {
 } from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
-import { createVersionPr } from "../../../src/tasks/create-version-pr.js";
 import { run } from "../../../src/tasks/runner.js";
 import { exec } from "../../../src/utils/exec.js";
 import { resolveGitHubToken } from "../../../src/utils/github-token.js";
