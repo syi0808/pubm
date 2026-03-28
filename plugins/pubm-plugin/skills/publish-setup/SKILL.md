@@ -172,13 +172,7 @@ Read the corresponding registry reference file for the template and constraints.
 - If neither source file nor target file exists, inform the user and ask them to create one manually.
 - Before writing any generated file, show the content and ask for confirmation.
 
-### 8. Update .gitignore
-
-Check if `.pubm/` is already in `.gitignore`. If not, append it. This directory contains encrypted tokens and should not be committed.
-
-**Note:** If the user selected changesets workflow in Step 5, the `.gitignore` update will be handled by `pubm init` instead (it uses `.pubm/*` with `!.pubm/changesets/` to track changeset files while ignoring tokens). Skip this step in that case.
-
-### 9. CI setup (if selected in Step 5)
+### 8. CI setup (if selected in Step 5)
 
 1. **Ask CI platform**: Default to GitHub Actions if not specified.
 2. **Ask trigger method**:
@@ -204,8 +198,6 @@ pubm init
 
 This creates:
 - `.github/workflows/changeset-check.yml` - PR changeset detection with bot comments
-- Updates `.gitignore` to track `.pubm/changesets/` while ignoring other `.pubm/` contents
-
 After running, tell the user:
 - Every PR with code changes needs a changeset (`pubm changesets add`)
 - `no-changeset` label skips the check for docs/CI-only changes
@@ -282,11 +274,9 @@ Remind the user they can run `pubm inspect packages` at any time to check the de
 - Always use `defineConfig()` from `pubm` for type safety in config files.
 - Config uses a `packages` array with per-package `registries`; there is no top-level `registries` field on `PubmConfig`.
 - The config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
-- Always add `.pubm/` to `.gitignore`, unless the changesets workflow handles it via `pubm init`.
 - If you are not sure which registries the user wants, ask.
 - When suggesting npm scripts, use `"release": "pubm --mode ci --phase prepare"` if CI is configured, or `"release": "pubm"` if it is not. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
 - In CI, use `--mode ci --phase publish` for publish plus GitHub Release, or `--phase publish` for publish only.
-- When the changesets workflow is selected, do NOT add `.pubm/` to `.gitignore` directly. `pubm init` handles the correct pattern (`.pubm/*` + `!.pubm/changesets/`).
 - When Step 1 reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
 
 ## References
