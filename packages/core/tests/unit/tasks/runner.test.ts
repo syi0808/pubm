@@ -369,7 +369,8 @@ function setupCreateListrMock() {
     return {
       run: vi.fn(async (ctx: any) => {
         for (const task of tasks) {
-          if (typeof task.enabled === "function" && !task.enabled(ctx)) continue;
+          if (typeof task.enabled === "function" && !task.enabled(ctx))
+            continue;
           if (typeof task.enabled === "boolean" && !task.enabled) continue;
           if (typeof task.skip === "function" && task.skip(ctx)) continue;
           if (typeof task.skip === "boolean" && task.skip) continue;
