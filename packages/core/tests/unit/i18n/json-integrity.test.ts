@@ -48,9 +48,8 @@ describe("JSON integrity", () => {
           const names: string[] = [];
           // Match {identifier} or {identifier, ...} at any nesting depth
           const pattern = /\{([a-zA-Z_][a-zA-Z0-9_]*)(,|\})/g;
-          let match: RegExpExecArray | null;
-          while ((match = pattern.exec(msg)) !== null) {
-            names.push(match[1]);
+          for (const m of msg.matchAll(pattern)) {
+            names.push(m[1]);
           }
           return names.sort();
         }
