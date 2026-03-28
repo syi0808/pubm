@@ -92,6 +92,7 @@ pubm --tag beta
 | `--build-script <script>` | `build` | Nom du script utilisé pour l'étape de build. |
 | `--no-save-token` | `false` | Ne pas persister les tokens pris en charge pour les exécutions suivantes. |
 | `--dangerously-allow-unpublish` | `false` | Autoriser le unpublish/yank du registry lors du rollback dans les environnements sans TTY. |
+| `--locale <locale>` | `en` | Définir la langue de sortie de la CLI. Valeurs prises en charge : `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
 
 ## Flags de contrôle du pipeline
 
@@ -158,6 +159,7 @@ Le mode de publication CI publie depuis le dernier tag Git et crée une GitHub R
 | `NODE_AUTH_TOKEN` | authentification npm en CI |
 | `JSR_TOKEN` | authentification jsr |
 | `CARGO_REGISTRY_TOKEN` | authentification crates.io |
+| `PUBM_LOCALE` | Langue de sortie de la CLI (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 Les invites sont désactivées automatiquement lorsque :
 
