@@ -71,56 +71,60 @@ const {
 
 vi.mock("std-env", () => mockIsCI);
 
-vi.mock("@pubm/core", () => ({
-  consoleError: mockConsoleError,
-  AbstractError: class extends Error {},
-  Git: vi.fn(function () {
-    return mockGitInstance;
-  }),
-  calculateVersionBumps: mockCalculateVersionBumps,
-  createContext: mockCreateContext,
-  getStatus: mockGetStatus,
-  loadConfig: mockLoadConfig,
-  pubm: mockPubm,
-  PUBM_VERSION: mockPubmVersion,
-  requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
-  resolveConfig: mockResolveConfig,
-  resolveOptions: mockResolveOptions,
-  resolvePhases: vi.fn((opts: any) => {
-    const mode = opts.mode ?? "local";
-    if (opts.prepare && opts.publish) {
-      throw new Error("Cannot specify both --prepare and --publish.");
-    }
-    if (mode === "ci" && !opts.prepare && !opts.publish) {
-      throw new Error("CI mode requires --prepare or --publish.");
-    }
-    if (opts.prepare) return ["prepare"];
-    if (opts.publish) return ["publish"];
-    return ["prepare", "publish"];
-  }),
-  validateOptions: vi.fn((opts: any) => {
-    const mode = opts.mode ?? "local";
-    if (opts.prepare && opts.publish) {
-      throw new Error("Cannot specify both --prepare and --publish.");
-    }
-    if (mode === "ci" && !opts.prepare && !opts.publish) {
-      throw new Error("CI mode requires --prepare or --publish.");
-    }
-    if (opts.snapshot && mode === "ci") {
-      throw new Error("Cannot use --snapshot with --mode ci.");
-    }
-  }),
-  notifyNewVersion: mockNotifyNewVersion,
-  ui: {
-    success: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    hint: vi.fn(),
-    labels: { DRY_RUN: "[dry-run]" },
-    chalk: { level: 3 },
-  },
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    consoleError: mockConsoleError,
+    AbstractError: class extends Error {},
+    Git: vi.fn(function () {
+      return mockGitInstance;
+    }),
+    calculateVersionBumps: mockCalculateVersionBumps,
+    createContext: mockCreateContext,
+    getStatus: mockGetStatus,
+    loadConfig: mockLoadConfig,
+    pubm: mockPubm,
+    PUBM_VERSION: mockPubmVersion,
+    requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
+    resolveConfig: mockResolveConfig,
+    resolveOptions: mockResolveOptions,
+    resolvePhases: vi.fn((opts: any) => {
+      const mode = opts.mode ?? "local";
+      if (opts.prepare && opts.publish) {
+        throw new Error("Cannot specify both --prepare and --publish.");
+      }
+      if (mode === "ci" && !opts.prepare && !opts.publish) {
+        throw new Error("CI mode requires --prepare or --publish.");
+      }
+      if (opts.prepare) return ["prepare"];
+      if (opts.publish) return ["publish"];
+      return ["prepare", "publish"];
+    }),
+    validateOptions: vi.fn((opts: any) => {
+      const mode = opts.mode ?? "local";
+      if (opts.prepare && opts.publish) {
+        throw new Error("Cannot specify both --prepare and --publish.");
+      }
+      if (mode === "ci" && !opts.prepare && !opts.publish) {
+        throw new Error("CI mode requires --prepare or --publish.");
+      }
+      if (opts.snapshot && mode === "ci") {
+        throw new Error("Cannot use --snapshot with --mode ci.");
+      }
+    }),
+    notifyNewVersion: mockNotifyNewVersion,
+    ui: {
+      success: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      hint: vi.fn(),
+      labels: { DRY_RUN: "[dry-run]" },
+      chalk: { level: 3 },
+    },
+  };
+});
 
 vi.mock("../../src/commands/changesets.js", () => ({
   registerChangesetsCommand: vi.fn((_program: any, getConfig: () => any) => {

@@ -1,11 +1,11 @@
-import { PUBM_VERSION, ui } from "@pubm/core";
+import { PUBM_VERSION, t, ui } from "@pubm/core";
 import type { Command } from "commander";
 import { UpdateKit } from "update-kit";
 
 export function registerUpdateCommand(parent: Command): void {
   parent
     .command("update")
-    .description("Update pubm to the latest version")
+    .description(t("cmd.update.description"))
     .action(async (): Promise<void> => {
       const kit = await UpdateKit.create({
         appName: "pubm",
@@ -18,7 +18,9 @@ export function registerUpdateCommand(parent: Command): void {
         onProgress: (p) => {
           if (p.phase === "downloading" && p.totalBytes) {
             const pct = Math.round((p.bytesDownloaded / p.totalBytes) * 100);
-            process.stderr.write(`\rDownloading... ${pct}%`);
+            process.stderr.write(
+              `\r${t("cmd.update.downloading", { percent: pct })}`,
+            );
           } else {
             console.error(`${p.phase}...`);
           }
@@ -28,14 +30,17 @@ export function registerUpdateCommand(parent: Command): void {
       switch (result.kind) {
         case "success":
           ui.success(
-            `Updated from ${result.fromVersion} to ${result.toVersion}`,
+            t("cmd.update.success", {
+              from: result.fromVersion,
+              to: result.toVersion,
+            }),
           );
           break;
         case "needs-restart":
           console.log(result.message);
           break;
         case "failed":
-          ui.error(`Update failed: ${result.error.message}`);
+          ui.error(t("error.update.failed", { message: result.error.message }));
           process.exitCode = 1;
           break;
       }

@@ -3,17 +3,20 @@ import {
   loadTokensFromDb,
   registryCatalog,
   syncGhSecrets,
+  t,
   ui,
 } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerSecretsCommand(parent: Command): void {
-  const secrets = parent.command("secrets").description("Manage stored tokens");
+  const secrets = parent
+    .command("secrets")
+    .description(t("cmd.secrets.description"));
 
   secrets
     .command("sync")
-    .description("Sync stored tokens to GitHub Secrets")
-    .option("--registry <registries>", "Filter to specific registries")
+    .description(t("cmd.secrets.sync"))
+    .option("--registry <registries>", t("cmd.secrets.optionRegistry"))
     .action(async (options: { registry?: string }) => {
       try {
         const registries = options.registry
@@ -23,17 +26,15 @@ export function registerSecretsCommand(parent: Command): void {
         const tokens = loadTokensFromDb(registries);
 
         if (Object.keys(tokens).length === 0) {
-          ui.info(
-            "No stored tokens found. Run `pubm --mode ci --phase prepare` first to save tokens.",
-          );
+          ui.info(t("cmd.secrets.noTokens"));
           return;
         }
 
         ui.info(
-          `Syncing ${Object.keys(tokens).length} token(s) to GitHub Secrets...`,
+          t("cmd.secrets.syncing", { count: Object.keys(tokens).length }),
         );
         await syncGhSecrets(tokens);
-        ui.success("Tokens synced to GitHub Secrets.");
+        ui.success(t("cmd.secrets.synced"));
       } catch (e) {
         consoleError(e as Error);
         process.exitCode = 1;

@@ -6,37 +6,41 @@ const mockGitInstance = {
   commit: vi.fn(),
 };
 
-vi.mock("@pubm/core", () => ({
-  createKeyResolver: vi.fn(() => (name: string) => name),
-  readChangesets: vi.fn(),
-  deleteChangesetFiles: vi.fn(),
-  calculateVersionBumps: vi.fn(),
-  generateChangelog: vi.fn(),
-  buildChangelogEntries: vi.fn(),
-  writeChangelogToFile: vi.fn(),
-  writeVersionsForEcosystem: vi.fn(),
-  ecosystemCatalog: {
-    get: vi.fn(() => ({
-      ecosystemClass: vi.fn().mockImplementation(function () {
-        return { packageName: vi.fn(), writeVersion: vi.fn() };
-      }),
-    })),
-  },
-  resolveGroups: vi.fn(),
-  Git: vi.fn(function () {
-    return mockGitInstance;
-  }),
-  applyFixedGroup: vi.fn(),
-  applyLinkedGroup: vi.fn(),
-  ui: {
-    success: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    hint: vi.fn(),
-    labels: { DRY_RUN: "[dry-run]" },
-  },
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    createKeyResolver: vi.fn(() => (name: string) => name),
+    readChangesets: vi.fn(),
+    deleteChangesetFiles: vi.fn(),
+    calculateVersionBumps: vi.fn(),
+    generateChangelog: vi.fn(),
+    buildChangelogEntries: vi.fn(),
+    writeChangelogToFile: vi.fn(),
+    writeVersionsForEcosystem: vi.fn(),
+    ecosystemCatalog: {
+      get: vi.fn(() => ({
+        ecosystemClass: vi.fn().mockImplementation(function () {
+          return { packageName: vi.fn(), writeVersion: vi.fn() };
+        }),
+      })),
+    },
+    resolveGroups: vi.fn(),
+    Git: vi.fn(function () {
+      return mockGitInstance;
+    }),
+    applyFixedGroup: vi.fn(),
+    applyLinkedGroup: vi.fn(),
+    ui: {
+      success: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      hint: vi.fn(),
+      labels: { DRY_RUN: "[dry-run]" },
+    },
+  };
+});
 
 import type { ResolvedPubmConfig } from "@pubm/core";
 import {

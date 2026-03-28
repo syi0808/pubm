@@ -1,10 +1,10 @@
-import { migrateFromChangesets, ui } from "@pubm/core";
+import { migrateFromChangesets, t, ui } from "@pubm/core";
 import type { Command } from "commander";
 
 export function registerMigrateCommand(parent: Command): void {
   parent
     .command("migrate")
-    .description("Migrate from .changeset/ to .pubm/")
+    .description(t("cmd.migrate.description"))
     .action(async () => {
       const result = migrateFromChangesets();
 
@@ -13,11 +13,11 @@ export function registerMigrateCommand(parent: Command): void {
         process.exit(1);
       }
 
-      ui.success(`Migrated ${result.migratedFiles.length} changeset files.`);
+      ui.success(
+        t("cmd.migrate.success", { count: result.migratedFiles.length }),
+      );
       if (result.configMigrated) {
-        ui.hint(
-          ".changeset/config.json detected. Please manually create pubm.config.ts.",
-        );
+        ui.hint(t("cmd.migrate.configHint"));
       }
     });
 }

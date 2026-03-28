@@ -16,78 +16,82 @@ describe("CLI bootstrap", () => {
     process.argv = ["node", "pubm", "ops", "check", "--dry-run"];
 
     vi.doMock("std-env", () => ({ isCI: false }));
-    vi.doMock("@pubm/core", () => ({
-      calculateVersionBumps: vi.fn(),
-      consoleError: vi.fn(),
-      createContext: vi.fn((config: any, options: any, cwd: string) => ({
-        config: config ?? {},
-        options: options ?? {},
-        cwd,
-        runtime: {
-          tag: "latest",
-          promptEnabled: false,
-          cleanWorkingTree: false,
-          pluginRunner: { run: vi.fn() },
-        },
-      })),
-      Git: vi.fn(),
-      getStatus: vi.fn(() => ({ hasChangesets: false, changesets: [] })),
-      loadConfig: vi.fn().mockResolvedValue({
-        plugins: [
-          {},
-          {
-            commands: [
-              { name: "legacy" },
-              {
-                name: "misc",
-                subcommands: [
-                  {
-                    name: "ping",
-                    description: "ping the plugin",
-                    action: pingAction,
-                  },
-                ],
-              },
-              {
-                name: "ops",
-                description: "plugin operations",
-                subcommands: [
-                  {
-                    name: "check",
-                    description: "validate publish prerequisites",
-                    options: [
-                      {
-                        name: "--dry-run",
-                        description: "preview the sync result",
-                      },
-                    ],
-                    action: checkAction,
-                  },
-                ],
-              },
-            ],
+    vi.doMock("@pubm/core", async () => {
+      const actual = await vi.importActual<typeof import("@pubm/core")>("@pubm/core");
+      return {
+        ...actual,
+        calculateVersionBumps: vi.fn(),
+        consoleError: vi.fn(),
+        createContext: vi.fn((config: any, options: any, cwd: string) => ({
+          config: config ?? {},
+          options: options ?? {},
+          cwd,
+          runtime: {
+            tag: "latest",
+            promptEnabled: false,
+            cleanWorkingTree: false,
+            pluginRunner: { run: vi.fn() },
           },
-        ],
-      }),
-      notifyNewVersion: vi.fn(),
-      PUBM_VERSION: "1.0.0",
-      pubm: vi.fn(),
-      requiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
-      resolveConfig: vi.fn(async (raw: any) => ({
-        plugins: [],
-        ...raw,
-      })),
-      resolveOptions: vi.fn((opts: any) => ({
-        testScript: "test",
-        buildScript: "build",
-        branch: "main",
-        tag: "latest",
-        saveToken: true,
-        ...opts,
-      })),
-      resolvePhases: vi.fn(() => ["prepare", "publish"]),
-      validateOptions: vi.fn(),
-    }));
+        })),
+        Git: vi.fn(),
+        getStatus: vi.fn(() => ({ hasChangesets: false, changesets: [] })),
+        loadConfig: vi.fn().mockResolvedValue({
+          plugins: [
+            {},
+            {
+              commands: [
+                { name: "legacy" },
+                {
+                  name: "misc",
+                  subcommands: [
+                    {
+                      name: "ping",
+                      description: "ping the plugin",
+                      action: pingAction,
+                    },
+                  ],
+                },
+                {
+                  name: "ops",
+                  description: "plugin operations",
+                  subcommands: [
+                    {
+                      name: "check",
+                      description: "validate publish prerequisites",
+                      options: [
+                        {
+                          name: "--dry-run",
+                          description: "preview the sync result",
+                        },
+                      ],
+                      action: checkAction,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        notifyNewVersion: vi.fn(),
+        PUBM_VERSION: "1.0.0",
+        pubm: vi.fn(),
+        requiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
+        resolveConfig: vi.fn(async (raw: any) => ({
+          plugins: [],
+          ...raw,
+        })),
+        resolveOptions: vi.fn((opts: any) => ({
+          testScript: "test",
+          buildScript: "build",
+          branch: "main",
+          tag: "latest",
+          saveToken: true,
+          ...opts,
+        })),
+        resolvePhases: vi.fn(() => ["prepare", "publish"]),
+        validateOptions: vi.fn(),
+      };
+    });
 
     vi.doMock("../../src/commands/changesets.js", () => ({
       registerChangesetsCommand: vi.fn(),

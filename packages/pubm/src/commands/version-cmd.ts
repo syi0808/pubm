@@ -19,6 +19,7 @@ import {
   generateChangelog,
   readChangesets,
   resolveGroups,
+  t,
   ui,
   writeChangelogToFile,
   writeVersionsForEcosystem,
@@ -41,7 +42,7 @@ export async function runVersionCommand(
   const resolver = createKeyResolver(config.packages);
   const changesets = readChangesets(cwd, resolver);
   if (changesets.length === 0) {
-    ui.info("No changesets found.");
+    ui.info(t("cmd.version.noChangesets"));
     return;
   }
 
@@ -57,7 +58,7 @@ export async function runVersionCommand(
   const bumps = calculateVersionBumps(currentVersions, cwd, resolver);
 
   if (bumps.size === 0) {
-    ui.info("No changesets found.");
+    ui.info(t("cmd.version.noChangesets"));
     return;
   }
 
@@ -100,7 +101,9 @@ export async function runVersionCommand(
     const changelogContent = generateChangelog(newVersion, entries);
 
     if (dryRun) {
-      console.log(`${ui.labels.DRY_RUN} Would write version ${newVersion}`);
+      console.log(
+        `${ui.labels.DRY_RUN} ${t("cmd.version.dryRunWouldWrite", { version: newVersion })}`,
+      );
       console.log(`${ui.labels.DRY_RUN} Changelog:\n${changelogContent}`);
       continue;
     }
@@ -201,8 +204,8 @@ export function registerVersionCommand(
 ): void {
   parent
     .command("version")
-    .description("Consume changesets and bump versions")
-    .option("--dry-run", "Show changes without writing")
+    .description(t("cmd.version.description"))
+    .option("--dry-run", t("cmd.version.optionDryRun"))
     .action(async (options: { dryRun?: boolean }) => {
       await runVersionCommand(process.cwd(), getConfig(), {
         dryRun: options.dryRun,

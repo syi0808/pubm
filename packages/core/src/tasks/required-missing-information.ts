@@ -12,6 +12,7 @@ import type {
   IndependentVersionPlan,
   PubmContext,
 } from "../context.js";
+import { t } from "../i18n/index.js";
 import { defaultOptions } from "../options.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { filterConfigPackages } from "../utils/filter-config.js";
@@ -49,7 +50,11 @@ function buildDependencyBumpNote(
 
   return ui.formatNote(
     "hint",
-    `${dependencyLabel} ${bumpedDependencies.join(", ")} bumped, suggest at least patch -> ${suggestedVersion}`,
+    t("note.dependency.bumped", {
+      label: dependencyLabel,
+      dependencies: bumpedDependencies.join(", "),
+      version: suggestedVersion,
+    }),
   );
 }
 
@@ -62,7 +67,7 @@ function renderPackageVersionSummary(
     notes?: PackageNotes;
   } = {},
 ): string {
-  const lines = ["Packages:"];
+  const lines = [t("output.packages")];
 
   for (const pkg of packageInfos) {
     const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
@@ -84,7 +89,9 @@ function renderPackageVersionSummary(
 function versionChoices(currentVersion: string, recommendedBumpType?: string) {
   return [
     {
-      message: `Keep current version ${color.dim(currentVersion)}`,
+      message: t("prompt.version.keepCurrent", {
+        version: color.dim(currentVersion),
+      }),
       name: currentVersion,
     },
     ...RELEASE_TYPES.map((releaseType) => {
@@ -93,14 +100,18 @@ function versionChoices(currentVersion: string, recommendedBumpType?: string) {
         .toString();
       const marker =
         recommendedBumpType === releaseType
-          ? ` ${color.dim("← recommended by changesets")}`
+          ? ` ${color.dim(t("prompt.version.recommendedMarker"))}`
           : "";
       return {
-        message: `${releaseType} ${color.dim(increasedVersion)}${marker}`,
+        message: t("prompt.version.releaseChoice", {
+          releaseType,
+          version: color.dim(increasedVersion),
+          marker,
+        }),
         name: increasedVersion,
       };
     }),
-    { message: "Custom version (specify)", name: "specify" },
+    { message: t("prompt.version.custom"), name: "specify" },
   ];
 }
 
@@ -117,7 +128,10 @@ async function promptVersion(
 
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
-    message: `Select SemVer increment for ${label} ${color.dim(`(current: ${currentVersion})`)}`,
+    message: t("prompt.version.selectIncrement", {
+      label,
+      currentVersion: color.dim(`(current: ${currentVersion})`),
+    }),
     choices: versionChoices(currentVersion, recommendedBumpType),
     initial,
     name: "version",
@@ -126,7 +140,7 @@ async function promptVersion(
   if (nextVersion === "specify") {
     nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
       type: "input",
-      message: `Version for ${label}`,
+      message: t("prompt.version.enterVersion", { label }),
       name: "version",
     });
     return { version: nextVersion, bumpType: undefined };
@@ -189,11 +203,11 @@ export const requiredMissingInformationTasks = (
 ): Listr<PubmContext> =>
   createListr<PubmContext>({
     ...options,
-    title: "Checking required information",
+    title: t("task.info.checking"),
     task: (_, parentTask): Listr<PubmContext> =>
       parentTask.newListr([
         {
-          title: "Checking version information",
+          title: t("task.info.checkingVersion"),
           skip: (ctx) => !!ctx.runtime.versionPlan,
           task: async (ctx, task): Promise<void> => {
             const packages = ctx.config.packages;
@@ -208,7 +222,7 @@ export const requiredMissingInformationTasks = (
           exitOnError: true,
         },
         {
-          title: "Checking tag information",
+          title: t("task.info.checkingTag"),
           skip: (ctx) => {
             const plan = ctx.runtime.versionPlan;
             const ver = plan
@@ -248,7 +262,7 @@ export const requiredMissingInformationTasks = (
               .prompt(ListrEnquirerPromptAdapter)
               .run<string>({
                 type: "select",
-                message: "Select the tag for this pre-release version in npm",
+                message: t("prompt.tag.selectPrerelease"),
                 choices: distTags
                   .map((distTag) => ({
                     message: distTag,
@@ -256,7 +270,7 @@ export const requiredMissingInformationTasks = (
                   }))
                   .concat([
                     {
-                      message: "Custom version (specify)",
+                      message: t("prompt.tag.customTag"),
                       name: "specify",
                     },
                   ]),
@@ -266,7 +280,7 @@ export const requiredMissingInformationTasks = (
             if (tag === "specify") {
               tag = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
                 type: "input",
-                message: "Tag",
+                message: t("prompt.tag.enterTag"),
                 name: "tag",
               });
             }
@@ -307,14 +321,19 @@ async function handleSinglePackage(
 
       const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
         type: "select",
-        message: `Changesets suggest: ${currentVersion} → ${bump.newVersion} (${bump.bumpType}, ${changesetLabel})`,
+        message: t("prompt.changeset.suggest", {
+          current: currentVersion,
+          next: bump.newVersion,
+          bumpType: bump.bumpType,
+          changesetLabel,
+        }),
         choices: [
           {
-            message: `Accept ${bump.newVersion}`,
+            message: t("prompt.changeset.accept", { version: bump.newVersion }),
             name: "accept",
           },
           {
-            message: "Choose a different version",
+            message: t("prompt.changeset.chooseDifferent"),
             name: "customize",
           },
         ],
@@ -336,7 +355,7 @@ async function handleSinglePackage(
   // Fallback: manual version selection
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
-    message: "Select SemVer increment or specify new version",
+    message: t("prompt.changeset.selectOrSpecify"),
     choices: versionChoices(currentVersion),
     name: "version",
   });
@@ -344,7 +363,7 @@ async function handleSinglePackage(
   if (nextVersion === "specify") {
     nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
       type: "input",
-      message: "Version",
+      message: t("prompt.version.enterVersionGeneric"),
       name: "version",
     });
   }
@@ -616,10 +635,10 @@ async function handleRemainingPackages(
       .prompt(ListrEnquirerPromptAdapter)
       .run<string>({
         type: "select",
-        message: "Bump these dependent packages too?",
+        message: t("prompt.dependency.bumpPrompt"),
         choices: [
-          { message: "Yes, apply patch bump", name: "patch" },
-          { message: "No, keep current versions", name: "skip" },
+          { message: t("prompt.dependency.yesApplyPatch"), name: "patch" },
+          { message: t("prompt.dependency.noKeepCurrent"), name: "skip" },
         ],
         name: "cascade",
       });
@@ -649,7 +668,7 @@ async function promptChangesetRecommendations(
   bumps: Map<string, VersionBump>,
   sortedPackageInfos: ResolvedPackageConfig[],
 ): Promise<"accepted" | "add_packages" | "no"> {
-  const lines: string[] = ["Changesets suggest:"];
+  const lines: string[] = [t("prompt.changeset.suggestHeader")];
 
   for (const pkg of sortedPackageInfos) {
     const bump = bumps.get(pkg.path);
@@ -658,7 +677,13 @@ async function promptChangesetRecommendations(
     const changesetCount = pkgStatus?.changesetCount ?? 0;
     const changesetLabel = pluralize(changesetCount, "changeset");
     lines.push(
-      `  ${pkg.name}  ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType}: ${changesetLabel})`,
+      t("prompt.changeset.suggestLine", {
+        name: pkg.name,
+        current: bump.currentVersion,
+        next: bump.newVersion,
+        bumpType: bump.bumpType,
+        changesetLabel,
+      }),
     );
   }
 
@@ -666,17 +691,17 @@ async function promptChangesetRecommendations(
 
   const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
-    message: "Accept changeset recommendations?",
+    message: t("prompt.changeset.acceptRecommendations"),
     choices: [
       {
-        message: "Only changesets (auto bump affected packages)",
+        message: t("prompt.changeset.onlyChangesets"),
         name: "only_changesets",
       },
       {
-        message: "Also select versions for other packages",
+        message: t("prompt.changeset.alsoSelectOthers"),
         name: "add_packages",
       },
-      { message: "No, select versions manually", name: "no" },
+      { message: t("prompt.changeset.selectManually"), name: "no" },
     ],
     name: "version",
   });
@@ -717,7 +742,11 @@ function buildChangesetNotes(
     notes.set(pkg.path, [
       ui.formatNote(
         "suggest",
-        `${changesetLabel} suggests ${bump.bumpType} -> ${bump.newVersion}`,
+        t("note.changeset.suggests", {
+          changesetLabel,
+          bumpType: bump.bumpType,
+          version: bump.newVersion,
+        }),
       ),
     ]);
   }
@@ -752,14 +781,14 @@ async function handleManualMultiPackage(
   } else {
     const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
       type: "select",
-      message: "How should packages be versioned?",
+      message: t("prompt.versioning.howToVersion"),
       choices: [
         {
-          message: "Fixed (all packages get same version)",
+          message: t("prompt.versioning.fixed"),
           name: "fixed",
         },
         {
-          message: "Independent (per-package versions)",
+          message: t("prompt.versioning.independent"),
           name: "independent",
         },
       ],
@@ -839,7 +868,9 @@ async function handleFixedMode(
 
   let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
     type: "select",
-    message: `Select version for all packages ${color.dim(`(highest current: ${highestVersion})`)}`,
+    message: t("prompt.version.selectForAll", {
+      highestVersion: color.dim(`(highest current: ${highestVersion})`),
+    }),
     choices: versionChoices(highestVersion, highestBumpType),
     name: "version",
   });
@@ -847,7 +878,7 @@ async function handleFixedMode(
   if (nextVersion === "specify") {
     nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
       type: "input",
-      message: "Version",
+      message: t("prompt.version.enterVersionGeneric"),
       name: "version",
     });
   }
@@ -919,7 +950,10 @@ async function handleIndependentMode(
       pkgNotes.push(
         ui.formatNote(
           "suggest",
-          `changesets suggest ${bump.bumpType} -> ${bump.newVersion}`,
+          t("note.changeset.suggest", {
+            bumpType: bump.bumpType,
+            version: bump.newVersion,
+          }),
         ),
       );
     }
@@ -991,10 +1025,10 @@ async function handleIndependentMode(
       .prompt(ListrEnquirerPromptAdapter)
       .run<string>({
         type: "select",
-        message: "Bump these dependent packages too?",
+        message: t("prompt.dependency.bumpPrompt"),
         choices: [
-          { message: "Yes, apply patch bump", name: "patch" },
-          { message: "No, keep current versions", name: "skip" },
+          { message: t("prompt.dependency.yesApplyPatch"), name: "patch" },
+          { message: t("prompt.dependency.noKeepCurrent"), name: "skip" },
         ],
         name: "cascade",
       });

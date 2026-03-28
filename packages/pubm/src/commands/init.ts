@@ -1,7 +1,7 @@
 // packages/pubm/src/commands/init.ts
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { ui } from "@pubm/core";
+import { t, ui } from "@pubm/core";
 import type { Command } from "commander";
 import {
   buildConfigContent,
@@ -36,13 +36,11 @@ interface SummaryItem {
 export function registerInitCommand(parent: Command): void {
   parent
     .command("init")
-    .description("Interactive setup wizard for pubm configuration")
+    .description(t("init.description"))
     .action(async () => {
       try {
         if (!process.stdin.isTTY) {
-          throw new Error(
-            "pubm init requires an interactive terminal. Use pubm.config.ts for non-interactive configuration.",
-          );
+          throw new Error(t("error.init.requiresTty"));
         }
 
         const cwd = process.cwd();
@@ -57,35 +55,43 @@ export function registerInitCommand(parent: Command): void {
         }
 
         // --- Package Detection ---
-        console.log("\n── Package Detection ──────────────────────────");
+        console.log(
+          `\n── ${t("init.section.packageDetection")} ──────────────────────────`,
+        );
         const detected = await detectPackages(cwd);
 
         if (detected.isMonorepo) {
           const wsType = detected.workspaces.map((w) => w.type).join(", ");
-          console.log(`◆ Detected monorepo (${wsType} workspaces)\n`);
+          console.log(`◆ ${t("init.monorepo.detected", { type: wsType })}\n`);
         }
 
         const packages = await promptPackages(detected);
         if (packages.length === 0) {
-          ui.warn("No packages selected. Aborting.");
+          ui.warn(t("init.noPackages"));
           return;
         }
 
         // --- Basic Configuration ---
-        console.log("\n── Basic Configuration ────────────────────────");
+        console.log(
+          `\n── ${t("init.section.basicConfig")} ────────────────────────`,
+        );
         const branch = await promptBranch(cwd);
         const versioning = detected.isMonorepo
           ? await promptVersioning()
           : ("independent" as const);
 
         // --- Release Options ---
-        console.log("\n── Release Options ────────────────────────────");
+        console.log(
+          `\n── ${t("init.section.releaseOptions")} ────────────────────────────`,
+        );
         const { enabled: changelog, format: changelogFormat } =
           await promptChangelog();
         const releaseDraft = await promptGithubRelease();
 
         // --- Workflow Setup ---
-        console.log("\n── Workflow Setup ──────────────────────────────");
+        console.log(
+          `\n── ${t("init.section.workflowSetup")} ──────────────────────────────`,
+        );
         const changesets = await promptChangesets();
         const ci = await promptCI();
 
@@ -94,14 +100,14 @@ export function registerInitCommand(parent: Command): void {
           const changesetsDir = path.join(cwd, ".pubm", "changesets");
           if (!existsSync(changesetsDir)) {
             mkdirSync(changesetsDir, { recursive: true });
-            console.log("  → .pubm/changesets/ created");
+            console.log(`  ${t("init.changeset.created")}`);
           } else {
-            console.log("  → .pubm/changesets/ (already exists, skipped)");
+            console.log(`  ${t("init.changeset.exists")}`);
           }
 
           const gitignoreUpdated = updateGitignoreForChangesets(cwd);
           if (gitignoreUpdated) {
-            console.log("  → .gitignore updated");
+            console.log(`  ${t("init.gitignore.updated")}`);
           }
           summary.push({ label: "Changesets", value: "enabled" });
         }
@@ -124,11 +130,9 @@ export function registerInitCommand(parent: Command): void {
           );
           if (releaseWritten) {
             workflowsCreated++;
-            console.log("  → .github/workflows/release.yml created");
+            console.log(`  ${t("init.workflow.releaseCreated")}`);
           } else {
-            console.log(
-              "  → .github/workflows/release.yml (already exists, skipped)",
-            );
+            console.log(`  ${t("init.workflow.releaseExists")}`);
           }
 
           // changeset-check.yml (only if changesets enabled)
@@ -141,11 +145,9 @@ export function registerInitCommand(parent: Command): void {
             );
             if (checkWritten) {
               workflowsCreated++;
-              console.log("  → .github/workflows/changeset-check.yml created");
+              console.log(`  ${t("init.workflow.changesetCreated")}`);
             } else {
-              console.log(
-                "  → .github/workflows/changeset-check.yml (already exists, skipped)",
-              );
+              console.log(`  ${t("init.workflow.changesetExists")}`);
             }
           }
 
@@ -177,23 +179,25 @@ export function registerInitCommand(parent: Command): void {
             writeFileSync(configPath, content);
             summary.push({
               label: "Config",
-              value: "pubm.config.ts (created)",
+              value: t("init.config.created"),
             });
           } else {
             summary.push({
               label: "Config",
-              value: "Using default configuration",
+              value: t("init.config.default"),
             });
           }
         } else {
           summary.push({
             label: "Config",
-            value: "pubm.config.ts (kept existing)",
+            value: t("init.config.kept"),
           });
         }
 
         // --- Coding Agent Skills ---
-        console.log("\n── Coding Agent Skills ────────────────────────");
+        console.log(
+          `\n── ${t("init.section.codingAgentSkills")} ────────────────────────`,
+        );
         const wantsSkills = await promptSkills();
 
         if (wantsSkills) {
@@ -207,18 +211,20 @@ export function registerInitCommand(parent: Command): void {
               });
             }
           } catch (e) {
-            ui.warn(`Skills installation failed: ${(e as Error).message}`);
-            ui.info("You can install skills later with `pubm setup-skills`.");
+            ui.warn(t("init.skills.failed", { error: (e as Error).message }));
+            ui.info(t("init.skills.installLater"));
           }
         }
 
         // --- Summary ---
-        console.log("\n── Summary ────────────────────────────────────");
+        console.log(
+          `\n── ${t("init.section.summary")} ────────────────────────────────────`,
+        );
         for (const item of summary) {
           console.log(`  ${item.label.padEnd(12)} ${item.value}`);
         }
 
-        ui.success("Ready to publish! Run `pubm` to get started.");
+        ui.success(t("init.ready"));
       } catch (e) {
         ui.error((e as Error).message);
         process.exitCode = 1;

@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { t } from "../i18n/index.js";
 
 // --- Theme constants ---
 
@@ -7,17 +8,17 @@ function badge(text: string): string {
 }
 
 const badges = {
-  ERROR: badge("ERROR"),
-  ROLLBACK: badge("ROLLBACK"),
+  ERROR: badge(t("label.error")),
+  ROLLBACK: badge(t("label.rollback")),
 } as const;
 
 const labels = {
-  WARNING: chalk.yellow.bold("WARNING"),
-  NOTE: chalk.blue.bold("NOTE"),
-  INFO: chalk.cyan("INFO"),
-  SUCCESS: chalk.green.bold("SUCCESS"),
-  HINT: chalk.magenta("HINT"),
-  DRY_RUN: chalk.gray.bold("[dry-run]"),
+  WARNING: chalk.yellow.bold(t("label.warning")),
+  NOTE: chalk.blue.bold(t("label.note")),
+  INFO: chalk.cyan(t("label.info")),
+  SUCCESS: chalk.green.bold(t("label.success")),
+  HINT: chalk.magenta(t("label.hint")),
+  DRY_RUN: chalk.gray.bold(t("label.dryRun")),
 } as const;
 
 // --- Helpers ---
@@ -36,9 +37,21 @@ const noteConfig: Record<
   NoteType,
   { emoji: string; label: string; style: (s: string) => string }
 > = {
-  hint: { emoji: "\u{1F4A1}", label: "Hint:", style: chalk.magenta },
-  suggest: { emoji: "\u{1F4E6}", label: "Suggest:", style: chalk.blue },
-  warning: { emoji: "\u26A0", label: "Warning:", style: chalk.yellow },
+  hint: {
+    emoji: "\u{1F4A1}",
+    label: t("label.noteHint"),
+    style: chalk.magenta,
+  },
+  suggest: {
+    emoji: "\u{1F4E6}",
+    label: t("label.noteSuggest"),
+    style: chalk.blue,
+  },
+  warning: {
+    emoji: "\u26A0",
+    label: t("label.noteWarning"),
+    style: chalk.yellow,
+  },
 };
 
 function formatNote(type: NoteType, message: string): string {

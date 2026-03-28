@@ -1,4 +1,5 @@
 import type { ResolvedPubmConfig } from "@pubm/core";
+import { t } from "@pubm/core";
 import type { Command } from "commander";
 import { registerAddCommand } from "./add.js";
 import { registerChangelogCommand } from "./changelog.js";
@@ -12,7 +13,7 @@ export function registerChangesetsCommand(
 ): void {
   const changesets = program
     .command("changesets")
-    .description("Manage changesets");
+    .description(t("cmd.changesets.description"));
 
   registerAddCommand(changesets, getConfig);
   registerChangelogCommand(changesets);

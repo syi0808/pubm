@@ -9,10 +9,14 @@ vi.mock("enquirer", () => ({
   },
 }));
 
-vi.mock("@pubm/core", () => ({
-  detectWorkspace: vi.fn(),
-  discoverPackages: vi.fn(),
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    detectWorkspace: vi.fn(),
+    discoverPackages: vi.fn(),
+  };
+});
 
 import { detectWorkspace, discoverPackages } from "@pubm/core";
 import Enquirer from "enquirer";

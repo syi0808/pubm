@@ -16,14 +16,18 @@ vi.mock("enquirer", () => ({
   },
 }));
 
-vi.mock("@pubm/core", () => ({
-  ui: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-  },
-}));
+vi.mock("@pubm/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pubm/core")>();
+  return {
+    ...actual,
+    ui: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      success: vi.fn(),
+    },
+  };
+});
 
 const TEST_DIR = path.resolve("tests/unit/commands/.tmp-setup-skills");
 

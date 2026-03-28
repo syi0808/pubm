@@ -102,6 +102,15 @@ export { RustEcosystemDescriptor } from "./ecosystem/rust-descriptor.js";
 export { consoleError } from "./error.js";
 // Git
 export { extractPrefix, extractVersion, Git } from "./git.js";
+export type { SupportedLocale } from "./i18n/index.js";
+// i18n
+export {
+  getLocale,
+  initI18n,
+  resolveLocale,
+  SUPPORTED_LOCALES,
+  t,
+} from "./i18n/index.js";
 export type { InspectPackagesResult } from "./inspect.js";
 // Inspect
 export { inspectPackages } from "./inspect.js";

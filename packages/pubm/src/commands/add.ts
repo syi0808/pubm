@@ -1,6 +1,6 @@
 import process from "node:process";
 import type { BumpType, Release, ResolvedPubmConfig } from "@pubm/core";
-import { createKeyResolver, ui, writeChangeset } from "@pubm/core";
+import { createKeyResolver, t, ui, writeChangeset } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
@@ -10,11 +10,11 @@ export function registerAddCommand(
 ): void {
   parent
     .command("add")
-    .description("Create a new changeset")
-    .option("--empty", "Create an empty changeset")
-    .option("--packages <list>", "Comma-separated package names")
-    .option("--bump <type>", "Bump type: patch, minor, major")
-    .option("--message <text>", "Changeset summary")
+    .description(t("cmd.add.description"))
+    .option("--empty", t("cmd.add.optionEmpty"))
+    .option("--packages <list>", t("cmd.add.optionPackages"))
+    .option("--bump <type>", t("cmd.add.optionBump"))
+    .option("--message <text>", t("cmd.add.optionMessage"))
     .action(
       async (options: {
         empty?: boolean;
@@ -24,16 +24,14 @@ export function registerAddCommand(
       }) => {
         if (options.empty) {
           const filePath = writeChangeset([], "");
-          ui.success(`Created empty changeset: ${filePath}`);
+          ui.success(t("cmd.add.createdEmpty", { path: filePath }));
           return;
         }
 
         if (options.packages && options.bump && options.message) {
           const VALID_BUMP_TYPES = new Set(["patch", "minor", "major"]);
           if (!VALID_BUMP_TYPES.has(options.bump)) {
-            throw new Error(
-              `Invalid bump type "${options.bump}". Expected: patch, minor, or major.`,
-            );
+            throw new Error(t("error.add.invalidBump", { type: options.bump }));
           }
           const packages = options.packages
             .split(",")
@@ -45,7 +43,7 @@ export function registerAddCommand(
             type: options.bump as BumpType,
           }));
           const filePath = writeChangeset(releases, options.message);
-          ui.success(`Created changeset: ${filePath}`);
+          ui.success(t("cmd.add.created", { path: filePath }));
           return;
         }
 
@@ -84,12 +82,12 @@ export function registerAddCommand(
           }>({
             type: "multiselect",
             name: "packages",
-            message: "Which packages would you like to include?",
+            message: t("prompt.add.selectPackages"),
             choices,
           });
 
           if (selectedNames.length === 0) {
-            ui.warn("No packages selected. Aborting.");
+            ui.warn(t("cmd.add.noPackages"));
             return;
           }
 
@@ -100,12 +98,9 @@ export function registerAddCommand(
 
         // Step 2: Bump type selection per package
         const bumpChoices = [
-          { name: "patch", message: "patch \u2014 Bug fixes, no API changes" },
-          {
-            name: "minor",
-            message: "minor \u2014 New features, backward compatible",
-          },
-          { name: "major", message: "major \u2014 Breaking changes" },
+          { name: "patch", message: t("prompt.add.bumpPatch") },
+          { name: "minor", message: t("prompt.add.bumpMinor") },
+          { name: "major", message: t("prompt.add.bumpMajor") },
         ];
 
         const releases: Release[] = [];
@@ -116,7 +111,7 @@ export function registerAddCommand(
           }>({
             type: "select",
             name: "bump",
-            message: `Select bump type for ${pkg.name}`,
+            message: t("prompt.add.selectBump", { name: pkg.name }),
             choices: bumpChoices,
           });
 
@@ -127,14 +122,14 @@ export function registerAddCommand(
         const { summary } = await Enquirer.prompt<{ summary: string }>({
           type: "input",
           name: "summary",
-          message: "Summary of changes",
+          message: t("prompt.add.summary"),
         });
 
         // Step 4: Write changeset
         const filePath = writeChangeset(releases, summary, cwd);
 
         // Step 5: Success output
-        ui.success(`Created changeset: ${filePath}`);
+        ui.success(t("cmd.add.created", { path: filePath }));
       },
     );
 }
