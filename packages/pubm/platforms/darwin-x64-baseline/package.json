@@ -1,6 +1,6 @@
 {
   "name": "@pubm/darwin-x64-baseline",
-  "version": "0.4.12",
+  "version": "0.4.13",
   "description": "pubm binary for darwin-x64-baseline",
   "license": "Apache-2.0",
   "author": "Yein Sung",
