@@ -48,7 +48,6 @@ await pubm({
 | `branch` | `string` | Verlangt einen bestimmten Branch vor dem Veröffentlichen. |
 | `anyBranch` | `boolean` | Deaktiviert die Branch-Prüfung für einen Lauf. |
 | `tag` | `string` | Veröffentlicht unter einem Dist-Tag wie `latest`, `next` oder `beta`. |
-| `snapshot` | `string \| boolean` | Baut eine Snapshot-Version anhand der konfigurierten Vorlage. |
 | `packages` | `PackageConfig[]` | Überschreibt automatisch gefundene Pakete. |
 
 Für Config-getriebene Releases laedt `pubm()` automatisch `pubm.config.*`, loest die Paket-Erkennung auf und verbindet die Plugins, bevor der Task-Graph ausgeführt wird.

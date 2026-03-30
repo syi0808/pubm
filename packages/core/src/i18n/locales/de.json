@@ -104,6 +104,7 @@
   "task.build.runningBeforeHooks": "Plugin-beforeBuild-Hooks werden ausgeführt...",
   "task.build.runningAfterHooks": "Plugin-afterBuild-Hooks werden ausgeführt...",
   "task.build.completed": "`{command}` abgeschlossen",
+  "error.snapshot.noMatchingPackages": "Keine Pakete entsprechen den angegebenen --filter-Mustern.",
   "task.snapshot.title": "Snapshot veröffentlichen",
   "task.snapshot.titleWithVersion": "Snapshot veröffentlichen ({version})",
   "task.snapshot.version": "Snapshot-Version: {version}",
@@ -266,7 +267,6 @@
   "cli.option.noBuild": "Build vor der Veröffentlichung überspringen",
   "cli.option.noPublish": "Veröffentlichungsaufgabe überspringen",
   "cli.option.skipRelease": "GitHub Release-Erstellung überspringen",
-  "cli.option.snapshot": "Temporäre Snapshot-Version veröffentlichen (Standard-Tag: snapshot)",
   "cli.option.tag": "Unter einem bestimmten dist-tag veröffentlichen",
   "cli.option.contents": "Unterverzeichnis zum Veröffentlichen",
   "cli.option.noSaveToken": "jsr-Tokens nicht speichern (Token jedes Mal anfordern)",
@@ -385,5 +385,8 @@
   "cmd.setupSkills.manualInstall": "Manuelle Installation: {url}",
   "cmd.migrate.description": "Von .changeset/ zu .pubm/ migrieren",
   "cmd.migrate.success": "{count, plural, one {# Changeset-Datei} other {# Changeset-Dateien}} migriert.",
-  "cmd.migrate.configHint": ".changeset/config.json erkannt. Bitte erstellen Sie manuell pubm.config.ts."
+  "cmd.migrate.configHint": ".changeset/config.json erkannt. Bitte erstellen Sie manuell pubm.config.ts.",
+  "cmd.snapshot.description": "Snapshot-Versionen für Vorschau/Tests veröffentlichen",
+  "cmd.snapshot.tagArg": "Snapshot-Tag (Standard: snapshot)",
+  "cmd.snapshot.optionFilter": "Pakete nach Name oder Pfad filtern (wiederholbar)"
 }

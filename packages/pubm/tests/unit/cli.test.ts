@@ -109,9 +109,6 @@ vi.mock("@pubm/core", async (importOriginal) => {
       if (mode === "ci" && !opts.prepare && !opts.publish) {
         throw new Error("CI mode requires --prepare or --publish.");
       }
-      if (opts.snapshot && mode === "ci") {
-        throw new Error("Cannot use --snapshot with --mode ci.");
-      }
     }),
     notifyNewVersion: mockNotifyNewVersion,
     ui: {
@@ -341,30 +338,6 @@ describe("CLI action handler - non-CI mode", () => {
     expect(clearSpy).toHaveBeenCalled();
   });
 
-  it("uses the default snapshot tag when --snapshot has no explicit value", async () => {
-    await run("--snapshot");
-
-    expect(mockNotifyNewVersion).toHaveBeenCalledOnce();
-    expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
-    const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.tag).toBe("snapshot");
-    expect(ctx.runtime.versionPlan).toEqual({
-      mode: "single",
-      version: "snapshot",
-      packagePath: ".",
-    });
-  });
-
-  it("passes an explicit snapshot tag through to pubm", async () => {
-    await run("--snapshot", "canary");
-
-    const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.tag).toBe("canary");
-    expect(ctx.runtime.versionPlan).toMatchObject({
-      version: "snapshot",
-    });
-  });
-
   it("shows splash when stderr is a TTY and not CI", async () => {
     mockIsCI.isCI = false;
     const origTTY = process.stderr.isTTY;
@@ -415,13 +388,6 @@ describe("CLI action handler - non-CI mode", () => {
         ["packages/b", "2.0.0"],
       ]),
     });
-  });
-
-  it("rejects --snapshot with --mode ci", async () => {
-    await expect(
-      run("--snapshot", "--mode", "ci", "--phase", "prepare"),
-    ).rejects.toThrow("Cannot use --snapshot with --mode ci");
-    expect(mockPubm).not.toHaveBeenCalled();
   });
 });
 
@@ -756,19 +722,6 @@ describe("CLI action handler - CI mode", () => {
         ["unknown-pkg-a", "2.0.0"],
         ["unknown-pkg-b", "2.0.0"],
       ]),
-    });
-  });
-
-  it("falls back to defaults when packages array is empty with snapshot", async () => {
-    sharedResolvedConfig.packages = [];
-
-    await run("--snapshot");
-
-    const ctx = mockPubm.mock.calls[0][0];
-    expect(ctx.runtime.versionPlan).toEqual({
-      mode: "single",
-      version: "snapshot",
-      packagePath: ".",
     });
   });
 

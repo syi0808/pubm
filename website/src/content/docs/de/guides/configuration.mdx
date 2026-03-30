@@ -192,6 +192,8 @@ Verfügbare Platzhalter:
 - `{timestamp}`: UTC-Zeitstempel im Format `YYYYMMDDTHHmmss`
 - `{commit}`: aktueller Git-Commit-SHA
 
+In Monorepo-Projekten mit `fixed`-Versionierung wird das Template einmal angewendet, wobei die Version des ersten Pakets als `{base}` verwendet wird. Mit `independent`-Versionierung generiert jedes Paket seine eigene Snapshot-Version mit dem eigenen `{base}`.
+
 ### `createPr`
 
 - Typ: `boolean`

@@ -46,7 +46,6 @@ import { getPackageManager } from "../utils/package-manager.js";
 import { parseOwnerRepo } from "../utils/parse-owner-repo.js";
 import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
-import { generateSnapshotVersion } from "../utils/snapshot.js";
 import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
 import { closeVersionPr, createVersionPr } from "./create-version-pr.js";
@@ -153,7 +152,7 @@ function requireVersionPlan(ctx: PubmContext) {
   return versionPlan;
 }
 
-async function writeVersions(
+export async function writeVersions(
   ctx: PubmContext,
   versions: Map<string, string>,
 ): Promise<string[]> {
@@ -257,7 +256,7 @@ async function applyVersionsForDryRun(ctx: PubmContext): Promise<void> {
   await writeVersions(ctx, newVersions);
 }
 
-async function collectPublishTasks(ctx: PubmContext) {
+export async function collectPublishTasks(ctx: PubmContext) {
   const groups = collectEcosystemRegistryGroups(ctx.config);
 
   const ecosystemTasks = await Promise.all(
@@ -741,169 +740,6 @@ export async function run(ctx: PubmContext): Promise<void> {
 
   try {
     if (ctx.options.contents) process.chdir(ctx.options.contents);
-
-    if (ctx.options.snapshot) {
-      // Snapshot pipeline: prerequisites → conditions → test → build → temp publish → tag push
-      await prerequisitesCheckTask({
-        skip: ctx.options.skipPrerequisitesCheck,
-      }).run(ctx);
-
-      await requiredConditionsCheckTask({
-        skip: ctx.options.skipConditionsCheck,
-      }).run(ctx);
-
-      const pipelineListrOptions = isCI
-        ? createCiListrOptions<PubmContext>()
-        : undefined;
-
-      await createListr<PubmContext>(
-        [
-          {
-            skip: ctx.options.skipTests,
-            title: t("task.test.title"),
-            task: async (ctx, task): Promise<void> => {
-              const packageManager = await getPackageManager();
-              const command = `${packageManager} run ${ctx.options.testScript}`;
-              task.title = t("task.test.titleWithCommand", { command });
-              task.output = `Executing \`${command}\``;
-              try {
-                await exec(packageManager, ["run", ctx.options.testScript], {
-                  throwOnError: true,
-                });
-              } catch (error) {
-                throw new AbstractError(
-                  t("error.test.failed", { script: ctx.options.testScript }),
-                  { cause: error },
-                );
-              }
-            },
-          },
-          {
-            skip: ctx.options.skipBuild,
-            title: t("task.build.title"),
-            task: async (ctx, task): Promise<void> => {
-              const packageManager = await getPackageManager();
-              const command = `${packageManager} run ${ctx.options.buildScript}`;
-              task.title = t("task.build.titleWithCommand", { command });
-              task.output = `Executing \`${command}\``;
-              try {
-                await exec(packageManager, ["run", ctx.options.buildScript], {
-                  throwOnError: true,
-                });
-              } catch (error) {
-                throw new AbstractError(
-                  t("error.build.failed", { script: ctx.options.buildScript }),
-                  { cause: error },
-                );
-              }
-            },
-          },
-          {
-            title: t("task.snapshot.title"),
-            task: async (ctx, task): Promise<void> => {
-              const snapshotTag =
-                typeof ctx.options.snapshot === "string"
-                  ? ctx.options.snapshot
-                  : "snapshot";
-
-              // Check for monorepo
-              if (ctx.config.packages.length > 1) {
-                throw new AbstractError(
-                  "Snapshot publishing is only supported for single-package projects.",
-                );
-              }
-
-              // Read current version from resolved config
-              const currentVersion = ctx.config.packages[0].version ?? "0.0.0";
-
-              // Generate snapshot version
-              const snapshotVersion = generateSnapshotVersion({
-                baseVersion: currentVersion,
-                tag: snapshotTag,
-                template: ctx.config.snapshotTemplate,
-              });
-
-              ctx.runtime.versionPlan = {
-                mode: "single",
-                version: snapshotVersion,
-                packagePath: ctx.config.packages[0].path,
-              };
-              task.title = t("task.snapshot.titleWithVersion", {
-                version: snapshotVersion,
-              });
-              task.output = t("task.snapshot.version", {
-                version: snapshotVersion,
-              });
-
-              // Temporarily replace manifest version
-              const snapshotVersions = new Map([
-                [ctx.config.packages[0].path, snapshotVersion],
-              ]);
-              await writeVersions(ctx, snapshotVersions);
-
-              try {
-                // Publish with snapshot tag
-                task.output = t("task.snapshot.publishing", {
-                  tag: snapshotTag,
-                });
-                ctx.runtime.tag = snapshotTag;
-
-                const publishTasks = await collectPublishTasks(ctx);
-                await createListr<PubmContext>(publishTasks, {
-                  concurrent: true,
-                }).run(ctx);
-              } finally {
-                // Restore original version
-                task.output = "Restoring original manifest version...";
-                const restoreVersions = new Map([
-                  [ctx.config.packages[0].path, currentVersion],
-                ]);
-                await writeVersions(ctx, restoreVersions);
-              }
-
-              task.output = t("task.snapshot.published", {
-                version: snapshotVersion,
-              });
-            },
-          },
-          {
-            title: t("task.snapshot.createTag"),
-            enabled: !dryRun,
-            task: async (ctx, task): Promise<void> => {
-              const git = new Git();
-              const snapshotPlan = requireVersionPlan(ctx);
-              const tagName = `v${snapshotPlan.mode !== "independent" ? snapshotPlan.version : ""}`;
-              task.output = t("task.snapshot.creatingTag", { tag: tagName });
-
-              const headCommit = await git.latestCommit();
-              await git.createTag(tagName, headCommit);
-
-              task.output = t("task.snapshot.pushingTag", { tag: tagName });
-              await git.push("--tags");
-              task.output = t("task.snapshot.tagPushed", { tag: tagName });
-            },
-          },
-        ],
-        pipelineListrOptions,
-      ).run(ctx);
-
-      const registries = collectRegistries(ctx.config);
-      const parts: string[] = [];
-      for (const registryKey of registries) {
-        const descriptor = registryCatalog.get(registryKey);
-        if (!descriptor?.resolveDisplayName) continue;
-        const names = await descriptor.resolveDisplayName(ctx.config);
-        for (const name of names) {
-          parts.push(`${ui.chalk.bold(name)} on ${descriptor.label}`);
-        }
-      }
-
-      console.log(
-        `\n\n📸 ${t("task.snapshot.success", { parts: parts.join(", "), version: ui.chalk.blueBright(ctx.runtime.versionPlan?.mode !== "independent" ? (ctx.runtime.versionPlan?.version ?? "") : "") })} 📸\n`,
-      );
-
-      return;
-    }
 
     if (mode === "ci" && hasPrepare) {
       // CI prepare: Collect tokens (interactive)

@@ -174,6 +174,12 @@ export {
 export type { GhSecretEntry } from "./tasks/preflight.js";
 export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
+export type { SnapshotRunnerOptions } from "./tasks/snapshot-runner.js";
+export {
+  applySnapshotFilter,
+  buildSnapshotVersionPlan,
+  runSnapshotPipeline,
+} from "./tasks/snapshot-runner.js";
 // Task factory
 export type { RegistryTaskFactory } from "./tasks/task-factory.js";
 export type {

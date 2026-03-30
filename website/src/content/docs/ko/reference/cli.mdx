@@ -8,6 +8,7 @@ description: pubm CLI의 명령, 플래그, 실행 모드입니다.
 - 최상위 publish 명령: `pubm [version]`
 - `init`, `secrets`, `sync` 같은 관리 명령
 - `pubm changesets ...` 아래의 changeset 워크플로 명령
+- 미리보기 및 테스트 릴리스를 위한 `pubm snapshot` 명령
 
 일상적으로 가장 자주 쓰는 명령은 다음입니다.
 
@@ -22,6 +23,7 @@ pubm
 | 명령 | 용도 |
 |------|------|
 | `pubm [version]` | release type 또는 명시적 semver를 사용해 publish 파이프라인을 실행합니다. |
+| `pubm snapshot [tag]` | 미리보기 및 테스트를 위한 snapshot 버전을 publish합니다. |
 | `pubm init` | 대화형 설정 마법사로, 패키지 감지, 설정, changeset, CI 워크플로, 코딩 에이전트 스킬을 처리합니다. |
 | `pubm setup-skills` | 코딩 에이전트 스킬을 다운로드하고 설치합니다(Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | 로컬에 저장된 토큰을 `gh`를 통해 GitHub Secrets로 밀어 넣습니다. |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | publish 전에 현재 브랜치가 일치해야 합니다. |
 | `-a, --any-branch` | `false` | 현재 실행에서 브랜치 가드를 비활성화합니다. |
 | `-t, --tag <name>` | `latest` | `beta`, `next` 같은 특정 dist-tag를 사용합니다. |
-| `--snapshot [tag]` | - | 임시 snapshot 버전을 publish합니다(기본 태그: `snapshot`). |
 | `-c, --contents <path>` | 없음 | release pipeline을 실행하기 전에 하위 디렉터리로 이동합니다. |
 | `--registry <registries>` | `npm,jsr` | 쉼표로 구분한 대상 registry입니다. `npm`, `jsr`, `crates`, 또는 커스텀 registry URL을 지원합니다. |
 | `--test-script <script>` | `test` | 테스트 단계에서 사용할 스크립트 이름입니다. |
@@ -166,6 +167,37 @@ CI publish 모드는 최신 Git tag에서 publish하고 GitHub Release를 API로
 
 - `stdin`이 TTY가 아닐 때
 - 프로세스가 인식된 CI 플랫폼에서 실행될 때
+
+## `pubm snapshot`
+
+미리보기 및 테스트를 위한 snapshot 버전을 publish합니다. 단일 패키지와 모노레포 프로젝트 모두 지원합니다.
+
+```bash
+pubm snapshot [tag]
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `[tag]` | Snapshot 태그 (기본값: `snapshot`) |
+| `-f, --filter <name>` | 이름 또는 경로로 패키지 필터링 (반복 가능) |
+| `-d, --dry-run` | 부작용 없이 시뮬레이션 |
+| `--no-tests` | 테스트 건너뜀 |
+| `--no-build` | 빌드 건너뜀 |
+| `-b, --branch <name>` | 대상 브랜치 (기본값: `main`) |
+| `-a, --any-branch` | 모든 브랜치에서 publish 허용 |
+
+### 예시
+
+```bash
+# 모든 패키지 snapshot
+pubm snapshot
+
+# 커스텀 태그로 snapshot
+pubm snapshot beta
+
+# 특정 패키지 snapshot
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

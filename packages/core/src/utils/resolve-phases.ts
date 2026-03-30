@@ -3,7 +3,7 @@ import type { Options } from "../types/options.js";
 export type ReleasePhase = "prepare" | "publish";
 
 export function resolvePhases(
-  options: Pick<Options, "mode" | "prepare" | "publish" | "snapshot">,
+  options: Pick<Options, "mode" | "prepare" | "publish">,
 ): ReleasePhase[] {
   validateOptions(options);
 
@@ -14,7 +14,7 @@ export function resolvePhases(
 }
 
 export function validateOptions(
-  options: Pick<Options, "mode" | "prepare" | "publish" | "snapshot">,
+  options: Pick<Options, "mode" | "prepare" | "publish">,
 ): void {
   const mode = options.mode ?? "local";
 
@@ -28,9 +28,5 @@ export function validateOptions(
     throw new Error(
       "CI mode requires --prepare or --publish. Example: pubm --mode ci --prepare",
     );
-  }
-
-  if (options.snapshot && mode === "ci") {
-    throw new Error("Cannot use --snapshot with --mode ci.");
   }
 }

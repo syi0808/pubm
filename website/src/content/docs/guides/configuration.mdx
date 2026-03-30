@@ -192,6 +192,8 @@ Available template variables:
 - `{timestamp}`: UTC timestamp in `YYYYMMDDTHHmmss` format
 - `{commit}`: current git commit SHA
 
+In monorepo projects with `fixed` versioning, the template is applied once using the first package's version as `{base}`. With `independent` versioning, each package generates its own snapshot version using its own `{base}`.
+
 ### `createPr`
 
 - Type: `boolean`

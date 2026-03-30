@@ -85,10 +85,6 @@ export interface Options {
    */
   skipConditionsCheck?: boolean;
   /**
-   * @description Snapshot mode: publish a temporary snapshot version
-   */
-  snapshot?: string | boolean;
-  /**
    * @description Publish under a specific dist-tag
    * @default "latest"
    */

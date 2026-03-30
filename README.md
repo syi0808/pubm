@@ -112,6 +112,9 @@ pubm init
 # Just run pubm - that's it
 pubm
 
+# Publish a snapshot release with a custom tag (useful for testing pre-releases)
+pubm snapshot [tag]
+
 # Optional: install coding agent skills (Claude Code, Codex, Gemini)
 pubm setup-skills
 ```

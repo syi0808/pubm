@@ -104,6 +104,7 @@
   "task.build.runningBeforeHooks": "플러그인 beforeBuild 훅 실행 중...",
   "task.build.runningAfterHooks": "플러그인 afterBuild 훅 실행 중...",
   "task.build.completed": "`{command}` 완료",
+  "error.snapshot.noMatchingPackages": "제공된 --filter 패턴과 일치하는 패키지가 없습니다.",
   "task.snapshot.title": "스냅샷 배포",
   "task.snapshot.titleWithVersion": "스냅샷 배포 ({version})",
   "task.snapshot.version": "스냅샷 버전: {version}",
@@ -266,7 +267,6 @@
   "cli.option.noBuild": "배포 전 빌드 건너뜀",
   "cli.option.noPublish": "배포 작업 건너뜀",
   "cli.option.skipRelease": "GitHub Release 생성 건너뜀",
-  "cli.option.snapshot": "임시 스냅샷 버전 배포 (기본 태그: snapshot)",
   "cli.option.tag": "특정 dist-tag로 배포",
   "cli.option.contents": "배포할 하위 디렉토리",
   "cli.option.noSaveToken": "jsr 토큰 저장 안 함 (매번 토큰 요청)",
@@ -385,5 +385,8 @@
   "cmd.setupSkills.manualInstall": "수동 설치: {url}",
   "cmd.migrate.description": ".changeset/에서 .pubm/으로 마이그레이션",
   "cmd.migrate.success": "{count, plural, one {# changeset 파일} other {# changeset 파일}} 마이그레이션됨.",
-  "cmd.migrate.configHint": ".changeset/config.json이 감지되었습니다. pubm.config.ts를 수동으로 생성하세요."
+  "cmd.migrate.configHint": ".changeset/config.json이 감지되었습니다. pubm.config.ts를 수동으로 생성하세요.",
+  "cmd.snapshot.description": "프리뷰/테스트용 스냅샷 버전 배포",
+  "cmd.snapshot.tagArg": "스냅샷 태그 (기본값: snapshot)",
+  "cmd.snapshot.optionFilter": "이름 또는 경로로 패키지 필터링 (반복 가능)"
 }
