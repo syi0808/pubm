@@ -48,7 +48,6 @@ await pubm({
 | `branch` | `string` | Require a specific branch before publishing. |
 | `anyBranch` | `boolean` | Disable branch enforcement for one run. |
 | `tag` | `string` | Publish under a dist-tag like `latest`, `next`, or `beta`. |
-| `snapshot` | `string \| boolean` | Build a snapshot version using the configured template. |
 | `packages` | `PackageConfig[]` | Override auto-discovered packages. |
 
 For config-driven releases, `pubm()` loads `pubm.config.*`, resolves package discovery, and wires plugins before it runs the task graph.

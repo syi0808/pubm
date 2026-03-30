@@ -48,7 +48,6 @@ await pubm({
 | `branch` | `string` | 发布前要求的特定分支。 |
 | `anyBranch` | `boolean` | 对单次运行禁用分支约束。 |
 | `tag` | `string` | 以某个 dist-tag 发布，例如 `latest`、`next` 或 `beta`。 |
-| `snapshot` | `string \| boolean` | 使用配置好的模板构建 snapshot 版本。 |
 | `packages` | `PackageConfig[]` | 覆盖自动发现的 package。 |
 
 对于由 config 驱动的发布，`pubm()` 会自动加载 `pubm.config.*`、解析 package 发现，并在运行任务图之前接入插件。

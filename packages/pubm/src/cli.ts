@@ -26,6 +26,7 @@ import { registerInitCommand } from "./commands/init.js";
 import { registerInspectCommand } from "./commands/inspect.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSetupSkillsCommand } from "./commands/setup-skills.js";
+import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
@@ -55,7 +56,6 @@ interface CliOptions {
   tests: boolean;
   build: boolean;
   publish: boolean;
-  snapshot?: string | boolean;
   skipRelease?: boolean;
   tag: string;
   contents?: string;
@@ -92,7 +92,6 @@ export function resolveCliOptions(
     skipBuild: !options.build,
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
-    snapshot: options.snapshot,
     tag: options.tag,
     contents: options.contents,
     saveToken: options.saveToken,
@@ -133,6 +132,7 @@ export function createProgram(): Command {
   registerSyncCommand(program);
   registerVersionCommand(program, () => resolvedConfig);
   registerInspectCommand(program, () => resolvedConfig);
+  registerSnapshotCommand(program, () => resolvedConfig);
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program
@@ -154,7 +154,6 @@ export function createProgram(): Command {
     .option("--no-build", t("cli.option.noBuild"))
     .option("--no-publish", t("cli.option.noPublish"))
     .option("--skip-release", t("cli.option.skipRelease"))
-    .option("--snapshot [tag]", t("cli.option.snapshot"))
     .option("-t, --tag <name>", t("cli.option.tag"), "latest")
     .option("-c, --contents <path>", t("cli.option.contents"))
     .option("--no-save-token", t("cli.option.noSaveToken"))
@@ -214,22 +213,6 @@ export function createProgram(): Command {
           }
         }
         ctx.runtime.tag = options.tag;
-
-        if (options.snapshot) {
-          const snapshotTag =
-            typeof options.snapshot === "string"
-              ? options.snapshot
-              : "snapshot";
-
-          ctx.runtime.versionPlan = {
-            mode: "single",
-            version: "snapshot",
-            packagePath: resolvedConfig.packages[0]?.path ?? ".",
-          };
-          ctx.runtime.tag = snapshotTag;
-          await pubm(ctx);
-          return;
-        }
 
         try {
           const mode = cliOptions.mode ?? "local";

@@ -192,6 +192,8 @@ export default defineConfig({
 - `{timestamp}`：格式为 `YYYYMMDDTHHmmss` 的 UTC 时间戳
 - `{commit}`：当前 git commit SHA
 
+在使用 `fixed` 版本策略的 monorepo 项目中，模板以第一个包的版本作为 `{base}` 应用一次。使用 `independent` 版本策略时，每个包使用各自的 `{base}` 生成快照版本。
+
 ### `createPr`
 
 - 类型：`boolean`

@@ -8,6 +8,7 @@ This reference is grouped by command:
 - the top-level publish command: `pubm [version]`
 - management commands such as `init`, `secrets`, and `sync`
 - changeset workflow commands under `pubm changesets ...`
+- the `pubm snapshot` command for preview and testing releases
 
 For most day-to-day use, the main command is:
 
@@ -22,6 +23,7 @@ Running `pubm` without a version argument follows the interactive path. You choo
 | Command | Purpose |
 |---------|---------|
 | `pubm [version]` | Run the publish pipeline using a release type or explicit semver. |
+| `pubm snapshot [tag]` | Publish snapshot versions for preview and testing. |
 | `pubm init` | Interactive setup wizard for package detection, config, changesets, CI workflows, and coding agent skills. |
 | `pubm setup-skills` | Download and install coding agent skills (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Push locally stored tokens into GitHub Secrets through `gh`. |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
 | `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
 | `-t, --tag <name>` | `latest` | Use a specific dist-tag such as `beta` or `next`. |
-| `--snapshot [tag]` | - | Publish a temporary snapshot version (default tag: `snapshot`) |
 | `-c, --contents <path>` | none | Change into a subdirectory before running the release pipeline. |
 | `--registry <registries>` | `npm,jsr` | Comma-separated target registries. Supports `npm`, `jsr`, `crates`, or custom registry URLs. |
 | `--test-script <script>` | `test` | Script name used for the test step. |
@@ -166,6 +167,37 @@ Prompts are disabled automatically when:
 
 - `stdin` is not a TTY
 - the process is running on a recognized CI platform
+
+## `pubm snapshot`
+
+Publish snapshot versions for preview and testing. Supports single-package and monorepo projects.
+
+```bash
+pubm snapshot [tag]
+```
+
+| Option | Description |
+|--------|-------------|
+| `[tag]` | Snapshot tag (default: `snapshot`) |
+| `-f, --filter <name>` | Filter packages by name or path (repeatable) |
+| `-d, --dry-run` | Simulate without side-effects |
+| `--no-tests` | Skip tests |
+| `--no-build` | Skip build |
+| `-b, --branch <name>` | Target branch (default: `main`) |
+| `-a, --any-branch` | Allow publishing from any branch |
+
+### Examples
+
+```bash
+# Snapshot all packages
+pubm snapshot
+
+# Snapshot with custom tag
+pubm snapshot beta
+
+# Snapshot specific packages
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

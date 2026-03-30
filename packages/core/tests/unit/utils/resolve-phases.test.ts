@@ -33,12 +33,6 @@ describe("resolvePhases", () => {
     );
   });
 
-  it("throws when --snapshot is used with ci mode", () => {
-    expect(() =>
-      resolvePhases({ mode: "ci", prepare: true, snapshot: true }),
-    ).toThrow("Cannot use --snapshot with --mode ci");
-  });
-
   it("returns prepare for ci mode with --prepare", () => {
     expect(resolvePhases({ mode: "ci", prepare: true })).toEqual(["prepare"]);
   });
@@ -59,16 +53,6 @@ describe("validateOptions", () => {
     expect(() => validateOptions({ mode: "ci" })).toThrow(
       "CI mode requires --prepare or --publish",
     );
-  });
-
-  it("throws when --snapshot is used with ci mode", () => {
-    expect(() =>
-      validateOptions({ mode: "ci", prepare: true, snapshot: true }),
-    ).toThrow("Cannot use --snapshot with --mode ci");
-  });
-
-  it("allows local mode with snapshot", () => {
-    expect(() => validateOptions({ snapshot: true })).not.toThrow();
   });
 
   it("allows local mode without any phase", () => {

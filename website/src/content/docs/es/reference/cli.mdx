@@ -8,6 +8,7 @@ Esta referencia se agrupa por forma de comando:
 - el comando principal de publicación: `pubm [version]`
 - comandos de gestión como `init`, `secrets` y `sync`
 - comandos del flujo de changesets bajo `pubm changesets ...`
+- el comando `pubm snapshot` para releases de previsualización y pruebas
 
 Para el uso diario, el comando principal es:
 
@@ -22,6 +23,7 @@ Ejecutar `pubm` sin argumento de versión sigue el flujo interactivo normal. Te 
 | Comando | Propósito |
 |---------|---------|
 | `pubm [version]` | Ejecuta el pipeline de publicación usando un tipo de release o un semver explícito. |
+| `pubm snapshot [tag]` | Publica versiones snapshot para previsualización y pruebas. |
 | `pubm init` | Asistente de configuración interactivo para detección de paquetes, configuración, changesets, workflows de CI y skills de agentes de código. |
 | `pubm setup-skills` | Descarga e instala skills de agentes de código (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Sube tokens guardados localmente a GitHub Secrets a través de `gh`. |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | Exige que el branch actual coincida antes de publicar. |
 | `-a, --any-branch` | `false` | Desactiva la protección por branch para la ejecución actual. |
 | `-t, --tag <name>` | `latest` | Usa un dist-tag específico como `beta` o `next`. |
-| `--snapshot [tag]` | - | Publica una versión snapshot temporal (tag por defecto: `snapshot`). |
 | `-c, --contents <path>` | none | Cambia a un subdirectorio antes de ejecutar el pipeline de release. |
 | `--registry <registries>` | `npm,jsr` | Registries destino separados por coma. Soporta `npm`, `jsr`, `crates` o URLs personalizadas de registry. |
 | `--test-script <script>` | `test` | Nombre del script usado para el paso de test. |
@@ -166,6 +167,37 @@ Los prompts se desactivan automáticamente cuando:
 
 - `stdin` no es un TTY
 - el proceso se ejecuta en una plataforma CI reconocida
+
+## `pubm snapshot`
+
+Publica versiones snapshot para previsualización y pruebas. Compatible con proyectos de paquete único y monorepo.
+
+```bash
+pubm snapshot [tag]
+```
+
+| Opción | Descripción |
+|--------|-------------|
+| `[tag]` | Tag del snapshot (por defecto: `snapshot`) |
+| `-f, --filter <name>` | Filtrar paquetes por nombre o ruta (repetible) |
+| `-d, --dry-run` | Simular sin efectos secundarios |
+| `--no-tests` | Omitir tests |
+| `--no-build` | Omitir build |
+| `-b, --branch <name>` | Rama destino (por defecto: `main`) |
+| `-a, --any-branch` | Permitir publicar desde cualquier rama |
+
+### Ejemplos
+
+```bash
+# Snapshot de todos los paquetes
+pubm snapshot
+
+# Snapshot con tag personalizado
+pubm snapshot beta
+
+# Snapshot de paquetes específicos
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

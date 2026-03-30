@@ -48,7 +48,6 @@ await pubm({
 | `branch` | `string` | publish 전에 특정 브랜치를 요구합니다. |
 | `anyBranch` | `boolean` | 한 번의 실행에 한해 브랜치 강제를 비활성화합니다. |
 | `tag` | `string` | `latest`, `next`, `beta` 같은 dist-tag로 publish합니다. |
-| `snapshot` | `string \| boolean` | 설정된 템플릿으로 snapshot 버전을 만듭니다. |
 | `packages` | `PackageConfig[]` | 자동 탐지된 패키지를 덮어씁니다. |
 
 설정 기반 릴리스에서는 `pubm()`이 자동으로 `pubm.config.*`를 로드하고, 패키지 탐지를 해석하며, 작업 그래프를 실행하기 전에 플러그인을 연결합니다.

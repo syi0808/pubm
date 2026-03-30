@@ -8,6 +8,7 @@ Cette référence est regroupée par type de commande :
 - la commande de publication principale : `pubm [version]`
 - les commandes de gestion comme `init`, `secrets` et `sync`
 - les commandes du workflow de changesets sous `pubm changesets ...`
+- la commande `pubm snapshot` pour les releases de prévisualisation et de test
 
 Au quotidien, la commande principale est :
 
@@ -22,6 +23,7 @@ Lancer `pubm` sans argument de version suit le flux interactif normal. Cela vous
 | Commande | But |
 |---------|-----|
 | `pubm [version]` | Exécuter le pipeline de publication à l'aide d'un type de release ou d'une version semver explicite. |
+| `pubm snapshot [tag]` | Publier des versions snapshot pour la prévisualisation et les tests. |
 | `pubm init` | Assistant de configuration interactif pour la détection des packages, la config, les changesets, les workflows CI et les skills pour agents de code. |
 | `pubm setup-skills` | Télécharger et installer les skills pour agents de code (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Pousser les tokens stockés localement vers GitHub Secrets via `gh`. |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | Exiger que la branche courante corresponde avant la release. |
 | `-a, --any-branch` | `false` | Désactiver la garde de branche pour l'exécution courante. |
 | `-t, --tag <name>` | `latest` | Utiliser un dist-tag spécifique comme `beta` ou `next`. |
-| `--snapshot [tag]` | - | Publier une version snapshot temporaire (tag par défaut : `snapshot`) |
 | `-c, --contents <path>` | none | Se déplacer dans un sous-répertoire avant d'exécuter le pipeline de release. |
 | `--registry <registries>` | `npm,jsr` | Registries cibles séparés par des virgules. Prend en charge `npm`, `jsr`, `crates` ou des URLs de registry personnalisées. |
 | `--test-script <script>` | `test` | Nom du script utilisé pour l'étape de test. |
@@ -166,6 +167,37 @@ Les invites sont désactivées automatiquement lorsque :
 
 - `stdin` n'est pas un TTY
 - le processus s'exécute sur une plateforme CI reconnue
+
+## `pubm snapshot`
+
+Publier des versions snapshot pour la prévisualisation et les tests. Prend en charge les projets mono-package et monorepo.
+
+```bash
+pubm snapshot [tag]
+```
+
+| Option | Description |
+|--------|-------------|
+| `[tag]` | Tag snapshot (par défaut : `snapshot`) |
+| `-f, --filter <name>` | Filtrer les packages par nom ou chemin (répétable) |
+| `-d, --dry-run` | Simuler sans effets secondaires |
+| `--no-tests` | Ignorer les tests |
+| `--no-build` | Ignorer le build |
+| `-b, --branch <name>` | Branche cible (par défaut : `main`) |
+| `-a, --any-branch` | Autoriser la publication depuis n'importe quelle branche |
+
+### Exemples
+
+```bash
+# Snapshot de tous les packages
+pubm snapshot
+
+# Snapshot avec un tag personnalisé
+pubm snapshot beta
+
+# Snapshot de packages spécifiques
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

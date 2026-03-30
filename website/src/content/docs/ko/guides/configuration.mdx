@@ -192,6 +192,8 @@ export default defineConfig({
 - `{timestamp}`: `YYYYMMDDTHHmmss` 형식의 UTC 타임스탬프
 - `{commit}`: 현재 git 커밋 SHA
 
+`fixed` 버전 관리를 사용하는 모노레포 프로젝트에서는 첫 번째 패키지의 버전을 `{base}`로 사용하여 템플릿이 한 번 적용됩니다. `independent` 버전 관리에서는 각 패키지가 자신의 `{base}`를 사용하여 스냅샷 버전을 생성합니다.
+
 ### `createPr`
 
 - 타입: `boolean`

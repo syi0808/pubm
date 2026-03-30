@@ -96,6 +96,28 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 ```
 
+## 在 CI 中发布 snapshot
+
+使用 `pubm snapshot` 可以在 CI 中发布预览版本，而无需创建正式 release。这对于在完整发布之前测试包变更非常有用。
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+对于 monorepo，可以过滤要 snapshot 的包：
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot --filter @acme/core --filter @acme/react
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+Snapshot 版本使用由基础版本、tag、时间戳和提交哈希派生的临时版本号发布，不会影响正常的发布版本管理。
+
 ## 常见 CI 陷阱
 
 ### 浅克隆

@@ -96,6 +96,28 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 ```
 
+## Snapshot-Releases in CI
+
+Verwende `pubm snapshot`, um Vorschauversionen aus der CI zu veröffentlichen, ohne ein echtes Release zu erstellen. Das ist nützlich, um Paketänderungen vor einem vollständigen Release zu testen.
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+Bei Monorepos kannst du die zu snapshotenden Pakete filtern:
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot --filter @acme/core --filter @acme/react
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+Snapshot-Versionen werden mit einer temporären Versionsnummer veröffentlicht, die aus der Basisversion, dem Tag, dem Zeitstempel und dem Commit-Hash abgeleitet wird. Sie beeinflussen die normale Release-Versionsverwaltung nicht.
+
 ## Common CI pitfalls
 
 ### Shallow checkout

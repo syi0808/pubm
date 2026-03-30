@@ -192,6 +192,8 @@ Variables disponibles en la plantilla:
 - `{timestamp}`: timestamp UTC en formato `YYYYMMDDTHHmmss`
 - `{commit}`: SHA del commit Git actual
 
+En proyectos monorepo con versionado `fixed`, la plantilla se aplica una vez usando la versión del primer paquete como `{base}`. Con versionado `independent`, cada paquete genera su propia versión snapshot usando su propio `{base}`.
+
 ### `createPr`
 
 - Tipo: `boolean`

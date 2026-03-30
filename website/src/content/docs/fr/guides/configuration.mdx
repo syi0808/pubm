@@ -192,6 +192,8 @@ Variables de modèle disponibles :
 - `{timestamp}` : timestamp UTC au format `YYYYMMDDTHHmmss`
 - `{commit}` : SHA du commit Git courant
 
+Dans les projets monorepo avec versioning `fixed`, le template est appliqué une seule fois en utilisant la version du premier package comme `{base}`. Avec le versioning `independent`, chaque package génère sa propre version snapshot en utilisant son propre `{base}`.
+
 ### `createPr`
 
 - Type : `boolean`

@@ -104,6 +104,7 @@
   "task.build.runningBeforeHooks": "正在运行插件 beforeBuild 钩子...",
   "task.build.runningAfterHooks": "正在运行插件 afterBuild 钩子...",
   "task.build.completed": "`{command}` 已完成",
+  "error.snapshot.noMatchingPackages": "没有包匹配提供的 --filter 模式。",
   "task.snapshot.title": "发布快照",
   "task.snapshot.titleWithVersion": "发布快照（{version}）",
   "task.snapshot.version": "快照版本：{version}",
@@ -266,7 +267,6 @@
   "cli.option.noBuild": "跳过发布前构建",
   "cli.option.noPublish": "跳过发布任务",
   "cli.option.skipRelease": "跳过 GitHub Release 创建",
-  "cli.option.snapshot": "发布临时快照版本（默认标签：snapshot）",
   "cli.option.tag": "以特定 dist-tag 发布",
   "cli.option.contents": "要发布的子目录",
   "cli.option.noSaveToken": "不保存 jsr 令牌（每次请求令牌）",
@@ -385,5 +385,8 @@
   "cmd.setupSkills.manualInstall": "手动安装：{url}",
   "cmd.migrate.description": "从 .changeset/ 迁移到 .pubm/",
   "cmd.migrate.success": "已迁移 {count, plural, one {# 个 changeset 文件} other {# 个 changeset 文件}}。",
-  "cmd.migrate.configHint": "检测到 .changeset/config.json。请手动创建 pubm.config.ts。"
+  "cmd.migrate.configHint": "检测到 .changeset/config.json。请手动创建 pubm.config.ts。",
+  "cmd.snapshot.description": "发布快照版本用于预览/测试",
+  "cmd.snapshot.tagArg": "快照标签（默认: snapshot）",
+  "cmd.snapshot.optionFilter": "按名称或路径过滤包（可重复）"
 }

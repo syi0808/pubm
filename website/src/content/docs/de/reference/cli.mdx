@@ -8,6 +8,7 @@ Diese Referenz ist nach Befehlen gegliedert:
 - der top-level Publish-Befehl: `pubm [version]`
 - Verwaltungsbefehle wie `init`, `secrets` und `sync`
 - Changeset-Workflows unter `pubm changesets ...`
+- der Befehl `pubm snapshot` für Vorschau- und Test-Releases
 
 Für den Alltag ist der wichtigste Befehl:
 
@@ -22,6 +23,7 @@ Wenn du `pubm` ohne Versionsargument aufrufst, landest du im interaktiven Ablauf
 | Befehl | Zweck |
 |---------|-------|
 | `pubm [version]` | Fuehrt die Publish-Pipeline mit einem Release-Typ oder einer expliziten SemVer aus. |
+| `pubm snapshot [tag]` | Veröffentlicht Snapshot-Versionen für Vorschau und Tests. |
 | `pubm init` | Interaktiver Setup-Wizard für Paketerkennung, Konfiguration, Changesets, CI-Workflows und Coding-Agent-Skills. |
 | `pubm setup-skills` | Coding-Agent-Skills herunterladen und installieren (Claude Code, Codex, Gemini). |
 | `pubm secrets sync` | Schiebt lokal gespeicherte Tokens über `gh` in GitHub Secrets. |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | Verlangt, dass der aktuelle Branch vor dem Release uebereinstimmt. |
 | `-a, --any-branch` | `false` | Deaktiviert den Branch-Schutz für den aktuellen Lauf. |
 | `-t, --tag <name>` | `latest` | Verwendet einen bestimmten Dist-Tag wie `beta` oder `next`. |
-| `--snapshot [tag]` | - | Veröffentlicht eine temporaere Snapshot-Version (Standard-Tag: `snapshot`). |
 | `-c, --contents <path>` | none | Wechselt vor dem Release-Flow in ein Unterverzeichnis. |
 | `--registry <registries>` | `npm,jsr` | Kommagetrennte Ziel-Registries. Unterstützt `npm`, `jsr`, `crates` oder benutzerdefinierte Registry-URLs. |
 | `--test-script <script>` | `test` | Script-Name für den Test-Schritt. |
@@ -166,6 +167,37 @@ Prompts werden automatisch deaktiviert, wenn:
 
 - `stdin` kein TTY ist
 - der Prozess auf einer erkannten CI-Plattform laeuft
+
+## `pubm snapshot`
+
+Veröffentlicht Snapshot-Versionen für Vorschau und Tests. Unterstützt Einzelpaket- und Monorepo-Projekte.
+
+```bash
+pubm snapshot [tag]
+```
+
+| Option | Beschreibung |
+|--------|-------------|
+| `[tag]` | Snapshot-Tag (Standard: `snapshot`) |
+| `-f, --filter <name>` | Pakete nach Name oder Pfad filtern (wiederholbar) |
+| `-d, --dry-run` | Simulieren ohne Nebeneffekte |
+| `--no-tests` | Tests ueberspringen |
+| `--no-build` | Build ueberspringen |
+| `-b, --branch <name>` | Ziel-Branch (Standard: `main`) |
+| `-a, --any-branch` | Veröffentlichung von beliebigem Branch erlauben |
+
+### Beispiele
+
+```bash
+# Snapshot aller Pakete
+pubm snapshot
+
+# Snapshot mit eigenem Tag
+pubm snapshot beta
+
+# Snapshot bestimmter Pakete
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

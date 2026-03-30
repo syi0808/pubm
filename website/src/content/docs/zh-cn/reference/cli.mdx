@@ -8,6 +8,7 @@ description: pubm CLI 的命令、flags 和执行模式。
 - 顶层发布命令：`pubm [version]`
 - `init`、`secrets` 和 `sync` 等管理命令
 - `pubm changesets ...` 下的 changeset 工作流命令
+- 用于预览和测试发布的 `pubm snapshot` 命令
 
 日常使用时，最常用的命令是：
 
@@ -22,6 +23,7 @@ pubm
 | Command | Purpose |
 |---------|---------|
 | `pubm [version]` | 使用 release type 或明确的 semver 运行发布流程。 |
+| `pubm snapshot [tag]` | 发布用于预览和测试的 snapshot 版本。 |
 | `pubm init` | 交互式 setup 向导，负责包检测、配置、changesets、CI 工作流和 coding agent skills。 |
 | `pubm setup-skills` | 下载并安装 coding agent skills（Claude Code、Codex、Gemini）。 |
 | `pubm secrets sync` | 通过 `gh` 把本地保存的 token 推送到 GitHub Secrets。 |
@@ -85,7 +87,6 @@ pubm --tag beta
 | `-b, --branch <name>` | `main` | 在发布前要求当前分支匹配指定分支。 |
 | `-a, --any-branch` | `false` | 禁用当前运行的分支保护。 |
 | `-t, --tag <name>` | `latest` | 使用特定的 dist-tag，例如 `beta` 或 `next`。 |
-| `--snapshot [tag]` | - | 发布临时 snapshot 版本（默认 tag：`snapshot`） |
 | `-c, --contents <path>` | none | 在运行发布流程之前切换到子目录。 |
 | `--registry <registries>` | `npm,jsr` | 以逗号分隔的目标 registries。支持 `npm`、`jsr`、`crates` 或自定义 registry URL。 |
 | `--test-script <script>` | `test` | 测试步骤使用的脚本名。 |
@@ -166,6 +167,37 @@ CI Publish 模式会从最新的 Git tag 发布，并通过 API 创建 GitHub Re
 
 - `stdin` 不是 TTY
 - 进程运行在已识别的 CI 平台上
+
+## `pubm snapshot`
+
+发布用于预览和测试的 snapshot 版本。支持单包和 monorepo 项目。
+
+```bash
+pubm snapshot [tag]
+```
+
+| 选项 | 描述 |
+|------|------|
+| `[tag]` | Snapshot tag（默认：`snapshot`） |
+| `-f, --filter <name>` | 按名称或路径过滤包（可重复） |
+| `-d, --dry-run` | 模拟执行，不产生副作用 |
+| `--no-tests` | 跳过测试 |
+| `--no-build` | 跳过构建 |
+| `-b, --branch <name>` | 目标分支（默认：`main`） |
+| `-a, --any-branch` | 允许从任意分支发布 |
+
+### 示例
+
+```bash
+# 对所有包进行 snapshot
+pubm snapshot
+
+# 使用自定义 tag 进行 snapshot
+pubm snapshot beta
+
+# 对特定包进行 snapshot
+pubm snapshot --filter @pubm/core --filter pubm
+```
 
 ## `pubm init`
 

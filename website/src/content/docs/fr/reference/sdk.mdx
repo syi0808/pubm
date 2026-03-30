@@ -48,7 +48,6 @@ await pubm({
 | `branch` | `string` | Exiger une branche précise avant de publier. |
 | `anyBranch` | `boolean` | Désactiver l'exigence de branche pour une exécution. |
 | `tag` | `string` | Publier sous un dist-tag comme `latest`, `next` ou `beta`. |
-| `snapshot` | `string \| boolean` | Construire une version snapshot à l'aide du modèle configuré. |
 | `packages` | `PackageConfig[]` | Remplacer les packages découverts automatiquement. |
 
 Pour les releases pilotées par la configuration, `pubm()` charge automatiquement `pubm.config.*`, résout la découverte des packages et branche les plugins avant d'exécuter le graphe de tâches.

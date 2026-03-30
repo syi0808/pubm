@@ -96,6 +96,28 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 ```
 
+## CI에서 snapshot 릴리스
+
+실제 릴리스를 만들지 않고 CI에서 미리보기 버전을 publish하려면 `pubm snapshot`을 사용합니다. 전체 릴리스 전에 패키지 변경 사항을 테스트하는 데 유용합니다.
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+모노레포에서는 snapshot할 패키지를 필터링할 수 있습니다.
+
+```yaml
+- name: Publish snapshot
+  run: npx pubm snapshot --filter @acme/core --filter @acme/react
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+Snapshot 버전은 기본 버전, 태그, 타임스탬프, 커밋 해시로 구성된 임시 버전 번호로 publish됩니다. 일반 릴리스 버전에는 영향을 주지 않습니다.
+
 ## 자주 겪는 CI 문제
 
 ### 얕은 checkout
