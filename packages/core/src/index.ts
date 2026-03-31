@@ -44,6 +44,12 @@ export {
   resolveAssets,
   runAssetPipeline,
 } from "./assets/index.js";
+// Changelog (new module)
+export { ChangesetChangelogWriter } from "./changelog/changeset-writer.js";
+export { ConventionalCommitChangelogWriter } from "./changelog/conventional-commit-writer.js";
+export type { BumpGroup } from "./changelog/renderer.js";
+export { renderChangelog } from "./changelog/renderer.js";
+export type { ChangelogSection, ChangelogWriter } from "./changelog/types.js";
 export type {
   BumpType,
   ChangelogEntry,
@@ -90,6 +96,18 @@ export type {
 } from "./context.js";
 // Context
 export { createContext, getPackageVersion, resolveVersion } from "./context.js";
+// Conventional commit
+export {
+  analyzeCommits,
+  findLastReleaseRef,
+  getCommitsSinceRef,
+  parseConventionalCommit,
+  resolveCommitPackages,
+} from "./conventional-commit/index.js";
+export type {
+  CommitTypeMapping,
+  ConventionalCommit,
+} from "./conventional-commit/types.js";
 // Registry catalog
 export type { EcosystemKey } from "./ecosystem/catalog.js";
 export { ecosystemCatalog } from "./ecosystem/catalog.js";
@@ -215,3 +233,13 @@ export {
   detectExtraneousFiles,
   validateEntryPoints,
 } from "./validate/index.js";
+// Version source
+export { ChangesetSource } from "./version-source/changeset-source.js";
+export { ConventionalCommitSource } from "./version-source/conventional-commit-source.js";
+export { mergeRecommendations } from "./version-source/merge.js";
+export type {
+  VersionEntry,
+  VersionRecommendation,
+  VersionSource,
+  VersionSourceContext,
+} from "./version-source/types.js";

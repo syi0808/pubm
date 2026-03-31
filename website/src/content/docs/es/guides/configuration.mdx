@@ -478,8 +478,55 @@ releaseAssets: [
 
 Lee la guía [Release Assets](/pubm/es/guides/release-assets/) para ver todas las reglas de cascada de `compress`, las variables de la plantilla de nombre y ejemplos de uso.
 
+## Fuentes de versión
+
+`pubm changesets version` puede resolver los bumps de versión a partir de dos fuentes: archivos de changeset en `.pubm/changesets/` y mensajes de commits convencionales. Puedes controlar qué fuentes están activas y cómo los tipos de commits se corresponden con los niveles de bump.
+
+### `versionSources`
+
+- Tipo: `"all" | "changesets" | "commits"`
+- Valor por defecto: `"all"`
+
+Controla qué fuentes lee `pubm changesets version` al calcular los bumps de versión.
+
+| Valor | Comportamiento |
+|-------|----------------|
+| `"all"` | Usa changesets para los paquetes que los tienen. Se repliega en commits convencionales para los paquetes sin changesets pendientes. |
+| `"changesets"` | Solo lee archivos `.pubm/changesets/`. Los commits convencionales se ignoran. |
+| `"commits"` | Solo lee mensajes de commits convencionales. Los archivos de changeset se ignoran. |
+
+### `conventionalCommits`
+
+Configura cómo los prefijos de tipos de commits se corresponden con los niveles de bump semver. Solo aplica cuando `versionSources` es `"all"` o `"commits"`.
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      // Añadir tipos ignorados por defecto
+      refactor: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+La correspondencia por defecto es:
+
+| Tipo de commit | Bump |
+|----------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+Los commits con `BREAKING CHANGE` en el footer o un sufijo `!` (p. ej. `feat!:`) siempre producen un bump `major` independientemente de la correspondencia de tipo.
+
+Los tipos de commits no listados en la correspondencia (p. ej. `chore`, `docs`, `test`, `ci`, `style`, `refactor`) se ignoran en el cálculo del bump. Puedes sobreescribir cualquier tipo en el objeto `types` — por ejemplo, `refactor: "patch"` trataría los commits refactor como bumps patch.
+
 ## Siguientes pasos
 
 - Usa la guía [Monorepo](/pubm/es/guides/monorepo/) si necesitas agrupar paquetes o mezclar registries.
 - Usa la [Plugins API Reference](/pubm/es/reference/plugins/) si tu configuración registra plugins personalizados.
 - Usa la guía [Release Assets](/pubm/es/guides/release-assets/) para adjuntar binarios y archivos comprimidos a GitHub Releases.
+- Consulta la guía [Changesets](/pubm/es/guides/changesets/) para más detalles sobre el comportamiento de replegado en commits convencionales.

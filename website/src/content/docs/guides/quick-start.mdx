@@ -53,4 +53,4 @@ Start the release flow:
 pubm
 ```
 
-If pending changesets exist, `pubm` consumes them during the version step of the release pipeline. For config details, read [Configuration](/pubm/guides/configuration/). For CI, tokens, and preparation behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).
+If pending changesets exist, `pubm` consumes them during the version step of the release pipeline. For packages without changesets, `pubm` can also analyze conventional commits (`feat:`, `fix:`, etc.) as a fallback — see [Changesets](/pubm/guides/changesets/#conventional-commit-fallback) for details. For config details, read [Configuration](/pubm/guides/configuration/). For CI, tokens, and preparation behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).

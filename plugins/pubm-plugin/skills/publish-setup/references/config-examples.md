@@ -158,6 +158,28 @@ export default defineConfig({
 })
 ```
 
+### With conventional commit fallback
+
+Use this when some packages use changeset files and others rely on commit history for versioning. The `"all"` value (default) enables the fallback automatically.
+
+```typescript
+import { defineConfig } from 'pubm'
+
+export default defineConfig({
+  versionSources: 'all', // default; falls back to commits when no changeset exists
+  conventionalCommits: {
+    types: {
+      feat: 'minor',
+      fix: 'patch',
+      perf: 'patch',
+      refactor: 'patch',
+    },
+  },
+})
+```
+
+Set `versionSources: 'changesets'` to disable commit fallback. Set `versionSources: 'commits'` to ignore changeset files and use only commit history.
+
 ## Type Reference
 
 ### `RegistryType`

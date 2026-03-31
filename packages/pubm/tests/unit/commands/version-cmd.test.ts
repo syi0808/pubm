@@ -1,21 +1,60 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockGitInstance = {
-  stage: vi.fn(),
-  commit: vi.fn(),
-};
+const {
+  mockGitInstance,
+  mockChangesetSourceAnalyze,
+  mockChangesetSourceConsume,
+  mockConventionalCommitSourceAnalyze,
+  mockConventionalCommitSourceConsume,
+  mockMergeRecommendations,
+  mockChangesetChangelogWriterFormatEntries,
+  mockConventionalCommitChangelogWriterFormatEntries,
+  mockRenderChangelog,
+} = vi.hoisted(() => {
+  return {
+    mockGitInstance: {
+      stage: vi.fn(),
+      commit: vi.fn(),
+    },
+    mockChangesetSourceAnalyze: vi.fn(async () => []),
+    mockChangesetSourceConsume: vi.fn(async () => {}),
+    mockConventionalCommitSourceAnalyze: vi.fn(async () => []),
+    mockConventionalCommitSourceConsume: vi.fn(async () => {}),
+    mockMergeRecommendations: vi.fn(() => []),
+    mockChangesetChangelogWriterFormatEntries: vi.fn(() => []),
+    mockConventionalCommitChangelogWriterFormatEntries: vi.fn(() => []),
+    mockRenderChangelog: vi.fn(() => "## mock-version\n"),
+  };
+});
 
 vi.mock("@pubm/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@pubm/core")>();
   return {
     ...actual,
     createKeyResolver: vi.fn(() => (name: string) => name),
-    readChangesets: vi.fn(),
-    deleteChangesetFiles: vi.fn(),
-    calculateVersionBumps: vi.fn(),
-    generateChangelog: vi.fn(),
-    buildChangelogEntries: vi.fn(),
+    ChangesetSource: vi.fn(function () {
+      return {
+        analyze: mockChangesetSourceAnalyze,
+        consume: mockChangesetSourceConsume,
+      };
+    }),
+    ConventionalCommitSource: vi.fn(function () {
+      return {
+        analyze: mockConventionalCommitSourceAnalyze,
+        consume: mockConventionalCommitSourceConsume,
+      };
+    }),
+    mergeRecommendations: mockMergeRecommendations,
+    ChangesetChangelogWriter: vi.fn(function () {
+      return { formatEntries: mockChangesetChangelogWriterFormatEntries };
+    }),
+    ConventionalCommitChangelogWriter: vi.fn(function () {
+      return {
+        formatEntries: mockConventionalCommitChangelogWriterFormatEntries,
+      };
+    }),
+    renderChangelog: mockRenderChangelog,
     writeChangelogToFile: vi.fn(),
     writeVersionsForEcosystem: vi.fn(),
     ecosystemCatalog: {
@@ -45,11 +84,8 @@ vi.mock("@pubm/core", async (importOriginal) => {
 import type { ResolvedPubmConfig } from "@pubm/core";
 import {
   applyFixedGroup,
-  buildChangelogEntries,
-  calculateVersionBumps,
-  deleteChangesetFiles,
-  generateChangelog,
-  readChangesets,
+  ChangesetSource,
+  ConventionalCommitSource,
   resolveGroups,
   ui,
   writeChangelogToFile,
@@ -58,11 +94,6 @@ import {
 import { runVersionCommand } from "../../../src/commands/version-cmd.js";
 
 const mockedApplyFixedGroup = vi.mocked(applyFixedGroup);
-const mockedReadChangesets = vi.mocked(readChangesets);
-const mockedDeleteChangesetFiles = vi.mocked(deleteChangesetFiles);
-const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
-const mockedGenerateChangelog = vi.mocked(generateChangelog);
-const mockedBuildChangelogEntries = vi.mocked(buildChangelogEntries);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
 const mockedResolveGroups = vi.mocked(resolveGroups);
@@ -84,122 +115,87 @@ const defaultConfig = makeConfig();
 beforeEach(() => {
   vi.clearAllMocks();
   mockedWriteVersionsForEcosystem.mockResolvedValue([]);
-  mockedBuildChangelogEntries.mockReturnValue([]);
   mockedResolveGroups.mockReturnValue([]);
+  mockMergeRecommendations.mockReturnValue([]);
+  mockChangesetSourceAnalyze.mockResolvedValue([]);
+  mockConventionalCommitSourceAnalyze.mockResolvedValue([]);
+  mockChangesetChangelogWriterFormatEntries.mockReturnValue([]);
+  mockConventionalCommitChangelogWriterFormatEntries.mockReturnValue([]);
+  mockRenderChangelog.mockReturnValue("## mock-version\n");
 });
 
 describe("runVersionCommand", () => {
-  it("logs message and returns when no changesets found", async () => {
-    mockedReadChangesets.mockReturnValue([]);
+  it("logs message and returns when no recommendations found", async () => {
+    mockMergeRecommendations.mockReturnValue([]);
 
     await runVersionCommand("/tmp/project", defaultConfig);
 
     expect(ui.info).toHaveBeenCalledWith("No changesets found.");
-    expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
   });
 
-  it("reads changesets and calculates version bumps", async () => {
-    const changesets = [
+  it("analyzes sources and writes versions based on recommendations", async () => {
+    mockMergeRecommendations.mockReturnValue([
       {
-        id: "add-feature",
-        summary: "Add new feature",
-        releases: [{ name: "my-pkg", type: "minor" as const }],
+        packagePath: ".",
+        bumpType: "minor" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Add new feature" }],
       },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-
-    const bumps = new Map([
-      [
-        ".",
-        {
-          currentVersion: "1.0.0",
-          newVersion: "1.1.0",
-          bumpType: "minor" as const,
-        },
-      ],
     ]);
-    mockedCalculateVersionBumps.mockReturnValue(bumps);
-    const entries = [
-      { summary: "Add new feature", type: "minor" as const, id: "add-feature" },
-    ];
-    mockedBuildChangelogEntries.mockReturnValue(entries);
-    mockedGenerateChangelog.mockReturnValue(
+    mockChangesetChangelogWriterFormatEntries.mockReturnValue([
+      { title: "Minor Changes", items: ["Add new feature"] },
+    ]);
+    mockRenderChangelog.mockReturnValue(
       "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
     );
 
     await runVersionCommand("/tmp/project", defaultConfig);
 
-    expect(mockedCalculateVersionBumps).toHaveBeenCalledWith(
-      new Map([[".", "1.0.0"]]),
-      "/tmp/project",
-      expect.any(Function),
-    );
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([[".", "1.1.0"]]),
       undefined,
     );
-    expect(mockedBuildChangelogEntries).toHaveBeenCalledWith(changesets, ".");
-    expect(mockedGenerateChangelog).toHaveBeenCalledWith("1.1.0", entries);
-    // Changelog written via shared utility
+    expect(mockChangesetChangelogWriterFormatEntries).toHaveBeenCalledWith([
+      { summary: "Add new feature" },
+    ]);
+    expect(mockRenderChangelog).toHaveBeenCalledWith(
+      "1.1.0",
+      expect.any(Array),
+    );
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
       path.resolve("/tmp/project", "."),
       "## 1.1.0\n\n### Minor Changes\n\n- Add new feature\n",
     );
-    // Changeset files deleted via shared utility
-    expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
-      "/tmp/project",
-      changesets,
-    );
+    expect(mockChangesetSourceConsume).toHaveBeenCalled();
   });
 
-  it("throws when changesets exist but no packages are discoverable", async () => {
-    mockedReadChangesets.mockReturnValue([
-      {
-        id: "broken-workspace",
-        summary: "Broken workspace",
-        releases: [{ name: "my-pkg", type: "patch" as const }],
-      },
-    ]);
+  it("throws when no packages are discoverable", async () => {
     const emptyPkgConfig = makeConfig({ packages: [] });
 
     await expect(
       runVersionCommand("/tmp/project", emptyPkgConfig),
     ).rejects.toThrow("No packages found.");
-    expect(mockedCalculateVersionBumps).not.toHaveBeenCalled();
+    expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
   });
 
   it("does not write files in dry-run mode", async () => {
-    const changesets = [
-      {
-        id: "new-feat",
-        summary: "New feature",
-        releases: [{ name: "my-pkg", type: "minor" as const }],
-      },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-
     const config200 = makeConfig({
       packages: [
         { name: "my-pkg", version: "2.0.0", path: ".", ecosystem: "js" },
       ] as any,
     });
 
-    const bumps = new Map([
-      [
-        ".",
-        {
-          currentVersion: "2.0.0",
-          newVersion: "2.1.0",
-          bumpType: "minor" as const,
-        },
-      ],
+    mockMergeRecommendations.mockReturnValue([
+      {
+        packagePath: ".",
+        bumpType: "minor" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "New feature" }],
+      },
     ]);
-    mockedCalculateVersionBumps.mockReturnValue(bumps);
-    mockedBuildChangelogEntries.mockReturnValue([
-      { summary: "New feature", type: "minor" as const, id: "new-feat" },
-    ]);
-    mockedGenerateChangelog.mockReturnValue("## 2.1.0\n");
+    mockRenderChangelog.mockReturnValue("## 2.1.0\n");
 
     const logSpy = vi.spyOn(console, "log");
 
@@ -208,31 +204,19 @@ describe("runVersionCommand", () => {
     expect(logSpy).toHaveBeenCalledWith("[dry-run] Would write version 2.1.0");
     logSpy.mockRestore();
     expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
-    expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
+    expect(mockChangesetSourceConsume).not.toHaveBeenCalled();
   });
 
-  it("does not consume changesets when writing the new version fails", async () => {
-    const changesets = [
+  it("does not consume sources when writing the new version fails", async () => {
+    mockMergeRecommendations.mockReturnValue([
       {
-        id: "patch-release",
-        summary: "Patch release",
-        releases: [{ name: "my-pkg", type: "patch" as const }],
+        packagePath: ".",
+        bumpType: "patch" as const,
+        source: "changeset" as const,
+        entries: [],
       },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-    mockedCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          ".",
-          {
-            currentVersion: "1.0.0",
-            newVersion: "1.0.1",
-            bumpType: "patch" as const,
-          },
-        ],
-      ]),
-    );
-    mockedGenerateChangelog.mockReturnValue("## 1.0.1\n");
+    ]);
+    mockRenderChangelog.mockReturnValue("## 1.0.1\n");
     mockedWriteVersionsForEcosystem.mockRejectedValue(new Error("disk full"));
 
     await expect(
@@ -240,20 +224,21 @@ describe("runVersionCommand", () => {
     ).rejects.toThrow("disk full");
 
     expect(mockedWriteChangelogToFile).not.toHaveBeenCalled();
-    expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
+    expect(mockChangesetSourceConsume).not.toHaveBeenCalled();
     expect(mockGitInstance.stage).not.toHaveBeenCalled();
     expect(mockGitInstance.commit).not.toHaveBeenCalled();
   });
 
-  it("returns early when bumps are empty", async () => {
-    mockedReadChangesets.mockReturnValue([
+  it("returns early when bumps are empty (no matching packages in recommendations)", async () => {
+    // Recommendation for a package not in config
+    mockMergeRecommendations.mockReturnValue([
       {
-        id: "unrelated",
-        summary: "Unrelated change",
-        releases: [{ name: "other-pkg", type: "patch" as const }],
+        packagePath: "other-pkg",
+        bumpType: "patch" as const,
+        source: "changeset" as const,
+        entries: [],
       },
     ]);
-    mockedCalculateVersionBumps.mockReturnValue(new Map());
 
     await runVersionCommand("/tmp/project", defaultConfig);
 
@@ -261,70 +246,42 @@ describe("runVersionCommand", () => {
     expect(mockedWriteVersionsForEcosystem).not.toHaveBeenCalled();
   });
 
-  it("prepends to existing CHANGELOG.md", async () => {
-    const changesets = [
+  it("writes changelog to package directory", async () => {
+    mockMergeRecommendations.mockReturnValue([
       {
-        id: "fix-it",
-        summary: "Fix it",
-        releases: [{ name: "my-pkg", type: "patch" as const }],
+        packagePath: ".",
+        bumpType: "patch" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Fix it" }],
       },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-
-    const bumps = new Map([
-      [
-        ".",
-        {
-          currentVersion: "1.0.0",
-          newVersion: "1.0.1",
-          bumpType: "patch" as const,
-        },
-      ],
     ]);
-    mockedCalculateVersionBumps.mockReturnValue(bumps);
-    const entries = [
-      { summary: "Fix it", type: "patch" as const, id: "fix-it" },
-    ];
-    mockedBuildChangelogEntries.mockReturnValue(entries);
-    mockedGenerateChangelog.mockReturnValue(
+    mockChangesetChangelogWriterFormatEntries.mockReturnValue([
+      { title: "Patch Changes", items: ["Fix it"] },
+    ]);
+    mockRenderChangelog.mockReturnValue(
       "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
 
     await runVersionCommand("/tmp/project", defaultConfig);
 
-    // Changelog written via shared utility
     expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
       path.resolve("/tmp/project", "."),
       "## 1.0.1\n\n### Patch Changes\n\n- Fix it\n",
     );
-    // Changeset files deleted via shared utility
-    expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
-      "/tmp/project",
-      changesets,
-    );
+    expect(mockChangesetSourceConsume).toHaveBeenCalled();
   });
 
   it("applies fixed groups and writes package-local versions for monorepos", async () => {
-    const changesets = [
+    mockMergeRecommendations.mockReturnValue([
       {
-        id: "coordinated-release",
-        summary: "Coordinate workspace release",
-        releases: [{ name: "pkg-a", type: "minor" as const }],
+        packagePath: "packages/pkg-a",
+        bumpType: "minor" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Coordinate workspace release" }],
       },
-    ];
-    mockedReadChangesets.mockReturnValue(changesets);
-    mockedCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          "packages/pkg-a",
-          {
-            currentVersion: "1.0.0",
-            newVersion: "1.1.0",
-            bumpType: "minor" as const,
-          },
-        ],
-      ]),
-    );
+    ]);
+    mockRenderChangelog.mockReturnValue("## 1.1.0\n");
+
     const fixedConfig = makeConfig({
       fixed: [["pkg-a", "pkg-b"]],
       packages: [
@@ -344,8 +301,7 @@ describe("runVersionCommand", () => {
     });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
     mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
-      // The implementation passes path-keyed bumpTypes and name-based groups.
-      // Simulate applyFixedGroup by translating group names to paths and setting minor.
+      // Simulate applyFixedGroup by setting minor for both packages
       const nameToPaths: Record<string, string> = {
         "pkg-a": "packages/pkg-a",
         "pkg-b": "packages/pkg-b",
@@ -355,7 +311,6 @@ describe("runVersionCommand", () => {
         bumpTypes.set(p, "minor");
       }
     });
-    mockedGenerateChangelog.mockReturnValue("## 1.1.0\n");
 
     await runVersionCommand("/tmp/project", fixedConfig);
 
@@ -382,5 +337,29 @@ describe("runVersionCommand", () => {
     expect(mockGitInstance.commit).toHaveBeenCalledWith(
       "Version Packages\n\n- pkg-a: 1.1.0\n- pkg-b: 1.1.0",
     );
+  });
+
+  it("only creates ChangesetSource when versionSources is 'changesets'", async () => {
+    const config = makeConfig({
+      versionSources: "changesets",
+    } as any);
+    mockMergeRecommendations.mockReturnValue([]);
+
+    await runVersionCommand("/tmp/project", config);
+
+    expect(ChangesetSource).toHaveBeenCalled();
+    expect(ConventionalCommitSource).not.toHaveBeenCalled();
+  });
+
+  it("only creates ConventionalCommitSource when versionSources is 'commits'", async () => {
+    const config = makeConfig({
+      versionSources: "commits",
+    } as any);
+    mockMergeRecommendations.mockReturnValue([]);
+
+    await runVersionCommand("/tmp/project", config);
+
+    expect(ChangesetSource).not.toHaveBeenCalled();
+    expect(ConventionalCommitSource).toHaveBeenCalled();
   });
 });

@@ -1,11 +1,8 @@
-import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { color, type Listr, type ListrTask } from "listr2";
 import semver from "semver";
 import { createKeyResolver } from "../changeset/resolve.js";
-import { getStatus } from "../changeset/status.js";
 import type { VersionBump } from "../changeset/version.js";
-import { calculateVersionBumps } from "../changeset/version.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type {
   FixedVersionPlan,
@@ -18,6 +15,16 @@ import { registryCatalog } from "../registry/catalog.js";
 import { filterConfigPackages } from "../utils/filter-config.js";
 import { createListr } from "../utils/listr.js";
 import { ui } from "../utils/ui.js";
+import {
+  ChangesetSource,
+  ConventionalCommitSource,
+  mergeRecommendations,
+} from "../version-source/index.js";
+import type {
+  VersionRecommendation,
+  VersionSource,
+  VersionSourceContext,
+} from "../version-source/types.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
 
@@ -25,6 +32,70 @@ type PackageNotes = Map<string, string[]>;
 
 function pluralize(count: number, singular: string): string {
   return count === 1 ? `1 ${singular}` : `${count} ${singular}s`;
+}
+
+function createVersionSources(ctx: PubmContext): VersionSource[] {
+  const sources: VersionSource[] = [];
+  const versionSources = ctx.config.versionSources ?? "all";
+  if (versionSources === "all" || versionSources === "changesets") {
+    sources.push(new ChangesetSource());
+  }
+  if (versionSources === "all" || versionSources === "commits") {
+    sources.push(
+      new ConventionalCommitSource(ctx.config.conventionalCommits?.types),
+    );
+  }
+  return sources;
+}
+
+async function analyzeAllSources(
+  ctx: PubmContext,
+): Promise<VersionRecommendation[]> {
+  const sources = createVersionSources(ctx);
+  const currentVersions = new Map(
+    ctx.config.packages.map((p) => [p.path, p.version]),
+  );
+  const vsContext: VersionSourceContext = {
+    cwd: ctx.cwd,
+    packages: currentVersions,
+    resolveKey: createKeyResolver(ctx.config.packages),
+  };
+  const sourceResults: VersionRecommendation[][] = [];
+  for (const source of sources) {
+    sourceResults.push(await source.analyze(vsContext));
+  }
+  return mergeRecommendations(sourceResults);
+}
+
+function displayRecommendationSummary(
+  recommendations: VersionRecommendation[],
+): string {
+  const lines: string[] = ["", "  Version Recommendations", ""];
+  const sourceWidth = 10;
+  const pkgWidth = Math.max(
+    ...recommendations.map((r) => r.packagePath.length),
+    7,
+  );
+  const bumpWidth = 7;
+  lines.push(
+    `  ${"Source".padEnd(sourceWidth)} ${"Package".padEnd(pkgWidth)} ${"Bump".padEnd(bumpWidth)} Details`,
+  );
+  lines.push(
+    `  ${"-".repeat(sourceWidth)} ${"-".repeat(pkgWidth)} ${"-".repeat(bumpWidth)} ${"-".repeat(20)}`,
+  );
+  for (const rec of recommendations) {
+    const source = rec.source === "changeset" ? "changeset" : "commit";
+    const detail = rec.entries[0]?.summary ?? "";
+    const more =
+      rec.entries.length > 1 ? ` (+${rec.entries.length - 1} more)` : "";
+    const detailDisplay =
+      rec.source === "changeset" ? `"${detail}"${more}` : `${detail}${more}`;
+    lines.push(
+      `  ${source.padEnd(sourceWidth)} ${rec.packagePath.padEnd(pkgWidth)} ${rec.bumpType.padEnd(bumpWidth)} ${detailDisplay}`,
+    );
+  }
+  lines.push("", `  ${recommendations.length} packages to bump`, "");
+  return lines.join("\n");
 }
 
 function formatPackageVersionSummary(
@@ -301,35 +372,37 @@ async function handleSinglePackage(
 ): Promise<void> {
   const pkg = ctx.config.packages[0];
   const currentVersion = pkg?.version ?? "0.0.0";
-  const pkgPath = pkg?.path ?? "";
-  const cwd = ctx.cwd ?? process.cwd();
 
-  const resolver = createKeyResolver(ctx.config.packages);
+  const recommendations = await analyzeAllSources(ctx);
+  const rec = recommendations.find((r) => r.packagePath === (pkg?.path ?? ""));
 
-  // Check for pending changesets
-  const status = getStatus(cwd, resolver);
+  if (rec) {
+    const newVer = semver.inc(currentVersion, rec.bumpType);
+    if (newVer) {
+      // CI mode: auto-accept
+      if (!ctx.runtime.promptEnabled) {
+        ctx.runtime.versionPlan = {
+          mode: "single",
+          version: newVer,
+          packagePath: ctx.config.packages[0].path,
+        };
+        ctx.runtime.changesetConsumed = rec.source === "changeset";
+        return;
+      }
 
-  if (status.hasChangesets) {
-    const currentVersions = new Map([[pkgPath, currentVersion]]);
-    const bumps = calculateVersionBumps(currentVersions, cwd, resolver);
-    const bump = bumps.get(pkgPath);
-
-    if (bump) {
-      const pkgStatus = status.packages.get(pkgPath);
-      const changesetCount = pkgStatus?.changesetCount ?? 0;
-      const changesetLabel = pluralize(changesetCount, "changeset");
+      task.output = displayRecommendationSummary([rec]);
 
       const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
         type: "select",
         message: t("prompt.changeset.suggest", {
           current: currentVersion,
-          next: bump.newVersion,
-          bumpType: bump.bumpType,
-          changesetLabel,
+          next: newVer,
+          bumpType: rec.bumpType,
+          changesetLabel: pluralize(rec.entries.length, "changeset"),
         }),
         choices: [
           {
-            message: t("prompt.changeset.accept", { version: bump.newVersion }),
+            message: t("prompt.changeset.accept", { version: newVer }),
             name: "accept",
           },
           {
@@ -343,10 +416,10 @@ async function handleSinglePackage(
       if (choice === "accept") {
         ctx.runtime.versionPlan = {
           mode: "single",
-          version: bump.newVersion,
+          version: newVer,
           packagePath: ctx.config.packages[0].path,
         };
-        ctx.runtime.changesetConsumed = true;
+        ctx.runtime.changesetConsumed = rec.source === "changeset";
         return;
       }
     }
@@ -375,101 +448,132 @@ async function handleSinglePackage(
   };
 }
 
-function sortPackageInfosByDependency(
-  packageInfos: ResolvedPackageConfig[],
-  graph: Map<string, string[]>,
-): ResolvedPackageConfig[] {
-  // Compute depth: 0 = no internal dependencies (base packages), higher = depends on deeper packages
-  const depths = new Map<string, number>();
-
-  function getDepth(path: string, visited: Set<string>): number {
-    if (depths.has(path)) return depths.get(path) as number;
-    if (visited.has(path)) return 0;
-    visited.add(path);
-    const deps = graph.get(path) ?? [];
-    const depth =
-      deps.length === 0
-        ? 0
-        : Math.max(...deps.map((d) => getDepth(d, visited))) + 1;
-    depths.set(path, depth);
-    return depth;
-  }
-
-  for (const path of graph.keys()) {
-    getDepth(path, new Set());
-  }
-
-  // Sort by depth ascending (dependencies first). Array.sort is stable,
-  // so packages at the same depth keep their original order.
-  return [...packageInfos].sort(
-    (a, b) => (depths.get(a.path) ?? 0) - (depths.get(b.path) ?? 0),
-  );
-}
-
 /**
- * Multi-package flow — changeset recommendations, sync/independent, dependency cascade.
+ * Multi-package flow — unified summary with Accept/Edit/Skip.
  */
 async function handleMultiPackage(
   ctx: PubmContext,
   task: Parameters<ListrTask<PubmContext>["task"]>[1],
   packageInfos: ResolvedPackageConfig[],
 ): Promise<void> {
-  const cwd = ctx.cwd ?? process.cwd();
-  const currentVersions = new Map(packageInfos.map((p) => [p.path, p.version]));
-  const resolver = createKeyResolver(ctx.config.packages);
-  const status = getStatus(cwd, resolver);
-
-  // Build dependency graph and sort packages
   const graph = buildGraphFromPackages(packageInfos);
-  const sortedPackageInfos = sortPackageInfosByDependency(packageInfos, graph);
+  const currentVersions = new Map(packageInfos.map((p) => [p.path, p.version]));
+  const recommendations = await analyzeAllSources(ctx);
 
-  task.output = renderPackageVersionSummary(
-    sortedPackageInfos,
-    currentVersions,
-    new Map(),
-  );
-
-  // Try changeset-based recommendations first
-  let bumps: Map<string, VersionBump> | undefined;
-  if (status.hasChangesets) {
-    bumps = calculateVersionBumps(currentVersions, cwd, resolver);
-
-    if (bumps.size > 0) {
-      const result = await promptChangesetRecommendations(
-        ctx,
-        task,
-        status,
-        bumps,
-        sortedPackageInfos,
-      );
-      if (result === "accepted") return;
-      if (result === "add_packages") {
-        if (!bumps) {
-          throw new Error("Changeset bumps are required for add_packages.");
-        }
-        await handleAddPackages(
-          ctx,
-          task,
-          sortedPackageInfos,
-          currentVersions,
-          graph,
-          bumps,
-        );
-        return;
-      }
-      // "no" — fall through to manual
+  // CI mode: auto-accept
+  if (!ctx.runtime.promptEnabled && recommendations.length > 0) {
+    const packages = new Map<string, string>();
+    for (const rec of recommendations) {
+      const current = currentVersions.get(rec.packagePath);
+      if (!current) continue;
+      const newVer = semver.inc(current, rec.bumpType);
+      if (newVer) packages.set(rec.packagePath, newVer);
     }
+    ctx.runtime.versionPlan = buildVersionPlan(
+      ctx.config.versioning ?? "independent",
+      packages,
+    );
+    ctx.runtime.changesetConsumed = recommendations.some(
+      (r) => r.source === "changeset",
+    );
+    return;
   }
 
-  // Manual flow
-  await handleManualMultiPackage(
-    ctx,
-    task,
-    sortedPackageInfos,
-    currentVersions,
-    graph,
-    bumps,
-    status,
+  // Show summary
+  if (recommendations.length > 0) {
+    task.output = displayRecommendationSummary(recommendations);
+  } else {
+    task.output = "\n  No version recommendations found.\n";
+  }
+
+  // Action selection
+  const prompt = task.prompt(ListrEnquirerPromptAdapter);
+  const action = await prompt.run<string>({
+    type: "select",
+    message: t("task.info.selectVersion"),
+    choices: [
+      ...(recommendations.length > 0
+        ? [
+            {
+              name: "accept",
+              message: `Accept all recommendations (${recommendations.length} packages)`,
+            },
+          ]
+        : []),
+      { name: "edit", message: "Edit recommendations" },
+      { name: "skip", message: "Skip version bump" },
+    ],
+    initial: 0,
+  });
+
+  if (action === "skip") return;
+
+  let selectedVersions: Map<string, string>;
+
+  if (action === "accept") {
+    selectedVersions = new Map();
+    for (const rec of recommendations) {
+      const current = currentVersions.get(rec.packagePath);
+      if (!current) continue;
+      const newVer = semver.inc(current, rec.bumpType);
+      if (newVer) selectedVersions.set(rec.packagePath, newVer);
+    }
+  } else {
+    // Edit mode: delegate to existing manual flows
+    const bumps = new Map<string, VersionBump>();
+    for (const rec of recommendations) {
+      const current = currentVersions.get(rec.packagePath);
+      if (!current) continue;
+      const newVer = semver.inc(current, rec.bumpType);
+      if (newVer)
+        bumps.set(rec.packagePath, {
+          currentVersion: current,
+          newVersion: newVer,
+          bumpType: rec.bumpType,
+        });
+    }
+
+    if (ctx.config.versioning === "fixed") {
+      await handleFixedMode(ctx, task, packageInfos, currentVersions, bumps);
+    } else {
+      await handleIndependentMode(
+        ctx,
+        task,
+        packageInfos,
+        currentVersions,
+        graph,
+        bumps,
+      );
+
+      // Filter out packages where the selected version equals the current version.
+      const plan = ctx.runtime.versionPlan;
+      if (plan && plan.mode === "independent") {
+        const publishPaths = new Set<string>();
+        for (const [pkgPath, selectedVersion] of plan.packages) {
+          if (selectedVersion !== (currentVersions.get(pkgPath) ?? "")) {
+            publishPaths.add(pkgPath);
+          }
+        }
+        plan.packages = new Map(
+          [...plan.packages].filter(([p]) => publishPaths.has(p)),
+        );
+        filterConfigPackages(ctx, publishPaths);
+      }
+    }
+    ctx.runtime.changesetConsumed = recommendations.some(
+      (r) => r.source === "changeset",
+    );
+    return;
+  }
+
+  if (selectedVersions.size === 0) return;
+
+  ctx.runtime.versionPlan = buildVersionPlan(
+    ctx.config.versioning ?? "independent",
+    selectedVersions,
+  );
+  ctx.runtime.changesetConsumed = recommendations.some(
+    (r) => r.source === "changeset" && selectedVersions.has(r.packagePath),
   );
 }
 
@@ -493,340 +597,6 @@ function buildVersionPlan(
     return { mode: "fixed", version: highest, packages: unified };
   }
   return { mode: "independent", packages };
-}
-
-/**
- * add_packages branch: auto-bump changeset packages, then prompt for remaining.
- */
-async function handleAddPackages(
-  ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
-  graph: Map<string, string[]>,
-  bumps: Map<string, VersionBump>,
-): Promise<void> {
-  const remainingPackages = packageInfos.filter((p) => !bumps.has(p.path));
-  const { versions, publishPaths } = await handleRemainingPackages(
-    ctx,
-    task,
-    remainingPackages,
-    packageInfos,
-    currentVersions,
-    graph,
-    bumps,
-  );
-
-  ctx.runtime.versionPlan = buildVersionPlan(
-    ctx.config.versioning,
-    new Map([...versions].filter(([p]) => publishPaths.has(p))),
-  );
-  ctx.runtime.changesetConsumed = true;
-  filterConfigPackages(ctx, publishPaths);
-}
-
-/**
- * Prompts version selection for non-changeset packages.
- * Returns merged versions map (superset of publishPaths) and publishPaths set.
- */
-async function handleRemainingPackages(
-  ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  remainingPackages: ResolvedPackageConfig[],
-  packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
-  graph: Map<string, string[]>,
-  bumps: Map<string, VersionBump>,
-): Promise<{ versions: Map<string, string>; publishPaths: Set<string> }> {
-  const pathToName = new Map(
-    ctx.config.packages.map((p) => [p.path, p.name || p.path]),
-  );
-
-  // Initialize with changeset-bumped packages (considered already bumped for cascade)
-  const bumpedPackages = new Set<string>(bumps.keys());
-  const versions = new Map<string, string>(
-    [...bumps].map(([p, b]) => [p, b.newVersion]),
-  );
-  const publishPaths = new Set<string>(bumps.keys());
-  const reverseDeps = buildReverseDeps(graph);
-  let lastBumpType: string | undefined;
-
-  for (const pkg of remainingPackages) {
-    // remainingPackages ⊆ packageInfos so currentVersions and graph always have pkg.path
-    /* istanbul ignore next */
-    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version; // unreachable fallback
-    /* istanbul ignore next */
-    const deps = graph.get(pkg.path) ?? []; // unreachable fallback
-    const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
-    const pkgNotes: string[] = [];
-
-    if (bumpedDeps.length > 0) {
-      const bumpedDepNames = bumpedDeps.map(
-        // dep ∈ graph[pkg.path] only contains config package paths in pathToName
-        /* istanbul ignore next */
-        (dep) => pathToName.get(dep) ?? dep, // unreachable fallback
-      );
-      pkgNotes.push(buildDependencyBumpNote(currentVersion, bumpedDepNames));
-    }
-
-    if (pkgNotes.length > 0) {
-      task.output = renderPackageVersionSummary(
-        remainingPackages,
-        currentVersions,
-        versions,
-        { activePackage: pkg.path, notes: new Map([[pkg.path, pkgNotes]]) },
-      );
-    }
-
-    const result = await promptVersion(
-      task,
-      currentVersion,
-      pkg.name,
-      undefined,
-      lastBumpType,
-    );
-    versions.set(pkg.path, result.version);
-    lastBumpType = result.bumpType;
-
-    if (result.version !== currentVersion) {
-      bumpedPackages.add(pkg.path);
-      publishPaths.add(pkg.path);
-    }
-  }
-
-  // Cascade prompt for unbumped dependents
-  const unbumpedDependents: string[] = [];
-  for (const bumped of bumpedPackages) {
-    // reverseDeps is built from all config package paths, so the key is always present
-    /* istanbul ignore next */
-    for (const dep of reverseDeps.get(bumped) ?? []) {
-      // unreachable fallback
-      if (!bumpedPackages.has(dep)) {
-        unbumpedDependents.push(dep);
-      }
-    }
-  }
-
-  if (unbumpedDependents.length > 0) {
-    const uniqueDependents = [...new Set(unbumpedDependents)];
-    const notes: PackageNotes = new Map();
-    for (const pkgPath of uniqueDependents) {
-      // pkgPath ∈ reverseDeps = packageInfos paths, so these maps always have the key
-      /* istanbul ignore next */
-      const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0"; // unreachable fallback
-      /* istanbul ignore next */
-      const deps = (graph.get(pkgPath) ?? []).filter((d) =>
-        bumpedPackages.has(d),
-      ); // unreachable fallback
-      // d is a config package path, always present in pathToName
-      /* istanbul ignore next */
-      const depNames = deps.map((d) => pathToName.get(d) ?? d); // unreachable fallback
-      notes.set(pkgPath, [buildDependencyBumpNote(currentVersion, depNames)]);
-    }
-
-    task.output = renderPackageVersionSummary(
-      packageInfos,
-      currentVersions,
-      versions,
-      { notes },
-    );
-
-    const cascadeChoice = await task
-      .prompt(ListrEnquirerPromptAdapter)
-      .run<string>({
-        type: "select",
-        message: t("prompt.dependency.bumpPrompt"),
-        choices: [
-          { message: t("prompt.dependency.yesApplyPatch"), name: "patch" },
-          { message: t("prompt.dependency.noKeepCurrent"), name: "skip" },
-        ],
-        name: "cascade",
-      });
-
-    if (cascadeChoice === "patch") {
-      for (const pkgPath of uniqueDependents) {
-        // pkgPath ∈ uniqueDependents ⊆ reverseDeps = packageInfos paths
-        /* istanbul ignore next */
-        const currentVersion = currentVersions.get(pkgPath) ?? "0.0.0"; // unreachable fallback
-        const patchVersion = new SemVer(currentVersion).inc("patch").toString();
-        versions.set(pkgPath, patchVersion);
-        publishPaths.add(pkgPath);
-      }
-    }
-  }
-
-  return { versions, publishPaths };
-}
-
-/**
- * Show changeset recommendations for all affected packages and prompt with three choices.
- */
-async function promptChangesetRecommendations(
-  ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  status: ReturnType<typeof getStatus>,
-  bumps: Map<string, VersionBump>,
-  sortedPackageInfos: ResolvedPackageConfig[],
-): Promise<"accepted" | "add_packages" | "no"> {
-  const lines: string[] = [t("prompt.changeset.suggestHeader")];
-
-  for (const pkg of sortedPackageInfos) {
-    const bump = bumps.get(pkg.path);
-    if (!bump) continue;
-    const pkgStatus = status.packages.get(pkg.path);
-    const changesetCount = pkgStatus?.changesetCount ?? 0;
-    const changesetLabel = pluralize(changesetCount, "changeset");
-    lines.push(
-      t("prompt.changeset.suggestLine", {
-        name: pkg.name,
-        current: bump.currentVersion,
-        next: bump.newVersion,
-        bumpType: bump.bumpType,
-        changesetLabel,
-      }),
-    );
-  }
-
-  task.output = lines.join("\n");
-
-  const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-    type: "select",
-    message: t("prompt.changeset.acceptRecommendations"),
-    choices: [
-      {
-        message: t("prompt.changeset.onlyChangesets"),
-        name: "only_changesets",
-      },
-      {
-        message: t("prompt.changeset.alsoSelectOthers"),
-        name: "add_packages",
-      },
-      { message: t("prompt.changeset.selectManually"), name: "no" },
-    ],
-    name: "version",
-  });
-
-  if (choice === "only_changesets") {
-    const versions = new Map<string, string>();
-    for (const [path, bump] of bumps) {
-      versions.set(path, bump.newVersion);
-    }
-    ctx.runtime.versionPlan = buildVersionPlan(ctx.config.versioning, versions);
-    ctx.runtime.changesetConsumed = true;
-    filterConfigPackages(ctx, new Set(bumps.keys()));
-    return "accepted";
-  }
-
-  if (choice === "add_packages") {
-    return "add_packages";
-  }
-
-  return "no";
-}
-
-/**
- * Manual multi-package flow: determine sync strategy, then prompt for versions.
- */
-function buildChangesetNotes(
-  packageInfos: ResolvedPackageConfig[],
-  bumps: Map<string, VersionBump>,
-  status: ReturnType<typeof getStatus>,
-): PackageNotes {
-  const notes: PackageNotes = new Map();
-  for (const pkg of packageInfos) {
-    const bump = bumps.get(pkg.path);
-    if (!bump) continue;
-    const pkgStatus = status.packages.get(pkg.path);
-    const changesetCount = pkgStatus?.changesetCount ?? 0;
-    const changesetLabel = pluralize(changesetCount, "changeset");
-    notes.set(pkg.path, [
-      ui.formatNote(
-        "suggest",
-        t("note.changeset.suggests", {
-          changesetLabel,
-          bumpType: bump.bumpType,
-          version: bump.newVersion,
-        }),
-      ),
-    ]);
-  }
-  return notes;
-}
-
-async function handleManualMultiPackage(
-  ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
-  packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
-  graph: Map<string, string[]>,
-  bumps?: Map<string, VersionBump>,
-  status?: ReturnType<typeof getStatus>,
-): Promise<void> {
-  const changesetNotes =
-    bumps && status
-      ? buildChangesetNotes(packageInfos, bumps, status)
-      : undefined;
-
-  task.output = renderPackageVersionSummary(
-    packageInfos,
-    currentVersions,
-    new Map(),
-    { notes: changesetNotes },
-  );
-
-  let mode: "fixed" | "independent";
-
-  if (ctx.config.versioning) {
-    mode = ctx.config.versioning;
-  } else {
-    const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
-      type: "select",
-      message: t("prompt.versioning.howToVersion"),
-      choices: [
-        {
-          message: t("prompt.versioning.fixed"),
-          name: "fixed",
-        },
-        {
-          message: t("prompt.versioning.independent"),
-          name: "independent",
-        },
-      ],
-      name: "mode",
-    });
-    mode = choice as "fixed" | "independent";
-  }
-
-  if (mode === "fixed") {
-    await handleFixedMode(ctx, task, packageInfos, currentVersions, bumps);
-  } else {
-    await handleIndependentMode(
-      ctx,
-      task,
-      packageInfos,
-      currentVersions,
-      graph,
-      bumps,
-    );
-
-    // Filter out packages where the selected version equals the current version.
-    // handleIndependentMode stores ALL packages in versionPlan.packages,
-    // including "keep current" ones. Exclude them from the publish pipeline here.
-    // This applies to all independent mode cases: changeset-declined, pure manual, etc.
-    const plan = ctx.runtime.versionPlan;
-    if (plan && plan.mode === "independent") {
-      const publishPaths = new Set<string>();
-      for (const [pkgPath, selectedVersion] of plan.packages) {
-        if (selectedVersion !== (currentVersions.get(pkgPath) ?? "")) {
-          publishPaths.add(pkgPath);
-        }
-      }
-      plan.packages = new Map(
-        [...plan.packages].filter(([p]) => publishPaths.has(p)),
-      );
-      filterConfigPackages(ctx, publishPaths);
-    }
-  }
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { CompressOption, ReleaseAssetEntry } from "../assets/types.js";
+import type { BumpType } from "../changeset/parser.js";
 import type { PubmPlugin } from "../plugin/types.js";
 import type { RegistryType } from "../types/options.js";
 
@@ -67,6 +68,13 @@ export interface PubmConfig {
   releaseAssets?: ReleaseAssetEntry[];
   excludeRelease?: string[];
   locale?: "en" | "ko" | "zh-cn" | "fr" | "de" | "es";
+  /** Version bump source strategy. @default "all" */
+  versionSources?: "all" | "changesets" | "commits";
+  /** Conventional commit configuration */
+  conventionalCommits?: {
+    /** Override default commit type → bump mapping. Set to false to ignore a type. */
+    types?: Record<string, BumpType | false>;
+  };
 }
 
 export interface ResolvedPubmConfig
@@ -82,6 +90,8 @@ export interface ResolvedPubmConfig
       | "rollbackStrategy"
       | "rollback"
       | "locale"
+      | "versionSources"
+      | "conventionalCommits"
     >
   > {
   compress?: CompressOption;
@@ -91,6 +101,10 @@ export interface ResolvedPubmConfig
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   rollback: Required<RollbackConfig>;
+  versionSources: "all" | "changesets" | "commits";
+  conventionalCommits: {
+    types: Record<string, BumpType | false>;
+  };
   discoveryEmpty?: boolean;
 }
 

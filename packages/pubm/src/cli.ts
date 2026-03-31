@@ -1,12 +1,19 @@
 import { Reporter } from "@cluvo/sdk";
-import type { Options, ResolvedPubmConfig } from "@pubm/core";
+import type {
+  Options,
+  ResolvedPubmConfig,
+  VersionRecommendation,
+  VersionSource,
+  VersionSourceContext,
+} from "@pubm/core";
 import {
-  calculateVersionBumps,
+  ChangesetSource,
+  ConventionalCommitSource,
   consoleError,
   createContext,
-  getStatus,
   initI18n,
   loadConfig,
+  mergeRecommendations,
   notifyNewVersion,
   PUBM_VERSION,
   pubm,
@@ -285,59 +292,65 @@ export function createProgram(): Command {
             }
           } else if (isCI && mode === "local") {
             // Backward compatibility: isCI detected but --mode not set
-            const status = getStatus(process.cwd());
-            if (status.hasChangesets) {
-              const currentVersions = new Map(
-                resolvedConfig.packages.map((p) => [p.name, p.version]),
-              );
-              const bumps = calculateVersionBumps(
-                currentVersions,
-                process.cwd(),
-              );
+            const currentVersions = new Map(
+              resolvedConfig.packages.map((p) => [p.path, p.version]),
+            );
 
-              if (bumps.size > 0) {
-                if (bumps.size === 1) {
-                  const [name, bump] = [...bumps][0];
-                  const pkg = resolvedConfig.packages.find(
-                    (p) => p.name === name,
-                  );
-                  ctx.runtime.versionPlan = {
-                    mode: "single",
-                    version: bump.newVersion,
-                    packagePath: pkg?.path ?? ".",
-                  };
-                } else {
-                  const bumpedPackages = new Map(
-                    [...bumps].map(([name, bump]) => [
-                      resolvedConfig.packages.find((p) => p.name === name)
-                        ?.path ?? name,
-                      bump.newVersion,
-                    ]),
-                  );
-                  const allSame = new Set(bumpedPackages.values()).size === 1;
-                  const versioningMode =
-                    resolvedConfig.versioning ??
-                    (allSame ? "fixed" : "independent");
-                  if (versioningMode === "fixed") {
-                    ctx.runtime.versionPlan = {
-                      mode: "fixed",
-                      version: [...bumpedPackages.values()][0],
-                      packages: bumpedPackages,
-                    };
-                  } else {
-                    ctx.runtime.versionPlan = {
-                      mode: "independent",
-                      packages: bumpedPackages,
-                    };
-                  }
-                }
+            const sources: VersionSource[] = [];
+            const versionSources = resolvedConfig.versionSources ?? "all";
+            if (versionSources === "all" || versionSources === "changesets") {
+              sources.push(new ChangesetSource());
+            }
+            if (versionSources === "all" || versionSources === "commits") {
+              sources.push(
+                new ConventionalCommitSource(
+                  resolvedConfig.conventionalCommits?.types,
+                ),
+              );
+            }
+
+            const vsContext: VersionSourceContext = {
+              cwd: process.cwd(),
+              packages: currentVersions,
+            };
+            const sourceResults: VersionRecommendation[][] = [];
+            for (const source of sources) {
+              sourceResults.push(await source.analyze(vsContext));
+            }
+            const recommendations = mergeRecommendations(sourceResults);
+
+            if (recommendations.length > 0) {
+              const packages = new Map<string, string>();
+              for (const rec of recommendations) {
+                const currentVersion = currentVersions.get(rec.packagePath);
+                if (!currentVersion) continue;
+                const newVersion = semver.inc(currentVersion, rec.bumpType);
+                if (newVersion) packages.set(rec.packagePath, newVersion);
+              }
+
+              if (packages.size === 1) {
+                const [pkgPath, version] = [...packages.entries()][0];
+                ctx.runtime.versionPlan = {
+                  mode: "single",
+                  version,
+                  packagePath: pkgPath,
+                };
+              } else if (packages.size > 1) {
+                ctx.runtime.versionPlan =
+                  resolvedConfig.versioning === "fixed"
+                    ? {
+                        mode: "fixed",
+                        version: [...packages.values()][0],
+                        packages,
+                      }
+                    : { mode: "independent", packages };
+              }
+
+              const hasChangesetSource = recommendations.some(
+                (r) => r.source === "changeset",
+              );
+              if (hasChangesetSource) {
                 ctx.runtime.changesetConsumed = true;
-                ui.info("Changesets detected:");
-                for (const [name, bump] of bumps) {
-                  console.log(
-                    `  ${name}: ${bump.currentVersion} → ${bump.newVersion} (${bump.bumpType})`,
-                  );
-                }
               }
             }
 

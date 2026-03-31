@@ -478,8 +478,55 @@ releaseAssets: [
 
 Lies den Leitfaden [Release Assets](/pubm/de/guides/release-assets/) für die vollständigen Regeln der Komprimierungs-Kaskade, Variablen für Name-Vorlagen und Anwendungsbeispiele.
 
+## Versionsquellen
+
+`pubm changesets version` kann Versions-Bumps aus zwei Quellen auflösen: Changeset-Dateien in `.pubm/changesets/` und Conventional-Commit-Nachrichten. Du kannst steuern, welche Quellen aktiv sind und wie Commit-Typen Bump-Ebenen zugeordnet werden.
+
+### `versionSources`
+
+- Typ: `"all" | "changesets" | "commits"`
+- Standard: `"all"`
+
+Steuert, welche Quellen `pubm changesets version` bei der Berechnung von Versions-Bumps liest.
+
+| Wert | Verhalten |
+|------|-----------|
+| `"all"` | Verwendet Changesets für Pakete, die welche haben. Fällt für Pakete ohne ausstehende Changesets auf Conventional Commits zurück. |
+| `"changesets"` | Liest nur `.pubm/changesets/`-Dateien. Conventional Commits werden ignoriert. |
+| `"commits"` | Liest nur Conventional-Commit-Nachrichten. Changeset-Dateien werden ignoriert. |
+
+### `conventionalCommits`
+
+Konfiguriert, wie Commit-Typ-Präfixe auf Semver-Bump-Ebenen abgebildet werden. Gilt nur, wenn `versionSources` `"all"` oder `"commits"` ist.
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      // Typen hinzufügen, die standardmäßig ignoriert werden
+      refactor: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+Die Standard-Zuordnung lautet:
+
+| Commit-Typ | Bump |
+|------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+Commits mit `BREAKING CHANGE` im Footer oder einem `!`-Suffix (z. B. `feat!:`) erzeugen immer einen `major`-Bump, unabhängig von der Typ-Zuordnung.
+
+Commit-Typen, die nicht in der Zuordnung aufgeführt sind (z. B. `chore`, `docs`, `test`, `ci`, `style`, `refactor`), werden bei der Bump-Berechnung ignoriert. Du kannst jeden Typ im `types`-Objekt überschreiben — zum Beispiel würde `refactor: "patch"` Refactor-Commits als Patch-Bumps behandeln.
+
 ## Naechste Schritte
 
 - Verwende den Leitfaden [Monorepo](/pubm/de/guides/monorepo/), wenn du Paket-Gruppierung oder gemischte Registries brauchst.
 - Verwende die [Plugins API Reference](/pubm/de/reference/plugins/), wenn deine Config benutzerdefinierte Plugins registriert.
 - Verwende den Leitfaden [Release Assets](/pubm/de/guides/release-assets/), um Binaries und Archive an GitHub Releases anzuhaengen.
+- Lies den Leitfaden [Changesets](/pubm/de/guides/changesets/) für mehr Informationen zum Fallback auf Conventional Commits.

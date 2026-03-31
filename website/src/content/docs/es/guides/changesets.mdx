@@ -74,6 +74,40 @@ pubm --mode ci --phase publish
 
 Ese comando es útil para flujos editoriales o controlados, pero no es necesario antes de `pubm` ni de `pubm --mode ci --phase publish`.
 
+## Replegarse en commits convencionales
+
+Cuando `versionSources` es `"all"` (el valor por defecto), `pubm changesets version` recurre automáticamente a los commits convencionales para cualquier paquete que no tenga archivos de changeset pendientes. Esto permite a los equipos adoptar los changesets de forma incremental: los paquetes con changesets los usan; los paquetes sin changesets se repliegan en el historial de commits.
+
+### Correspondencia por defecto de tipos de commits
+
+| Tipo de commit | Bump |
+|----------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+Un footer `BREAKING CHANGE` o un sufijo `!` (p. ej. `feat!:`) siempre produce un bump `major`.
+
+### Configurar correspondencias personalizadas
+
+Sobreescribe la correspondencia por defecto en `pubm.config.ts`:
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+Establece `versionSources: "commits"` para usar únicamente commits convencionales e ignorar completamente los archivos de changeset. Establece `versionSources: "changesets"` para deshabilitar el replegado y usar únicamente los archivos de changeset.
+
 ## Migrar desde changesets
 
 ```bash

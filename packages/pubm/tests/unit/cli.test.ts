@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockIsCI,
-  mockCalculateVersionBumps,
+  mockChangesetSourceAnalyze,
+  mockConventionalCommitSourceAnalyze,
+  mockMergeRecommendations,
   mockConsoleError,
   mockCreateContext,
   mockGitInstance,
-  mockGetStatus,
   mockLoadConfig,
   mockPubm,
   mockPubmVersion,
@@ -39,18 +40,17 @@ const {
         dependencies: [],
       },
     ],
+    versionSources: "all",
   };
 
   return {
     mockIsCI: { isCI: false },
-    mockCalculateVersionBumps: vi.fn(),
+    mockChangesetSourceAnalyze: vi.fn(async () => []),
+    mockConventionalCommitSourceAnalyze: vi.fn(async () => []),
+    mockMergeRecommendations: vi.fn(() => []),
     mockConsoleError: vi.fn(),
     mockCreateContext: vi.fn(createMockContext),
     mockGitInstance: { latestTag: vi.fn() },
-    mockGetStatus: vi.fn(() => ({
-      hasChangesets: false,
-      changesets: [] as string[],
-    })),
     mockLoadConfig: vi.fn(),
     mockPubm: vi.fn(),
     mockPubmVersion: "1.0.0",
@@ -80,9 +80,14 @@ vi.mock("@pubm/core", async (importOriginal) => {
     Git: vi.fn(function () {
       return mockGitInstance;
     }),
-    calculateVersionBumps: mockCalculateVersionBumps,
+    ChangesetSource: vi.fn(function () {
+      return { analyze: mockChangesetSourceAnalyze };
+    }),
+    ConventionalCommitSource: vi.fn(function () {
+      return { analyze: mockConventionalCommitSourceAnalyze };
+    }),
+    mergeRecommendations: mockMergeRecommendations,
     createContext: mockCreateContext,
-    getStatus: mockGetStatus,
     loadConfig: mockLoadConfig,
     pubm: mockPubm,
     PUBM_VERSION: mockPubmVersion,
@@ -176,8 +181,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockIsCI.isCI = false;
   mockGitInstance.latestTag.mockReset();
-  mockGetStatus.mockReturnValue({ hasChangesets: false, changesets: [] });
-  mockCalculateVersionBumps.mockReset();
+  mockChangesetSourceAnalyze.mockResolvedValue([]);
+  mockConventionalCommitSourceAnalyze.mockResolvedValue([]);
+  mockMergeRecommendations.mockReturnValue([]);
   mockLoadConfig.mockReset();
   mockPubm.mockResolvedValue(undefined);
   vi.spyOn(console, "clear").mockImplementation(() => {});
@@ -194,6 +200,7 @@ beforeEach(() => {
       dependencies: [],
     },
   ];
+  sharedResolvedConfig.versionSources = "all";
   delete sharedResolvedConfig.versioning;
 });
 
@@ -532,11 +539,6 @@ describe("CLI action handler - CI mode", () => {
 
   it("derives the next version from a single pending changeset in CI", async () => {
     mockIsCI.isCI = true;
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    mockGetStatus.mockReturnValue({
-      hasChangesets: true,
-      changesets: ["a.md"],
-    });
     sharedResolvedConfig.packages = [
       {
         name: "pkg-a",
@@ -546,18 +548,12 @@ describe("CLI action handler - CI mode", () => {
         dependencies: [],
       },
     ];
-    mockCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          "pkg-a",
-          { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-        ],
-      ]),
-    );
+    mockMergeRecommendations.mockReturnValue([
+      { packagePath: ".", bumpType: "minor", source: "changeset" },
+    ]);
 
     await run();
 
-    // versions should not be set for single-package
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.changesetConsumed).toBe(true);
     expect(ctx.runtime.versionPlan).toEqual({
@@ -565,29 +561,10 @@ describe("CLI action handler - CI mode", () => {
       version: "1.1.0",
       packagePath: ".",
     });
-    const { ui: mockUi } = await import("@pubm/core");
-    expect(mockUi.info).toHaveBeenCalledWith("Changesets detected:");
-    expect(logSpy).toHaveBeenCalledWith("  pkg-a: 1.0.0 → 1.1.0 (minor)");
   });
 
   it("passes synchronized versions to pubm for fixed-version workspaces in CI", async () => {
     mockIsCI.isCI = true;
-    mockGetStatus.mockReturnValue({
-      hasChangesets: true,
-      changesets: ["a.md"],
-    });
-    mockCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          "pkg-a",
-          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
-        ],
-        [
-          "pkg-b",
-          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
-        ],
-      ]),
-    );
     sharedResolvedConfig.versioning = "fixed";
     sharedResolvedConfig.packages = [
       {
@@ -605,6 +582,10 @@ describe("CLI action handler - CI mode", () => {
         dependencies: [],
       },
     ];
+    mockMergeRecommendations.mockReturnValue([
+      { packagePath: "packages/a", bumpType: "major", source: "changeset" },
+      { packagePath: "packages/b", bumpType: "major", source: "changeset" },
+    ]);
 
     await run();
 
@@ -622,22 +603,6 @@ describe("CLI action handler - CI mode", () => {
 
   it("keeps per-package versions for independent workspaces in CI", async () => {
     mockIsCI.isCI = true;
-    mockGetStatus.mockReturnValue({
-      hasChangesets: true,
-      changesets: ["a.md"],
-    });
-    mockCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          "pkg-a",
-          { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-        ],
-        [
-          "pkg-b",
-          { currentVersion: "2.3.0", newVersion: "2.3.1", bumpType: "patch" },
-        ],
-      ]),
-    );
     sharedResolvedConfig.versioning = "independent";
     sharedResolvedConfig.packages = [
       {
@@ -655,6 +620,10 @@ describe("CLI action handler - CI mode", () => {
         dependencies: [],
       },
     ];
+    mockMergeRecommendations.mockReturnValue([
+      { packagePath: "packages/a", bumpType: "minor", source: "changeset" },
+      { packagePath: "packages/b", bumpType: "patch", source: "changeset" },
+    ]);
 
     await run();
 
@@ -683,24 +652,8 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
-  it("falls back to package path when changeset find cannot match package name", async () => {
+  it("skips recommendations for unknown package paths", async () => {
     mockIsCI.isCI = true;
-    mockGetStatus.mockReturnValue({
-      hasChangesets: true,
-      changesets: ["a.md"],
-    });
-    mockCalculateVersionBumps.mockReturnValue(
-      new Map([
-        [
-          "unknown-pkg-a",
-          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
-        ],
-        [
-          "unknown-pkg-b",
-          { currentVersion: "1.0.0", newVersion: "2.0.0", bumpType: "major" },
-        ],
-      ]),
-    );
     sharedResolvedConfig.packages = [
       {
         name: "pkg-a",
@@ -710,27 +663,30 @@ describe("CLI action handler - CI mode", () => {
         dependencies: [],
       },
     ];
+    mockMergeRecommendations.mockReturnValue([
+      // unknown path not in currentVersions map — should be skipped
+      {
+        packagePath: "packages/unknown",
+        bumpType: "major",
+        source: "changeset",
+      },
+      // known path
+      { packagePath: "packages/a", bumpType: "major", source: "changeset" },
+    ]);
 
     await run();
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.changesetConsumed).toBe(true);
     expect(ctx.runtime.versionPlan).toEqual({
-      mode: "fixed",
+      mode: "single",
       version: "2.0.0",
-      packages: new Map([
-        ["unknown-pkg-a", "2.0.0"],
-        ["unknown-pkg-b", "2.0.0"],
-      ]),
+      packagePath: "packages/a",
     });
   });
 
   it("allows explicit CI versions when pending changesets do not produce a bump", async () => {
     mockIsCI.isCI = true;
-    mockGetStatus.mockReturnValue({
-      hasChangesets: true,
-      changesets: ["a.md"],
-    });
     sharedResolvedConfig.packages = [
       {
         name: "pkg-a",
@@ -740,7 +696,8 @@ describe("CLI action handler - CI mode", () => {
         dependencies: [],
       },
     ];
-    mockCalculateVersionBumps.mockReturnValue(new Map());
+    // mergeRecommendations returns empty — no recommendations
+    mockMergeRecommendations.mockReturnValue([]);
 
     await run("3.4.5");
 

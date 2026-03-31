@@ -1,11 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/changeset/status.js", () => ({
-  getStatus: vi.fn(),
-}));
-vi.mock("../../../src/changeset/version.js", () => ({
-  calculateVersionBumps: vi.fn(),
-}));
+const mockChangesetAnalyze = vi.fn().mockResolvedValue([]);
+const mockConventionalAnalyze = vi.fn().mockResolvedValue([]);
+
+vi.mock("../../../src/version-source/index.js", () => {
+  class MockChangesetSource {
+    name = "changeset";
+    analyze = mockChangesetAnalyze;
+  }
+  class MockConventionalCommitSource {
+    name = "commit";
+    analyze = mockConventionalAnalyze;
+  }
+  return {
+    ChangesetSource: MockChangesetSource,
+    ConventionalCommitSource: MockConventionalCommitSource,
+    mergeRecommendations: (sourceResults: any[][]) => {
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const results of sourceResults) {
+        for (const rec of results) {
+          if (seen.has(rec.packagePath)) continue;
+          seen.add(rec.packagePath);
+          merged.push(rec);
+        }
+      }
+      return merged;
+    },
+  };
+});
 vi.mock("../../../src/config/loader.js", () => ({
   loadConfig: vi.fn(),
 }));
@@ -27,8 +50,6 @@ vi.mock("../../../src/utils/filter-config.js", () => ({
   filterConfigPackages: vi.fn(),
 }));
 
-import { getStatus } from "../../../src/changeset/status.js";
-import { calculateVersionBumps } from "../../../src/changeset/version.js";
 import { loadConfig } from "../../../src/config/loader.js";
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import { registryCatalog } from "../../../src/registry/catalog.js";
@@ -36,8 +57,6 @@ import { requiredMissingInformationTasks } from "../../../src/tasks/required-mis
 import { filterConfigPackages } from "../../../src/utils/filter-config.js";
 import { createListr } from "../../../src/utils/listr.js";
 
-const mockedGetStatus = vi.mocked(getStatus);
-const mockedCalculateVersionBumps = vi.mocked(calculateVersionBumps);
 const mockedLoadConfig = vi.mocked(loadConfig);
 const mockedRegistryCatalogGet = vi.mocked(registryCatalog.get);
 const mockedCreateListr = vi.mocked(createListr);
@@ -98,12 +117,8 @@ const defaultPackages: ResolvedPackageConfig[] = [
 beforeEach(() => {
   vi.clearAllMocks();
   mockedFilterConfigPackages.mockClear();
-  mockedGetStatus.mockReturnValue({
-    hasChangesets: false,
-    packages: new Map(),
-    changesets: [],
-  } as any);
-  mockedCalculateVersionBumps.mockReturnValue(new Map() as any);
+  mockChangesetAnalyze.mockResolvedValue([]);
+  mockConventionalAnalyze.mockResolvedValue([]);
   mockedLoadConfig.mockResolvedValue(undefined as any);
   mockedRegistryCatalogGet.mockImplementation((key: string) => {
     if (key === "npm") {
@@ -271,30 +286,21 @@ describe("requiredMissingInformationTasks", () => {
     });
 
     it("accepts a single-package changeset recommendation and marks it consumed", async () => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([[".", { changesetCount: 2 }]]),
-        changesets: [{ id: "major-release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            ".",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.1.0",
-              bumpType: "minor",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: ".",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add feature" }, { summary: "Fix bug" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { packages: defaultPackages },
         cwd: "/tmp",
       };
@@ -312,30 +318,21 @@ describe("requiredMissingInformationTasks", () => {
     });
 
     it("accepts changeset guidance even when package name is empty", async () => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map(),
-        changesets: [{ id: "nameless-package" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            ".",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.0.1",
-              bumpType: "patch",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: ".",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: {
           packages: [makePkg({ name: "", version: "1.0.0" })],
         },
@@ -351,36 +348,24 @@ describe("requiredMissingInformationTasks", () => {
         version: "1.0.1",
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
-      expect(mockTask._promptAdapter.run.mock.calls[0][0].message).toContain(
-        "0 changesets",
-      );
     });
 
     it("falls back to manual selection when a changeset recommendation is customized", async () => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([[".", { changesetCount: 1 }]]),
-        changesets: [{ id: "manual-override" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            ".",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.0.1",
-              bumpType: "patch",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: ".",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { packages: defaultPackages },
         cwd: "/tmp",
       };
@@ -450,12 +435,14 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
+      // First prompt: edit (no recommendations found), then per-package
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("0.3.7")
         .mockResolvedValueOnce("0.3.6");
 
@@ -506,46 +493,32 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: ["@pubm/core"],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([
-          ["packages/core", { changesetCount: 1 }],
-          ["packages/pubm", { changesetCount: 2 }],
-        ]),
-        changesets: [{ id: "workspace-release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/core",
-            {
-              currentVersion: "0.3.6",
-              newVersion: "0.3.7",
-              bumpType: "patch",
-            },
-          ],
-          [
-            "packages/pubm",
-            {
-              currentVersion: "0.3.6",
-              newVersion: "0.4.0",
-              bumpType: "minor",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix core" }],
+        },
+        {
+          packagePath: "packages/pubm",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add feature" }, { summary: "More" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
@@ -557,10 +530,10 @@ describe("requiredMissingInformationTasks", () => {
         ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
-      expect(mockTask.output).toContain("Changesets suggest:");
+      expect(mockTask.output).toContain("Version Recommendations");
     });
 
-    it("shows zero changesets for workspace packages missing status metadata", async () => {
+    it("shows recommendation summary for multi-package changeset bumps", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -575,52 +548,44 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: ["@pubm/core"],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/core", { changesetCount: 1 }]]),
-        changesets: [{ id: "workspace-release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/core",
-            {
-              currentVersion: "0.3.6",
-              newVersion: "0.3.7",
-              bumpType: "patch",
-            },
-          ],
-          [
-            "packages/pubm",
-            {
-              currentVersion: "0.3.6",
-              newVersion: "0.4.0",
-              bumpType: "minor",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+        {
+          packagePath: "packages/pubm",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(mockTask.output).toContain(
-        "pubm  0.3.6 → 0.4.0 (minor: 0 changesets)",
+      expect(
+        mockTask.outputs.some((o) => o.includes("Version Recommendations")),
+      ).toBe(true);
+      expect(mockTask.outputs.some((o) => o.includes("packages/pubm"))).toBe(
+        true,
       );
     });
 
-    it("falls back to manual multi-package mode when changesets produce no bumps", async () => {
+    it("falls back to edit mode when no recommendations exist", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -635,25 +600,20 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map(),
-        changesets: [{ id: "noop" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(new Map() as any);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
-        config: { packages },
+        runtime: { version: undefined, promptEnabled: true },
+        config: { versioning: "fixed", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
+      // edit (no accept option since 0 recommendations), then fixed mode version
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.0.1");
 
       await versionTask.task(ctx, mockTask);
@@ -668,7 +628,7 @@ describe("requiredMissingInformationTasks", () => {
       });
     });
 
-    it("supports fixed versioning for a workspace when no versioning mode is configured", async () => {
+    it("supports fixed versioning via edit mode", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -689,13 +649,13 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
-        config: { packages },
+        runtime: { version: undefined, promptEnabled: true },
+        config: { versioning: "fixed", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("specify")
         .mockResolvedValueOnce("2.0.0");
 
@@ -733,16 +693,19 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "fixed", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("2.0.1");
+      // First: edit (no recommendations), then fixed mode version
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("2.0.1");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(mockTask.prompt).toHaveBeenCalledTimes(1);
+      expect(mockTask.prompt).toHaveBeenCalledTimes(2);
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "fixed",
         version: "2.0.1",
@@ -770,12 +733,13 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("0.4.0")
         .mockResolvedValueOnce("0.3.6")
         .mockResolvedValueOnce("patch");
@@ -828,12 +792,13 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("0.4.0")
         .mockResolvedValueOnce("0.3.6")
         .mockResolvedValueOnce("0.3.6")
@@ -886,12 +851,13 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("1.0.1")
         .mockResolvedValueOnce("2.0.1")
         .mockResolvedValueOnce("3.0.0")
@@ -989,13 +955,14 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { versionPlan: undefined },
+        runtime: { versionPlan: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // pkg-a: patch (1.0.1), pkg-b: minor (2.1.0), pkg-c: major (4.0.0)
+      // First: edit (accept/edit/skip), then pkg-a: patch (1.0.1), pkg-b: minor (2.1.0), pkg-c: major (4.0.0)
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.0.1")
         .mockResolvedValueOnce("2.1.0")
         .mockResolvedValueOnce("4.0.0");
@@ -1003,12 +970,13 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       const calls = mockTask._promptAdapter.run.mock.calls;
-      // First prompt: no lastBumpType → initial defaults to 0
-      expect(calls[0][0].initial).toBe(0);
-      // Second prompt: lastBumpType = "patch" → RELEASE_TYPES index 4, +1 for "Keep current" = 5
-      expect(calls[1][0].initial).toBe(5);
-      // Third prompt: lastBumpType = "minor" → RELEASE_TYPES index 2, +1 for "Keep current" = 3
-      expect(calls[2][0].initial).toBe(3);
+      // calls[0]: accept/edit/skip
+      // calls[1]: pkg-a version: no lastBumpType → initial defaults to 0
+      expect(calls[1][0].initial).toBe(0);
+      // calls[2]: pkg-b: lastBumpType = "patch" → RELEASE_TYPES index 4, +1 for "Keep current" = 5
+      expect(calls[2][0].initial).toBe(5);
+      // calls[3]: pkg-c: lastBumpType = "minor" → RELEASE_TYPES index 2, +1 for "Keep current" = 3
+      expect(calls[3][0].initial).toBe(3);
     });
 
     it("independent mode: resets initial to 0 when 'Keep current' is selected", async () => {
@@ -1050,8 +1018,7 @@ describe("requiredMissingInformationTasks", () => {
     });
 
     it("no-changeset independent: excludes packages with unchanged versions from versionPlan and config", async () => {
-      // No changesets — pure manual path goes straight to mode selection
-      // (default beforeEach has hasChangesets: false)
+      // No changesets — edit mode goes to independent per-package prompts
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -1072,13 +1039,14 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { versionPlan: undefined },
+        runtime: { versionPlan: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // pkgA: bump to 1.1.0; pkgB: keep at 2.0.0 (keep current)
+      // edit, then pkgA: bump to 1.1.0; pkgB: keep at 2.0.0 (keep current)
       mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
@@ -1096,7 +1064,7 @@ describe("requiredMissingInformationTasks", () => {
       );
     });
 
-    it("sorts packages by dependency order (dependencies first)", async () => {
+    it("prompts packages in given order in edit mode", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "app",
@@ -1123,29 +1091,25 @@ describe("requiredMissingInformationTasks", () => {
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // Prompts should come in dependency order: @pubm/core -> @pubm/utils -> app
+      // edit, then per-package in given order: app -> @pubm/utils -> @pubm/core
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("1.0.1") // @pubm/core
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.0.1") // app
         .mockResolvedValueOnce("1.0.1") // @pubm/utils
-        .mockResolvedValueOnce("1.0.1"); // app
+        .mockResolvedValueOnce("1.0.1"); // @pubm/core
 
       await versionTask.task(ctx, mockTask);
 
-      // First output should show @pubm/core as active (first prompted)
-      expect(
-        mockTask.outputs.some((output) => output.includes("> @pubm/core")),
-      ).toBe(true);
-
-      // The first "> " (active marker) should appear on @pubm/core, not app
+      // First active package should be app (first in given order)
       const firstActiveOutput = mockTask.outputs.find((output) =>
         output.includes("> "),
       );
-      expect(firstActiveOutput).toContain("> @pubm/core");
+      expect(firstActiveOutput).toContain("> app");
     });
 
     it("preserves original order for packages at the same dependency depth", async () => {
@@ -1194,7 +1158,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(firstActiveOutput).toContain("> pkg-b");
     });
 
-    it("shows changeset notes in manual flow package summary", async () => {
+    it("shows recommendation notes in edit mode for fixed versioning", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -1209,73 +1173,53 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([
-          ["packages/core", { changesetCount: 3 }],
-          ["packages/pubm", { changesetCount: 1 }],
-        ]),
-        changesets: [{ id: "release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/core",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.1.0",
-              bumpType: "minor",
-            },
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [
+            { summary: "Feature A" },
+            { summary: "Feature B" },
+            { summary: "Feature C" },
           ],
-          [
-            "packages/pubm",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.0.1",
-              bumpType: "patch",
-            },
-          ],
-        ]) as any,
-      );
+        },
+        {
+          packagePath: "packages/pubm",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
-        config: { packages },
+        runtime: { version: undefined, promptEnabled: true },
+        config: { versioning: "fixed", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "no" from changeset recommendation, then "fixed" mode, then version
+      // edit from recommendations, then fixed mode version
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
-        .mockResolvedValueOnce("fixed")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0");
 
       await versionTask.task(ctx, mockTask);
 
-      // After customize, the manual flow should show changeset notes
+      // The summary should show recommendation details
       expect(
         mockTask.outputs.some(
           (output) =>
-            output.includes("3 changesets suggest") &&
-            output.includes("minor") &&
-            output.includes("1.1.0"),
-        ),
-      ).toBe(true);
-      expect(
-        mockTask.outputs.some(
-          (output) =>
-            output.includes("1 changeset suggests") &&
-            output.includes("patch") &&
-            output.includes("1.0.1"),
+            output.includes("Version Recommendations") &&
+            output.includes("packages/core"),
         ),
       ).toBe(true);
     });
 
-    it("shows changeset notes in independent mode per-package prompts", async () => {
+    it("shows recommendation notes in independent edit mode per-package prompts", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "@pubm/core",
@@ -1290,37 +1234,28 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/core", { changesetCount: 2 }]]),
-        changesets: [{ id: "release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/core",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.1.0",
-              bumpType: "minor",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature A" }, { summary: "Feature B" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "no" from changeset recommendation, then per-package versions
+      // edit from recommendations, then per-package versions
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0") // @pubm/core
         .mockResolvedValueOnce("1.0.0"); // pubm
 
@@ -1351,36 +1286,27 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/core", { changesetCount: 1 }]]),
-        changesets: [{ id: "release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/core",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "2.0.0",
-              bumpType: "major",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "major",
+          source: "changeset",
+          entries: [{ summary: "Breaking change" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "independent", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit") // accept/edit/skip
         .mockResolvedValueOnce("2.0.0") // @pubm/core
         .mockResolvedValueOnce("1.0.0"); // pubm
 
@@ -1403,7 +1329,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(hasMarker).toBe(false);
     });
 
-    it("shows changeset recommendations in dependency order", async () => {
+    it("shows recommendations in summary table", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "pubm",
@@ -1418,57 +1344,42 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([
-          ["packages/core", { changesetCount: 1 }],
-          ["packages/pubm", { changesetCount: 1 }],
-        ]),
-        changesets: [{ id: "release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/pubm",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.0.1",
-              bumpType: "patch",
-            },
-          ],
-          [
-            "packages/core",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.1.0",
-              bumpType: "minor",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/pubm",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+        {
+          packagePath: "packages/core",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      // In the changeset recommendation output, @pubm/core should appear before pubm
-      const changesetOutput = mockTask.outputs.find((output) =>
-        output.includes("Changesets suggest:"),
+      // The summary table should include both packages
+      const summaryOutput = mockTask.outputs.find((output) =>
+        output.includes("Version Recommendations"),
       );
-      expect(changesetOutput).toBeDefined();
-      const coreIndex = changesetOutput!.indexOf("@pubm/core");
-      const pubmIndex = changesetOutput!.indexOf("pubm  ");
-      expect(coreIndex).toBeLessThan(pubmIndex);
+      expect(summaryOutput).toBeDefined();
+      expect(summaryOutput).toContain("packages/pubm");
+      expect(summaryOutput).toContain("packages/core");
     });
 
     it("marks highest changeset bump type in fixed mode version choices", async () => {
@@ -1486,48 +1397,34 @@ describe("requiredMissingInformationTasks", () => {
           dependencies: [],
         }),
       ];
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([
-          ["@pubm/core", { changesetCount: 1 }],
-          ["pubm", { changesetCount: 1 }],
-        ]),
-        changesets: [{ id: "release" }],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "@pubm/core",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.1.0",
-              bumpType: "minor",
-            },
-          ],
-          [
-            "pubm",
-            {
-              currentVersion: "1.0.0",
-              newVersion: "1.0.1",
-              bumpType: "patch",
-            },
-          ],
-        ]) as any,
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/core",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+        {
+          packagePath: "packages/pubm",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix" }],
+        },
+      ]);
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
 
       const ctx: any = {
-        runtime: { version: undefined },
+        runtime: { version: undefined, promptEnabled: true },
         config: { versioning: "fixed", packages },
         cwd: "/tmp",
       };
       const mockTask = createMockTask();
-      // "no" from changeset recommendation, then version in fixed mode
+      // edit from recommendations, then version in fixed mode
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0");
 
       await versionTask.task(ctx, mockTask);
@@ -1548,7 +1445,7 @@ describe("requiredMissingInformationTasks", () => {
     });
   });
 
-  describe("three-choice prompt — only_changesets", () => {
+  describe("unified prompt — accept", () => {
     const pkgA = makePkg({
       name: "@scope/a",
       version: "1.0.0",
@@ -1564,50 +1461,49 @@ describe("requiredMissingInformationTasks", () => {
     function makeTwoPkgCtx() {
       return {
         config: { packages: twoPackages, versioning: undefined },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       } as any;
     }
 
     beforeEach(() => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/a",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+      ]);
     });
 
-    it("shows three choices: only_changesets, add_packages, no", async () => {
+    it("shows accept, edit, skip choices when recommendations exist", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
       const promptCall = mockTask._promptAdapter.run.mock.calls[0];
       const choiceNames = promptCall[0].choices.map((c: any) => c.name);
-      expect(choiceNames).toEqual(["only_changesets", "add_packages", "no"]);
+      expect(choiceNames).toEqual(["accept", "edit", "skip"]);
     });
 
-    it("only_changesets: sets versionPlan with changeset packages only", async () => {
+    it("accept: sets versionPlan with recommended packages", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
@@ -1618,30 +1514,27 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
-    it("only_changesets: calls filterConfigPackages with changeset package paths", async () => {
+    it("accept: does not call filterConfigPackages", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
-        ctx,
-        new Set(["packages/a"]),
-      );
+      expect(mockedFilterConfigPackages).not.toHaveBeenCalled();
     });
 
-    it("only_changesets: respects versioning fixed — creates FixedVersionPlan", async () => {
+    it("accept: respects versioning fixed — creates FixedVersionPlan", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       ctx.config.versioning = "fixed";
       const mockTask = createMockTask();
-      mockTask._promptAdapter.run.mockResolvedValueOnce("only_changesets");
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
 
       await versionTask.task(ctx, mockTask);
 
@@ -1654,7 +1547,7 @@ describe("requiredMissingInformationTasks", () => {
     });
   });
 
-  describe("three-choice prompt — add_packages", () => {
+  describe("unified prompt — edit", () => {
     const pkgA = makePkg({
       name: "@scope/a",
       version: "1.0.0",
@@ -1669,58 +1562,49 @@ describe("requiredMissingInformationTasks", () => {
 
     function makeTwoPkgCtx() {
       return {
-        config: { packages: twoPackages, versioning: undefined },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        config: { packages: twoPackages, versioning: "independent" as const },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       } as any;
     }
 
     beforeEach(() => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/a",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+      ]);
     });
 
-    it("add_packages: auto-bumps changeset packages and prompts for remaining", async () => {
+    it("edit: delegates to independent mode for per-package prompts", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       const mockTask = createMockTask();
 
-      // Three-choice → add_packages; pkgB (remaining) → "2.1.0" (bumped)
+      // edit → pkgA: 1.1.0 (bump), pkgB: 2.1.0 (bump)
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.1.0");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versionPlan).toEqual({
-        mode: "independent",
-        packages: new Map([
-          ["packages/a", "1.1.0"], // auto-bumped from changeset
-          ["packages/b", "2.1.0"], // user-selected
-        ]),
-      });
+      expect(ctx.runtime.versionPlan?.packages.get("packages/a")).toBe("1.1.0");
+      expect(ctx.runtime.versionPlan?.packages.get("packages/b")).toBe("2.1.0");
       expect(ctx.runtime.changesetConsumed).toBe(true);
-      expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
-        ctx,
-        new Set(["packages/a", "packages/b"]),
-      );
     });
 
-    it("add_packages: excludes remaining package when 'keep current' selected", async () => {
+    it("edit: excludes packages with unchanged versions", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
@@ -1729,7 +1613,8 @@ describe("requiredMissingInformationTasks", () => {
 
       // pkgB → keep current version "2.0.0"
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
@@ -1741,14 +1626,15 @@ describe("requiredMissingInformationTasks", () => {
       );
     });
 
-    it("add_packages: sets changesetConsumed to true", async () => {
+    it("edit: sets changesetConsumed when changeset recommendations exist", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const ctx = makeTwoPkgCtx();
       const mockTask = createMockTask();
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
@@ -1756,8 +1642,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
-    it("add_packages: shows dependency-bump note when remaining package depends on changeset-bumped package", async () => {
-      // pkgA is changeset-bumped; pkgB (remaining) depends on pkgA
+    it("edit: shows recommendation notes for packages with changeset bumps", async () => {
       const pkgANoDep = makePkg({
         name: "@scope/a",
         version: "1.0.0",
@@ -1774,48 +1659,36 @@ describe("requiredMissingInformationTasks", () => {
       const ctx: any = {
         config: {
           packages: [pkgANoDep, pkgBDependsOnA],
-          versioning: undefined,
+          versioning: "independent",
         },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
-
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const mockTask = createMockTask();
 
-      // add_packages → pkgB (remaining, depends on pkgA): keep current
+      // edit → pkgA: 1.1.0, pkgB: keep current
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
 
-      // Task output should have been set when showing notes about pkgB's bumped dep
+      // Task output should have been set with recommendation summary
       expect(mockTask.outputs.length).toBeGreaterThan(0);
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
-    it("add_packages: cascade prompt fires when a bumped remaining package has unbumped dependents", async () => {
-      // pkgA is changeset-bumped
-      // pkgB (remaining) depends on pkgA — user bumps it to 2.1.0
-      // pkgC (remaining) depends on pkgB — user keeps 3.0.0 → cascade triggered
+    it("edit: cascade prompt fires when a bumped package has unbumped dependents", async () => {
       const pkgANoDep = makePkg({
         name: "@scope/a",
         version: "1.0.0",
@@ -1838,35 +1711,26 @@ describe("requiredMissingInformationTasks", () => {
       const ctx: any = {
         config: {
           packages: [pkgANoDep, pkgBDepsA, pkgCDepsB],
-          versioning: undefined,
+          versioning: "independent",
         },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
-
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const mockTask = createMockTask();
 
-      // add_packages → pkgB (remaining): 2.1.0 (bumped) → pkgC (remaining): 3.0.0 (keep) → cascade: patch
+      // edit → pkgA: 1.1.0, pkgB: 2.1.0, pkgC: 3.0.0 (keep) → cascade: patch
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0") // pkgA
         .mockResolvedValueOnce("2.1.0") // pkgB bumped
         .mockResolvedValueOnce("3.0.0") // pkgC keep current → cascade trigger
         .mockResolvedValueOnce("patch"); // cascade accepted
@@ -1881,7 +1745,7 @@ describe("requiredMissingInformationTasks", () => {
       );
     });
 
-    it("add_packages: cascade skipped when user declines", async () => {
+    it("edit: cascade skipped when user declines", async () => {
       const pkgANoDep = makePkg({
         name: "@scope/a",
         version: "1.0.0",
@@ -1904,35 +1768,26 @@ describe("requiredMissingInformationTasks", () => {
       const ctx: any = {
         config: {
           packages: [pkgANoDep, pkgBDepsA, pkgCDepsB],
-          versioning: undefined,
+          versioning: "independent",
         },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
-
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const mockTask = createMockTask();
 
-      // add_packages → pkgB: 2.1.0 → pkgC: 3.0.0 (keep) → cascade: skip
+      // edit → pkgA: 1.1.0, pkgB: 2.1.0, pkgC: 3.0.0 (keep) → cascade: skip
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.1.0")
         .mockResolvedValueOnce("3.0.0")
         .mockResolvedValueOnce("skip");
@@ -1947,8 +1802,7 @@ describe("requiredMissingInformationTasks", () => {
       );
     });
 
-    it("add_packages: carries last selected bump type as initial for next remaining prompt", async () => {
-      // pkgA is changeset-bumped; pkgB and pkgC are remaining
+    it("edit: carries last selected bump type as initial for next prompt", async () => {
       const pkgANoDep = makePkg({
         name: "@scope/a",
         version: "1.0.0",
@@ -1971,94 +1825,76 @@ describe("requiredMissingInformationTasks", () => {
       const ctx: any = {
         config: {
           packages: [pkgANoDep, pkgBNoDep, pkgCNoDep],
-          versioning: undefined,
+          versioning: "independent",
         },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
-
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const mockTask = createMockTask();
 
-      // add_packages → pkgB: patch (2.0.1) → pkgC: minor (3.1.0)
+      // edit → pkgA: patch (1.0.1) → pkgB: patch (2.0.1) → pkgC: minor (3.1.0)
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.0.1") // pkgA: patch
         .mockResolvedValueOnce("2.0.1") // pkgB: patch
         .mockResolvedValueOnce("3.1.0"); // pkgC: minor
 
       await versionTask.task(ctx, mockTask);
 
       const calls = mockTask._promptAdapter.run.mock.calls;
-      // calls[0]: add_packages prompt
-      // calls[1]: pkgB version prompt — no lastBumpType → initial 0
+      // calls[0]: edit prompt
+      // calls[1]: pkgA version prompt — no lastBumpType → initial 0
       expect(calls[1][0].initial).toBe(0);
-      // calls[2]: pkgC version prompt — lastBumpType = "patch" → RELEASE_TYPES index 4, +1 = 5
+      // calls[2]: pkgB version prompt — lastBumpType = "patch" → RELEASE_TYPES index 4, +1 = 5
       expect(calls[2][0].initial).toBe(5);
     });
 
-    it("add_packages: uses pkg.path as display name when package has no name", async () => {
-      // pkgA (changeset-bumped, no name) — pathToName uses path as fallback
-      // pkgB (remaining, depends on pkgA) — the dep bump note shows pkgA's path
+    it("edit: uses pkg.path as display name when package has no name", async () => {
       const pkgANoName = {
         path: "packages/a",
         version: "1.0.0",
         registries: ["npm"],
         dependencies: [],
-        // no name property
       } as any;
       const pkgBDepsA = makePkg({
         name: "@scope/b",
         version: "2.0.0",
         path: "packages/b",
-        dependencies: ["packages/a"], // depends on pkgA by path (since pkgA has no name)
+        dependencies: ["packages/a"],
       });
 
       const ctx: any = {
-        config: { packages: [pkgANoName, pkgBDepsA], versioning: undefined },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        config: {
+          packages: [pkgANoName, pkgBDepsA],
+          versioning: "independent",
+        },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
-
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
 
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
       const mockTask = createMockTask();
 
-      // add_packages → pkgB: keep current
+      // edit → pkgA: 1.1.0, pkgB: keep current
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
@@ -2066,7 +1902,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
-    it("add_packages: respects versioning fixed — creates FixedVersionPlan with highest version", async () => {
+    it("edit: respects versioning fixed — creates FixedVersionPlan", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
@@ -2074,14 +1910,13 @@ describe("requiredMissingInformationTasks", () => {
       ctx.config.versioning = "fixed";
       const mockTask = createMockTask();
 
-      // Three-choice → add_packages; pkgB (remaining) → "2.1.0" (bumped)
+      // edit → fixed mode version
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("add_packages")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("2.1.0");
 
       await versionTask.task(ctx, mockTask);
 
-      // Fixed mode: highest version (2.1.0) applied to all packages
       expect(ctx.runtime.versionPlan).toEqual({
         mode: "fixed",
         version: "2.1.0",
@@ -2094,7 +1929,7 @@ describe("requiredMissingInformationTasks", () => {
     });
   });
 
-  describe("three-choice prompt — no choice", () => {
+  describe("unified prompt — skip and edit edge cases", () => {
     const pkgA = makePkg({
       name: "@scope/a",
       version: "1.0.0",
@@ -2109,38 +1944,37 @@ describe("requiredMissingInformationTasks", () => {
     function makeTwoPkgCtx(versioning?: "fixed" | "independent") {
       return {
         config: { packages: [pkgA, pkgB], versioning },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       } as any;
     }
 
     beforeEach(() => {
-      mockedGetStatus.mockReturnValue({
-        hasChangesets: true,
-        packages: new Map([["packages/a", { changesetCount: 1 }]]),
-        changesets: [],
-      } as any);
-      mockedCalculateVersionBumps.mockReturnValue(
-        new Map([
-          [
-            "packages/a",
-            { currentVersion: "1.0.0", newVersion: "1.1.0", bumpType: "minor" },
-          ],
-        ]),
-      );
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/a",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Feature" }],
+        },
+      ]);
     });
 
-    it("no → independent: excludes packages with unchanged versions from versionPlan and config", async () => {
+    it("edit → independent: excludes packages with unchanged versions from versionPlan and config", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
-      const ctx = makeTwoPkgCtx("independent"); // pre-set to skip mode prompt
+      const ctx = makeTwoPkgCtx("independent");
       const mockTask = createMockTask();
 
-      // "no" → pkgA: "1.1.0" (bump), pkgB: "2.0.0" (keep current)
+      // edit → pkgA: "1.1.0" (bump), pkgB: "2.0.0" (keep current)
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
@@ -2155,15 +1989,15 @@ describe("requiredMissingInformationTasks", () => {
       expect(filterArg.has("packages/b")).toBe(false);
     });
 
-    it("no → fixed: does NOT call filterConfigPackages", async () => {
+    it("edit → fixed: does NOT call filterConfigPackages", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
-      const ctx = makeTwoPkgCtx("fixed"); // pre-set to skip mode prompt
+      const ctx = makeTwoPkgCtx("fixed");
       const mockTask = createMockTask();
 
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0");
 
       await versionTask.task(ctx, mockTask);
@@ -2171,7 +2005,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(mockedFilterConfigPackages).not.toHaveBeenCalled();
     });
 
-    it("no → independent: does not set changesetConsumed", async () => {
+    it("edit → independent: sets changesetConsumed when changeset source present", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
@@ -2179,25 +2013,24 @@ describe("requiredMissingInformationTasks", () => {
       const mockTask = createMockTask();
 
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0")
         .mockResolvedValueOnce("2.0.0");
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.changesetConsumed).toBeFalsy();
+      expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
-    it("no → independent (mode prompt shown): applies filter after mode selection", async () => {
+    it("edit → independent: applies filter in edit mode", async () => {
       requiredMissingInformationTasks();
       const subtasks = getSubtasks();
       const versionTask = subtasks[0];
-      const ctx = makeTwoPkgCtx(); // no pre-set versioning → mode prompt shown
+      const ctx = makeTwoPkgCtx("independent");
       const mockTask = createMockTask();
 
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
-        .mockResolvedValueOnce("independent") // mode prompt
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0") // pkgA
         .mockResolvedValueOnce("2.0.0"); // pkgB keep current
 
@@ -2209,8 +2042,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(filterArg.has("packages/b")).toBe(false);
     });
 
-    it("no → independent: cascade-accepted packages are included in versionPlan and filterConfigPackages", async () => {
-      // pkgA has no deps; pkgC depends on pkgA
+    it("edit → independent: cascade-accepted packages are included in versionPlan and filterConfigPackages", async () => {
       const pkgAWithNoDeps = makePkg({
         name: "@scope/a",
         version: "1.0.0",
@@ -2230,16 +2062,20 @@ describe("requiredMissingInformationTasks", () => {
 
       const ctx: any = {
         config: { packages: [pkgAWithNoDeps, pkgC], versioning: "independent" },
-        runtime: { versionPlan: undefined, changesetConsumed: undefined },
+        runtime: {
+          versionPlan: undefined,
+          changesetConsumed: undefined,
+          promptEnabled: true,
+        },
         cwd: "/cwd",
         options: {},
       };
       const mockTask = createMockTask();
 
-      // "no" → pkgA: "1.1.0" (bump), pkgC: "2.0.0" (keep current → cascade prompt)
+      // edit → pkgA: "1.1.0" (bump), pkgC: "2.0.0" (keep current → cascade prompt)
       // cascade prompt: user accepts with "patch" → pkgC gets 2.0.1
       mockTask._promptAdapter.run
-        .mockResolvedValueOnce("no")
+        .mockResolvedValueOnce("edit")
         .mockResolvedValueOnce("1.1.0") // pkgA version
         .mockResolvedValueOnce("2.0.0") // pkgC keep current → triggers cascade
         .mockResolvedValueOnce("patch"); // cascade accepted

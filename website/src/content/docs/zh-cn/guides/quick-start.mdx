@@ -53,4 +53,4 @@ pubm init
 pubm
 ```
 
-如果存在待处理的 changeset，`pubm` 会在发布流程的版本步骤中消耗它们。配置细节请阅读 [Configuration](/pubm/zh-cn/guides/configuration/)。CI、token 和 CI preparation 行为请阅读 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。monorepo 请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/)。精确的 flags 和子命令请阅读 [CLI Reference](/pubm/zh-cn/reference/cli/)。
+如果存在待处理的 changeset，`pubm` 会在发布流程的版本步骤中消耗它们。对于没有 changeset 的包，`pubm` 也可以将 conventional commits（`feat:`、`fix:` 等）作为降级回退来分析——详见 [Changesets](/pubm/zh-cn/guides/changesets/#conventional-commit-降级回退)。配置细节请阅读 [Configuration](/pubm/zh-cn/guides/configuration/)。CI、token 和 CI preparation 行为请阅读 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。monorepo 请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/)。精确的 flags 和子命令请阅读 [CLI Reference](/pubm/zh-cn/reference/cli/)。

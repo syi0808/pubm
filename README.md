@@ -33,6 +33,7 @@ Most release tools assume one registry. pubm is built for projects that grow:
 - **Monorepos** - publishes packages in dependency order, no manual sequencing
 - **Automatic rollback** - if any registry fails, pubm undoes the version bump, tag, and commit (registry unpublish is best-effort - version numbers may be permanently reserved)
 - **Zero config** - registries are auto-detected from your manifest files
+- **Conventional commit support** - falls back to commit history for packages without a changeset, using `feat`/`fix`/`perf`/`refactor` type → bump mapping
 
 Start with npm only. Add jsr next month. Move to a monorepo next year. Your release command stays the same: `pubm`.
 
