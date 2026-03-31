@@ -52,21 +52,19 @@ describe("findLastReleaseRef", () => {
 describe("getCommitsSinceRef", () => {
   it("returns parsed commits with files", () => {
     mockedExecFileSync.mockReturnValueOnce(
-      (
-        [
-          "COMMIT_START abc1234",
-          "feat(core): add feature",
-          "",
-          "body text",
-          "COMMIT_FILES",
-          "packages/core/src/index.ts",
-          "COMMIT_START def5678",
-          "fix: bug fix",
-          "COMMIT_FILES",
-          "packages/pubm/src/cli.ts",
-          "",
-        ].join("\n"),
-      ),
+      [
+        "COMMIT_START abc1234",
+        "feat(core): add feature",
+        "",
+        "body text",
+        "COMMIT_FILES",
+        "packages/core/src/index.ts",
+        "COMMIT_START def5678",
+        "fix: bug fix",
+        "COMMIT_FILES",
+        "packages/pubm/src/cli.ts",
+        "",
+      ].join("\n"),
     );
     const result = getCommitsSinceRef("/repo", "v1.0.0");
     expect(result).toEqual([

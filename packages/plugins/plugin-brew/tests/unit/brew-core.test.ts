@@ -605,7 +605,7 @@ describe("brewCore", () => {
     });
 
     it("local check throws when homebrew-core access fails", async () => {
-      mockedExecFileSync.mockImplementation((cmd, args) => {
+      mockedExecFileSync.mockImplementation((_cmd, args) => {
         if (args?.[0] === "repo") throw new Error("not found");
         return Buffer.from("");
       });

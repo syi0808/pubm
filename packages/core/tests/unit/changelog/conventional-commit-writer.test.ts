@@ -33,6 +33,20 @@ describe("ConventionalCommitChangelogWriter", () => {
     expect(sections[0].category).toBe("Other Changes");
   });
 
+  it("omits hash suffix when hash is missing", () => {
+    const entries: VersionEntry[] = [
+      { summary: "feat: no hash entry", type: "feat" },
+    ];
+    const sections = writer.formatEntries(entries);
+    expect(sections[0].items[0]).toBe("- feat: no hash entry");
+  });
+
+  it("uses default category when type is missing", () => {
+    const entries: VersionEntry[] = [{ summary: "some change", hash: "aaa" }];
+    const sections = writer.formatEntries(entries);
+    expect(sections[0].category).toBe("Other Changes");
+  });
+
   it("returns empty for no entries", () => {
     expect(writer.formatEntries([])).toEqual([]);
   });

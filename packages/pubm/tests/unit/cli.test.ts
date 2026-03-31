@@ -805,6 +805,89 @@ describe("CLI action handler - local publish-only mode", () => {
   });
 });
 
+describe("CLI action handler - dangerouslyAllowUnpublish", () => {
+  it("sets dangerouslyAllowUnpublish on config when flag is passed", async () => {
+    mockIsCI.isCI = false;
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: vi.fn() });
+
+    await run("1.0.0", "--dangerously-allow-unpublish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.config.rollback?.dangerouslyAllowUnpublish).toBe(true);
+  });
+});
+
+describe("CLI action handler - version source variants", () => {
+  it("only creates ChangesetSource when versionSources is 'changesets'", async () => {
+    const { ChangesetSource, ConventionalCommitSource } = await import(
+      "@pubm/core"
+    );
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.versionSources = "changesets";
+    mockMergeRecommendations.mockReturnValue([]);
+
+    await run();
+
+    expect(ChangesetSource).toHaveBeenCalled();
+    expect(ConventionalCommitSource).not.toHaveBeenCalled();
+  });
+
+  it("only creates ConventionalCommitSource when versionSources is 'commits'", async () => {
+    const { ChangesetSource, ConventionalCommitSource } = await import(
+      "@pubm/core"
+    );
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.versionSources = "commits";
+    mockMergeRecommendations.mockReturnValue([]);
+
+    await run();
+
+    expect(ChangesetSource).not.toHaveBeenCalled();
+    expect(ConventionalCommitSource).toHaveBeenCalled();
+  });
+
+  it("does not set changesetConsumed when recommendations come from non-changeset source", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: ".",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+    mockMergeRecommendations.mockReturnValue([
+      { packagePath: ".", bumpType: "minor", source: "conventional-commit" },
+    ]);
+
+    await run();
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.changesetConsumed).toBeUndefined();
+  });
+});
+
+describe("CLI action handler - splash screen", () => {
+  it("does not show splash when stderr is not a TTY", async () => {
+    mockIsCI.isCI = false;
+    const origTTY = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", {
+      value: false,
+      configurable: true,
+    });
+    try {
+      await run("1.0.0");
+      expect(mockShowSplash).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(process.stderr, "isTTY", {
+        value: origTTY,
+        configurable: true,
+      });
+    }
+  });
+});
+
 describe("CLI action handler - error handling", () => {
   it("should call consoleError when pubm throws", async () => {
     mockIsCI.isCI = false;

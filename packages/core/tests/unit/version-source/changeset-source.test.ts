@@ -79,6 +79,14 @@ describe("ChangesetSource", () => {
     expect(results).toEqual([]);
   });
 
+  it("consume skips deletion when no changesets were analyzed", async () => {
+    mockedReadChangesets.mockReturnValue([]);
+    const source = new ChangesetSource();
+    await source.analyze(context);
+    await source.consume!([]);
+    expect(mockedDeleteChangesetFiles).not.toHaveBeenCalled();
+  });
+
   it("consume deletes changeset files", async () => {
     mockedReadChangesets.mockReturnValue([
       {
