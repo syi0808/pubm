@@ -478,8 +478,55 @@ releaseAssets: [
 
 Read the [Release Assets](/pubm/guides/release-assets/) guide for the full compress cascade rules, name template variables, and use-case examples.
 
+## Version sources
+
+`pubm changesets version` can resolve version bumps from two sources: changeset files in `.pubm/changesets/` and conventional commit messages. You can control which sources are active and how commit types map to bump levels.
+
+### `versionSources`
+
+- Type: `"all" | "changesets" | "commits"`
+- Default: `"all"`
+
+Controls which sources `pubm changesets version` reads when calculating version bumps.
+
+| Value | Behavior |
+|-------|----------|
+| `"all"` | Uses changesets for packages that have them. Falls back to conventional commits for packages with no pending changesets. |
+| `"changesets"` | Only reads `.pubm/changesets/` files. Conventional commits are ignored. |
+| `"commits"` | Only reads conventional commit messages. Changeset files are ignored. |
+
+### `conventionalCommits`
+
+Configures how commit type prefixes map to semver bump levels. Only applies when `versionSources` is `"all"` or `"commits"`.
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      // Add types that are ignored by default
+      refactor: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+The default mapping is:
+
+| Commit type | Bump |
+|-------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+Commits with `BREAKING CHANGE` in the footer or a `!` suffix (e.g. `feat!:`) always produce a `major` bump regardless of the type mapping.
+
+Commit types not listed in the mapping (e.g. `chore`, `docs`, `test`, `ci`, `style`, `refactor`) are ignored during bump calculation. You can override any type in the `types` object — for example, `refactor: "patch"` would treat refactor commits as patch bumps.
+
 ## Next steps
 
 - Use the [Monorepo](/pubm/guides/monorepo/) guide if you need package grouping or mixed registries.
 - Use the [Plugins API Reference](/pubm/reference/plugins/) if your config registers custom plugins.
 - Use the [Release Assets](/pubm/guides/release-assets/) guide to attach binaries and archives to GitHub Releases.
+- See the [Changesets](/pubm/guides/changesets/) guide for more on the conventional commit fallback behavior.

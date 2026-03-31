@@ -478,8 +478,55 @@ releaseAssets: [
 
 압축 cascade 규칙, 이름 템플릿 변수, 사용 사례 예시는 [Release Assets](/pubm/ko/guides/release-assets/)에서 확인합니다.
 
+## 버전 소스
+
+`pubm changesets version`은 `.pubm/changesets/`의 changeset 파일과 conventional commit 메시지, 두 가지 소스에서 버전 bump를 해결할 수 있습니다. 어떤 소스가 활성화될지, 커밋 타입이 bump 레벨에 어떻게 매핑될지를 제어할 수 있습니다.
+
+### `versionSources`
+
+- 타입: `"all" | "changesets" | "commits"`
+- 기본값: `"all"`
+
+`pubm changesets version`이 버전 bump를 계산할 때 읽을 소스를 제어합니다.
+
+| 값 | 동작 |
+|----|------|
+| `"all"` | changeset이 있는 패키지에는 changeset을 사용합니다. 보류 중인 changeset이 없는 패키지에는 conventional commits로 폴백합니다. |
+| `"changesets"` | `.pubm/changesets/` 파일만 읽습니다. Conventional commits는 무시됩니다. |
+| `"commits"` | Conventional commit 메시지만 읽습니다. Changeset 파일은 무시됩니다. |
+
+### `conventionalCommits`
+
+커밋 타입 접두사가 semver bump 레벨에 어떻게 매핑되는지 설정합니다. `versionSources`가 `"all"` 또는 `"commits"`일 때만 적용됩니다.
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      // 기본적으로 무시되는 타입 추가
+      refactor: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+기본 매핑은 다음과 같습니다.
+
+| 커밋 타입 | Bump |
+|---------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+footer에 `BREAKING CHANGE`가 있거나 `!` 접미사(예: `feat!:`)를 사용한 커밋은 타입 매핑에 관계없이 항상 `major` bump가 발생합니다.
+
+매핑에 나열되지 않은 커밋 타입(예: `chore`, `docs`, `test`, `ci`, `style`, `refactor`)은 bump 계산 시 무시됩니다. `types` 객체에서 어떤 타입이든 재정의할 수 있습니다 — 예를 들어 `refactor: "patch"`는 refactor 커밋을 patch bump로 처리합니다.
+
 ## 다음 단계
 
 - 패키지 그룹이나 혼합 레지스트리가 필요하면 [Monorepo](/pubm/ko/guides/monorepo/) 가이드를 사용합니다.
 - 설정이 커스텀 플러그인을 등록한다면 [Plugins API Reference](/pubm/ko/reference/plugins/)를 사용합니다.
 - 바이너리와 아카이브를 GitHub Releases에 첨부하려면 [Release Assets](/pubm/ko/guides/release-assets/) 가이드를 사용합니다.
+- Conventional commit 폴백 동작에 대한 자세한 내용은 [Changesets](/pubm/ko/guides/changesets/) 가이드를 참조합니다.

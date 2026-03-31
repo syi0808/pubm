@@ -53,4 +53,4 @@ pubm init
 pubm
 ```
 
-보류 중인 changeset이 있으면 `pubm`은 릴리스 파이프라인의 버전 단계에서 이를 소비합니다. 설정 세부 내용은 [Configuration](/pubm/ko/guides/configuration/)에서, CI와 토큰, CI 준비 동작은 [CI/CD](/pubm/ko/guides/ci-cd/)에서, 모노레포는 [Monorepo](/pubm/ko/guides/monorepo/)에서, 정확한 플래그와 하위 명령은 [CLI Reference](/pubm/ko/reference/cli/)에서 확인합니다.
+보류 중인 changeset이 있으면 `pubm`은 릴리스 파이프라인의 버전 단계에서 이를 소비합니다. changeset이 없는 패키지의 경우 `pubm`은 conventional commits(`feat:`, `fix:` 등)를 폴백으로 분석할 수도 있습니다 — 자세한 내용은 [Changesets](/pubm/ko/guides/changesets/#conventional-commit-폴백)를 참조합니다. 설정 세부 내용은 [Configuration](/pubm/ko/guides/configuration/)에서, CI와 토큰, CI 준비 동작은 [CI/CD](/pubm/ko/guides/ci-cd/)에서, 모노레포는 [Monorepo](/pubm/ko/guides/monorepo/)에서, 정확한 플래그와 하위 명령은 [CLI Reference](/pubm/ko/reference/cli/)에서 확인합니다.

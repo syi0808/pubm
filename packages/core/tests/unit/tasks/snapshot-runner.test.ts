@@ -629,9 +629,9 @@ describe("runSnapshotPipeline", () => {
       },
     );
 
-    await expect(
-      runSnapshotPipeline(ctx, { tag: "snapshot" }),
-    ).rejects.toThrow("publish failed");
+    await expect(runSnapshotPipeline(ctx, { tag: "snapshot" })).rejects.toThrow(
+      "publish failed",
+    );
 
     // Should still have restored original versions (finally block)
     expect(writeVersionsCalls).toHaveLength(2);

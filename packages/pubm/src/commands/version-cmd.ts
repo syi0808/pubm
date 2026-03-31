@@ -1,23 +1,28 @@
 import path from "node:path";
 import process from "node:process";
 import type {
+  BumpGroup,
   BumpType,
   Ecosystem,
   ResolvedPackageConfig,
   ResolvedPubmConfig,
   VersionBump,
+  VersionRecommendation,
+  VersionSource,
+  VersionSourceContext,
 } from "@pubm/core";
 import {
   applyFixedGroup,
   applyLinkedGroup,
-  buildChangelogEntries,
-  calculateVersionBumps,
+  ChangesetChangelogWriter,
+  ChangesetSource,
+  ConventionalCommitChangelogWriter,
+  ConventionalCommitSource,
   createKeyResolver,
-  deleteChangesetFiles,
   ecosystemCatalog,
   Git,
-  generateChangelog,
-  readChangesets,
+  mergeRecommendations,
+  renderChangelog,
   resolveGroups,
   t,
   ui,
@@ -38,12 +43,17 @@ export async function runVersionCommand(
 ): Promise<void> {
   const { dryRun = false } = options;
 
-  // 1. Read changesets
+  // 1. Build version sources based on config
   const resolver = createKeyResolver(config.packages);
-  const changesets = readChangesets(cwd, resolver);
-  if (changesets.length === 0) {
-    ui.info(t("cmd.version.noChangesets"));
-    return;
+  const sources: VersionSource[] = [];
+  const versionSources = config.versionSources ?? "all";
+  if (versionSources === "all" || versionSources === "changesets") {
+    sources.push(new ChangesetSource());
+  }
+  if (versionSources === "all" || versionSources === "commits") {
+    sources.push(
+      new ConventionalCommitSource(config.conventionalCommits?.types),
+    );
   }
 
   // 2. Get all packages and their current versions from resolved config
@@ -54,15 +64,43 @@ export async function runVersionCommand(
     throw new Error("No packages found.");
   }
 
-  // 3. Calculate version bumps
-  const bumps = calculateVersionBumps(currentVersions, cwd, resolver);
+  // 3. Analyze all sources
+  const vsContext: VersionSourceContext = {
+    cwd,
+    packages: currentVersions,
+    resolveKey: resolver,
+  };
+  const sourceResults: VersionRecommendation[][] = [];
+  for (const source of sources) {
+    sourceResults.push(await source.analyze(vsContext));
+  }
+  const recommendations = mergeRecommendations(sourceResults);
+
+  if (recommendations.length === 0) {
+    ui.info(t("cmd.version.noChangesets"));
+    return;
+  }
+
+  // 4. Convert recommendations to VersionBump map
+  const bumps = new Map<string, VersionBump>();
+  for (const rec of recommendations) {
+    const currentVersion = currentVersions.get(rec.packagePath);
+    if (!currentVersion) continue;
+    const newVersion = inc(currentVersion, rec.bumpType);
+    if (!newVersion) continue;
+    bumps.set(rec.packagePath, {
+      currentVersion,
+      newVersion,
+      bumpType: rec.bumpType,
+    });
+  }
 
   if (bumps.size === 0) {
     ui.info(t("cmd.version.noChangesets"));
     return;
   }
 
-  // 4. Apply fixed/linked groups from config
+  // 5. Apply fixed/linked groups from config
   {
     const allPackages = config.packages.map((p) => p.name);
 
@@ -85,7 +123,9 @@ export async function runVersionCommand(
     }
   }
 
-  // 5. Log bumps and generate changelogs
+  // 6. Log bumps and generate changelogs
+  const changesetWriter = new ChangesetChangelogWriter();
+  const ccWriter = new ConventionalCommitChangelogWriter();
   const changelogs = new Map<string, { pkgPath: string; content: string }>();
   for (const [pkgPath, bump] of bumps) {
     const newVersion = bump.newVersion;
@@ -96,9 +136,19 @@ export async function runVersionCommand(
       `${displayName}: ${bump.currentVersion} → ${newVersion} (${bump.bumpType})`,
     );
 
-    // Generate changelog entries from changesets for this package
-    const entries = buildChangelogEntries(changesets, pkgPath);
-    const changelogContent = generateChangelog(newVersion, entries);
+    // Generate changelog entries from recommendations for this package
+    const rec = recommendations.find((r) => r.packagePath === pkgPath);
+    let changelogContent: string;
+    if (rec) {
+      const sections =
+        rec.source === "changeset"
+          ? changesetWriter.formatEntries(rec.entries)
+          : ccWriter.formatEntries(rec.entries);
+      const bumpGroups: BumpGroup[] = [{ bumpType: bump.bumpType, sections }];
+      changelogContent = renderChangelog(bump.newVersion, bumpGroups);
+    } else {
+      changelogContent = renderChangelog(bump.newVersion, []);
+    }
 
     if (dryRun) {
       console.log(
@@ -116,7 +166,7 @@ export async function runVersionCommand(
     return;
   }
 
-  // 6. Write versions to manifest files via ecosystem
+  // 7. Write versions to manifest files via ecosystem
   const ecosystems = buildEcosystems(config.packages, bumps, cwd);
   const versions = new Map<string, string>();
   for (const [pkgPath, bump] of bumps) {
@@ -129,10 +179,12 @@ export async function runVersionCommand(
     writeChangelogToFile(pkgPath, content);
   }
 
-  // 7. Delete consumed changeset files
-  deleteChangesetFiles(cwd, changesets);
+  // 8. Consume sources (delete changeset files, etc.)
+  for (const source of sources) {
+    await source.consume?.([]);
+  }
 
-  // 8. Create a git commit for the version bump
+  // 9. Create a git commit for the version bump
   const git = new Git();
   await git.stage(".");
   const versionCommitMsg = `Version Packages\n\n${[...bumps]
@@ -143,7 +195,7 @@ export async function runVersionCommand(
     .join("\n")}`;
   await git.commit(versionCommitMsg);
   ui.success(
-    `Consumed ${changesets.length} changeset(s) and committed version bump.`,
+    `Consumed ${recommendations.length} recommendation(s) and committed version bump.`,
   );
 }
 

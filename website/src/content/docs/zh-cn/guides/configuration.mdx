@@ -478,8 +478,55 @@ releaseAssets: [
 
 阅读 [Release Assets](/pubm/zh-cn/guides/release-assets/) 了解完整的 compress cascade 规则、name 模板变量和使用场景示例。
 
+## 版本来源
+
+`pubm changesets version` 可以从两个来源解析版本 bump：`.pubm/changesets/` 中的 changeset 文件和 conventional commit 消息。你可以控制哪些来源处于活跃状态，以及提交类型如何映射到 bump 级别。
+
+### `versionSources`
+
+- 类型：`"all" | "changesets" | "commits"`
+- 默认值：`"all"`
+
+控制 `pubm changesets version` 在计算版本 bump 时读取哪些来源。
+
+| 值 | 行为 |
+|----|------|
+| `"all"` | 对有 changeset 的包使用 changeset。对没有待处理 changeset 的包回退到 conventional commits。 |
+| `"changesets"` | 只读取 `.pubm/changesets/` 文件。Conventional commits 被忽略。 |
+| `"commits"` | 只读取 conventional commit 消息。Changeset 文件被忽略。 |
+
+### `conventionalCommits`
+
+配置提交类型前缀如何映射到 semver bump 级别。仅在 `versionSources` 为 `"all"` 或 `"commits"` 时生效。
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      // 添加默认被忽略的类型
+      refactor: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+默认映射为：
+
+| 提交类型 | Bump |
+|---------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+footer 中包含 `BREAKING CHANGE` 或使用 `!` 后缀（如 `feat!:`）的提交，无论类型映射如何，始终产生 `major` bump。
+
+未在映射中列出的提交类型（如 `chore`、`docs`、`test`、`ci`、`style`、`refactor`）在 bump 计算中会被忽略。你可以在 `types` 对象中覆盖任何类型——例如，`refactor: "patch"` 会将 refactor 提交视为 patch bump。
+
 ## 下一步
 
 - 如果你需要 package 分组或混合 registry，请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/) 指南。
 - 如果配置中注册了自定义插件，请阅读 [Plugins API Reference](/pubm/zh-cn/reference/plugins/)。
 - 如果你想把二进制和 archive 附加到 GitHub Releases，请阅读 [Release Assets](/pubm/zh-cn/guides/release-assets/) 指南。
+- 阅读 [Changesets](/pubm/zh-cn/guides/changesets/) 指南了解更多关于 conventional commit 降级回退行为的内容。

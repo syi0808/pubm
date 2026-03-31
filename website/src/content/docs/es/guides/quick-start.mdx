@@ -53,4 +53,4 @@ Inicia el flujo de release:
 pubm
 ```
 
-Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para configuración, lee [Configuración](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).
+Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para los paquetes sin changesets, `pubm` también puede analizar commits convencionales (`feat:`, `fix:`, etc.) como replegado — consulta [Changesets](/pubm/es/guides/changesets/#replegarse-en-commits-convencionales) para más detalles. Para configuración, lee [Configuración](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).

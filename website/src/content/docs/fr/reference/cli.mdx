@@ -302,6 +302,8 @@ pubm changesets status --verbose
 
 Consommer les changesets, mettre à jour les versions dans les manifests, écrire les changelogs et valider le résultat.
 
+Pour les packages qui n'ont pas de fichiers de changeset en attente, `pubm changesets version` peut se replier sur les commits conventionnels pour déterminer le type de bump. Ce comportement est contrôlé par l'option de configuration `versionSources`. Consultez le [guide Configuration](/pubm/fr/guides/configuration/#sources-de-version) pour les détails.
+
 ```bash
 pubm changesets version
 pubm changesets version --dry-run

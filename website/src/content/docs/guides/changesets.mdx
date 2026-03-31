@@ -97,6 +97,40 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
+## Conventional commit fallback
+
+When `versionSources` is `"all"` (the default), `pubm changesets version` automatically falls back to conventional commits for any package that has no pending changeset files. This lets teams adopt changesets incrementally: packages with changesets use them; packages without fall back to commit history.
+
+### Default commit type mapping
+
+| Commit type | Bump |
+|-------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+A `BREAKING CHANGE` footer or a `!` suffix (e.g. `feat!:`) always produces a `major` bump.
+
+### Configuring custom mappings
+
+Override the default mapping in `pubm.config.ts`:
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+Set `versionSources: "commits"` to use only conventional commits and ignore changeset files entirely. Set `versionSources: "changesets"` to disable the fallback and use only changeset files.
+
 ## Migration from `.changeset/`
 
 ```bash

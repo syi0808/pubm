@@ -1,3 +1,4 @@
+import type { BumpType } from "../changeset/parser.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { t } from "../i18n/index.js";
 import { discoverPackages } from "../monorepo/discover.js";
@@ -45,6 +46,8 @@ const defaultConfig = {
   releaseNotes: true,
   createPr: false,
   lockfileSync: "optional" as const,
+  versionSources: "all" as const,
+  conventionalCommits: { types: {} as Record<string, BumpType | false> },
 };
 
 export async function resolveConfig(
@@ -118,6 +121,10 @@ export async function resolveConfig(
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     plugins: config.plugins ?? [],
+    versionSources: config.versionSources ?? defaultConfig.versionSources,
+    conventionalCommits: {
+      types: config.conventionalCommits?.types ?? {},
+    },
     ...(discoveryEmpty ? { discoveryEmpty } : {}),
   };
 }

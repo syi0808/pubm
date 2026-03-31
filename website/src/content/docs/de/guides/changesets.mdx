@@ -97,6 +97,40 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
+## Fallback auf Conventional Commits
+
+Wenn `versionSources` `"all"` ist (der Standard), fällt `pubm changesets version` automatisch auf Conventional Commits zurück, wenn ein Paket keine ausstehenden Changeset-Dateien hat. Dadurch können Teams Changesets schrittweise einführen: Pakete mit Changesets verwenden diese; Pakete ohne Changesets greifen auf die Commit-Historie zurück.
+
+### Standard-Zuordnung von Commit-Typen
+
+| Commit-Typ | Bump |
+|------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
+
+Ein `BREAKING CHANGE`-Footer oder ein `!`-Suffix (z. B. `feat!:`) erzeugt immer einen `major`-Bump.
+
+### Benutzerdefinierte Zuordnungen konfigurieren
+
+Überschreibe die Standard-Zuordnung in `pubm.config.ts`:
+
+```ts
+export default defineConfig({
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
+    },
+  },
+});
+```
+
+Setze `versionSources: "commits"`, um nur Conventional Commits zu verwenden und Changeset-Dateien vollständig zu ignorieren. Setze `versionSources: "changesets"`, um den Fallback zu deaktivieren und nur Changeset-Dateien zu verwenden.
+
 ## Migration von `.changeset/`
 
 ```bash
