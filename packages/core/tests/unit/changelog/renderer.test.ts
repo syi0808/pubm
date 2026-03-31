@@ -123,6 +123,20 @@ describe("renderChangelog", () => {
     expect(majorIdx).toBeLessThan(patchIdx);
   });
 
+  it("skips bump groups with empty sections", () => {
+    const bumpGroups: { bumpType: BumpType; sections: ChangelogSection[] }[] = [
+      { bumpType: "major", sections: [] },
+      {
+        bumpType: "minor",
+        sections: [{ category: undefined, items: ["- visible item"] }],
+      },
+    ];
+    const result = renderChangelog("1.1.0", bumpGroups);
+    expect(result).not.toContain("Major Changes");
+    expect(result).toContain("### Minor Changes");
+    expect(result).toContain("- visible item");
+  });
+
   it("returns heading only with no groups", () => {
     expect(renderChangelog("1.0.0", [])).toBe("## 1.0.0\n");
   });

@@ -1096,7 +1096,7 @@ describe("brewTap", () => {
     });
 
     it("local check throws when gh auth fails", async () => {
-      mockedExecFileSync.mockImplementation((cmd, args) => {
+      mockedExecFileSync.mockImplementation((_cmd, args) => {
         if (args?.[0] === "auth") throw new Error("not logged in");
         return Buffer.from("");
       });
@@ -1121,7 +1121,7 @@ describe("brewTap", () => {
     });
 
     it("local check throws when repo access fails", async () => {
-      mockedExecFileSync.mockImplementation((cmd, args) => {
+      mockedExecFileSync.mockImplementation((_cmd, args) => {
         if (args?.[0] === "repo") throw new Error("not found");
         return Buffer.from("");
       });
