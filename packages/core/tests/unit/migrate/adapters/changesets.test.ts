@@ -77,6 +77,27 @@ describe("changesetsAdapter.detect()", () => {
     );
   });
 
+  it("skips entries that are neither .md nor pre.json", async () => {
+    const configFile = path.join(CWD, ".changeset", "config.json");
+
+    mockedExistsSync.mockImplementation((p) => p === configFile);
+    mockedReaddirSync.mockReturnValue([
+      "add-feature.md",
+      "some-file.ts",
+      "other.json",
+    ] as unknown as ReturnType<typeof readdirSync>);
+
+    const result = await changesetsAdapter.detect(CWD);
+
+    expect(result.relatedFiles).toHaveLength(1);
+    expect(result.relatedFiles).toContain(
+      path.join(CWD, ".changeset", "add-feature.md"),
+    );
+    expect(result.relatedFiles).not.toContain(
+      path.join(CWD, ".changeset", "some-file.ts"),
+    );
+  });
+
   it("returns found: false when .changeset/ does not exist", async () => {
     mockedExistsSync.mockReturnValue(false);
 
@@ -311,6 +332,130 @@ describe("changesetsAdapter.parse()", () => {
     expect(result.changelog).toBeUndefined();
     expect(result.unmappable).toEqual([]);
   });
+
+  it("returns empty result when configFile is not found in files array", async () => {
+    const result = await changesetsAdapter.parse([], CWD);
+
+    expect(result.source).toBe("changesets");
+    expect(result.unmappable).toEqual([]);
+    expect(result.git).toBeUndefined();
+    expect(result.npm).toBeUndefined();
+  });
+
+  it("parses config without baseBranch (no git settings)", async () => {
+    const config = {
+      access: "public",
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.git).toBeUndefined();
+    expect(result.npm?.access).toBe("public");
+  });
+
+  it("parses config with only fixed groups (no linked or updateInternalDeps)", async () => {
+    const config = {
+      baseBranch: "main",
+      fixed: [["pkg-a", "pkg-b"]],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.monorepo?.fixed).toEqual([["pkg-a", "pkg-b"]]);
+    expect(result.monorepo?.linked).toBeUndefined();
+    expect(result.monorepo?.updateInternalDeps).toBeUndefined();
+  });
+
+  it("parses config with only linked groups (no fixed)", async () => {
+    const config = {
+      baseBranch: "main",
+      linked: [["pkg-c", "pkg-d"]],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.monorepo?.linked).toEqual([["pkg-c", "pkg-d"]]);
+    expect(result.monorepo?.fixed).toBeUndefined();
+  });
+
+  it("does not set monorepo when fixed and linked are empty arrays", async () => {
+    const config = {
+      baseBranch: "main",
+      fixed: [],
+      linked: [],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.monorepo).toBeUndefined();
+  });
+
+  it("handles changelog as [unknown-package, options] tuple with no preset mapping", async () => {
+    const config = {
+      baseBranch: "main",
+      changelog: ["unknown-package", {}],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.changelog?.enabled).toBe(true);
+    expect(result.changelog?.preset).toBeUndefined();
+  });
 });
 
 describe("changesetsAdapter.getCleanupTargets()", () => {
@@ -329,6 +474,18 @@ describe("changesetsAdapter.getCleanupTargets()", () => {
 
     expect(targets).toContain(path.join(CWD, ".changeset"));
     expect(targets).toHaveLength(1);
+  });
+
+  it("returns empty array when no config files", () => {
+    const detected = {
+      found: false,
+      configFiles: [],
+      relatedFiles: [],
+    };
+
+    const targets = changesetsAdapter.getCleanupTargets(detected);
+
+    expect(targets).toEqual([]);
   });
 });
 
