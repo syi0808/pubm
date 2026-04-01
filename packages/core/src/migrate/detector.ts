@@ -1,0 +1,27 @@
+import type {
+  DetectResult,
+  MigrationSource,
+  MigrationSourceName,
+} from "./types.js";
+
+export interface DetectedSource {
+  adapter: MigrationSource;
+  result: DetectResult;
+}
+
+export async function detectMigrationSources(
+  cwd: string,
+  adapters: MigrationSource[],
+  from?: MigrationSourceName,
+): Promise<DetectedSource[]> {
+  const filtered = from ? adapters.filter((a) => a.name === from) : adapters;
+
+  const results = await Promise.all(
+    filtered.map(async (adapter) => ({
+      adapter,
+      result: await adapter.detect(cwd),
+    })),
+  );
+
+  return results.filter((r) => r.result.found);
+}
