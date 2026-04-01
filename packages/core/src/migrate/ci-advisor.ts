@@ -32,13 +32,13 @@ export function scanCiWorkflows(
   const patterns = CI_PATTERNS[source];
   const advice: CiAdvice[] = [];
 
-  const files = readdirSync(workflowsDir) as unknown as string[];
+  const files = readdirSync(workflowsDir, { encoding: "utf-8" });
 
   for (const filename of files) {
     if (!filename.endsWith(".yml") && !filename.endsWith(".yaml")) continue;
 
     const filePath = join(workflowsDir, filename);
-    const content = readFileSync(filePath, "utf-8") as unknown as string;
+    const content = readFileSync(filePath, "utf-8");
 
     for (const line of content.split("\n")) {
       const trimmed = line.trim();

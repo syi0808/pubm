@@ -257,6 +257,61 @@ describe("convertToPublishConfig", () => {
     );
   });
 
+  it("maps ignore to config.ignore", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      ignore: ["@scope/pkg-a", "@scope/pkg-b"],
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.ignore).toEqual(["@scope/pkg-a", "@scope/pkg-b"]);
+  });
+
+  it("maps snapshotTemplate to config.snapshotTemplate", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      snapshotTemplate: "{tag}-{datetime}",
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.snapshotTemplate).toBe("{tag}-{datetime}");
+  });
+
+  it("maps cleanInstall to config.validate.cleanInstall", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      cleanInstall: true,
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.validate).toEqual({ cleanInstall: true });
+  });
+
+  it("generates warning when anyBranch is true", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      anyBranch: true,
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.warnings.some((w) => w.includes("anyBranch"))).toBe(true);
+  });
+
+  it("generates warning for custom test script", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      tests: { enabled: true, script: "bun test" },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.warnings.some((w) => w.includes("bun test"))).toBe(true);
+    expect(result.warnings.some((w) => w.includes("testCommand"))).toBe(true);
+  });
+
+  it("does not generate test script warning when tests.script is absent", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      tests: { enabled: true },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.warnings.some((w) => w.includes("testCommand"))).toBe(false);
+  });
+
   it("passes through changesetFiles option", () => {
     const result = convertToPublishConfig(minimal(), {
       changesetFiles: [".changeset/foo.md"],

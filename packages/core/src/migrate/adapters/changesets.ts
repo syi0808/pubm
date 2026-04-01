@@ -64,7 +64,7 @@ export const changesetsAdapter: MigrationSource = {
     const relatedFiles: string[] = [];
 
     try {
-      const entries = readdirSync(changesetDir) as string[];
+      const entries = readdirSync(changesetDir, { encoding: "utf-8" });
       for (const entry of entries) {
         if (SKIPPED_DIR_ENTRIES.has(entry)) continue;
         if (entry.endsWith(".md") || entry === "pre.json") {
@@ -144,6 +144,16 @@ export const changesetsAdapter: MigrationSource = {
       } catch {
         // ignore
       }
+    }
+
+    // ignore
+    if (config.ignore !== undefined && config.ignore.length > 0) {
+      result.ignore = config.ignore;
+    }
+
+    // snapshotTemplate
+    if (config.snapshot?.prereleaseTemplate !== undefined) {
+      result.snapshotTemplate = config.snapshot.prereleaseTemplate;
     }
 
     // unmappable

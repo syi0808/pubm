@@ -57,6 +57,11 @@ export interface ParsedMigrationConfig {
     branches?: Array<{ name: string; prerelease: string | true }>;
   };
 
+  ignore?: string[];
+  snapshotTemplate?: string;
+  cleanInstall?: boolean;
+  anyBranch?: boolean;
+
   unmappable: Array<{
     key: string;
     value: unknown;
