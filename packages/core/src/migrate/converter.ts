@@ -60,6 +60,28 @@ export function convertToPublishConfig(
     }
   }
 
+  // Rule: ignore → config.ignore
+  if (parsed.ignore !== undefined) {
+    config.ignore = parsed.ignore;
+  }
+
+  // Rule: snapshotTemplate → config.snapshotTemplate
+  if (parsed.snapshotTemplate !== undefined) {
+    config.snapshotTemplate = parsed.snapshotTemplate;
+  }
+
+  // Rule: cleanInstall → config.validate.cleanInstall
+  if (parsed.cleanInstall !== undefined) {
+    config.validate = { cleanInstall: parsed.cleanInstall };
+  }
+
+  // Rule: anyBranch warning
+  if (parsed.anyBranch === true) {
+    warnings.push(
+      "anyBranch was enabled — pubm enforces branch restrictions by default; remove git.branch to allow any branch",
+    );
+  }
+
   // Rules 10–12: monorepo settings
   if (parsed.monorepo !== undefined) {
     if (parsed.monorepo.fixed !== undefined) {
@@ -71,6 +93,13 @@ export function convertToPublishConfig(
     if (parsed.monorepo.updateInternalDeps !== undefined) {
       config.updateInternalDependencies = parsed.monorepo.updateInternalDeps;
     }
+  }
+
+  // Rule: tests.script → warning (custom test script)
+  if (parsed.tests?.script !== undefined) {
+    warnings.push(
+      `Custom test script "${parsed.tests.script}" — configure in packages[].testCommand`,
+    );
   }
 
   // Rule 13: hooks → warnings

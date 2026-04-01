@@ -17,7 +17,13 @@ const STANDALONE_CONFIG_FILES = [
 const PACKAGE_JSON = "package.json";
 
 /** np options that are runtime-only and should be silently ignored */
-const RUNTIME_ONLY_KEYS = new Set(["yolo", "preview", "packageManager"]);
+const RUNTIME_ONLY_KEYS = new Set([
+  "yolo",
+  "preview",
+  "packageManager",
+  "cleanup",
+  "anyBranch",
+]);
 
 /** np options that cannot be mapped to pubm config */
 const UNMAPPABLE_KEYS: Record<string, string> = {
@@ -110,6 +116,16 @@ function mapNpConfigToParsed(
       release: true,
       draft: releaseDraft,
     };
+  }
+
+  // cleanInstall (np cleanup option)
+  if (npConfig.cleanup !== undefined) {
+    result.cleanInstall = npConfig.cleanup;
+  }
+
+  // anyBranch — stored as a flag to emit a warning in converter
+  if (npConfig.anyBranch === true) {
+    result.anyBranch = true;
   }
 
   // unmappable keys (skip runtime-only keys silently)

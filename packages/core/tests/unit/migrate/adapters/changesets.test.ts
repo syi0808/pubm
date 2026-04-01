@@ -434,6 +434,91 @@ describe("changesetsAdapter.parse()", () => {
     expect(result.monorepo).toBeUndefined();
   });
 
+  it("parses ignore field when non-empty", async () => {
+    const config = {
+      baseBranch: "main",
+      ignore: ["@scope/pkg-a", "@scope/pkg-b"],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.ignore).toEqual(["@scope/pkg-a", "@scope/pkg-b"]);
+  });
+
+  it("does not set ignore when ignore is an empty array", async () => {
+    const config = {
+      baseBranch: "main",
+      ignore: [],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.ignore).toBeUndefined();
+  });
+
+  it("parses snapshot.prereleaseTemplate into snapshotTemplate", async () => {
+    const config = {
+      baseBranch: "main",
+      snapshot: { prereleaseTemplate: "{tag}-{datetime}" },
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.snapshotTemplate).toBe("{tag}-{datetime}");
+  });
+
+  it("does not set snapshotTemplate when snapshot is absent", async () => {
+    const config = { baseBranch: "main" };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".changeset", "config.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+    mockedExistsSync.mockReturnValue(false);
+
+    const result = await changesetsAdapter.parse(
+      [path.join(CWD, ".changeset", "config.json")],
+      CWD,
+    );
+
+    expect(result.snapshotTemplate).toBeUndefined();
+  });
+
   it("handles changelog as [unknown-package, options] tuple with no preset mapping", async () => {
     const config = {
       baseBranch: "main",

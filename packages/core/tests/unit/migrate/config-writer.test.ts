@@ -108,4 +108,16 @@ describe("generateConfigString", () => {
     expect(output).toContain("export default defineConfig({");
     expect(output).toContain("});");
   });
+
+  it("output ends with a trailing newline", () => {
+    const config: Partial<PubmConfig> = { branch: "main" };
+    const output = generateConfigString(config);
+    expect(output.endsWith("\n")).toBe(true);
+  });
+
+  it("empty config also ends with a trailing newline", () => {
+    const config: Partial<PubmConfig> = {};
+    const output = generateConfigString(config);
+    expect(output.endsWith("\n")).toBe(true);
+  });
 });

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { MigrationSourceName } from "@pubm/core";
 import {
   changesetsAdapter,
@@ -19,6 +20,8 @@ const ALL_ADAPTERS = [
   npAdapter,
 ];
 
+const VALID_SOURCES = ["semantic-release", "release-it", "changesets", "np"];
+
 export function registerMigrateCommand(program: Command): void {
   program
     .command("migrate")
@@ -31,6 +34,17 @@ export function registerMigrateCommand(program: Command): void {
         try {
           const cwd = process.cwd();
           const isTty = process.stdout.isTTY;
+
+          if (
+            options.from !== undefined &&
+            !VALID_SOURCES.includes(options.from)
+          ) {
+            ui.error(
+              `Invalid source "${options.from}". Valid options: ${VALID_SOURCES.join(", ")}`,
+            );
+            process.exitCode = 1;
+            return;
+          }
 
           if (!isTty && !options.dryRun) {
             ui.error(t("cmd.migrate.ciNonTty"));
@@ -57,7 +71,7 @@ export function registerMigrateCommand(program: Command): void {
             for (let i = 0; i < detected.length; i++) {
               const d = detected[i];
               const files = d.result.configFiles.map((f) =>
-                f.replace(`${cwd}/`, ""),
+                path.relative(cwd, f),
               );
               console.log(
                 `    ${i + 1}. ${d.adapter.name} (${files.join(", ")})`,
@@ -90,7 +104,7 @@ export function registerMigrateCommand(program: Command): void {
             console.log();
             ui.info(t("cmd.migrate.ciAdvice"));
             for (const advice of result.ciAdvice) {
-              const relFile = advice.file.replace(`${cwd}/`, "");
+              const relFile = path.relative(cwd, advice.file);
               console.log(`    ${relFile}`);
               console.log(`      - ${advice.removeLine}`);
               console.log(`      + ${advice.addLine}`);

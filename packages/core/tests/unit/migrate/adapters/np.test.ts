@@ -265,14 +265,103 @@ describe("npAdapter.parse()", () => {
       return "";
     });
 
-    const result = await npAdapter.parse(
-      [path.join(CWD, "package.json")],
-      CWD,
-    );
+    const result = await npAdapter.parse([path.join(CWD, "package.json")], CWD);
 
     expect(result.source).toBe("np");
     expect(result.git).toBeUndefined();
     expect(result.npm).toBeUndefined();
+  });
+
+  it("maps cleanup=true to cleanInstall=true", async () => {
+    const npConfig = { branch: "main", cleanup: true };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.cleanInstall).toBe(true);
+    expect(result.unmappable.map((u) => u.key)).not.toContain("cleanup");
+  });
+
+  it("maps cleanup=false to cleanInstall=false", async () => {
+    const npConfig = { cleanup: false };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.cleanInstall).toBe(false);
+  });
+
+  it("does not set cleanInstall when cleanup is absent", async () => {
+    const npConfig = { branch: "main" };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.cleanInstall).toBeUndefined();
+  });
+
+  it("maps anyBranch=true to anyBranch flag", async () => {
+    const npConfig = { anyBranch: true };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.anyBranch).toBe(true);
+    expect(result.unmappable.map((u) => u.key)).not.toContain("anyBranch");
+  });
+
+  it("does not set anyBranch when anyBranch=false", async () => {
+    const npConfig = { anyBranch: false };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.anyBranch).toBeUndefined();
   });
 
   it("sets git when only commitMessage is set (no branch)", async () => {
