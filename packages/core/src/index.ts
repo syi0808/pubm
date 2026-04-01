@@ -140,6 +140,30 @@ export {
   writeVersionsForEcosystem,
 } from "./manifest/index.js";
 export type {
+  CiAdvice,
+  ConvertResult,
+  DetectedSource,
+  DetectResult,
+  MigrationOptions,
+  MigrationPipelineResult,
+  MigrationSource,
+  MigrationSourceName,
+  ParsedMigrationConfig,
+} from "./migrate/index.js";
+// Migration
+export {
+  changesetsAdapter,
+  convertToPublishConfig,
+  detectMigrationSources,
+  executeMigration,
+  generateConfigString,
+  npAdapter,
+  releaseItAdapter,
+  removeFiles,
+  scanCiWorkflows,
+  semanticReleaseAdapter,
+} from "./migrate/index.js";
+export type {
   DiscoverOptions,
   PackageNode,
   ResolvedPackage,

@@ -112,10 +112,12 @@ function mapNpConfigToParsed(
     };
   }
 
-  // unmappable keys
-  for (const [key, reason] of Object.entries(UNMAPPABLE_KEYS)) {
-    if (npConfig[key] !== undefined) {
-      result.unmappable.push({ key, value: npConfig[key], reason });
+  // unmappable keys (skip runtime-only keys silently)
+  for (const [key, value] of Object.entries(npConfig)) {
+    if (RUNTIME_ONLY_KEYS.has(key)) continue;
+    const reason = UNMAPPABLE_KEYS[key];
+    if (reason !== undefined) {
+      result.unmappable.push({ key, value, reason });
     }
   }
 
