@@ -93,4 +93,19 @@ describe("generateConfigString", () => {
     // 4 items => multi-line
     expect(output).not.toMatch(/registries: \[.*\]/);
   });
+
+  it("renders empty array as []", () => {
+    const config: Partial<PubmConfig> = {
+      ignore: [],
+    };
+    const output = generateConfigString(config);
+    expect(output).toContain("ignore: []");
+  });
+
+  it("renders empty config body (no keys)", () => {
+    const config: Partial<PubmConfig> = {};
+    const output = generateConfigString(config);
+    expect(output).toContain("export default defineConfig({");
+    expect(output).toContain("});");
+  });
 });

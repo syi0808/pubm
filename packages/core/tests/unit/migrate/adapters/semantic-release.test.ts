@@ -400,3 +400,54 @@ describe("semanticReleaseAdapter.getCleanupTargets()", () => {
     expect(targets).toHaveLength(0);
   });
 });
+
+describe("semanticReleaseAdapter.parse() — branch edge cases", () => {
+  const CWD_EDGE = "/fake/project2";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("parses config without branches field (branches undefined)", async () => {
+    const config = {
+      plugins: ["@semantic-release/npm"],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD_EDGE, ".releaserc.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+
+    const result = await semanticReleaseAdapter.parse(
+      [path.join(CWD_EDGE, ".releaserc.json")],
+      CWD_EDGE,
+    );
+
+    expect(result.git?.branch).toBeUndefined();
+    expect(result.prerelease).toBeUndefined();
+  });
+
+  it("parses config with branches as a single string (not array)", async () => {
+    const config = {
+      branches: "main",
+      plugins: [],
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD_EDGE, ".releaserc.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+
+    const result = await semanticReleaseAdapter.parse(
+      [path.join(CWD_EDGE, ".releaserc.json")],
+      CWD_EDGE,
+    );
+
+    expect(result.git?.branch).toBe("main");
+    expect(result.prerelease).toBeUndefined();
+  });
+});

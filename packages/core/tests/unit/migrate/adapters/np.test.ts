@@ -247,6 +247,52 @@ describe("npAdapter.parse()", () => {
 
     expect(result.git?.branch).toBe("standalone-branch");
   });
+
+  it("returns empty result when no matching config file in files array", async () => {
+    const result = await npAdapter.parse([], CWD);
+
+    expect(result.source).toBe("np");
+    expect(result.unmappable).toEqual([]);
+    expect(result.git).toBeUndefined();
+    expect(result.npm).toBeUndefined();
+  });
+
+  it("reads np key from package.json when package.json has no np config (uses empty config)", async () => {
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, "package.json")) {
+        return JSON.stringify({ name: "my-pkg" });
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, "package.json")],
+      CWD,
+    );
+
+    expect(result.source).toBe("np");
+    expect(result.git).toBeUndefined();
+    expect(result.npm).toBeUndefined();
+  });
+
+  it("sets git when only commitMessage is set (no branch)", async () => {
+    const npConfig = { message: "chore: release v%s" };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".np-config.json")) {
+        return JSON.stringify(npConfig);
+      }
+      return "";
+    });
+
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.json")],
+      CWD,
+    );
+
+    expect(result.git?.commitMessage).toBe("chore: release v%s");
+    expect(result.git?.branch).toBeUndefined();
+  });
 });
 
 describe("npAdapter.getCleanupTargets()", () => {

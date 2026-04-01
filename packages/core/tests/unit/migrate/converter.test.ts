@@ -127,6 +127,15 @@ describe("convertToPublishConfig", () => {
     expect(result.config.releaseNotes).toBe(false);
   });
 
+  it("sets no releaseDraft when github.release=true and draft is undefined", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      github: { release: true },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.releaseDraft).toBeUndefined();
+  });
+
   it("maps monorepo.fixed to config.fixed", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
