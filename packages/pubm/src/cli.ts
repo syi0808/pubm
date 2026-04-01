@@ -31,6 +31,7 @@ import { isCI } from "std-env";
 import { registerChangesetsCommand } from "./commands/changesets.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerInspectCommand } from "./commands/inspect.js";
+import { registerMigrateCommand } from "./commands/migrate.js";
 import { registerSecretsCommand } from "./commands/secrets.js";
 import { registerSetupSkillsCommand } from "./commands/setup-skills.js";
 import { registerSnapshotCommand } from "./commands/snapshot.js";
@@ -140,6 +141,7 @@ export function createProgram(): Command {
   registerVersionCommand(program, () => resolvedConfig);
   registerInspectCommand(program, () => resolvedConfig);
   registerSnapshotCommand(program, () => resolvedConfig);
+  registerMigrateCommand(program);
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program

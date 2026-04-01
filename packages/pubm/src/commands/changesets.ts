@@ -3,7 +3,6 @@ import { t } from "@pubm/core";
 import type { Command } from "commander";
 import { registerAddCommand } from "./add.js";
 import { registerChangelogCommand } from "./changelog.js";
-import { registerMigrateCommand } from "./migrate.js";
 import { registerStatusCommand } from "./status.js";
 import { registerVersionCommand } from "./version-cmd.js";
 
@@ -19,5 +18,4 @@ export function registerChangesetsCommand(
   registerChangelogCommand(changesets);
   registerStatusCommand(changesets);
   registerVersionCommand(changesets, getConfig);
-  registerMigrateCommand(changesets);
 }
