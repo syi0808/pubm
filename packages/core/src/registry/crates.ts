@@ -48,13 +48,8 @@ export class CratesConnector extends RegistryConnector {
     }
   }
 
-  async isInstalled(): Promise<boolean> {
-    try {
-      await exec("cargo", ["--version"]);
-      return true;
-    } catch {
-      return false;
-    }
+  protected getVersionCommand(): [string, string[]] {
+    return ["cargo", ["--version"]];
   }
 
   async version(): Promise<string> {
