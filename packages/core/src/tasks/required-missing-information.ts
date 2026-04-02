@@ -25,14 +25,15 @@ import type {
   VersionSource,
   VersionSourceContext,
 } from "../version-source/types.js";
+import {
+  type PackageNotes,
+  buildDependencyBumpNote,
+  displayRecommendationSummary,
+  pluralize,
+  renderPackageVersionSummary,
+} from "./prompts/display.js";
 
 const { RELEASE_TYPES, SemVer, prerelease } = semver;
-
-type PackageNotes = Map<string, string[]>;
-
-function pluralize(count: number, singular: string): string {
-  return count === 1 ? `1 ${singular}` : `${count} ${singular}s`;
-}
 
 function createVersionSources(ctx: PubmContext): VersionSource[] {
   const sources: VersionSource[] = [];
@@ -65,96 +66,6 @@ async function analyzeAllSources(
     sourceResults.push(await source.analyze(vsContext));
   }
   return mergeRecommendations(sourceResults);
-}
-
-function displayRecommendationSummary(
-  recommendations: VersionRecommendation[],
-): string {
-  const lines: string[] = ["", "  Version Recommendations", ""];
-  const sourceWidth = 10;
-  const pkgWidth = Math.max(
-    ...recommendations.map((r) => r.packagePath.length),
-    7,
-  );
-  const bumpWidth = 7;
-  lines.push(
-    `  ${"Source".padEnd(sourceWidth)} ${"Package".padEnd(pkgWidth)} ${"Bump".padEnd(bumpWidth)} Details`,
-  );
-  lines.push(
-    `  ${"-".repeat(sourceWidth)} ${"-".repeat(pkgWidth)} ${"-".repeat(bumpWidth)} ${"-".repeat(20)}`,
-  );
-  for (const rec of recommendations) {
-    const source = rec.source === "changeset" ? "changeset" : "commit";
-    const detail = rec.entries[0]?.summary ?? "";
-    const more =
-      rec.entries.length > 1 ? ` (+${rec.entries.length - 1} more)` : "";
-    const detailDisplay =
-      rec.source === "changeset" ? `"${detail}"${more}` : `${detail}${more}`;
-    lines.push(
-      `  ${source.padEnd(sourceWidth)} ${rec.packagePath.padEnd(pkgWidth)} ${rec.bumpType.padEnd(bumpWidth)} ${detailDisplay}`,
-    );
-  }
-  lines.push("", `  ${recommendations.length} packages to bump`, "");
-  return lines.join("\n");
-}
-
-function formatPackageVersionSummary(
-  currentVersion: string,
-  selectedVersion?: string,
-): string {
-  const current = color.dim(`v${currentVersion}`);
-
-  if (!selectedVersion || selectedVersion === currentVersion) {
-    return current;
-  }
-
-  return `${current} -> ${color.dim(`v${selectedVersion}`)}`;
-}
-
-function buildDependencyBumpNote(
-  currentVersion: string,
-  bumpedDependencies: string[],
-): string {
-  const suggestedVersion = new SemVer(currentVersion).inc("patch").toString();
-  const dependencyLabel =
-    bumpedDependencies.length === 1 ? "dependency" : "dependencies";
-
-  return ui.formatNote(
-    "hint",
-    t("note.dependency.bumped", {
-      label: dependencyLabel,
-      dependencies: bumpedDependencies.join(", "),
-      version: suggestedVersion,
-    }),
-  );
-}
-
-function renderPackageVersionSummary(
-  packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
-  selectedVersions: Map<string, string>,
-  options: {
-    activePackage?: string;
-    notes?: PackageNotes;
-  } = {},
-): string {
-  const lines = [t("output.packages")];
-
-  for (const pkg of packageInfos) {
-    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
-    const selectedVersion = selectedVersions.get(pkg.path);
-    const prefix = options.activePackage === pkg.path ? "> " : "  ";
-
-    lines.push(
-      `${prefix}${pkg.name}  ${formatPackageVersionSummary(currentVersion, selectedVersion)}`,
-    );
-
-    for (const note of options.notes?.get(pkg.path) ?? []) {
-      lines.push(`    ${note}`);
-    }
-  }
-
-  return lines.join("\n");
 }
 
 function versionChoices(currentVersion: string, recommendedBumpType?: string) {
