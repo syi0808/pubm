@@ -244,33 +244,17 @@ export class JsrPackageRegistry extends PackageRegistry {
     }
   }
 
-  async isPublished(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.registry}/${this.packageName}`);
-
-      return response.status === 200;
-    } catch (error) {
-      throw new JsrError(
-        `Failed to fetch \`${this.registry}/${this.packageName}\``,
-        { cause: error },
-      );
-    }
+  protected override get registryErrorName(): string {
+    return "jsr Error";
   }
 
-  async isVersionPublished(version: string): Promise<boolean> {
-    if (!version) return false;
-    try {
-      const [scope, name] = getScopeAndName(this.packageName);
-      const response = await fetch(
-        `${this.registry}/@${scope}/${name}/${version}`,
-      );
-      return response.status === 200;
-    } catch (error) {
-      throw new JsrError(
-        `Failed to fetch \`${this.registry}/${this.packageName}/${version}\``,
-        { cause: error },
-      );
-    }
+  protected override buildPackageUrl(): string {
+    return `${this.registry}/${this.packageName}`;
+  }
+
+  protected override buildVersionUrl(version: string): string {
+    const [scope, name] = getScopeAndName(this.packageName);
+    return `${this.registry}/@${scope}/${name}/${version}`;
   }
 
   async hasPermission(): Promise<boolean> {

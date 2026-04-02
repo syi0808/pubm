@@ -102,7 +102,19 @@ export class CratesPackageRegistry extends PackageRegistry {
     super(packageName, packagePath, registry);
   }
 
-  private get headers(): Record<string, string> {
+  protected override get registryErrorName(): string {
+    return "crates.io Error";
+  }
+
+  protected override buildPackageUrl(): string {
+    return `${this.registry}/api/v1/crates/${this.packageName}`;
+  }
+
+  protected override buildVersionUrl(version: string): string {
+    return `${this.registry}/api/v1/crates/${this.packageName}/${version}`;
+  }
+
+  protected override fetchHeaders(): Record<string, string> {
     return { "User-Agent": USER_AGENT };
   }
 
@@ -114,7 +126,7 @@ export class CratesPackageRegistry extends PackageRegistry {
     try {
       const response = await fetch(
         `${this.registry}/api/v1/crates/${this.packageName}`,
-        { headers: this.headers },
+        { headers: this.fetchHeaders() },
       );
 
       if (!response.ok) {
@@ -188,28 +200,12 @@ export class CratesPackageRegistry extends PackageRegistry {
     }
   }
 
-  async isVersionPublished(version: string): Promise<boolean> {
-    if (!version) return false;
+  // Override isPublished: crates silently returns false on error instead of throwing
+  override async isPublished(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${this.registry}/api/v1/crates/${this.packageName}/${version}`,
-        { headers: this.headers },
-      );
-      return response.ok;
-    } catch (error) {
-      throw new CratesError(
-        `Failed to check version ${version} for '${this.packageName}' on crates.io`,
-        { cause: error },
-      );
-    }
-  }
-
-  async isPublished(): Promise<boolean> {
-    try {
-      const response = await fetch(
-        `${this.registry}/api/v1/crates/${this.packageName}`,
-        { headers: this.headers },
-      );
+      const response = await fetch(this.buildPackageUrl(), {
+        headers: this.fetchHeaders(),
+      });
       return response.ok;
     } catch {
       return false;
@@ -233,7 +229,7 @@ export class CratesPackageRegistry extends PackageRegistry {
     try {
       const response = await fetch(
         `${this.registry}/api/v1/crates/${this.packageName}`,
-        { headers: this.headers },
+        { headers: this.fetchHeaders() },
       );
       return !response.ok;
     } catch (error) {
