@@ -7,8 +7,8 @@ import type { PreparedAsset } from "../../assets/types.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
 import { collectWorkspaceVersions } from "../../monorepo/resolve-workspace.js";
-import { writeVersions } from "../runner.js";
 import { requirePackageEcosystem } from "./rollback-handlers.js";
+import { writeVersions } from "./write-versions.js";
 
 export async function prepareReleaseAssets(
   ctx: PubmContext,
