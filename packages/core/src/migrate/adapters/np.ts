@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import type {
   ConvertResult,
   DetectResult,
@@ -61,7 +62,7 @@ async function readNpConfig(
   ) {
     /* istanbul ignore next */
     try {
-      const mod = await import(filePath);
+      const mod = await import(pathToFileURL(filePath).href);
       return ((mod.default ?? mod) as NpConfig) ?? {};
     } catch {
       return {};

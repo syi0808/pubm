@@ -26,6 +26,7 @@ vi.mock("../../../src/migrate/converter.js", () => ({
 }));
 
 import * as fs from "node:fs";
+import path from "node:path";
 import { migrateFromChangesets } from "../../../src/changeset/migrate.js";
 import { scanCiWorkflows } from "../../../src/migrate/ci-advisor.js";
 import { removeFiles } from "../../../src/migrate/cleanup.js";
@@ -110,7 +111,7 @@ describe("executeMigration", () => {
 
     expect(mockWriteFileSync).toHaveBeenCalledOnce();
     expect(mockWriteFileSync).toHaveBeenCalledWith(
-      "/project/pubm.config.ts",
+      path.join("/project", "pubm.config.ts"),
       expect.stringContaining("defineConfig"),
       "utf-8",
     );

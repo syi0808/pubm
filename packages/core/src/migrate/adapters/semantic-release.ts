@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import YAML from "yaml";
 import type {
   ConvertResult,
@@ -139,7 +140,7 @@ async function loadConfigFile(
     filePath.endsWith(".mjs")
   ) {
     try {
-      const mod = await import(filePath);
+      const mod = await import(pathToFileURL(filePath).href);
       /* istanbul ignore next */
       return ((mod.default ?? mod) as SemanticReleaseConfig) ?? {};
     } catch {

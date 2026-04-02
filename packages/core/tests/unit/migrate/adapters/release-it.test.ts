@@ -333,34 +333,40 @@ describe("releaseItAdapter.parse()", () => {
     });
   });
 
-  it("returns empty result when .release-it.js cannot be dynamically imported", async () => {
-    const result = await releaseItAdapter.parse(
-      [path.join(CWD, ".release-it.js")],
-      CWD,
-    );
+  it("returns unmappable warning when .release-it.js cannot be dynamically imported", async () => {
+    const configFile = path.join(CWD, ".release-it.js");
+    const result = await releaseItAdapter.parse([configFile], CWD);
 
     expect(result.source).toBe("release-it");
-    expect(result.unmappable).toEqual([]);
+    expect(result.unmappable).toHaveLength(1);
+    expect(result.unmappable[0].key).toBe(configFile);
+    expect(result.unmappable[0].reason).toContain(
+      "Could not parse JS/TS config file",
+    );
   });
 
-  it("returns empty result when .release-it.cjs cannot be dynamically imported", async () => {
-    const result = await releaseItAdapter.parse(
-      [path.join(CWD, ".release-it.cjs")],
-      CWD,
-    );
+  it("returns unmappable warning when .release-it.cjs cannot be dynamically imported", async () => {
+    const configFile = path.join(CWD, ".release-it.cjs");
+    const result = await releaseItAdapter.parse([configFile], CWD);
 
     expect(result.source).toBe("release-it");
-    expect(result.unmappable).toEqual([]);
+    expect(result.unmappable).toHaveLength(1);
+    expect(result.unmappable[0].key).toBe(configFile);
+    expect(result.unmappable[0].reason).toContain(
+      "Could not parse JS/TS config file",
+    );
   });
 
-  it("returns empty result when .release-it.ts cannot be dynamically imported", async () => {
-    const result = await releaseItAdapter.parse(
-      [path.join(CWD, ".release-it.ts")],
-      CWD,
-    );
+  it("returns unmappable warning when .release-it.ts cannot be dynamically imported", async () => {
+    const configFile = path.join(CWD, ".release-it.ts");
+    const result = await releaseItAdapter.parse([configFile], CWD);
 
     expect(result.source).toBe("release-it");
-    expect(result.unmappable).toEqual([]);
+    expect(result.unmappable).toHaveLength(1);
+    expect(result.unmappable[0].key).toBe(configFile);
+    expect(result.unmappable[0].reason).toContain(
+      "Could not parse JS/TS config file",
+    );
   });
 
   it("parses YAML config", async () => {
