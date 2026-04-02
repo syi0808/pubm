@@ -174,6 +174,7 @@ describe("NpmPackageRegistry", () => {
 
       expect(mockedFetch).toHaveBeenCalledWith(
         "https://registry.npmjs.org/my-package",
+        undefined,
       );
       expect(result).toBe(true);
     });

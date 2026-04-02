@@ -1,4 +1,5 @@
 import type { PubmContext } from "../context.js";
+import { AbstractError } from "../error.js";
 import type { ManifestReader } from "../manifest/manifest-reader.js";
 import type { RegistryType } from "../types/options.js";
 
@@ -33,9 +34,66 @@ export abstract class PackageRegistry {
     public registry?: string,
   ) {}
 
+  /** Override to customize the error name shown in formatted output. */
+  protected get registryErrorName(): string {
+    return "Registry Error";
+  }
+
+  protected createRegistryError(
+    message: string,
+    options?: { cause?: unknown },
+  ): AbstractError {
+    const err = new AbstractError(message, options);
+    err.name = this.registryErrorName;
+    return err;
+  }
+
+  /** Build the URL to check if a package exists on this registry. */
+  protected abstract buildPackageUrl(): string;
+
+  /** Build the URL to check if a specific version is published. */
+  protected abstract buildVersionUrl(version: string): string;
+
+  /** Override in subclasses that need custom headers for fetch. */
+  protected fetchHeaders(): Record<string, string> | undefined {
+    return undefined;
+  }
+
   abstract publish(): Promise<boolean>;
-  abstract isPublished(): Promise<boolean>;
-  abstract isVersionPublished(version: string): Promise<boolean>;
+
+  async isPublished(): Promise<boolean> {
+    const headers = this.fetchHeaders();
+    try {
+      const response = await fetch(
+        this.buildPackageUrl(),
+        headers ? { headers } : undefined,
+      );
+      return response.status === 200;
+    } catch (error) {
+      throw this.createRegistryError(
+        `Failed to fetch \`${this.buildPackageUrl()}\``,
+        { cause: error },
+      );
+    }
+  }
+
+  async isVersionPublished(version: string): Promise<boolean> {
+    if (!version) return false;
+    const headers = this.fetchHeaders();
+    try {
+      const response = await fetch(
+        this.buildVersionUrl(version),
+        headers ? { headers } : undefined,
+      );
+      return response.status === 200;
+    } catch (error) {
+      throw this.createRegistryError(
+        `Failed to fetch \`${this.buildVersionUrl(version)}\``,
+        { cause: error },
+      );
+    }
+  }
+
   abstract hasPermission(): Promise<boolean>;
   abstract isPackageNameAvailable(): Promise<boolean>;
   abstract distTags(): Promise<string[]>;

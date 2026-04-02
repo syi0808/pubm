@@ -175,32 +175,16 @@ export class NpmPackageRegistry extends PackageRegistry {
     return runNpm(args, cwd);
   }
 
-  async isPublished(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.registry}/${this.packageName}`);
-
-      return response.status === 200;
-    } catch (error) {
-      throw new NpmError(
-        `Failed to fetch \`${this.registry}/${this.packageName}\``,
-        { cause: error },
-      );
-    }
+  protected override get registryErrorName(): string {
+    return "npm Error";
   }
 
-  async isVersionPublished(version: string): Promise<boolean> {
-    if (!version) return false;
-    try {
-      const response = await fetch(
-        `${this.registry}/${this.packageName}/${version}`,
-      );
-      return response.status === 200;
-    } catch (error) {
-      throw new NpmError(
-        `Failed to fetch \`${this.registry}/${this.packageName}/${version}\``,
-        { cause: error },
-      );
-    }
+  protected override buildPackageUrl(): string {
+    return `${this.registry}/${this.packageName}`;
+  }
+
+  protected override buildVersionUrl(version: string): string {
+    return `${this.registry}/${this.packageName}/${version}`;
   }
 
   async userName(): Promise<string> {
