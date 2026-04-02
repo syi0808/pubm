@@ -65,7 +65,9 @@ describe("NpmConnector", () => {
 
       const result = await connector.isInstalled();
 
-      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"]);
+      expect(mockedExec).toHaveBeenCalledWith("npm", ["--version"], {
+        throwOnError: true,
+      });
       expect(result).toBe(true);
     });
 

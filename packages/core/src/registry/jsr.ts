@@ -248,6 +248,13 @@ export class JsrPackageRegistry extends PackageRegistry {
     return "jsr Error";
   }
 
+  protected override createRegistryError(
+    message: string,
+    options?: { cause?: unknown },
+  ): AbstractError {
+    return new JsrError(message, options);
+  }
+
   protected override buildPackageUrl(): string {
     return `${this.registry}/${this.packageName}`;
   }

@@ -14,13 +14,13 @@ import type {
 import { t } from "../../i18n/index.js";
 import { filterConfigPackages } from "../../utils/filter-config.js";
 import { ui } from "../../utils/ui.js";
-import { handleFixedMode } from "./fixed-mode.js";
 import {
-  type PackageNotes,
   buildDependencyBumpNote,
   displayRecommendationSummary,
+  type PackageNotes,
   renderPackageVersionSummary,
 } from "./display.js";
+import { handleFixedMode } from "./fixed-mode.js";
 import {
   analyzeAllSources,
   buildGraphFromPackages,
@@ -206,7 +206,7 @@ export async function handleIndependentMode(
     const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
 
     // Check if a dependency was bumped — suggest patch bump for dependents
-    const deps = graph.get(pkg.path) as string[];
+    const deps = graph.get(pkg.path) ?? [];
     const bumpedDeps = deps.filter((dep) => bumpedPackages.has(dep));
     const notes: PackageNotes = new Map();
     const pkgNotes: string[] = [];
@@ -264,7 +264,7 @@ export async function handleIndependentMode(
   // After all versions selected, check for unbumped dependents of bumped packages
   const unbumpedDependents: string[] = [];
   for (const bumped of bumpedPackages) {
-    const dependents = reverseDeps.get(bumped) as string[];
+    const dependents = reverseDeps.get(bumped) ?? [];
     for (const dependent of dependents) {
       if (!bumpedPackages.has(dependent)) {
         unbumpedDependents.push(dependent);
@@ -280,7 +280,7 @@ export async function handleIndependentMode(
       const currentVersion =
         currentVersions.get(pkgPath) ??
         (packageVersionByPath.get(pkgPath) as string);
-      const deps = (graph.get(pkgPath) as string[]).filter((d) =>
+      const deps = (graph.get(pkgPath) ?? []).filter((d) =>
         bumpedPackages.has(d),
       );
       // Show dependency names (not paths) in the note

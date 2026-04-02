@@ -1,6 +1,5 @@
 import process from "node:process";
 import { stripVTControlCharacters } from "node:util";
-import type { ListrRenderer, ListrTaskWrapper } from "listr2";
 import { isCI } from "std-env";
 import type { PubmContext } from "../../context.js";
 import {
@@ -9,15 +8,10 @@ import {
   ecosystemLabel,
   registryLabel,
 } from "../grouping.js";
+import type { NewListrParentTask } from "./publish-tasks.js";
 import { getPackageName } from "./rollback-handlers.js";
 
 export const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
-
-type NewListrParentTask<Context extends object> = ListrTaskWrapper<
-  Context,
-  typeof ListrRenderer,
-  typeof ListrRenderer
->;
 
 export function formatRegistryGroupSummary(
   heading: string,

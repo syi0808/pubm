@@ -179,6 +179,13 @@ export class NpmPackageRegistry extends PackageRegistry {
     return "npm Error";
   }
 
+  protected override createRegistryError(
+    message: string,
+    options?: { cause?: unknown },
+  ): AbstractError {
+    return new NpmError(message, options);
+  }
+
   protected override buildPackageUrl(): string {
     return `${this.registry}/${this.packageName}`;
   }
