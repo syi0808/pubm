@@ -120,4 +120,23 @@ describe("generateConfigString", () => {
     const output = generateConfigString(config);
     expect(output.endsWith("\n")).toBe(true);
   });
+
+  it("quotes object keys that are not valid JS identifiers", () => {
+    // validate is a PubmConfig key that holds an object; we inject a non-identifier key via cast
+    const config = {
+      validate: { "clean-install": true } as unknown as PubmConfig["validate"],
+    };
+    const output = generateConfigString(config as Partial<PubmConfig>);
+    expect(output).toContain('"clean-install":');
+    expect(output).not.toMatch(/\bclean-install:/);
+  });
+
+  it("does not quote valid JS identifier object keys", () => {
+    const config: Partial<PubmConfig> = {
+      validate: { cleanInstall: true },
+    };
+    const output = generateConfigString(config);
+    expect(output).toContain("cleanInstall:");
+    expect(output).not.toContain('"cleanInstall":');
+  });
 });

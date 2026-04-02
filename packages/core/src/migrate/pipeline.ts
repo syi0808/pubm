@@ -1,5 +1,6 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { migrateFromChangesets } from "../changeset/migrate.js";
 import { scanCiWorkflows } from "./ci-advisor.js";
 import { removeFiles } from "./cleanup.js";
 import { generateConfigString } from "./config-writer.js";
@@ -38,10 +39,21 @@ export async function executeMigration(
 
   // Step 5: Write config file (unless dry-run)
   if (!dryRun) {
-    writeFileSync(join(cwd, "pubm.config.ts"), configString, "utf-8");
+    const outFile = join(cwd, "pubm.config.ts");
+    if (existsSync(outFile)) {
+      throw new Error(
+        "pubm.config.ts already exists. Remove or rename it before migrating.",
+      );
+    }
+    writeFileSync(outFile, configString, "utf-8");
   }
 
-  // Step 6: Clean up source files (unless dry-run or clean=false)
+  // Step 6: Migrate changeset files before cleanup (so they aren't lost)
+  if (!dryRun && adapter.name === "changesets") {
+    migrateFromChangesets(cwd);
+  }
+
+  // Step 7: Clean up source files (unless dry-run or clean=false)
   let cleanedFiles: string[] = [];
   if (!dryRun && clean) {
     cleanedFiles = removeFiles(adapter.getCleanupTargets(detected));

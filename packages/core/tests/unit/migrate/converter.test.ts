@@ -323,4 +323,43 @@ describe("convertToPublishConfig", () => {
     const result = convertToPublishConfig(minimal());
     expect(result.changesetFiles).toBeUndefined();
   });
+
+  it("maps changelog.file to config.changelog when changelog is enabled", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      changelog: { enabled: true, file: "CHANGELOG.md" },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.changelog).toBe("CHANGELOG.md");
+  });
+
+  it("maps changelog.enabled=true without file to config.changelog=true", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      changelog: { enabled: true },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.config.changelog).toBe(true);
+  });
+
+  it("generates warning when github.assets is present", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      github: { release: true, assets: ["dist/*.tgz", "dist/*.zip"] },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.warnings.some((w) => w.includes("releaseAssets"))).toBe(true);
+    expect(result.warnings.some((w) => w.includes("dist/*.tgz"))).toBe(true);
+  });
+
+  it("does not generate assets warning when github.assets is empty", () => {
+    const parsed: ParsedMigrationConfig = {
+      ...minimal(),
+      github: { release: true, assets: [] },
+    };
+    const result = convertToPublishConfig(parsed);
+    expect(result.warnings.some((w) => w.includes("releaseAssets"))).toBe(
+      false,
+    );
+  });
 });

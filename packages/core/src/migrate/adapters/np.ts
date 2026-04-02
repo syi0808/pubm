@@ -50,7 +50,23 @@ interface NpConfig {
   [key: string]: unknown;
 }
 
-function readNpConfig(filePath: string, isPackageJson: boolean): NpConfig {
+async function readNpConfig(
+  filePath: string,
+  isPackageJson: boolean,
+): Promise<NpConfig> {
+  if (
+    filePath.endsWith(".js") ||
+    filePath.endsWith(".cjs") ||
+    filePath.endsWith(".mjs")
+  ) {
+    /* istanbul ignore next */
+    try {
+      const mod = await import(filePath);
+      return ((mod.default ?? mod) as NpConfig) ?? {};
+    } catch {
+      return {};
+    }
+  }
   const raw = readFileSync(filePath, "utf-8");
   const parsed = JSON.parse(raw) as Record<string, unknown>;
   if (isPackageJson) {
@@ -199,7 +215,7 @@ export const npAdapter: MigrationSource = {
 
     const isPackageJson =
       configFile === pkgJsonFile && standaloneFile === undefined;
-    const npConfig = readNpConfig(configFile, isPackageJson);
+    const npConfig = await readNpConfig(configFile, isPackageJson);
 
     return mapNpConfigToParsed(npConfig, "np");
   },

@@ -333,6 +333,36 @@ describe("releaseItAdapter.parse()", () => {
     });
   });
 
+  it("returns empty result when .release-it.js cannot be dynamically imported", async () => {
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.js")],
+      CWD,
+    );
+
+    expect(result.source).toBe("release-it");
+    expect(result.unmappable).toEqual([]);
+  });
+
+  it("returns empty result when .release-it.cjs cannot be dynamically imported", async () => {
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.cjs")],
+      CWD,
+    );
+
+    expect(result.source).toBe("release-it");
+    expect(result.unmappable).toEqual([]);
+  });
+
+  it("returns empty result when .release-it.ts cannot be dynamically imported", async () => {
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.ts")],
+      CWD,
+    );
+
+    expect(result.source).toBe("release-it");
+    expect(result.unmappable).toEqual([]);
+  });
+
   it("parses YAML config", async () => {
     const yamlContent = `git:
   tagName: "v\${version}"
@@ -359,6 +389,94 @@ npm:
     expect(result.git?.branch).toBe("main");
     expect(result.npm?.publish).toBe(true);
     expect(result.npm?.tag).toBe("beta");
+  });
+
+  it("handles git with no mapped fields → no git section set", async () => {
+    const config = { git: {} };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".release-it.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.json")],
+      CWD,
+    );
+
+    expect(result.git).toBeUndefined();
+  });
+
+  it("handles github section with no draft or assets", async () => {
+    const config = { github: { release: true } };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".release-it.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.json")],
+      CWD,
+    );
+
+    expect(result.github?.release).toBe(true);
+    expect(result.github?.draft).toBeUndefined();
+    expect(result.github?.assets).toBeUndefined();
+  });
+
+  it("parses release-it config from package.json", async () => {
+    const pkgContent = {
+      name: "my-pkg",
+      "release-it": {
+        npm: { publish: true },
+        github: { release: true },
+      },
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, "package.json")) {
+        return JSON.stringify(pkgContent);
+      }
+      return "";
+    });
+
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, "package.json")],
+      CWD,
+    );
+
+    expect(result.source).toBe("release-it");
+    expect(result.npm?.publish).toBe(true);
+    expect(result.github?.release).toBe(true);
+  });
+
+  it("handles @release-it/conventional-changelog without infile or preset", async () => {
+    const config = {
+      plugins: {
+        "@release-it/conventional-changelog": {},
+      },
+    };
+
+    mockedReadFileSync.mockImplementation((p) => {
+      if (p === path.join(CWD, ".release-it.json")) {
+        return JSON.stringify(config);
+      }
+      return "";
+    });
+
+    const result = await releaseItAdapter.parse(
+      [path.join(CWD, ".release-it.json")],
+      CWD,
+    );
+
+    expect(result.changelog?.enabled).toBe(true);
+    expect(result.changelog?.file).toBeUndefined();
+    expect(result.changelog?.preset).toBeUndefined();
   });
 });
 
