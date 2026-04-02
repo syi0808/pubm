@@ -10,6 +10,7 @@ import { resolvePhases } from "../utils/resolve-phases.js";
 import { ui } from "../utils/ui.js";
 import { createDryRunTasks } from "./phases/dry-run.js";
 import {
+  type CleanupRef,
   runCiPreparePreflight,
   runCiPublishPluginCreds,
   runLocalPreflight,
@@ -42,7 +43,7 @@ export async function run(ctx: PubmContext): Promise<void> {
   const hasPrepare = phases.includes("prepare");
   const hasPublish = phases.includes("publish");
 
-  const cleanupRef: { current: (() => void) | undefined } = {
+  const cleanupRef: CleanupRef = {
     current: undefined,
   };
 

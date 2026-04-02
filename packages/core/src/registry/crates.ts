@@ -106,6 +106,13 @@ export class CratesPackageRegistry extends PackageRegistry {
     return "crates.io Error";
   }
 
+  protected override createRegistryError(
+    message: string,
+    options?: { cause?: unknown },
+  ): AbstractError {
+    return new CratesError(message, options);
+  }
+
   protected override buildPackageUrl(): string {
     return `${this.registry}/api/v1/crates/${this.packageName}`;
   }

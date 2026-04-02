@@ -10,7 +10,7 @@ export abstract class RegistryConnector {
   async isInstalled(): Promise<boolean> {
     try {
       const [cmd, args] = this.getVersionCommand();
-      await exec(cmd, args);
+      await exec(cmd, args, { throwOnError: true });
       return true;
     } catch {
       return false;
