@@ -44,14 +44,8 @@ export class NpmConnector extends RegistryConnector {
     }
   }
 
-  async isInstalled(): Promise<boolean> {
-    try {
-      await runNpm(["--version"]);
-
-      return true;
-    } catch {
-      return false;
-    }
+  protected getVersionCommand(): [string, string[]] {
+    return ["npm", ["--version"]];
   }
 
   async version(): Promise<string> {

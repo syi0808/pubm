@@ -68,14 +68,8 @@ export class JsrConnector extends RegistryConnector {
     }
   }
 
-  async isInstalled(): Promise<boolean> {
-    try {
-      await runJsr(["--version"]);
-
-      return true;
-    } catch {
-      return false;
-    }
+  protected getVersionCommand(): [string, string[]] {
+    return ["jsr", ["--version"]];
   }
 
   async version(): Promise<string> {
