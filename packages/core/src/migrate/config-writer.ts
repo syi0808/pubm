@@ -71,7 +71,12 @@ function formatValue(value: unknown, indent: number): string {
     );
     if (entries.length === 0) return "{}";
     const lines = entries
-      .map(([k, v]) => `${innerPad}${k}: ${formatValue(v, indent + 2)}`)
+      .map(([k, v]) => {
+        const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k)
+          ? k
+          : JSON.stringify(k);
+        return `${innerPad}${safeKey}: ${formatValue(v, indent + 2)}`;
+      })
       .join(",\n");
     return `{\n${lines},\n${pad}}`;
   }

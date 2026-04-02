@@ -144,6 +144,7 @@ export type {
   ConvertResult,
   DetectedSource,
   DetectResult,
+  ExecuteOptions,
   MigrationOptions,
   MigrationPipelineResult,
   MigrationSource,

@@ -28,7 +28,7 @@ describe("scanCiWorkflows", () => {
 
     expect(advice).toHaveLength(1);
     expect(advice[0].file).toBe(`${workflowsDir}/release.yml`);
-    expect(advice[0].removeLine).toBe("run: npx semantic-release");
+    expect(advice[0].removeLine).toBe("- run: npx semantic-release");
     expect(advice[0].addLine).toBe("npx pubm release:ci");
   });
 
@@ -42,7 +42,7 @@ describe("scanCiWorkflows", () => {
     const advice = scanCiWorkflows(cwd, "changesets");
 
     expect(advice).toHaveLength(1);
-    expect(advice[0].removeLine).toBe("run: npx changeset publish");
+    expect(advice[0].removeLine).toBe("- run: npx changeset publish");
     expect(advice[0].addLine).toBe("npx pubm release:ci");
   });
 
@@ -54,7 +54,7 @@ describe("scanCiWorkflows", () => {
     const advice = scanCiWorkflows(cwd, "release-it");
 
     expect(advice).toHaveLength(1);
-    expect(advice[0].removeLine).toBe("run: npx release-it --ci");
+    expect(advice[0].removeLine).toBe("- run: npx release-it --ci");
     expect(advice[0].addLine).toBe("npx pubm release:ci");
   });
 

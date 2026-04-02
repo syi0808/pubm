@@ -5,7 +5,6 @@ vi.mock("node:fs");
 import * as fs from "node:fs";
 import { removeFiles } from "../../../src/migrate/cleanup.js";
 
-const mockExistsSync = vi.mocked(fs.existsSync);
 const mockUnlinkSync = vi.mocked(fs.unlinkSync);
 const mockRmSync = vi.mocked(fs.rmSync);
 const mockStatSync = vi.mocked(fs.statSync);
@@ -20,7 +19,6 @@ beforeEach(() => {
 
 describe("removeFiles", () => {
   it("removes individual files with unlinkSync", () => {
-    mockExistsSync.mockReturnValue(true);
     mockStatSync.mockReturnValue(makeStats(false));
 
     const removed = removeFiles(["/project/.releaserc", "/project/.npmrc"]);
@@ -32,7 +30,6 @@ describe("removeFiles", () => {
   });
 
   it("removes directories with rmSync({ recursive: true })", () => {
-    mockExistsSync.mockReturnValue(true);
     mockStatSync.mockReturnValue(makeStats(true));
 
     const removed = removeFiles(["/project/.changeset"]);
@@ -44,8 +41,11 @@ describe("removeFiles", () => {
     expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
 
-  it("skips non-existent files", () => {
-    mockExistsSync.mockReturnValue(false);
+  it("skips non-existent files (ENOENT from statSync)", () => {
+    const enoent = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    mockStatSync.mockImplementation(() => {
+      throw enoent;
+    });
 
     const removed = removeFiles(["/project/.releaserc"]);
 
@@ -55,10 +55,11 @@ describe("removeFiles", () => {
   });
 
   it("handles mix of files and directories, skipping missing", () => {
-    mockExistsSync.mockImplementation((p) => p !== "/project/missing.json");
-    mockStatSync.mockImplementation((p) =>
-      makeStats(p === "/project/.changeset"),
-    );
+    const enoent = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    mockStatSync.mockImplementation((p) => {
+      if (p === "/project/missing.json") throw enoent;
+      return makeStats(p === "/project/.changeset");
+    });
 
     const removed = removeFiles([
       "/project/.releaserc",
@@ -72,5 +73,14 @@ describe("removeFiles", () => {
       recursive: true,
     });
     expect(mockUnlinkSync).not.toHaveBeenCalledWith("/project/missing.json");
+  });
+
+  it("rethrows non-ENOENT errors", () => {
+    const permError = Object.assign(new Error("EPERM"), { code: "EPERM" });
+    mockStatSync.mockImplementation(() => {
+      throw permError;
+    });
+
+    expect(() => removeFiles(["/project/.releaserc"])).toThrow("EPERM");
   });
 });

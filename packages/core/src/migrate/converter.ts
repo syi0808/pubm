@@ -39,8 +39,12 @@ export function convertToPublishConfig(
 
   // Rules 6–7: changelog settings
   if (parsed.changelog !== undefined) {
-    // Rule 6: changelog.enabled → config.changelog
-    config.changelog = parsed.changelog.enabled;
+    // Rule 6: changelog.enabled → config.changelog (use file path when set)
+    if (parsed.changelog.enabled) {
+      config.changelog = parsed.changelog.file ?? true;
+    } else {
+      config.changelog = false;
+    }
 
     // Rule 7: changelog.preset === "github" → changelogFormat = "github"
     if (parsed.changelog.preset === "github") {
@@ -57,6 +61,13 @@ export function convertToPublishConfig(
     } else if (parsed.github.draft !== undefined) {
       // Rule 8: github.draft → config.releaseDraft
       config.releaseDraft = parsed.github.draft;
+    }
+
+    // Rule: github.assets → warning (different format in pubm)
+    if (parsed.github.assets !== undefined && parsed.github.assets.length > 0) {
+      warnings.push(
+        `Release assets [${parsed.github.assets.join(", ")}] — configure manually in releaseAssets`,
+      );
     }
   }
 

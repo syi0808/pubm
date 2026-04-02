@@ -94,4 +94,25 @@ describe("detectMigrationSources", () => {
     expect(results).toHaveLength(0);
     expect(a.detect).not.toHaveBeenCalled();
   });
+
+  it("silently ignores adapters that throw during detect", async () => {
+    const failing: MigrationSource = {
+      name: "semantic-release",
+      configFilePatterns: [],
+      detect: vi.fn().mockRejectedValue(new Error("detect failed")),
+      parse: vi.fn(),
+      convert: vi.fn(),
+      getCleanupTargets: vi.fn(),
+    } as unknown as MigrationSource;
+    const working = makeAdapter("np", {
+      found: true,
+      configFiles: ["package.json"],
+      relatedFiles: [],
+    });
+
+    const results = await detectMigrationSources(cwd, [failing, working]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].adapter.name).toBe("np");
+  });
 });

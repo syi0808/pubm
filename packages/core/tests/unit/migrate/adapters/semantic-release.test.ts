@@ -450,4 +450,34 @@ describe("semanticReleaseAdapter.parse() — branch edge cases", () => {
     expect(result.git?.branch).toBe("main");
     expect(result.prerelease).toBeUndefined();
   });
+
+  it("returns empty result when .releaserc.js cannot be dynamically imported", async () => {
+    const result = await semanticReleaseAdapter.parse(
+      [path.join(CWD_EDGE, ".releaserc.js")],
+      CWD_EDGE,
+    );
+
+    expect(result.source).toBe("semantic-release");
+    expect(result.unmappable).toEqual([]);
+  });
+
+  it("returns empty result when release.config.cjs cannot be dynamically imported", async () => {
+    const result = await semanticReleaseAdapter.parse(
+      [path.join(CWD_EDGE, "release.config.cjs")],
+      CWD_EDGE,
+    );
+
+    expect(result.source).toBe("semantic-release");
+    expect(result.unmappable).toEqual([]);
+  });
+
+  it("returns empty result when release.config.mjs cannot be dynamically imported", async () => {
+    const result = await semanticReleaseAdapter.parse(
+      [path.join(CWD_EDGE, "release.config.mjs")],
+      CWD_EDGE,
+    );
+
+    expect(result.source).toBe("semantic-release");
+    expect(result.unmappable).toEqual([]);
+  });
 });

@@ -4,6 +4,9 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn().mockReturnValue(false),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  statSync: vi.fn(),
+  unlinkSync: vi.fn(),
+  rmSync: vi.fn(),
 }));
 
 vi.mock("../../../src/migrate/ci-advisor.js", () => ({
@@ -14,9 +17,19 @@ vi.mock("../../../src/migrate/cleanup.js", () => ({
   removeFiles: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("../../../src/changeset/migrate.js", () => ({
+  migrateFromChangesets: vi.fn(),
+}));
+
+vi.mock("../../../src/migrate/converter.js", () => ({
+  convertToPublishConfig: vi.fn().mockReturnValue({ config: {}, warnings: [] }),
+}));
+
 import * as fs from "node:fs";
+import { migrateFromChangesets } from "../../../src/changeset/migrate.js";
 import { scanCiWorkflows } from "../../../src/migrate/ci-advisor.js";
 import { removeFiles } from "../../../src/migrate/cleanup.js";
+import { convertToPublishConfig } from "../../../src/migrate/converter.js";
 import {
   type ExecuteOptions,
   executeMigration,
@@ -28,8 +41,11 @@ import type {
 } from "../../../src/migrate/types.js";
 
 const mockWriteFileSync = vi.mocked(fs.writeFileSync);
+const mockExistsSync = vi.mocked(fs.existsSync);
 const mockScanCiWorkflows = vi.mocked(scanCiWorkflows);
 const mockRemoveFiles = vi.mocked(removeFiles);
+const mockMigrateFromChangesets = vi.mocked(migrateFromChangesets);
+const mockConvertToPublishConfig = vi.mocked(convertToPublishConfig);
 
 function makeParsed(
   overrides?: Partial<ParsedMigrationConfig>,
@@ -77,8 +93,15 @@ function makeOptions(overrides?: Partial<ExecuteOptions>): ExecuteOptions {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockExistsSync.mockReturnValue(false);
   mockScanCiWorkflows.mockReturnValue([]);
   mockRemoveFiles.mockReturnValue([]);
+  mockMigrateFromChangesets.mockReturnValue({
+    success: true,
+    migratedFiles: [],
+    configMigrated: false,
+  });
+  mockConvertToPublishConfig.mockReturnValue({ config: {}, warnings: [] });
 });
 
 describe("executeMigration", () => {
@@ -103,11 +126,14 @@ describe("executeMigration", () => {
   });
 
   it("collects warnings from converter", async () => {
-    const adapter = makeAdapter({
-      hooks: [{ lifecycle: "before:release", command: "echo hi" }],
+    mockConvertToPublishConfig.mockReturnValueOnce({
+      config: {},
+      warnings: [
+        "Hook before:release requires manual conversion to pubm plugin",
+      ],
     });
 
-    const result = await executeMigration(makeOptions({ adapter }));
+    const result = await executeMigration(makeOptions());
 
     expect(result.warnings).toContain(
       "Hook before:release requires manual conversion to pubm plugin",
@@ -177,9 +203,46 @@ describe("executeMigration", () => {
       ],
     });
 
-    const result = await executeMigration(makeOptions({ detected }));
+    await executeMigration(makeOptions({ detected }));
 
-    // Config written successfully — confirms converter ran without error
-    expect(result.configWritten).toBe(true);
+    expect(mockConvertToPublishConfig).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        changesetFiles: [
+          "/project/.changeset/feat-foo.md",
+          "/project/.changeset/README.md",
+        ],
+      }),
+    );
+  });
+
+  it("throws when pubm.config.ts already exists", async () => {
+    mockExistsSync.mockReturnValue(true);
+
+    await expect(executeMigration(makeOptions())).rejects.toThrow(
+      "pubm.config.ts already exists",
+    );
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it("calls migrateFromChangesets when adapter is changesets", async () => {
+    const adapter: MigrationSource = {
+      name: "changesets",
+      configFilePatterns: [],
+      detect: vi.fn(),
+      parse: vi.fn().mockResolvedValue(makeParsed()),
+      convert: vi.fn(),
+      getCleanupTargets: vi.fn().mockReturnValue([]),
+    };
+
+    await executeMigration(makeOptions({ adapter, clean: true }));
+
+    expect(mockMigrateFromChangesets).toHaveBeenCalledWith("/project");
+  });
+
+  it("does not call migrateFromChangesets for non-changesets adapter", async () => {
+    await executeMigration(makeOptions());
+
+    expect(mockMigrateFromChangesets).not.toHaveBeenCalled();
   });
 });

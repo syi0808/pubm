@@ -85,6 +85,28 @@ describe("npAdapter.detect()", () => {
 
     expect(result.relatedFiles).toEqual([]);
   });
+
+  it("detects .np-config.js file", async () => {
+    mockedExistsSync.mockImplementation((p) => {
+      return p === path.join(CWD, ".np-config.js");
+    });
+
+    const result = await npAdapter.detect(CWD);
+
+    expect(result.found).toBe(true);
+    expect(result.configFiles).toContain(path.join(CWD, ".np-config.js"));
+  });
+
+  it("detects .np-config.cjs file", async () => {
+    mockedExistsSync.mockImplementation((p) => {
+      return p === path.join(CWD, ".np-config.cjs");
+    });
+
+    const result = await npAdapter.detect(CWD);
+
+    expect(result.found).toBe(true);
+    expect(result.configFiles).toContain(path.join(CWD, ".np-config.cjs"));
+  });
 });
 
 describe("npAdapter.parse()", () => {
@@ -362,6 +384,38 @@ describe("npAdapter.parse()", () => {
     );
 
     expect(result.anyBranch).toBeUndefined();
+  });
+
+  it("returns empty result when .np-config.js cannot be dynamically imported", async () => {
+    // dynamic import() of a non-existent file will throw; we expect graceful fallback
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.js")],
+      CWD,
+    );
+
+    expect(result.source).toBe("np");
+    expect(result.unmappable).toEqual([]);
+    expect(result.git).toBeUndefined();
+  });
+
+  it("returns empty result when .np-config.cjs cannot be dynamically imported", async () => {
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.cjs")],
+      CWD,
+    );
+
+    expect(result.source).toBe("np");
+    expect(result.unmappable).toEqual([]);
+  });
+
+  it("returns empty result when .np-config.mjs cannot be dynamically imported", async () => {
+    const result = await npAdapter.parse(
+      [path.join(CWD, ".np-config.mjs")],
+      CWD,
+    );
+
+    expect(result.source).toBe("np");
+    expect(result.unmappable).toEqual([]);
   });
 
   it("sets git when only commitMessage is set (no branch)", async () => {

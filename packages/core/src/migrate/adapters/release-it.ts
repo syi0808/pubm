@@ -64,7 +64,21 @@ interface ReleaseItConfig {
   [key: string]: unknown;
 }
 
-function loadConfigFile(filePath: string): ReleaseItConfig {
+async function loadConfigFile(filePath: string): Promise<ReleaseItConfig> {
+  if (
+    filePath.endsWith(".js") ||
+    filePath.endsWith(".cjs") ||
+    filePath.endsWith(".ts")
+  ) {
+    try {
+      const mod = await import(filePath);
+      /* istanbul ignore next */
+      return ((mod.default ?? mod) as ReleaseItConfig) ?? {};
+    } catch {
+      return {};
+    }
+  }
+
   const raw = readFileSync(filePath, "utf-8");
 
   if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
@@ -268,7 +282,7 @@ export const releaseItAdapter: MigrationSource = {
       };
     }
 
-    const config = loadConfigFile(configFile);
+    const config = await loadConfigFile(configFile);
     return mapConfigToParsed(config);
   },
 

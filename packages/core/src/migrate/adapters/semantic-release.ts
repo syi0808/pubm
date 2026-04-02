@@ -130,7 +130,23 @@ function extractPrereleaseBranches(
   return result.length > 0 ? result : undefined;
 }
 
-function loadConfigFile(filePath: string): SemanticReleaseConfig {
+async function loadConfigFile(
+  filePath: string,
+): Promise<SemanticReleaseConfig> {
+  if (
+    filePath.endsWith(".js") ||
+    filePath.endsWith(".cjs") ||
+    filePath.endsWith(".mjs")
+  ) {
+    try {
+      const mod = await import(filePath);
+      /* istanbul ignore next */
+      return ((mod.default ?? mod) as SemanticReleaseConfig) ?? {};
+    } catch {
+      return {};
+    }
+  }
+
   const raw = readFileSync(filePath, "utf-8");
 
   if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
@@ -155,11 +171,10 @@ function loadConfigFile(filePath: string): SemanticReleaseConfig {
     }
   }
 
-  // .releaserc.json and JS/CJS/MJS files — parse as JSON (JS files only handle static JSON-like exports)
+  // .releaserc.json — parse as JSON
   try {
     return JSON.parse(raw) as SemanticReleaseConfig;
   } catch {
-    // For JS files that can't be parsed as JSON, return empty config
     return {};
   }
 }
@@ -206,7 +221,7 @@ function mapConfigToParsed(
     }
 
     // @semantic-release/npm → npm.publish, npm.publishPath
-    const npmPlugin = normalized.find((p) => /\bnpm$/.test(p.name));
+    const npmPlugin = normalized.find((p) => /\/npm$/.test(p.name));
     if (npmPlugin !== undefined) {
       result.npm = {
         publish: npmPlugin.options.npmPublish !== false,
@@ -224,7 +239,12 @@ function mapConfigToParsed(
         result.github.draft = Boolean(githubPlugin.options.draftRelease);
       }
       if (githubPlugin.options.assets !== undefined) {
-        result.github.assets = githubPlugin.options.assets as string[];
+        const rawAssets = githubPlugin.options.assets as Array<
+          string | { path: string }
+        >;
+        result.github.assets = rawAssets.map((a) =>
+          typeof a === "string" ? a : a.path,
+        );
       }
     }
 
@@ -337,7 +357,7 @@ export const semanticReleaseAdapter: MigrationSource = {
       };
     }
 
-    const config = loadConfigFile(configFile);
+    const config = await loadConfigFile(configFile);
     return mapConfigToParsed(config);
   },
 

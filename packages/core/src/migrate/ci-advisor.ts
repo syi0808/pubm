@@ -44,14 +44,14 @@ export function scanCiWorkflows(
       const trimmed = line.trim();
       if (!trimmed) continue;
 
-      // Strip YAML list item prefix ("- ") for cleaner display
-      const normalized = trimmed.startsWith("- ") ? trimmed.slice(2) : trimmed;
+      // Strip YAML list item prefix ("- ") and "run: " prefix for pattern matching
+      const normalized = trimmed.replace(/^-\s*/, "").replace(/^run:\s*/, "");
 
       for (const pattern of patterns) {
         if (pattern.test(normalized)) {
           advice.push({
             file: filePath,
-            removeLine: normalized,
+            removeLine: trimmed,
             addLine: "npx pubm release:ci",
           });
           break;
