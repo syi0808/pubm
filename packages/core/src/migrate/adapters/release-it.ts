@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import YAML from "yaml";
 import type {
   ConvertResult,
@@ -64,18 +65,20 @@ interface ReleaseItConfig {
   [key: string]: unknown;
 }
 
-async function loadConfigFile(filePath: string): Promise<ReleaseItConfig> {
+async function loadConfigFile(
+  filePath: string,
+): Promise<ReleaseItConfig | null> {
   if (
     filePath.endsWith(".js") ||
     filePath.endsWith(".cjs") ||
     filePath.endsWith(".ts")
   ) {
     try {
-      const mod = await import(filePath);
+      const mod = await import(pathToFileURL(filePath).href);
       /* istanbul ignore next */
       return ((mod.default ?? mod) as ReleaseItConfig) ?? {};
     } catch {
-      return {};
+      return null;
     }
   }
 
@@ -283,6 +286,18 @@ export const releaseItAdapter: MigrationSource = {
     }
 
     const config = await loadConfigFile(configFile);
+    if (config === null) {
+      return {
+        source: "release-it",
+        unmappable: [
+          {
+            key: configFile,
+            value: null,
+            reason: `Could not parse JS/TS config file: ${configFile}. Convert to JSON or YAML format.`,
+          },
+        ],
+      };
+    }
     return mapConfigToParsed(config);
   },
 

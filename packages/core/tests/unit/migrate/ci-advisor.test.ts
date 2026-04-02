@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("node:fs");
 
 import * as fs from "node:fs";
+import path from "node:path";
 import { scanCiWorkflows } from "../../../src/migrate/ci-advisor.js";
 
 const mockExistsSync = vi.mocked(fs.existsSync);
@@ -10,7 +11,7 @@ const mockReaddirSync = vi.mocked(fs.readdirSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
 const cwd = "/project";
-const workflowsDir = "/project/.github/workflows";
+const workflowsDir = path.join(cwd, ".github", "workflows");
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -27,7 +28,7 @@ describe("scanCiWorkflows", () => {
     const advice = scanCiWorkflows(cwd, "semantic-release");
 
     expect(advice).toHaveLength(1);
-    expect(advice[0].file).toBe(`${workflowsDir}/release.yml`);
+    expect(advice[0].file).toBe(path.join(workflowsDir, "release.yml"));
     expect(advice[0].removeLine).toBe("- run: npx semantic-release");
     expect(advice[0].addLine).toBe("npx pubm release:ci");
   });

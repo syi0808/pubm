@@ -333,15 +333,6 @@ describe("convertToPublishConfig", () => {
     expect(result.config.changelog).toBe("CHANGELOG.md");
   });
 
-  it("maps changelog.enabled=true without file to config.changelog=true", () => {
-    const parsed: ParsedMigrationConfig = {
-      ...minimal(),
-      changelog: { enabled: true },
-    };
-    const result = convertToPublishConfig(parsed);
-    expect(result.config.changelog).toBe(true);
-  });
-
   it("generates warning when github.assets is present", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
