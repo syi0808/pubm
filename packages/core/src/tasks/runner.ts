@@ -1,41 +1,25 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path, { join } from "node:path";
 import process from "node:process";
-import { stripVTControlCharacters } from "node:util";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { Listr, ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
-import micromatch from "micromatch";
+import type { Listr } from "listr2";
 import SemVer from "semver";
 import { isCI } from "std-env";
-import { runAssetPipeline } from "../assets/pipeline.js";
-import { normalizeConfig, resolveAssets } from "../assets/resolver.js";
-import type { PreparedAsset } from "../assets/types.js";
 import {
   buildChangelogEntries,
   generateChangelog,
   writeChangelogToFile,
 } from "../changeset/changelog.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
-import type { Changeset } from "../changeset/parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
 import { createKeyResolver } from "../changeset/resolve.js";
-import type { PubmContext, VersionPlan } from "../context.js";
-import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
+import type { PubmContext } from "../context.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError, consoleError } from "../error.js";
 import { Git } from "../git.js";
 import { t } from "../i18n/index.js";
 import { writeVersionsForEcosystem } from "../manifest/write-versions.js";
-import {
-  collectWorkspaceVersions,
-  restoreManifests,
-} from "../monorepo/resolve-workspace.js";
+import { restoreManifests } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { JsrClient } from "../registry/jsr.js";
 import { exec } from "../utils/exec.js";
@@ -48,13 +32,10 @@ import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
 import { injectPluginTokensToEnv, injectTokensToEnv } from "../utils/token.js";
 import { ui } from "../utils/ui.js";
-import { closeVersionPr, createVersionPr } from "./create-version-pr.js";
 import { createGitHubRelease, deleteGitHubRelease } from "./github-release.js";
 import {
   collectEcosystemRegistryGroups,
   countRegistryTargets,
-  ecosystemLabel,
-  registryLabel,
 } from "./grouping.js";
 import {
   collectPluginCredentials,
@@ -64,10 +45,40 @@ import {
 } from "./preflight.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
-import { buildVersionPrBody } from "./version-pr-body.js";
+import {
+  applyVersionsForDryRun,
+  prepareReleaseAssets,
+  resolveWorkspaceProtocols,
+} from "./runner-utils/manifest-handling.js";
+import {
+  countPublishTargets,
+  createLiveCommandOutput,
+  formatRegistryGroupSummary,
+  formatVersionPlan,
+  formatVersionSummary,
+  shouldRenderLiveCommandOutput,
+} from "./runner-utils/output-formatting.js";
+import {
+  collectDryRunPublishTasks,
+  collectPublishTasks,
+} from "./runner-utils/publish-tasks.js";
+import {
+  getPackageName,
+  isReleaseExcluded,
+  registerChangelogBackup,
+  registerChangesetBackups,
+  registerCommitRollback,
+  registerManifestBackups,
+  registerRemoteTagRollback,
+  registerTagRollback,
+  requirePackageEcosystem,
+  requireVersionPlan,
+} from "./runner-utils/rollback-handlers.js";
+import { pushViaPr } from "./runner-utils/version-pr.js";
+
+export { collectPublishTasks } from "./runner-utils/publish-tasks.js";
 
 const { prerelease } = SemVer;
-const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
 
 function chainCleanup(
   existing: (() => void) | undefined,
@@ -77,79 +88,6 @@ function chainCleanup(
     existing?.();
     next();
   };
-}
-
-async function prepareReleaseAssets(
-  ctx: PubmContext,
-  packageName: string,
-  version: string,
-  packagePath?: string,
-): Promise<{ assets: PreparedAsset[]; tempDir: string }> {
-  const assetConfig = ctx.config.releaseAssets ?? [];
-  if (assetConfig.length === 0) {
-    return { assets: [], tempDir: "" };
-  }
-
-  const assetHooks = ctx.runtime.pluginRunner.collectAssetHooks();
-  const normalizedGroups = normalizeConfig(assetConfig, ctx.config.compress);
-
-  // Find relevant group for this package
-  const relevantGroup = normalizedGroups.find(
-    (g) => !g.packagePath || g.packagePath === packagePath,
-  ) ?? { files: [] };
-
-  const tempDir = join(tmpdir(), `pubm-assets-${Date.now()}`);
-  mkdirSync(tempDir, { recursive: true });
-  ctx.runtime.tempDir = tempDir;
-
-  const resolvedAssets = resolveAssets(
-    relevantGroup,
-    ctx.config.compress,
-    ctx.cwd,
-  );
-  const preparedAssets = await runAssetPipeline(resolvedAssets, assetHooks, {
-    name: packageName.replace(/^@[^/]+\//, ""),
-    version,
-    tempDir,
-    pubmContext: ctx,
-  });
-
-  return { assets: preparedAssets, tempDir };
-}
-
-function isReleaseExcluded(
-  config: { excludeRelease?: string[] },
-  pkgPath: string,
-): boolean {
-  const patterns = config.excludeRelease;
-  if (!patterns?.length) return false;
-  return micromatch.isMatch(pkgPath, patterns);
-}
-
-function getPackageName(ctx: PubmContext, packagePath: string): string {
-  return (
-    ctx.config.packages.find((p) => p.path === packagePath)?.name ?? packagePath
-  );
-}
-
-function requirePackageEcosystem(pkg: {
-  path: string;
-  ecosystem?: EcosystemKey;
-}): EcosystemKey {
-  if (!pkg.ecosystem) {
-    throw new Error(`Package ${pkg.path} is missing an ecosystem.`);
-  }
-
-  return pkg.ecosystem;
-}
-
-function requireVersionPlan(ctx: PubmContext) {
-  const { versionPlan } = ctx.runtime;
-  if (!versionPlan) {
-    throw new Error("Version plan is required before running release tasks.");
-  }
-
-  return versionPlan;
 }
 
 export async function writeVersions(
@@ -177,544 +115,6 @@ export async function writeVersions(
   );
 
   return [...manifestFiles, ...lockfileChanges];
-}
-
-type NewListrParentTask<Context extends object> = ListrTaskWrapper<
-  Context,
-  typeof ListrRenderer,
-  typeof ListrRenderer
->;
-
-function createPublishTaskForPath(
-  registryKey: string,
-  packagePath: string,
-): ListrTask<PubmContext> {
-  const descriptor = registryCatalog.get(registryKey);
-  if (!descriptor?.taskFactory?.createPublishTask) {
-    return {
-      title: t("task.publish.registryLabel", { registry: registryKey }),
-      task: async () => {},
-    };
-  }
-  return descriptor.taskFactory.createPublishTask(packagePath);
-}
-
-async function resolveWorkspaceProtocols(ctx: PubmContext): Promise<void> {
-  if (!ctx.cwd) return;
-
-  const workspaceVersions = collectWorkspaceVersions(ctx.cwd);
-  if (workspaceVersions.size === 0) return;
-
-  const allBackups = new Map<string, string>();
-
-  for (const pkg of ctx.config.packages) {
-    const absPath = path.resolve(ctx.cwd, pkg.path);
-    const ecosystem = requirePackageEcosystem(pkg);
-    const descriptor = ecosystemCatalog.get(ecosystem);
-    if (!descriptor) continue;
-
-    const eco = new descriptor.ecosystemClass(absPath);
-    const backups = await eco.resolvePublishDependencies(workspaceVersions);
-    for (const [k, v] of backups) {
-      allBackups.set(k, v);
-    }
-  }
-
-  if (allBackups.size > 0) {
-    ctx.runtime.workspaceBackups = allBackups;
-    ctx.runtime.rollback.add({
-      label: "Restore workspace protocol dependencies",
-      fn: async () => {
-        for (const [filePath, content] of allBackups) {
-          writeFileSync(filePath, content, "utf-8");
-        }
-      },
-    });
-  }
-}
-
-async function applyVersionsForDryRun(ctx: PubmContext): Promise<void> {
-  const plan = ctx.runtime.versionPlan;
-  if (!plan) return;
-
-  // Backup original versions from config (safe: writeVersions not yet called in dry-run)
-  ctx.runtime.dryRunVersionBackup = new Map(
-    ctx.config.packages.map((pkg) => [pkg.path, pkg.version ?? "0.0.0"]),
-  );
-
-  // Build new versions map from versionPlan
-  let newVersions: Map<string, string>;
-  if (plan.mode === "single") {
-    newVersions = new Map(
-      ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
-    );
-  } else {
-    // fixed and independent both use plan.packages
-    newVersions = plan.packages;
-  }
-
-  await writeVersions(ctx, newVersions);
-}
-
-export async function collectPublishTasks(ctx: PubmContext) {
-  const groups = collectEcosystemRegistryGroups(ctx.config);
-
-  const ecosystemTasks = await Promise.all(
-    groups.map(async (group) => {
-      const registryTasks = await Promise.all(
-        group.registries.map(async ({ registry, packagePaths }) => {
-          const descriptor = registryCatalog.get(registry);
-
-          const paths = descriptor?.orderPackages
-            ? await descriptor.orderPackages(packagePaths)
-            : packagePaths;
-
-          const label = descriptor
-            ? `Running ${descriptor.label} publish`
-            : `Running ${registry} publish`;
-
-          return {
-            title: label,
-            task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
-              task.newListr(
-                paths.map((p) => createPublishTaskForPath(registry, p)),
-                { concurrent: descriptor?.concurrentPublish ?? true },
-              ),
-          };
-        }),
-      );
-
-      return {
-        title: ecosystemLabel(group.ecosystem),
-        task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
-          task.newListr(registryTasks, { concurrent: true }),
-      };
-    }),
-  );
-
-  return ecosystemTasks;
-}
-
-function createDryRunTaskForPath(
-  registryKey: string,
-  packagePath: string,
-  siblingPaths?: string[],
-): ListrTask<PubmContext> {
-  const descriptor = registryCatalog.get(registryKey);
-  if (!descriptor?.taskFactory?.createDryRunTask) {
-    return {
-      title: t("task.dryRun.registryLabel", { registry: registryKey }),
-      task: async () => {},
-    };
-  }
-  return descriptor.taskFactory.createDryRunTask(packagePath, siblingPaths);
-}
-
-async function collectDryRunPublishTasks(ctx: PubmContext) {
-  const groups = collectEcosystemRegistryGroups(ctx.config);
-
-  return await Promise.all(
-    groups.map(async (group) => {
-      const registryTasks = await Promise.all(
-        group.registries.map(async ({ registry, packagePaths }) => {
-          const descriptor = registryCatalog.get(registry);
-
-          const paths = descriptor?.orderPackages
-            ? await descriptor.orderPackages(packagePaths)
-            : packagePaths;
-
-          // For non-concurrent registries with multiple packages, pass sibling paths
-          let siblingPaths: string[] | undefined;
-          if (!descriptor?.concurrentPublish && packagePaths.length > 1) {
-            siblingPaths = packagePaths;
-          }
-
-          const concurrent = descriptor?.concurrentPublish ?? true;
-          const label = descriptor
-            ? `Dry-run ${descriptor.label} publish${concurrent ? "" : " (sequential)"}`
-            : `Dry-run ${registry} publish`;
-
-          return {
-            title: label,
-            task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
-              task.newListr(
-                paths.map((p) =>
-                  createDryRunTaskForPath(registry, p, siblingPaths),
-                ),
-                { concurrent },
-              ),
-          };
-        }),
-      );
-
-      return {
-        title: ecosystemLabel(group.ecosystem),
-        task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
-          task.newListr(registryTasks, { concurrent: true }),
-      };
-    }),
-  );
-}
-
-function formatRegistryGroupSummary(heading: string, ctx: PubmContext): string {
-  const lines = collectEcosystemRegistryGroups(ctx.config).flatMap((group) =>
-    group.registries.map(({ registry, packagePaths }) => {
-      const packageSummary =
-        packagePaths.length > 1 ? ` (${packagePaths.length} packages)` : "";
-      return `- ${ecosystemLabel(group.ecosystem)} > ${registryLabel(registry)}${packageSummary}`;
-    }),
-  );
-
-  if (lines.length === 0) {
-    return heading;
-  }
-
-  return `${heading}:\n${lines.join("\n")}`;
-}
-
-function countPublishTargets(ctx: PubmContext): number {
-  return countRegistryTargets(collectEcosystemRegistryGroups(ctx.config));
-}
-
-function formatVersionSummary(ctx: PubmContext): string {
-  const plan = ctx.runtime.versionPlan;
-  if (plan) {
-    if (plan.mode === "independent") {
-      return [...plan.packages]
-        .map(([pkgPath, ver]) => `${getPackageName(ctx, pkgPath)}@${ver}`)
-        .join(", ");
-    }
-    return `v${plan.version}`;
-  }
-  return "";
-}
-
-function formatVersionPlan(ctx: PubmContext): string {
-  const plan = ctx.runtime.versionPlan;
-  if (plan) {
-    if (plan.mode === "independent" || plan.mode === "fixed") {
-      return `Target versions:\n${[...plan.packages]
-        .map(([pkgPath, ver]) => `  ${getPackageName(ctx, pkgPath)}: ${ver}`)
-        .join("\n")}`;
-    }
-    return `Target version: v${plan.version}`;
-  }
-  return "";
-}
-
-function shouldRenderLiveCommandOutput(_ctx: PubmContext): boolean {
-  return !isCI && Boolean(process.stdout.isTTY);
-}
-
-function normalizeLiveCommandOutputLine(line: string): string {
-  const normalized = stripVTControlCharacters(line).trimEnd();
-  return normalized.trim() ? normalized : "";
-}
-
-function createLiveCommandOutput(
-  task: Pick<NewListrParentTask<PubmContext>, "output">,
-  command: string,
-) {
-  const recentLines: string[] = [];
-  const pending = {
-    stdout: "",
-    stderr: "",
-  };
-
-  const render = (partialLine?: string): void => {
-    const previewLines = partialLine
-      ? [...recentLines, partialLine].slice(-LIVE_COMMAND_OUTPUT_LINE_LIMIT)
-      : recentLines;
-
-    task.output =
-      previewLines.length > 0
-        ? [`Executing \`${command}\``, ...previewLines].join("\n")
-        : `Executing \`${command}\``;
-  };
-
-  const pushLine = (line: string): void => {
-    const normalized = normalizeLiveCommandOutputLine(line);
-    if (!normalized) {
-      return;
-    }
-
-    recentLines.push(normalized);
-    if (recentLines.length > LIVE_COMMAND_OUTPUT_LINE_LIMIT) {
-      recentLines.shift();
-    }
-  };
-
-  const updateFromChunk = (
-    source: keyof typeof pending,
-    chunk: string,
-  ): void => {
-    const segments =
-      `${pending[source]}${chunk.replace(/\r\n/g, "\n").replace(/\r/g, "\n")}`.split(
-        "\n",
-      );
-    pending[source] = segments.pop() as string;
-
-    for (const segment of segments) {
-      pushLine(segment);
-    }
-
-    const partialLine = normalizeLiveCommandOutputLine(pending[source]);
-    render(partialLine || undefined);
-  };
-
-  const finish = (): void => {
-    pushLine(pending.stdout);
-    pushLine(pending.stderr);
-    pending.stdout = "";
-    pending.stderr = "";
-    render();
-  };
-
-  render();
-
-  return {
-    onStdout: (chunk: string) => {
-      updateFromChunk("stdout", chunk);
-    },
-    onStderr: (chunk: string) => {
-      updateFromChunk("stderr", chunk);
-    },
-    finish,
-  };
-}
-
-/** Back up manifest files and register rollback to restore them. */
-function registerManifestBackups(ctx: PubmContext): void {
-  for (const pkg of ctx.config.packages) {
-    const absPath = path.resolve(ctx.cwd, pkg.path);
-    const ecosystem = requirePackageEcosystem(pkg);
-    const descriptor = ecosystemCatalog.get(ecosystem);
-    if (!descriptor) continue;
-    const eco = new descriptor.ecosystemClass(absPath);
-    for (const manifestFile of eco.manifestFiles()) {
-      const manifestPath = path.resolve(absPath, manifestFile);
-      if (existsSync(manifestPath)) {
-        const backup = readFileSync(manifestPath, "utf-8");
-        ctx.runtime.rollback.add({
-          label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
-          fn: async () => {
-            writeFileSync(manifestPath, backup, "utf-8");
-          },
-        });
-      }
-    }
-  }
-}
-
-/** Back up changeset files and register rollback to restore them. */
-function registerChangesetBackups(
-  ctx: PubmContext,
-  changesets: Changeset[],
-): void {
-  const changesetsDir = path.join(ctx.cwd, ".pubm", "changesets");
-  const changesetBackups = new Map<string, string>();
-  for (const changeset of changesets) {
-    const filePath = path.join(changesetsDir, `${changeset.id}.md`);
-    if (existsSync(filePath)) {
-      changesetBackups.set(filePath, readFileSync(filePath, "utf-8"));
-    }
-  }
-  if (changesetBackups.size > 0) {
-    ctx.runtime.rollback.add({
-      label: `Restore ${changesetBackups.size} changeset file(s)`,
-      fn: async () => {
-        for (const [fp, content] of changesetBackups) {
-          writeFileSync(fp, content, "utf-8");
-        }
-      },
-    });
-  }
-}
-
-/** Back up changelog file and register rollback to restore it. */
-function registerChangelogBackup(
-  ctx: PubmContext,
-  changelogPath: string,
-): void {
-  if (existsSync(changelogPath)) {
-    const changelogBackup = readFileSync(changelogPath, "utf-8");
-    ctx.runtime.rollback.add({
-      label: `Restore ${path.relative(ctx.cwd, changelogPath)}`,
-      fn: async () => {
-        writeFileSync(changelogPath, changelogBackup, "utf-8");
-      },
-    });
-  }
-}
-
-/** Register rollback to reset the most recent git commit. */
-function registerCommitRollback(ctx: PubmContext): void {
-  ctx.runtime.rollback.add({
-    label: "Reset git commit",
-    fn: async () => {
-      const g = new Git();
-      await g.reset();
-      const dirty = (await g.status()) !== "";
-      if (dirty) await g.stash();
-      await g.reset("HEAD^", "--hard");
-      if (dirty) await g.popStash();
-    },
-  });
-}
-
-/** Register rollback to delete a local git tag. */
-function registerTagRollback(ctx: PubmContext, tagName: string): void {
-  ctx.runtime.rollback.add({
-    label: `Delete local tag ${tagName}`,
-    fn: async () => {
-      const g = new Git();
-      await g.deleteTag(tagName);
-    },
-  });
-}
-
-function registerRemoteTagRollback(ctx: PubmContext): void {
-  const plan = requireVersionPlan(ctx);
-  if (plan.mode === "independent") {
-    for (const [pkgPath, pkgVersion] of plan.packages) {
-      if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-      const pkgName = getPackageName(ctx, pkgPath);
-      const tag = `${pkgName}@${pkgVersion}`;
-      ctx.runtime.rollback.add({
-        label: t("task.push.deleteRemoteTag", { tag }),
-        fn: async () => {
-          const g = new Git();
-          await g.pushDelete("origin", tag);
-        },
-      });
-    }
-  } else {
-    const tagName = `v${plan.version}`;
-    ctx.runtime.rollback.add({
-      label: t("task.push.deleteRemoteTag", { tag: tagName }),
-      fn: async () => {
-        const g = new Git();
-        await g.pushDelete("origin", tagName);
-      },
-    });
-  }
-}
-
-async function pushViaPr(
-  ctx: PubmContext,
-  git: Git,
-  task: { output: string },
-): Promise<void> {
-  const branchName = `pubm/version-packages-${Date.now()}`;
-
-  task.output = t("task.push.creatingBranch", { branch: branchName });
-  await git.createBranch(branchName);
-
-  task.output = t("task.push.pushingBranch", { branch: branchName });
-  await git.pushNewBranch("origin", branchName);
-
-  registerRemoteTagRollback(ctx);
-
-  const plan = requireVersionPlan(ctx);
-  const prBody = buildPrBodyFromContext(ctx, plan);
-
-  const remoteUrl = await git.repository();
-  const { owner, repo } = parseOwnerRepo(remoteUrl);
-
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new AbstractError(t("error.githubRelease.tokenRequired"));
-  }
-
-  task.output = t("task.push.creatingPr");
-  const pr = await createVersionPr({
-    branch: branchName,
-    base: ctx.config.branch,
-    title: "Version Packages",
-    body: prBody,
-    token,
-    owner,
-    repo,
-    labels: ["no-changeset"],
-  });
-
-  task.output = t("task.push.prCreated", { url: pr.url });
-
-  // Rollback executes LIFO — register in reverse order of desired execution
-  // Desired: close PR → delete branch → (tags already registered earlier)
-  ctx.runtime.rollback.add({
-    label: t("task.push.deleteRemoteBranch", { branch: branchName }),
-    fn: async () => {
-      const g = new Git();
-      await g.pushDelete("origin", branchName);
-    },
-  });
-  ctx.runtime.rollback.add({
-    label: t("task.push.closePr", { number: pr.number }),
-    fn: async () => {
-      await closeVersionPr({ number: pr.number, token, owner, repo });
-    },
-  });
-
-  await git.switch(ctx.config.branch);
-}
-
-function buildPrBodyFromContext(ctx: PubmContext, plan: VersionPlan): string {
-  const packages: { name: string; version: string; bump: string }[] = [];
-  const changelogs = new Map<string, string>();
-
-  if (plan.mode === "independent") {
-    for (const [pkgPath, pkgVersion] of plan.packages) {
-      const pkgConfig = ctx.config.packages.find((p) => p.path === pkgPath);
-      const name = pkgConfig?.name ?? pkgPath;
-      packages.push({ name, version: pkgVersion, bump: "" });
-
-      const changelogDir = pkgConfig
-        ? path.resolve(process.cwd(), pkgConfig.path)
-        : process.cwd();
-      const changelogPath = path.join(changelogDir, "CHANGELOG.md");
-      if (existsSync(changelogPath)) {
-        const section = parseChangelogSection(
-          readFileSync(changelogPath, "utf-8"),
-          pkgVersion,
-        );
-        if (section) changelogs.set(name, section);
-      }
-    }
-  } else {
-    const version = plan.version;
-    for (const pkg of ctx.config.packages) {
-      packages.push({ name: pkg.name, version, bump: "" });
-    }
-
-    if (plan.mode === "single") {
-      const changelogPath = path.join(process.cwd(), "CHANGELOG.md");
-      if (existsSync(changelogPath)) {
-        const section = parseChangelogSection(
-          readFileSync(changelogPath, "utf-8"),
-          version,
-        );
-        if (section) changelogs.set(packages[0]?.name ?? "", section);
-      }
-    } else {
-      for (const pkg of ctx.config.packages) {
-        const changelogPath = path.join(
-          process.cwd(),
-          pkg.path,
-          "CHANGELOG.md",
-        );
-        if (existsSync(changelogPath)) {
-          const section = parseChangelogSection(
-            readFileSync(changelogPath, "utf-8"),
-            version,
-          );
-          if (section) changelogs.set(pkg.name, section);
-        }
-      }
-    }
-  }
-
-  return buildVersionPrBody({ packages, changelogs });
 }
 
 export async function run(ctx: PubmContext): Promise<void> {
