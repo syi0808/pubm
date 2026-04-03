@@ -171,6 +171,15 @@ export function createReleaseTask(
               draft: !!ctx.options.releaseDraft,
             });
             if (result) {
+              if (result.releaseId) {
+                const releaseId = result.releaseId;
+                ctx.runtime.rollback.add({
+                  label: t("task.release.deleteRelease", { tag }),
+                  fn: async () => {
+                    await deleteGitHubRelease(releaseId);
+                  },
+                });
+              }
               // Additional upload targets (plugin hooks)
               const assetHooks = ctx.runtime.pluginRunner.collectAssetHooks();
               if (assetHooks.uploadAssets) {
@@ -190,15 +199,6 @@ export function createReleaseTask(
               task.output = t("task.release.created", {
                 url: result.releaseUrl,
               });
-              if (result.releaseId) {
-                const releaseId = result.releaseId;
-                ctx.runtime.rollback.add({
-                  label: t("task.release.deleteRelease", { tag }),
-                  fn: async () => {
-                    await deleteGitHubRelease(releaseId);
-                  },
-                });
-              }
               await ctx.runtime.pluginRunner.runAfterReleaseHook(ctx, result);
             } else {
               task.output = t("task.release.alreadyExists", { tag });
@@ -307,7 +307,9 @@ export function createReleaseTask(
         });
         task.output = t("task.release.resolvingMetadata");
 
-        const repositoryUrl = await git.repository();
+        const repositoryUrl = (await git.repository())
+          .replace(/^git@github\.com:/, "https://github.com/")
+          .replace(/\.git$/, "");
 
         if (plan.mode === "independent") {
           let first = true;
