@@ -209,7 +209,7 @@ export function createReleaseTask(
           // Single or fixed: one release
           const version = plan.version;
           const tag = `v${version}`;
-          task.output = `Creating release for ${tag}...`;
+          task.output = t("task.release.creating", { tag });
 
           let changelogBody: string | undefined;
           if (plan.mode === "fixed") {
@@ -283,11 +283,11 @@ export function createReleaseTask(
                 })),
               );
             }
-            task.output = `Release created: ${result.releaseUrl}`;
+            task.output = t("task.release.created", { url: result.releaseUrl });
             if (result.releaseId) {
               const releaseId = result.releaseId;
               ctx.runtime.rollback.add({
-                label: `Delete GitHub Release ${tag}`,
+                label: t("task.release.deleteRelease", { tag }),
                 fn: async () => {
                   await deleteGitHubRelease(releaseId);
                 },
@@ -295,7 +295,7 @@ export function createReleaseTask(
             }
             await ctx.runtime.pluginRunner.runAfterReleaseHook(ctx, result);
           } else {
-            task.output = `Release already exists for ${tag}, skipped.`;
+            task.output = t("task.release.alreadyExists", { tag });
           }
           if (tempDir) rmSync(tempDir, { recursive: true, force: true });
         }
@@ -322,7 +322,7 @@ export function createReleaseTask(
             let body = commits
               .map(
                 ({ id, message }) =>
-                  `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                  `- ${message.replaceAll("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
               )
               .join("\n");
             body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
@@ -358,7 +358,7 @@ export function createReleaseTask(
           let body = commits
             .map(
               ({ id, message }) =>
-                `- ${message.replace("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                `- ${message.replaceAll("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
             )
             .join("\n");
           body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
@@ -373,7 +373,7 @@ export function createReleaseTask(
 
           const linkUrl = ui.link("Link", releaseDraftUrl.toString());
           task.title += ` ${linkUrl}`;
-          task.output = `Opening release draft for ${tag}...`;
+          task.output = t("task.release.openingDraft", { tag });
           await openUrl(releaseDraftUrl.toString());
         }
       }

@@ -46,16 +46,29 @@ describe("registerStatusCommand", () => {
   it("prints noChangesets and exits with 1 when --since is set and no changesets exist", async () => {
     mockGetStatus.mockReturnValue({ hasChangesets: false, packages: new Map() });
 
+    class ProcessExitError extends Error {
+      constructor(public readonly code: number | undefined) {
+        super(`process.exit(${code})`);
+        this.name = "ProcessExitError";
+      }
+    }
+
     const mockExit = vi
       .spyOn(process, "exit")
-      .mockImplementation((() => {}) as (code?: number) => never);
+      .mockImplementation((code?: number) => {
+        throw new ProcessExitError(code);
+      });
 
     const parent = makeParent();
     registerStatusCommand(parent);
-    await parent.parseAsync(["node", "test", "status", "--since", "v1.0.0"]);
+
+    await expect(
+      parent.parseAsync(["node", "test", "status", "--since", "v1.0.0"]),
+    ).rejects.toThrow(ProcessExitError);
 
     expect(mockUiInfo).toHaveBeenCalledWith("cmd.status.noChangesets");
     expect(mockExit).toHaveBeenCalledWith(1);
+    expect(mockUiInfo).not.toHaveBeenCalledWith("cmd.status.noPending");
 
     mockExit.mockRestore();
   });
