@@ -117,11 +117,7 @@ export function buildPrBodyFromContext(
       }
     } else {
       for (const pkg of ctx.config.packages) {
-        const changelogPath = path.join(
-          ctx.cwd,
-          pkg.path,
-          "CHANGELOG.md",
-        );
+        const changelogPath = path.join(ctx.cwd, pkg.path, "CHANGELOG.md");
         if (existsSync(changelogPath)) {
           const section = parseChangelogSection(
             readFileSync(changelogPath, "utf-8"),

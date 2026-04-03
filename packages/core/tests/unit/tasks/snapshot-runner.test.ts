@@ -122,7 +122,7 @@ const mockedWriteVersions = vi.mocked(writeVersions);
 const mockedCollectPublishTasks = vi.mocked(collectPublishTasks);
 const mockedGit = vi.mocked(Git);
 
-function makeMockTaskRunner() {
+function _makeMockTaskRunner() {
   return {
     run: vi.fn(async (ctx: PubmContext) => {
       // runs all tasks by default

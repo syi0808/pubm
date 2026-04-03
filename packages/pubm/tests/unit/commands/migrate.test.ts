@@ -47,10 +47,7 @@ function makeProgram(): Command {
   return program;
 }
 
-async function run(
-  program: Command,
-  ...args: string[]
-): Promise<void> {
+async function run(program: Command, ...args: string[]): Promise<void> {
   await program.parseAsync(["node", "pubm", "migrate", ...args]);
 }
 
@@ -148,7 +145,9 @@ describe("registerMigrateCommand", () => {
       mockDetectMigrationSources.mockResolvedValue([
         {
           adapter: { name: "semantic-release" },
-          result: { configFiles: [path.join(process.cwd(), "release.config.js")] },
+          result: {
+            configFiles: [path.join(process.cwd(), "release.config.js")],
+          },
         },
       ]);
       mockExecuteMigration.mockResolvedValue({ warnings: [], ciAdvice: [] });
@@ -176,11 +175,15 @@ describe("registerMigrateCommand", () => {
       mockDetectMigrationSources.mockResolvedValue([
         {
           adapter: { name: "semantic-release" },
-          result: { configFiles: [path.join(process.cwd(), "release.config.js")] },
+          result: {
+            configFiles: [path.join(process.cwd(), "release.config.js")],
+          },
         },
         {
           adapter: { name: "release-it" },
-          result: { configFiles: [path.join(process.cwd(), ".release-it.json")] },
+          result: {
+            configFiles: [path.join(process.cwd(), ".release-it.json")],
+          },
         },
       ]);
       mockExecuteMigration.mockResolvedValue({ warnings: [], ciAdvice: [] });
@@ -202,7 +205,9 @@ describe("registerMigrateCommand", () => {
       mockDetectMigrationSources.mockResolvedValue([
         {
           adapter: { name: "changesets" },
-          result: { configFiles: [path.join(process.cwd(), ".changeset/config.json")] },
+          result: {
+            configFiles: [path.join(process.cwd(), ".changeset/config.json")],
+          },
         },
       ]);
       mockExecuteMigration.mockResolvedValue({

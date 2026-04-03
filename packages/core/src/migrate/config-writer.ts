@@ -97,15 +97,13 @@ export function generateConfigString(config: Partial<PubmConfig>): string {
     .map((k) => `  ${String(k)}: ${formatValue(config[k], 2)}`)
     .join(",\n");
 
-  return (
-    [
-      'import { defineConfig } from "pubm";',
-      "",
-      "export default defineConfig({",
-      body ? `${body},` : "",
-      "});",
-    ]
-      .filter((line, i, arr) => !(line === "" && arr[i - 1] === ""))
-      .join("\n") + "\n"
-  );
+  return `${[
+    'import { defineConfig } from "pubm";',
+    "",
+    "export default defineConfig({",
+    body ? `${body},` : "",
+    "});",
+  ]
+    .filter((line, i, arr) => !(line === "" && arr[i - 1] === ""))
+    .join("\n")}\n`;
 }

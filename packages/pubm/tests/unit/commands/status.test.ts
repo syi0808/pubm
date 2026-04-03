@@ -33,7 +33,10 @@ afterEach(() => {
 
 describe("registerStatusCommand", () => {
   it("prints noPending when no changesets exist and --since is not set", async () => {
-    mockGetStatus.mockReturnValue({ hasChangesets: false, packages: new Map() });
+    mockGetStatus.mockReturnValue({
+      hasChangesets: false,
+      packages: new Map(),
+    });
 
     const parent = makeParent();
     registerStatusCommand(parent);
@@ -44,7 +47,10 @@ describe("registerStatusCommand", () => {
   });
 
   it("prints noChangesets and exits with 1 when --since is set and no changesets exist", async () => {
-    mockGetStatus.mockReturnValue({ hasChangesets: false, packages: new Map() });
+    mockGetStatus.mockReturnValue({
+      hasChangesets: false,
+      packages: new Map(),
+    });
 
     class ProcessExitError extends Error {
       constructor(public readonly code: number | undefined) {
@@ -77,7 +83,14 @@ describe("registerStatusCommand", () => {
     mockGetStatus.mockReturnValue({
       hasChangesets: true,
       packages: new Map([
-        ["pkg-a", { bumpType: "minor", changesetCount: 2, summaries: ["feat: add thing", "feat: another"] }],
+        [
+          "pkg-a",
+          {
+            bumpType: "minor",
+            changesetCount: 2,
+            summaries: ["feat: add thing", "feat: another"],
+          },
+        ],
       ]),
     });
 
@@ -99,7 +112,14 @@ describe("registerStatusCommand", () => {
     mockGetStatus.mockReturnValue({
       hasChangesets: true,
       packages: new Map([
-        ["pkg-b", { bumpType: "patch", changesetCount: 1, summaries: ["fix: correct typo"] }],
+        [
+          "pkg-b",
+          {
+            bumpType: "patch",
+            changesetCount: 1,
+            summaries: ["fix: correct typo"],
+          },
+        ],
       ]),
     });
 

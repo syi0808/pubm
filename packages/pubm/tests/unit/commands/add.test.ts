@@ -1,14 +1,19 @@
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockWriteChangeset, mockUiSuccess, mockUiWarn, mockCreateKeyResolver, mockEnquirerPrompt } =
-  vi.hoisted(() => ({
-    mockWriteChangeset: vi.fn().mockReturnValue("/path/to/changeset.md"),
-    mockUiSuccess: vi.fn(),
-    mockUiWarn: vi.fn(),
-    mockCreateKeyResolver: vi.fn(),
-    mockEnquirerPrompt: vi.fn(),
-  }));
+const {
+  mockWriteChangeset,
+  mockUiSuccess,
+  mockUiWarn,
+  mockCreateKeyResolver,
+  mockEnquirerPrompt,
+} = vi.hoisted(() => ({
+  mockWriteChangeset: vi.fn().mockReturnValue("/path/to/changeset.md"),
+  mockUiSuccess: vi.fn(),
+  mockUiWarn: vi.fn(),
+  mockCreateKeyResolver: vi.fn(),
+  mockEnquirerPrompt: vi.fn(),
+}));
 
 vi.mock("@pubm/core", () => ({
   writeChangeset: mockWriteChangeset,
@@ -37,7 +42,9 @@ function makeParent(): Command {
   return parent;
 }
 
-function makeConfig(packages: { name: string; path: string; version: string }[] = []) {
+function makeConfig(
+  packages: { name: string; path: string; version: string }[] = [],
+) {
   return {
     packages,
   } as never;
@@ -69,9 +76,8 @@ describe("registerAddCommand", () => {
     mockCreateKeyResolver.mockReturnValue(keyResolver);
 
     const parent = makeParent();
-    registerAddCommand(
-      parent,
-      () => makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.0.0" }]),
+    registerAddCommand(parent, () =>
+      makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.0.0" }]),
     );
     await parent.parseAsync([
       "node",
@@ -98,9 +104,8 @@ describe("registerAddCommand", () => {
     mockCreateKeyResolver.mockReturnValue(keyResolver);
 
     const parent = makeParent();
-    registerAddCommand(
-      parent,
-      () => makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.0.0" }]),
+    registerAddCommand(parent, () =>
+      makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.0.0" }]),
     );
 
     await expect(
@@ -127,16 +132,12 @@ describe("registerAddCommand", () => {
       .mockResolvedValueOnce({ summary: "fix: a bug" });
 
     const parent = makeParent();
-    registerAddCommand(
-      parent,
-      () =>
-        makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.2.3" }]),
+    registerAddCommand(parent, () =>
+      makeConfig([{ name: "pkg-a", path: "packages/a", version: "1.2.3" }]),
     );
     await parent.parseAsync(["node", "test", "add"]);
 
-    expect(console.log).toHaveBeenCalledWith(
-      expect.stringContaining("pkg-a"),
-    );
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("pkg-a"));
     expect(mockWriteChangeset).toHaveBeenCalledWith(
       [{ path: "packages/a", type: "patch" }],
       "fix: a bug",
@@ -150,13 +151,11 @@ describe("registerAddCommand", () => {
     mockEnquirerPrompt.mockResolvedValueOnce({ packages: [] });
 
     const parent = makeParent();
-    registerAddCommand(
-      parent,
-      () =>
-        makeConfig([
-          { name: "pkg-a", path: "packages/a", version: "1.0.0" },
-          { name: "pkg-b", path: "packages/b", version: "2.0.0" },
-        ]),
+    registerAddCommand(parent, () =>
+      makeConfig([
+        { name: "pkg-a", path: "packages/a", version: "1.0.0" },
+        { name: "pkg-b", path: "packages/b", version: "2.0.0" },
+      ]),
     );
     await parent.parseAsync(["node", "test", "add"]);
 
@@ -173,13 +172,11 @@ describe("registerAddCommand", () => {
       .mockResolvedValueOnce({ summary: "multi-package update" });
 
     const parent = makeParent();
-    registerAddCommand(
-      parent,
-      () =>
-        makeConfig([
-          { name: "pkg-a", path: "packages/a", version: "1.0.0" },
-          { name: "pkg-b", path: "packages/b", version: "2.0.0" },
-        ]),
+    registerAddCommand(parent, () =>
+      makeConfig([
+        { name: "pkg-a", path: "packages/a", version: "1.0.0" },
+        { name: "pkg-b", path: "packages/b", version: "2.0.0" },
+      ]),
     );
     await parent.parseAsync(["node", "test", "add"]);
 

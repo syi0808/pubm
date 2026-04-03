@@ -96,7 +96,10 @@ describe("isVersionPublished", () => {
       );
 
       expect(await jsr.isVersionPublished("1.0.0")).toBe(true);
-      expect(fetch).toHaveBeenCalledWith("https://jsr.io/@scope/name/1.0.0", undefined);
+      expect(fetch).toHaveBeenCalledWith(
+        "https://jsr.io/@scope/name/1.0.0",
+        undefined,
+      );
     });
 
     it("returns false when version does not exist (HTTP 404)", async () => {
