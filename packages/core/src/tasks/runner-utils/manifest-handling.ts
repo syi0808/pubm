@@ -60,6 +60,18 @@ export async function resolveWorkspaceProtocols(
 
   const allBackups = new Map<string, string>();
 
+  // Register rollback before mutations so any mid-loop failure is still
+  // covered. The handler closes over allBackups by reference, so it will
+  // restore whatever files were written before the throw.
+  ctx.runtime.rollback.add({
+    label: "Restore workspace protocol dependencies",
+    fn: async () => {
+      for (const [filePath, content] of allBackups) {
+        writeFileSync(filePath, content, "utf-8");
+      }
+    },
+  });
+
   for (const pkg of ctx.config.packages) {
     const absPath = path.resolve(ctx.cwd, pkg.path);
     const ecosystem = requirePackageEcosystem(pkg);
@@ -75,14 +87,6 @@ export async function resolveWorkspaceProtocols(
 
   if (allBackups.size > 0) {
     ctx.runtime.workspaceBackups = allBackups;
-    ctx.runtime.rollback.add({
-      label: "Restore workspace protocol dependencies",
-      fn: async () => {
-        for (const [filePath, content] of allBackups) {
-          writeFileSync(filePath, content, "utf-8");
-        }
-      },
-    });
   }
 }
 
