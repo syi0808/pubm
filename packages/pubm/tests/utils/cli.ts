@@ -160,7 +160,7 @@ export async function runPubmCli(
     setDone = resolve;
   });
 
-  subprocess.on("exit", () => setDone());
+  subprocess.on("close", () => setDone());
 
   function output() {
     return {

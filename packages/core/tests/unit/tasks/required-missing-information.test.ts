@@ -1642,6 +1642,23 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
+    it("edit: does not set changesetConsumed when user keeps all packages at current version", async () => {
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+      const ctx = makeTwoPkgCtx();
+      const mockTask = createMockTask();
+      // User selects edit but keeps both packages at current versions
+      mockTask._promptAdapter.run
+        .mockResolvedValueOnce("edit")
+        .mockResolvedValueOnce("1.0.0") // pkgA: keep current
+        .mockResolvedValueOnce("2.0.0"); // pkgB: keep current
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(ctx.runtime.changesetConsumed).toBeFalsy();
+    });
+
     it("edit: shows recommendation notes for packages with changeset bumps", async () => {
       const pkgANoDep = makePkg({
         name: "@scope/a",

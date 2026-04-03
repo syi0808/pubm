@@ -131,6 +131,7 @@
   "task.publish.titleWithTargets": "Veröffentlichen ({count} Ziele)",
   "task.publish.concurrent": "Gleichzeitige Veröffentlichungsaufgaben",
   "task.publish.restoreProtocols": "Workspace-Protokolle wiederherstellen",
+  "task.publish.runningBeforeHooksDetail": "Plugin-beforePublish-Hooks werden ausgeführt...",
   "task.publish.runningAfterHooks": "Post-Veröffentlichungs-Hooks ausführen",
   "task.publish.runningAfterHooksDetail": "Plugin-afterPublish-Hooks werden ausgeführt...",
   "task.publish.completedAfterHooks": "Plugin-afterPublish-Hooks abgeschlossen.",

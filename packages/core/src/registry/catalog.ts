@@ -289,6 +289,20 @@ export function registerPrivateRegistry(
     concurrentPublish: true,
     unpublishLabel: "Unpublish",
     requiresEarlyAuth: false,
+    taskFactory: {
+      createPublishTask: (packagePath) =>
+        lazyTask(packagePath, async () => {
+          const { createNpmPublishTask } = await import("../tasks/npm.js");
+          return createNpmPublishTask(packagePath);
+        }),
+      createDryRunTask: (packagePath) =>
+        lazyTask(packagePath, async () => {
+          const { createNpmDryRunPublishTask } = await import(
+            "../tasks/dry-run-publish.js"
+          );
+          return createNpmDryRunPublishTask(packagePath);
+        }),
+    },
     connector: () => npmConnector(),
     factory: async (packagePath) => {
       // Lazy import to break circular dependency:

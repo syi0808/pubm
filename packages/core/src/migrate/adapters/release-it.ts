@@ -90,7 +90,7 @@ async function loadConfigFile(
 
   if (
     filePath.endsWith(path.sep + PACKAGE_JSON) ||
-    filePath.endsWith("/" + PACKAGE_JSON)
+    filePath.endsWith(`/${PACKAGE_JSON}`)
   ) {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return (parsed["release-it"] ?? {}) as ReleaseItConfig;
@@ -269,12 +269,12 @@ export const releaseItAdapter: MigrationSource = {
     // Prefer standalone config file over package.json
     const standaloneFile = files.find((f) =>
       STANDALONE_CONFIG_FILES.some(
-        (name) => f.endsWith(path.sep + name) || f.endsWith("/" + name),
+        (name) => f.endsWith(path.sep + name) || f.endsWith(`/${name}`),
       ),
     );
     const pkgJsonFile = files.find(
       (f) =>
-        f.endsWith(path.sep + PACKAGE_JSON) || f.endsWith("/" + PACKAGE_JSON),
+        f.endsWith(path.sep + PACKAGE_JSON) || f.endsWith(`/${PACKAGE_JSON}`),
     );
 
     const configFile = standaloneFile ?? pkgJsonFile;
@@ -311,7 +311,7 @@ export const releaseItAdapter: MigrationSource = {
   getCleanupTargets(detected: DetectResult): string[] {
     return detected.configFiles.filter(
       (f) =>
-        !f.endsWith(path.sep + PACKAGE_JSON) && !f.endsWith("/" + PACKAGE_JSON),
+        !f.endsWith(path.sep + PACKAGE_JSON) && !f.endsWith(`/${PACKAGE_JSON}`),
     );
   },
 };

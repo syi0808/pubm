@@ -70,7 +70,9 @@ describe("CratesConnector", () => {
     it("returns true when cargo is available", async () => {
       mockStdout("cargo 1.75.0");
       expect(await connector.isInstalled()).toBe(true);
-      expect(mockedExec).toHaveBeenCalledWith("cargo", ["--version"]);
+      expect(mockedExec).toHaveBeenCalledWith("cargo", ["--version"], {
+        throwOnError: true,
+      });
     });
 
     it("returns false when cargo is not found", async () => {
