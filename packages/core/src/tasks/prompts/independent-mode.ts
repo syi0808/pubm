@@ -37,8 +37,9 @@ export function buildVersionPlan(
   packages: Map<string, string>,
 ): FixedVersionPlan | IndependentVersionPlan {
   if (versioning === "fixed") {
-    let highest = "0.0.0";
-    for (const ver of packages.values()) {
+    const versionEntries = [...packages.values()];
+    let highest = versionEntries[0] ?? "0.0.0";
+    for (const ver of versionEntries.slice(1)) {
       if (semver.gt(ver, highest)) highest = ver;
     }
     const unified = new Map<string, string>();
@@ -76,7 +77,7 @@ export async function handleMultiPackage(
       packages,
     );
     ctx.runtime.changesetConsumed = recommendations.some(
-      (r) => r.source === "changeset",
+      (r) => r.source === "changeset" && packages.has(r.packagePath),
     );
     return;
   }
