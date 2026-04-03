@@ -27,6 +27,14 @@ export async function pushViaPr(
   task.output = t("task.push.pushingBranch", { branch: branchName });
   await git.pushNewBranch("origin", branchName);
 
+  ctx.runtime.rollback.add({
+    label: t("task.push.deleteRemoteBranch", { branch: branchName }),
+    fn: async () => {
+      const g = new Git();
+      await g.pushDelete("origin", branchName);
+    },
+  });
+
   registerRemoteTagRollback(ctx);
 
   const plan = requireVersionPlan(ctx);
@@ -56,13 +64,7 @@ export async function pushViaPr(
 
   // Rollback executes LIFO — register in reverse order of desired execution
   // Desired: close PR → delete branch → (tags already registered earlier)
-  ctx.runtime.rollback.add({
-    label: t("task.push.deleteRemoteBranch", { branch: branchName }),
-    fn: async () => {
-      const g = new Git();
-      await g.pushDelete("origin", branchName);
-    },
-  });
+  // Branch-delete was registered right after pushNewBranch; register PR-close last so it runs first
   ctx.runtime.rollback.add({
     label: t("task.push.closePr", { number: pr.number }),
     fn: async () => {

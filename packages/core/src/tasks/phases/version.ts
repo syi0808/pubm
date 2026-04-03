@@ -243,8 +243,8 @@ export function createVersionTask(
                 (p) => p.path === pkgPath,
               );
               const changelogDir = pkgConfig
-                ? path.resolve(process.cwd(), pkgConfig.path)
-                : process.cwd();
+                ? path.resolve(ctx.cwd, pkgConfig.path)
+                : ctx.cwd;
               const changelogPath = path.join(changelogDir, "CHANGELOG.md");
               registerChangelogBackup(ctx, changelogPath);
             }
@@ -256,8 +256,8 @@ export function createVersionTask(
                   (p) => p.path === pkgPath,
                 );
                 const changelogDir = pkgConfig
-                  ? path.resolve(process.cwd(), pkgConfig.path)
-                  : process.cwd();
+                  ? path.resolve(ctx.cwd, pkgConfig.path)
+                  : ctx.cwd;
                 writeChangelogToFile(
                   changelogDir,
                   generateChangelog(pkgVersion, entries),
