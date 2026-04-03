@@ -41,6 +41,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  process.exitCode = undefined;
 });
 
 describe("registerSnapshotCommand", () => {
@@ -142,7 +143,5 @@ describe("registerSnapshotCommand", () => {
 
     expect(mockConsoleError).toHaveBeenCalledWith(error);
     expect(process.exitCode).toBe(1);
-    // reset exitCode to avoid affecting other tests
-    process.exitCode = 0;
   });
 });

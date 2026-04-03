@@ -89,8 +89,8 @@ export function buildPrBodyFromContext(
       packages.push({ name, version: pkgVersion, bump: "" });
 
       const changelogDir = pkgConfig
-        ? path.resolve(process.cwd(), pkgConfig.path)
-        : process.cwd();
+        ? path.resolve(ctx.cwd, pkgConfig.path)
+        : ctx.cwd;
       const changelogPath = path.join(changelogDir, "CHANGELOG.md");
       if (existsSync(changelogPath)) {
         const section = parseChangelogSection(
@@ -107,7 +107,7 @@ export function buildPrBodyFromContext(
     }
 
     if (plan.mode === "single") {
-      const changelogPath = path.join(process.cwd(), "CHANGELOG.md");
+      const changelogPath = path.join(ctx.cwd, "CHANGELOG.md");
       if (existsSync(changelogPath)) {
         const section = parseChangelogSection(
           readFileSync(changelogPath, "utf-8"),
@@ -118,7 +118,7 @@ export function buildPrBodyFromContext(
     } else {
       for (const pkg of ctx.config.packages) {
         const changelogPath = path.join(
-          process.cwd(),
+          ctx.cwd,
           pkg.path,
           "CHANGELOG.md",
         );

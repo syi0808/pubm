@@ -134,6 +134,6 @@ describe("registerInspectCommand", () => {
     expect(process.exitCode).toBe(1);
 
     // Reset exitCode to avoid leaking state into other tests
-    process.exitCode = 0;
+    process.exitCode = undefined;
   });
 });

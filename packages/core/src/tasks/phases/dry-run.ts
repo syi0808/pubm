@@ -60,17 +60,13 @@ export function createDryRunTasks(
         ctx.runtime.workspaceBackups = undefined;
 
         // Re-sync lockfile to reflect restored workspace:* protocols
-        const syncedLockfiles = new Set<string>();
         for (const pkg of ctx.config.packages) {
           const absPath = path.resolve(ctx.cwd ?? process.cwd(), pkg.path);
           const ecosystem = requirePackageEcosystem(pkg);
           const descriptor = ecosystemCatalog.get(ecosystem);
           if (!descriptor) continue;
           const eco = new descriptor.ecosystemClass(absPath);
-          const lockfilePath = await eco.syncLockfile(ctx.config.lockfileSync);
-          if (lockfilePath && !syncedLockfiles.has(lockfilePath)) {
-            syncedLockfiles.add(lockfilePath);
-          }
+          await eco.syncLockfile(ctx.config.lockfileSync);
         }
       },
     },
