@@ -19,7 +19,7 @@ export function createPublishTasks(
       enabled: hasPublish && !skipPublish && !dryRun,
       title: t("task.publish.title"),
       task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
-        parentTask.output = "Running plugin beforePublish hooks...";
+        parentTask.output = t("task.publish.runningBeforeHooksDetail");
         await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
         await resolveWorkspaceProtocols(ctx);
 

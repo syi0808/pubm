@@ -131,6 +131,7 @@
   "task.publish.titleWithTargets": "Publishing ({count} targets)",
   "task.publish.concurrent": "Concurrent publish tasks",
   "task.publish.restoreProtocols": "Restoring workspace protocols",
+  "task.publish.runningBeforeHooksDetail": "Running plugin beforePublish hooks...",
   "task.publish.runningAfterHooks": "Running post-publish hooks",
   "task.publish.runningAfterHooksDetail": "Running plugin afterPublish hooks...",
   "task.publish.completedAfterHooks": "Completed plugin afterPublish hooks.",

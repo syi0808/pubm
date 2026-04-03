@@ -131,6 +131,7 @@
   "task.publish.titleWithTargets": "배포 ({count}개 대상)",
   "task.publish.concurrent": "동시 배포 작업",
   "task.publish.restoreProtocols": "워크스페이스 프로토콜 복원",
+  "task.publish.runningBeforeHooksDetail": "플러그인 beforePublish 훅 실행 중...",
   "task.publish.runningAfterHooks": "배포 후 훅 실행",
   "task.publish.runningAfterHooksDetail": "플러그인 afterPublish 훅 실행 중...",
   "task.publish.completedAfterHooks": "플러그인 afterPublish 훅 완료.",

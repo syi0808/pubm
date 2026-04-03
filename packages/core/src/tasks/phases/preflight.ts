@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { PubmContext } from "../../context.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
@@ -65,7 +64,7 @@ export async function runCiPreparePreflight(
         const { owner, repo } = parseOwnerRepo(remoteUrl);
         repoSlug = `${owner}/${repo}`;
       } catch {
-        repoSlug = process.cwd();
+        repoSlug = ctx.cwd;
       }
 
       await promptGhSecretsSync(tokens, task, pluginSecrets, repoSlug);
