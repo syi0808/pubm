@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- Add top-level pubm migrate command with --from, --clean, and --dry-run flags
+
+### Patch Changes
+
+- replace --snapshot option with pubm snapshot subcommand supporting monorepo and --filter
+
 ## 0.4.13
 
 ### Patch Changes

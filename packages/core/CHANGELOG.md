@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- Add migration adapters for semantic-release, release-it, changesets, and np with common converter pipeline
+
+### Patch Changes
+
+- extract snapshot pipeline to standalone module with monorepo and CI support
+
 ## 0.4.13
 
 ### Patch Changes
