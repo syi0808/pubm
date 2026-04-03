@@ -20,8 +20,9 @@ export async function handleFixedMode(
   bumps?: Map<string, VersionBump>,
 ): Promise<void> {
   // Use the highest current version as the base
-  let highestVersion = "0.0.0";
-  for (const ver of currentVersions.values()) {
+  const versionEntries = [...currentVersions.values()];
+  let highestVersion = versionEntries[0] ?? "0.0.0";
+  for (const ver of versionEntries.slice(1)) {
     if (semver.gt(ver, highestVersion)) {
       highestVersion = ver;
     }

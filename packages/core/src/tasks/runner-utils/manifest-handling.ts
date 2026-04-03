@@ -24,10 +24,11 @@ export async function prepareReleaseAssets(
   const assetHooks = ctx.runtime.pluginRunner.collectAssetHooks();
   const normalizedGroups = normalizeConfig(assetConfig, ctx.config.compress);
 
-  // Find relevant group for this package
-  const relevantGroup = normalizedGroups.find(
-    (g) => !g.packagePath || g.packagePath === packagePath,
-  ) ?? { files: [] };
+  // Find relevant group for this package: prefer package-specific match,
+  // fall back to the first global (no packagePath) group only if none found.
+  const relevantGroup =
+    normalizedGroups.find((g) => g.packagePath === packagePath) ??
+    normalizedGroups.find((g) => !g.packagePath) ?? { files: [] };
 
   const tempDir = join(tmpdir(), `pubm-assets-${Date.now()}`);
   mkdirSync(tempDir, { recursive: true });

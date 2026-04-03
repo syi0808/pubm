@@ -163,7 +163,9 @@ export async function handleMultiPackage(
       }
     }
     ctx.runtime.changesetConsumed = recommendations.some(
-      (r) => r.source === "changeset",
+      (r) =>
+        r.source === "changeset" &&
+        (ctx.runtime.versionPlan?.packages.has(r.packagePath) ?? false),
     );
     return;
   }

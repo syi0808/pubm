@@ -147,7 +147,7 @@ export function createReleaseTask(
             );
             if (pkgConfig) {
               const changelogPath = join(
-                process.cwd(),
+                ctx.cwd,
                 pkgConfig.path,
                 "CHANGELOG.md",
               );
@@ -221,7 +221,7 @@ export function createReleaseTask(
               );
               if (!pkgConfig) continue;
               const changelogPath = join(
-                process.cwd(),
+                ctx.cwd,
                 pkgConfig.path,
                 "CHANGELOG.md",
               );
@@ -239,7 +239,7 @@ export function createReleaseTask(
               changelogBody = sections.join("\n\n---\n\n");
             }
           } else {
-            const changelogPath = join(process.cwd(), "CHANGELOG.md");
+            const changelogPath = join(ctx.cwd, "CHANGELOG.md");
             if (existsSync(changelogPath)) {
               const section = parseChangelogSection(
                 readFileSync(changelogPath, "utf-8"),
