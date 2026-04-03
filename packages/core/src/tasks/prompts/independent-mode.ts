@@ -162,10 +162,13 @@ export async function handleMultiPackage(
         filterConfigPackages(ctx, publishPaths);
       }
     }
+    const plan = ctx.runtime.versionPlan;
     ctx.runtime.changesetConsumed = recommendations.some(
       (r) =>
         r.source === "changeset" &&
-        (ctx.runtime.versionPlan?.packages.has(r.packagePath) ?? false),
+        plan !== undefined &&
+        "packages" in plan &&
+        plan.packages.has(r.packagePath),
     );
     return;
   }
