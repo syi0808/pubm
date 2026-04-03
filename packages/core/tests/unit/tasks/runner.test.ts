@@ -2134,7 +2134,7 @@ describe("run", () => {
       expect(logMessage).toContain("CI prepare completed");
     });
 
-    it("creates no-op dry-run task for unknown registries in CI prepare mode", async () => {
+    it("throws for unknown registries in CI prepare mode dry-run", async () => {
       await run(
         createOptions({
           options: { mode: "ci", prepare: true },
@@ -2181,10 +2181,8 @@ describe("run", () => {
       const innerParentTask = {
         newListr: vi.fn(() => ({ run: vi.fn() })),
       };
-      registryWrapperTask.task(ctx, innerParentTask);
-
-      expect(innerParentTask.newListr.mock.calls[0][0][0].title).toBe(
-        "Dry-run custom-registry",
+      expect(() => registryWrapperTask.task(ctx, innerParentTask)).toThrow(
+        'No dry-run task factory registered for registry "custom-registry"',
       );
     });
 

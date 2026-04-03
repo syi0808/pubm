@@ -27,6 +27,6 @@ export async function detectMigrationSources(
   );
 
   return results.filter(
-    (r): r is DetectedSource => r !== undefined && r.result.found,
+    (r): r is DetectedSource => r != null && r.result.found,
   );
 }

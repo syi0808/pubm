@@ -370,7 +370,10 @@ describe("JsrPackageRegistry", () => {
 
       const result = await registry.isPublished();
 
-      expect(mockedFetch).toHaveBeenCalledWith("https://jsr.io/@scope/pkg");
+      expect(mockedFetch).toHaveBeenCalledWith(
+        "https://jsr.io/@scope/pkg",
+        undefined,
+      );
       expect(result).toBe(true);
     });
 
@@ -400,6 +403,7 @@ describe("JsrPackageRegistry", () => {
 
       expect(mockedFetch).toHaveBeenCalledWith(
         "https://jsr.io/@scope/pkg/1.0.0",
+        undefined,
       );
       expect(result).toBe(true);
     });

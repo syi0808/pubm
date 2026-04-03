@@ -44,14 +44,8 @@ export class NpmConnector extends RegistryConnector {
     }
   }
 
-  async isInstalled(): Promise<boolean> {
-    try {
-      await runNpm(["--version"]);
-
-      return true;
-    } catch {
-      return false;
-    }
+  protected getVersionCommand(): [string, string[]] {
+    return ["npm", ["--version"]];
   }
 
   async version(): Promise<string> {
@@ -181,32 +175,23 @@ export class NpmPackageRegistry extends PackageRegistry {
     return runNpm(args, cwd);
   }
 
-  async isPublished(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.registry}/${this.packageName}`);
-
-      return response.status === 200;
-    } catch (error) {
-      throw new NpmError(
-        `Failed to fetch \`${this.registry}/${this.packageName}\``,
-        { cause: error },
-      );
-    }
+  protected override get registryErrorName(): string {
+    return "npm Error";
   }
 
-  async isVersionPublished(version: string): Promise<boolean> {
-    if (!version) return false;
-    try {
-      const response = await fetch(
-        `${this.registry}/${this.packageName}/${version}`,
-      );
-      return response.status === 200;
-    } catch (error) {
-      throw new NpmError(
-        `Failed to fetch \`${this.registry}/${this.packageName}/${version}\``,
-        { cause: error },
-      );
-    }
+  protected override createRegistryError(
+    message: string,
+    options?: { cause?: unknown },
+  ): AbstractError {
+    return new NpmError(message, options);
+  }
+
+  protected override buildPackageUrl(): string {
+    return `${this.registry}/${this.packageName}`;
+  }
+
+  protected override buildVersionUrl(version: string): string {
+    return `${this.registry}/${this.packageName}/${version}`;
   }
 
   async userName(): Promise<string> {

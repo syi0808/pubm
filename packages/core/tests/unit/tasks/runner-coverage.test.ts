@@ -497,6 +497,7 @@ describe("runner coverage scenarios", () => {
     const tasks = mockedCreateListr.mock.calls[0][0] as any[];
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat task list
     const releaseCtx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -1595,6 +1596,7 @@ describe("CI GitHub Release", () => {
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -1683,6 +1685,7 @@ describe("CI GitHub Release", () => {
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -1771,6 +1774,7 @@ describe("post-publish", () => {
     const task = createTask();
     process.env.GITHUB_TOKEN = "mock-gh-token";
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         branch: "main",
         packages: [
@@ -3116,6 +3120,7 @@ describe("independent mode GitHub release with null result", () => {
     );
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -3881,6 +3886,7 @@ describe("GitHub release with asset upload hooks", () => {
 
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -3971,6 +3977,7 @@ describe("GitHub release with asset upload hooks", () => {
 
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -4035,6 +4042,7 @@ describe("GitHub release with asset upload hooks", () => {
     );
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -4910,6 +4918,7 @@ describe("GitHub release token prompt paths", () => {
     };
 
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -5204,6 +5213,7 @@ describe("fixed mode release with tempDir cleanup", () => {
 
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {
@@ -5273,6 +5283,7 @@ describe("fixed mode release with changelog sections", () => {
 
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         packages: [
           {

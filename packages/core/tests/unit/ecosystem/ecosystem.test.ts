@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { EcosystemDescriptor } from "../../../src/ecosystem/descriptor.js";
 import { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
 import type { PackageRegistry } from "../../../src/registry/package-registry.js";
