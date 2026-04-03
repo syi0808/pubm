@@ -817,6 +817,27 @@ describe("CLI action handler - dangerouslyAllowUnpublish", () => {
   });
 });
 
+describe("CLI action handler - registry filtering", () => {
+  it("filters package registries when --registry is passed", async () => {
+    mockIsCI.isCI = false;
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: vi.fn() });
+    sharedResolvedConfig.packages = [
+      {
+        name: "my-pkg",
+        version: "1.0.0",
+        path: ".",
+        registries: ["npm", "jsr", "crates"],
+        dependencies: [],
+      },
+    ];
+
+    await run("1.0.0", "--registry", "npm,jsr");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.config.packages[0].registries).toEqual(["npm", "jsr"]);
+  });
+});
+
 describe("CLI action handler - version source variants", () => {
   it("only creates ChangesetSource when versionSources is 'changesets'", async () => {
     const { ChangesetSource, ConventionalCommitSource } = await import(
