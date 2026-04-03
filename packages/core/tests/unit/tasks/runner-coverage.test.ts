@@ -1774,6 +1774,7 @@ describe("post-publish", () => {
     const task = createTask();
     process.env.GITHUB_TOKEN = "mock-gh-token";
     const ctx: any = {
+      cwd: process.cwd(),
       config: {
         branch: "main",
         packages: [
