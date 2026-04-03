@@ -1,6 +1,5 @@
 import type { ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
 import type { PubmContext } from "../../context.js";
-import { t } from "../../i18n/index.js";
 import { registryCatalog } from "../../registry/catalog.js";
 import { collectEcosystemRegistryGroups, ecosystemLabel } from "../grouping.js";
 
@@ -16,10 +15,9 @@ export function createPublishTaskForPath(
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createPublishTask) {
-    return {
-      title: t("task.publish.registryLabel", { registry: registryKey }),
-      task: async () => {},
-    };
+    throw new Error(
+      `No publish task factory registered for registry "${registryKey}". Cannot publish "${packagePath}".`,
+    );
   }
   return descriptor.taskFactory.createPublishTask(packagePath);
 }
@@ -70,10 +68,9 @@ export function createDryRunTaskForPath(
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createDryRunTask) {
-    return {
-      title: t("task.dryRun.registryLabel", { registry: registryKey }),
-      task: async () => {},
-    };
+    throw new Error(
+      `No dry-run task factory registered for registry "${registryKey}". Cannot dry-run publish "${packagePath}".`,
+    );
   }
   return descriptor.taskFactory.createDryRunTask(packagePath, siblingPaths);
 }
