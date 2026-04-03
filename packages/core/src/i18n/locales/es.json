@@ -273,7 +273,7 @@
   "cli.option.noSaveToken": "No guardar los tokens de jsr (solicitar el token cada vez)",
   "cli.option.dangerouslyAllowUnpublish": "Permitir unpublish/yank del registro durante la reversión en entornos no-TTY",
   "cli.option.createPr": "Crear un pull request para la actualización de versión en lugar de enviar directamente",
-  "cli.option.registry": "Registros objetivo para la publicación\n        el registro puede ser npm | jsr | https://url.for.private-registries",
+  "cli.option.registry": "Registros objetivo para la publicación (anula la detección automática)\n        el registro puede ser npm | jsr | crates | https://url.for.private-registries",
   "cli.option.locale": "Establecer el idioma de salida (en, ko, zh-cn, fr, de, es)",
   "cli.argument.version": "Versión: {types} | 1.2.3",
   "cli.helpText.version": "\n  La versión puede ser:\n    {types} | 1.2.3\n",
