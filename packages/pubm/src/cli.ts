@@ -171,7 +171,7 @@ export function createProgram(): Command {
       t("cli.option.dangerouslyAllowUnpublish"),
     )
     .option("--create-pr", t("cli.option.createPr"))
-    .option("--registry <registries>", t("cli.option.registry"), "npm,jsr")
+    .option("--registry <registries>", t("cli.option.registry"))
     .action(
       async (
         nextVersion: string | undefined,
@@ -191,6 +191,20 @@ export function createProgram(): Command {
         }
 
         const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
+
+        // CLI override for --registry: filter package registries
+        if (options.registry) {
+          const allowed = new Set(
+            options.registry.split(",").map((r) => r.trim()),
+          );
+          ctx.config = Object.freeze({
+            ...ctx.config,
+            packages: ctx.config.packages.map((pkg) => ({
+              ...pkg,
+              registries: pkg.registries.filter((r) => allowed.has(r)),
+            })),
+          });
+        }
 
         // CLI override for dangerouslyAllowUnpublish
         if (options.dangerouslyAllowUnpublish) {

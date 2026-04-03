@@ -273,7 +273,7 @@
   "cli.option.noSaveToken": "不保存 jsr 令牌（每次请求令牌）",
   "cli.option.dangerouslyAllowUnpublish": "允许在非 TTY 环境回滚时进行注册表 unpublish/yank",
   "cli.option.createPr": "为版本更新创建拉取请求，而不是直接推送",
-  "cli.option.registry": "发布目标注册表\n        注册表可以是 npm | jsr | https://url.for.private-registries",
+  "cli.option.registry": "发布目标注册表（覆盖自动检测）\n        注册表可以是 npm | jsr | crates | https://url.for.private-registries",
   "cli.option.locale": "设置输出语言（en, ko, zh-cn, fr, de, es）",
   "cli.argument.version": "版本：{types} | 1.2.3",
   "cli.helpText.version": "\n  版本可以是：\n    {types} | 1.2.3\n",

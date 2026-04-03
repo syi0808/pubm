@@ -273,7 +273,7 @@
   "cli.option.noSaveToken": "Ne pas enregistrer les tokens jsr (demander le token à chaque fois)",
   "cli.option.dangerouslyAllowUnpublish": "Autoriser le dépublication/suppression du registre lors d'un rollback dans des environnements non-TTY",
   "cli.option.createPr": "Créer une pull request pour la mise à jour de version au lieu de pousser directement",
-  "cli.option.registry": "Registres cibles pour la publication\n        le registre peut être npm | jsr | https://url.for.private-registries",
+  "cli.option.registry": "Registres cibles pour la publication (remplace la détection automatique)\n        le registre peut être npm | jsr | crates | https://url.for.private-registries",
   "cli.option.locale": "Définir la langue de sortie (en, ko, zh-cn, fr, de, es)",
   "cli.argument.version": "Version : {types} | 1.2.3",
   "cli.helpText.version": "\n  La version peut être :\n    {types} | 1.2.3\n",

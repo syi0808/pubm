@@ -273,7 +273,7 @@
   "cli.option.noSaveToken": "Do not save jsr tokens (request the token each time)",
   "cli.option.dangerouslyAllowUnpublish": "Allow registry unpublish/yank during rollback in non-TTY environments",
   "cli.option.createPr": "Create a pull request for the version bump instead of pushing directly",
-  "cli.option.registry": "Target registries for publish\n        registry can be npm | jsr | https://url.for.private-registries",
+  "cli.option.registry": "Target registries for publish (overrides auto-detection)\n        registry can be npm | jsr | crates | https://url.for.private-registries",
   "cli.option.locale": "Set output language (en, ko, zh-cn, fr, de, es)",
   "cli.argument.version": "Version: {types} | 1.2.3",
   "cli.helpText.version": "\n  Version can be:\n    {types} | 1.2.3\n",

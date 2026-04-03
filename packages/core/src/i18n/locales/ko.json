@@ -273,7 +273,7 @@
   "cli.option.noSaveToken": "jsr 토큰 저장 안 함 (매번 토큰 요청)",
   "cli.option.dangerouslyAllowUnpublish": "non-TTY 환경에서 롤백 시 레지스트리 unpublish/yank 허용",
   "cli.option.createPr": "버전 업데이트를 직접 푸시하지 않고 풀 리퀘스트를 생성합니다",
-  "cli.option.registry": "배포 대상 레지스트리\n        레지스트리: npm | jsr | https://url.for.private-registries",
+  "cli.option.registry": "배포 대상 레지스트리 (자동 감지 덮어쓰기)\n        레지스트리: npm | jsr | crates | https://url.for.private-registries",
   "cli.option.locale": "출력 언어 설정 (en, ko, zh-cn, fr, de, es)",
   "cli.argument.version": "버전: {types} | 1.2.3",
   "cli.helpText.version": "\n  버전 형식:\n    {types} | 1.2.3\n",
