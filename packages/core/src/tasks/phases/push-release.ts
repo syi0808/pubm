@@ -322,7 +322,7 @@ export function createReleaseTask(
             let body = commits
               .map(
                 ({ id, message }) =>
-                  `- ${message.replaceAll("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                  `- ${message.replace(/#/g, `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
               )
               .join("\n");
             body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
@@ -358,7 +358,7 @@ export function createReleaseTask(
           let body = commits
             .map(
               ({ id, message }) =>
-                `- ${message.replaceAll("#", `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
+                `- ${message.replace(/#/g, `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
             )
             .join("\n");
           body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;

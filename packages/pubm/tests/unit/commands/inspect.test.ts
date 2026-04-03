@@ -26,7 +26,11 @@ function makeParent(): Command {
 }
 
 function makeConfig() {
-  return {} as Parameters<typeof registerInspectCommand>[1] extends () => infer R ? R : never;
+  return {} as Parameters<
+    typeof registerInspectCommand
+  >[1] extends () => infer R
+    ? R
+    : never;
 }
 
 beforeEach(() => {
@@ -43,9 +47,7 @@ describe("registerInspectCommand", () => {
     const result = {
       ecosystem: "node",
       workspace: { monorepo: false, type: "npm" },
-      packages: [
-        { name: "pkg-a", version: "1.0.0", registries: ["npm"] },
-      ],
+      packages: [{ name: "pkg-a", version: "1.0.0", registries: ["npm"] }],
     };
     mockInspectPackages.mockReturnValue(result);
 
@@ -85,9 +87,7 @@ describe("registerInspectCommand", () => {
     const result = {
       ecosystem: "node",
       workspace: { monorepo: true, type: "turborepo" },
-      packages: [
-        { name: "pkg-b", version: "2.0.0", registries: ["npm"] },
-      ],
+      packages: [{ name: "pkg-b", version: "2.0.0", registries: ["npm"] }],
     };
     mockInspectPackages.mockReturnValue(result);
 

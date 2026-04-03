@@ -370,7 +370,10 @@ describe("JsrPackageRegistry", () => {
 
       const result = await registry.isPublished();
 
-      expect(mockedFetch).toHaveBeenCalledWith("https://jsr.io/@scope/pkg", undefined);
+      expect(mockedFetch).toHaveBeenCalledWith(
+        "https://jsr.io/@scope/pkg",
+        undefined,
+      );
       expect(result).toBe(true);
     });
 

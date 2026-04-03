@@ -26,8 +26,9 @@ export async function prepareReleaseAssets(
 
   // Find relevant group for this package: prefer package-specific match,
   // fall back to the first global (no packagePath) group only if none found.
-  const relevantGroup =
-    normalizedGroups.find((g) => g.packagePath === packagePath) ??
+  const relevantGroup = normalizedGroups.find(
+    (g) => g.packagePath === packagePath,
+  ) ??
     normalizedGroups.find((g) => !g.packagePath) ?? { files: [] };
 
   const tempDir = join(tmpdir(), `pubm-assets-${Date.now()}`);

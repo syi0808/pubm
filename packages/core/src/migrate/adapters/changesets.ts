@@ -84,7 +84,7 @@ export const changesetsAdapter: MigrationSource = {
 
   async parse(files: string[], cwd: string): Promise<ParsedMigrationConfig> {
     const configFile = files.find(
-      (f) => f.endsWith(path.sep + "config.json") || f.endsWith("/config.json"),
+      (f) => f.endsWith(`${path.sep}config.json`) || f.endsWith("/config.json"),
     );
 
     if (configFile === undefined) {

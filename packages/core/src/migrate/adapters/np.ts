@@ -71,7 +71,7 @@ async function readNpConfig(
   const raw = readFileSync(filePath, "utf-8");
   const parsed = JSON.parse(raw) as Record<string, unknown>;
   if (isPackageJson) {
-    return (parsed["np"] ?? {}) as NpConfig;
+    return (parsed.np ?? {}) as NpConfig;
   }
   return parsed as NpConfig;
 }
@@ -198,12 +198,12 @@ export const npAdapter: MigrationSource = {
     // Prefer standalone config file over package.json
     const standaloneFile = files.find((f) =>
       STANDALONE_CONFIG_FILES.some(
-        (name) => f.endsWith(path.sep + name) || f.endsWith("/" + name),
+        (name) => f.endsWith(path.sep + name) || f.endsWith(`/${name}`),
       ),
     );
     const pkgJsonFile = files.find(
       (f) =>
-        f.endsWith(path.sep + PACKAGE_JSON) || f.endsWith("/" + PACKAGE_JSON),
+        f.endsWith(path.sep + PACKAGE_JSON) || f.endsWith(`/${PACKAGE_JSON}`),
     );
 
     const configFile = standaloneFile ?? pkgJsonFile;
@@ -231,7 +231,7 @@ export const npAdapter: MigrationSource = {
   getCleanupTargets(detected: DetectResult): string[] {
     return detected.configFiles.filter(
       (f) =>
-        !f.endsWith(path.sep + PACKAGE_JSON) && !f.endsWith("/" + PACKAGE_JSON),
+        !f.endsWith(path.sep + PACKAGE_JSON) && !f.endsWith(`/${PACKAGE_JSON}`),
     );
   },
 };
