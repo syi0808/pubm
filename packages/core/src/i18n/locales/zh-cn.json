@@ -131,6 +131,7 @@
   "task.publish.titleWithTargets": "发布（{count} 个目标）",
   "task.publish.concurrent": "并发发布任务",
   "task.publish.restoreProtocols": "恢复工作区协议",
+  "task.publish.runningBeforeHooksDetail": "正在运行插件 beforePublish 钩子...",
   "task.publish.runningAfterHooks": "运行发布后钩子",
   "task.publish.runningAfterHooksDetail": "正在运行插件 afterPublish 钩子...",
   "task.publish.completedAfterHooks": "插件 afterPublish 钩子已完成。",
