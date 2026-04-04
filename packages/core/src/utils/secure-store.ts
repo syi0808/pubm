@@ -1,14 +1,19 @@
-// import { createRequire } from "node:module";
-import Keyring from "@napi-rs/keyring";
 import { Db } from "./db.js";
 
-// const require = createRequire(import.meta.url);
+type KeyringEntry = {
+  getPassword(): string | null;
+  setPassword(value: string): void;
+  deletePassword(): void;
+};
 
-// let Keyring: typeof import("@napi-rs/keyring") | null = null;
+// biome-ignore lint/suspicious/noExplicitAny: lazy-loaded optional native module
+let keyringModule: any;
 
-// try {
-//   Keyring = require("@napi-rs/keyring");
-// } catch {}
+try {
+  keyringModule = await import("@napi-rs/keyring");
+} catch {
+  keyringModule = null;
+}
 
 const KEYRING_SERVICE = "pubm";
 
@@ -24,10 +29,11 @@ export class SecureStore {
     return this.db;
   }
 
-  private getKeyringEntry(field: string): Keyring.Entry | null {
+  private getKeyringEntry(field: string): KeyringEntry | null {
     if (!usesKeyring(field)) return null;
 
-    const Entry = Keyring?.Entry;
+    const mod = keyringModule?.default ?? keyringModule;
+    const Entry = mod?.Entry;
     if (!Entry) return null;
 
     try {
