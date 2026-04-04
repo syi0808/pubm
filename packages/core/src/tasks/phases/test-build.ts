@@ -135,12 +135,24 @@ async function resolveExecutions(
       );
 
       if (resolved.command) {
-        executions.push({
-          label: resolved.command,
-          cmd: "sh",
-          args: ["-c", resolved.command],
-          cwd: ctx.cwd,
-        });
+        if (group.hasWorkspace) {
+          executions.push({
+            label: resolved.command,
+            cmd: "sh",
+            args: ["-c", resolved.command],
+            cwd: ctx.cwd,
+          });
+        } else {
+          for (const pkg of group.groupPackages) {
+            const pkgCwd = path.resolve(ctx.cwd, pkg.path);
+            executions.push({
+              label: `${resolved.command} (${pkg.path})`,
+              cmd: "sh",
+              args: ["-c", resolved.command],
+              cwd: pkgCwd,
+            });
+          }
+        }
       } else if (resolved.script) {
         if (group.hasWorkspace) {
           const instance = new descriptor.ecosystemClass(ctx.cwd);
