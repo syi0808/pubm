@@ -2028,7 +2028,18 @@ describe("normal pipeline test and build tasks", () => {
     const ctx: any = {
       options: { testScript: "test", mode: "local" as const },
       runtime: { pluginRunner },
-      config: { packages: [{ path: ".", ecosystem: "js", registries: ["npm"], name: "my-package", version: "1.0.0", dependencies: [] }] },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await expect(testTask.task(ctx, task)).rejects.toThrow(
@@ -2057,7 +2068,18 @@ describe("normal pipeline test and build tasks", () => {
     const ctx: any = {
       options: { buildScript: "build", mode: "local" as const },
       runtime: { pluginRunner },
-      config: { packages: [{ path: ".", ecosystem: "js", registries: ["npm"], name: "my-package", version: "1.0.0", dependencies: [] }] },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await expect(buildTask.task(ctx, task)).rejects.toThrow(
@@ -2091,7 +2113,18 @@ describe("normal pipeline test and build tasks", () => {
         mode: "local" as const,
       },
       runtime: { pluginRunner },
-      config: { packages: [{ path: ".", ecosystem: "js", registries: ["npm"], name: "my-package", version: "1.0.0", dependencies: [] }] },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await testTask.task(ctx, createTask());
