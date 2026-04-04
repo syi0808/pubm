@@ -1331,7 +1331,7 @@ describe("requiredConditionsCheckTask", () => {
       expect(mockValidateScript).toHaveBeenCalledTimes(1);
     });
 
-    it("skips second package for build when groupValidated via test in workspace", async () => {
+    it("validates both test and build once each for workspace group", async () => {
       const { detectWorkspace } = await import(
         "../../../src/monorepo/workspace.js"
       );
@@ -1353,10 +1353,10 @@ describe("requiredConditionsCheckTask", () => {
       });
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
-      // test validation runs once for group, sets groupValidated=true
-      // build validation is then skipped for both packages via groupValidated
-      // Total: 1 call (test group)
-      expect(mockValidateScript).toHaveBeenCalledTimes(1);
+      // test and build each validated once for workspace group (separate flags)
+      expect(mockValidateScript).toHaveBeenCalledTimes(2);
+      expect(mockValidateScript).toHaveBeenCalledWith("test", "test");
+      expect(mockValidateScript).toHaveBeenCalledWith("build", "build");
     });
 
     it("validates per-package with buildScript override in workspace", async () => {

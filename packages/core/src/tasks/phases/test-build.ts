@@ -125,6 +125,8 @@ async function resolveExecutions(
     if (!descriptor) continue;
 
     if (group.groupPackages.length > 0) {
+      // Safe to use [0]: group packages have no per-package overrides,
+      // so they all resolve identically through ecosystem/global/default levels.
       const resolved = resolveScript(
         group.groupPackages[0],
         group.ecosystemKey,
