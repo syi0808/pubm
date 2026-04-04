@@ -1,19 +1,5 @@
+import Keyring from "@napi-rs/keyring";
 import { Db } from "./db.js";
-
-type KeyringEntry = {
-  getPassword(): string | null;
-  setPassword(value: string): void;
-  deletePassword(): void;
-};
-
-// biome-ignore lint/suspicious/noExplicitAny: lazy-loaded optional native module
-let keyringModule: any;
-
-try {
-  keyringModule = await import("@napi-rs/keyring");
-} catch {
-  keyringModule = null;
-}
 
 const KEYRING_SERVICE = "pubm";
 
@@ -29,11 +15,10 @@ export class SecureStore {
     return this.db;
   }
 
-  private getKeyringEntry(field: string): KeyringEntry | null {
+  private getKeyringEntry(field: string): Keyring.Entry | null {
     if (!usesKeyring(field)) return null;
 
-    const mod = keyringModule?.default ?? keyringModule;
-    const Entry = mod?.Entry;
+    const Entry = Keyring?.Entry;
     if (!Entry) return null;
 
     try {
