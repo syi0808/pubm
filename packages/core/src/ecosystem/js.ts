@@ -68,14 +68,35 @@ export class JsEcosystem extends Ecosystem {
     return ["package.json"];
   }
 
-  async defaultTestCommand(scriptName?: string): Promise<string> {
+  async resolveTestCommand(
+    script: string,
+  ): Promise<{ cmd: string; args: string[] }> {
     const pm = await getPackageManager();
-    return `${pm} run ${scriptName ?? "test"}`;
+    return { cmd: pm, args: ["run", script] };
   }
 
-  async defaultBuildCommand(scriptName?: string): Promise<string> {
+  async resolveBuildCommand(
+    script: string,
+  ): Promise<{ cmd: string; args: string[] }> {
     const pm = await getPackageManager();
-    return `${pm} run ${scriptName ?? "build"}`;
+    return { cmd: pm, args: ["run", script] };
+  }
+
+  async validateScript(
+    script: string,
+    _type: "test" | "build",
+  ): Promise<string | null> {
+    const pkgPath = path.join(this.packagePath, "package.json");
+    try {
+      const raw = await readFile(pkgPath, "utf-8");
+      const { scripts } = JSON.parse(raw);
+      if (!scripts?.[script]) {
+        return `Script '${script}' not found in ${pkgPath}`;
+      }
+      return null;
+    } catch {
+      return `Cannot read ${pkgPath}`;
+    }
   }
 
   supportedRegistries(): RegistryType[] {

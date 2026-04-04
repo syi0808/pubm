@@ -189,19 +189,45 @@ describe("JsEcosystem", () => {
     });
   });
 
-  describe("defaultTestCommand", () => {
-    it("returns <pm> run test", async () => {
+  describe("resolveTestCommand", () => {
+    it("returns { cmd, args } for the given script", async () => {
       mockedGetPackageManager.mockResolvedValue("pnpm");
       const eco = new JsEcosystem(pkgPath);
-      expect(await eco.defaultTestCommand()).toBe("pnpm run test");
+      const result = await eco.resolveTestCommand("test");
+      expect(result).toEqual({ cmd: "pnpm", args: ["run", "test"] });
     });
   });
 
-  describe("defaultBuildCommand", () => {
-    it("returns <pm> run build", async () => {
+  describe("resolveBuildCommand", () => {
+    it("returns { cmd, args } for the given script", async () => {
       mockedGetPackageManager.mockResolvedValue("npm");
       const eco = new JsEcosystem(pkgPath);
-      expect(await eco.defaultBuildCommand()).toBe("npm run build");
+      const result = await eco.resolveBuildCommand("build");
+      expect(result).toEqual({ cmd: "npm", args: ["run", "build"] });
+    });
+  });
+
+  describe("validateScript", () => {
+    it("returns null when script exists in package.json", async () => {
+      mockedReadFile.mockResolvedValue(
+        JSON.stringify({ scripts: { test: "vitest" } }) as any,
+      );
+      const eco = new JsEcosystem(pkgPath);
+      expect(await eco.validateScript("test", "test")).toBeNull();
+    });
+
+    it("returns error when script is missing", async () => {
+      mockedReadFile.mockResolvedValue(JSON.stringify({ scripts: {} }) as any);
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.validateScript("test", "test");
+      expect(result).toContain("Script 'test' not found");
+    });
+
+    it("returns error when package.json cannot be read", async () => {
+      mockedReadFile.mockRejectedValue(new Error("ENOENT"));
+      const eco = new JsEcosystem(pkgPath);
+      const result = await eco.validateScript("test", "test");
+      expect(result).toContain("Cannot read");
     });
   });
 

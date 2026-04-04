@@ -8,12 +8,21 @@ export interface PrivateRegistryConfig {
   token: { envVar: string };
 }
 
+export interface EcosystemConfig {
+  testScript?: string;
+  testCommand?: string;
+  buildScript?: string;
+  buildCommand?: string;
+}
+
 export interface PackageConfig {
   path: string;
   registries?: (RegistryType | PrivateRegistryConfig)[];
   ecosystem?: string;
-  buildCommand?: string;
+  testScript?: string;
   testCommand?: string;
+  buildScript?: string;
+  buildCommand?: string;
 }
 
 export interface ResolvedPackageConfig
@@ -63,6 +72,7 @@ export interface PubmConfig {
   rollbackStrategy?: "individual" | "all";
   rollback?: RollbackConfig;
   lockfileSync?: "required" | "optional" | "skip";
+  ecosystems?: Record<string, EcosystemConfig>;
   plugins?: PubmPlugin[];
   compress?: CompressOption;
   releaseAssets?: ReleaseAssetEntry[];
@@ -92,6 +102,9 @@ export interface ResolvedPubmConfig
       | "locale"
       | "versionSources"
       | "conventionalCommits"
+      | "ecosystems"
+      | "testScript"
+      | "buildScript"
     >
   > {
   compress?: CompressOption;
@@ -105,6 +118,9 @@ export interface ResolvedPubmConfig
   conventionalCommits: {
     types: Record<string, BumpType | false>;
   };
+  ecosystems: Record<string, EcosystemConfig>;
+  testScript?: string;
+  buildScript?: string;
   discoveryEmpty?: boolean;
 }
 

@@ -110,17 +110,30 @@ serde = { version = "1.0.0", features = ["derive"] }
     });
   });
 
-  describe("defaultTestCommand", () => {
-    it("returns cargo test", () => {
+  describe("resolveTestCommand", () => {
+    it("returns { cmd, args } for the given script", async () => {
       const eco = new RustEcosystem(pkgPath);
-      expect(eco.defaultTestCommand()).toBe("cargo test");
+      expect(await eco.resolveTestCommand("test")).toEqual({
+        cmd: "cargo",
+        args: ["test"],
+      });
     });
   });
 
-  describe("defaultBuildCommand", () => {
-    it("returns cargo build --release", () => {
+  describe("resolveBuildCommand", () => {
+    it("returns { cmd, args } for the given script", async () => {
       const eco = new RustEcosystem(pkgPath);
-      expect(eco.defaultBuildCommand()).toBe("cargo build --release");
+      expect(await eco.resolveBuildCommand("build --release")).toEqual({
+        cmd: "cargo",
+        args: ["build", "--release"],
+      });
+    });
+  });
+
+  describe("validateScript", () => {
+    it("always returns null (Rust has no script validation)", async () => {
+      const eco = new RustEcosystem(pkgPath);
+      expect(await eco.validateScript("test", "test")).toBeNull();
     });
   });
 
