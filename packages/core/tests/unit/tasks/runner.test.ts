@@ -925,6 +925,67 @@ describe("run", () => {
       expect(mockTask.output).toBe("Completed `pnpm run test`");
     });
 
+    it("treats packages with ecosystem: undefined as JS", async () => {
+      const options = createOptions({
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "my-package",
+              version: "1.0.0",
+              ecosystem: undefined as any,
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const testTask = tasks[0];
+      const { task: mockTask } = createMockTaskRecorder();
+
+      await testTask.task(
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
+        mockTask,
+      );
+
+      expect(mockTask.title).toBe("Running tests (pnpm run test)");
+    });
+
+    it("skips unknown ecosystems gracefully", async () => {
+      const options = createOptions({
+        config: {
+          packages: [
+            {
+              path: ".",
+              name: "my-package",
+              version: "1.0.0",
+              ecosystem: "unknown-eco" as any,
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+      });
+      await run(options);
+
+      const callArgs = mockedCreateListr.mock.calls[0];
+      const tasks = callArgs[0] as any[];
+      const testTask = tasks[0];
+      const { task: mockTask } = createMockTaskRecorder();
+
+      await testTask.task(
+        { ...options, runtime: { ...options.runtime, promptEnabled: true } },
+        mockTask,
+      );
+
+      // No commands executed, completion shows empty
+      expect(mockTask.output).toBe("Completed ``");
+    });
+
     it("shows only the latest 4 lines of live test output on local TTY", async () => {
       const originalIsTTY = process.stdout.isTTY;
       try {
@@ -1075,7 +1136,9 @@ describe("run", () => {
       // Error triggers catch block with context message
       expect(mockedConsoleError).toHaveBeenCalled();
       const errorArg = mockedConsoleError.mock.calls[0][0];
-      expect((errorArg as Error).message).toMatch(/Test script 'pnpm run test' failed/);
+      expect((errorArg as Error).message).toMatch(
+        /Test script 'pnpm run test' failed/,
+      );
     });
 
     it("runs test task successfully when no stderr", async () => {
