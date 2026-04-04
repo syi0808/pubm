@@ -778,7 +778,7 @@ describe("build task execution", () => {
       ["-c", "npx vitest run"],
       expect.objectContaining({
         nodeOptions: expect.objectContaining({
-          cwd: expect.stringContaining("packages/a"),
+          cwd: expect.stringMatching(/packages[/\\]a$/),
         }),
       }),
     );
@@ -787,7 +787,7 @@ describe("build task execution", () => {
       ["-c", "npx vitest run"],
       expect.objectContaining({
         nodeOptions: expect.objectContaining({
-          cwd: expect.stringContaining("packages/b"),
+          cwd: expect.stringMatching(/packages[/\\]b$/),
         }),
       }),
     );
@@ -819,7 +819,7 @@ describe("build task execution", () => {
       ["-c", "npx tsup"],
       expect.objectContaining({
         nodeOptions: expect.objectContaining({
-          cwd: expect.stringContaining("packages/a"),
+          cwd: expect.stringMatching(/packages[/\\]a$/),
         }),
       }),
     );
@@ -828,7 +828,7 @@ describe("build task execution", () => {
       ["-c", "npx tsup"],
       expect.objectContaining({
         nodeOptions: expect.objectContaining({
-          cwd: expect.stringContaining("packages/b"),
+          cwd: expect.stringMatching(/packages[/\\]b$/),
         }),
       }),
     );
