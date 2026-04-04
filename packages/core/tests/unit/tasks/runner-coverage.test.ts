@@ -51,6 +51,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     manifestFiles() {
       return ["package.json"];
     }
+    defaultTestCommand() {
+      return Promise.resolve("pnpm run test");
+    }
+    defaultBuildCommand() {
+      return Promise.resolve("pnpm run build");
+    }
   }
   class MockRustEcosystem {
     packagePath: string;
@@ -59,6 +65,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     }
     manifestFiles() {
       return ["Cargo.toml"];
+    }
+    defaultTestCommand() {
+      return Promise.resolve("cargo test");
+    }
+    defaultBuildCommand() {
+      return Promise.resolve("cargo build --release");
     }
   }
   const descriptors: Record<string, any> = {
@@ -2016,10 +2028,22 @@ describe("normal pipeline test and build tasks", () => {
     const ctx: any = {
       options: { testScript: "test", mode: "local" as const },
       runtime: { pluginRunner },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await expect(testTask.task(ctx, task)).rejects.toThrow(
-      "Test script 'test' failed.",
+      "Test script 'pnpm run test' failed.",
     );
     expect(beforeTest).toHaveBeenCalledWith(ctx);
   });
@@ -2044,10 +2068,22 @@ describe("normal pipeline test and build tasks", () => {
     const ctx: any = {
       options: { buildScript: "build", mode: "local" as const },
       runtime: { pluginRunner },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await expect(buildTask.task(ctx, task)).rejects.toThrow(
-      "Build script 'build' failed.",
+      "Build script 'pnpm run build' failed.",
     );
     expect(beforeBuild).toHaveBeenCalledWith(ctx);
   });
@@ -2077,6 +2113,18 @@ describe("normal pipeline test and build tasks", () => {
         mode: "local" as const,
       },
       runtime: { pluginRunner },
+      config: {
+        packages: [
+          {
+            path: ".",
+            ecosystem: "js",
+            registries: ["npm"],
+            name: "my-package",
+            version: "1.0.0",
+            dependencies: [],
+          },
+        ],
+      },
     };
 
     await testTask.task(ctx, createTask());

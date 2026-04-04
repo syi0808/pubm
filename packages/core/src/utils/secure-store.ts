@@ -1,14 +1,5 @@
-// import { createRequire } from "node:module";
 import Keyring from "@napi-rs/keyring";
 import { Db } from "./db.js";
-
-// const require = createRequire(import.meta.url);
-
-// let Keyring: typeof import("@napi-rs/keyring") | null = null;
-
-// try {
-//   Keyring = require("@napi-rs/keyring");
-// } catch {}
 
 const KEYRING_SERVICE = "pubm";
 

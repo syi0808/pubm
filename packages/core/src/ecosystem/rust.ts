@@ -109,11 +109,11 @@ export class RustEcosystem extends Ecosystem {
     return ["Cargo.toml"];
   }
 
-  defaultTestCommand(): string {
+  defaultTestCommand(_scriptName?: string): string {
     return "cargo test";
   }
 
-  defaultBuildCommand(): string {
+  defaultBuildCommand(_scriptName?: string): string {
     return "cargo build --release";
   }
 

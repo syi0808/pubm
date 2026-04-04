@@ -227,7 +227,6 @@ export class CratesPackageRegistry extends PackageRegistry {
 
   getRequirements(): RegistryRequirements {
     return {
-      needsPackageScripts: false,
       requiredManifest: "Cargo.toml",
     };
   }

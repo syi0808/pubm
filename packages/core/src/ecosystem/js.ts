@@ -68,14 +68,14 @@ export class JsEcosystem extends Ecosystem {
     return ["package.json"];
   }
 
-  async defaultTestCommand(): Promise<string> {
+  async defaultTestCommand(scriptName?: string): Promise<string> {
     const pm = await getPackageManager();
-    return `${pm} run test`;
+    return `${pm} run ${scriptName ?? "test"}`;
   }
 
-  async defaultBuildCommand(): Promise<string> {
+  async defaultBuildCommand(scriptName?: string): Promise<string> {
     const pm = await getPackageManager();
-    return `${pm} run build`;
+    return `${pm} run ${scriptName ?? "build"}`;
   }
 
   supportedRegistries(): RegistryType[] {

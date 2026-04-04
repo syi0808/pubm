@@ -663,11 +663,10 @@ describe("NpmPackageRegistry", () => {
 });
 
 describe("getRequirements", () => {
-  it("returns needsPackageScripts true and requiredManifest package.json", () => {
+  it("returns requiredManifest package.json", () => {
     const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
-      needsPackageScripts: true,
       requiredManifest: "package.json",
     });
   });

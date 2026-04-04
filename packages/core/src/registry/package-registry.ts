@@ -4,7 +4,6 @@ import type { ManifestReader } from "../manifest/manifest-reader.js";
 import type { RegistryType } from "../types/options.js";
 
 export interface RegistryRequirements {
-  needsPackageScripts: boolean;
   requiredManifest: string;
 }
 
