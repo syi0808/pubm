@@ -277,7 +277,6 @@ export class JsrPackageRegistry extends PackageRegistry {
 
   getRequirements(): RegistryRequirements {
     return {
-      needsPackageScripts: false,
       requiredManifest: "jsr.json or deno.json",
     };
   }

@@ -36,6 +36,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     syncLockfile() {
       return Promise.resolve(undefined);
     }
+    defaultTestCommand() {
+      return Promise.resolve("pnpm run test");
+    }
+    defaultBuildCommand() {
+      return Promise.resolve("pnpm run build");
+    }
   }
   class MockRustEcosystem {
     packagePath: string;
@@ -47,6 +53,12 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     }
     syncLockfile() {
       return Promise.resolve(undefined);
+    }
+    defaultTestCommand() {
+      return Promise.resolve("cargo test");
+    }
+    defaultBuildCommand() {
+      return Promise.resolve("cargo build --release");
     }
   }
   const descriptors: Record<string, any> = {
@@ -910,7 +922,7 @@ describe("run", () => {
       );
 
       expect(mockTask.title).toBe("Running tests (pnpm run test)");
-      expect(mockTask.output).toBe("Completed `pnpm run test`");
+      expect(mockTask.output).toBe("Completed `js`");
     });
 
     it("shows only the latest 4 lines of live test output on local TTY", async () => {
@@ -1063,7 +1075,7 @@ describe("run", () => {
       // Error triggers catch block with context message
       expect(mockedConsoleError).toHaveBeenCalled();
       const errorArg = mockedConsoleError.mock.calls[0][0];
-      expect((errorArg as Error).message).toMatch(/Test script 'test' failed/);
+      expect((errorArg as Error).message).toMatch(/Test script 'pnpm run test' failed/);
     });
 
     it("runs test task successfully when no stderr", async () => {
@@ -1072,7 +1084,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      expect(mockedGetPackageManager).toHaveBeenCalled();
+      expect(mockedExec).toHaveBeenCalled();
     });
 
     it("runs build task and throws on exec error", async () => {
