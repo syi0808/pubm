@@ -136,7 +136,8 @@ export const requiredConditionsCheckTask = (
                       : false;
 
                 const ecoConfig = ctx.config.ecosystems?.[ecosystemKey];
-                let groupValidated = false;
+                let testGroupValidated = false;
+                let buildGroupValidated = false;
 
                 for (const pkg of packages) {
                   if (!ctx.options.skipTests) {
@@ -153,7 +154,11 @@ export const requiredConditionsCheckTask = (
                           ? ctx.cwd
                           : path.resolve(ctx.cwd, pkg.path);
 
-                      if (hasWorkspace && !isPackageOverride && groupValidated)
+                      if (
+                        hasWorkspace &&
+                        !isPackageOverride &&
+                        testGroupValidated
+                      )
                         continue;
 
                       const instance = new descriptor.ecosystemClass(
@@ -166,7 +171,7 @@ export const requiredConditionsCheckTask = (
                       if (error) errors.push(error);
 
                       if (hasWorkspace && !isPackageOverride)
-                        groupValidated = true;
+                        testGroupValidated = true;
                     }
                   }
 
@@ -184,7 +189,11 @@ export const requiredConditionsCheckTask = (
                           ? ctx.cwd
                           : path.resolve(ctx.cwd, pkg.path);
 
-                      if (hasWorkspace && !isPackageOverride && groupValidated)
+                      if (
+                        hasWorkspace &&
+                        !isPackageOverride &&
+                        buildGroupValidated
+                      )
                         continue;
 
                       const instance = new descriptor.ecosystemClass(
@@ -195,6 +204,9 @@ export const requiredConditionsCheckTask = (
                         "build",
                       );
                       if (error) errors.push(error);
+
+                      if (hasWorkspace && !isPackageOverride)
+                        buildGroupValidated = true;
                     }
                   }
                 }
