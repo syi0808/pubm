@@ -155,23 +155,22 @@ export const requiredConditionsCheckTask = (
                           : path.resolve(ctx.cwd, pkg.path);
 
                       if (
-                        hasWorkspace &&
-                        !isPackageOverride &&
-                        testGroupValidated
-                      )
-                        continue;
+                        !hasWorkspace ||
+                        isPackageOverride ||
+                        !testGroupValidated
+                      ) {
+                        const instance = new descriptor.ecosystemClass(
+                          validateCwd,
+                        );
+                        const error = await instance.validateScript(
+                          script,
+                          "test",
+                        );
+                        if (error) errors.push(error);
 
-                      const instance = new descriptor.ecosystemClass(
-                        validateCwd,
-                      );
-                      const error = await instance.validateScript(
-                        script,
-                        "test",
-                      );
-                      if (error) errors.push(error);
-
-                      if (hasWorkspace && !isPackageOverride)
-                        testGroupValidated = true;
+                        if (hasWorkspace && !isPackageOverride)
+                          testGroupValidated = true;
+                      }
                     }
                   }
 
@@ -190,23 +189,22 @@ export const requiredConditionsCheckTask = (
                           : path.resolve(ctx.cwd, pkg.path);
 
                       if (
-                        hasWorkspace &&
-                        !isPackageOverride &&
-                        buildGroupValidated
-                      )
-                        continue;
+                        !hasWorkspace ||
+                        isPackageOverride ||
+                        !buildGroupValidated
+                      ) {
+                        const instance = new descriptor.ecosystemClass(
+                          validateCwd,
+                        );
+                        const error = await instance.validateScript(
+                          script,
+                          "build",
+                        );
+                        if (error) errors.push(error);
 
-                      const instance = new descriptor.ecosystemClass(
-                        validateCwd,
-                      );
-                      const error = await instance.validateScript(
-                        script,
-                        "build",
-                      );
-                      if (error) errors.push(error);
-
-                      if (hasWorkspace && !isPackageOverride)
-                        buildGroupValidated = true;
+                        if (hasWorkspace && !isPackageOverride)
+                          buildGroupValidated = true;
+                      }
                     }
                   }
                 }
