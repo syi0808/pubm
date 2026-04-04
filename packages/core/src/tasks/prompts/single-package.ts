@@ -1,7 +1,7 @@
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import semver from "semver";
-
+import { isCI } from "std-env";
 import type { PubmContext } from "../../context.js";
 import { t } from "../../i18n/index.js";
 import { displayRecommendationSummary, pluralize } from "./display.js";
@@ -24,7 +24,7 @@ export async function handleSinglePackage(
     const newVer = semver.inc(currentVersion, rec.bumpType);
     if (newVer) {
       // CI mode: auto-accept
-      if (!ctx.runtime.promptEnabled) {
+      if (isCI) {
         ctx.runtime.versionPlan = {
           mode: "single",
           version: newVer,

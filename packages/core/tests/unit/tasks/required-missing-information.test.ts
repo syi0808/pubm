@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockIsCI = vi.hoisted(() => ({ value: false }));
+
 const mockChangesetAnalyze = vi.fn().mockResolvedValue([]);
 const mockConventionalAnalyze = vi.fn().mockResolvedValue([]);
 
+vi.mock("std-env", () => ({
+  get isCI() {
+    return mockIsCI.value;
+  },
+}));
 vi.mock("../../../src/version-source/index.js", () => {
   class MockChangesetSource {
     name = "changeset";
@@ -116,6 +123,7 @@ const defaultPackages: ResolvedPackageConfig[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockIsCI.value = false;
   mockedFilterConfigPackages.mockClear();
   mockChangesetAnalyze.mockResolvedValue([]);
   mockConventionalAnalyze.mockResolvedValue([]);
@@ -1442,6 +1450,151 @@ describe("requiredMissingInformationTasks", () => {
         c.message.startsWith("patch"),
       );
       expect(patchChoice.message).not.toContain("recommended by changesets");
+    });
+  });
+
+  describe("CI auto-accept vs local prompt (regression)", () => {
+    it("single package: shows prompt even when promptEnabled is false (non-CI local)", async () => {
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: ".",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add feature" }],
+        },
+      ]);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { version: undefined, promptEnabled: false },
+        config: { packages: defaultPackages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.prompt).toHaveBeenCalled();
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.1.0",
+      });
+    });
+
+    it("single package: auto-accepts without prompt in actual CI", async () => {
+      mockIsCI.value = true;
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: ".",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add feature" }],
+        },
+      ]);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { version: undefined, promptEnabled: false },
+        config: { packages: defaultPackages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.prompt).not.toHaveBeenCalled();
+      expect(ctx.runtime.versionPlan).toMatchObject({
+        mode: "single",
+        version: "1.1.0",
+      });
+      expect(ctx.runtime.changesetConsumed).toBe(true);
+    });
+
+    it("multi package: shows prompt even when promptEnabled is false (non-CI local)", async () => {
+      const packages = [
+        makePkg({
+          name: "@scope/a",
+          version: "1.0.0",
+          path: "packages/a",
+        }),
+        makePkg({
+          name: "@scope/b",
+          version: "2.0.0",
+          path: "packages/b",
+        }),
+      ];
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/a",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix bug" }],
+        },
+      ]);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { versionPlan: undefined, promptEnabled: false },
+        config: { versioning: "independent", packages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+      mockTask._promptAdapter.run.mockResolvedValueOnce("accept");
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.prompt).toHaveBeenCalled();
+    });
+
+    it("multi package: auto-accepts without prompt in actual CI", async () => {
+      mockIsCI.value = true;
+      const packages = [
+        makePkg({
+          name: "@scope/a",
+          version: "1.0.0",
+          path: "packages/a",
+        }),
+        makePkg({
+          name: "@scope/b",
+          version: "2.0.0",
+          path: "packages/b",
+        }),
+      ];
+      mockChangesetAnalyze.mockResolvedValue([
+        {
+          packagePath: "packages/a",
+          bumpType: "patch",
+          source: "changeset",
+          entries: [{ summary: "Fix bug" }],
+        },
+      ]);
+
+      requiredMissingInformationTasks();
+      const subtasks = getSubtasks();
+      const versionTask = subtasks[0];
+
+      const ctx: any = {
+        runtime: { versionPlan: undefined, promptEnabled: false },
+        config: { versioning: "independent", packages },
+        cwd: "/tmp",
+      };
+      const mockTask = createMockTask();
+
+      await versionTask.task(ctx, mockTask);
+
+      expect(mockTask.prompt).not.toHaveBeenCalled();
+      expect(ctx.runtime.versionPlan).toBeDefined();
+      expect(ctx.runtime.changesetConsumed).toBe(true);
     });
   });
 
