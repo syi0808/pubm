@@ -1,11 +1,13 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import path from "node:path";
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
+import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
+import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { t } from "../i18n/index.js";
+import { detectWorkspace } from "../monorepo/workspace.js";
 import { wrapTaskContext } from "../plugin/wrap-task-context.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { getConnector } from "../registry/index.js";
@@ -103,39 +105,99 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: t("task.conditions.checkScripts"),
-            skip: (ctx) =>
-              !ctx.config.packages.some(
-                (pkg) => (pkg.ecosystem ?? "js") === "js",
-              ),
+            skip: (ctx) => !!ctx.options.skipTests && !!ctx.options.skipBuild,
             task: async (ctx): Promise<void> => {
-              const raw = await readFile(
-                join(ctx.cwd, "package.json"),
-                "utf-8",
-              );
-              const { scripts } = JSON.parse(raw);
-
               const errors: string[] = [];
+              const JS_WS_TYPES = new Set([
+                "pnpm",
+                "npm",
+                "yarn",
+                "bun",
+                "deno",
+              ]);
+              const workspaces = detectWorkspace(ctx.cwd);
 
-              if (
-                !ctx.options.skipTests &&
-                !scripts?.[ctx.options.testScript]
-              ) {
-                errors.push(
-                  t("error.conditions.testScriptMissing", {
-                    script: ctx.options.testScript,
-                  }),
-                );
+              const byEcosystem = new Map<string, ResolvedPackageConfig[]>();
+              for (const pkg of ctx.config.packages) {
+                const key = pkg.ecosystem ?? "js";
+                if (!byEcosystem.has(key)) byEcosystem.set(key, []);
+                byEcosystem.get(key)!.push(pkg);
               }
 
-              if (
-                !ctx.options.skipBuild &&
-                !scripts?.[ctx.options.buildScript]
-              ) {
-                errors.push(
-                  t("error.conditions.buildScriptMissing", {
-                    script: ctx.options.buildScript,
-                  }),
-                );
+              for (const [ecosystemKey, packages] of byEcosystem) {
+                const descriptor = ecosystemCatalog.get(ecosystemKey);
+                if (!descriptor) continue;
+
+                const hasWorkspace =
+                  ecosystemKey === "js"
+                    ? workspaces.some((w) => JS_WS_TYPES.has(w.type))
+                    : ecosystemKey === "rust"
+                      ? workspaces.some((w) => w.type === "cargo")
+                      : false;
+
+                const ecoConfig = ctx.config.ecosystems?.[ecosystemKey];
+                let groupValidated = false;
+
+                for (const pkg of packages) {
+                  if (!ctx.options.skipTests) {
+                    const hasCommand =
+                      pkg.testCommand ?? ecoConfig?.testCommand;
+                    if (!hasCommand) {
+                      const script =
+                        pkg.testScript ??
+                        ecoConfig?.testScript ??
+                        ctx.options.testScript;
+                      const isPackageOverride = !!pkg.testScript;
+                      const validateCwd =
+                        hasWorkspace && !isPackageOverride
+                          ? ctx.cwd
+                          : path.resolve(ctx.cwd, pkg.path);
+
+                      if (hasWorkspace && !isPackageOverride && groupValidated)
+                        continue;
+
+                      const instance = new descriptor.ecosystemClass(
+                        validateCwd,
+                      );
+                      const error = await instance.validateScript(
+                        script,
+                        "test",
+                      );
+                      if (error) errors.push(error);
+
+                      if (hasWorkspace && !isPackageOverride)
+                        groupValidated = true;
+                    }
+                  }
+
+                  if (!ctx.options.skipBuild) {
+                    const hasCommand =
+                      pkg.buildCommand ?? ecoConfig?.buildCommand;
+                    if (!hasCommand) {
+                      const script =
+                        pkg.buildScript ??
+                        ecoConfig?.buildScript ??
+                        ctx.options.buildScript;
+                      const isPackageOverride = !!pkg.buildScript;
+                      const validateCwd =
+                        hasWorkspace && !isPackageOverride
+                          ? ctx.cwd
+                          : path.resolve(ctx.cwd, pkg.path);
+
+                      if (hasWorkspace && !isPackageOverride && groupValidated)
+                        continue;
+
+                      const instance = new descriptor.ecosystemClass(
+                        validateCwd,
+                      );
+                      const error = await instance.validateScript(
+                        script,
+                        "build",
+                      );
+                      if (error) errors.push(error);
+                    }
+                  }
+                }
               }
 
               if (errors.length) {

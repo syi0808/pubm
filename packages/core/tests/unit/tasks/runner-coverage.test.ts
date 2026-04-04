@@ -42,6 +42,9 @@ vi.mock("../../../src/changeset/changelog-parser.js", () => ({
 vi.mock("../../../src/manifest/write-versions.js", () => ({
   writeVersionsForEcosystem: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../../../src/monorepo/workspace.js", () => ({
+  detectWorkspace: vi.fn(() => [{ type: "pnpm", patterns: ["packages/*"] }]),
+}));
 vi.mock("../../../src/ecosystem/catalog.js", () => {
   class MockJsEcosystem {
     packagePath: string;
@@ -51,11 +54,14 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     manifestFiles() {
       return ["package.json"];
     }
-    defaultTestCommand() {
-      return Promise.resolve("pnpm run test");
+    resolveTestCommand(script: string) {
+      return Promise.resolve({ cmd: "pnpm", args: ["run", script] });
     }
-    defaultBuildCommand() {
-      return Promise.resolve("pnpm run build");
+    resolveBuildCommand(script: string) {
+      return Promise.resolve({ cmd: "pnpm", args: ["run", script] });
+    }
+    validateScript() {
+      return Promise.resolve(null);
     }
   }
   class MockRustEcosystem {
@@ -66,11 +72,16 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     manifestFiles() {
       return ["Cargo.toml"];
     }
-    defaultTestCommand() {
-      return Promise.resolve("cargo test");
+    resolveTestCommand(script: string) {
+      const parts = script.split(/\s+/);
+      return Promise.resolve({ cmd: "cargo", args: parts });
     }
-    defaultBuildCommand() {
-      return Promise.resolve("cargo build --release");
+    resolveBuildCommand(script: string) {
+      const parts = script.split(/\s+/);
+      return Promise.resolve({ cmd: "cargo", args: parts });
+    }
+    validateScript() {
+      return Promise.resolve(null);
     }
   }
   const descriptors: Record<string, any> = {
@@ -2026,9 +2037,11 @@ describe("normal pipeline test and build tasks", () => {
     const testTask = tasks[0];
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       options: { testScript: "test", mode: "local" as const },
       runtime: { pluginRunner },
       config: {
+        ecosystems: {},
         packages: [
           {
             path: ".",
@@ -2066,9 +2079,11 @@ describe("normal pipeline test and build tasks", () => {
     const buildTask = tasks[1];
     const task = createTask();
     const ctx: any = {
+      cwd: process.cwd(),
       options: { buildScript: "build", mode: "local" as const },
       runtime: { pluginRunner },
       config: {
+        ecosystems: {},
         packages: [
           {
             path: ".",
@@ -2107,6 +2122,7 @@ describe("normal pipeline test and build tasks", () => {
     const testTask = tasks[0];
     const buildTask = tasks[1];
     const ctx: any = {
+      cwd: process.cwd(),
       options: {
         testScript: "test",
         buildScript: "build",
@@ -2114,6 +2130,7 @@ describe("normal pipeline test and build tasks", () => {
       },
       runtime: { pluginRunner },
       config: {
+        ecosystems: {},
         packages: [
           {
             path: ".",

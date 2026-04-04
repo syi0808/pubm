@@ -45,17 +45,17 @@ export class EcosystemCatalog {
 export const ecosystemCatalog: EcosystemCatalog = new EcosystemCatalog();
 
 ecosystemCatalog.register({
-  key: "js",
-  label: "JavaScript",
-  defaultRegistries: ["npm", "jsr"],
-  ecosystemClass: JsEcosystem,
-  detect: (path) => JsEcosystem.detect(path),
-});
-
-ecosystemCatalog.register({
   key: "rust",
   label: "Rust",
   defaultRegistries: ["crates"],
   ecosystemClass: RustEcosystem,
   detect: (path) => RustEcosystem.detect(path),
+});
+
+ecosystemCatalog.register({
+  key: "js",
+  label: "JavaScript",
+  defaultRegistries: ["npm", "jsr"],
+  ecosystemClass: JsEcosystem,
+  detect: (path) => JsEcosystem.detect(path),
 });

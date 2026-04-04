@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { BumpType } from "../changeset/parser.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { t } from "../i18n/index.js";
@@ -74,6 +75,22 @@ export async function resolveConfig(
     }
   }
 
+  if (config.ecosystems) {
+    for (const key of Object.keys(config.ecosystems)) {
+      if (!ecosystemCatalog.get(key)) {
+        throw new Error(
+          t("error.config.unknownEcosystem", {
+            ecosystem: key,
+            list: ecosystemCatalog
+              .all()
+              .map((d) => d.key)
+              .join(", "),
+          }),
+        );
+      }
+    }
+  }
+
   // Normalize private registries in config packages before passing to discover
   const configPackages = config.packages?.map((pkg) => {
     if (!pkg.registries) return pkg;
@@ -96,17 +113,32 @@ export async function resolveConfig(
     discoveryEmpty = true;
     packages = [];
   } else {
-    packages = discovered.map((pkg) => ({
-      path: pkg.path,
-      name: pkg.name,
-      version: pkg.version,
-      dependencies: pkg.dependencies,
-      ecosystem: pkg.ecosystem,
-      registries: pkg.registries as RegistryType[],
-      ...(pkg.registryVersions
-        ? { registryVersions: pkg.registryVersions }
-        : {}),
-    }));
+    packages = discovered.map((pkg) => {
+      const configPkg = configPackages?.find(
+        (cp) => path.normalize(cp.path) === pkg.path,
+      );
+      return {
+        path: pkg.path,
+        name: pkg.name,
+        version: pkg.version,
+        dependencies: pkg.dependencies,
+        ecosystem: pkg.ecosystem,
+        registries: pkg.registries as RegistryType[],
+        ...(pkg.registryVersions
+          ? { registryVersions: pkg.registryVersions }
+          : {}),
+        ...(configPkg?.testScript ? { testScript: configPkg.testScript } : {}),
+        ...(configPkg?.testCommand
+          ? { testCommand: configPkg.testCommand }
+          : {}),
+        ...(configPkg?.buildScript
+          ? { buildScript: configPkg.buildScript }
+          : {}),
+        ...(configPkg?.buildCommand
+          ? { buildCommand: configPkg.buildCommand }
+          : {}),
+      };
+    });
   }
 
   return {
@@ -120,6 +152,7 @@ export async function resolveConfig(
       ...config.rollback,
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
+    ecosystems: config.ecosystems ?? {},
     plugins: config.plugins ?? [],
     versionSources: config.versionSources ?? defaultConfig.versionSources,
     conventionalCommits: {

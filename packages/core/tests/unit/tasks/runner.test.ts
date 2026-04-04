@@ -24,6 +24,9 @@ vi.mock("../../../src/utils/package-manager.js", () => ({
 vi.mock("../../../src/manifest/write-versions.js", () => ({
   writeVersionsForEcosystem: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../../../src/monorepo/workspace.js", () => ({
+  detectWorkspace: vi.fn(() => [{ type: "pnpm", patterns: ["packages/*"] }]),
+}));
 vi.mock("../../../src/ecosystem/catalog.js", () => {
   class MockJsEcosystem {
     packagePath: string;
@@ -36,11 +39,14 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     syncLockfile() {
       return Promise.resolve(undefined);
     }
-    defaultTestCommand() {
-      return Promise.resolve("pnpm run test");
+    resolveTestCommand(script: string) {
+      return Promise.resolve({ cmd: "pnpm", args: ["run", script] });
     }
-    defaultBuildCommand() {
-      return Promise.resolve("pnpm run build");
+    resolveBuildCommand(script: string) {
+      return Promise.resolve({ cmd: "pnpm", args: ["run", script] });
+    }
+    validateScript() {
+      return Promise.resolve(null);
     }
   }
   class MockRustEcosystem {
@@ -54,11 +60,16 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
     syncLockfile() {
       return Promise.resolve(undefined);
     }
-    defaultTestCommand() {
-      return Promise.resolve("cargo test");
+    resolveTestCommand(script: string) {
+      const parts = script.split(/\s+/);
+      return Promise.resolve({ cmd: "cargo", args: parts });
     }
-    defaultBuildCommand() {
-      return Promise.resolve("cargo build --release");
+    resolveBuildCommand(script: string) {
+      const parts = script.split(/\s+/);
+      return Promise.resolve({ cmd: "cargo", args: parts });
+    }
+    validateScript() {
+      return Promise.resolve(null);
     }
   }
   const descriptors: Record<string, any> = {
@@ -1117,6 +1128,7 @@ describe("run", () => {
           onStderr: undefined,
           onStdout: undefined,
           throwOnError: true,
+          nodeOptions: { cwd: expect.any(String) },
         });
       } finally {
         Object.defineProperty(process.stdout, "isTTY", {
