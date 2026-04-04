@@ -104,7 +104,9 @@ export const requiredConditionsCheckTask = (
           {
             title: t("task.conditions.checkScripts"),
             skip: (ctx) =>
-              !ctx.config.packages.some((pkg) => pkg.ecosystem === "js"),
+              !ctx.config.packages.some(
+                (pkg) => (pkg.ecosystem ?? "js") === "js",
+              ),
             task: async (ctx): Promise<void> => {
               const raw = await readFile(
                 join(ctx.cwd, "package.json"),

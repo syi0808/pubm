@@ -922,7 +922,7 @@ describe("run", () => {
       );
 
       expect(mockTask.title).toBe("Running tests (pnpm run test)");
-      expect(mockTask.output).toBe("Completed `js`");
+      expect(mockTask.output).toBe("Completed `pnpm run test`");
     });
 
     it("shows only the latest 4 lines of live test output on local TTY", async () => {
