@@ -1,4 +1,5 @@
 import path from "node:path";
+import micromatch from "micromatch";
 import type { BumpType } from "../changeset/parser.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { t } from "../i18n/index.js";
@@ -114,9 +115,14 @@ export async function resolveConfig(
     packages = [];
   } else {
     packages = discovered.map((pkg) => {
-      const configPkg = configPackages?.find(
-        (cp) => path.normalize(cp.path) === pkg.path,
-      );
+      const configPkg = configPackages?.find((cp) => {
+        const normalized = cp.path.replace(/\\/g, "/");
+        const pkgPathForward = pkg.path.replace(/\\/g, "/");
+        if (micromatch.scan(normalized).isGlob) {
+          return micromatch.isMatch(pkgPathForward, normalized);
+        }
+        return path.normalize(cp.path) === pkg.path;
+      });
       return {
         path: pkg.path,
         name: pkg.name,

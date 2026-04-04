@@ -148,6 +148,77 @@ describe("resolveConfig", () => {
     ]);
   });
 
+  describe("glob pattern config packages", () => {
+    it("applies testScript/buildScript from a glob config entry to all matched discovered packages", async () => {
+      mockedDiscoverPackages.mockResolvedValue([
+        {
+          path: "packages/a",
+          name: "pkg-a",
+          version: "1.0.0",
+          dependencies: [],
+          registries: ["npm"],
+          ecosystem: "js",
+        },
+        {
+          path: "packages/b",
+          name: "pkg-b",
+          version: "1.0.0",
+          dependencies: [],
+          registries: ["npm"],
+          ecosystem: "js",
+        },
+      ]);
+
+      const resolved = await resolveConfig({
+        packages: [
+          {
+            path: "packages/*",
+            testScript: "test:ci",
+            buildScript: "build:prod",
+          },
+        ],
+      });
+
+      expect(resolved.packages[0].testScript).toBe("test:ci");
+      expect(resolved.packages[0].buildScript).toBe("build:prod");
+      expect(resolved.packages[1].testScript).toBe("test:ci");
+      expect(resolved.packages[1].buildScript).toBe("build:prod");
+    });
+
+    it("does not apply glob config overrides to non-matching packages", async () => {
+      mockedDiscoverPackages.mockResolvedValue([
+        {
+          path: "packages/a",
+          name: "pkg-a",
+          version: "1.0.0",
+          dependencies: [],
+          registries: ["npm"],
+          ecosystem: "js",
+        },
+        {
+          path: "tools/cli",
+          name: "cli",
+          version: "1.0.0",
+          dependencies: [],
+          registries: ["npm"],
+          ecosystem: "js",
+        },
+      ]);
+
+      const resolved = await resolveConfig({
+        packages: [
+          {
+            path: "packages/*",
+            testScript: "test:ci",
+          },
+        ],
+      });
+
+      expect(resolved.packages[0].testScript).toBe("test:ci");
+      expect(resolved.packages[1].testScript).toBeUndefined();
+    });
+  });
+
   it("migrates deprecated rollbackStrategy to rollback.strategy", async () => {
     const resolved = await resolveConfig({ rollbackStrategy: "all" });
     expect(resolved.rollback.strategy).toBe("all");

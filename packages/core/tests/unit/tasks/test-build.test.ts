@@ -748,7 +748,89 @@ describe("build task execution", () => {
       ["-c", "npx vitest"],
       expect.any(Object),
     );
-    // Only one exec for the group
+    // Only one exec for the group (workspace manager handles fan-out)
     expect(mockExec).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs ecosystem-level testCommand per-package when no workspace detected", async () => {
+    mockDetectWorkspace.mockReturnValue([]);
+    const { createTestTask } = await import(
+      "../../../src/tasks/phases/test-build.js"
+    );
+    const testTask = createTestTask(true, false);
+    const ctx = createCtx({
+      config: {
+        ecosystems: { js: { testCommand: "npx vitest run" } },
+        packages: [
+          { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+          { path: "packages/b", registries: ["npm"], ecosystem: "js" },
+        ],
+      },
+    });
+    const task = createTask();
+
+    await (testTask as any).task(ctx, task);
+
+    // Without a workspace, command must run once per package
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec).toHaveBeenCalledWith(
+      "sh",
+      ["-c", "npx vitest run"],
+      expect.objectContaining({
+        nodeOptions: expect.objectContaining({
+          cwd: expect.stringContaining("packages/a"),
+        }),
+      }),
+    );
+    expect(mockExec).toHaveBeenCalledWith(
+      "sh",
+      ["-c", "npx vitest run"],
+      expect.objectContaining({
+        nodeOptions: expect.objectContaining({
+          cwd: expect.stringContaining("packages/b"),
+        }),
+      }),
+    );
+  });
+
+  it("runs ecosystem-level buildCommand per-package when no workspace detected", async () => {
+    mockDetectWorkspace.mockReturnValue([]);
+    const { createBuildTask } = await import(
+      "../../../src/tasks/phases/test-build.js"
+    );
+    const buildTask = createBuildTask(true, false);
+    const ctx = createCtx({
+      config: {
+        ecosystems: { js: { buildCommand: "npx tsup" } },
+        packages: [
+          { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+          { path: "packages/b", registries: ["npm"], ecosystem: "js" },
+        ],
+      },
+    });
+    const task = createTask();
+
+    await (buildTask as any).task(ctx, task);
+
+    // Without a workspace, command must run once per package
+    expect(mockExec).toHaveBeenCalledTimes(2);
+    expect(mockExec).toHaveBeenCalledWith(
+      "sh",
+      ["-c", "npx tsup"],
+      expect.objectContaining({
+        nodeOptions: expect.objectContaining({
+          cwd: expect.stringContaining("packages/a"),
+        }),
+      }),
+    );
+    expect(mockExec).toHaveBeenCalledWith(
+      "sh",
+      ["-c", "npx tsup"],
+      expect.objectContaining({
+        nodeOptions: expect.objectContaining({
+          cwd: expect.stringContaining("packages/b"),
+        }),
+      }),
+    );
   });
 });
