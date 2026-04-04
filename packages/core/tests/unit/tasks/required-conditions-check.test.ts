@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockValidateScript = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+
 vi.mock("std-env", () => ({ isCI: false }));
 
 vi.mock("../../../src/git.js", () => ({
@@ -19,6 +21,40 @@ vi.mock("../../../src/registry/catalog.js", () => ({
 vi.mock("../../../src/utils/engine-version.js", () => ({
   validateEngineVersion: vi.fn(),
 }));
+
+vi.mock("../../../src/monorepo/workspace.js", () => ({
+  detectWorkspace: vi.fn(() => []),
+}));
+
+vi.mock("../../../src/ecosystem/catalog.js", () => {
+  class MockEcosystem {
+    packagePath: string;
+    constructor(p: string) {
+      this.packagePath = p;
+    }
+    validateScript(script: string, type: string) {
+      return mockValidateScript(script, type);
+    }
+  }
+  const descriptors: Record<string, any> = {
+    js: {
+      key: "js",
+      label: "JavaScript",
+      ecosystemClass: MockEcosystem,
+    },
+    rust: {
+      key: "rust",
+      label: "Rust",
+      ecosystemClass: MockEcosystem,
+    },
+  };
+  return {
+    ecosystemCatalog: {
+      get: vi.fn((key: string) => descriptors[key]),
+      all: vi.fn(() => Object.values(descriptors)),
+    },
+  };
+});
 
 vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
@@ -107,6 +143,7 @@ async function getSubtasks() {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockValidateScript.mockReset().mockReturnValue(Promise.resolve(null));
 
   vi.resetModules();
 
@@ -132,6 +169,40 @@ beforeEach(async () => {
   vi.doMock("../../../src/utils/engine-version.js", () => ({
     validateEngineVersion: vi.fn(),
   }));
+
+  vi.doMock("../../../src/monorepo/workspace.js", () => ({
+    detectWorkspace: vi.fn(() => []),
+  }));
+
+  vi.doMock("../../../src/ecosystem/catalog.js", () => {
+    class MockEcosystem {
+      packagePath: string;
+      constructor(p: string) {
+        this.packagePath = p;
+      }
+      validateScript(script: string, type: string) {
+        return mockValidateScript(script, type);
+      }
+    }
+    const descriptors: Record<string, any> = {
+      js: {
+        key: "js",
+        label: "JavaScript",
+        ecosystemClass: MockEcosystem,
+      },
+      rust: {
+        key: "rust",
+        label: "Rust",
+        ecosystemClass: MockEcosystem,
+      },
+    };
+    return {
+      ecosystemCatalog: {
+        get: vi.fn((key: string) => descriptors[key]),
+        all: vi.fn(() => Object.values(descriptors)),
+      },
+    };
+  });
 
   vi.doMock("node:fs/promises", () => ({
     readFile: vi.fn(),
@@ -329,144 +400,121 @@ describe("requiredConditionsCheckTask", () => {
   });
 
   describe("Subtask 2: Scripts existence check", () => {
-    it("skips when no JS ecosystem packages exist (e.g., crates only)", async () => {
+    it("skips when both skipTests and skipBuild are true", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: {
-          packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
-        },
+        options: { skipTests: true, skipBuild: true },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
     });
 
-    it("does not skip when JS ecosystem packages exist", async () => {
+    it("does not skip when skipTests is false", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: {
-          packages: [
-            { path: ".", registries: ["npm", "jsr"], ecosystem: "js" },
-          ],
-        },
+        options: { skipTests: false, skipBuild: true },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(false);
     });
 
-    it("skips when registries contain only crates", async () => {
+    it("does not skip when skipBuild is false", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: {
-          packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
-        },
+        options: { skipTests: true, skipBuild: false },
       });
 
-      expect(scriptsTask.skip(ctx)).toBe(true);
+      expect(scriptsTask.skip(ctx)).toBe(false);
     });
 
-    it("passes when both test and build scripts exist", async () => {
+    it("passes when validateScript returns null for all packages", async () => {
+      mockValidateScript.mockResolvedValue(null);
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "test", buildScript: "build" },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { test: "vitest", build: "tsup" },
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
 
-    it("throws when test script is missing and skipTests is false", async () => {
+    it("throws when test script validation fails and skipTests is false", async () => {
+      mockValidateScript.mockImplementation((script: string, type: string) => {
+        if (type === "test")
+          return Promise.resolve(
+            `Script '${script}' not found in /fake/package.json`,
+          );
+        return Promise.resolve(null);
+      });
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "test", buildScript: "build", skipTests: false },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { build: "tsup" },
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
-        "Test script 'test' does not exist",
+        "Script 'test' not found",
       );
     });
 
-    it("passes when test script is missing but skipTests is true", async () => {
+    it("passes when test script validation fails but skipTests is true", async () => {
+      mockValidateScript.mockImplementation((script: string, type: string) => {
+        if (type === "test")
+          return Promise.resolve(`Script '${script}' not found`);
+        return Promise.resolve(null);
+      });
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "test", buildScript: "build", skipTests: true },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { build: "tsup" },
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
 
-    it("throws when build script is missing and skipBuild is false", async () => {
+    it("throws when build script validation fails and skipBuild is false", async () => {
+      mockValidateScript.mockImplementation((script: string, type: string) => {
+        if (type === "build")
+          return Promise.resolve(
+            `Script '${script}' not found in /fake/package.json`,
+          );
+        return Promise.resolve(null);
+      });
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "test", buildScript: "build", skipBuild: false },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { test: "vitest" },
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
-        "Build script 'build' does not exist",
+        "Script 'build' not found",
       );
     });
 
-    it("passes when build script is missing but skipBuild is true", async () => {
+    it("passes when build script validation fails but skipBuild is true", async () => {
+      mockValidateScript.mockImplementation((script: string, type: string) => {
+        if (type === "build")
+          return Promise.resolve(`Script '${script}' not found`);
+        return Promise.resolve(null);
+      });
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "test", buildScript: "build", skipBuild: true },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { test: "vitest" },
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
 
-    it("throws with combined message when both scripts are missing", async () => {
+    it("throws with combined message when both scripts validation fails", async () => {
+      mockValidateScript.mockImplementation((script: string) => {
+        return Promise.resolve(
+          `Script '${script}' not found in /fake/package.json`,
+        );
+      });
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
@@ -478,21 +526,13 @@ describe("requiredConditionsCheckTask", () => {
         },
       });
 
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: {},
-        }) as any,
-      );
-
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
-        "Test script 'test' does not exist. and Build script 'build' does not exist.",
+        "Please check your configuration",
       );
     });
 
-    it("handles package.json with no scripts field", async () => {
+    it("throws when validateScript returns error for package", async () => {
+      mockValidateScript.mockResolvedValue("Cannot read /fake/package.json");
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
@@ -503,14 +543,6 @@ describe("requiredConditionsCheckTask", () => {
           skipBuild: false,
         },
       });
-
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-        }) as any,
-      );
 
       await expect(scriptsTask.task(ctx)).rejects.toThrow(
         "Please check your configuration",
@@ -518,20 +550,12 @@ describe("requiredConditionsCheckTask", () => {
     });
 
     it("uses custom script names from ctx", async () => {
+      mockValidateScript.mockResolvedValue(null);
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
         options: { testScript: "custom-test", buildScript: "custom-build" },
       });
-
-      const { readFile: mockReadFile } = await import("node:fs/promises");
-      vi.mocked(mockReadFile).mockResolvedValue(
-        JSON.stringify({
-          name: "my-package",
-          version: "1.0.0",
-          scripts: { "custom-test": "vitest", "custom-build": "tsup" },
-        }) as any,
-      );
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
     });
@@ -1055,6 +1079,332 @@ describe("requiredConditionsCheckTask", () => {
       expect(registrySubtasks).toHaveLength(2);
       expect(registrySubtasks[0].title).toBe("Checking npm availability");
       expect(registrySubtasks[1].title).toBe("Checking jsr availability");
+    });
+  });
+
+  describe("Subtask 2: Scripts check — ecosystem and command branches", () => {
+    it("defaults to js ecosystem when pkg.ecosystem is undefined", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [{ path: ".", registries: ["npm"] } as any],
+        },
+        options: { testScript: "test", buildScript: "build" },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+    });
+
+    it("skips validation when testCommand is set on package", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: ".",
+              registries: ["npm"],
+              ecosystem: "js",
+              testCommand: "make test",
+            } as any,
+          ],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      // validateScript should not be called since testCommand is set
+      expect(mockValidateScript).not.toHaveBeenCalled();
+    });
+
+    it("skips validation when buildCommand is set on package", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: ".",
+              registries: ["npm"],
+              ecosystem: "js",
+              buildCommand: "make build",
+            } as any,
+          ],
+        },
+        options: { skipTests: true, skipBuild: false },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).not.toHaveBeenCalled();
+    });
+
+    it("skips validation when ecosystems.testCommand is set", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          ecosystems: { js: { testCommand: "npx vitest" } },
+          packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).not.toHaveBeenCalled();
+    });
+
+    it("skips validation when ecosystems.buildCommand is set", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          ecosystems: { js: { buildCommand: "npx tsup" } },
+          packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
+        },
+        options: { skipTests: true, skipBuild: false },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).not.toHaveBeenCalled();
+    });
+
+    it("uses pkg.testScript override for validation", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: "packages/a",
+              registries: ["npm"],
+              ecosystem: "js",
+              testScript: "test:special",
+            } as any,
+          ],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("test:special", "test");
+    });
+
+    it("uses ecosystems.testScript override for validation", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          ecosystems: { js: { testScript: "test:ci" } },
+          packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
+        },
+        options: { skipTests: false, skipBuild: true, testScript: "test" },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("test:ci", "test");
+    });
+
+    it("uses pkg.buildScript override for validation", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: "packages/a",
+              registries: ["npm"],
+              ecosystem: "js",
+              buildScript: "build:special",
+            } as any,
+          ],
+        },
+        options: { skipTests: true, skipBuild: false },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("build:special", "build");
+    });
+
+    it("uses ecosystems.buildScript override for validation", async () => {
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          ecosystems: { js: { buildScript: "build:ci" } },
+          packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
+        },
+        options: { skipTests: true, skipBuild: false, buildScript: "build" },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("build:ci", "build");
+    });
+
+    it("validates at root cwd in workspace mode for grouped packages", async () => {
+      const { detectWorkspace } = await import(
+        "../../../src/monorepo/workspace.js"
+      );
+      vi.mocked(detectWorkspace).mockReturnValue([
+        { type: "pnpm", patterns: ["packages/*"] },
+      ] as any);
+
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+            { path: "packages/b", registries: ["npm"], ecosystem: "js" },
+          ],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      // Only called once for the group (groupValidated skips second package)
+      expect(mockValidateScript).toHaveBeenCalledTimes(1);
+    });
+
+    it("validates per-package when package has testScript override in workspace", async () => {
+      const { detectWorkspace } = await import(
+        "../../../src/monorepo/workspace.js"
+      );
+      vi.mocked(detectWorkspace).mockReturnValue([
+        { type: "pnpm", patterns: ["packages/*"] },
+      ] as any);
+
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: "packages/a",
+              registries: ["npm"],
+              ecosystem: "js",
+              testScript: "test:special",
+            } as any,
+          ],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("test:special", "test");
+    });
+
+    it("detects rust workspace via cargo type", async () => {
+      const { detectWorkspace } = await import(
+        "../../../src/monorepo/workspace.js"
+      );
+      vi.mocked(detectWorkspace).mockReturnValue([
+        { type: "cargo", patterns: ["crates/*"] },
+      ] as any);
+
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            { path: "crates/a", registries: ["crates"], ecosystem: "rust" },
+            { path: "crates/b", registries: ["crates"], ecosystem: "rust" },
+          ],
+        },
+        options: { skipTests: false, skipBuild: true },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      // Only called once for the group (workspace groupValidated)
+      expect(mockValidateScript).toHaveBeenCalledTimes(1);
+    });
+
+    it("validates both test and build once each for workspace group", async () => {
+      const { detectWorkspace } = await import(
+        "../../../src/monorepo/workspace.js"
+      );
+      vi.mocked(detectWorkspace).mockReturnValue([
+        { type: "pnpm", patterns: ["packages/*"] },
+      ] as any);
+
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+            { path: "packages/b", registries: ["npm"], ecosystem: "js" },
+          ],
+        },
+        options: { skipTests: false, skipBuild: false },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      // test and build each validated once for workspace group (separate flags)
+      expect(mockValidateScript).toHaveBeenCalledTimes(2);
+      expect(mockValidateScript).toHaveBeenCalledWith("test", "test");
+      expect(mockValidateScript).toHaveBeenCalledWith("build", "build");
+    });
+
+    it("validates per-package with buildScript override in workspace", async () => {
+      const { detectWorkspace } = await import(
+        "../../../src/monorepo/workspace.js"
+      );
+      vi.mocked(detectWorkspace).mockReturnValue([
+        { type: "pnpm", patterns: ["packages/*"] },
+      ] as any);
+
+      mockValidateScript.mockResolvedValue(null);
+      const subtasks = await getSubtasks();
+      const scriptsTask = subtasks[1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: "packages/a",
+              registries: ["npm"],
+              ecosystem: "js",
+              buildScript: "build:special",
+            } as any,
+          ],
+        },
+        options: { skipTests: true, skipBuild: false },
+      });
+
+      await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("build:special", "build");
+    });
+  });
+
+  describe("isCI branch", () => {
+    it("uses createCiListrOptions when isCI is true", async () => {
+      vi.doMock("std-env", () => ({ isCI: true }));
+
+      vi.doMock("../../../src/utils/listr.js", () => ({
+        createListr: vi.fn((taskDef: any, options?: any) => {
+          return { _taskDef: taskDef, _options: options, run: vi.fn() };
+        }),
+        createCiListrOptions: vi.fn(() => ({ renderer: "ci" })),
+      }));
+
+      const { requiredConditionsCheckTask } = await import(
+        "../../../src/tasks/required-conditions-check.js"
+      );
+      const result = requiredConditionsCheckTask();
+      expect((result as any)._options).toEqual({ renderer: "ci" });
     });
   });
 

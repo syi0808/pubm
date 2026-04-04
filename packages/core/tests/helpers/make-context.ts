@@ -26,6 +26,7 @@ export function makeTestConfig(
     rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
     lockfileSync: "optional",
     packages: [],
+    ecosystems: {},
     validate: { cleanInstall: true, entryPoints: true, extraneousFiles: true },
     plugins: [],
     ...overrides,
