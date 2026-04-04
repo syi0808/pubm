@@ -29,7 +29,6 @@ export interface RegistryDescriptor {
   ecosystem: EcosystemKey;
   label: string;
   tokenConfig: TokenEntry;
-  needsPackageScripts: boolean;
   additionalEnvVars?: (token: string) => Record<string, string>;
   validateToken?: (token: string) => Promise<boolean>;
   resolveTokenUrl?: (baseUrl: string) => Promise<string>;
@@ -128,7 +127,6 @@ registryCatalog.register({
       "https://www.npmjs.com/settings/~/tokens/granular-access-tokens/new",
     tokenUrlLabel: "npmjs.com",
   },
-  needsPackageScripts: true,
   additionalEnvVars: (token) => ({
     "npm_config_//registry.npmjs.org/:_authToken": token,
   }),
@@ -184,7 +182,6 @@ registryCatalog.register({
     tokenUrl: "https://jsr.io/account/tokens/create",
     tokenUrlLabel: "jsr.io",
   },
-  needsPackageScripts: false,
   validateToken: async (token) => {
     const res = await fetch("https://jsr.io/api/user", {
       headers: { Authorization: `Bearer ${token}` },
@@ -231,7 +228,6 @@ registryCatalog.register({
     tokenUrl: "https://crates.io/settings/tokens/new",
     tokenUrlLabel: "crates.io",
   },
-  needsPackageScripts: false,
   validateToken: async (token) => {
     return token.trim().length >= 32;
   },
@@ -285,7 +281,6 @@ export function registerPrivateRegistry(
       tokenUrl: config.url,
       tokenUrlLabel: key,
     },
-    needsPackageScripts: false,
     concurrentPublish: true,
     unpublishLabel: "Unpublish",
     requiresEarlyAuth: false,

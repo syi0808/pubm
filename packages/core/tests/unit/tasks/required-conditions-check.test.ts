@@ -43,7 +43,7 @@ function createCtx(
 ): PubmContext {
   return makeTestContext({
     config: {
-      packages: [{ path: ".", registries: ["npm"] }],
+      packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
       ...overrides.config,
     },
     options: overrides.options,
@@ -64,7 +64,6 @@ function makeNpmDescriptor() {
     key: "npm",
     ecosystem: "js",
     label: "npm",
-    needsPackageScripts: true,
     factory: vi.fn(),
   };
 }
@@ -74,7 +73,6 @@ function makeJsrDescriptor() {
     key: "jsr",
     ecosystem: "js",
     label: "jsr",
-    needsPackageScripts: false,
     factory: vi.fn(),
   };
 }
@@ -84,7 +82,6 @@ function makeCratesDescriptor() {
     key: "crates",
     ecosystem: "rust",
     label: "crates.io",
-    needsPackageScripts: false,
     factory: vi.fn(),
   };
 }
@@ -332,33 +329,27 @@ describe("requiredConditionsCheckTask", () => {
   });
 
   describe("Subtask 2: Scripts existence check", () => {
-    it("skips when all registries have needsPackageScripts false (e.g., jsr only)", async () => {
+    it("skips when no JS ecosystem packages exist (e.g., crates only)", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: { packages: [{ path: ".", registries: ["jsr"] }] },
+        config: {
+          packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
+        },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(true);
     });
 
-    it("defaults to true (does not skip) when registryCatalog.get returns undefined for unknown registry", async () => {
+    it("does not skip when JS ecosystem packages exist", async () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: { packages: [{ path: ".", registries: ["unknown-registry"] }] },
-      });
-
-      // registryCatalog.get("unknown-registry") returns undefined
-      // needsPackageScripts defaults to true via ?? true
-      expect(scriptsTask.skip(ctx)).toBe(false);
-    });
-
-    it("does not skip when any registry has needsPackageScripts true", async () => {
-      const subtasks = await getSubtasks();
-      const scriptsTask = subtasks[1];
-      const ctx = createCtx({
-        config: { packages: [{ path: ".", registries: ["npm", "jsr"] }] },
+        config: {
+          packages: [
+            { path: ".", registries: ["npm", "jsr"], ecosystem: "js" },
+          ],
+        },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(false);
@@ -368,7 +359,9 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const scriptsTask = subtasks[1];
       const ctx = createCtx({
-        config: { packages: [{ path: ".", registries: ["crates"] }] },
+        config: {
+          packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
+        },
       });
 
       expect(scriptsTask.skip(ctx)).toBe(true);

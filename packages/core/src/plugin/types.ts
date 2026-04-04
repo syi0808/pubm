@@ -114,7 +114,6 @@ export interface PluginRegistryDefinition {
   tokenConfig: TokenEntry;
   unpublishLabel: string;
   requiresEarlyAuth: boolean;
-  needsPackageScripts: boolean;
   concurrentPublish: boolean;
   additionalEnvVars?: (token: string) => Record<string, string>;
   validateToken?: (token: string) => Promise<boolean>;

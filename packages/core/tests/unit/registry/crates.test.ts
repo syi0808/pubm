@@ -105,10 +105,9 @@ describe("CratesPackageRegistry", () => {
   });
 
   describe("getRequirements", () => {
-    it("returns needsPackageScripts false and requiredManifest Cargo.toml", () => {
+    it("returns requiredManifest Cargo.toml", () => {
       const requirements = registry.getRequirements();
       expect(requirements).toEqual({
-        needsPackageScripts: false,
         requiredManifest: "Cargo.toml",
       });
     });

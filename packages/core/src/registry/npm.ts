@@ -470,7 +470,6 @@ export class NpmPackageRegistry extends PackageRegistry {
 
   getRequirements(): RegistryRequirements {
     return {
-      needsPackageScripts: true,
       requiredManifest: "package.json",
     };
   }
