@@ -4,6 +4,7 @@ import semver from "semver";
 
 const { SemVer } = semver;
 
+import { isCI } from "std-env";
 import type { VersionBump } from "../../changeset/version.js";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import type {
@@ -64,7 +65,7 @@ export async function handleMultiPackage(
   const recommendations = await analyzeAllSources(ctx);
 
   // CI mode: auto-accept
-  if (!ctx.runtime.promptEnabled && recommendations.length > 0) {
+  if (isCI && recommendations.length > 0) {
     const packages = new Map<string, string>();
     for (const rec of recommendations) {
       const current = currentVersions.get(rec.packagePath);
