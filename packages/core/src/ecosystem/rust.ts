@@ -109,12 +109,23 @@ export class RustEcosystem extends Ecosystem {
     return ["Cargo.toml"];
   }
 
-  defaultTestCommand(_scriptName?: string): string {
-    return "cargo test";
+  resolveTestCommand(script: string): Promise<{ cmd: string; args: string[] }> {
+    const parts = script.split(/\s+/);
+    return Promise.resolve({ cmd: "cargo", args: parts });
   }
 
-  defaultBuildCommand(_scriptName?: string): string {
-    return "cargo build --release";
+  resolveBuildCommand(
+    script: string,
+  ): Promise<{ cmd: string; args: string[] }> {
+    const parts = script.split(/\s+/);
+    return Promise.resolve({ cmd: "cargo", args: parts });
+  }
+
+  validateScript(
+    _script: string,
+    _type: "test" | "build",
+  ): Promise<string | null> {
+    return Promise.resolve(null);
   }
 
   supportedRegistries(): RegistryType[] {
