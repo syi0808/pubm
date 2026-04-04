@@ -12,7 +12,7 @@ import {
 function collectUniqueEcosystems(ctx: PubmContext): string[] {
   const seen = new Set<string>();
   for (const pkg of ctx.config.packages) {
-    if (pkg.ecosystem) seen.add(pkg.ecosystem);
+    seen.add(pkg.ecosystem ?? "js");
   }
   return [...seen];
 }
@@ -53,11 +53,15 @@ export function createTestTask(
       await ctx.runtime.pluginRunner.runHook("beforeTest", ctx);
 
       const ecosystems = collectUniqueEcosystems(ctx);
+      const executedCommands: string[] = [];
       for (const key of ecosystems) {
         const descriptor = ecosystemCatalog.get(key);
         if (!descriptor) continue;
         const instance = new descriptor.ecosystemClass(ctx.cwd);
-        const command = await instance.defaultTestCommand();
+        const command = await instance.defaultTestCommand(
+          ctx.options.testScript,
+        );
+        executedCommands.push(command);
         task.title = t("task.test.titleWithCommand", { command });
 
         try {
@@ -76,7 +80,7 @@ export function createTestTask(
       task.output = t("task.test.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterTest", ctx);
       task.output = t("task.test.completed", {
-        command: ecosystems.join(", "),
+        command: executedCommands.join(", "),
       });
     },
   };
@@ -94,11 +98,15 @@ export function createBuildTask(
       await ctx.runtime.pluginRunner.runHook("beforeBuild", ctx);
 
       const ecosystems = collectUniqueEcosystems(ctx);
+      const executedCommands: string[] = [];
       for (const key of ecosystems) {
         const descriptor = ecosystemCatalog.get(key);
         if (!descriptor) continue;
         const instance = new descriptor.ecosystemClass(ctx.cwd);
-        const command = await instance.defaultBuildCommand();
+        const command = await instance.defaultBuildCommand(
+          ctx.options.buildScript,
+        );
+        executedCommands.push(command);
         task.title = t("task.build.titleWithCommand", { command });
 
         try {
@@ -117,7 +125,7 @@ export function createBuildTask(
       task.output = t("task.build.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterBuild", ctx);
       task.output = t("task.build.completed", {
-        command: ecosystems.join(", "),
+        command: executedCommands.join(", "),
       });
     },
   };

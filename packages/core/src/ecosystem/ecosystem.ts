@@ -13,8 +13,8 @@ export abstract class Ecosystem {
   abstract registryClasses(): (typeof PackageRegistry)[];
   abstract writeVersion(newVersion: string): Promise<void>;
   abstract manifestFiles(): string[];
-  abstract defaultTestCommand(): Promise<string> | string;
-  abstract defaultBuildCommand(): Promise<string> | string;
+  abstract defaultTestCommand(scriptName?: string): Promise<string> | string;
+  abstract defaultBuildCommand(scriptName?: string): Promise<string> | string;
   abstract supportedRegistries(): RegistryType[];
   abstract createDescriptor(): Promise<EcosystemDescriptor>;
 
