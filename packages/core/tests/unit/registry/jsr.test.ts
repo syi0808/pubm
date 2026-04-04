@@ -477,11 +477,10 @@ describe("JsrPackageRegistry", () => {
 });
 
 describe("getRequirements", () => {
-  it("returns needsPackageScripts false and requiredManifest jsr.json or deno.json", () => {
+  it("returns requiredManifest jsr.json or deno.json", () => {
     const registry = new JsrPackageRegistry("@scope/my-package", FIXTURE_PATH);
     const requirements = registry.getRequirements();
     expect(requirements).toEqual({
-      needsPackageScripts: false,
       requiredManifest: "jsr.json or deno.json",
     });
   });

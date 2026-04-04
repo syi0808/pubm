@@ -32,7 +32,6 @@ function createDescriptor(
       tokenUrl: "https://example.com",
       tokenUrlLabel: "example.com",
     },
-    needsPackageScripts: false,
     concurrentPublish: true,
     unpublishLabel: "Unpublish",
     requiresEarlyAuth: false,
@@ -127,7 +126,6 @@ describe("default registrations", () => {
     expect(npm).toBeDefined();
     expect(npm!.ecosystem).toBe("js");
     expect(npm!.label).toBe("npm");
-    expect(npm!.needsPackageScripts).toBe(true);
     expect(npm!.tokenConfig.envVar).toBe("NODE_AUTH_TOKEN");
   });
 
@@ -135,7 +133,6 @@ describe("default registrations", () => {
     const jsr = registryCatalog.get("jsr");
     expect(jsr).toBeDefined();
     expect(jsr!.ecosystem).toBe("js");
-    expect(jsr!.needsPackageScripts).toBe(false);
     expect(jsr!.tokenConfig.envVar).toBe("JSR_TOKEN");
   });
 

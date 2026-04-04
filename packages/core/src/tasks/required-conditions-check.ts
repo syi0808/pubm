@@ -11,18 +11,11 @@ import { registryCatalog } from "../registry/catalog.js";
 import { getConnector } from "../registry/index.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
-import { collectRegistries } from "../utils/registries.js";
 import {
   collectEcosystemRegistryGroups,
   ecosystemLabel,
   registryLabel,
 } from "./grouping.js";
-
-function needsPackageScripts(registries: string[]): boolean {
-  return registries.some(
-    (r) => registryCatalog.get(r)?.needsPackageScripts ?? true,
-  );
-}
 
 class RequiredConditionCheckError extends AbstractError {
   name = t("error.conditions.name");
@@ -110,7 +103,8 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: t("task.conditions.checkScripts"),
-            skip: (ctx) => !needsPackageScripts(collectRegistries(ctx.config)),
+            skip: (ctx) =>
+              !ctx.config.packages.some((pkg) => pkg.ecosystem === "js"),
             task: async (ctx): Promise<void> => {
               const raw = await readFile(
                 join(ctx.cwd, "package.json"),
