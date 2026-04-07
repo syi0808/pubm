@@ -1,0 +1,105 @@
+name: E2E Fixture Tests
+on:
+  workflow_dispatch:
+    inputs:
+      pubm_version:
+        description: "pubm version to test (e.g. '0.5.2' or 'latest')"
+        default: "latest"
+        type: string
+
+jobs:
+  trigger:
+    name: "E2E: ${{ matrix.fixture }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture:
+          - example-single-npm
+          - example-single-jsr
+          - example-single-crate
+          - example-monorepo-fixed-npm
+          - example-monorepo-independent-npm
+          - example-multi-registry
+          - example-monorepo-npm-jsr
+          - example-monorepo-npm-crate-jsr
+          - example-with-plugins
+          - example-with-changesets
+    steps:
+      - name: Trigger fixture E2E
+        run: |
+          gh workflow run e2e.yaml \
+            --repo pubm-org/${{ matrix.fixture }} \
+            -f pubm_version=${{ inputs.pubm_version }}
+        env:
+          GH_TOKEN: ${{ secrets.PUBM_ORG_TOKEN }}
+
+      - name: Wait for workflow run to register
+        run: sleep 10
+
+      - name: Get run ID
+        id: get-run
+        run: |
+          RUN_ID=$(gh run list \
+            --repo pubm-org/${{ matrix.fixture }} \
+            --workflow e2e.yaml \
+            --limit 1 \
+            --json databaseId \
+            -q '.[0].databaseId')
+          echo "run_id=${RUN_ID}" >> $GITHUB_OUTPUT
+          echo "Triggered run ${RUN_ID} for ${{ matrix.fixture }}"
+        env:
+          GH_TOKEN: ${{ secrets.PUBM_ORG_TOKEN }}
+
+      - name: Poll for completion
+        run: |
+          REPO="pubm-org/${{ matrix.fixture }}"
+          RUN_ID="${{ steps.get-run.outputs.run_id }}"
+          echo "Polling run ${RUN_ID} in ${REPO}..."
+
+          TIMEOUT=600
+          ELAPSED=0
+          INTERVAL=30
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(gh run view $RUN_ID --repo $REPO --json status -q '.status')
+            CONCLUSION=$(gh run view $RUN_ID --repo $REPO --json conclusion -q '.conclusion')
+
+            if [ "$STATUS" = "completed" ]; then
+              echo "Run completed with conclusion: $CONCLUSION"
+              if [ "$CONCLUSION" != "success" ]; then
+                echo "::error::E2E failed for ${{ matrix.fixture }} (conclusion: $CONCLUSION)"
+                echo "View logs: https://github.com/${REPO}/actions/runs/${RUN_ID}"
+                exit 1
+              fi
+              echo "E2E passed for ${{ matrix.fixture }}"
+              exit 0
+            fi
+
+            echo "Status: $STATUS (${ELAPSED}s elapsed), waiting ${INTERVAL}s..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "::error::E2E timed out for ${{ matrix.fixture }} after ${TIMEOUT}s"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.PUBM_ORG_TOKEN }}
+
+  summary:
+    name: E2E Summary
+    needs: trigger
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Report results
+        run: |
+          echo "## E2E Fixture Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**pubm version:** \`${{ inputs.pubm_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.trigger.result }}" = "success" ]; then
+            echo "**Result:** All fixtures passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result:** Some fixtures failed — check individual matrix jobs for details" >> $GITHUB_STEP_SUMMARY
+          fi
