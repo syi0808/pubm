@@ -1,4 +1,3 @@
-import { Reporter } from "@cluvo/sdk";
 import type {
   Options,
   ResolvedPubmConfig,
@@ -40,14 +39,21 @@ import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
 import { showSplash } from "./splash.js";
 
+declare const __PUBM_DEV__: boolean;
+
 const { RELEASE_TYPES } = semver;
 
+/* istanbul ignore next -- compile-time constant */
+const isDev = typeof __PUBM_DEV__ === "boolean" ? __PUBM_DEV__ : true;
+
 /* istanbul ignore next -- IIFE bootstrap: covered by e2e tests */
-const reporter = new Reporter({
-  repo: "syi0808/pubm",
-  app: { name: "pubm", version: PUBM_VERSION },
-  prompt: { spacing: 0 },
-});
+const reporter = isDev
+  ? new (await import("@cluvo/sdk")).Reporter({
+      repo: "syi0808/pubm",
+      app: { name: "pubm", version: PUBM_VERSION },
+      prompt: { spacing: 0 },
+    })
+  : undefined;
 
 interface CliOptions {
   version: string;
@@ -382,7 +388,7 @@ export function createProgram(): Command {
         } catch (e) {
           consoleError(e as Error);
 
-          await reporter.reportError(e);
+          if (reporter) await reporter.reportError(e);
 
           process.exitCode = 1;
         }
@@ -396,9 +402,9 @@ export function createProgram(): Command {
   return program;
 }
 
-await reporter.wrapCommand(async () => {
+/* istanbul ignore next -- IIFE bootstrap: covered by e2e tests */
+const bootstrap = async () => {
   // Early locale init so Commander help text can be translated
-  /* istanbul ignore next -- bootstrap: covered by e2e tests */
   initI18n({ flag: parseArgvForLocale(process.argv) });
 
   const program = createProgram();
@@ -414,7 +420,6 @@ await reporter.wrapCommand(async () => {
   const config = await resolveConfig(raw ?? {}, cwd);
 
   // Full locale init with config-level locale override
-  /* istanbul ignore next -- bootstrap: covered by e2e tests */
   initI18n({
     flag: parseArgvForLocale(process.argv),
     configLocale: config?.locale,
@@ -444,7 +449,12 @@ await reporter.wrapCommand(async () => {
   resolvedConfig = config;
 
   await program.parseAsync();
-});
+};
 
-reporter.installGlobalHandlers();
-reporter.installExitHandler();
+if (reporter) {
+  await reporter.wrapCommand(bootstrap);
+  reporter.installGlobalHandlers();
+  reporter.installExitHandler();
+} else {
+  await bootstrap();
+}
