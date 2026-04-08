@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — Nuevas características, compatible con versiones anteriores",
   "prompt.add.bumpMajor": "major — Cambios incompatibles con versiones anteriores",
   "prompt.add.selectBump": "Seleccionar tipo de incremento para {name}",
+  "prompt.add.selectBumpAll": "Seleccionar tipo de incremento para todos los paquetes",
   "prompt.add.summary": "Resumen de los cambios",
   "cmd.status.description": "Mostrar el estado de los changesets pendientes",
   "cmd.status.optionVerbose": "Mostrar el contenido completo del changeset",

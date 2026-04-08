@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — Nouvelles fonctionnalités, rétrocompatible",
   "prompt.add.bumpMajor": "major — Changements non rétrocompatibles",
   "prompt.add.selectBump": "Sélectionner le type d'incrément pour {name}",
+  "prompt.add.selectBumpAll": "Sélectionner le type d'incrément pour tous les paquets",
   "prompt.add.summary": "Résumé des modifications",
   "cmd.status.description": "Afficher le statut des changesets en attente",
   "cmd.status.optionVerbose": "Afficher le contenu complet des changesets",

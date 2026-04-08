@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — 새 기능, 하위 호환",
   "prompt.add.bumpMajor": "major — 호환성이 깨지는 변경",
   "prompt.add.selectBump": "{name}의 버전 업 유형 선택",
+  "prompt.add.selectBumpAll": "모든 패키지의 버전 업 유형 선택",
   "prompt.add.summary": "변경사항 요약",
   "cmd.status.description": "대기 중인 changeset 상태 표시",
   "cmd.status.optionVerbose": "전체 changeset 내용 표시",

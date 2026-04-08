@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — 新功能，向后兼容",
   "prompt.add.bumpMajor": "major — 破坏性变更",
   "prompt.add.selectBump": "选择 {name} 的升级类型",
+  "prompt.add.selectBumpAll": "选择所有包的升级类型",
   "prompt.add.summary": "变更摘要",
   "cmd.status.description": "显示待处理的 changeset 状态",
   "cmd.status.optionVerbose": "显示完整的 changeset 内容",

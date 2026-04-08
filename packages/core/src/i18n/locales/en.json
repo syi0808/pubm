@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — New features, backward compatible",
   "prompt.add.bumpMajor": "major — Breaking changes",
   "prompt.add.selectBump": "Select bump type for {name}",
+  "prompt.add.selectBumpAll": "Select bump type for all packages",
   "prompt.add.summary": "Summary of changes",
   "cmd.status.description": "Show pending changeset status",
   "cmd.status.optionVerbose": "Show full changeset contents",
