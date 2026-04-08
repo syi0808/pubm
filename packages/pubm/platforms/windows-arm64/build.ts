@@ -21,6 +21,7 @@ const define = {
   __PUBM_PNPM_ENGINE__: JSON.stringify(pubmPackageJson.engines?.pnpm ?? "*"),
   // @ts-expect-error
   __PUBM_YARN_ENGINE__: JSON.stringify(pubmPackageJson.engines?.yarn ?? "*"),
+  __PUBM_DEV__: "false",
 };
 
 mkdirSync(BIN_DIR, { recursive: true });
