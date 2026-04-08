@@ -44,9 +44,11 @@ function makeParent(): Command {
 
 function makeConfig(
   packages: { name: string; path: string; version: string }[] = [],
+  versioning: "independent" | "fixed" = "independent",
 ) {
   return {
     packages,
+    versioning,
   } as never;
 }
 
@@ -189,5 +191,69 @@ describe("registerAddCommand", () => {
       expect.any(String),
     );
     expect(mockUiSuccess).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("pre-selects all packages in fixed mode interactive flow", async () => {
+    mockEnquirerPrompt
+      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b"] })
+      .mockResolvedValueOnce({ bump: "minor" })
+      .mockResolvedValueOnce({ summary: "fixed bump" });
+
+    const parent = makeParent();
+    registerAddCommand(parent, () =>
+      makeConfig(
+        [
+          { name: "pkg-a", path: "packages/a", version: "1.0.0" },
+          { name: "pkg-b", path: "packages/b", version: "2.0.0" },
+        ],
+        "fixed",
+      ),
+    );
+    await parent.parseAsync(["node", "test", "add"]);
+
+    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    expect(firstCall.type).toBe("multiselect");
+    for (const choice of firstCall.choices) {
+      expect(choice.enabled).toBe(true);
+    }
+
+    expect(mockEnquirerPrompt).toHaveBeenCalledTimes(3);
+
+    expect(mockWriteChangeset).toHaveBeenCalledWith(
+      [
+        { path: "packages/a", type: "minor" },
+        { path: "packages/b", type: "minor" },
+      ],
+      "fixed bump",
+      expect.any(String),
+    );
+  });
+
+  it("prompts bump per-package in independent mode", async () => {
+    mockEnquirerPrompt
+      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b"] })
+      .mockResolvedValueOnce({ bump: "minor" })
+      .mockResolvedValueOnce({ bump: "patch" })
+      .mockResolvedValueOnce({ summary: "independent bump" });
+
+    const parent = makeParent();
+    registerAddCommand(parent, () =>
+      makeConfig(
+        [
+          { name: "pkg-a", path: "packages/a", version: "1.0.0" },
+          { name: "pkg-b", path: "packages/b", version: "2.0.0" },
+        ],
+        "independent",
+      ),
+    );
+    await parent.parseAsync(["node", "test", "add"]);
+
+    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    expect(firstCall.type).toBe("multiselect");
+    for (const choice of firstCall.choices) {
+      expect(choice.enabled).toBeUndefined();
+    }
+
+    expect(mockEnquirerPrompt).toHaveBeenCalledTimes(4);
   });
 });

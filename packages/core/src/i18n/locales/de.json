@@ -333,6 +333,7 @@
   "prompt.add.bumpMinor": "minor — Neue Funktionen, rückwärtskompatibel",
   "prompt.add.bumpMajor": "major — Nicht rückwärtskompatible Änderungen",
   "prompt.add.selectBump": "Hochstufungstyp für {name} auswählen",
+  "prompt.add.selectBumpAll": "Hochstufungstyp für alle Pakete auswählen",
   "prompt.add.summary": "Zusammenfassung der Änderungen",
   "cmd.status.description": "Status der ausstehenden Changesets anzeigen",
   "cmd.status.optionVerbose": "Vollständige Changeset-Inhalte anzeigen",

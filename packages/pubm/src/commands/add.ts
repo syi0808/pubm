@@ -71,10 +71,12 @@ export function registerAddCommand(
           const pkg = selectedPackages[0];
           console.log(`\u{1F4E6} ${pkg.name} (v${pkg.version})`);
         } else {
+          const isFixed = config.versioning === "fixed";
           const choices = availablePackages.map((pkg) => ({
             name: pkg.name,
             message: `${pkg.name} (v${pkg.version})`,
             value: pkg.name,
+            ...(isFixed && { enabled: true }),
           }));
 
           const { packages: selectedNames } = await Enquirer.prompt<{
@@ -96,7 +98,7 @@ export function registerAddCommand(
           );
         }
 
-        // Step 2: Bump type selection per package
+        // Step 2: Bump type selection
         const bumpChoices = [
           { name: "patch", message: t("prompt.add.bumpPatch") },
           { name: "minor", message: t("prompt.add.bumpMinor") },
@@ -105,17 +107,32 @@ export function registerAddCommand(
 
         const releases: Release[] = [];
 
-        for (const pkg of selectedPackages) {
+        if (config.versioning === "fixed") {
           const { bump: bumpType } = await Enquirer.prompt<{
             bump: string;
           }>({
             type: "select",
             name: "bump",
-            message: t("prompt.add.selectBump", { name: pkg.name }),
+            message: t("prompt.add.selectBumpAll"),
             choices: bumpChoices,
           });
 
-          releases.push({ path: pkg.path, type: bumpType as BumpType });
+          for (const pkg of selectedPackages) {
+            releases.push({ path: pkg.path, type: bumpType as BumpType });
+          }
+        } else {
+          for (const pkg of selectedPackages) {
+            const { bump: bumpType } = await Enquirer.prompt<{
+              bump: string;
+            }>({
+              type: "select",
+              name: "bump",
+              message: t("prompt.add.selectBump", { name: pkg.name }),
+              choices: bumpChoices,
+            });
+
+            releases.push({ path: pkg.path, type: bumpType as BumpType });
+          }
         }
 
         // Step 3: Summary input
