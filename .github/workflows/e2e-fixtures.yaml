@@ -25,6 +25,12 @@ jobs:
           - example-monorepo-npm-crate-jsr
           - example-with-plugins
           - example-with-changesets
+          - example-fixed-changesets
+          - example-fixed-multi-registry
+          - example-independent-conventional-commits
+          - example-linked-groups
+          - example-prerelease
+          - example-cross-registry-names
     steps:
       - name: Trigger fixture E2E
         run: |
