@@ -685,6 +685,31 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
+  it("skips packages with invalid versions that produce null from semver.inc", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "invalid",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+      },
+    ];
+    mockMergeRecommendations.mockReturnValue([
+      { packagePath: "packages/a", bumpType: "patch", source: "changeset" },
+    ]);
+
+    await run();
+
+    expect(mockPubm).not.toHaveBeenCalled();
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("Version must be set"),
+      }),
+    );
+  });
+
   it("allows explicit CI versions when pending changesets do not produce a bump", async () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.packages = [
@@ -864,6 +889,20 @@ describe("CLI action handler - version source variants", () => {
     await run();
 
     expect(ChangesetSource).not.toHaveBeenCalled();
+    expect(ConventionalCommitSource).toHaveBeenCalled();
+  });
+
+  it("defaults to 'all' when versionSources is undefined", async () => {
+    const { ChangesetSource, ConventionalCommitSource } = await import(
+      "@pubm/core"
+    );
+    mockIsCI.isCI = true;
+    delete sharedResolvedConfig.versionSources;
+    mockMergeRecommendations.mockReturnValue([]);
+
+    await run();
+
+    expect(ChangesetSource).toHaveBeenCalled();
     expect(ConventionalCommitSource).toHaveBeenCalled();
   });
 
