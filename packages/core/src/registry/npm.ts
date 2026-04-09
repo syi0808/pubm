@@ -319,8 +319,11 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
   }
 
-  async publish(otp?: string): Promise<boolean> {
+  async publish(otp?: string, tag?: string): Promise<boolean> {
     const args = otp ? ["publish", "--otp", otp] : ["publish"];
+    if (tag && tag !== "latest") {
+      args.push("--tag", tag);
+    }
 
     try {
       await this.npm(args, this.packagePath);
@@ -338,12 +341,13 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
   }
 
-  async publishProvenance(): Promise<boolean> {
+  async publishProvenance(tag?: string): Promise<boolean> {
+    const args = ["publish", "--provenance", "--access", "public"];
+    if (tag && tag !== "latest") {
+      args.push("--tag", tag);
+    }
     try {
-      await this.npm(
-        ["publish", "--provenance", "--access", "public"],
-        this.packagePath,
-      );
+      await this.npm(args, this.packagePath);
 
       return true;
     } catch (error) {
@@ -355,7 +359,7 @@ export class NpmPackageRegistry extends PackageRegistry {
       }
 
       if (this.isProvenanceError(error)) {
-        return this.publish();
+        return this.publish(undefined, tag);
       }
 
       throw this.classifyPublishError(error);
@@ -373,9 +377,13 @@ export class NpmPackageRegistry extends PackageRegistry {
     );
   }
 
-  async dryRunPublish(): Promise<void> {
+  async dryRunPublish(tag?: string): Promise<void> {
+    const args = ["publish", "--dry-run"];
+    if (tag && tag !== "latest") {
+      args.push("--tag", tag);
+    }
     try {
-      await exec("npm", ["publish", "--dry-run"], {
+      await exec("npm", args, {
         throwOnError: true,
         nodeOptions: {
           cwd: this.packagePath,

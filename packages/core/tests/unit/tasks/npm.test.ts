@@ -140,7 +140,7 @@ describe("createNpmPublishTask", () => {
         mockTask,
       );
 
-      expect(mockNpm.publish).toHaveBeenCalledWith("111111");
+      expect(mockNpm.publish).toHaveBeenCalledWith("111111", "latest");
     });
 
     it("prompts for OTP when publish returns false, retries until success", async () => {
