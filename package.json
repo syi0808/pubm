@@ -28,7 +28,8 @@
     "release:ci": "pubm --mode ci --phase publish",
     "demo": "bun demo/run.ts",
     "demo:single": "bun demo/run.ts --single",
-    "changesets:add": "pubm changesets add"
+    "changesets:add": "pubm changesets add",
+    "snapshot": "pubm snapshot"
   },
   "license": "Apache-2.0",
   "devDependencies": {
