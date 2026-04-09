@@ -46,7 +46,7 @@ export function createNpmPublishTask(
       try {
         if (ctx.runtime.promptEnabled) {
           // Try with cached OTP first (from another concurrent task)
-          const result = await npm.publish(ctx.runtime.npmOtp);
+          const result = await npm.publish(ctx.runtime.npmOtp, ctx.runtime.tag);
 
           if (!result) {
             // EOTP — use shared promise to avoid multiple prompts
@@ -71,7 +71,7 @@ export function createNpmPublishTask(
                       }),
                     });
 
-                  const success = await npm.publish(otp);
+                  const success = await npm.publish(otp, ctx.runtime.tag);
                   if (success) {
                     ctx.runtime.npmOtp = otp;
                     task.title = t("task.npm.otpPassed", {
@@ -92,7 +92,7 @@ export function createNpmPublishTask(
             const otp = await ctx.runtime.npmOtpPromise;
             // Other concurrent tasks: publish with shared OTP
             if (!ctx.runtime.npmOtp || ctx.runtime.npmOtp !== otp) {
-              await npm.publish(otp);
+              await npm.publish(otp, ctx.runtime.tag);
             }
           }
         } else {
@@ -103,7 +103,7 @@ export function createNpmPublishTask(
             throw new NpmAvailableError(t("error.npm.noAuthToken"));
           }
 
-          const result = await npm.publishProvenance();
+          const result = await npm.publishProvenance(ctx.runtime.tag);
 
           if (!result) {
             throw new NpmAvailableError(

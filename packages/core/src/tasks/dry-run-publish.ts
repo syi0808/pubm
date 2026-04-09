@@ -86,7 +86,7 @@ export function createNpmDryRunPublishTask(
 
       task.output = t("task.dryRun.npm.running");
       await withTokenRetry("npm", ctx, task, async () => {
-        await npm.dryRunPublish();
+        await npm.dryRunPublish(ctx.runtime.tag);
       });
     },
   };
