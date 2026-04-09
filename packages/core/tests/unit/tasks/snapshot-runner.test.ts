@@ -28,6 +28,14 @@ vi.mock("../../../src/tasks/runner.js", () => ({
   collectPublishTasks: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("../../../src/tasks/runner-utils/manifest-handling.js", () => ({
+  resolveWorkspaceProtocols: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../../src/monorepo/resolve-workspace.js", () => ({
+  restoreManifests: vi.fn(),
+}));
+
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn(),
   createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
@@ -95,6 +103,7 @@ vi.mock("../../../src/changeset/resolve.js", async (importOriginal) => {
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import type { PubmContext } from "../../../src/context.js";
 import { Git } from "../../../src/git.js";
+import { restoreManifests } from "../../../src/monorepo/resolve-workspace.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
@@ -102,6 +111,7 @@ import {
   collectPublishTasks,
   writeVersions,
 } from "../../../src/tasks/runner.js";
+import { resolveWorkspaceProtocols } from "../../../src/tasks/runner-utils/manifest-handling.js";
 import {
   applySnapshotFilter,
   buildSnapshotVersionPlan,
@@ -120,6 +130,8 @@ const mockedCreateListr = vi.mocked(createListr);
 const mockedCreateCiListrOptions = vi.mocked(createCiListrOptions);
 const mockedWriteVersions = vi.mocked(writeVersions);
 const mockedCollectPublishTasks = vi.mocked(collectPublishTasks);
+const mockedResolveWorkspaceProtocols = vi.mocked(resolveWorkspaceProtocols);
+const mockedRestoreManifests = vi.mocked(restoreManifests);
 const mockedGit = vi.mocked(Git);
 
 function _makeMockTaskRunner() {
@@ -420,6 +432,8 @@ describe("runSnapshotPipeline", () => {
 
     mockedWriteVersions.mockResolvedValue(undefined);
     mockedCollectPublishTasks.mockResolvedValue([]);
+    mockedResolveWorkspaceProtocols.mockResolvedValue(undefined);
+    mockedRestoreManifests.mockReset();
 
     // Default Git mock — reset after vi.clearAllMocks()
     mockedGit.mockImplementation(function () {
@@ -902,5 +916,91 @@ describe("runSnapshotPipeline", () => {
 
     // Should create tags for packages that exist in config
     expect(mockCreateTag).toHaveBeenCalledTimes(2);
+  });
+
+  it("calls resolveWorkspaceProtocols after writeVersions", async () => {
+    const ctx = makeSnapshotContext();
+    const callOrder: string[] = [];
+
+    mockedWriteVersions.mockImplementation(async () => {
+      callOrder.push("writeVersions");
+    });
+    mockedResolveWorkspaceProtocols.mockImplementation(async () => {
+      callOrder.push("resolveWorkspaceProtocols");
+    });
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    expect(mockedResolveWorkspaceProtocols).toHaveBeenCalledWith(ctx);
+    // First writeVersions call is snapshot versions, then resolveWorkspaceProtocols
+    expect(callOrder[0]).toBe("writeVersions");
+    expect(callOrder[1]).toBe("resolveWorkspaceProtocols");
+  });
+
+  it("restores workspace manifests in finally block when backups exist", async () => {
+    const ctx = makeSnapshotContext();
+    const backups = new Map([["path/package.json", '{"original": true}']]);
+
+    mockedResolveWorkspaceProtocols.mockImplementation(async (c) => {
+      (c as PubmContext).runtime.workspaceBackups = backups;
+    });
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    expect(mockedRestoreManifests).toHaveBeenCalledWith(backups);
+    expect(ctx.runtime.workspaceBackups).toBeUndefined();
+  });
+
+  it("restores workspace manifests even when publish fails", async () => {
+    const ctx = makeSnapshotContext();
+    const backups = new Map([["path/package.json", '{"original": true}']]);
+
+    mockedResolveWorkspaceProtocols.mockImplementation(async (c) => {
+      (c as PubmContext).runtime.workspaceBackups = backups;
+    });
+    mockedCollectPublishTasks.mockRejectedValueOnce(
+      new Error("publish failed"),
+    );
+
+    await expect(runSnapshotPipeline(ctx, { tag: "snapshot" })).rejects.toThrow(
+      "publish failed",
+    );
+
+    expect(mockedRestoreManifests).toHaveBeenCalledWith(backups);
+  });
+
+  it("calls restoreManifests before writeVersions in finally block", async () => {
+    const ctx = makeSnapshotContext();
+    const callOrder: string[] = [];
+
+    mockedResolveWorkspaceProtocols.mockImplementation(async (c) => {
+      (c as PubmContext).runtime.workspaceBackups = new Map([
+        ["pkg.json", "{}"],
+      ]);
+    });
+    mockedRestoreManifests.mockImplementation(() => {
+      callOrder.push("restoreManifests");
+    });
+    mockedWriteVersions.mockImplementation(async () => {
+      callOrder.push("writeVersions");
+    });
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    // In the finally block: restoreManifests runs before the second writeVersions
+    // callOrder: ["writeVersions", "writeVersions"] without backups, but with backups:
+    // ["writeVersions", "restoreManifests", "writeVersions"]
+    const restoreIdx = callOrder.indexOf("restoreManifests");
+    const lastWriteIdx = callOrder.lastIndexOf("writeVersions");
+    expect(restoreIdx).toBeGreaterThan(-1);
+    expect(restoreIdx).toBeLessThan(lastWriteIdx);
+  });
+
+  it("does not call restoreManifests when no workspace backups exist", async () => {
+    const ctx = makeSnapshotContext();
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    expect(mockedRestoreManifests).not.toHaveBeenCalled();
   });
 });
