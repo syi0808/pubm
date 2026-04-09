@@ -436,8 +436,7 @@ export class NpmPackageRegistry extends PackageRegistry {
 
           await loginPromise;
         } catch (error) {
-          const detail =
-            error instanceof Error ? `: ${error.message}` : "";
+          const detail = error instanceof Error ? `: ${error.message}` : "";
           throw new NpmError(
             `npm login failed${detail}. Please run \`npm login\` manually and try again.`,
             { cause: error },
