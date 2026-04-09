@@ -213,9 +213,7 @@ describe("registerAddCommand", () => {
 
     const firstCall = mockEnquirerPrompt.mock.calls[0][0];
     expect(firstCall.type).toBe("multiselect");
-    for (const choice of firstCall.choices) {
-      expect(choice.enabled).toBe(true);
-    }
+    expect(firstCall.initial).toEqual(["pkg-a", "pkg-b"]);
 
     expect(mockEnquirerPrompt).toHaveBeenCalledTimes(3);
 
@@ -226,6 +224,31 @@ describe("registerAddCommand", () => {
       ],
       "fixed bump",
       expect.any(String),
+    );
+  });
+
+  it("passes initial with all package names in fixed mode (regression)", async () => {
+    mockEnquirerPrompt
+      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b", "pkg-c"] })
+      .mockResolvedValueOnce({ bump: "patch" })
+      .mockResolvedValueOnce({ summary: "regression test" });
+
+    const packages = [
+      { name: "pkg-a", path: "packages/a", version: "1.0.0" },
+      { name: "pkg-b", path: "packages/b", version: "2.0.0" },
+      { name: "pkg-c", path: "packages/c", version: "3.0.0" },
+    ];
+
+    const parent = makeParent();
+    registerAddCommand(parent, () => makeConfig(packages, "fixed"));
+    await parent.parseAsync(["node", "test", "add"]);
+
+    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    expect(firstCall.initial).toEqual(
+      packages.map((pkg) => pkg.name),
+    );
+    expect(firstCall.choices).not.toContainEqual(
+      expect.objectContaining({ enabled: true }),
     );
   });
 
@@ -250,9 +273,7 @@ describe("registerAddCommand", () => {
 
     const firstCall = mockEnquirerPrompt.mock.calls[0][0];
     expect(firstCall.type).toBe("multiselect");
-    for (const choice of firstCall.choices) {
-      expect(choice.enabled).toBeUndefined();
-    }
+    expect(firstCall.initial).toBeUndefined();
 
     expect(mockEnquirerPrompt).toHaveBeenCalledTimes(4);
   });
