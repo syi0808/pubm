@@ -50,7 +50,9 @@ export function createNpmPublishTask(
 
           if (!result) {
             // EOTP — use shared promise to avoid multiple prompts
+            let isOtpCreator = false;
             if (!ctx.runtime.npmOtpPromise) {
+              isOtpCreator = true;
               ctx.runtime.npmOtpPromise = (async () => {
                 task.title = t("task.npm.otpTitle", { name: npm.packageName });
                 const maxAttempts = 3;
@@ -90,8 +92,9 @@ export function createNpmPublishTask(
             }
 
             const otp = await ctx.runtime.npmOtpPromise;
-            // Other concurrent tasks: publish with shared OTP
-            if (!ctx.runtime.npmOtp || ctx.runtime.npmOtp !== otp) {
+            // Only non-creator tasks publish here — the creator already
+            // published inside the promise above.
+            if (!isOtpCreator) {
               await npm.publish(otp, ctx.runtime.tag);
             }
           }

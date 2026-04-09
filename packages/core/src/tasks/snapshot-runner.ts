@@ -12,6 +12,7 @@ import type {
 import { AbstractError } from "../error.js";
 import { Git } from "../git.js";
 import { t } from "../i18n/index.js";
+import { restoreManifests } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
@@ -22,6 +23,7 @@ import { ui } from "../utils/ui.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 import { collectPublishTasks, writeVersions } from "./runner.js";
+import { resolveWorkspaceProtocols } from "./runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "./runner-utils/output-formatting.js";
 
 export function applySnapshotFilter(
@@ -197,6 +199,7 @@ export async function runSnapshotPipeline(
             });
 
             await writeVersions(ctx, snapshotVersions);
+            await resolveWorkspaceProtocols(ctx);
 
             task.output = t("task.snapshot.publishing", { tag });
             const publishTasks = await collectPublishTasks(ctx);
@@ -239,6 +242,10 @@ export async function runSnapshotPipeline(
       pipelineListrOptions,
     ).run(ctx);
   } finally {
+    if (ctx.runtime.workspaceBackups?.size) {
+      restoreManifests(ctx.runtime.workspaceBackups);
+      ctx.runtime.workspaceBackups = undefined;
+    }
     await writeVersions(ctx, originalVersions);
   }
 

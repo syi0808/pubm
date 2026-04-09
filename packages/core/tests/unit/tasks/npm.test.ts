@@ -349,6 +349,31 @@ describe("createNpmPublishTask", () => {
       }
     });
 
+    it("calls publishProvenance with tag", async () => {
+      const ctx = createCtx({
+        runtime: { promptEnabled: false, tag: "snapshot" },
+      });
+      const mockTask = createMockTask();
+      const originalEnv = process.env.NODE_AUTH_TOKEN;
+      process.env.NODE_AUTH_TOKEN = "npm_test_token";
+
+      try {
+        const task = createNpmPublishTask("packages/core");
+        await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(
+          ctx,
+          mockTask,
+        );
+
+        expect(mockNpm.publishProvenance).toHaveBeenCalledWith("snapshot");
+      } finally {
+        if (originalEnv !== undefined) {
+          process.env.NODE_AUTH_TOKEN = originalEnv;
+        } else {
+          delete process.env.NODE_AUTH_TOKEN;
+        }
+      }
+    });
+
     it("throws when publishProvenance returns false (2FA required)", async () => {
       const ctx = createCtx({ runtime: { promptEnabled: false } });
       const mockTask = createMockTask();
@@ -374,6 +399,77 @@ describe("createNpmPublishTask", () => {
           delete process.env.NODE_AUTH_TOKEN;
         }
       }
+    });
+  });
+
+  describe("concurrent OTP handling", () => {
+    it("non-creator tasks publish with shared OTP", async () => {
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
+
+      const mockNpmA = createMockNpm();
+      mockNpmA.packageName = "pkg-a";
+      mockNpmA.publish
+        .mockResolvedValueOnce(false) // initial — EOTP
+        .mockResolvedValueOnce(true); // inside OTP promise
+
+      const mockNpmB = createMockNpm();
+      mockNpmB.packageName = "pkg-b";
+      mockNpmB.publish
+        .mockResolvedValueOnce(false) // initial — EOTP
+        .mockResolvedValueOnce(true); // after awaiting shared promise
+
+      mockedNpmRegistry
+        .mockResolvedValueOnce(mockNpmA as any)
+        .mockResolvedValueOnce(mockNpmB as any);
+
+      const mockTaskA = createMockTask();
+      const mockRunA = vi.fn().mockResolvedValue("123456");
+      mockTaskA.prompt.mockReturnValue({ run: mockRunA });
+
+      const mockTaskB = createMockTask();
+
+      const taskA = createNpmPublishTask("packages/a");
+      const taskB = createNpmPublishTask("packages/b");
+
+      await Promise.all([
+        (taskA.task as (ctx: PubmContext, task: any) => Promise<void>)(
+          ctx,
+          mockTaskA,
+        ),
+        (taskB.task as (ctx: PubmContext, task: any) => Promise<void>)(
+          ctx,
+          mockTaskB,
+        ),
+      ]);
+
+      // Creator (A): initial false + publish inside promise = 2 calls
+      expect(mockNpmA.publish).toHaveBeenCalledTimes(2);
+      // Non-creator (B): initial false + publish with shared OTP = 2 calls
+      expect(mockNpmB.publish).toHaveBeenCalledTimes(2);
+      expect(mockNpmB.publish).toHaveBeenLastCalledWith("123456", "latest");
+    });
+
+    it("creator does not double-publish", async () => {
+      const ctx = createCtx({ runtime: { promptEnabled: true } });
+      const mockTask = createMockTask();
+
+      mockNpm.publish
+        .mockResolvedValueOnce(false) // initial — EOTP
+        .mockResolvedValueOnce(true); // inside OTP promise
+
+      const mockRun = vi.fn().mockResolvedValue("654321");
+      mockTask.prompt.mockReturnValue({ run: mockRun });
+
+      const task = createNpmPublishTask("packages/core");
+      await (task.task as (ctx: PubmContext, task: any) => Promise<void>)(
+        ctx,
+        mockTask,
+      );
+
+      // Creator: initial false + publish inside promise = exactly 2 calls
+      // The old code would also have been 2 for single task, but this confirms
+      // the creator path doesn't call the bottom npm.publish
+      expect(mockNpm.publish).toHaveBeenCalledTimes(2);
     });
   });
 });
