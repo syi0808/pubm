@@ -50,7 +50,7 @@ export function registerSnapshotCommand(
           branch: options.branch,
           anyBranch: options.anyBranch,
           dryRun: options.dryRun,
-          tag: "latest",
+          tag,
           saveToken: true,
           skipTests: !options.tests,
           skipBuild: !options.build,
