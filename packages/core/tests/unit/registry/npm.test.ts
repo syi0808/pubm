@@ -144,6 +144,8 @@ describe("NpmPackageRegistry", () => {
 
   beforeEach(() => {
     registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
+    vi.doUnmock("../../../src/utils/spawn-interactive.js");
+    vi.doUnmock("../../../src/utils/open-url.js");
   });
 
   it("has default registry url", () => {
@@ -697,6 +699,8 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
   beforeEach(() => {
     registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
+    vi.doUnmock("../../../src/utils/spawn-interactive.js");
+    vi.doUnmock("../../../src/utils/open-url.js");
   });
 
   function makeTask() {
@@ -704,7 +708,57 @@ describe("NpmPackageRegistry checkAvailability()", () => {
   }
 
   function makeCtx(promptEnabled = true) {
-    return { runtime: { promptEnabled } } as any;
+    return {
+      runtime: {
+        promptEnabled,
+        rollback: { add: vi.fn() },
+        tokenRetryPromises: {},
+      },
+    } as any;
+  }
+
+  function makeStream(chunks: string[] = []) {
+    return new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(new TextEncoder().encode(chunk));
+        }
+        controller.close();
+      },
+    });
+  }
+
+  function makeChild(
+    stdoutChunks: string[] = [],
+    stderrChunks: string[] = [],
+    exitCode = 0,
+  ) {
+    return {
+      stdout: makeStream(stdoutChunks),
+      stderr: makeStream(stderrChunks),
+      stdin: { write: vi.fn(), flush: vi.fn() },
+      exited: Promise.resolve(exitCode),
+    };
+  }
+
+  async function importFreshRegistryWithMocks(child: ReturnType<typeof makeChild>) {
+    vi.resetModules();
+
+    const spawnInteractive = vi.fn().mockReturnValue(child);
+    const openUrl = vi.fn().mockResolvedValue(undefined);
+
+    vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
+      spawnInteractive,
+    }));
+    vi.doMock("../../../src/utils/open-url.js", () => ({
+      openUrl,
+    }));
+
+    const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+      "../../../src/registry/npm.js"
+    );
+
+    return { FreshNpmRegistry, openUrl, spawnInteractive };
   }
 
   describe("N1: login check", () => {
@@ -716,38 +770,38 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       ).rejects.toThrow("Not logged in to npm. Set NODE_AUTH_TOKEN.");
     });
 
-    it("launches interactive npm login when promptEnabled and not logged in", async () => {
-      const mockChild = {
-        stdout: new ReadableStream({
-          start(controller) {
-            controller.enqueue(
-              new TextEncoder().encode(
-                "Login at: https://www.npmjs.com/login?token=abc",
-              ),
-            );
-            controller.close();
-          },
-        }),
-        stderr: new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-        stdin: { write: vi.fn(), flush: vi.fn() },
-        exited: Promise.resolve(0),
-      };
+    it("launches interactive npm login and canonicalizes query login URLs", async () => {
+      const { FreshNpmRegistry, openUrl, spawnInteractive } =
+        await importFreshRegistryWithMocks(
+          makeChild([
+            "Login at:\n",
+            "https://www.npmjs.com/login?next=/login/cli/abc-123\n",
+          ]),
+        );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
 
-      vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
-        spawnInteractive: vi.fn().mockReturnValue(mockChild),
-      }));
-      vi.doMock("../../../src/utils/open-url.js", () => ({
-        openUrl: vi.fn(),
-      }));
+      const task = makeTask();
+      await expect(
+        freshRegistry.checkAvailability(task, makeCtx(true)),
+      ).resolves.toBeUndefined();
 
-      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
-        "../../../src/registry/npm.js"
+      expect(spawnInteractive).toHaveBeenCalledWith(["npm", "login"]);
+      expect(openUrl).toHaveBeenCalledWith(
+        "https://www.npmjs.com/auth/cli/abc-123",
       );
-      const freshRegistry = new FreshNpmRegistry("my-package");
+      expect(task.output).toContain("https://www.npmjs.com/auth/cli/abc-123");
+    });
+
+    it("preserves canonical auth CLI URLs from npm output", async () => {
+      const { FreshNpmRegistry, openUrl } = await importFreshRegistryWithMocks(
+        makeChild(["Authenticate your account at:\n", "https://www.npmjs.com/auth/cli/xyz-789\n"]),
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
@@ -757,63 +811,133 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       await expect(
         freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
       ).resolves.toBeUndefined();
+
+      expect(openUrl).toHaveBeenCalledWith(
+        "https://www.npmjs.com/auth/cli/xyz-789",
+      );
+    });
+
+    it("deduplicates concurrent npm login attempts and browser opens", async () => {
+      const { FreshNpmRegistry, openUrl, spawnInteractive } =
+        await importFreshRegistryWithMocks(
+          makeChild([
+            "Login at:\n",
+            "https://www.npmjs.com/login?next=/login/cli/shared-123\n",
+          ]),
+        );
+      const firstRegistry = new FreshNpmRegistry("pkg-a", FIXTURE_PATH);
+      const secondRegistry = new FreshNpmRegistry("pkg-b", FIXTURE_PATH);
+
+      for (const current of [firstRegistry, secondRegistry]) {
+        vi.spyOn(current, "isLoggedIn")
+          .mockResolvedValueOnce(false)
+          .mockResolvedValueOnce(true);
+        vi.spyOn(current, "isPublished").mockResolvedValue(true);
+        vi.spyOn(current, "hasPermission").mockResolvedValue(true);
+      }
+
+      const ctx = makeCtx(true);
+      const firstTask = makeTask();
+      const secondTask = makeTask();
+
+      await expect(
+        Promise.all([
+          firstRegistry.checkAvailability(firstTask, ctx),
+          secondRegistry.checkAvailability(secondTask, ctx),
+        ]),
+      ).resolves.toEqual([undefined, undefined]);
+
+      expect(spawnInteractive).toHaveBeenCalledTimes(1);
+      expect(openUrl).toHaveBeenCalledTimes(1);
+      expect(openUrl).toHaveBeenCalledWith(
+        "https://www.npmjs.com/auth/cli/shared-123",
+      );
+      expect(ctx.runtime.npmLoginPromise).toBeUndefined();
     });
 
     it("throws when npm login process exits with non-zero code", async () => {
-      const mockChild = {
-        stdout: new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-        stderr: new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-        stdin: { write: vi.fn(), flush: vi.fn() },
-        exited: Promise.resolve(1),
-      };
-
-      vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
-        spawnInteractive: vi.fn().mockReturnValue(mockChild),
-      }));
-
-      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
-        "../../../src/registry/npm.js"
+      const { FreshNpmRegistry } = await importFreshRegistryWithMocks(
+        makeChild([], [], 1),
       );
-      const freshRegistry = new FreshNpmRegistry("my-package");
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
       vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
 
       await expect(
         freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
-      ).rejects.toThrow("npm login failed");
+      ).rejects.toThrow("npm login failed: npm login exited with code 1");
     });
 
-    it("throws when still not logged in after npm login succeeds", async () => {
-      const mockChild = {
-        stdout: new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-        stderr: new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-        stdin: { write: vi.fn(), flush: vi.fn() },
-        exited: Promise.resolve(0),
-      };
+    it("throws a clear error when npm login output has no supported web URL", async () => {
+      const { FreshNpmRegistry } = await importFreshRegistryWithMocks(
+        makeChild(["Logged in on https://registry.npmjs.org/.\n"]),
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow(
+        "npm login failed: npm login did not provide a supported web login URL.",
+      );
+    });
+
+    it("clears the shared login promise after failure so a retry can start a new login", async () => {
+      const failingChild = makeChild([], [], 1);
+      const successChild = makeChild([
+        "Login at:\n",
+        "https://www.npmjs.com/auth/cli/retry-456\n",
+      ]);
+
+      vi.resetModules();
+      const spawnInteractive = vi
+        .fn()
+        .mockReturnValueOnce(failingChild)
+        .mockReturnValueOnce(successChild);
+      const openUrl = vi.fn().mockResolvedValue(undefined);
 
       vi.doMock("../../../src/utils/spawn-interactive.js", () => ({
-        spawnInteractive: vi.fn().mockReturnValue(mockChild),
+        spawnInteractive,
+      }));
+      vi.doMock("../../../src/utils/open-url.js", () => ({
+        openUrl,
       }));
 
       const { NpmPackageRegistry: FreshNpmRegistry } = await import(
         "../../../src/registry/npm.js"
       );
-      const freshRegistry = new FreshNpmRegistry("my-package");
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      const ctx = makeCtx(true);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), ctx),
+      ).rejects.toThrow("npm login failed: npm login exited with code 1");
+      expect(ctx.runtime.npmLoginPromise).toBeUndefined();
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), ctx),
+      ).resolves.toBeUndefined();
+
+      expect(spawnInteractive).toHaveBeenCalledTimes(2);
+      expect(openUrl).toHaveBeenCalledWith(
+        "https://www.npmjs.com/auth/cli/retry-456",
+      );
+    });
+
+    it("throws when still not logged in after npm login succeeds", async () => {
+      const { FreshNpmRegistry } = await importFreshRegistryWithMocks(
+        makeChild([
+          "Login at:\n",
+          "https://www.npmjs.com/auth/cli/still-not-logged-in\n",
+        ]),
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false);
