@@ -244,9 +244,7 @@ describe("registerAddCommand", () => {
     await parent.parseAsync(["node", "test", "add"]);
 
     const firstCall = mockEnquirerPrompt.mock.calls[0][0];
-    expect(firstCall.initial).toEqual(
-      packages.map((pkg) => pkg.name),
-    );
+    expect(firstCall.initial).toEqual(packages.map((pkg) => pkg.name));
     expect(firstCall.choices).not.toContainEqual(
       expect.objectContaining({ enabled: true }),
     );

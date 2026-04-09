@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type E2EContext, e2e } from "../utils/e2e.js";
@@ -32,10 +32,7 @@ describe("pubm changesets add (fixed versioning)", () => {
     const files = readdirSync(changesetsDir).filter((f) => f.endsWith(".md"));
     expect(files.length).toBe(1);
 
-    const content = readFileSync(
-      path.join(changesetsDir, files[0]),
-      "utf-8",
-    );
+    const content = readFileSync(path.join(changesetsDir, files[0]), "utf-8");
     expect(content).toContain("packages/a");
     expect(content).toContain("packages/b");
     expect(content).toContain("patch");
