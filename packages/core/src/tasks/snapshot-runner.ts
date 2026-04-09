@@ -22,6 +22,7 @@ import { ui } from "../utils/ui.js";
 import { prerequisitesCheckTask } from "./prerequisites-check.js";
 import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 import { collectPublishTasks, writeVersions } from "./runner.js";
+import { formatVersionSummary } from "./runner-utils/output-formatting.js";
 
 export function applySnapshotFilter(
   packages: ResolvedPackageConfig[],
@@ -253,12 +254,7 @@ export async function runSnapshotPipeline(
     }
   }
 
-  const versionDisplay =
-    plan.mode !== "independent"
-      ? ui.chalk.blueBright(
-          (plan as SingleVersionPlan | FixedVersionPlan).version,
-        )
-      : "";
+  const versionDisplay = ui.chalk.blueBright(formatVersionSummary(ctx));
 
   console.log(
     `\n\n📸 ${t("task.snapshot.success", { parts: parts.join(", "), version: versionDisplay })} 📸\n`,
