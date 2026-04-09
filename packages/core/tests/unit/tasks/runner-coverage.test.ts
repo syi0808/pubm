@@ -31,11 +31,18 @@ vi.mock("../../../src/changeset/reader.js", () => ({
   readChangesets: vi.fn(),
   deleteChangesetFiles: vi.fn(),
 }));
-vi.mock("../../../src/changeset/changelog.js", () => ({
-  buildChangelogEntries: vi.fn(),
-  generateChangelog: vi.fn(),
-  writeChangelogToFile: vi.fn(),
-}));
+vi.mock("../../../src/changeset/changelog.js", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("../../../src/changeset/changelog.js")
+    >();
+  return {
+    buildChangelogEntries: vi.fn(),
+    generateChangelog: vi.fn(),
+    writeChangelogToFile: vi.fn(),
+    deduplicateEntries: original.deduplicateEntries,
+  };
+});
 vi.mock("../../../src/changeset/changelog-parser.js", () => ({
   parseChangelogSection: vi.fn(),
 }));
@@ -2818,6 +2825,101 @@ describe("fixed mode changeset with empty entries", () => {
 
     // Since all entries are empty, changelog should not be written
     expect(mockedWriteChangelogToFile).not.toHaveBeenCalled();
+    expect(mockedDeleteChangesetFiles).toHaveBeenCalled();
+  });
+});
+
+describe("fixed mode changeset deduplicates entries across packages", () => {
+  it("removes duplicate entries and keeps the highest bump type", async () => {
+    const versions = new Map([
+      ["packages/core", "6.0.0"],
+      ["packages/pubm", "6.0.0"],
+    ]);
+    mockedWriteVersionsForEcosystem.mockResolvedValue([]);
+    mockedReadChangesets.mockReturnValue([{ id: "cs-dup" }] as any);
+    mockedBuildChangelogEntries
+      .mockReturnValueOnce([
+        { id: "cs-dup", type: "minor", summary: "shared change" },
+      ] as any)
+      .mockReturnValueOnce([
+        { id: "cs-dup", type: "patch", summary: "shared change" },
+      ] as any);
+    mockedGenerateChangelog.mockReturnValue("deduped changelog");
+
+    await run(
+      createOptions({
+        config: {
+          packages: [
+            {
+              name: "@pubm/core",
+              version: "1.0.0",
+              path: "packages/core",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+            {
+              name: "pubm",
+              version: "1.0.0",
+              path: "packages/pubm",
+              ecosystem: "js",
+              dependencies: [],
+              registries: ["npm"],
+            },
+          ],
+        },
+        runtime: { versions, version: "6.0.0" },
+      }),
+    );
+
+    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const versionTask = tasks[2];
+    const ctx: any = {
+      cwd: process.cwd(),
+      config: {
+        packages: [
+          {
+            name: "@pubm/core",
+            version: "1.0.0",
+            path: "packages/core",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+          {
+            name: "pubm",
+            version: "1.0.0",
+            path: "packages/pubm",
+            ecosystem: "js",
+            dependencies: [],
+            registries: ["npm"],
+          },
+        ],
+      },
+      runtime: {
+        version: "6.0.0",
+        versions,
+        changesetConsumed: true,
+        pluginRunner: new PluginRunner([]),
+        rollback: new RollbackTracker(),
+        versionPlan: {
+          mode: "fixed",
+          version: "6.0.0",
+          packages: versions,
+        },
+      },
+    };
+
+    await versionTask.task(ctx, createTask());
+
+    // Should deduplicate: only one entry with highest bump type (minor)
+    expect(mockedGenerateChangelog).toHaveBeenCalledWith("6.0.0", [
+      { id: "cs-dup", type: "minor", summary: "shared change" },
+    ]);
+    expect(mockedWriteChangelogToFile).toHaveBeenCalledWith(
+      process.cwd(),
+      "deduped changelog",
+    );
     expect(mockedDeleteChangesetFiles).toHaveBeenCalled();
   });
 });

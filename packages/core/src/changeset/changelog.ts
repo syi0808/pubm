@@ -50,6 +50,28 @@ export function generateChangelog(
   return `${lines.join("\n")}\n`;
 }
 
+const BUMP_PRIORITY: Record<string, number> = {
+  major: 3,
+  minor: 2,
+  patch: 1,
+};
+
+export function deduplicateEntries(
+  entries: ChangelogEntry[],
+): ChangelogEntry[] {
+  const map = new Map<string, ChangelogEntry>();
+  for (const entry of entries) {
+    const existing = map.get(entry.id);
+    if (
+      !existing ||
+      (BUMP_PRIORITY[entry.type] ?? 0) > (BUMP_PRIORITY[existing.type] ?? 0)
+    ) {
+      map.set(entry.id, entry);
+    }
+  }
+  return [...map.values()];
+}
+
 export function buildChangelogEntries(
   changesets: Changeset[],
   packagePath: string,
