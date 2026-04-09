@@ -185,14 +185,13 @@ export default defineConfig({
 
 当 `pubm --snapshot` 生成临时版本字符串时使用的模板。
 
+`package.json` 中的基础版本始终会自动添加到快照版本的前面。模板只控制基础版本之后的后缀部分。
+
 可用的模板变量：
 
-- `{base}`：来自 manifest 的当前包版本
 - `{tag}`：snapshot tag，默认是 `snapshot`
 - `{timestamp}`：格式为 `YYYYMMDDTHHmmss` 的 UTC 时间戳
 - `{commit}`：当前 git commit SHA
-
-在使用 `fixed` 版本策略的 monorepo 项目中，模板以第一个包的版本作为 `{base}` 应用一次。使用 `independent` 版本策略时，每个包使用各自的 `{base}` 生成快照版本。
 
 ### `createPr`
 
@@ -355,7 +354,7 @@ export default defineConfig({
 });
 ```
 
-示例输出：
+基础版本会自动添加到前面，因此 `"{tag}-{timestamp}"` 模板会产生如下输出：
 
 - `0.4.1-snapshot-20260312T102233`
 

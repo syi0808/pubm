@@ -185,14 +185,13 @@ Estos campos forman parte del esquema público, pero todavía no están activos 
 
 Plantilla que se usa cuando `pubm --snapshot` genera una cadena de versión temporal.
 
+La versión base de `package.json` siempre se antepone automáticamente a la versión snapshot. La plantilla controla únicamente el sufijo que sigue a la versión base.
+
 Variables disponibles en la plantilla:
 
-- `{base}`: versión actual del paquete desde el manifest
 - `{tag}`: snapshot tag, por defecto `snapshot`
 - `{timestamp}`: timestamp UTC en formato `YYYYMMDDTHHmmss`
 - `{commit}`: SHA del commit Git actual
-
-En proyectos monorepo con versionado `fixed`, la plantilla se aplica una vez usando la versión del primer paquete como `{base}`. Con versionado `independent`, cada paquete genera su propia versión snapshot usando su propio `{base}`.
 
 ### `createPr`
 
@@ -355,7 +354,7 @@ export default defineConfig({
 });
 ```
 
-Resultado de ejemplo:
+La versión base se antepone automáticamente, por lo que una plantilla `"{tag}-{timestamp}"` produce una salida como:
 
 - `0.4.1-snapshot-20260312T102233`
 

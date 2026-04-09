@@ -300,7 +300,7 @@ const nextSnapshot = generateSnapshotVersion({
   baseVersion: "1.4.0",
   tag: "snapshot",
   commit: "abc1234",
-  template: "{base}-{tag}-{timestamp}-{commit}",
+  template: "{tag}-{timestamp}-{commit}",
 });
 
 const entryPointErrors = validateEntryPoints(

@@ -22,11 +22,11 @@ export function generateSnapshotVersion(options: SnapshotOptions): string {
   const timestamp = formatTimestamp(now);
 
   if (options.template) {
-    return options.template
-      .replace(/\{base\}/g, base)
+    const suffix = options.template
       .replace(/\{tag\}/g, tag)
       .replace(/\{timestamp\}/g, timestamp)
       .replace(/\{commit\}/g, options.commit ?? "");
+    return `${base}-${suffix}`;
   }
 
   return `${base}-${tag}-${timestamp}`;

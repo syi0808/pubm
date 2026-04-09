@@ -23,7 +23,7 @@ describe("generateSnapshotVersion", () => {
     const result = generateSnapshotVersion({
       tag: "dev",
       baseVersion: "1.0.0",
-      template: "{base}-{tag}-{commit}",
+      template: "{tag}-{commit}",
       commit: "abc1234",
     });
     expect(result).toBe("1.0.0-dev-abc1234");
@@ -33,7 +33,7 @@ describe("generateSnapshotVersion", () => {
     const result = generateSnapshotVersion({
       tag: "dev",
       baseVersion: "1.0.0",
-      template: "{base}-{tag}-{commit}",
+      template: "{tag}-{commit}",
     });
     expect(result).toBe("1.0.0-dev-");
   });
@@ -42,7 +42,7 @@ describe("generateSnapshotVersion", () => {
     const result = generateSnapshotVersion({
       tag: "beta",
       baseVersion: "2.0.0",
-      template: "{base}-{tag}-{timestamp}-{commit}",
+      template: "{tag}-{timestamp}-{commit}",
       commit: "abc1234",
     });
     expect(result).toBe("2.0.0-beta-20260304T123000-abc1234");

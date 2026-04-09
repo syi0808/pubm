@@ -185,14 +185,13 @@ These fields are part of the public schema, but they are not yet active toggles 
 
 Template used when `pubm --snapshot` generates a temporary version string.
 
+The base version from `package.json` is always automatically prepended to the snapshot version. The template controls only the suffix that follows the base version.
+
 Available template variables:
 
-- `{base}`: current package version from the manifest
 - `{tag}`: snapshot tag, defaulting to `snapshot`
 - `{timestamp}`: UTC timestamp in `YYYYMMDDTHHmmss` format
 - `{commit}`: current git commit SHA
-
-In monorepo projects with `fixed` versioning, the template is applied once using the first package's version as `{base}`. With `independent` versioning, each package generates its own snapshot version using its own `{base}`.
 
 ### `createPr`
 
@@ -355,7 +354,7 @@ export default defineConfig({
 });
 ```
 
-Example output:
+The base version is prepended automatically, so a template of `"{tag}-{timestamp}"` produces output like:
 
 - `0.4.1-snapshot-20260312T102233`
 
