@@ -10,6 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   buildChangelogEntries,
+  deduplicateEntries,
   generateChangelog,
   writeChangelogToFile,
 } from "../../../src/changeset/changelog.js";
@@ -104,6 +105,65 @@ describe("generateChangelog", () => {
       { id: "alpha", summary: "Ship feature", type: "patch" },
       { id: "beta", summary: "Fix bug", type: "patch" },
     ]);
+  });
+
+  describe("deduplicateEntries", () => {
+    it("removes duplicate entries by changeset id", () => {
+      expect(
+        deduplicateEntries([
+          { id: "cs-1", summary: "Fix bug", type: "patch" },
+          { id: "cs-1", summary: "Fix bug", type: "patch" },
+        ]),
+      ).toEqual([{ id: "cs-1", summary: "Fix bug", type: "patch" }]);
+    });
+
+    it("keeps the highest bump type when same id has different types", () => {
+      expect(
+        deduplicateEntries([
+          { id: "cs-1", summary: "Add feature", type: "patch" },
+          { id: "cs-1", summary: "Add feature", type: "minor" },
+        ]),
+      ).toEqual([{ id: "cs-1", summary: "Add feature", type: "minor" }]);
+    });
+
+    it("keeps major over minor and patch", () => {
+      expect(
+        deduplicateEntries([
+          { id: "cs-1", summary: "Breaking", type: "patch" },
+          { id: "cs-1", summary: "Breaking", type: "minor" },
+          { id: "cs-1", summary: "Breaking", type: "major" },
+        ]),
+      ).toEqual([{ id: "cs-1", summary: "Breaking", type: "major" }]);
+    });
+
+    it("preserves order and deduplicates across multiple changesets", () => {
+      expect(
+        deduplicateEntries([
+          { id: "cs-1", summary: "Shared fix", type: "patch" },
+          { id: "cs-2", summary: "Core only", type: "minor" },
+          { id: "cs-1", summary: "Shared fix", type: "minor" },
+          { id: "cs-3", summary: "CLI only", type: "patch" },
+          { id: "cs-2", summary: "Core only", type: "patch" },
+        ]),
+      ).toEqual([
+        { id: "cs-1", summary: "Shared fix", type: "minor" },
+        { id: "cs-2", summary: "Core only", type: "minor" },
+        { id: "cs-3", summary: "CLI only", type: "patch" },
+      ]);
+    });
+
+    it("returns empty array for empty input", () => {
+      expect(deduplicateEntries([])).toEqual([]);
+    });
+
+    it("passes through entries with unique ids unchanged", () => {
+      const entries = [
+        { id: "cs-1", summary: "First", type: "patch" as const },
+        { id: "cs-2", summary: "Second", type: "minor" as const },
+        { id: "cs-3", summary: "Third", type: "major" as const },
+      ];
+      expect(deduplicateEntries(entries)).toEqual(entries);
+    });
   });
 
   it("prepends the changelog header when writing to a new file", () => {

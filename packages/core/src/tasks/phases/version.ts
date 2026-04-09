@@ -3,6 +3,7 @@ import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import {
   buildChangelogEntries,
+  deduplicateEntries,
   generateChangelog,
   writeChangelogToFile,
 } from "../../changeset/changelog.js";
@@ -157,8 +158,10 @@ export function createVersionTask(
             const changelogPath = path.join(ctx.cwd, "CHANGELOG.md");
             registerChangelogBackup(ctx, changelogPath);
 
-            const allEntries = [...plan.packages.keys()].flatMap((pkgPath) =>
-              buildChangelogEntries(changesets, pkgPath),
+            const allEntries = deduplicateEntries(
+              [...plan.packages.keys()].flatMap((pkgPath) =>
+                buildChangelogEntries(changesets, pkgPath),
+              ),
             );
             if (allEntries.length > 0) {
               const changelogContent = generateChangelog(
