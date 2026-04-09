@@ -160,7 +160,17 @@ pubm does not collect telemetry, analytics, or usage data.
 - **Network** - pubm only communicates with registries you configure (npm, jsr, crates.io) and GitHub for release creation
 - **Update check** - Queries the npm public registry for newer versions (local only, disabled in CI)
 
----
+## Quality
+
+**2,500+ test cases. 95% coverage. 3 operating systems. 16 real-world repos.**
+
+Every commit goes through three layers of testing before it ships:
+
+| Layer | What it catches |
+|-------|----------------|
+| **Unit & integration** | 2,500+ test cases across 170+ test files, enforcing 95% line coverage and 90% branch coverage per package |
+| **Cross-platform CI** | Full test suite on Ubuntu, macOS, and Windows. Path handling, keychain, and platform quirks included |
+| **E2E fixture repos** | [16 real project templates](https://github.com/pubm-org) (single-package, monorepo, multi-registry, plugins, changesets, linked groups, etc.) go through actual publish flows end-to-end |
 
 ## Used By
 
@@ -171,8 +181,6 @@ Projects using pubm for their release workflow:
 | [cluvo](https://github.com/syi0808/cluvo) | Local-first bug reporting SDK for open-source CLIs and SDKs |
 
 > Using pubm? [Open a PR](https://github.com/syi0808/pubm/pulls) to add your project!
-
----
 
 ## Contributing
 
