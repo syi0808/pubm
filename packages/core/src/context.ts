@@ -74,6 +74,7 @@ export interface PubmContext {
     tempDir?: string;
     npmOtp?: string;
     npmOtpPromise?: Promise<string>;
+    npmLoginPromise?: Promise<void>;
     tokenRetryPromises?: Record<string, Promise<string>>;
     workspaceBackups?: Map<string, string>;
     dryRunVersionBackup?: Map<string, string>;

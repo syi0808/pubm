@@ -21,6 +21,54 @@ class NpmError extends AbstractError {
   name = "npm Error";
 }
 
+const NPM_AUTH_CLI_PREFIX = "https://www.npmjs.com/auth/cli/";
+
+function canonicalizeNpmLoginUrl(rawUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  if (parsed.origin !== "https://www.npmjs.com") {
+    return null;
+  }
+
+  if (parsed.pathname.startsWith("/auth/cli/")) {
+    const authPath = parsed.pathname.slice("/auth/cli/".length);
+    return authPath ? `${NPM_AUTH_CLI_PREFIX}${authPath}` : null;
+  }
+
+  if (parsed.pathname !== "/login") {
+    return null;
+  }
+
+  const next = parsed.searchParams.get("next");
+  if (!next?.startsWith("/login/cli/")) {
+    return null;
+  }
+
+  const authPath = next.slice("/login/cli/".length);
+  return authPath ? `${NPM_AUTH_CLI_PREFIX}${authPath}` : null;
+}
+
+function extractNpmLoginUrl(text: string): string | null {
+  const matches = text.match(/https:\/\/www\.npmjs\.com\/[^\s"'`<>]+/g);
+  if (!matches) {
+    return null;
+  }
+
+  for (const match of matches) {
+    const canonicalUrl = canonicalizeNpmLoginUrl(match);
+    if (canonicalUrl) {
+      return canonicalUrl;
+    }
+  }
+
+  return null;
+}
+
 async function runNpm(args: string[], cwd?: string): Promise<string> {
   const { stdout } = await exec("npm", args, {
     throwOnError: true,
@@ -373,65 +421,25 @@ export class NpmPackageRegistry extends PackageRegistry {
     if (!(await this.isLoggedIn())) {
       if (ctx.runtime.promptEnabled) {
         try {
-          task.output = "Launching npm login...";
+          let loginPromise = ctx.runtime.npmLoginPromise;
 
-          const { spawnInteractive } = await import(
-            "../utils/spawn-interactive.js"
-          );
-          const child = spawnInteractive(["npm", "login"]);
-
-          let opened = false;
-
-          const readStream = async (
-            stream: ReadableStream<Uint8Array>,
-            onData: (text: string) => void,
-          ) => {
-            const reader = stream.getReader();
-            const decoder = new TextDecoder();
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                onData(decoder.decode(value));
+          if (!loginPromise) {
+            loginPromise = this.runInteractiveLogin(task).finally(() => {
+              if (ctx.runtime.npmLoginPromise === loginPromise) {
+                ctx.runtime.npmLoginPromise = undefined;
               }
-            } finally {
-              reader.releaseLock();
-            }
-          };
+            });
+            ctx.runtime.npmLoginPromise = loginPromise;
+          } else {
+            task.output = "Waiting for npm login...";
+          }
 
-          await new Promise<void>((resolve, reject) => {
-            const onData = (text: string) => {
-              const urlMatch = text.match(
-                /https:\/\/www\.npmjs\.com\/login[^\s]*/,
-              );
-
-              if (urlMatch && !opened) {
-                opened = true;
-                task.output = `Login at: ${color.cyan(urlMatch[0])}`;
-                import("../utils/open-url.js").then(({ openUrl }) =>
-                  openUrl(urlMatch[0]),
-                );
-                child.stdin.write("\n");
-                child.stdin.flush();
-              }
-            };
-
-            Promise.all([
-              readStream(child.stdout, onData),
-              readStream(child.stderr, onData),
-            ]).catch(reject);
-
-            child.exited
-              .then((code) =>
-                code === 0
-                  ? resolve()
-                  : reject(new Error(`npm login exited with code ${code}`)),
-              )
-              .catch(reject);
-          });
+          await loginPromise;
         } catch (error) {
+          const detail =
+            error instanceof Error ? `: ${error.message}` : "";
           throw new NpmError(
-            "npm login failed. Please run `npm login` manually and try again.",
+            `npm login failed${detail}. Please run \`npm login\` manually and try again.`,
             { cause: error },
           );
         }
@@ -510,6 +518,67 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
 
     return new NpmError("Failed to publish to npm", { cause: error });
+  }
+
+  private async runInteractiveLogin(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    task: any,
+  ): Promise<void> {
+    task.output = "Launching npm login...";
+
+    const [{ spawnInteractive }, { openUrl }] = await Promise.all([
+      import("../utils/spawn-interactive.js"),
+      import("../utils/open-url.js"),
+    ]);
+    const child = spawnInteractive(["npm", "login"]);
+
+    let openedUrl: string | null = null;
+    let bufferedText = "";
+
+    const onData = (text: string) => {
+      bufferedText = `${bufferedText}${text}`.slice(-4096);
+
+      const canonicalUrl = extractNpmLoginUrl(bufferedText);
+      if (!canonicalUrl || openedUrl) {
+        return;
+      }
+
+      openedUrl = canonicalUrl;
+      task.output = `Login at: ${color.cyan(canonicalUrl)}`;
+      void openUrl(canonicalUrl);
+    };
+
+    await Promise.all([
+      this.readInteractiveStream(child.stdout, onData),
+      this.readInteractiveStream(child.stderr, onData),
+      child.exited.then((code) => {
+        if (code !== 0) {
+          throw new Error(`npm login exited with code ${code}`);
+        }
+      }),
+    ]);
+
+    if (!openedUrl) {
+      throw new Error("npm login did not provide a supported web login URL.");
+    }
+  }
+
+  private async readInteractiveStream(
+    stream: ReadableStream<Uint8Array>,
+    onData: (text: string) => void,
+  ): Promise<void> {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        onData(decoder.decode(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 }
 
