@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist", "!!**/node_modules", "!!**/fixtures"]
+    "includes": [
+      "**",
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!**/fixtures",
+      "!!.claude-plugin",
+      "!!plugins/pubm-plugin/.claude-plugin"
+    ]
   },
   "formatter": {
     "enabled": true,
