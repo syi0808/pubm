@@ -21,9 +21,7 @@ class NpmError extends AbstractError {
   name = "npm Error";
 }
 
-const NPM_AUTH_CLI_PREFIX = "https://www.npmjs.com/auth/cli/";
-
-function canonicalizeNpmLoginUrl(rawUrl: string): string | null {
+function validateNpmLoginUrl(rawUrl: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -37,7 +35,7 @@ function canonicalizeNpmLoginUrl(rawUrl: string): string | null {
 
   if (parsed.pathname.startsWith("/auth/cli/")) {
     const authPath = parsed.pathname.slice("/auth/cli/".length);
-    return authPath ? `${NPM_AUTH_CLI_PREFIX}${authPath}` : null;
+    return authPath ? rawUrl : null;
   }
 
   if (parsed.pathname !== "/login") {
@@ -50,7 +48,7 @@ function canonicalizeNpmLoginUrl(rawUrl: string): string | null {
   }
 
   const authPath = next.slice("/login/cli/".length);
-  return authPath ? `${NPM_AUTH_CLI_PREFIX}${authPath}` : null;
+  return authPath ? rawUrl : null;
 }
 
 function extractNpmLoginUrl(text: string): string | null {
@@ -60,9 +58,9 @@ function extractNpmLoginUrl(text: string): string | null {
   }
 
   for (const match of matches) {
-    const canonicalUrl = canonicalizeNpmLoginUrl(match);
-    if (canonicalUrl) {
-      return canonicalUrl;
+    const validUrl = validateNpmLoginUrl(match);
+    if (validUrl) {
+      return validUrl;
     }
   }
 

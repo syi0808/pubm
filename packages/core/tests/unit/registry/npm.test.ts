@@ -794,9 +794,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       expect(spawnInteractive).toHaveBeenCalledWith(["npm", "login"]);
       expect(openUrl).toHaveBeenCalledWith(
-        "https://www.npmjs.com/auth/cli/abc-123",
+        "https://www.npmjs.com/login?next=/login/cli/abc-123",
       );
-      expect(task.output).toContain("https://www.npmjs.com/auth/cli/abc-123");
+      expect(task.output).toContain(
+        "https://www.npmjs.com/login?next=/login/cli/abc-123",
+      );
     });
 
     it("preserves canonical auth CLI URLs from npm output", async () => {
@@ -855,7 +857,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       expect(spawnInteractive).toHaveBeenCalledTimes(1);
       expect(openUrl).toHaveBeenCalledTimes(1);
       expect(openUrl).toHaveBeenCalledWith(
-        "https://www.npmjs.com/auth/cli/shared-123",
+        "https://www.npmjs.com/login?next=/login/cli/shared-123",
       );
       expect(ctx.runtime.npmLoginPromise).toBeUndefined();
     });
