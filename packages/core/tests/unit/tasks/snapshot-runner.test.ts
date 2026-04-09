@@ -458,6 +458,30 @@ describe("runSnapshotPipeline", () => {
     expect(ctx.runtime.versionPlan?.mode).toBe("single");
   });
 
+  it("sets promptEnabled to true when not CI and stdin is TTY", async () => {
+    mockIsCI.value = false;
+    const originalIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = true;
+    const ctx = makeSnapshotContext();
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    expect(ctx.runtime.promptEnabled).toBe(true);
+    process.stdin.isTTY = originalIsTTY;
+  });
+
+  it("sets promptEnabled to false when in CI", async () => {
+    mockIsCI.value = true;
+    const originalIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = true;
+    const ctx = makeSnapshotContext();
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    expect(ctx.runtime.promptEnabled).toBe(false);
+    process.stdin.isTTY = originalIsTTY;
+  });
+
   it("uses createCiListrOptions when isCI is true", async () => {
     mockIsCI.value = true;
     const ctx = makeSnapshotContext();

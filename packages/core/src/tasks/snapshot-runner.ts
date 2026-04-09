@@ -1,3 +1,4 @@
+import process from "node:process";
 import { isCI } from "std-env";
 import { createKeyResolver } from "../changeset/resolve.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
@@ -103,6 +104,8 @@ export async function runSnapshotPipeline(
   options: SnapshotRunnerOptions,
 ): Promise<void> {
   const { tag, filter, dryRun = false } = options;
+
+  ctx.runtime.promptEnabled = !isCI && !!process.stdin.isTTY;
 
   // Apply filter
   const targetPackages = applySnapshotFilter(ctx.config.packages, filter);
