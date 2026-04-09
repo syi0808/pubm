@@ -76,7 +76,6 @@ export function registerAddCommand(
             name: pkg.name,
             message: `${pkg.name} (v${pkg.version})`,
             value: pkg.name,
-            ...(isFixed && { enabled: true }),
           }));
 
           const { packages: selectedNames } = await Enquirer.prompt<{
@@ -86,6 +85,9 @@ export function registerAddCommand(
             name: "packages",
             message: t("prompt.add.selectPackages"),
             choices,
+            ...(isFixed && {
+              initial: availablePackages.map((pkg) => pkg.name),
+            }),
           });
 
           if (selectedNames.length === 0) {
