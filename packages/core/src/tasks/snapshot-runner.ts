@@ -140,109 +140,106 @@ export async function runSnapshotPipeline(
     targetPackages.map((p) => [p.path, p.version || "0.0.0"]),
   );
 
-  await createListr<PubmContext>(
-    [
-      {
-        skip: options.skipTests,
-        title: t("task.test.title"),
-        task: async (ctx, task): Promise<void> => {
-          const packageManager = await getPackageManager();
-          const command = `${packageManager} run ${ctx.options.testScript}`;
-          task.title = t("task.test.titleWithCommand", { command });
-          task.output = `Executing \`${command}\``;
-          try {
-            await exec(packageManager, ["run", ctx.options.testScript], {
-              throwOnError: true,
-            });
-          } catch (error) {
-            throw new AbstractError(
-              t("error.test.failed", { script: ctx.options.testScript }),
-              { cause: error },
-            );
-          }
+  try {
+    await createListr<PubmContext>(
+      [
+        {
+          skip: options.skipTests,
+          title: t("task.test.title"),
+          task: async (ctx, task): Promise<void> => {
+            const packageManager = await getPackageManager();
+            const command = `${packageManager} run ${ctx.options.testScript}`;
+            task.title = t("task.test.titleWithCommand", { command });
+            task.output = `Executing \`${command}\``;
+            try {
+              await exec(packageManager, ["run", ctx.options.testScript], {
+                throwOnError: true,
+              });
+            } catch (error) {
+              throw new AbstractError(
+                t("error.test.failed", { script: ctx.options.testScript }),
+                { cause: error },
+              );
+            }
+          },
         },
-      },
-      {
-        skip: options.skipBuild,
-        title: t("task.build.title"),
-        task: async (ctx, task): Promise<void> => {
-          const packageManager = await getPackageManager();
-          const command = `${packageManager} run ${ctx.options.buildScript}`;
-          task.title = t("task.build.titleWithCommand", { command });
-          task.output = `Executing \`${command}\``;
-          try {
-            await exec(packageManager, ["run", ctx.options.buildScript], {
-              throwOnError: true,
-            });
-          } catch (error) {
-            throw new AbstractError(
-              t("error.build.failed", { script: ctx.options.buildScript }),
-              { cause: error },
-            );
-          }
+        {
+          skip: options.skipBuild,
+          title: t("task.build.title"),
+          task: async (ctx, task): Promise<void> => {
+            const packageManager = await getPackageManager();
+            const command = `${packageManager} run ${ctx.options.buildScript}`;
+            task.title = t("task.build.titleWithCommand", { command });
+            task.output = `Executing \`${command}\``;
+            try {
+              await exec(packageManager, ["run", ctx.options.buildScript], {
+                throwOnError: true,
+              });
+            } catch (error) {
+              throw new AbstractError(
+                t("error.build.failed", { script: ctx.options.buildScript }),
+                { cause: error },
+              );
+            }
+          },
         },
-      },
-      {
-        title: t("task.snapshot.title"),
-        task: async (ctx, task): Promise<void> => {
-          const versionLabel =
-            plan.mode !== "independent"
-              ? (plan as SingleVersionPlan | FixedVersionPlan).version
-              : `${snapshotVersions.size} packages`;
+        {
+          title: t("task.snapshot.title"),
+          task: async (ctx, task) => {
+            const versionLabel =
+              plan.mode !== "independent"
+                ? (plan as SingleVersionPlan | FixedVersionPlan).version
+                : `${snapshotVersions.size} packages`;
 
-          task.title = t("task.snapshot.titleWithVersion", {
-            version: versionLabel,
-          });
+            task.title = t("task.snapshot.titleWithVersion", {
+              version: versionLabel,
+            });
 
-          await writeVersions(ctx, snapshotVersions);
+            await writeVersions(ctx, snapshotVersions);
 
-          try {
             task.output = t("task.snapshot.publishing", { tag });
             const publishTasks = await collectPublishTasks(ctx);
-            await createListr<PubmContext>(publishTasks, {
+
+            return task.newListr(publishTasks, {
               concurrent: true,
-            }).run(ctx);
-          } finally {
-            await writeVersions(ctx, originalVersions);
-          }
-
-          task.output = t("task.snapshot.published", {
-            version: versionLabel,
-          });
+            });
+          },
         },
-      },
-      {
-        title: t("task.snapshot.createTag"),
-        enabled: !dryRun,
-        task: async (ctx, task): Promise<void> => {
-          const git = new Git();
-          const headCommit = await git.latestCommit();
+        {
+          title: t("task.snapshot.createTag"),
+          enabled: !dryRun,
+          task: async (ctx, task): Promise<void> => {
+            const git = new Git();
+            const headCommit = await git.latestCommit();
 
-          if (plan.mode === "independent") {
-            for (const [pkgPath, pkgVersion] of plan.packages) {
-              const pkgName =
-                ctx.config.packages.find((p) => p.path === pkgPath)?.name ??
-                pkgPath;
-              const tagName = `${pkgName}@${pkgVersion}`;
+            if (plan.mode === "independent") {
+              for (const [pkgPath, pkgVersion] of plan.packages) {
+                const pkgName =
+                  ctx.config.packages.find((p) => p.path === pkgPath)?.name ??
+                  pkgPath;
+                const tagName = `${pkgName}@${pkgVersion}`;
+                task.output = t("task.snapshot.creatingTag", { tag: tagName });
+                await git.createTag(tagName, headCommit);
+              }
+            } else {
+              const version = (plan as SingleVersionPlan | FixedVersionPlan)
+                .version;
+              const tagName = `v${version}`;
               task.output = t("task.snapshot.creatingTag", { tag: tagName });
               await git.createTag(tagName, headCommit);
             }
-          } else {
-            const version = (plan as SingleVersionPlan | FixedVersionPlan)
-              .version;
-            const tagName = `v${version}`;
-            task.output = t("task.snapshot.creatingTag", { tag: tagName });
-            await git.createTag(tagName, headCommit);
-          }
 
-          task.output = t("task.snapshot.pushingTag", { tag: "tags" });
-          await git.push("--tags");
-          task.output = t("task.snapshot.tagPushed", { tag: "tags" });
+            task.output = t("task.snapshot.pushingTag", { tag: "tags" });
+            await git.push("--tags");
+            task.output = t("task.snapshot.tagPushed", { tag: "tags" });
+          },
         },
-      },
-    ],
-    pipelineListrOptions,
-  ).run(ctx);
+      ],
+      pipelineListrOptions,
+    ).run(ctx);
+  } finally {
+    await writeVersions(ctx, originalVersions);
+  }
 
   // Success message
   const registries = collectRegistries(ctx.config);
