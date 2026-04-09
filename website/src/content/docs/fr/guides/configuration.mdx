@@ -185,14 +185,13 @@ Ces champs font partie du schéma public, mais ils ne sont pas encore des bascul
 
 Modèle utilisé quand `pubm --snapshot` génère une chaîne de version temporaire.
 
+La version de base issue de `package.json` est toujours automatiquement ajoutée en préfixe à la version snapshot. Le modèle contrôle uniquement le suffixe qui suit la version de base.
+
 Variables de modèle disponibles :
 
-- `{base}` : version actuelle du package issue du manifest
 - `{tag}` : tag de snapshot, par défaut `snapshot`
 - `{timestamp}` : timestamp UTC au format `YYYYMMDDTHHmmss`
 - `{commit}` : SHA du commit Git courant
-
-Dans les projets monorepo avec versioning `fixed`, le template est appliqué une seule fois en utilisant la version du premier package comme `{base}`. Avec le versioning `independent`, chaque package génère sa propre version snapshot en utilisant son propre `{base}`.
 
 ### `createPr`
 
@@ -355,7 +354,7 @@ export default defineConfig({
 });
 ```
 
-Exemple de sortie :
+La version de base est ajoutée automatiquement en préfixe, donc un modèle `"{tag}-{timestamp}"` produit une sortie comme :
 
 - `0.4.1-snapshot-20260312T102233`
 

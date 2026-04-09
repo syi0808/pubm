@@ -317,12 +317,12 @@ describe("buildSnapshotVersionPlan", () => {
       },
     ];
 
-    buildSnapshotVersionPlan(packages, "fixed", "beta", "{base}-{tag}-custom");
+    buildSnapshotVersionPlan(packages, "fixed", "beta", "{tag}-custom");
 
     expect(mockedGenerateSnapshotVersion).toHaveBeenCalledWith({
       baseVersion: "1.0.0",
       tag: "beta",
-      template: "{base}-{tag}-custom",
+      template: "{tag}-custom",
     });
   });
 

@@ -185,14 +185,13 @@ Diese Felder sind Teil des oeffentlichen Schemas, aber noch nicht in jedem Publi
 
 Vorlage, die verwendet wird, wenn `pubm --snapshot` eine temporaere Versionszeichenkette erzeugt.
 
+Die Basisversion aus `package.json` wird der Snapshot-Version immer automatisch vorangestellt. Das Template steuert nur das Suffix, das auf die Basisversion folgt.
+
 Verfügbare Platzhalter:
 
-- `{base}`: aktuelle Paketversion aus dem Manifest
 - `{tag}`: Snapshot-Tag, standardmaessig `snapshot`
 - `{timestamp}`: UTC-Zeitstempel im Format `YYYYMMDDTHHmmss`
 - `{commit}`: aktueller Git-Commit-SHA
-
-In Monorepo-Projekten mit `fixed`-Versionierung wird das Template einmal angewendet, wobei die Version des ersten Pakets als `{base}` verwendet wird. Mit `independent`-Versionierung generiert jedes Paket seine eigene Snapshot-Version mit dem eigenen `{base}`.
 
 ### `createPr`
 
@@ -355,7 +354,7 @@ export default defineConfig({
 });
 ```
 
-Beispielausgabe:
+Die Basisversion wird automatisch vorangestellt, sodass ein Template `"{tag}-{timestamp}"` eine Ausgabe wie diese erzeugt:
 
 - `0.4.1-snapshot-20260312T102233`
 
