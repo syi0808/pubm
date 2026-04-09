@@ -741,7 +741,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
     };
   }
 
-  async function importFreshRegistryWithMocks(child: ReturnType<typeof makeChild>) {
+  async function importFreshRegistryWithMocks(
+    child: ReturnType<typeof makeChild>,
+  ) {
     vi.resetModules();
 
     const spawnInteractive = vi.fn().mockReturnValue(child);
@@ -799,7 +801,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
     it("preserves canonical auth CLI URLs from npm output", async () => {
       const { FreshNpmRegistry, openUrl } = await importFreshRegistryWithMocks(
-        makeChild(["Authenticate your account at:\n", "https://www.npmjs.com/auth/cli/xyz-789\n"]),
+        makeChild([
+          "Authenticate your account at:\n",
+          "https://www.npmjs.com/auth/cli/xyz-789\n",
+        ]),
       );
       const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
       vi.spyOn(freshRegistry, "isLoggedIn")
