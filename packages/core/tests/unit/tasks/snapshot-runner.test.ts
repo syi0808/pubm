@@ -807,7 +807,11 @@ describe("runSnapshotPipeline", () => {
           for (const task of tasks) {
             if (typeof task.enabled === "boolean" && !task.enabled) continue;
             if (typeof task.skip === "boolean" && task.skip) continue;
-            const mockTask = { output: "", title: task.title || "", newListr: vi.fn(() => ({ run: vi.fn() })) };
+            const mockTask = {
+              output: "",
+              title: task.title || "",
+              newListr: vi.fn(() => ({ run: vi.fn() })),
+            };
             if (task.task) await task.task(ctx, mockTask);
           }
         }),
