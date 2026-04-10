@@ -13,7 +13,7 @@ import {
 import { openUrl } from "../../utils/open-url.js";
 import { ui } from "../../utils/ui.js";
 import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
-import { buildReleaseBody, buildFixedReleaseBody } from "../release-notes.js";
+import { buildReleaseBody, buildFixedReleaseBody, truncateForUrl } from "../release-notes.js";
 import { prepareReleaseAssets } from "../runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "../runner-utils/output-formatting.js";
 import {
@@ -296,30 +296,34 @@ export function createReleaseTask(
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
             const pkgName = getPackageName(ctx, pkgPath);
             const tag = `${pkgName}@${pkgVersion}`;
-            const lastRev =
-              (await git.previousTag(tag)) || (await git.firstCommit());
-            const commits = (await git.commits(lastRev, tag)).slice(1);
 
-            let body = commits
-              .map(
-                ({ id, message }) =>
-                  `- ${message.replace(/#/g, `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-              )
-              .join("\n");
-            body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
+            const body = await buildReleaseBody(ctx, {
+              pkgPath,
+              version: pkgVersion,
+              tag,
+              repositoryUrl,
+            });
 
             const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
             releaseDraftUrl.searchParams.set("tag", tag);
-            releaseDraftUrl.searchParams.set("body", body);
             releaseDraftUrl.searchParams.set(
               "prerelease",
               `${!!prerelease(pkgVersion)}`,
             );
 
+            const baseUrl = `${releaseDraftUrl.toString()}&body=`;
+            const truncated = await truncateForUrl(body, baseUrl);
+            releaseDraftUrl.searchParams.set("body", truncated.body);
+
             const linkUrl = ui.link(tag, releaseDraftUrl.toString());
             task.title += ` ${linkUrl}`;
 
             if (first) {
+              if (truncated.clipboardCopied) {
+                task.output = t("task.release.copiedToClipboard");
+              } else if (truncated.truncated) {
+                task.output = t("task.release.truncated");
+              }
               task.output = t("task.release.openingDraft", { tag });
               await openUrl(releaseDraftUrl.toString());
               first = false;
@@ -328,32 +332,45 @@ export function createReleaseTask(
         } else {
           const version = plan.version;
           const tag = `v${version}`;
-          const lastRev =
-            (await git.previousTag(tag)) || (await git.firstCommit());
-          const commits = (await git.commits(lastRev, tag)).slice(1);
-          task.output = t("task.release.collectedCommits", {
-            count: commits.length,
-            tag,
-          });
 
-          let body = commits
-            .map(
-              ({ id, message }) =>
-                `- ${message.replace(/#/g, `${repositoryUrl}/issues/`)} ${repositoryUrl}/commit/${id}`,
-            )
-            .join("\n");
-          body += `\n\n${repositoryUrl}/compare/${lastRev}...${tag}`;
+          let body: string;
+          if (plan.mode === "fixed") {
+            body = await buildFixedReleaseBody(ctx, {
+              packages: [...plan.packages.entries()].map(([pkgPath, pkgVersion]) => ({
+                pkgPath,
+                pkgName: getPackageName(ctx, pkgPath),
+                version: pkgVersion,
+              })),
+              tag,
+              repositoryUrl,
+            });
+          } else {
+            body = await buildReleaseBody(ctx, {
+              pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
+              version,
+              tag,
+              repositoryUrl,
+            });
+          }
 
           const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
           releaseDraftUrl.searchParams.set("tag", tag);
-          releaseDraftUrl.searchParams.set("body", body);
           releaseDraftUrl.searchParams.set(
             "prerelease",
             `${!!prerelease(version)}`,
           );
 
+          const baseUrl = `${releaseDraftUrl.toString()}&body=`;
+          const truncated = await truncateForUrl(body, baseUrl);
+          releaseDraftUrl.searchParams.set("body", truncated.body);
+
           const linkUrl = ui.link("Link", releaseDraftUrl.toString());
           task.title += ` ${linkUrl}`;
+          if (truncated.clipboardCopied) {
+            task.output = t("task.release.copiedToClipboard");
+          } else if (truncated.truncated) {
+            task.output = t("task.release.truncated");
+          }
           task.output = t("task.release.openingDraft", { tag });
           await openUrl(releaseDraftUrl.toString());
         }

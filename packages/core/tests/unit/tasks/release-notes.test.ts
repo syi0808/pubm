@@ -15,6 +15,10 @@ vi.mock("node:child_process", () => ({
   execFileSync: vi.fn(),
 }));
 
+vi.mock("../../../src/utils/clipboard.js", () => ({
+  copyToClipboard: vi.fn(),
+}));
+
 async function freshImport() {
   vi.resetModules();
   return await import("../../../src/tasks/release-notes.js");
@@ -24,11 +28,13 @@ async function getMocks() {
   const fs = await import("node:fs");
   const { Git } = await import("../../../src/git.js");
   const { execFileSync } = await import("node:child_process");
+  const { copyToClipboard } = await import("../../../src/utils/clipboard.js");
   return {
     mockExistsSync: vi.mocked(fs.existsSync),
     mockReadFileSync: vi.mocked(fs.readFileSync),
     mockGit: vi.mocked(Git),
     mockExecFileSync: vi.mocked(execFileSync),
+    mockCopyToClipboard: vi.mocked(copyToClipboard),
   };
 }
 
@@ -353,5 +359,53 @@ describe("buildFixedReleaseBody", () => {
     expect(result).toContain("## @pubm/core v1.0.0");
     expect(result).toContain("## pubm v1.0.0");
     expect(result).toContain("- update dep (abcdef1)");
+  });
+});
+
+describe("truncateForUrl", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns body unchanged when URL is within limit", async () => {
+    const { truncateForUrl } = await freshImport();
+
+    const body = "short body";
+    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+
+    const result = await truncateForUrl(body, baseUrl);
+    expect(result.body).toBe(body);
+    expect(result.truncated).toBe(false);
+    expect(result.clipboardCopied).toBe(false);
+  });
+
+  it("truncates and copies to clipboard when URL exceeds limit", async () => {
+    const { truncateForUrl } = await freshImport();
+    const { mockCopyToClipboard } = await getMocks();
+    mockCopyToClipboard.mockResolvedValue(true);
+
+    const body = "x".repeat(10000);
+    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+
+    const result = await truncateForUrl(body, baseUrl);
+    expect(result.body.length).toBeLessThan(body.length);
+    expect(result.body).toContain("truncated");
+    expect(result.truncated).toBe(true);
+    expect(result.clipboardCopied).toBe(true);
+    expect(mockCopyToClipboard).toHaveBeenCalledWith(body);
+  });
+
+  it("uses plain truncated message when clipboard fails", async () => {
+    const { truncateForUrl } = await freshImport();
+    const { mockCopyToClipboard } = await getMocks();
+    mockCopyToClipboard.mockResolvedValue(false);
+
+    const body = "x".repeat(10000);
+    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+
+    const result = await truncateForUrl(body, baseUrl);
+    expect(result.body).toContain("truncated");
+    expect(result.truncated).toBe(true);
+    expect(result.clipboardCopied).toBe(false);
   });
 });

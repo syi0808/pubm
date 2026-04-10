@@ -292,6 +292,7 @@ vi.mock("../../../src/tasks/create-version-pr.js", () => ({
 vi.mock("../../../src/tasks/release-notes.js", () => ({
   buildReleaseBody: vi.fn(),
   buildFixedReleaseBody: vi.fn(),
+  truncateForUrl: vi.fn(),
 }));
 
 import { existsSync, readFileSync, rmSync } from "node:fs";
@@ -317,6 +318,7 @@ import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import {
   buildReleaseBody,
   buildFixedReleaseBody,
+  truncateForUrl,
 } from "../../../src/tasks/release-notes.js";
 import {
   collectTokens,
@@ -356,6 +358,7 @@ const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
 const mockedBuildReleaseBody = vi.mocked(buildReleaseBody);
 const mockedBuildFixedReleaseBody = vi.mocked(buildFixedReleaseBody);
+const mockedTruncateForUrl = vi.mocked(truncateForUrl);
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
   requiredConditionsCheckTask,
@@ -462,6 +465,7 @@ beforeEach(() => {
   mockedReadFileSync.mockReturnValue("");
   mockedBuildReleaseBody.mockResolvedValue(undefined as any);
   mockedBuildFixedReleaseBody.mockResolvedValue(undefined as any);
+  mockedTruncateForUrl.mockResolvedValue({ body: "", truncated: false, clipboardCopied: false });
   mockedCreateGitHubRelease.mockResolvedValue({
     displayLabel: "pubm",
     version: "1.0.0",
@@ -5592,7 +5596,7 @@ describe("independent release draft with previousTag fallback", () => {
     mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
     const pathVersions = new Map([["packages/core", "2.0.0"]]);
 
-    // Set up Git mock where previousTag returns empty string (falsy)
+    // Set up Git mock
     const gitInstance = {
       repository: vi.fn().mockResolvedValue("https://github.com/pubm/pubm"),
       previousTag: vi.fn().mockResolvedValue(""),
@@ -5605,6 +5609,8 @@ describe("independent release draft with previousTag fallback", () => {
     mockedGit.mockImplementation(function () {
       return gitInstance as any;
     } as any);
+
+    mockedBuildReleaseBody.mockResolvedValue("Release notes for fallback test");
 
     await run(
       createOptions({
@@ -5661,8 +5667,15 @@ describe("independent release draft with previousTag fallback", () => {
 
     await releaseDraftTask.task(ctx, task);
 
-    // firstCommit should have been called as fallback
-    expect(gitInstance.firstCommit).toHaveBeenCalled();
+    // buildReleaseBody now handles previousTag/firstCommit logic internally
+    expect(mockedBuildReleaseBody).toHaveBeenCalledWith(
+      ctx,
+      expect.objectContaining({
+        pkgPath: "packages/core",
+        version: "2.0.0",
+        tag: "@pubm/core@2.0.0",
+      }),
+    );
     expect(mockedOpenUrl).toHaveBeenCalled();
   });
 });

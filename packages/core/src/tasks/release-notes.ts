@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { copyToClipboard } from "../utils/clipboard.js";
 import { ConventionalCommitChangelogWriter } from "../changelog/conventional-commit-writer.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import { parseConventionalCommit } from "../conventional-commit/parser.js";
@@ -150,6 +151,52 @@ function extractChangelog(
     readFileSync(changelogPath, "utf-8"),
     version,
   );
+}
+
+const MAX_URL_LENGTH = 8000;
+
+export interface TruncateResult {
+  body: string;
+  truncated: boolean;
+  clipboardCopied: boolean;
+}
+
+export async function truncateForUrl(
+  body: string,
+  baseUrl: string,
+): Promise<TruncateResult> {
+  const testUrl = `${baseUrl}${encodeURIComponent(body)}`;
+  if (testUrl.length <= MAX_URL_LENGTH) {
+    return { body, truncated: false, clipboardCopied: false };
+  }
+
+  const clipboardCopied = await copyToClipboard(body);
+
+  const suffix = clipboardCopied
+    ? "\n\n... (truncated, full notes copied to clipboard)"
+    : "\n\n... (truncated)";
+
+  const availableLength =
+    MAX_URL_LENGTH -
+    baseUrl.length -
+    encodeURIComponent(suffix).length;
+
+  let lo = 0;
+  let hi = body.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (encodeURIComponent(body.slice(0, mid)).length <= availableLength) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  return {
+    body: body.slice(0, lo) + suffix,
+    truncated: true,
+    clipboardCopied,
+  };
 }
 
 /**
