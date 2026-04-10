@@ -18,28 +18,6 @@ class GitHubReleaseError extends AbstractError {
 }
 
 /**
- * Format release notes from commits
- */
-function formatReleaseNotes(
-  commits: { id: string; message: string }[],
-  repositoryUrl: string,
-  previousTag: string,
-  latestTag: string,
-): string {
-  const lines = commits.map(
-    ({ id, message }) =>
-      `- ${message.replace(/#(\d+)/g, `[#$1](${repositoryUrl}/issues/$1)`)} ([${id.slice(0, 7)}](${repositoryUrl}/commit/${id}))`,
-  );
-
-  lines.push("");
-  lines.push(
-    `**Full Changelog**: ${repositoryUrl}/compare/${previousTag}...${latestTag}`,
-  );
-
-  return lines.join("\n");
-}
-
-/**
  * Create a GitHub Release using the GitHub REST API
  */
 export async function createGitHubRelease(
@@ -48,7 +26,7 @@ export async function createGitHubRelease(
     displayLabel: string;
     version: string;
     tag: string;
-    changelogBody?: string;
+    body: string;
     assets: PreparedAsset[];
     draft?: boolean;
   },
@@ -61,23 +39,7 @@ export async function createGitHubRelease(
   const git = new Git();
 
   const remoteUrl = await git.repository();
-  const repositoryUrl = remoteUrl
-    .replace(/^git@github\.com:/, "https://github.com/")
-    .replace(/\.git$/, "");
   const { owner, repo } = parseOwnerRepo(remoteUrl);
-
-  // Get tags
-  const previousTag =
-    (await git.previousTag(options.tag)) || (await git.firstCommit());
-
-  // Use changelog content if provided, otherwise build from commits
-  let body: string;
-  if (options.changelogBody) {
-    body = options.changelogBody;
-  } else {
-    const commits = (await git.commits(previousTag, options.tag)).slice(1);
-    body = formatReleaseNotes(commits, repositoryUrl, previousTag, options.tag);
-  }
 
   // Create the release via GitHub API
   const createResponse = await fetch(
@@ -92,7 +54,7 @@ export async function createGitHubRelease(
       body: JSON.stringify({
         tag_name: options.tag,
         name: options.tag,
-        body,
+        body: options.body,
         draft: !!options.draft,
         prerelease: !!prerelease(options.version),
       }),
