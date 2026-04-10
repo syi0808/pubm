@@ -260,3 +260,98 @@ describe("buildReleaseBody", () => {
     expect(result).not.toContain("**Full Changelog**");
   });
 });
+
+describe("buildFixedReleaseBody", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("aggregates per-package bodies with headers and single compare link", async () => {
+    const { buildFixedReleaseBody } = await freshImport();
+    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync
+      .mockReturnValueOnce("# Changelog\n\n## 1.0.0\n\n- core feature\n")
+      .mockReturnValueOnce("# Changelog\n\n## 1.0.0\n\n- cli update\n");
+
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+      } as any;
+    } as any);
+
+    const ctx = makeCtx({
+      config: {
+        packages: [
+          { path: "packages/core", name: "@pubm/core" },
+          { path: "packages/pubm", name: "pubm" },
+        ],
+      },
+    });
+
+    const result = await buildFixedReleaseBody(ctx, {
+      packages: [
+        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
+        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
+      ],
+      tag: "v1.0.0",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    expect(result).toContain("## @pubm/core v1.0.0");
+    expect(result).toContain("- core feature");
+    expect(result).toContain("---");
+    expect(result).toContain("## pubm v1.0.0");
+    expect(result).toContain("- cli update");
+    // Single compare link at end
+    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
+    expect(compareMatches).toHaveLength(1);
+    expect(result).toContain("https://github.com/user/repo/compare/v0.9.0...v1.0.0");
+  });
+
+  it("handles packages falling back to raw commits", async () => {
+    const { buildFixedReleaseBody } = await freshImport();
+    const { mockExistsSync, mockReadFileSync, mockGit, mockExecFileSync } = await getMocks();
+
+    // First package has changelog, second doesn't
+    mockExistsSync.mockReturnValueOnce(true).mockReturnValue(false);
+    mockReadFileSync.mockReturnValue("# Changelog\n\n## 1.0.0\n\n- core feature\n");
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+        commits: vi.fn().mockResolvedValue([
+          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
+          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "update dep" },
+        ]),
+      } as any;
+    } as any);
+    mockExecFileSync.mockReturnValue(
+      "COMMIT_START abcdef1\nupdate dep\n\nCOMMIT_FILES\n",
+    );
+
+    const ctx = makeCtx({
+      config: {
+        packages: [
+          { path: "packages/core", name: "@pubm/core" },
+          { path: "packages/pubm", name: "pubm" },
+        ],
+      },
+    });
+
+    const result = await buildFixedReleaseBody(ctx, {
+      packages: [
+        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
+        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
+      ],
+      tag: "v1.0.0",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    expect(result).toContain("## @pubm/core v1.0.0");
+    expect(result).toContain("## pubm v1.0.0");
+    expect(result).toContain("- update dep (abcdef1)");
+  });
+});
