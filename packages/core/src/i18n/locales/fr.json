@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "Résolution des métadonnées du dépôt pour le brouillon de publication...",
   "task.release.openingDraft": "Ouverture du brouillon de publication pour {tag}...",
   "task.release.collectedCommits": "{count} commits collectés pour {tag}.",
+  "task.release.copiedToClipboard": "Notes de version copiées dans le presse-papiers — collez-les dans le corps de la release",
+  "task.release.truncated": "Les notes de version ont été tronquées en raison de la limite de longueur de l'URL",
   "task.publish.registryLabel": "Publier vers {registry}",
   "task.dryRun.registryLabel": "Dry-run {registry}",
   "output.ciPrepareComplete": "Préparation CI terminée. Tags de publication poussés — CI devrait prendre en charge la publication.",

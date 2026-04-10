@@ -289,6 +289,11 @@ vi.mock("../../../src/tasks/create-version-pr.js", () => ({
   }),
   closeVersionPr: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../../src/tasks/release-notes.js", () => ({
+  buildReleaseBody: vi.fn(),
+  buildFixedReleaseBody: vi.fn(),
+  truncateForUrl: vi.fn(),
+}));
 
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -315,6 +320,11 @@ import {
   promptGhSecretsSync,
 } from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
+import {
+  buildFixedReleaseBody,
+  buildReleaseBody,
+  truncateForUrl,
+} from "../../../src/tasks/release-notes.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
 import { exec } from "../../../src/utils/exec.js";
@@ -346,6 +356,9 @@ const mockedCratesDescriptor = (
 const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
+const mockedBuildReleaseBody = vi.mocked(buildReleaseBody);
+const mockedBuildFixedReleaseBody = vi.mocked(buildFixedReleaseBody);
+const mockedTruncateForUrl = vi.mocked(truncateForUrl);
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
   requiredConditionsCheckTask,
@@ -450,6 +463,13 @@ beforeEach(() => {
 
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
+  mockedBuildReleaseBody.mockResolvedValue(undefined as any);
+  mockedBuildFixedReleaseBody.mockResolvedValue(undefined as any);
+  mockedTruncateForUrl.mockResolvedValue({
+    body: "",
+    truncated: false,
+    clipboardCopied: false,
+  });
   mockedCreateGitHubRelease.mockResolvedValue({
     displayLabel: "pubm",
     version: "1.0.0",
@@ -487,14 +507,8 @@ describe("runner coverage scenarios", () => {
       ["packages/core", "1.2.0"],
       ["packages/pubm", "1.2.0"],
     ]);
-    mockedExistsSync.mockImplementation((filePath) =>
-      String(filePath)
-        .replace(/\\/g, "/")
-        .endsWith("packages/core/CHANGELOG.md"),
-    );
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockImplementation((_content, version) =>
-      version === "1.2.0" ? "Added release notes" : undefined,
+    mockedBuildFixedReleaseBody.mockResolvedValue(
+      "## @pubm/core v1.2.0\n\nAdded release notes",
     );
 
     await run(
@@ -569,7 +583,7 @@ describe("runner coverage scenarios", () => {
         displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
-        changelogBody: expect.stringContaining("## @pubm/core v1.2.0"),
+        body: expect.stringContaining("## @pubm/core v1.2.0"),
       }),
     );
     expect(afterRelease).toHaveBeenCalledWith(
@@ -941,7 +955,7 @@ describe("runner coverage scenarios", () => {
         displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
-        changelogBody: undefined,
+        body: undefined,
       }),
     );
   });
@@ -1593,9 +1607,7 @@ describe("CI prepare pipeline", () => {
 
 describe("CI GitHub Release", () => {
   it("creates a single-mode release with root changelog", async () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockReturnValue("Single release notes");
+    mockedBuildReleaseBody.mockResolvedValue("Single release notes");
 
     await run(
       createOptions({
@@ -1659,7 +1671,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "pubm",
         version: "4.0.0",
         tag: "v4.0.0",
-        changelogBody: "Single release notes",
+        body: "Single release notes",
       }),
     );
   });
@@ -1669,15 +1681,9 @@ describe("CI GitHub Release", () => {
       ["packages/core", "2.0.0"],
       ["packages/pubm", "2.1.0"],
     ]);
-    mockedExistsSync.mockImplementation((filePath) =>
-      String(filePath)
-        .replace(/\\/g, "/")
-        .endsWith("packages/core/CHANGELOG.md"),
-    );
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockImplementation((_content, version) =>
-      version === "2.0.0" ? "Core release notes" : undefined,
-    );
+    mockedBuildReleaseBody
+      .mockResolvedValueOnce("Core release notes")
+      .mockResolvedValueOnce(undefined as any);
 
     await run(
       createOptions({
@@ -1756,7 +1762,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "@pubm/core",
         version: "2.0.0",
         tag: "@pubm/core@2.0.0",
-        changelogBody: "Core release notes",
+        body: "Core release notes",
       }),
     );
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
@@ -1765,7 +1771,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "pubm",
         version: "2.1.0",
         tag: "pubm@2.1.0",
-        changelogBody: undefined,
+        body: undefined,
       }),
     );
   });
@@ -5413,9 +5419,9 @@ describe("fixed mode release with tempDir cleanup", () => {
 
 describe("fixed mode release with changelog sections", () => {
   it("reads per-package changelog for fixed mode and joins sections", async () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue("# Changelog\n## 4.0.0\nChanges here");
-    mockedParseChangelogSection.mockReturnValue("Changes here");
+    mockedBuildFixedReleaseBody.mockResolvedValue(
+      "## pubm v4.0.0\n\nChanges here",
+    );
 
     await run(
       createOptions({
@@ -5480,7 +5486,7 @@ describe("fixed mode release with changelog sections", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        changelogBody: expect.stringContaining("## pubm v4.0.0"),
+        body: expect.stringContaining("## pubm v4.0.0"),
       }),
     );
   });
@@ -5596,7 +5602,7 @@ describe("independent release draft with previousTag fallback", () => {
     mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
     const pathVersions = new Map([["packages/core", "2.0.0"]]);
 
-    // Set up Git mock where previousTag returns empty string (falsy)
+    // Set up Git mock
     const gitInstance = {
       repository: vi.fn().mockResolvedValue("https://github.com/pubm/pubm"),
       previousTag: vi.fn().mockResolvedValue(""),
@@ -5609,6 +5615,8 @@ describe("independent release draft with previousTag fallback", () => {
     mockedGit.mockImplementation(function () {
       return gitInstance as any;
     } as any);
+
+    mockedBuildReleaseBody.mockResolvedValue("Release notes for fallback test");
 
     await run(
       createOptions({
@@ -5665,8 +5673,15 @@ describe("independent release draft with previousTag fallback", () => {
 
     await releaseDraftTask.task(ctx, task);
 
-    // firstCommit should have been called as fallback
-    expect(gitInstance.firstCommit).toHaveBeenCalled();
+    // buildReleaseBody now handles previousTag/firstCommit logic internally
+    expect(mockedBuildReleaseBody).toHaveBeenCalledWith(
+      ctx,
+      expect.objectContaining({
+        pkgPath: "packages/core",
+        version: "2.0.0",
+        tag: "@pubm/core@2.0.0",
+      }),
+    );
     expect(mockedOpenUrl).toHaveBeenCalled();
   });
 });

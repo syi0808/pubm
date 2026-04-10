@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "正在解析发布草稿的仓库元数据...",
   "task.release.openingDraft": "正在打开 {tag} 的发布草稿...",
   "task.release.collectedCommits": "已为 {tag} 收集 {count} 个提交。",
+  "task.release.copiedToClipboard": "发布说明已复制到剪贴板 — 请粘贴到发布正文中",
+  "task.release.truncated": "由于URL长度限制，发布说明已被截断",
   "task.publish.registryLabel": "发布到 {registry}",
   "task.dryRun.registryLabel": "{registry} Dry-run",
   "output.ciPrepareComplete": "CI 准备完成。发布标签已推送 — CI 应处理发布。",
