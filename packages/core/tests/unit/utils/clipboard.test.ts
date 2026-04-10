@@ -31,7 +31,10 @@ describe("copyToClipboard", () => {
     const { copyToClipboard } = await import("../../../src/utils/clipboard.js");
     const result = await copyToClipboard("test text");
 
-    expect(spawn).toHaveBeenCalledWith(["pbcopy"], expect.objectContaining({ stdin: "pipe" }));
+    expect(spawn).toHaveBeenCalledWith(
+      ["pbcopy"],
+      expect.objectContaining({ stdin: "pipe" }),
+    );
     expect(mockStdin.write).toHaveBeenCalledWith("test text");
     expect(mockStdin.end).toHaveBeenCalled();
     expect(result).toBe(true);
@@ -50,7 +53,10 @@ describe("copyToClipboard", () => {
     const { copyToClipboard } = await import("../../../src/utils/clipboard.js");
     const result = await copyToClipboard("test text");
 
-    expect(spawn).toHaveBeenCalledWith(["clip"], expect.objectContaining({ stdin: "pipe" }));
+    expect(spawn).toHaveBeenCalledWith(
+      ["clip"],
+      expect.objectContaining({ stdin: "pipe" }),
+    );
     expect(result).toBe(true);
   });
 
@@ -58,7 +64,8 @@ describe("copyToClipboard", () => {
     const mockStdin = { write: vi.fn(), end: vi.fn() };
     const failProc = { stdin: mockStdin, exited: Promise.resolve(1) };
     const successProc = { stdin: mockStdin, exited: Promise.resolve(0) };
-    const spawn = vi.fn()
+    const spawn = vi
+      .fn()
       .mockReturnValueOnce(failProc)
       .mockReturnValueOnce(successProc);
     vi.stubGlobal("Bun", { spawn });
@@ -71,7 +78,11 @@ describe("copyToClipboard", () => {
     const result = await copyToClipboard("test text");
 
     expect(spawn).toHaveBeenCalledTimes(2);
-    expect(spawn).toHaveBeenNthCalledWith(1, ["xclip", "-selection", "clipboard"], expect.any(Object));
+    expect(spawn).toHaveBeenNthCalledWith(
+      1,
+      ["xclip", "-selection", "clipboard"],
+      expect.any(Object),
+    );
     expect(spawn).toHaveBeenNthCalledWith(2, ["wl-copy"], expect.any(Object));
     expect(result).toBe(true);
   });

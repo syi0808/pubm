@@ -62,10 +62,15 @@ describe("renderReleaseNoteSections", () => {
   it("renders multiple items within a section", async () => {
     const { renderReleaseNoteSections } = await freshImport();
     const sections: ChangelogSection[] = [
-      { category: "Features", items: ["- feat one (a1b2c3d)", "- feat two (b2c3d4e)"] },
+      {
+        category: "Features",
+        items: ["- feat one (a1b2c3d)", "- feat two (b2c3d4e)"],
+      },
     ];
     const result = renderReleaseNoteSections(sections);
-    expect(result).toBe("### Features\n\n- feat one (a1b2c3d)\n- feat two (b2c3d4e)");
+    expect(result).toBe(
+      "### Features\n\n- feat one (a1b2c3d)\n- feat two (b2c3d4e)",
+    );
   });
 
   it("returns empty string for empty sections", async () => {
@@ -75,7 +80,9 @@ describe("renderReleaseNoteSections", () => {
 
   it("renders sections without category as plain items", async () => {
     const { renderReleaseNoteSections } = await freshImport();
-    const sections: ChangelogSection[] = [{ items: ["- uncategorized item (abc1234)"] }];
+    const sections: ChangelogSection[] = [
+      { items: ["- uncategorized item (abc1234)"] },
+    ];
     const result = renderReleaseNoteSections(sections);
     expect(result).toBe("- uncategorized item (abc1234)");
   });
@@ -110,7 +117,9 @@ describe("buildReleaseBody", () => {
 
     expect(result).toContain("### Minor Changes");
     expect(result).toContain("- new feature");
-    expect(result).toContain("**Full Changelog**: https://github.com/user/repo/compare/v0.9.0...v1.0.0");
+    expect(result).toContain(
+      "**Full Changelog**: https://github.com/user/repo/compare/v0.9.0...v1.0.0",
+    );
   });
 
   it("falls back to conventional commits when no CHANGELOG.md", async () => {
@@ -123,15 +132,24 @@ describe("buildReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
-          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "feat: add glob support" },
-          { id: "bcdef1234567890abcdef1234567890abcdef123", message: "fix: resolve path issue" },
+          {
+            id: "ignored0000000000000000000000000000000000",
+            message: "ignored",
+          },
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "feat: add glob support",
+          },
+          {
+            id: "bcdef1234567890abcdef1234567890abcdef123",
+            message: "fix: resolve path issue",
+          },
         ]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue(
       "COMMIT_START abcdef1\nfeat: add glob support\n\nCOMMIT_FILES\nsrc/glob.ts\n" +
-      "COMMIT_START bcdef12\nfix: resolve path issue\n\nCOMMIT_FILES\nsrc/path.ts\n",
+        "COMMIT_START bcdef12\nfix: resolve path issue\n\nCOMMIT_FILES\nsrc/path.ts\n",
     );
 
     const result = await buildReleaseBody(makeCtx(), {
@@ -157,15 +175,24 @@ describe("buildReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
-          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "feat: add core feature" },
-          { id: "bcdef1234567890abcdef1234567890abcdef123", message: "fix: fix cli bug" },
+          {
+            id: "ignored0000000000000000000000000000000000",
+            message: "ignored",
+          },
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "feat: add core feature",
+          },
+          {
+            id: "bcdef1234567890abcdef1234567890abcdef123",
+            message: "fix: fix cli bug",
+          },
         ]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue(
       "COMMIT_START abcdef1\nfeat: add core feature\n\nCOMMIT_FILES\npackages/core/src/index.ts\n" +
-      "COMMIT_START bcdef12\nfix: fix cli bug\n\nCOMMIT_FILES\npackages/pubm/src/cli.ts\n",
+        "COMMIT_START bcdef12\nfix: fix cli bug\n\nCOMMIT_FILES\npackages/pubm/src/cli.ts\n",
     );
 
     const result = await buildReleaseBody(makeCtx(), {
@@ -189,15 +216,24 @@ describe("buildReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
-          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "update dependencies" },
-          { id: "bcdef1234567890abcdef1234567890abcdef123", message: "bump version" },
+          {
+            id: "ignored0000000000000000000000000000000000",
+            message: "ignored",
+          },
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "update dependencies",
+          },
+          {
+            id: "bcdef1234567890abcdef1234567890abcdef123",
+            message: "bump version",
+          },
         ]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue(
       "COMMIT_START abcdef1\nupdate dependencies\n\nCOMMIT_FILES\n" +
-      "COMMIT_START bcdef12\nbump version\n\nCOMMIT_FILES\n",
+        "COMMIT_START bcdef12\nbump version\n\nCOMMIT_FILES\n",
     );
 
     const result = await buildReleaseBody(makeCtx(), {
@@ -221,15 +257,24 @@ describe("buildReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue(null),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
-          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "feat: one conventional" },
-          { id: "bcdef1234567890abcdef1234567890abcdef123", message: "non-conventional message" },
+          {
+            id: "ignored0000000000000000000000000000000000",
+            message: "ignored",
+          },
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "feat: one conventional",
+          },
+          {
+            id: "bcdef1234567890abcdef1234567890abcdef123",
+            message: "non-conventional message",
+          },
         ]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue(
       "COMMIT_START abcdef1\nfeat: one conventional\n\nCOMMIT_FILES\n" +
-      "COMMIT_START bcdef12\nnon-conventional message\n\nCOMMIT_FILES\n",
+        "COMMIT_START bcdef12\nnon-conventional message\n\nCOMMIT_FILES\n",
     );
 
     const result = await buildReleaseBody(makeCtx(), {
@@ -314,23 +359,34 @@ describe("buildFixedReleaseBody", () => {
     // Single compare link at end
     const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
     expect(compareMatches).toHaveLength(1);
-    expect(result).toContain("https://github.com/user/repo/compare/v0.9.0...v1.0.0");
+    expect(result).toContain(
+      "https://github.com/user/repo/compare/v0.9.0...v1.0.0",
+    );
   });
 
   it("handles packages falling back to raw commits", async () => {
     const { buildFixedReleaseBody } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit, mockExecFileSync } = await getMocks();
+    const { mockExistsSync, mockReadFileSync, mockGit, mockExecFileSync } =
+      await getMocks();
 
     // First package has changelog, second doesn't
     mockExistsSync.mockReturnValueOnce(true).mockReturnValue(false);
-    mockReadFileSync.mockReturnValue("# Changelog\n\n## 1.0.0\n\n- core feature\n");
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 1.0.0\n\n- core feature\n",
+    );
     mockGit.mockImplementation(function () {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          { id: "ignored0000000000000000000000000000000000", message: "ignored" },
-          { id: "abcdef1234567890abcdef1234567890abcdef12", message: "update dep" },
+          {
+            id: "ignored0000000000000000000000000000000000",
+            message: "ignored",
+          },
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "update dep",
+          },
         ]),
       } as any;
     } as any);
@@ -371,7 +427,8 @@ describe("truncateForUrl", () => {
     const { truncateForUrl } = await freshImport();
 
     const body = "short body";
-    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+    const baseUrl =
+      "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
 
     const result = await truncateForUrl(body, baseUrl);
     expect(result.body).toBe(body);
@@ -385,7 +442,8 @@ describe("truncateForUrl", () => {
     mockCopyToClipboard.mockResolvedValue(true);
 
     const body = "x".repeat(10000);
-    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+    const baseUrl =
+      "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
 
     const result = await truncateForUrl(body, baseUrl);
     expect(result.body.length).toBeLessThan(body.length);
@@ -401,7 +459,8 @@ describe("truncateForUrl", () => {
     mockCopyToClipboard.mockResolvedValue(false);
 
     const body = "x".repeat(10000);
-    const baseUrl = "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
+    const baseUrl =
+      "https://github.com/user/repo/releases/new?tag=v1.0.0&prerelease=false&body=";
 
     const result = await truncateForUrl(body, baseUrl);
     expect(result.body).toContain("truncated");

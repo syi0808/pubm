@@ -78,16 +78,13 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease(
-      {} as any,
-      {
-        displayLabel: "pubm",
-        version: "1.2.0",
-        tag: "v1.2.0",
-        body: "### Features\n\n- fix #42 (abcdef1)",
-        assets: [],
-      },
-    );
+    const result = await createGitHubRelease({} as any, {
+      displayLabel: "pubm",
+      version: "1.2.0",
+      tag: "v1.2.0",
+      body: "### Features\n\n- fix #42 (abcdef1)",
+      assets: [],
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));

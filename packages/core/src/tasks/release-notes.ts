@@ -1,15 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { copyToClipboard } from "../utils/clipboard.js";
 import { ConventionalCommitChangelogWriter } from "../changelog/conventional-commit-writer.js";
+import type { ChangelogSection } from "../changelog/types.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
+import type { PubmContext } from "../context.js";
+import type { RawCommit } from "../conventional-commit/git-log.js";
 import { parseConventionalCommit } from "../conventional-commit/parser.js";
 import { resolveCommitPackages } from "../conventional-commit/scope-resolver.js";
-import type { RawCommit } from "../conventional-commit/git-log.js";
-import type { PubmContext } from "../context.js";
 import { Git } from "../git.js";
-import type { ChangelogSection } from "../changelog/types.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 export function renderReleaseNoteSections(
   sections: ChangelogSection[],
@@ -147,10 +147,7 @@ function extractChangelog(
 
   if (!existsSync(changelogPath)) return null;
 
-  return parseChangelogSection(
-    readFileSync(changelogPath, "utf-8"),
-    version,
-  );
+  return parseChangelogSection(readFileSync(changelogPath, "utf-8"), version);
 }
 
 const MAX_URL_LENGTH = 8000;
@@ -177,9 +174,7 @@ export async function truncateForUrl(
     : "\n\n... (truncated)";
 
   const availableLength =
-    MAX_URL_LENGTH -
-    baseUrl.length -
-    encodeURIComponent(suffix).length;
+    MAX_URL_LENGTH - baseUrl.length - encodeURIComponent(suffix).length;
 
   let lo = 0;
   let hi = body.length;

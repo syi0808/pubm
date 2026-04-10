@@ -13,7 +13,11 @@ import {
 import { openUrl } from "../../utils/open-url.js";
 import { ui } from "../../utils/ui.js";
 import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
-import { buildReleaseBody, buildFixedReleaseBody, truncateForUrl } from "../release-notes.js";
+import {
+  buildFixedReleaseBody,
+  buildReleaseBody,
+  truncateForUrl,
+} from "../release-notes.js";
 import { prepareReleaseAssets } from "../runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "../runner-utils/output-formatting.js";
 import {
@@ -211,11 +215,13 @@ export function createReleaseTask(
           let body: string;
           if (plan.mode === "fixed") {
             body = await buildFixedReleaseBody(ctx, {
-              packages: [...plan.packages.entries()].map(([pkgPath, pkgVersion]) => ({
-                pkgPath,
-                pkgName: getPackageName(ctx, pkgPath),
-                version: pkgVersion,
-              })),
+              packages: [...plan.packages.entries()].map(
+                ([pkgPath, pkgVersion]) => ({
+                  pkgPath,
+                  pkgName: getPackageName(ctx, pkgPath),
+                  version: pkgVersion,
+                }),
+              ),
               tag,
               repositoryUrl,
             });
@@ -336,11 +342,13 @@ export function createReleaseTask(
           let body: string;
           if (plan.mode === "fixed") {
             body = await buildFixedReleaseBody(ctx, {
-              packages: [...plan.packages.entries()].map(([pkgPath, pkgVersion]) => ({
-                pkgPath,
-                pkgName: getPackageName(ctx, pkgPath),
-                version: pkgVersion,
-              })),
+              packages: [...plan.packages.entries()].map(
+                ([pkgPath, pkgVersion]) => ({
+                  pkgPath,
+                  pkgName: getPackageName(ctx, pkgPath),
+                  version: pkgVersion,
+                }),
+              ),
               tag,
               repositoryUrl,
             });
