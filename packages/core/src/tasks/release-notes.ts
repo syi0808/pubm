@@ -35,7 +35,6 @@ export async function buildReleaseBody(
     tag: string;
     repositoryUrl: string;
     appendCompareLink?: boolean;
-    /** Pre-resolved previousTag to avoid redundant git calls (used by buildFixedReleaseBody) */
     previousTag?: string;
   },
 ): Promise<string> {
@@ -103,40 +102,6 @@ export async function buildReleaseBody(
   return appendCompareLink ? `${body}\n\n${compareLink}` : body;
 }
 
-export async function buildFixedReleaseBody(
-  ctx: PubmContext,
-  options: {
-    packages: Array<{ pkgPath: string; pkgName: string; version: string }>;
-    tag: string;
-    repositoryUrl: string;
-  },
-): Promise<string> {
-  const { packages, tag, repositoryUrl } = options;
-
-  // Resolve previousTag once and pass it down to avoid redundant git calls per package
-  const git = new Git();
-  const previousTag = (await git.previousTag(tag)) || (await git.firstCommit());
-
-  const compareLink = `**Full Changelog**: ${repositoryUrl}/compare/${previousTag}...${tag}`;
-
-  const sections: string[] = [];
-  for (const pkg of packages) {
-    const body = await buildReleaseBody(ctx, {
-      pkgPath: pkg.pkgPath,
-      version: pkg.version,
-      tag,
-      repositoryUrl,
-      appendCompareLink: false,
-      previousTag,
-    });
-
-    sections.push(`## ${pkg.pkgName} v${pkg.version}\n\n${body}`);
-  }
-
-  const joined = sections.join("\n\n---\n\n");
-  return `${joined}\n\n${compareLink}`;
-}
-
 function extractChangelog(
   ctx: PubmContext,
   pkgPath: string | undefined,
@@ -146,23 +111,9 @@ function extractChangelog(
     ? join(ctx.cwd, pkgPath, "CHANGELOG.md")
     : join(ctx.cwd, "CHANGELOG.md");
 
-  if (existsSync(changelogPath)) {
-    const result = parseChangelogSection(
-      readFileSync(changelogPath, "utf-8"),
-      version,
-    );
-    if (result) return result;
-  }
+  if (!existsSync(changelogPath)) return null;
 
-  // Fallback: try root CHANGELOG.md (e.g. fixed mode writes a single root changelog)
-  if (pkgPath) {
-    const rootPath = join(ctx.cwd, "CHANGELOG.md");
-    if (existsSync(rootPath)) {
-      return parseChangelogSection(readFileSync(rootPath, "utf-8"), version);
-    }
-  }
-
-  return null;
+  return parseChangelogSection(readFileSync(changelogPath, "utf-8"), version);
 }
 
 const MAX_URL_LENGTH = 8000;

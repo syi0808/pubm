@@ -819,23 +819,24 @@ describe("buildReleaseBody — additional cases", () => {
   });
 });
 
-describe("buildFixedReleaseBody", () => {
+describe("fixed mode regression — no per-package duplication", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("aggregates per-package bodies with headers and single compare link", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
+  it("uses root CHANGELOG.md as unified body without per-package headers", async () => {
+    const { buildReleaseBody } = await freshImport();
     const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
 
-    mockExistsSync.mockReturnValue(true);
-    mockReadFileSync
-      .mockReturnValueOnce("# Changelog\n\n## 1.0.0\n\n- core feature\n")
-      .mockReturnValueOnce("# Changelog\n\n## 1.0.0\n\n- cli update\n");
-
+    mockExistsSync.mockImplementation(
+      (p: string) => p === join("/project", "CHANGELOG.md"),
+    );
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 0.26.5\n\n### Patch Changes\n\n- test\n",
+    );
     mockGit.mockImplementation(function () {
       return {
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        previousTag: vi.fn().mockResolvedValue("v0.26.4"),
         firstCommit: vi.fn().mockResolvedValue("first"),
       } as any;
     } as any);
@@ -843,43 +844,78 @@ describe("buildFixedReleaseBody", () => {
     const ctx = makeCtx({
       config: {
         packages: [
-          { path: "packages/core", name: "@pubm/core" },
-          { path: "packages/pubm", name: "pubm" },
+          { path: "sdk/client", name: "@syi0808/client" },
+          { path: "sdk/endpoint", name: "@syi0808/endpoint" },
+          { path: "sdk/worker", name: "@syi0808/worker" },
         ],
       },
     });
 
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
-        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
-      ],
+    // Fixed mode calls buildReleaseBody without pkgPath
+    const result = await buildReleaseBody(ctx, {
+      version: "0.26.5",
+      tag: "v0.26.5",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    // Should contain changelog content exactly once
+    expect(result).toContain("### Patch Changes");
+    expect(result).toContain("- test");
+    expect(result.match(/### Patch Changes/g)).toHaveLength(1);
+    expect(result.match(/- test/g)).toHaveLength(1);
+
+    // Must NOT contain per-package headers or separators
+    expect(result).not.toContain("## @syi0808/client");
+    expect(result).not.toContain("## @syi0808/endpoint");
+    expect(result).not.toContain("## @syi0808/worker");
+    expect(result).not.toContain("---");
+
+    // Single compare link
+    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
+    expect(compareMatches).toHaveLength(1);
+    expect(result).toContain("compare/v0.26.4...v0.26.5");
+  });
+
+  it("does not read per-package CHANGELOG.md files when pkgPath is omitted", async () => {
+    const { buildReleaseBody } = await freshImport();
+    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockImplementation(
+      (p: string) => p === join("/project", "CHANGELOG.md"),
+    );
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 1.0.0\n\n- unified change\n",
+    );
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+      } as any;
+    } as any);
+
+    await buildReleaseBody(makeCtx(), {
+      version: "1.0.0",
       tag: "v1.0.0",
       repositoryUrl: "https://github.com/user/repo",
     });
 
-    expect(result).toContain("## @pubm/core v1.0.0");
-    expect(result).toContain("- core feature");
-    expect(result).toContain("---");
-    expect(result).toContain("## pubm v1.0.0");
-    expect(result).toContain("- cli update");
-    // Single compare link at end
-    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
-    expect(compareMatches).toHaveLength(1);
-    expect(result).toContain(
-      "https://github.com/user/repo/compare/v0.9.0...v1.0.0",
+    // Only root CHANGELOG.md should be checked, never per-package paths
+    expect(mockExistsSync).toHaveBeenCalledWith(
+      join("/project", "CHANGELOG.md"),
     );
+    expect(mockExistsSync).not.toHaveBeenCalledWith(
+      join("/project", "packages/core", "CHANGELOG.md"),
+    );
+    expect(mockReadFileSync).toHaveBeenCalledTimes(1);
   });
 
-  it("handles packages falling back to raw commits", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit, mockExecFileSync } =
-      await getMocks();
+  it("does not fall back to root CHANGELOG.md when pkgPath is provided", async () => {
+    const { buildReleaseBody } = await freshImport();
+    const { mockExistsSync, mockGit, mockExecFileSync } = await getMocks();
 
-    // First package has changelog, second doesn't
-    mockExistsSync.mockReturnValueOnce(true).mockReturnValue(false);
-    mockReadFileSync.mockReturnValue(
-      "# Changelog\n\n## 1.0.0\n\n- core feature\n",
+    // Per-package CHANGELOG doesn't exist, root does — but should NOT be used
+    mockExistsSync.mockImplementation(
+      (p: string) => p === join("/project", "CHANGELOG.md"),
     );
     mockGit.mockImplementation(function () {
       return {
@@ -888,98 +924,37 @@ describe("buildFixedReleaseBody", () => {
         commits: vi.fn().mockResolvedValue([
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
-            message: "update dep",
+            message: "fix: a commit",
           },
         ]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue(
-      "COMMIT_START abcdef1\nupdate dep\n\nCOMMIT_FILES\n",
+      "COMMIT_START abcdef1\nfix: a commit\n\nCOMMIT_FILES\npackages/core/src/index.ts\n",
     );
 
-    const ctx = makeCtx({
-      config: {
-        packages: [
-          { path: "packages/core", name: "@pubm/core" },
-          { path: "packages/pubm", name: "pubm" },
-        ],
-      },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
-        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
-      ],
+    const result = await buildReleaseBody(makeCtx(), {
+      pkgPath: "packages/core",
+      version: "1.0.0",
       tag: "v1.0.0",
       repositoryUrl: "https://github.com/user/repo",
     });
 
-    expect(result).toContain("## @pubm/core v1.0.0");
-    expect(result).toContain("## pubm v1.0.0");
-    expect(result).toContain("- update dep (abcdef1)");
-  });
-});
-
-describe("buildFixedReleaseBody — additional cases", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+    // Should NOT contain root changelog content — should fall through to commits
+    expect(result).not.toContain("unified change");
+    // Should use commit-based output instead
+    expect(result).toContain("a commit");
   });
 
-  it("single package in fixed mode produces no separator", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
-
-    mockExistsSync.mockReturnValue(true);
-    mockReadFileSync.mockReturnValue(
-      "# Changelog\n\n## 1.0.0\n\n- only package feature\n",
-    );
-    mockGit.mockImplementation(function () {
-      return {
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first"),
-      } as any;
-    } as any);
-
-    const ctx = makeCtx({
-      config: { packages: [{ path: "packages/core", name: "@pubm/core" }] },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
-      ],
-      tag: "v1.0.0",
-      repositoryUrl: "https://github.com/user/repo",
-    });
-
-    expect(result).toContain("## @pubm/core v1.0.0");
-    expect(result).toContain("only package feature");
-    expect(result).not.toContain("---");
-    // Single compare link at end
-    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
-    expect(compareMatches).toHaveLength(1);
-  });
-
-  it("three packages with mixed sources (changelog, conventional, raw)", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
+  it("falls back to commits when root CHANGELOG.md has no matching version", async () => {
+    const { buildReleaseBody } = await freshImport();
     const { mockExistsSync, mockReadFileSync, mockGit, mockExecFileSync } =
       await getMocks();
 
-    // Package 1: has CHANGELOG
-    // Package 2: no CHANGELOG, conventional commits
-    // Package 3: no CHANGELOG, raw commits
-    mockExistsSync
-      .mockReturnValueOnce(true) // pkg1 changelog exists
-      .mockReturnValueOnce(false) // pkg2 changelog missing
-      .mockReturnValueOnce(false) // pkg2 root changelog fallback missing
-      .mockReturnValueOnce(false) // pkg3 changelog missing
-      .mockReturnValueOnce(false); // pkg3 root changelog fallback missing
-
-    mockReadFileSync.mockReturnValueOnce(
-      "# Changelog\n\n## 1.0.0\n\n- changelog entry\n",
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 0.9.0\n\n- old entry\n",
     );
-
     mockGit.mockImplementation(function () {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
@@ -987,152 +962,30 @@ describe("buildFixedReleaseBody — additional cases", () => {
         commits: vi.fn().mockResolvedValue([
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
-            message: "feat: conventional feat",
-          },
-          {
-            id: "bcdef1234567890abcdef1234567890abcdef123",
-            message: "non-conventional raw",
+            message: "feat: new feature",
           },
         ]),
       } as any;
     } as any);
-
-    mockExecFileSync
-      // pkg2: has conventional commit in its path
-      .mockReturnValueOnce(
-        "COMMIT_START abcdef1\nfeat: conventional feat\n\nCOMMIT_FILES\npackages/pkg2/src/index.ts\n",
-      )
-      // pkg3: no conventional commits → falls back to raw
-      .mockReturnValueOnce(
-        "COMMIT_START bcdef12\nnon-conventional raw\n\nCOMMIT_FILES\npackages/pkg3/src/index.ts\n",
-      );
-
-    const ctx = makeCtx({
-      config: {
-        packages: [
-          { path: "packages/pkg1", name: "pkg1" },
-          { path: "packages/pkg2", name: "pkg2" },
-          { path: "packages/pkg3", name: "pkg3" },
-        ],
-      },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/pkg1", pkgName: "pkg1", version: "1.0.0" },
-        { pkgPath: "packages/pkg2", pkgName: "pkg2", version: "1.0.0" },
-        { pkgPath: "packages/pkg3", pkgName: "pkg3", version: "1.0.0" },
-      ],
-      tag: "v1.0.0",
-      repositoryUrl: "https://github.com/user/repo",
-    });
-
-    expect(result).toContain("## pkg1 v1.0.0");
-    expect(result).toContain("changelog entry");
-    expect(result).toContain("## pkg2 v1.0.0");
-    expect(result).toContain("conventional feat");
-    expect(result).toContain("## pkg3 v1.0.0");
-    // Pkg3 uses raw since only raw commit exists and it matches pkg3 path
-    // (raw path is separate — comes from git.commits not filtered by scope)
-    expect(result).toContain("non-conventional raw");
-    // Two separators for three packages
-    const separators = result.match(/---/g);
-    expect(separators).toHaveLength(2);
-    // Single compare link
-    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
-    expect(compareMatches).toHaveLength(1);
-  });
-
-  it("falls back to root CHANGELOG.md when per-package changelog is missing (fixed mode)", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
-
-    // Per-package CHANGELOGs don't exist, but root CHANGELOG does
-    mockExistsSync
-      .mockReturnValueOnce(false) // pkg1 package changelog missing
-      .mockReturnValueOnce(true) // pkg1 root changelog fallback exists
-      .mockReturnValueOnce(false) // pkg2 package changelog missing
-      .mockReturnValueOnce(true); // pkg2 root changelog fallback exists
-
-    mockReadFileSync.mockReturnValue(
-      "# Changelog\n\n## 1.0.0\n\n### Minor Changes\n\n- new feature\n\n### Patch Changes\n\n- bug fix\n",
+    mockExecFileSync.mockReturnValue(
+      "COMMIT_START abcdef1\nfeat: new feature\n\nCOMMIT_FILES\nsrc/index.ts\n",
     );
 
-    mockGit.mockImplementation(function () {
-      return {
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first"),
-      } as any;
-    } as any);
-
-    const ctx = makeCtx({
-      config: {
-        packages: [
-          { path: "packages/core", name: "@pubm/core" },
-          { path: "packages/pubm", name: "pubm" },
-        ],
-      },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
-        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
-      ],
+    const result = await buildReleaseBody(makeCtx(), {
+      version: "1.0.0",
       tag: "v1.0.0",
       repositoryUrl: "https://github.com/user/repo",
     });
 
-    expect(result).toContain("## @pubm/core v1.0.0");
-    expect(result).toContain("## pubm v1.0.0");
+    // Should not contain old changelog content
+    expect(result).not.toContain("old entry");
+    // Should use conventional commit output
     expect(result).toContain("new feature");
-    expect(result).toContain("bug fix");
-    // Should use changelog content, not raw commits
-    expect(result).not.toMatch(/\([a-f0-9]{7}\)/);
+    expect(result).toContain("**Full Changelog**");
   });
 
-  it("packages with different versions each show correct version in header", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
-    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
-
-    mockExistsSync.mockReturnValue(true);
-    mockReadFileSync
-      .mockReturnValueOnce("# Changelog\n\n## 2.1.0\n\n- core update\n")
-      .mockReturnValueOnce("# Changelog\n\n## 1.5.3\n\n- cli patch\n");
-
-    mockGit.mockImplementation(function () {
-      return {
-        previousTag: vi.fn().mockResolvedValue("v2.0.0"),
-        firstCommit: vi.fn().mockResolvedValue("first"),
-      } as any;
-    } as any);
-
-    const ctx = makeCtx({
-      config: {
-        packages: [
-          { path: "packages/core", name: "@pubm/core" },
-          { path: "packages/pubm", name: "pubm" },
-        ],
-      },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "2.1.0" },
-        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.5.3" },
-      ],
-      tag: "v2.1.0",
-      repositoryUrl: "https://github.com/user/repo",
-    });
-
-    expect(result).toContain("## @pubm/core v2.1.0");
-    expect(result).toContain("## pubm v1.5.3");
-    expect(result).toContain("core update");
-    expect(result).toContain("cli patch");
-  });
-
-  it("all packages with empty content still produce headers and compare link", async () => {
-    const { buildFixedReleaseBody } = await freshImport();
+  it("falls back to raw commits when root CHANGELOG.md is absent", async () => {
+    const { buildReleaseBody } = await freshImport();
     const { mockExistsSync, mockGit, mockExecFileSync } = await getMocks();
 
     mockExistsSync.mockReturnValue(false);
@@ -1140,36 +993,86 @@ describe("buildFixedReleaseBody — additional cases", () => {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
-        // No commits in range
-        commits: vi.fn().mockResolvedValue([]),
+        commits: vi.fn().mockResolvedValue([
+          {
+            id: "abcdef1234567890abcdef1234567890abcdef12",
+            message: "some raw commit",
+          },
+        ]),
       } as any;
     } as any);
-    mockExecFileSync.mockReturnValue("");
+    mockExecFileSync.mockReturnValue(
+      "COMMIT_START abcdef1\nsome raw commit\n\nCOMMIT_FILES\n",
+    );
 
-    const ctx = makeCtx({
-      config: {
-        packages: [
-          { path: "packages/core", name: "@pubm/core" },
-          { path: "packages/pubm", name: "pubm" },
-        ],
-      },
-    });
-
-    const result = await buildFixedReleaseBody(ctx, {
-      packages: [
-        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
-        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
-      ],
+    const result = await buildReleaseBody(makeCtx(), {
+      version: "1.0.0",
       tag: "v1.0.0",
       repositoryUrl: "https://github.com/user/repo",
     });
 
-    expect(result).toContain("## @pubm/core v1.0.0");
-    expect(result).toContain("## pubm v1.0.0");
+    expect(result).toContain("some raw commit");
+    expect(result).toContain("(abcdef1)");
     expect(result).toContain("**Full Changelog**");
-    // Compare link only once
-    const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
-    expect(compareMatches).toHaveLength(1);
+    // No separators or per-package headers
+    expect(result).not.toContain("---");
+    expect(result).not.toContain("## ");
+  });
+
+  it("returns only compare link when no changelog and no commits exist", async () => {
+    const { buildReleaseBody } = await freshImport();
+    const { mockExistsSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockReturnValue(false);
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+        commits: vi.fn().mockResolvedValue([]),
+      } as any;
+    } as any);
+
+    const result = await buildReleaseBody(makeCtx(), {
+      version: "1.0.0",
+      tag: "v1.0.0",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    expect(result).toBe(
+      "**Full Changelog**: https://github.com/user/repo/compare/v0.9.0...v1.0.0",
+    );
+  });
+
+  it("preserves multi-section changelog content without duplication", async () => {
+    const { buildReleaseBody } = await freshImport();
+    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
+
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 1.0.0\n\n### Minor Changes\n\n- new feature\n\n### Patch Changes\n\n- bug fix\n\n## 0.9.0\n\n- old\n",
+    );
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+      } as any;
+    } as any);
+
+    const result = await buildReleaseBody(makeCtx(), {
+      version: "1.0.0",
+      tag: "v1.0.0",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    expect(result).toContain("### Minor Changes");
+    expect(result).toContain("- new feature");
+    expect(result).toContain("### Patch Changes");
+    expect(result).toContain("- bug fix");
+    // Each section appears exactly once
+    expect(result.match(/### Minor Changes/g)).toHaveLength(1);
+    expect(result.match(/### Patch Changes/g)).toHaveLength(1);
+    // Old version content excluded
+    expect(result).not.toContain("- old");
   });
 });
 
