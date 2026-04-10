@@ -117,6 +117,8 @@ export async function buildFixedReleaseBody(
   const git = new Git();
   const previousTag = (await git.previousTag(tag)) || (await git.firstCommit());
 
+  const compareLink = `**Full Changelog**: ${repositoryUrl}/compare/${previousTag}...${tag}`;
+
   const sections: string[] = [];
   for (const pkg of packages) {
     const body = await buildReleaseBody(ctx, {
@@ -132,7 +134,7 @@ export async function buildFixedReleaseBody(
   }
 
   const joined = sections.join("\n\n---\n\n");
-  return `${joined}\n\n**Full Changelog**: ${repositoryUrl}/compare/${previousTag}...${tag}`;
+  return `${joined}\n\n${compareLink}`;
 }
 
 function extractChangelog(
@@ -144,9 +146,26 @@ function extractChangelog(
     ? join(ctx.cwd, pkgPath, "CHANGELOG.md")
     : join(ctx.cwd, "CHANGELOG.md");
 
-  if (!existsSync(changelogPath)) return null;
+  if (existsSync(changelogPath)) {
+    const result = parseChangelogSection(
+      readFileSync(changelogPath, "utf-8"),
+      version,
+    );
+    if (result) return result;
+  }
 
-  return parseChangelogSection(readFileSync(changelogPath, "utf-8"), version);
+  // Fallback: try root CHANGELOG.md (e.g. fixed mode writes a single root changelog)
+  if (pkgPath) {
+    const rootPath = join(ctx.cwd, "CHANGELOG.md");
+    if (existsSync(rootPath)) {
+      return parseChangelogSection(
+        readFileSync(rootPath, "utf-8"),
+        version,
+      );
+    }
+  }
+
+  return null;
 }
 
 const MAX_URL_LENGTH = 8000;
