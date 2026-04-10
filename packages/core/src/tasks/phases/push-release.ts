@@ -1,10 +1,8 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 import process from "node:process";
 import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { ListrTask } from "listr2";
 import SemVer from "semver";
-import { parseChangelogSection } from "../../changeset/changelog-parser.js";
 import type { PubmContext } from "../../context.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
@@ -15,6 +13,7 @@ import {
 import { openUrl } from "../../utils/open-url.js";
 import { ui } from "../../utils/ui.js";
 import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
+import { buildReleaseBody, buildFixedReleaseBody } from "../release-notes.js";
 import { prepareReleaseAssets } from "../runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "../runner-utils/output-formatting.js";
 import {
@@ -141,24 +140,17 @@ export function createReleaseTask(
             const tag = `${pkgName}@${pkgVersion}`;
             task.output = t("task.release.creating", { tag });
 
-            let changelogBody: string | undefined;
-            const pkgConfig = ctx.config.packages.find(
-              (p) => p.path === pkgPath,
-            );
-            if (pkgConfig) {
-              const changelogPath = join(
-                ctx.cwd,
-                pkgConfig.path,
-                "CHANGELOG.md",
-              );
-              if (existsSync(changelogPath)) {
-                const section = parseChangelogSection(
-                  readFileSync(changelogPath, "utf-8"),
-                  pkgVersion,
-                );
-                if (section) changelogBody = section;
-              }
-            }
+            const git = new Git();
+            const repositoryUrl = (await git.repository())
+              .replace(/^git@github\.com:/, "https://github.com/")
+              .replace(/\.git$/, "");
+
+            const body = await buildReleaseBody(ctx, {
+              pkgPath,
+              version: pkgVersion,
+              tag,
+              repositoryUrl,
+            });
 
             const { assets: preparedAssets, tempDir } =
               await prepareReleaseAssets(ctx, pkgName, pkgVersion, pkgPath);
@@ -166,7 +158,7 @@ export function createReleaseTask(
               displayLabel: pkgName,
               version: pkgVersion,
               tag,
-              changelogBody,
+              body,
               assets: preparedAssets,
               draft: !!ctx.options.releaseDraft,
             });
@@ -211,42 +203,29 @@ export function createReleaseTask(
           const tag = `v${version}`;
           task.output = t("task.release.creating", { tag });
 
-          let changelogBody: string | undefined;
+          const git = new Git();
+          const repositoryUrl = (await git.repository())
+            .replace(/^git@github\.com:/, "https://github.com/")
+            .replace(/\.git$/, "");
+
+          let body: string;
           if (plan.mode === "fixed") {
-            const sections: string[] = [];
-            for (const [pkgPath, pkgVersion] of plan.packages) {
-              const pkgName = getPackageName(ctx, pkgPath);
-              const pkgConfig = ctx.config.packages.find(
-                (p) => p.path === pkgPath,
-              );
-              if (!pkgConfig) continue;
-              const changelogPath = join(
-                ctx.cwd,
-                pkgConfig.path,
-                "CHANGELOG.md",
-              );
-              if (existsSync(changelogPath)) {
-                const section = parseChangelogSection(
-                  readFileSync(changelogPath, "utf-8"),
-                  pkgVersion,
-                );
-                if (section) {
-                  sections.push(`## ${pkgName} v${pkgVersion}\n\n${section}`);
-                }
-              }
-            }
-            if (sections.length > 0) {
-              changelogBody = sections.join("\n\n---\n\n");
-            }
+            body = await buildFixedReleaseBody(ctx, {
+              packages: [...plan.packages.entries()].map(([pkgPath, pkgVersion]) => ({
+                pkgPath,
+                pkgName: getPackageName(ctx, pkgPath),
+                version: pkgVersion,
+              })),
+              tag,
+              repositoryUrl,
+            });
           } else {
-            const changelogPath = join(ctx.cwd, "CHANGELOG.md");
-            if (existsSync(changelogPath)) {
-              const section = parseChangelogSection(
-                readFileSync(changelogPath, "utf-8"),
-                version,
-              );
-              if (section) changelogBody = section;
-            }
+            body = await buildReleaseBody(ctx, {
+              pkgPath: plan.packagePath,
+              version,
+              tag,
+              repositoryUrl,
+            });
           }
 
           const packageName =
@@ -263,7 +242,7 @@ export function createReleaseTask(
             displayLabel: packageName,
             version,
             tag,
-            changelogBody,
+            body,
             assets: preparedAssets,
             draft: !!ctx.options.releaseDraft,
           });
