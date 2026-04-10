@@ -291,7 +291,6 @@ vi.mock("../../../src/tasks/create-version-pr.js", () => ({
 }));
 vi.mock("../../../src/tasks/release-notes.js", () => ({
   buildReleaseBody: vi.fn(),
-  buildFixedReleaseBody: vi.fn(),
   truncateForUrl: vi.fn(),
 }));
 
@@ -321,7 +320,6 @@ import {
 } from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
 import {
-  buildFixedReleaseBody,
   buildReleaseBody,
   truncateForUrl,
 } from "../../../src/tasks/release-notes.js";
@@ -357,7 +355,6 @@ const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
 const mockedBuildReleaseBody = vi.mocked(buildReleaseBody);
-const mockedBuildFixedReleaseBody = vi.mocked(buildFixedReleaseBody);
 const mockedTruncateForUrl = vi.mocked(truncateForUrl);
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
@@ -464,7 +461,6 @@ beforeEach(() => {
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
   mockedBuildReleaseBody.mockResolvedValue(undefined as any);
-  mockedBuildFixedReleaseBody.mockResolvedValue(undefined as any);
   mockedTruncateForUrl.mockResolvedValue({
     body: "",
     truncated: false,
@@ -507,9 +503,7 @@ describe("runner coverage scenarios", () => {
       ["packages/core", "1.2.0"],
       ["packages/pubm", "1.2.0"],
     ]);
-    mockedBuildFixedReleaseBody.mockResolvedValue(
-      "## @pubm/core v1.2.0\n\nAdded release notes",
-    );
+    mockedBuildReleaseBody.mockResolvedValue("Added release notes");
 
     await run(
       createOptions({
@@ -583,7 +577,7 @@ describe("runner coverage scenarios", () => {
         displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
-        body: expect.stringContaining("## @pubm/core v1.2.0"),
+        body: "Added release notes",
       }),
     );
     expect(afterRelease).toHaveBeenCalledWith(
@@ -5419,9 +5413,7 @@ describe("fixed mode release with tempDir cleanup", () => {
 
 describe("fixed mode release with changelog sections", () => {
   it("reads per-package changelog for fixed mode and joins sections", async () => {
-    mockedBuildFixedReleaseBody.mockResolvedValue(
-      "## pubm v4.0.0\n\nChanges here",
-    );
+    mockedBuildReleaseBody.mockResolvedValue("Changes here");
 
     await run(
       createOptions({
@@ -5486,7 +5478,7 @@ describe("fixed mode release with changelog sections", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        body: expect.stringContaining("## pubm v4.0.0"),
+        body: "Changes here",
       }),
     );
   });

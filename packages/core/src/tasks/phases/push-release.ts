@@ -13,11 +13,7 @@ import {
 import { openUrl } from "../../utils/open-url.js";
 import { ui } from "../../utils/ui.js";
 import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
-import {
-  buildFixedReleaseBody,
-  buildReleaseBody,
-  truncateForUrl,
-} from "../release-notes.js";
+import { buildReleaseBody, truncateForUrl } from "../release-notes.js";
 import { prepareReleaseAssets } from "../runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "../runner-utils/output-formatting.js";
 import {
@@ -212,27 +208,12 @@ export function createReleaseTask(
             .replace(/^git@github\.com:/, "https://github.com/")
             .replace(/\.git$/, "");
 
-          let body: string;
-          if (plan.mode === "fixed") {
-            body = await buildFixedReleaseBody(ctx, {
-              packages: [...plan.packages.entries()].map(
-                ([pkgPath, pkgVersion]) => ({
-                  pkgPath,
-                  pkgName: getPackageName(ctx, pkgPath),
-                  version: pkgVersion,
-                }),
-              ),
-              tag,
-              repositoryUrl,
-            });
-          } else {
-            body = await buildReleaseBody(ctx, {
-              pkgPath: plan.packagePath,
-              version,
-              tag,
-              repositoryUrl,
-            });
-          }
+          const body = await buildReleaseBody(ctx, {
+            pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
+            version,
+            tag,
+            repositoryUrl,
+          });
 
           const packageName =
             plan.mode === "single"
@@ -341,27 +322,12 @@ export function createReleaseTask(
           const version = plan.version;
           const tag = `v${version}`;
 
-          let body: string;
-          if (plan.mode === "fixed") {
-            body = await buildFixedReleaseBody(ctx, {
-              packages: [...plan.packages.entries()].map(
-                ([pkgPath, pkgVersion]) => ({
-                  pkgPath,
-                  pkgName: getPackageName(ctx, pkgPath),
-                  version: pkgVersion,
-                }),
-              ),
-              tag,
-              repositoryUrl,
-            });
-          } else {
-            body = await buildReleaseBody(ctx, {
-              pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
-              version,
-              tag,
-              repositoryUrl,
-            });
-          }
+          const body = await buildReleaseBody(ctx, {
+            pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
+            version,
+            tag,
+            repositoryUrl,
+          });
 
           const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
           releaseDraftUrl.searchParams.set("tag", tag);
