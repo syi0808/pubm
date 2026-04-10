@@ -21,6 +21,8 @@ class NpmError extends AbstractError {
   name = "npm Error";
 }
 
+const NPM_OFFICIAL_REGISTRY = "https://registry.npmjs.org";
+
 function validateNpmLoginUrl(rawUrl: string): string | null {
   let parsed: URL;
   try {
@@ -487,6 +489,11 @@ export class NpmPackageRegistry extends PackageRegistry {
     };
   }
 
+  private isOfficialNpmRegistry(): boolean {
+    if (!this.registry) return true;
+    return normalizeRegistryUrl(this.registry) === "registry.npmjs.org";
+  }
+
   private isProvenanceError(error: unknown): boolean {
     if (!(error instanceof NonZeroExitError)) return false;
     const stderr = error.output.stderr;
@@ -525,10 +532,106 @@ export class NpmPackageRegistry extends PackageRegistry {
     return new NpmError("Failed to publish to npm", { cause: error });
   }
 
+  private async runDirectWebLogin(
+    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    task: any,
+  ): Promise<void> {
+    task.output = "Launching npm login...";
+
+    const isValidUrl = (url: string): boolean => {
+      try {
+        return /^https?:$/.test(new URL(url).protocol);
+      } catch {
+        return false;
+      }
+    };
+
+    // Step 1: POST to login endpoint
+    const loginEndpoint = `${NPM_OFFICIAL_REGISTRY}/-/v1/login`;
+    const res = await fetch(loginEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    if (!res.ok) {
+      throw new NpmError(
+        `npm web login initiation failed (HTTP ${res.status})`,
+      );
+    }
+
+    const body = (await res.json()) as {
+      loginUrl?: string;
+      doneUrl?: string;
+    };
+
+    const { loginUrl, doneUrl } = body;
+    if (
+      !loginUrl ||
+      !doneUrl ||
+      !isValidUrl(loginUrl) ||
+      !isValidUrl(doneUrl)
+    ) {
+      throw new NpmError(
+        "npm web login response missing valid loginUrl or doneUrl",
+      );
+    }
+
+    // Step 2: Open browser and show URL
+    task.output = `Login at: ${color.cyan(loginUrl)}`;
+    const { openUrl } = await import("../utils/open-url.js");
+    void openUrl(loginUrl).catch(() => {});
+
+    // Step 3: Poll doneUrl
+    while (true) {
+      const pollRes = await fetch(doneUrl);
+
+      if (pollRes.status === 200) {
+        const pollBody = (await pollRes.json()) as { token?: string };
+        if (!pollBody.token) {
+          throw new NpmError("npm web login completed but no token received");
+        }
+
+        // Step 4: Save token
+        try {
+          await exec(
+            "npm",
+            [
+              "config",
+              "set",
+              "//registry.npmjs.org/:_authToken",
+              pollBody.token,
+              "--location=user",
+            ],
+            { throwOnError: true },
+          );
+        } catch (error) {
+          throw new NpmError("Failed to save npm auth token", { cause: error });
+        }
+        return;
+      }
+
+      if (pollRes.status === 202) {
+        const retryAfter = Number(pollRes.headers.get("retry-after")) * 1000;
+        const delay = retryAfter > 0 ? retryAfter : 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw new NpmError(
+        `npm web login polling failed (HTTP ${pollRes.status})`,
+      );
+    }
+  }
+
   private async runInteractiveLogin(
     // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
     task: any,
   ): Promise<void> {
+    if (this.isOfficialNpmRegistry()) {
+      return this.runDirectWebLogin(task);
+    }
+
     task.output = "Launching npm login...";
 
     const [{ spawnInteractive }, { openUrl }] = await Promise.all([
