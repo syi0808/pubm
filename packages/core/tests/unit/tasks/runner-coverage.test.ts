@@ -316,15 +316,15 @@ import { PluginRunner } from "../../../src/plugin/runner.js";
 import { createVersionPr } from "../../../src/tasks/create-version-pr.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
 import {
-  buildReleaseBody,
-  buildFixedReleaseBody,
-  truncateForUrl,
-} from "../../../src/tasks/release-notes.js";
-import {
   collectTokens,
   promptGhSecretsSync,
 } from "../../../src/tasks/preflight.js";
 import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
+import {
+  buildFixedReleaseBody,
+  buildReleaseBody,
+  truncateForUrl,
+} from "../../../src/tasks/release-notes.js";
 import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
 import { run } from "../../../src/tasks/runner.js";
 import { exec } from "../../../src/utils/exec.js";
@@ -465,7 +465,11 @@ beforeEach(() => {
   mockedReadFileSync.mockReturnValue("");
   mockedBuildReleaseBody.mockResolvedValue(undefined as any);
   mockedBuildFixedReleaseBody.mockResolvedValue(undefined as any);
-  mockedTruncateForUrl.mockResolvedValue({ body: "", truncated: false, clipboardCopied: false });
+  mockedTruncateForUrl.mockResolvedValue({
+    body: "",
+    truncated: false,
+    clipboardCopied: false,
+  });
   mockedCreateGitHubRelease.mockResolvedValue({
     displayLabel: "pubm",
     version: "1.0.0",
@@ -5415,7 +5419,9 @@ describe("fixed mode release with tempDir cleanup", () => {
 
 describe("fixed mode release with changelog sections", () => {
   it("reads per-package changelog for fixed mode and joins sections", async () => {
-    mockedBuildFixedReleaseBody.mockResolvedValue("## pubm v4.0.0\n\nChanges here");
+    mockedBuildFixedReleaseBody.mockResolvedValue(
+      "## pubm v4.0.0\n\nChanges here",
+    );
 
     await run(
       createOptions({
