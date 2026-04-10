@@ -866,6 +866,196 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       // Verify loginUrl shown in task output
       expect(task.output).toContain(loginUrl);
     });
+
+    it("throws when POST response is missing loginUrl", async () => {
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ doneUrl: "https://example.com/done" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm web login response missing valid loginUrl or doneUrl");
+    });
+
+    it("throws when POST response has invalid URL", async () => {
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ loginUrl: "not-a-url", doneUrl: "also-not-a-url" }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm web login response missing valid loginUrl or doneUrl");
+    });
+
+    it("throws when polling returns 200 without token", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({}), { status: 200 }),
+        );
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm web login completed but no token received");
+    });
+
+    it("throws on unexpected polling status", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 }),
+        );
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm web login polling failed (HTTP 500)");
+    });
+
+    it("throws when POST to login endpoint fails", async () => {
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch.mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }),
+      );
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("npm web login initiation failed (HTTP 404)");
+    });
+
+    it("uses 1 second default when Retry-After header is absent", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({}), { status: 202 }),
+        )
+        .mockResolvedValueOnce(makeDoneResponse("npm_token"));
+
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      await freshRegistry.checkAvailability(makeTask(), makeCtx(true));
+
+      const delayCall = setTimeoutSpy.mock.calls.find(
+        ([, ms]) => ms === 1000,
+      );
+      expect(delayCall).toBeDefined();
+
+      setTimeoutSpy.mockRestore();
+    });
+
+    it("succeeds even when browser open fails", async () => {
+      const openUrl = vi.fn().mockRejectedValue(new Error("no browser"));
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(makeDoneResponse("npm_token"));
+
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("throws when npm config set fails", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(makeDoneResponse("npm_token"));
+
+      mockedExec.mockRejectedValue(new Error("permission denied"));
+
+      await expect(
+        freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
+      ).rejects.toThrow("Failed to save npm auth token");
+    });
   });
 
   describe("N1: login check", () => {
