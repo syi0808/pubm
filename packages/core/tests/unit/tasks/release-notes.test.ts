@@ -972,7 +972,9 @@ describe("buildFixedReleaseBody — additional cases", () => {
     mockExistsSync
       .mockReturnValueOnce(true) // pkg1 changelog exists
       .mockReturnValueOnce(false) // pkg2 changelog missing
-      .mockReturnValueOnce(false); // pkg3 changelog missing
+      .mockReturnValueOnce(false) // pkg2 root changelog fallback missing
+      .mockReturnValueOnce(false) // pkg3 changelog missing
+      .mockReturnValueOnce(false); // pkg3 root changelog fallback missing
 
     mockReadFileSync.mockReturnValueOnce(
       "# Changelog\n\n## 1.0.0\n\n- changelog entry\n",
@@ -1039,6 +1041,54 @@ describe("buildFixedReleaseBody — additional cases", () => {
     // Single compare link
     const compareMatches = result.match(/\*\*Full Changelog\*\*/g);
     expect(compareMatches).toHaveLength(1);
+  });
+
+  it("falls back to root CHANGELOG.md when per-package changelog is missing (fixed mode)", async () => {
+    const { buildFixedReleaseBody } = await freshImport();
+    const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
+
+    // Per-package CHANGELOGs don't exist, but root CHANGELOG does
+    mockExistsSync
+      .mockReturnValueOnce(false) // pkg1 package changelog missing
+      .mockReturnValueOnce(true) // pkg1 root changelog fallback exists
+      .mockReturnValueOnce(false) // pkg2 package changelog missing
+      .mockReturnValueOnce(true); // pkg2 root changelog fallback exists
+
+    mockReadFileSync.mockReturnValue(
+      "# Changelog\n\n## 1.0.0\n\n### Minor Changes\n\n- new feature\n\n### Patch Changes\n\n- bug fix\n",
+    );
+
+    mockGit.mockImplementation(function () {
+      return {
+        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
+        firstCommit: vi.fn().mockResolvedValue("first"),
+      } as any;
+    } as any);
+
+    const ctx = makeCtx({
+      config: {
+        packages: [
+          { path: "packages/core", name: "@pubm/core" },
+          { path: "packages/pubm", name: "pubm" },
+        ],
+      },
+    });
+
+    const result = await buildFixedReleaseBody(ctx, {
+      packages: [
+        { pkgPath: "packages/core", pkgName: "@pubm/core", version: "1.0.0" },
+        { pkgPath: "packages/pubm", pkgName: "pubm", version: "1.0.0" },
+      ],
+      tag: "v1.0.0",
+      repositoryUrl: "https://github.com/user/repo",
+    });
+
+    expect(result).toContain("## @pubm/core v1.0.0");
+    expect(result).toContain("## pubm v1.0.0");
+    expect(result).toContain("new feature");
+    expect(result).toContain("bug fix");
+    // Should use changelog content, not raw commits
+    expect(result).not.toMatch(/\([a-f0-9]{7}\)/);
   });
 
   it("packages with different versions each show correct version in header", async () => {
