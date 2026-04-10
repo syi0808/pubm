@@ -45,8 +45,9 @@ export function findLastReleaseRef(
 export function getCommitsSinceRef(
   cwd: string,
   ref: string | undefined,
+  toRef?: string,
 ): RawCommit[] {
-  const range = ref ? `${ref}..HEAD` : "HEAD";
+  const range = ref ? `${ref}..${toRef ?? "HEAD"}` : (toRef ?? "HEAD");
   const format = `${COMMIT_START_MARKER} %h%n%B%n${COMMIT_FILES_MARKER}`;
 
   const output = execGitRaw(cwd, [

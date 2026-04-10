@@ -1,11 +1,10 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ConventionalCommitChangelogWriter } from "../changelog/conventional-commit-writer.js";
 import type { ChangelogSection } from "../changelog/types.js";
 import { parseChangelogSection } from "../changeset/changelog-parser.js";
 import type { PubmContext } from "../context.js";
-import type { RawCommit } from "../conventional-commit/git-log.js";
+import { getCommitsSinceRef } from "../conventional-commit/git-log.js";
 import { parseConventionalCommit } from "../conventional-commit/parser.js";
 import { resolveCommitPackages } from "../conventional-commit/scope-resolver.js";
 import { Git } from "../git.js";
@@ -59,15 +58,15 @@ export async function buildReleaseBody(
   }
 
   // Priority 2 & 3: Commits
-  // Use git.commits for the raw list; the first entry is the boundary commit itself, so slice(1)
-  const commits = (await git.commits(previousTag, tag)).slice(1);
+  // git.commits uses the triple-dot range which already excludes the boundary commit (previousTag)
+  const commits = await git.commits(previousTag, tag);
   if (commits.length === 0) {
     return appendCompareLink ? compareLink : "";
   }
 
   // Parse as conventional commits with file paths (needed for scope resolution in monorepos)
   // Use bounded range (previousTag..tag) to avoid including commits past the tag
-  const rawCommits = getCommitsBetweenRefs(ctx.cwd, previousTag, tag);
+  const rawCommits = getCommitsSinceRef(ctx.cwd, previousTag, tag);
   const parsed = rawCommits
     .map((c) => parseConventionalCommit(c.hash, c.message, c.files))
     .filter((c): c is NonNullable<typeof c> => c !== null);
@@ -192,69 +191,4 @@ export async function truncateForUrl(
     truncated: true,
     clipboardCopied,
   };
-}
-
-/**
- * Get commits with file paths between two refs (bounded range).
- * Uses previousTag..tag to avoid including commits past the tag.
- */
-function getCommitsBetweenRefs(
-  cwd: string,
-  fromRef: string,
-  toRef: string,
-): RawCommit[] {
-  try {
-    const output = execFileSync(
-      "git",
-      [
-        "log",
-        `${fromRef}..${toRef}`,
-        "--format=COMMIT_START %h%n%B%nCOMMIT_FILES",
-        "--name-only",
-      ],
-      { cwd, encoding: "utf-8" },
-    );
-
-    if (!output.trim()) return [];
-
-    const commits: RawCommit[] = [];
-    const lines = output.split("\n");
-    let i = 0;
-
-    while (i < lines.length) {
-      if (!lines[i].startsWith("COMMIT_START")) {
-        i++;
-        continue;
-      }
-
-      const hash = lines[i].slice("COMMIT_START ".length).trim();
-      i++;
-
-      const messageLines: string[] = [];
-      while (
-        i < lines.length &&
-        !lines[i].startsWith("COMMIT_FILES") &&
-        !lines[i].startsWith("COMMIT_START")
-      ) {
-        messageLines.push(lines[i]);
-        i++;
-      }
-
-      if (i < lines.length && lines[i].startsWith("COMMIT_FILES")) i++;
-
-      const files: string[] = [];
-      while (i < lines.length && !lines[i].startsWith("COMMIT_START")) {
-        const file = lines[i].trim();
-        if (file) files.push(file);
-        i++;
-      }
-
-      const message = messageLines.join("\n").trim();
-      if (hash && message) commits.push({ hash, message, files });
-    }
-
-    return commits;
-  } catch {
-    return [];
-  }
 }
