@@ -103,6 +103,38 @@ export async function buildReleaseBody(
   return appendCompareLink ? `${body}\n\n${compareLink}` : body;
 }
 
+export async function buildFixedReleaseBody(
+  ctx: PubmContext,
+  options: {
+    packages: Array<{ pkgPath: string; pkgName: string; version: string }>;
+    tag: string;
+    repositoryUrl: string;
+  },
+): Promise<string> {
+  const { packages, tag, repositoryUrl } = options;
+
+  // Resolve previousTag once and pass it down to avoid redundant git calls per package
+  const git = new Git();
+  const previousTag = (await git.previousTag(tag)) || (await git.firstCommit());
+
+  const sections: string[] = [];
+  for (const pkg of packages) {
+    const body = await buildReleaseBody(ctx, {
+      pkgPath: pkg.pkgPath,
+      version: pkg.version,
+      tag,
+      repositoryUrl,
+      appendCompareLink: false,
+      previousTag,
+    });
+
+    sections.push(`## ${pkg.pkgName} v${pkg.version}\n\n${body}`);
+  }
+
+  const joined = sections.join("\n\n---\n\n");
+  return `${joined}\n\n**Full Changelog**: ${repositoryUrl}/compare/${previousTag}...${tag}`;
+}
+
 function extractChangelog(
   ctx: PubmContext,
   pkgPath: string | undefined,
