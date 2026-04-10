@@ -770,13 +770,101 @@ describe("NpmPackageRegistry checkAvailability()", () => {
     });
 
     it("returns true for registry with trailing slash", () => {
-      const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH, "https://registry.npmjs.org/");
+      const registry = new NpmPackageRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://registry.npmjs.org/",
+      );
       expect(registry["isOfficialNpmRegistry"]()).toBe(true);
     });
 
     it("returns false for private registry", () => {
-      const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH, "https://npm.mycompany.com");
+      const registry = new NpmPackageRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       expect(registry["isOfficialNpmRegistry"]()).toBe(false);
+    });
+  });
+
+  describe("direct web login (official npm)", () => {
+    function makeDoneResponse(token: string) {
+      return new Response(JSON.stringify({ token }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    function make202Response(retryAfter = "1") {
+      return new Response(JSON.stringify({}), {
+        status: 202,
+        headers: {
+          "retry-after": retryAfter,
+          "content-type": "application/json",
+        },
+      });
+    }
+
+    function makeLoginResponse(loginUrl: string, doneUrl: string) {
+      return new Response(JSON.stringify({ loginUrl, doneUrl }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    it("completes direct web login: POST → poll 202 → poll 200 → save token", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      const loginUrl = "https://www.npmjs.com/auth/cli/test-uuid";
+      const doneUrl = "https://www.npmjs.com/-/v1/login/test-uuid/done";
+
+      mockedFetch
+        .mockResolvedValueOnce(makeLoginResponse(loginUrl, doneUrl))
+        .mockResolvedValueOnce(make202Response("0"))
+        .mockResolvedValueOnce(makeDoneResponse("npm_test-token-123"));
+
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      const task = makeTask();
+      await freshRegistry.checkAvailability(task, makeCtx(true));
+
+      // Verify POST to /-/v1/login
+      expect(mockedFetch).toHaveBeenCalledWith(
+        "https://registry.npmjs.org/-/v1/login",
+        expect.objectContaining({ method: "POST" }),
+      );
+      // Verify doneUrl polled
+      expect(mockedFetch).toHaveBeenCalledWith(doneUrl);
+      // Verify browser opened with loginUrl
+      expect(openUrl).toHaveBeenCalledWith(loginUrl);
+      // Verify token saved
+      expect(mockedExec).toHaveBeenCalledWith(
+        "npm",
+        [
+          "config",
+          "set",
+          "//registry.npmjs.org/:_authToken",
+          "npm_test-token-123",
+          "--location=user",
+        ],
+        expect.objectContaining({ throwOnError: true }),
+      );
+      // Verify loginUrl shown in task output
+      expect(task.output).toContain(loginUrl);
     });
   });
 
@@ -797,7 +885,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
             "https://www.npmjs.com/login?next=/login/cli/abc-123\n",
           ]),
         );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
@@ -825,7 +917,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
           "https://www.npmjs.com/auth/cli/xyz-789\n",
         ]),
       );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
@@ -849,8 +945,16 @@ describe("NpmPackageRegistry checkAvailability()", () => {
             "https://www.npmjs.com/login?next=/login/cli/shared-123\n",
           ]),
         );
-      const firstRegistry = new FreshNpmRegistry("pkg-a", FIXTURE_PATH);
-      const secondRegistry = new FreshNpmRegistry("pkg-b", FIXTURE_PATH);
+      const firstRegistry = new FreshNpmRegistry(
+        "pkg-a",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
+      const secondRegistry = new FreshNpmRegistry(
+        "pkg-b",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
 
       for (const current of [firstRegistry, secondRegistry]) {
         vi.spyOn(current, "isLoggedIn")
@@ -883,7 +987,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       const { FreshNpmRegistry } = await importFreshRegistryWithMocks(
         makeChild([], [], 1),
       );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
 
       await expect(
@@ -895,7 +1003,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       const { FreshNpmRegistry } = await importFreshRegistryWithMocks(
         makeChild(["Logged in on https://registry.npmjs.org/.\n"]),
       );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn").mockResolvedValue(false);
 
       await expect(
@@ -929,7 +1041,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       const { NpmPackageRegistry: FreshNpmRegistry } = await import(
         "../../../src/registry/npm.js"
       );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false)
@@ -961,7 +1077,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
           "https://www.npmjs.com/auth/cli/still-not-logged-in\n",
         ]),
       );
-      const freshRegistry = new FreshNpmRegistry("my-package", FIXTURE_PATH);
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
       vi.spyOn(freshRegistry, "isLoggedIn")
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false);
