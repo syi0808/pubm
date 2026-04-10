@@ -158,10 +158,7 @@ function extractChangelog(
   if (pkgPath) {
     const rootPath = join(ctx.cwd, "CHANGELOG.md");
     if (existsSync(rootPath)) {
-      return parseChangelogSection(
-        readFileSync(rootPath, "utf-8"),
-        version,
-      );
+      return parseChangelogSection(readFileSync(rootPath, "utf-8"), version);
     }
   }
 
