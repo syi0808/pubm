@@ -1,6 +1,6 @@
 {
   "name": "@pubm/plugin-external-version-sync",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "type": "module",
   "description": "pubm plugin to sync versions to external files",
   "main": "./dist/index.js",

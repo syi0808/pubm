@@ -1,7 +1,7 @@
 {
   "name": "pubm-plugin",
   "description": "Automates pubm setup for new open source projects — configures registries, CI, and changesets with a single skill invocation.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "author": {
     "name": "pubm"
   },

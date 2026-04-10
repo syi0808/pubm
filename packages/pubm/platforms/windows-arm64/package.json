@@ -1,6 +1,6 @@
 {
   "name": "@pubm/windows-arm64",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "pubm binary for windows-arm64",
   "license": "Apache-2.0",
   "author": "Yein Sung",
