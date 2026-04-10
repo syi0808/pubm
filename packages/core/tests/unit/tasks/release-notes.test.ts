@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChangelogSection } from "../../../src/changelog/types.js";
 
@@ -184,10 +185,6 @@ describe("buildReleaseBody", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: add glob support",
           },
@@ -227,10 +224,6 @@ describe("buildReleaseBody", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: add core feature",
           },
@@ -268,10 +261,6 @@ describe("buildReleaseBody", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "update dependencies",
           },
@@ -308,10 +297,6 @@ describe("buildReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue(null),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: one conventional",
@@ -379,10 +364,6 @@ describe("buildReleaseBody — additional cases", () => {
         firstCommit: vi.fn().mockResolvedValue("abc123first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: new feature",
           },
@@ -438,7 +419,7 @@ describe("buildReleaseBody — additional cases", () => {
     const { mockExistsSync, mockReadFileSync, mockGit } = await getMocks();
 
     mockExistsSync.mockImplementation(
-      (p: string) => p === "/project/CHANGELOG.md",
+      (p: string) => p === join("/project", "CHANGELOG.md"),
     );
     mockReadFileSync.mockReturnValue(
       "# Changelog\n\n## 1.0.0\n\n- root package feature\n",
@@ -459,7 +440,9 @@ describe("buildReleaseBody — additional cases", () => {
 
     expect(result).toContain("root package feature");
     // Should have checked /project/CHANGELOG.md (no subdirectory)
-    expect(mockExistsSync).toHaveBeenCalledWith("/project/CHANGELOG.md");
+    expect(mockExistsSync).toHaveBeenCalledWith(
+      join("/project", "CHANGELOG.md"),
+    );
   });
 
   it("falls through to commits when CHANGELOG.md version section not found", async () => {
@@ -477,10 +460,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: fallback feature",
@@ -516,13 +495,8 @@ describe("buildReleaseBody — additional cases", () => {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
-        // Only returns the boundary commit (which gets sliced off), leaving empty
-        commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-        ]),
+        // Returns empty list — no commits in this release
+        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue("");
@@ -548,10 +522,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat!: breaking change",
@@ -584,10 +554,6 @@ describe("buildReleaseBody — additional cases", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat(core): scoped feature",
           },
@@ -619,10 +585,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           // Raw commits include the full message as stored by git
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
@@ -659,10 +621,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "aaaaaaa1234567890abcdef1234567890abcdef12",
             message: "feat: new api",
@@ -714,10 +672,6 @@ describe("buildReleaseBody — additional cases", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: first line\n\ndetailed body that should not appear",
           },
@@ -747,13 +701,8 @@ describe("buildReleaseBody — additional cases", () => {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
-        // Simulate: git.commits returns just boundary commit (gets sliced to empty)
-        commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-        ]),
+        // Simulate: git.commits returns empty list (no commits in range)
+        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
     // execFileSync returns empty string (no commits in range)
@@ -781,10 +730,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "chore: some change",
@@ -820,10 +765,6 @@ describe("buildReleaseBody — additional cases", () => {
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
           {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-          {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: no file commit",
           },
@@ -856,10 +797,6 @@ describe("buildReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "fix: single commit fix",
@@ -949,10 +886,6 @@ describe("buildFixedReleaseBody", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "update dep",
@@ -1050,10 +983,6 @@ describe("buildFixedReleaseBody — additional cases", () => {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
         commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
           {
             id: "abcdef1234567890abcdef1234567890abcdef12",
             message: "feat: conventional feat",
@@ -1161,13 +1090,8 @@ describe("buildFixedReleaseBody — additional cases", () => {
       return {
         previousTag: vi.fn().mockResolvedValue("v0.9.0"),
         firstCommit: vi.fn().mockResolvedValue("first"),
-        // Only boundary commit, sliced to empty
-        commits: vi.fn().mockResolvedValue([
-          {
-            id: "ignored0000000000000000000000000000000000",
-            message: "ignored",
-          },
-        ]),
+        // No commits in range
+        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
     mockExecFileSync.mockReturnValue("");

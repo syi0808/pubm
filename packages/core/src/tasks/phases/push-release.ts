@@ -325,12 +325,14 @@ export function createReleaseTask(
             task.title += ` ${linkUrl}`;
 
             if (first) {
+              const openingMsg = t("task.release.openingDraft", { tag });
               if (truncated.clipboardCopied) {
-                task.output = t("task.release.copiedToClipboard");
+                task.output = `${t("task.release.copiedToClipboard")}\n${openingMsg}`;
               } else if (truncated.truncated) {
-                task.output = t("task.release.truncated");
+                task.output = `${t("task.release.truncated")}\n${openingMsg}`;
+              } else {
+                task.output = openingMsg;
               }
-              task.output = t("task.release.openingDraft", { tag });
               await openUrl(releaseDraftUrl.toString());
               first = false;
             }
@@ -374,12 +376,14 @@ export function createReleaseTask(
 
           const linkUrl = ui.link("Link", releaseDraftUrl.toString());
           task.title += ` ${linkUrl}`;
+          const openingMsg = t("task.release.openingDraft", { tag });
           if (truncated.clipboardCopied) {
-            task.output = t("task.release.copiedToClipboard");
+            task.output = `${t("task.release.copiedToClipboard")}\n${openingMsg}`;
           } else if (truncated.truncated) {
-            task.output = t("task.release.truncated");
+            task.output = `${t("task.release.truncated")}\n${openingMsg}`;
+          } else {
+            task.output = openingMsg;
           }
-          task.output = t("task.release.openingDraft", { tag });
           await openUrl(releaseDraftUrl.toString());
         }
       }
