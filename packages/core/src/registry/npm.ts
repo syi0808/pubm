@@ -491,7 +491,7 @@ export class NpmPackageRegistry extends PackageRegistry {
 
   private isOfficialNpmRegistry(): boolean {
     if (!this.registry) return true;
-    return normalizeRegistryUrl(this.registry).includes("registry.npmjs.org");
+    return normalizeRegistryUrl(this.registry) === "registry.npmjs.org";
   }
 
   private isProvenanceError(error: unknown): boolean {
@@ -585,9 +585,9 @@ export class NpmPackageRegistry extends PackageRegistry {
     // Step 3: Poll doneUrl
     while (true) {
       const pollRes = await fetch(doneUrl);
-      const pollBody = (await pollRes.json()) as { token?: string };
 
       if (pollRes.status === 200) {
+        const pollBody = (await pollRes.json()) as { token?: string };
         if (!pollBody.token) {
           throw new NpmError("npm web login completed but no token received");
         }
