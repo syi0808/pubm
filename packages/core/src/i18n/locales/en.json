@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "Resolving repository metadata for the release draft...",
   "task.release.openingDraft": "Opening release draft for {tag}...",
   "task.release.collectedCommits": "Collected {count} commits for {tag}.",
+  "task.release.copiedToClipboard": "Release notes copied to clipboard — paste into the release body",
+  "task.release.truncated": "Release notes were truncated due to URL length limit",
   "task.publish.registryLabel": "Publish to {registry}",
   "task.dryRun.registryLabel": "Dry-run {registry}",
   "output.ciPrepareComplete": "CI prepare completed. Release tags pushed — CI should pick up the publish.",

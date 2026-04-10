@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "Repository-Metadaten für den Release-Entwurf werden aufgelöst...",
   "task.release.openingDraft": "Release-Entwurf für {tag} wird geöffnet...",
   "task.release.collectedCommits": "{count} Commits für {tag} gesammelt.",
+  "task.release.copiedToClipboard": "Release-Notizen in die Zwischenablage kopiert — in den Release-Text einfügen",
+  "task.release.truncated": "Release-Notizen wurden aufgrund der URL-Längenbeschränkung gekürzt",
   "task.publish.registryLabel": "In {registry} veröffentlichen",
   "task.dryRun.registryLabel": "Dry-run {registry}",
   "output.ciPrepareComplete": "CI-Vorbereitung abgeschlossen. Release-Tags gepusht — CI sollte die Veröffentlichung übernehmen.",

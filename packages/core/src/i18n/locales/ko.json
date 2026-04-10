@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "릴리스 초안을 위한 저장소 메타데이터 확인 중...",
   "task.release.openingDraft": "{tag} 릴리스 초안 열기 중...",
   "task.release.collectedCommits": "{tag}에 대한 {count}개 커밋 수집됨.",
+  "task.release.copiedToClipboard": "릴리즈 노트가 클립보드에 복사되었습니다 — 릴리즈 본문에 붙여넣기 하세요",
+  "task.release.truncated": "URL 길이 제한으로 릴리즈 노트가 잘렸습니다",
   "task.publish.registryLabel": "{registry}에 배포",
   "task.dryRun.registryLabel": "{registry} Dry-run",
   "output.ciPrepareComplete": "CI 준비 완료. 릴리스 태그가 푸시되었습니다 — CI가 배포를 처리합니다.",
