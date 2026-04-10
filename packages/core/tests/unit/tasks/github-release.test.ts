@@ -45,15 +45,16 @@ describe("createGitHubRelease", () => {
 
     await expect(
       createGitHubRelease({} as any, {
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        body: "",
         assets: [],
       }),
     ).rejects.toThrow(/GITHUB_TOKEN environment variable is required/);
   });
 
-  it("builds release notes from commits when no changelog body is provided", async () => {
+  it("uses the provided body directly", async () => {
     const { createGitHubRelease } = await freshImport();
     const { mockReadFileSync, mockGit } = await getMocks();
 
@@ -63,19 +64,13 @@ describe("createGitHubRelease", () => {
         repository: vi
           .fn()
           .mockResolvedValue("https://github.com/pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
-        previousTag: vi.fn().mockResolvedValue(null),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([
-          { id: "ignored", message: "ignored" },
-          { id: "abcdef1234567", message: "feat: fix #42" },
-        ]),
       } as any;
     } as any);
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
+        id: 1,
         html_url: "https://github.com/pubm/pubm/releases/tag/v1.2.0",
         upload_url:
           "https://uploads.github.com/repos/pubm/pubm/releases/1/assets{?name,label}",
@@ -83,27 +78,20 @@ describe("createGitHubRelease", () => {
     });
     global.fetch = fetchMock as any;
 
-    const result = await createGitHubRelease(
-      {} as any,
-      {
-        displayLabel: "pubm",
-        version: "1.2.0",
-        tag: "v1.2.0",
-        assets: [],
-      } as any,
-    );
+    const result = await createGitHubRelease({} as any, {
+      displayLabel: "pubm",
+      version: "1.2.0",
+      tag: "v1.2.0",
+      body: "### Features\n\n- fix #42 (abcdef1)",
+      assets: [],
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(payload.tag_name).toBe("v1.2.0");
     expect(payload.name).toBe("v1.2.0");
     expect(payload.prerelease).toBe(false);
-    expect(payload.body).toContain(
-      "[#42](https://github.com/pubm/pubm/issues/42)",
-    );
-    expect(payload.body).toContain(
-      "https://github.com/pubm/pubm/compare/first-commit...v1.2.0",
-    );
+    expect(payload.body).toBe("### Features\n\n- fix #42 (abcdef1)");
     expect(result?.assets).toEqual([]);
     expect(result?.displayLabel).toBe("pubm");
   });
@@ -115,16 +103,13 @@ describe("createGitHubRelease", () => {
     mockGit.mockImplementation(function () {
       return {
         repository: vi.fn().mockResolvedValue("git@github.com:pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v2.0.0-beta.1"),
-        previousTag: vi.fn().mockResolvedValue("v1.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
+        id: 2,
         html_url: "https://github.com/pubm/pubm/releases/tag/v2.0.0-beta.1",
         upload_url:
           "https://uploads.github.com/repos/pubm/pubm/releases/2/assets{?name,label}",
@@ -133,10 +118,10 @@ describe("createGitHubRelease", () => {
     global.fetch = fetchMock as any;
 
     const result = await createGitHubRelease({} as any, {
-      packageName: "pubm",
+      displayLabel: "pubm",
       version: "2.0.0-beta.1",
       tag: "v2.0.0-beta.1",
-      changelogBody: "Release notes from CHANGELOG",
+      body: "Release notes from CHANGELOG",
       assets: [],
     });
 
@@ -156,10 +141,6 @@ describe("createGitHubRelease", () => {
     mockGit.mockImplementation(function () {
       return {
         repository: vi.fn().mockResolvedValue("git@github.com:pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v2.0.0-beta.1"),
-        previousTag: vi.fn().mockResolvedValue("v1.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
 
@@ -168,6 +149,7 @@ describe("createGitHubRelease", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: vi.fn().mockResolvedValue({
+          id: 2,
           html_url: "https://github.com/pubm/pubm/releases/tag/v2.0.0-beta.1",
           upload_url:
             "https://uploads.github.com/repos/pubm/pubm/releases/2/assets{?name,label}",
@@ -184,10 +166,10 @@ describe("createGitHubRelease", () => {
 
     const platform = { raw: "linux-x64", os: "linux", arch: "x64" };
     const result = await createGitHubRelease({} as any, {
-      packageName: "pubm",
+      displayLabel: "pubm",
       version: "2.0.0-beta.1",
       tag: "v2.0.0-beta.1",
-      changelogBody: "Release notes from CHANGELOG",
+      body: "Release notes from CHANGELOG",
       assets: [
         {
           filePath: "/tmp/pubm-linux-x64.tar.gz",
@@ -223,9 +205,6 @@ describe("createGitHubRelease", () => {
         repository: vi
           .fn()
           .mockResolvedValue("https://github.com/pubm/pubm.git"),
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first"),
-        commits: vi.fn().mockResolvedValue([{ id: "skip", message: "skip" }]),
       } as any;
     } as any);
 
@@ -236,9 +215,10 @@ describe("createGitHubRelease", () => {
     }) as any;
 
     const result = await createGitHubRelease({} as any, {
-      packageName: "pubm",
+      displayLabel: "pubm",
       version: "1.0.0",
       tag: "v1.0.0",
+      body: "some body",
       assets: [],
     });
 
@@ -254,10 +234,6 @@ describe("createGitHubRelease", () => {
         repository: vi
           .fn()
           .mockResolvedValue("https://github.com/pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v1.0.0"),
-        previousTag: vi.fn().mockResolvedValue("v0.9.0"),
-        firstCommit: vi.fn().mockResolvedValue("first"),
-        commits: vi.fn().mockResolvedValue([{ id: "skip", message: "skip" }]),
       } as any;
     } as any);
 
@@ -269,9 +245,10 @@ describe("createGitHubRelease", () => {
 
     await expect(
       createGitHubRelease({} as any, {
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        body: "some body",
         assets: [],
       }),
     ).rejects.toThrow(
@@ -289,10 +266,6 @@ describe("createGitHubRelease", () => {
         repository: vi
           .fn()
           .mockResolvedValue("https://github.com/pubm/pubm.git"),
-        latestTag: vi.fn().mockResolvedValue("v1.2.0"),
-        previousTag: vi.fn().mockResolvedValue("v1.1.0"),
-        firstCommit: vi.fn().mockResolvedValue("first-commit"),
-        commits: vi.fn().mockResolvedValue([]),
       } as any;
     } as any);
 
@@ -301,6 +274,7 @@ describe("createGitHubRelease", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: vi.fn().mockResolvedValue({
+          id: 1,
           html_url: "https://github.com/pubm/pubm/releases/tag/v1.2.0",
           upload_url:
             "https://uploads.github.com/repos/pubm/pubm/releases/1/assets{?name,label}",
@@ -314,9 +288,10 @@ describe("createGitHubRelease", () => {
 
     await expect(
       createGitHubRelease({} as any, {
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "1.2.0",
         tag: "v1.2.0",
+        body: "some body",
         assets: [
           {
             filePath: "/tmp/pubm-linux-x64.tar.gz",
@@ -347,9 +322,10 @@ describe("createGitHubRelease", () => {
 
     await expect(
       createGitHubRelease({} as any, {
-        packageName: "pubm",
+        displayLabel: "pubm",
         version: "1.0.0",
         tag: "v1.0.0",
+        body: "",
         assets: [],
       }),
     ).rejects.toThrow(/Cannot parse owner\/repo from remote URL/);

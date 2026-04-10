@@ -172,6 +172,8 @@
   "task.release.resolvingMetadata": "Resolviendo metadatos del repositorio para el borrador de publicación...",
   "task.release.openingDraft": "Abriendo borrador de publicación para {tag}...",
   "task.release.collectedCommits": "{count} commits recopilados para {tag}.",
+  "task.release.copiedToClipboard": "Notas de la versión copiadas al portapapeles — pégalas en el cuerpo del release",
+  "task.release.truncated": "Las notas de la versión fueron truncadas debido al límite de longitud de la URL",
   "task.publish.registryLabel": "Publicar en {registry}",
   "task.dryRun.registryLabel": "Dry-run {registry}",
   "output.ciPrepareComplete": "Preparación de CI completada. Etiquetas de publicación enviadas — CI debería encargarse de la publicación.",
