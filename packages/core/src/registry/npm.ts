@@ -21,6 +21,8 @@ class NpmError extends AbstractError {
   name = "npm Error";
 }
 
+const NPM_OFFICIAL_REGISTRY = "https://registry.npmjs.org";
+
 function validateNpmLoginUrl(rawUrl: string): string | null {
   let parsed: URL;
   try {
@@ -485,6 +487,10 @@ export class NpmPackageRegistry extends PackageRegistry {
     return {
       requiredManifest: "package.json",
     };
+  }
+
+  private isOfficialNpmRegistry(): boolean {
+    return normalizeRegistryUrl(this.registry).includes("registry.npmjs.org");
   }
 
   private isProvenanceError(error: unknown): boolean {
