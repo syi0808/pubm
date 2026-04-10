@@ -1056,6 +1056,81 @@ describe("NpmPackageRegistry checkAvailability()", () => {
         freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
       ).rejects.toThrow("Failed to save npm auth token");
     });
+
+    it("uses spawnInteractive fallback for private registries", async () => {
+      const child = makeChild([
+        "Login at:\n",
+        "https://www.npmjs.com/login?next=/login/cli/abc-123\n",
+      ]);
+
+      const { FreshNpmRegistry, openUrl, spawnInteractive } =
+        await importFreshRegistryWithMocks(child);
+
+      const freshRegistry = new FreshNpmRegistry(
+        "my-package",
+        FIXTURE_PATH,
+        "https://npm.mycompany.com",
+      );
+      vi.spyOn(freshRegistry, "isLoggedIn")
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      vi.spyOn(freshRegistry, "isPublished").mockResolvedValue(true);
+      vi.spyOn(freshRegistry, "hasPermission").mockResolvedValue(true);
+
+      await freshRegistry.checkAvailability(makeTask(), makeCtx(true));
+
+      expect(spawnInteractive).toHaveBeenCalledWith(["npm", "login"]);
+      // fetch should NOT have been called with /-/v1/login
+      expect(mockedFetch).not.toHaveBeenCalledWith(
+        expect.stringContaining("/-/v1/login"),
+        expect.anything(),
+      );
+    });
+
+    it("deduplicates concurrent direct web login attempts", async () => {
+      const openUrl = vi.fn().mockResolvedValue(undefined);
+      vi.doMock("../../../src/utils/open-url.js", () => ({ openUrl }));
+      vi.resetModules();
+      const { NpmPackageRegistry: FreshNpmRegistry } = await import(
+        "../../../src/registry/npm.js"
+      );
+      const firstRegistry = new FreshNpmRegistry("pkg-a", FIXTURE_PATH);
+      const secondRegistry = new FreshNpmRegistry("pkg-b", FIXTURE_PATH);
+
+      for (const current of [firstRegistry, secondRegistry]) {
+        vi.spyOn(current, "isLoggedIn")
+          .mockResolvedValueOnce(false)
+          .mockResolvedValueOnce(true);
+        vi.spyOn(current, "isPublished").mockResolvedValue(true);
+        vi.spyOn(current, "hasPermission").mockResolvedValue(true);
+      }
+
+      mockedFetch
+        .mockResolvedValueOnce(
+          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+        )
+        .mockResolvedValueOnce(makeDoneResponse("npm_token"));
+
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      const ctx = makeCtx(true);
+      await expect(
+        Promise.all([
+          firstRegistry.checkAvailability(makeTask(), ctx),
+          secondRegistry.checkAvailability(makeTask(), ctx),
+        ]),
+      ).resolves.toEqual([undefined, undefined]);
+
+      // POST to /-/v1/login should only be called once
+      const loginCalls = mockedFetch.mock.calls.filter(
+        ([url, opts]) =>
+          typeof url === "string" &&
+          url.endsWith("/-/v1/login") &&
+          (opts as any)?.method === "POST",
+      );
+      expect(loginCalls).toHaveLength(1);
+      expect(ctx.runtime.npmLoginPromise).toBeUndefined();
+    });
   });
 
   describe("N1: login check", () => {
