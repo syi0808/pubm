@@ -763,6 +763,23 @@ describe("NpmPackageRegistry checkAvailability()", () => {
     return { FreshNpmRegistry, openUrl, spawnInteractive };
   }
 
+  describe("isOfficialNpmRegistry()", () => {
+    it("returns true for default registry", () => {
+      const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
+      expect(registry["isOfficialNpmRegistry"]()).toBe(true);
+    });
+
+    it("returns true for registry with trailing slash", () => {
+      const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH, "https://registry.npmjs.org/");
+      expect(registry["isOfficialNpmRegistry"]()).toBe(true);
+    });
+
+    it("returns false for private registry", () => {
+      const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH, "https://npm.mycompany.com");
+      expect(registry["isOfficialNpmRegistry"]()).toBe(false);
+    });
+  });
+
   describe("N1: login check", () => {
     it("throws when not logged in in CI mode", async () => {
       vi.spyOn(registry, "isLoggedIn").mockResolvedValue(false);
