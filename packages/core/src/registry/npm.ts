@@ -490,6 +490,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   private isOfficialNpmRegistry(): boolean {
+    if (!this.registry) return true;
     return normalizeRegistryUrl(this.registry).includes("registry.npmjs.org");
   }
 

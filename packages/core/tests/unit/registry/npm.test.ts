@@ -884,7 +884,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       await expect(
         freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
-      ).rejects.toThrow("npm web login response missing valid loginUrl or doneUrl");
+      ).rejects.toThrow(
+        "npm web login response missing valid loginUrl or doneUrl",
+      );
     });
 
     it("throws when POST response has invalid URL", async () => {
@@ -904,7 +906,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       await expect(
         freshRegistry.checkAvailability(makeTask(), makeCtx(true)),
-      ).rejects.toThrow("npm web login response missing valid loginUrl or doneUrl");
+      ).rejects.toThrow(
+        "npm web login response missing valid loginUrl or doneUrl",
+      );
     });
 
     it("throws when polling returns 200 without token", async () => {
@@ -919,7 +923,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(
           new Response(JSON.stringify({}), { status: 200 }),
@@ -942,10 +949,15 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(
-          new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 }),
+          new Response(JSON.stringify({ error: "Internal Server Error" }), {
+            status: 500,
+          }),
         );
 
       await expect(
@@ -988,7 +1000,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(
           new Response(JSON.stringify({}), { status: 202 }),
@@ -999,9 +1014,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       await freshRegistry.checkAvailability(makeTask(), makeCtx(true));
 
-      const delayCall = setTimeoutSpy.mock.calls.find(
-        ([, ms]) => ms === 1000,
-      );
+      const delayCall = setTimeoutSpy.mock.calls.find(([, ms]) => ms === 1000);
       expect(delayCall).toBeDefined();
 
       setTimeoutSpy.mockRestore();
@@ -1023,7 +1036,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(makeDoneResponse("npm_token"));
 
@@ -1046,7 +1062,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(makeDoneResponse("npm_token"));
 
@@ -1107,7 +1126,10 @@ describe("NpmPackageRegistry checkAvailability()", () => {
 
       mockedFetch
         .mockResolvedValueOnce(
-          makeLoginResponse("https://www.npmjs.com/auth/cli/x", "https://www.npmjs.com/-/v1/login/x/done"),
+          makeLoginResponse(
+            "https://www.npmjs.com/auth/cli/x",
+            "https://www.npmjs.com/-/v1/login/x/done",
+          ),
         )
         .mockResolvedValueOnce(makeDoneResponse("npm_token"));
 
