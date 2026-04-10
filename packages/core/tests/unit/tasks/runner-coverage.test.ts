@@ -289,6 +289,10 @@ vi.mock("../../../src/tasks/create-version-pr.js", () => ({
   }),
   closeVersionPr: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../../src/tasks/release-notes.js", () => ({
+  buildReleaseBody: vi.fn(),
+  buildFixedReleaseBody: vi.fn(),
+}));
 
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -310,6 +314,10 @@ import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.
 import { PluginRunner } from "../../../src/plugin/runner.js";
 import { createVersionPr } from "../../../src/tasks/create-version-pr.js";
 import { createGitHubRelease } from "../../../src/tasks/github-release.js";
+import {
+  buildReleaseBody,
+  buildFixedReleaseBody,
+} from "../../../src/tasks/release-notes.js";
 import {
   collectTokens,
   promptGhSecretsSync,
@@ -346,6 +354,8 @@ const mockedCratesDescriptor = (
 const mockedCollectTokens = vi.mocked(collectTokens);
 const mockedPromptGhSecretsSync = vi.mocked(promptGhSecretsSync);
 const mockedInjectTokensToEnv = vi.mocked(injectTokensToEnv);
+const mockedBuildReleaseBody = vi.mocked(buildReleaseBody);
+const mockedBuildFixedReleaseBody = vi.mocked(buildFixedReleaseBody);
 const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
 const mockedRequiredConditionsCheckTask = vi.mocked(
   requiredConditionsCheckTask,
@@ -450,6 +460,8 @@ beforeEach(() => {
 
   mockedExistsSync.mockReturnValue(false);
   mockedReadFileSync.mockReturnValue("");
+  mockedBuildReleaseBody.mockResolvedValue(undefined as any);
+  mockedBuildFixedReleaseBody.mockResolvedValue(undefined as any);
   mockedCreateGitHubRelease.mockResolvedValue({
     displayLabel: "pubm",
     version: "1.0.0",
@@ -487,14 +499,8 @@ describe("runner coverage scenarios", () => {
       ["packages/core", "1.2.0"],
       ["packages/pubm", "1.2.0"],
     ]);
-    mockedExistsSync.mockImplementation((filePath) =>
-      String(filePath)
-        .replace(/\\/g, "/")
-        .endsWith("packages/core/CHANGELOG.md"),
-    );
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockImplementation((_content, version) =>
-      version === "1.2.0" ? "Added release notes" : undefined,
+    mockedBuildFixedReleaseBody.mockResolvedValue(
+      "## @pubm/core v1.2.0\n\nAdded release notes",
     );
 
     await run(
@@ -569,7 +575,7 @@ describe("runner coverage scenarios", () => {
         displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
-        changelogBody: expect.stringContaining("## @pubm/core v1.2.0"),
+        body: expect.stringContaining("## @pubm/core v1.2.0"),
       }),
     );
     expect(afterRelease).toHaveBeenCalledWith(
@@ -941,7 +947,7 @@ describe("runner coverage scenarios", () => {
         displayLabel: "@pubm/core",
         version: "1.2.0",
         tag: "v1.2.0",
-        changelogBody: undefined,
+        body: undefined,
       }),
     );
   });
@@ -1593,9 +1599,7 @@ describe("CI prepare pipeline", () => {
 
 describe("CI GitHub Release", () => {
   it("creates a single-mode release with root changelog", async () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockReturnValue("Single release notes");
+    mockedBuildReleaseBody.mockResolvedValue("Single release notes");
 
     await run(
       createOptions({
@@ -1659,7 +1663,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "pubm",
         version: "4.0.0",
         tag: "v4.0.0",
-        changelogBody: "Single release notes",
+        body: "Single release notes",
       }),
     );
   });
@@ -1669,15 +1673,9 @@ describe("CI GitHub Release", () => {
       ["packages/core", "2.0.0"],
       ["packages/pubm", "2.1.0"],
     ]);
-    mockedExistsSync.mockImplementation((filePath) =>
-      String(filePath)
-        .replace(/\\/g, "/")
-        .endsWith("packages/core/CHANGELOG.md"),
-    );
-    mockedReadFileSync.mockReturnValue("# Changelog");
-    mockedParseChangelogSection.mockImplementation((_content, version) =>
-      version === "2.0.0" ? "Core release notes" : undefined,
-    );
+    mockedBuildReleaseBody
+      .mockResolvedValueOnce("Core release notes")
+      .mockResolvedValueOnce(undefined as any);
 
     await run(
       createOptions({
@@ -1756,7 +1754,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "@pubm/core",
         version: "2.0.0",
         tag: "@pubm/core@2.0.0",
-        changelogBody: "Core release notes",
+        body: "Core release notes",
       }),
     );
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
@@ -1765,7 +1763,7 @@ describe("CI GitHub Release", () => {
         displayLabel: "pubm",
         version: "2.1.0",
         tag: "pubm@2.1.0",
-        changelogBody: undefined,
+        body: undefined,
       }),
     );
   });
@@ -5413,9 +5411,7 @@ describe("fixed mode release with tempDir cleanup", () => {
 
 describe("fixed mode release with changelog sections", () => {
   it("reads per-package changelog for fixed mode and joins sections", async () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue("# Changelog\n## 4.0.0\nChanges here");
-    mockedParseChangelogSection.mockReturnValue("Changes here");
+    mockedBuildFixedReleaseBody.mockResolvedValue("## pubm v4.0.0\n\nChanges here");
 
     await run(
       createOptions({
@@ -5480,7 +5476,7 @@ describe("fixed mode release with changelog sections", () => {
     expect(mockedCreateGitHubRelease).toHaveBeenCalledWith(
       ctx,
       expect.objectContaining({
-        changelogBody: expect.stringContaining("## pubm v4.0.0"),
+        body: expect.stringContaining("## pubm v4.0.0"),
       }),
     );
   });
