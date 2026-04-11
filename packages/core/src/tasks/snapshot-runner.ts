@@ -16,7 +16,7 @@ import { restoreManifests } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
-import { packageKey, pathFromKey } from "../utils/package-key.js";
+import { packageKey } from "../utils/package-key.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
@@ -26,6 +26,7 @@ import { requiredConditionsCheckTask } from "./required-conditions-check.js";
 import { collectPublishTasks, writeVersions } from "./runner.js";
 import { resolveWorkspaceProtocols } from "./runner-utils/manifest-handling.js";
 import { formatVersionSummary } from "./runner-utils/output-formatting.js";
+import { formatTag } from "./runner-utils/rollback-handlers.js";
 
 export function applySnapshotFilter(
   packages: ResolvedPackageConfig[],
@@ -219,10 +220,7 @@ export async function runSnapshotPipeline(
 
             if (plan.mode === "independent") {
               for (const [key, pkgVersion] of plan.packages) {
-                const pkgName =
-                  ctx.config.packages.find((p) => packageKey(p) === key)
-                    ?.name ?? pathFromKey(key);
-                const tagName = `${pkgName}@${pkgVersion}`;
+                const tagName = formatTag(ctx, key, pkgVersion);
                 task.output = t("task.snapshot.creatingTag", { tag: tagName });
                 await git.createTag(tagName, headCommit);
               }

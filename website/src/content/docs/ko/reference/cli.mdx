@@ -105,7 +105,7 @@ pubm --tag beta
 | `--no-tests` | 테스트 단계를 생략합니다. |
 | `--no-build` | 빌드 단계를 생략합니다. |
 | `--no-publish` | publish 직전까지 실행하되, 실제로는 artifacts를 publish하지 않습니다. |
-| `--no-dry-run-validation` | prepare 단계에서 dry-run 검증을 생략합니다. workspace crate의 내부 의존성이 아직 배포되지 않은 경우 유용합니다. |
+| `--no-dry-run-validation` | prepare 단계에서 dry-run 검증을 건너뜁니다. 워크스페이스의 crate가 아직 publish되지 않은 새 내부 의존성을 가질 때 유용합니다. |
 | `--skip-release` | GitHub Release 생성을 생략합니다. |
 
 ## 실행 모드
