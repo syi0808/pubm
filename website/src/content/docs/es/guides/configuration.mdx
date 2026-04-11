@@ -144,6 +144,13 @@ Directorio al que se hace `chdir` antes de ejecutar el pipeline de release.
 
 Indica si los tokens de registry compatibles deben guardarse para reutilizarlos en máquinas locales.
 
+### `skipDryRun`
+
+- Type: `boolean`
+- Default: `false`
+
+Omite la validación de dry-run durante la fase de preparación. Útil cuando los crates del workspace tienen dependencias internas cuyas nuevas versiones aún no se han publicado en crates.io. También se puede configurar mediante el flag CLI `--no-dry-run-validation`.
+
 ### `releaseDraft`
 
 - Tipo: `boolean`

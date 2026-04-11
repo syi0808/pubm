@@ -21,10 +21,11 @@ export function createDryRunTasks(
   dryRun: boolean,
   mode: string,
   hasPrepare: boolean,
+  skipDryRun: boolean,
 ): ListrTask<PubmContext>[] {
   return [
     {
-      enabled: dryRun || (mode === "ci" && hasPrepare),
+      enabled: !skipDryRun && (dryRun || (mode === "ci" && hasPrepare)),
       title: t("task.dryRunValidation.title"),
       task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
         await resolveWorkspaceProtocols(ctx);
@@ -47,7 +48,7 @@ export function createDryRunTasks(
       },
     },
     {
-      enabled: dryRun || (mode === "ci" && hasPrepare),
+      enabled: !skipDryRun && (dryRun || (mode === "ci" && hasPrepare)),
       skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
       title: t("task.dryRunValidation.restoreProtocols"),
       task: async (ctx) => {

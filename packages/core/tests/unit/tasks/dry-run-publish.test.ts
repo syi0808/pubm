@@ -161,11 +161,61 @@ describe("createCratesDryRunPublishTask", () => {
     });
 
     const mockTask = { output: "", title: "" };
+    const ctx = {
+      runtime: {
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/my-lib", "0.3.0"],
+            ["packages/my-cli", "0.3.0"],
+          ]),
+        },
+      },
+    };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
       "packages/my-lib",
       "packages/my-cli",
     ]);
-    await (task as any).task({ runtime: {} }, mockTask);
+    await (task as any).task(ctx, mockTask);
+    expect(mockTask.title).toContain("skipped");
+    expect(mockTask.title).toContain("my-lib");
+  });
+
+  it("proactively skips when sibling's new version is not yet published", async () => {
+    mockedRustEcosystem.mockImplementation(function (this: any, p: string) {
+      const name = p.includes("my-lib") ? "my-lib" : "my-cli";
+      return {
+        packageName: vi.fn().mockResolvedValue(name),
+        dependencies: vi.fn().mockResolvedValue(["my-lib", "serde"]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      return Promise.resolve({
+        packageName: name,
+        isPublished: vi.fn().mockResolvedValue(true), // crate EXISTS
+        isVersionPublished: vi.fn().mockResolvedValue(false), // but new version does NOT
+        dryRunPublish: vi.fn(),
+      } as any);
+    });
+
+    const mockTask = { output: "", title: "" };
+    const ctx = {
+      runtime: {
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/my-lib", "0.3.0"],
+            ["packages/my-cli", "0.3.0"],
+          ]),
+        },
+      },
+    };
+    const task = createCratesDryRunPublishTask("packages/my-cli", [
+      "packages/my-lib",
+      "packages/my-cli",
+    ]);
+    await (task as any).task(ctx, mockTask);
     expect(mockTask.title).toContain("skipped");
     expect(mockTask.title).toContain("my-lib");
   });
@@ -180,20 +230,34 @@ describe("createCratesDryRunPublishTask", () => {
     });
     mockedCratesRegistry.mockImplementation((path: string) => {
       const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      // my-cli: new version NOT yet published (so dry-run proceeds)
+      // my-lib: new version IS published (so proactive check passes for sibling)
+      const isVersionPublished = name === "my-lib";
       return Promise.resolve({
         packageName: name,
         isPublished: vi.fn().mockResolvedValue(true),
-        isVersionPublished: vi.fn().mockResolvedValue(false),
+        isVersionPublished: vi.fn().mockResolvedValue(isVersionPublished),
         dryRunPublish: mockDryRun,
       } as any);
     });
 
-    const mockTask = { output: "" };
+    const mockTask = { output: "", skip: vi.fn() };
+    const ctx = {
+      runtime: {
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/my-lib", "0.3.0"],
+            ["packages/my-cli", "0.3.0"],
+          ]),
+        },
+      },
+    };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
       "packages/my-lib",
       "packages/my-cli",
     ]);
-    await (task as any).task({ runtime: {} }, mockTask);
+    await (task as any).task(ctx, mockTask);
     expect(mockDryRun).toHaveBeenCalledWith();
   });
 
@@ -214,20 +278,85 @@ describe("createCratesDryRunPublishTask", () => {
     });
     mockedCratesRegistry.mockImplementation((path: string) => {
       const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      // my-cli: new version NOT yet published (so pre-check passes and dry-run executes)
+      // my-lib: new version IS published (so proactive check passes for sibling)
+      const isVersionPublished = name === "my-lib";
       return Promise.resolve({
         packageName: name,
         isPublished: vi.fn().mockResolvedValue(true),
-        isVersionPublished: vi.fn().mockResolvedValue(false),
+        isVersionPublished: vi.fn().mockResolvedValue(isVersionPublished),
         dryRunPublish: mockDryRun,
       } as any);
     });
 
     const mockTask = { output: "", title: "" };
+    const ctx = {
+      runtime: {
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/my-lib", "0.3.0"],
+            ["packages/my-cli", "0.3.0"],
+          ]),
+        },
+      },
+    };
     const task = createCratesDryRunPublishTask("packages/my-cli", [
       "packages/my-lib",
       "packages/my-cli",
     ]);
-    await (task as any).task({ runtime: {} }, mockTask);
+    await (task as any).task(ctx, mockTask);
+    expect(mockTask.title).toContain("skipped");
+    expect(mockTask.title).toContain("my-lib");
+  });
+
+  it("reactive fallback: skips when dry-run fails with version mismatch for sibling", async () => {
+    const mockDryRun = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          'failed to select a version for the requirement `my-lib = "^0.3.0"`\n' +
+            "candidate versions found which didn't match: 0.2.0\n" +
+            "location searched: crates.io index",
+        ),
+      );
+    mockedRustEcosystem.mockImplementation(function (this: any, p: string) {
+      const name = p.includes("my-lib") ? "my-lib" : "my-cli";
+      return {
+        packageName: vi.fn().mockResolvedValue(name),
+        dependencies: vi.fn().mockResolvedValue([]),
+      } as any;
+    });
+    mockedCratesRegistry.mockImplementation((path: string) => {
+      const name = path === "packages/my-lib" ? "my-lib" : "my-cli";
+      // my-cli: new version NOT yet published (so pre-check passes and dry-run executes)
+      // my-lib: new version IS published (so proactive check passes for sibling)
+      const isVersionPublished = name === "my-lib";
+      return Promise.resolve({
+        packageName: name,
+        isPublished: vi.fn().mockResolvedValue(true),
+        isVersionPublished: vi.fn().mockResolvedValue(isVersionPublished),
+        dryRunPublish: mockDryRun,
+      } as any);
+    });
+
+    const mockTask = { output: "", title: "" };
+    const ctx = {
+      runtime: {
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/my-lib", "0.3.0"],
+            ["packages/my-cli", "0.3.0"],
+          ]),
+        },
+      },
+    };
+    const task = createCratesDryRunPublishTask("packages/my-cli", [
+      "packages/my-lib",
+      "packages/my-cli",
+    ]);
+    await (task as any).task(ctx, mockTask);
     expect(mockTask.title).toContain("skipped");
     expect(mockTask.title).toContain("my-lib");
   });

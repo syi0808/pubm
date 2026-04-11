@@ -144,6 +144,13 @@ publish 실행의 기본 dist-tag입니다.
 
 지원되는 레지스트리 토큰을 로컬 머신에서 재사용하도록 저장할지 여부입니다.
 
+### `skipDryRun`
+
+- Type: `boolean`
+- Default: `false`
+
+prepare 단계에서 dry-run 검증을 생략합니다. workspace crate의 내부 의존성 새 버전이 아직 crates.io에 배포되지 않은 경우 유용합니다. `--no-dry-run-validation` CLI 플래그로도 설정할 수 있습니다.
+
 ### `releaseDraft`
 
 - 타입: `boolean`

@@ -269,6 +269,7 @@
   "cli.option.noTests": "跳过发布前运行测试",
   "cli.option.noBuild": "跳过发布前构建",
   "cli.option.noPublish": "跳过发布任务",
+  "cli.option.noDryRunValidation": "跳过准备阶段的试运行验证",
   "cli.option.skipRelease": "跳过 GitHub Release 创建",
   "cli.option.tag": "以特定 dist-tag 发布",
   "cli.option.contents": "要发布的子目录",

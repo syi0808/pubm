@@ -269,6 +269,7 @@
   "cli.option.noTests": "배포 전 테스트 실행 건너뜀",
   "cli.option.noBuild": "배포 전 빌드 건너뜀",
   "cli.option.noPublish": "배포 작업 건너뜀",
+  "cli.option.noDryRunValidation": "준비 단계에서 드라이런 검증을 건너뜁니다",
   "cli.option.skipRelease": "GitHub Release 생성 건너뜀",
   "cli.option.tag": "특정 dist-tag로 배포",
   "cli.option.contents": "배포할 하위 디렉토리",

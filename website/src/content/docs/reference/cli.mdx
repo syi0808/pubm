@@ -105,6 +105,7 @@ pubm --tag beta
 | `--no-tests` | Skip the test step. |
 | `--no-build` | Skip the build step. |
 | `--no-publish` | Run the pipeline up to publish, but do not actually publish artifacts. |
+| `--no-dry-run-validation` | Skip dry-run validation during the prepare phase. Useful when workspace crates have internal dependencies whose new versions aren't yet published. |
 | `--skip-release` | Skip GitHub Release creation. |
 
 ## Execution modes

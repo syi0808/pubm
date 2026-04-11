@@ -144,6 +144,13 @@ Verzeichnis, in das vor dem Start der Release-Pipeline gewechselt wird.
 
 Ob unterstützte Registry-Tokens für spätere lokale Laeufe gespeichert werden sollen.
 
+### `skipDryRun`
+
+- Type: `boolean`
+- Default: `false`
+
+Überspringt die Dry-Run-Validierung während der Prepare-Phase. Nützlich, wenn Workspace-Crates interne Abhängigkeiten haben, deren neue Versionen noch nicht auf crates.io veröffentlicht sind. Kann auch über das CLI-Flag `--no-dry-run-validation` gesetzt werden.
+
 ### `releaseDraft`
 
 - Typ: `boolean`

@@ -60,6 +60,11 @@ export interface Options {
    */
   skipBuild?: boolean;
   /**
+   * @description Skip dry-run validation during prepare phase
+   * @default false
+   */
+  skipDryRun?: boolean;
+  /**
    * @description Skip publishing task
    * @default false
    */
