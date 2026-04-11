@@ -126,6 +126,8 @@ async function getCrateName(packagePath: string): Promise<string> {
 }
 
 const MISSING_CRATE_PATTERN = /no matching package named `([^`]+)` found/;
+const VERSION_MISMATCH_PATTERN =
+  /failed to select a version for the requirement `([^=`\s]+)/;
 
 async function findUnpublishedSiblingDeps(
   packagePath: string,
@@ -217,15 +219,18 @@ export function createCratesDryRunPublishTask(
       } catch (error) {
         // Reactive fallback: catch sibling-related errors
         const message = error instanceof Error ? error.message : String(error);
-        const match = message.match(MISSING_CRATE_PATTERN);
-        if (match && siblingKeys) {
+        const missingMatch = message.match(MISSING_CRATE_PATTERN);
+        const versionMatch = message.match(VERSION_MISMATCH_PATTERN);
+        const crateName = missingMatch?.[1] ?? versionMatch?.[1]?.trim();
+
+        if (crateName && siblingKeys) {
           const siblingNames = await Promise.all(
             siblingKeys.map((k) => getCrateName(pathFromKey(k))),
           );
-          if (siblingNames.includes(match[1])) {
+          if (siblingNames.includes(crateName)) {
             task.title = t("task.dryRun.crates.skippedSibling", {
               path: packagePath,
-              crate: match[1],
+              crate: crateName,
             });
             return;
           }
