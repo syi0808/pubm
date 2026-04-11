@@ -245,15 +245,19 @@ function extractBumpTypes(
 }
 
 /**
- * Writes name-keyed bump types back to the packageKey-keyed bumps map.
+ * Writes bump types back to the packageKey-keyed bumps map.
+ * Keys can be either package names or packageKeys (path::ecosystem).
+ * A packageKey matches exactly one package; a name may match multiple.
  */
 function reapplyBumpTypes(
   bumps: Map<string, VersionBump>,
   bumpTypes: Map<string, BumpType>,
   packages: ResolvedPackageConfig[],
 ): void {
-  for (const [name, bumpType] of bumpTypes) {
-    const matchingPkgs = packages.filter((p) => p.name === name);
+  for (const [key, bumpType] of bumpTypes) {
+    const matchingPkgs = key.includes("::")
+      ? packages.filter((p) => packageKey(p) === key)
+      : packages.filter((p) => p.name === key);
     for (const pkg of matchingPkgs) {
       const pkgKey = packageKey(pkg);
       const existing = bumps.get(pkgKey);
