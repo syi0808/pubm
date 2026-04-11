@@ -201,7 +201,9 @@ export async function handleMultiPackage(
   );
   ctx.runtime.changesetConsumed = recommendations.some((r) => {
     const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
-    return r.source === "changeset" && keys.some((k) => selectedVersions.has(k));
+    return (
+      r.source === "changeset" && keys.some((k) => selectedVersions.has(k))
+    );
   });
 }
 
