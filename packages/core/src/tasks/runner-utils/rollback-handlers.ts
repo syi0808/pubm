@@ -26,24 +26,24 @@ export function getPackageName(ctx: PubmContext, key: string): string {
 }
 
 export function formatTag(
-	ctx: PubmContext,
-	key: string,
-	version: string,
+  ctx: PubmContext,
+  key: string,
+  version: string,
 ): string {
-	const pkgName = getPackageName(ctx, key);
-	const qualified =
-		ctx.config.registryQualifiedTags || ctx.runtime.registryQualifiedTags;
-	if (qualified) {
-		const pkg = ctx.config.packages.find((p) => packageKey(p) === key);
-		const registry = pkg?.registries[0];
-		if (!registry) {
-			throw new AbstractError(
-				`Package "${pkgName}" has no registries defined but registryQualifiedTags is enabled`,
-			);
-		}
-		return `${registry}/${pkgName}@${version}`;
-	}
-	return `${pkgName}@${version}`;
+  const pkgName = getPackageName(ctx, key);
+  const qualified =
+    ctx.config.registryQualifiedTags || ctx.runtime.registryQualifiedTags;
+  if (qualified) {
+    const pkg = ctx.config.packages.find((p) => packageKey(p) === key);
+    const registry = pkg?.registries[0];
+    if (!registry) {
+      throw new AbstractError(
+        `Package "${pkgName}" has no registries defined but registryQualifiedTags is enabled`,
+      );
+    }
+    return `${registry}/${pkgName}@${version}`;
+  }
+  return `${pkgName}@${version}`;
 }
 
 export function requireVersionPlan(ctx: PubmContext) {
