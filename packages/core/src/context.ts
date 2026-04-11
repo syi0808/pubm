@@ -65,6 +65,7 @@ export interface PubmContext {
     cleanWorkingTree: boolean;
     pluginRunner: PluginRunner;
     versionPlan?: VersionPlan;
+    registryQualifiedTags?: boolean;
     releaseContext?: ReleaseContext;
     scopeCreated?: boolean;
     packageCreated?: boolean;

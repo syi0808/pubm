@@ -1,4 +1,5 @@
 import path from "node:path";
+import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { Listr, ListrTask } from "listr2";
 import { isCI } from "std-env";
 import type { ResolvedPackageConfig } from "../config/types.js";
@@ -28,6 +29,31 @@ class RequiredConditionCheckError extends AbstractError {
 
     this.stack = "";
   }
+}
+
+
+/**
+ * Detect package names that appear across different ecosystems,
+ * which would cause tag collisions in independent versioning mode.
+ * Returns an array of colliding package names.
+ */
+export function detectTagNameCollisions(
+  packages: ResolvedPackageConfig[],
+): string[] {
+  const nameToEcosystems = new Map<string, Set<string>>();
+  for (const pkg of packages) {
+    const ecosystems = nameToEcosystems.get(pkg.name);
+    if (ecosystems) {
+      ecosystems.add(pkg.ecosystem);
+    } else {
+      nameToEcosystems.set(pkg.name, new Set([pkg.ecosystem]));
+    }
+  }
+  const collisions: string[] = [];
+  for (const [name, ecosystems] of nameToEcosystems) {
+    if (ecosystems.size > 1) collisions.push(name);
+  }
+  return collisions;
 }
 
 export const requiredConditionsCheckTask = (
@@ -78,6 +104,11 @@ export const requiredConditionsCheckTask = (
     task: (ctx, parentTask): Listr<PubmContext> =>
       parentTask.newListr(
         [
+          {
+            title: t("task.conditions.title"),
+            task: (_ctx, conditionsTask): Listr<PubmContext> =>
+              conditionsTask.newListr(
+                [
           {
             title: t("task.conditions.pingRegistries"),
             task: (ctx, parentTask): Listr<PubmContext> =>
@@ -260,10 +291,47 @@ export const requiredConditionsCheckTask = (
                 await check.task(ctx, wrapTaskContext(task));
               },
             })),
+                ],
+                { concurrent: true },
+              ),
+          },
+          // NEW: Tag collision check runs sequentially after concurrent checks
+          {
+            title: t("task.conditions.checkTagCollisions"),
+            skip: (ctx) =>
+              ctx.config.versioning !== "independent" ||
+              !!ctx.config.registryQualifiedTags,
+            task: async (ctx, task): Promise<void> => {
+              const collisions = detectTagNameCollisions(ctx.config.packages);
+              if (collisions.length === 0) return;
+
+              const names = collisions.join(", ");
+
+              if (ctx.runtime.promptEnabled) {
+                const useQualified = await task
+                  .prompt(ListrEnquirerPromptAdapter)
+                  .run<boolean>({
+                    type: "toggle",
+                    message: t("task.conditions.tagCollisionPrompt", { names }),
+                    enabled: "Yes",
+                    disabled: "No",
+                  });
+                if (useQualified) {
+                  ctx.runtime.registryQualifiedTags = true;
+                } else {
+                  throw new RequiredConditionCheckError(
+                    t("error.conditions.tagCollision", { names }),
+                  );
+                }
+              } else {
+                throw new RequiredConditionCheckError(
+                  t("error.conditions.tagCollision", { names }),
+                );
+              }
+            },
+          },
         ],
-        {
-          concurrent: true,
-        },
+        { concurrent: false },
       ),
   };
 
