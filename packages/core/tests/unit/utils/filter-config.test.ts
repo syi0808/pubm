@@ -14,6 +14,7 @@ function makePkg(path: string, name: string): ResolvedPackageConfig {
     version: "1.0.0",
     dependencies: [],
     registries: ["npm"],
+    ecosystem: "js",
   };
 }
 

@@ -113,6 +113,7 @@ function makePkg(
     path: overrides.path ?? ".",
     registries: overrides.registries ?? ["npm"],
     dependencies: overrides.dependencies ?? [],
+    ecosystem: overrides.ecosystem ?? "js",
     ...overrides,
   };
 }

@@ -41,9 +41,20 @@ vi.mock("../../../src/ecosystem/catalog.js", async (importOriginal) => {
   return {
     ...original,
     ecosystemCatalog: {
-      detect: vi.fn(),
+      detectAll: vi.fn(),
       get: vi.fn(),
       all: original.ecosystemCatalog.all.bind(original.ecosystemCatalog),
+    },
+  };
+});
+
+vi.mock("../../../src/registry/catalog.js", async (importOriginal) => {
+  const original =
+    (await importOriginal()) as typeof import("../../../src/registry/catalog.js");
+  return {
+    ...original,
+    registryCatalog: {
+      get: vi.fn((key: string) => original.registryCatalog.get(key)),
     },
   };
 });
@@ -58,6 +69,7 @@ import {
   resolvePatterns,
 } from "../../../src/monorepo/discover.js";
 import { detectWorkspace } from "../../../src/monorepo/workspace.js";
+import { registryCatalog } from "../../../src/registry/catalog.js";
 
 const mockedReaddirSync = vi.mocked(readdirSync);
 const mockedStatSync = vi.mocked(statSync);
@@ -65,6 +77,7 @@ const mockedLstatSync = vi.mocked(lstatSync);
 const mockedDetectWorkspace = vi.mocked(detectWorkspace);
 const mockedInferRegistries = vi.mocked(inferRegistries);
 const mockedEcosystemCatalog = vi.mocked(ecosystemCatalog);
+const mockedRegistryCatalog = vi.mocked(registryCatalog);
 
 function createMockEcosystemDescriptor(
   key: string,
@@ -175,7 +188,7 @@ beforeEach(() => {
 describe("discoverPackages", () => {
   it("returns empty array when no workspace, no config packages, and no ecosystem at cwd", async () => {
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(null);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([]);
 
     const result = await discoverPackages({ cwd: "/project" });
 
@@ -191,7 +204,7 @@ describe("discoverPackages", () => {
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
     setupDirectoryEntries(["packages/foo", "packages/bar"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm", "jsr"]);
 
@@ -238,7 +251,7 @@ describe("discoverPackages", () => {
       { type: "pnpm", patterns: ["crates/*"] },
     ]);
     setupDirectoryEntries(["crates/my-crate"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(rustDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([rustDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(rustDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["crates"]);
 
@@ -265,7 +278,7 @@ describe("discoverPackages", () => {
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
     setupDirectoryEntries(["packages/foo", "packages/internal"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
@@ -291,7 +304,7 @@ describe("discoverPackages", () => {
       name: "foo",
       version: "2.0.0",
     });
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
 
     const fooPath = path.join("packages", "foo");
@@ -325,7 +338,7 @@ describe("discoverPackages", () => {
       name: "standalone",
       version: "1.0.0",
     });
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
@@ -370,8 +383,8 @@ describe("discoverPackages", () => {
       ],
     });
 
-    // detect should not be called when ecosystem is explicitly set
-    expect(mockedEcosystemCatalog.detect).not.toHaveBeenCalled();
+    // detectAll should not be called when ecosystem is explicitly set
+    expect(mockedEcosystemCatalog.detectAll).not.toHaveBeenCalled();
 
     expect(result).toEqual([
       {
@@ -390,7 +403,7 @@ describe("discoverPackages", () => {
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
     setupDirectoryEntries(["packages/unknown"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(null);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([]);
 
     const result = await discoverPackages({ cwd: "/project" });
 
@@ -402,7 +415,7 @@ describe("discoverPackages", () => {
       name: "standalone",
       version: "1.0.0",
     });
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm", "jsr"]);
 
@@ -450,12 +463,12 @@ describe("discoverPackages", () => {
     ]);
     setupDirectoryEntries(["packages/public-pkg", "packages/private-pkg"]);
 
-    mockedEcosystemCatalog.detect.mockImplementation(
+    mockedEcosystemCatalog.detectAll.mockImplementation(
       async (pkgPath: string) => {
         if (String(pkgPath).includes("private-pkg")) {
-          return privateDescriptor as any;
+          return [privateDescriptor as any];
         }
-        return publicDescriptor as any;
+        return [publicDescriptor as any];
       },
     );
     mockedEcosystemCatalog.get.mockReturnValue(publicDescriptor as any);
@@ -474,7 +487,7 @@ describe("discoverPackages", () => {
       version: "1.0.0",
     });
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
@@ -499,7 +512,7 @@ describe("discoverPackages", () => {
       private: true,
     });
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
 
     const result = await discoverPackages({ cwd: "/project" });
@@ -509,7 +522,7 @@ describe("discoverPackages", () => {
 
   it("returns empty when no ecosystem detected at cwd", async () => {
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(null);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([]);
 
     const result = await discoverPackages({ cwd: "/project" });
 
@@ -529,7 +542,7 @@ describe("discoverPackages", () => {
       },
     ]);
     setupDirectoryEntries(["crates/included", "crates/excluded"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(rustDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([rustDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(rustDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["crates"]);
 
@@ -550,7 +563,7 @@ describe("discoverPackages", () => {
       registryVersions as Map<string, string>,
     );
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm", "jsr"]);
 
@@ -567,7 +580,7 @@ describe("discoverPackages", () => {
       dependencies: ["dep-a", "dep-b"],
     });
     mockedDetectWorkspace.mockReturnValue([]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedEcosystemCatalog.get.mockReturnValue(jsDescriptor as any);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
@@ -586,7 +599,7 @@ describe("discoverPackages", () => {
       "packages/plugins/plugin-a",
       "packages/plugins/plugin-b",
     ]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
     const result = await discoverPackages({
@@ -620,8 +633,8 @@ describe("discoverPackages", () => {
       expect(pkg.registries).toEqual(["crates"]);
       expect(pkg.ecosystem).toBe("rust");
     }
-    // ecosystemCatalog.get should be used (not detect) since ecosystem is explicit
-    expect(mockedEcosystemCatalog.detect).not.toHaveBeenCalled();
+    // ecosystemCatalog.get should be used (not detectAll) since ecosystem is explicit
+    expect(mockedEcosystemCatalog.detectAll).not.toHaveBeenCalled();
   });
 
   it("filters private packages matched by glob pattern", async () => {
@@ -639,12 +652,12 @@ describe("discoverPackages", () => {
       "packages/plugins/public-plugin",
       "packages/plugins/private-plugin",
     ]);
-    mockedEcosystemCatalog.detect.mockImplementation(
+    mockedEcosystemCatalog.detectAll.mockImplementation(
       async (pkgPath: string) => {
         if (String(pkgPath).includes("private-plugin")) {
-          return privateDescriptor as any;
+          return [privateDescriptor as any];
         }
-        return publicDescriptor as any;
+        return [publicDescriptor as any];
       },
     );
     mockedInferRegistries.mockResolvedValue(["npm"]);
@@ -664,7 +677,7 @@ describe("discoverPackages", () => {
       version: "1.0.0",
     });
     setupDirectoryEntries(["packages/plugins/plugin-a"]);
-    mockedEcosystemCatalog.detect.mockResolvedValue(jsDescriptor as any);
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([jsDescriptor as any]);
     mockedInferRegistries.mockResolvedValue(["npm"]);
 
     const result = await discoverPackages({
@@ -695,6 +708,96 @@ describe("discoverPackages", () => {
     });
 
     expect(result).toEqual([]);
+  });
+});
+
+describe("multi-ecosystem discovery", () => {
+  it("expands path with multiple ecosystems into multiple packages", async () => {
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([
+      createMockEcosystemDescriptor("js", { name: "my-cli", version: "1.0.0" }),
+      createMockEcosystemDescriptor("rust", {
+        name: "my-cli-rs",
+        version: "0.5.0",
+      }),
+    ]);
+    mockedInferRegistries.mockImplementation(async (_path, eco) => {
+      if (eco === "js") return ["npm"];
+      if (eco === "rust") return ["crates"];
+      return [];
+    });
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: "." }],
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result.find((p) => p.ecosystem === "js")).toMatchObject({
+      name: "my-cli",
+      version: "1.0.0",
+      registries: ["npm"],
+    });
+    expect(result.find((p) => p.ecosystem === "rust")).toMatchObject({
+      name: "my-cli-rs",
+      version: "0.5.0",
+      registries: ["crates"],
+    });
+  });
+
+  it("filters by explicit ecosystem", async () => {
+    mockedEcosystemCatalog.get.mockReturnValue(
+      createMockEcosystemDescriptor("js", {
+        name: "my-cli",
+        version: "1.0.0",
+      }) as any,
+    );
+    mockedInferRegistries.mockResolvedValue(["npm"]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: ".", ecosystem: "js" }],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].ecosystem).toBe("js");
+  });
+
+  it("filters by registries — infers ecosystem from registry", async () => {
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([
+      createMockEcosystemDescriptor("js", { name: "my-cli", version: "1.0.0" }),
+      createMockEcosystemDescriptor("rust", {
+        name: "my-cli-rs",
+        version: "0.5.0",
+      }),
+    ]);
+    mockedRegistryCatalog.get.mockImplementation((key: string) => {
+      if (key === "npm") return { ecosystem: "js" } as any;
+      if (key === "crates") return { ecosystem: "rust" } as any;
+      return undefined;
+    });
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: ".", registries: ["npm"] }],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].ecosystem).toBe("js");
+  });
+
+  it("single ecosystem detected produces single package", async () => {
+    mockedEcosystemCatalog.detectAll.mockResolvedValue([
+      createMockEcosystemDescriptor("js", { name: "my-pkg", version: "1.0.0" }),
+    ]);
+    mockedInferRegistries.mockResolvedValue(["npm"]);
+
+    const result = await discoverPackages({
+      cwd: "/project",
+      configPackages: [{ path: "." }],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].ecosystem).toBe("js");
   });
 });
 

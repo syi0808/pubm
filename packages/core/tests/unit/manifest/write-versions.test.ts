@@ -25,6 +25,7 @@ function createMockPkg(name: string): ResolvedPackageConfig {
     path: `/mock/${name}`,
     dependencies: [],
     registries: [],
+    ecosystem: "js",
   };
 }
 

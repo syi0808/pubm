@@ -1,5 +1,6 @@
 import type { CompressOption, ReleaseAssetEntry } from "../assets/types.js";
 import type { BumpType } from "../changeset/parser.js";
+import type { EcosystemKey } from "../ecosystem/catalog.js";
 import type { PubmPlugin } from "../plugin/types.js";
 import type { RegistryType } from "../types/options.js";
 
@@ -26,11 +27,12 @@ export interface PackageConfig {
 }
 
 export interface ResolvedPackageConfig
-  extends Omit<PackageConfig, "registries"> {
+  extends Omit<PackageConfig, "registries" | "ecosystem"> {
   name: string;
   version: string;
   dependencies: string[];
   registries: RegistryType[];
+  ecosystem: EcosystemKey;
   registryVersions?: Map<RegistryType, string>;
 }
 

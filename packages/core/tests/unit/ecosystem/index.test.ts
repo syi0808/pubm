@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../src/ecosystem/catalog.js", () => {
   const mockCatalog = {
     get: vi.fn(),
-    detect: vi.fn(),
+    detectAll: vi.fn(),
     all: vi.fn().mockReturnValue([]),
     register: vi.fn(),
   };
@@ -13,7 +13,7 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
 import { ecosystemCatalog } from "../../../src/ecosystem/catalog.js";
 import { detectEcosystem } from "../../../src/ecosystem/index.js";
 
-const mockedEcosystemCatalogDetect = vi.mocked(ecosystemCatalog.detect);
+const mockedEcosystemCatalogDetectAll = vi.mocked(ecosystemCatalog.detectAll);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,15 +27,17 @@ describe("detectEcosystem", () => {
         this.packagePath = path;
       }
     }
-    mockedEcosystemCatalogDetect.mockResolvedValue({
-      key: "js",
-      ecosystemClass: MockEcosystem,
-    } as any);
+    mockedEcosystemCatalogDetectAll.mockResolvedValue([
+      {
+        key: "js",
+        ecosystemClass: MockEcosystem,
+      } as any,
+    ]);
 
     const eco = await detectEcosystem("/some/path");
     expect(eco).toBeDefined();
     expect((eco as any).packagePath).toBe("/some/path");
-    expect(mockedEcosystemCatalogDetect).toHaveBeenCalledWith("/some/path");
+    expect(mockedEcosystemCatalogDetectAll).toHaveBeenCalledWith("/some/path");
   });
 
   it("detects Rust ecosystem from manifest", async () => {
@@ -45,19 +47,21 @@ describe("detectEcosystem", () => {
         this.packagePath = path;
       }
     }
-    mockedEcosystemCatalogDetect.mockResolvedValue({
-      key: "rust",
-      ecosystemClass: MockRustEcosystem,
-    } as any);
+    mockedEcosystemCatalogDetectAll.mockResolvedValue([
+      {
+        key: "rust",
+        ecosystemClass: MockRustEcosystem,
+      } as any,
+    ]);
 
     const eco = await detectEcosystem("/rust/path");
     expect(eco).toBeDefined();
     expect((eco as any).packagePath).toBe("/rust/path");
-    expect(mockedEcosystemCatalogDetect).toHaveBeenCalledWith("/rust/path");
+    expect(mockedEcosystemCatalogDetectAll).toHaveBeenCalledWith("/rust/path");
   });
 
   it("returns null when no ecosystem detected", async () => {
-    mockedEcosystemCatalogDetect.mockResolvedValue(null);
+    mockedEcosystemCatalogDetectAll.mockResolvedValue([]);
 
     const eco = await detectEcosystem("/empty/path");
     expect(eco).toBeNull();
