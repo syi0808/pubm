@@ -78,7 +78,7 @@ export function buildDependencyBumpNote(
 
 export function renderPackageVersionSummary(
   packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
+  _currentVersions: Map<string, string>,
   selectedVersions: Map<string, string>,
   options: {
     activePackage?: string;
@@ -88,7 +88,7 @@ export function renderPackageVersionSummary(
   const lines = [t("output.packages")];
 
   for (const pkg of packageInfos) {
-    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
+    const currentVersion = pkg.version;
     const selectedVersion = selectedVersions.get(packageKey(pkg));
     const prefix = options.activePackage === pkg.path ? "> " : "  ";
 

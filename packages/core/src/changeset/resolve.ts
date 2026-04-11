@@ -9,11 +9,11 @@ export function createKeyResolver(
   const nameEcosystems = new Map<string, EcosystemKey[]>();
   for (const p of packages) {
     const existingPath = pathEcosystems.get(p.path) ?? [];
-    existingPath.push(p.ecosystem);
+    if (!existingPath.includes(p.ecosystem)) existingPath.push(p.ecosystem);
     pathEcosystems.set(p.path, existingPath);
 
     const existingName = nameEcosystems.get(p.name) ?? [];
-    existingName.push(p.ecosystem);
+    if (!existingName.includes(p.ecosystem)) existingName.push(p.ecosystem);
     nameEcosystems.set(p.name, existingName);
   }
 
