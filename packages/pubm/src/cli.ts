@@ -76,6 +76,7 @@ interface CliOptions {
   contents?: string;
   registry?: string;
   saveToken: boolean;
+  dryRunValidation: boolean;
   dangerouslyAllowUnpublish?: boolean;
   createPr?: boolean;
   locale?: string;
