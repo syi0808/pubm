@@ -122,10 +122,14 @@ describe("generateChangelog", () => {
     ] as any;
 
     const jsEntries = buildChangelogEntries(changesets, ".::js");
-    expect(jsEntries).toEqual([{ id: "cs-1", summary: "JS fix.", type: "patch" }]);
+    expect(jsEntries).toEqual([
+      { id: "cs-1", summary: "JS fix.", type: "patch" },
+    ]);
 
     const rustEntries = buildChangelogEntries(changesets, ".::rust");
-    expect(rustEntries).toEqual([{ id: "cs-2", summary: "Rust feature.", type: "minor" }]);
+    expect(rustEntries).toEqual([
+      { id: "cs-2", summary: "Rust feature.", type: "minor" },
+    ]);
   });
 
   describe("deduplicateEntries", () => {

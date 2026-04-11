@@ -16,6 +16,7 @@ import type { PubmContext } from "../../context.js";
 import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
+import { pathFromKey } from "../../utils/package-key.js";
 import {
   formatVersionPlan,
   formatVersionSummary,
@@ -159,8 +160,8 @@ export function createVersionTask(
             registerChangelogBackup(ctx, changelogPath);
 
             const allEntries = deduplicateEntries(
-              [...plan.packages.keys()].flatMap((pkgPath) =>
-                buildChangelogEntries(changesets, pkgPath),
+              [...plan.packages.keys()].flatMap((key) =>
+                buildChangelogEntries(changesets, key),
               ),
             );
             if (allEntries.length > 0) {
@@ -206,9 +207,7 @@ export function createVersionTask(
 
         task.output = t("task.version.creatingCommit", { tag: tagName });
         const fixedCommitMsg = `Version Packages\n\n${[...plan.packages]
-          .map(
-            ([pkgPath]) => `- ${getPackageName(ctx, pkgPath)}: ${plan.version}`,
-          )
+          .map(([key]) => `- ${getPackageName(ctx, key)}: ${plan.version}`)
           .join("\n")}`;
         const commit = await git.commit(fixedCommitMsg);
         registerCommitRollback(ctx);
@@ -240,9 +239,9 @@ export function createVersionTask(
             registerChangesetBackups(ctx, changesets);
 
             // Back up changelog files (per-package for independent mode)
-            for (const [pkgPath] of plan.packages) {
+            for (const [key] of plan.packages) {
               const pkgConfig = ctx.config.packages.find(
-                (p) => p.path === pkgPath,
+                (p) => p.path === pathFromKey(key),
               );
               const changelogDir = pkgConfig
                 ? path.resolve(ctx.cwd, pkgConfig.path)
@@ -251,11 +250,11 @@ export function createVersionTask(
               registerChangelogBackup(ctx, changelogPath);
             }
 
-            for (const [pkgPath, pkgVersion] of plan.packages) {
-              const entries = buildChangelogEntries(changesets, pkgPath);
+            for (const [key, pkgVersion] of plan.packages) {
+              const entries = buildChangelogEntries(changesets, key);
               if (entries.length > 0) {
                 const pkgConfig = ctx.config.packages.find(
-                  (p) => p.path === pkgPath,
+                  (p) => p.path === pathFromKey(key),
                 );
                 const changelogDir = pkgConfig
                   ? path.resolve(ctx.cwd, pkgConfig.path)
@@ -276,9 +275,9 @@ export function createVersionTask(
         await git.stage(".");
 
         // Tag existence checks for all packages
-        for (const [pkgPath, pkgVersion] of plan.packages) {
-          if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-          const pkgName = getPackageName(ctx, pkgPath);
+        for (const [key, pkgVersion] of plan.packages) {
+          if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
+          const pkgName = getPackageName(ctx, key);
           const tagName = `${pkgName}@${pkgVersion}`;
           if (await git.checkTagExist(tagName)) {
             if (ctx.runtime.promptEnabled) {
@@ -307,7 +306,7 @@ export function createVersionTask(
 
         // Commit with "Version Packages" message
         const commitMsg = `Version Packages\n\n${[...plan.packages]
-          .map(([pkgPath, ver]) => `- ${getPackageName(ctx, pkgPath)}: ${ver}`)
+          .map(([key, ver]) => `- ${getPackageName(ctx, key)}: ${ver}`)
           .join("\n")}`;
         task.output = t("task.version.creatingCommitGeneric");
         const commit = await git.commit(commitMsg);
@@ -315,9 +314,9 @@ export function createVersionTask(
 
         // Create per-package tags
         task.output = t("task.version.creatingTags");
-        for (const [pkgPath, pkgVersion] of plan.packages) {
-          if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-          const pkgName = getPackageName(ctx, pkgPath);
+        for (const [key, pkgVersion] of plan.packages) {
+          if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
+          const pkgName = getPackageName(ctx, key);
           const tag = `${pkgName}@${pkgVersion}`;
           await git.createTag(tag, commit);
           registerTagRollback(ctx, tag);

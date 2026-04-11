@@ -22,6 +22,7 @@ import {
   ecosystemCatalog,
   Git,
   mergeRecommendations,
+  packageKey,
   renderChangelog,
   resolveGroups,
   t,
@@ -168,9 +169,11 @@ export async function runVersionCommand(
 
   // 7. Write versions to manifest files via ecosystem
   const ecosystems = buildEcosystems(config.packages, bumps, cwd);
+  // Build packageKey-keyed version map for writeVersionsForEcosystem
   const versions = new Map<string, string>();
   for (const [pkgPath, bump] of bumps) {
-    versions.set(pkgPath, bump.newVersion);
+    const pkg = config.packages.find((p) => p.path === pkgPath);
+    if (pkg) versions.set(packageKey(pkg), bump.newVersion);
   }
   await writeVersionsForEcosystem(ecosystems, versions, config.lockfileSync);
 

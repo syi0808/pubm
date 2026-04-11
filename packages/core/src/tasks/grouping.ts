@@ -4,6 +4,7 @@ import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
+import { packageKey } from "../utils/package-key.js";
 
 interface RegistrySource {
   packages?: ResolvedPackageConfig[];
@@ -11,7 +12,7 @@ interface RegistrySource {
 
 export interface RegistryGroup {
   registry: RegistryType;
-  packagePaths: string[];
+  packageKeys: string[];
 }
 
 export interface EcosystemGroup {
@@ -78,16 +79,16 @@ export function collectEcosystemRegistryGroups(
         ensureRegistrySet(
           resolveEcosystem(registry, pkg.ecosystem),
           registry,
-        ).add(pkg.path);
+        ).add(packageKey(pkg));
       }
     }
   }
 
   return [...ecosystems.entries()].map(([ecosystem, registries]) => ({
     ecosystem,
-    registries: [...registries.entries()].map(([registry, packagePaths]) => ({
+    registries: [...registries.entries()].map(([registry, packageKeys]) => ({
       registry,
-      packagePaths: [...packagePaths],
+      packageKeys: [...packageKeys],
     })),
   }));
 }

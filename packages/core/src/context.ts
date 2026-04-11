@@ -42,10 +42,7 @@ export function resolveVersion(
   return picker(plan.packages);
 }
 
-export function getPackageVersion(
-  ctx: PubmContext,
-  key: string,
-): string {
+export function getPackageVersion(ctx: PubmContext, key: string): string {
   const plan = ctx.runtime.versionPlan;
   if (plan) {
     if (plan.mode === "single") return plan.version;

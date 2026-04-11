@@ -14,6 +14,7 @@ import type {
 } from "../../context.js";
 import { t } from "../../i18n/index.js";
 import { filterConfigPackages } from "../../utils/filter-config.js";
+import { packageKey, pathFromKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
 import {
   buildDependencyBumpNote,
@@ -62,6 +63,7 @@ export async function handleMultiPackage(
 ): Promise<void> {
   const graph = buildGraphFromPackages(packageInfos);
   const currentVersions = new Map(packageInfos.map((p) => [p.path, p.version]));
+  const pathToKey = new Map(packageInfos.map((p) => [p.path, packageKey(p)]));
   const recommendations = await analyzeAllSources(ctx);
 
   // CI mode: auto-accept
@@ -71,15 +73,19 @@ export async function handleMultiPackage(
       const current = currentVersions.get(rec.packagePath);
       if (!current) continue;
       const newVer = semver.inc(current, rec.bumpType);
-      if (newVer) packages.set(rec.packagePath, newVer);
+      if (newVer) {
+        const key = pathToKey.get(rec.packagePath) ?? rec.packagePath;
+        packages.set(key, newVer);
+      }
     }
     ctx.runtime.versionPlan = buildVersionPlan(
       ctx.config.versioning ?? "independent",
       packages,
     );
-    ctx.runtime.changesetConsumed = recommendations.some(
-      (r) => r.source === "changeset" && packages.has(r.packagePath),
-    );
+    ctx.runtime.changesetConsumed = recommendations.some((r) => {
+      const key = pathToKey.get(r.packagePath) ?? r.packagePath;
+      return r.source === "changeset" && packages.has(key);
+    });
     return;
   }
 
@@ -120,7 +126,10 @@ export async function handleMultiPackage(
       const current = currentVersions.get(rec.packagePath);
       if (!current) continue;
       const newVer = semver.inc(current, rec.bumpType);
-      if (newVer) selectedVersions.set(rec.packagePath, newVer);
+      if (newVer) {
+        const key = pathToKey.get(rec.packagePath) ?? rec.packagePath;
+        selectedVersions.set(key, newVer);
+      }
     }
   } else {
     // Edit mode: delegate to existing manual flows
@@ -152,26 +161,27 @@ export async function handleMultiPackage(
       // Filter out packages where the selected version equals the current version.
       const plan = ctx.runtime.versionPlan;
       if (plan && plan.mode === "independent") {
-        const publishPaths = new Set<string>();
-        for (const [pkgPath, selectedVersion] of plan.packages) {
+        const publishKeys = new Set<string>();
+        for (const [key, selectedVersion] of plan.packages) {
+          const pkgPath = pathFromKey(key);
           if (selectedVersion !== (currentVersions.get(pkgPath) ?? "")) {
-            publishPaths.add(pkgPath);
+            publishKeys.add(key);
           }
         }
         plan.packages = new Map(
-          [...plan.packages].filter(([p]) => publishPaths.has(p)),
+          [...plan.packages].filter(([k]) => publishKeys.has(k)),
         );
+        const publishPaths = new Set([...publishKeys].map(pathFromKey));
         filterConfigPackages(ctx, publishPaths);
       }
     }
     const plan = ctx.runtime.versionPlan;
-    ctx.runtime.changesetConsumed = recommendations.some(
-      (r) =>
-        r.source === "changeset" &&
-        plan !== undefined &&
-        "packages" in plan &&
-        plan.packages.has(r.packagePath),
-    );
+    ctx.runtime.changesetConsumed = recommendations.some((r) => {
+      if (r.source !== "changeset" || !plan || !("packages" in plan))
+        return false;
+      const key = pathToKey.get(r.packagePath) ?? r.packagePath;
+      return plan.packages.has(key);
+    });
     return;
   }
 
@@ -181,9 +191,10 @@ export async function handleMultiPackage(
     ctx.config.versioning ?? "independent",
     selectedVersions,
   );
-  ctx.runtime.changesetConsumed = recommendations.some(
-    (r) => r.source === "changeset" && selectedVersions.has(r.packagePath),
-  );
+  ctx.runtime.changesetConsumed = recommendations.some((r) => {
+    const key = pathToKey.get(r.packagePath) ?? r.packagePath;
+    return r.source === "changeset" && selectedVersions.has(key);
+  });
 }
 
 /**
@@ -260,7 +271,7 @@ export async function handleIndependentMode(
       bump?.bumpType,
       lastBumpType,
     );
-    versions.set(pkg.path, result.version);
+    versions.set(packageKey(pkg), result.version);
     lastBumpType = result.bumpType;
 
     if (result.version !== currentVersion) {
@@ -320,7 +331,10 @@ export async function handleIndependentMode(
           currentVersions.get(pkgPath) ??
           (packageVersionByPath.get(pkgPath) as string);
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
-        versions.set(pkgPath, patchVersion);
+        const pkg = packageInfos.find((p) => p.path === pkgPath);
+        if (pkg) {
+          versions.set(packageKey(pkg), patchVersion);
+        }
       }
     }
   }

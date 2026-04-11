@@ -460,9 +460,9 @@ describe("requiredMissingInformationTasks", () => {
       // pubm selected "keep current" (0.3.6), so it must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([["packages/core", "0.3.7"]]),
+        packages: new Map([["packages/core::js", "0.3.7"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm::js")).toBe(
         false,
       );
       expect(
@@ -534,8 +534,8 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
         packages: new Map([
-          ["packages/core", "0.3.7"],
-          ["packages/pubm", "0.4.0"],
+          ["packages/core::js", "0.3.7"],
+          ["packages/pubm::js", "0.4.0"],
         ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
@@ -631,8 +631,8 @@ describe("requiredMissingInformationTasks", () => {
         mode: "fixed",
         version: "1.0.1",
         packages: new Map([
-          ["packages/core", "1.0.1"],
-          ["packages/pubm", "1.0.1"],
+          ["packages/core::js", "1.0.1"],
+          ["packages/pubm::js", "1.0.1"],
         ]),
       });
     });
@@ -674,8 +674,8 @@ describe("requiredMissingInformationTasks", () => {
         mode: "fixed",
         version: "2.0.0",
         packages: new Map([
-          ["packages/core", "2.0.0"],
-          ["packages/pubm", "2.0.0"],
+          ["packages/core::js", "2.0.0"],
+          ["packages/pubm::js", "2.0.0"],
         ]),
       });
       expect(mockTask.output).toContain("1.2.0");
@@ -758,8 +758,8 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
         packages: new Map([
-          ["packages/core", "0.4.0"],
-          ["packages/pubm", "0.3.7"],
+          ["packages/core::js", "0.4.0"],
+          ["packages/pubm::js", "0.3.7"],
         ]),
       });
       expect(
@@ -818,12 +818,12 @@ describe("requiredMissingInformationTasks", () => {
       // pkg-a and pkg-b selected "keep current" (0.3.6), so they must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([["packages/core", "0.4.0"]]),
+        packages: new Map([["packages/core::js", "0.4.0"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-a")).toBe(
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-a::js")).toBe(
         false,
       );
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-b")).toBe(
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pkg-b::js")).toBe(
         false,
       );
       expect(
@@ -877,9 +877,9 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
         packages: new Map([
-          ["packages/core", "1.0.1"],
-          ["packages/utils", "2.0.1"],
-          ["packages/app", "3.0.1"],
+          ["packages/core::js", "1.0.1"],
+          ["packages/utils::js", "2.0.1"],
+          ["packages/app::js", "3.0.1"],
         ]),
       });
       expect(
@@ -930,9 +930,9 @@ describe("requiredMissingInformationTasks", () => {
       // pubm selected "keep current" (0.3.6), so it must be filtered out
       expect(ctx.runtime.versionPlan).toMatchObject({
         mode: "independent",
-        packages: new Map([["packages/core", "0.4.0"]]),
+        packages: new Map([["packages/core::js", "0.4.0"]]),
       });
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm::js")).toBe(
         false,
       );
     });
@@ -1062,8 +1062,10 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       // Only pkgA (changed) should appear in the plan
-      expect(ctx.runtime.versionPlan?.packages.has("packages/core")).toBe(true);
-      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm")).toBe(
+      expect(ctx.runtime.versionPlan?.packages.has("packages/core::js")).toBe(
+        true,
+      );
+      expect(ctx.runtime.versionPlan?.packages.has("packages/pubm::js")).toBe(
         false,
       );
       // filterConfigPackages must be called with only pkgA's path
@@ -1663,7 +1665,7 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(ctx.runtime.versionPlan).toEqual({
         mode: "independent",
-        packages: new Map([["packages/a", "1.1.0"]]),
+        packages: new Map([["packages/a::js", "1.1.0"]]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
@@ -1695,7 +1697,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan).toEqual({
         mode: "fixed",
         version: "1.1.0",
-        packages: new Map([["packages/a", "1.1.0"]]),
+        packages: new Map([["packages/a::js", "1.1.0"]]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
@@ -1753,8 +1755,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versionPlan?.packages.get("packages/a")).toBe("1.1.0");
-      expect(ctx.runtime.versionPlan?.packages.get("packages/b")).toBe("2.1.0");
+      expect(ctx.runtime.versionPlan?.packages.get("packages/a::js")).toBe(
+        "1.1.0",
+      );
+      expect(ctx.runtime.versionPlan?.packages.get("packages/b::js")).toBe(
+        "2.1.0",
+      );
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });
 
@@ -1773,7 +1779,9 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versionPlan?.packages.has("packages/b")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/b::js")).toBe(
+        false,
+      );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
         new Set(["packages/a"]),
@@ -1909,7 +1917,9 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       // pkgC should be in the versionPlan with 3.0.1 (patch bump)
-      expect(ctx.runtime.versionPlan?.packages.get("packages/c")).toBe("3.0.1");
+      expect(ctx.runtime.versionPlan?.packages.get("packages/c::js")).toBe(
+        "3.0.1",
+      );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
         new Set(["packages/a", "packages/b", "packages/c"]),
@@ -1966,7 +1976,9 @@ describe("requiredMissingInformationTasks", () => {
       await versionTask.task(ctx, mockTask);
 
       // pkgC should NOT be in the versionPlan (cascade declined)
-      expect(ctx.runtime.versionPlan?.packages.has("packages/c")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/c::js")).toBe(
+        false,
+      );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
         new Set(["packages/a", "packages/b"]),
@@ -2092,8 +2104,8 @@ describe("requiredMissingInformationTasks", () => {
         mode: "fixed",
         version: "2.1.0",
         packages: new Map([
-          ["packages/a", "2.1.0"],
-          ["packages/b", "2.1.0"],
+          ["packages/a::js", "2.1.0"],
+          ["packages/b::js", "2.1.0"],
         ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
@@ -2151,8 +2163,12 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versionPlan?.packages.has("packages/a")).toBe(true);
-      expect(ctx.runtime.versionPlan?.packages.has("packages/b")).toBe(false);
+      expect(ctx.runtime.versionPlan?.packages.has("packages/a::js")).toBe(
+        true,
+      );
+      expect(ctx.runtime.versionPlan?.packages.has("packages/b::js")).toBe(
+        false,
+      );
 
       const filterArg = mockedFilterConfigPackages.mock
         .calls[0][1] as Set<string>;
@@ -2253,10 +2269,18 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      expect(ctx.runtime.versionPlan?.packages.has("packages/a")).toBe(true);
-      expect(ctx.runtime.versionPlan?.packages.get("packages/a")).toBe("1.1.0");
-      expect(ctx.runtime.versionPlan?.packages.has("packages/c")).toBe(true);
-      expect(ctx.runtime.versionPlan?.packages.get("packages/c")).toBe("2.0.1");
+      expect(ctx.runtime.versionPlan?.packages.has("packages/a::js")).toBe(
+        true,
+      );
+      expect(ctx.runtime.versionPlan?.packages.get("packages/a::js")).toBe(
+        "1.1.0",
+      );
+      expect(ctx.runtime.versionPlan?.packages.has("packages/c::js")).toBe(
+        true,
+      );
+      expect(ctx.runtime.versionPlan?.packages.get("packages/c::js")).toBe(
+        "2.0.1",
+      );
 
       const filterArg = mockedFilterConfigPackages.mock
         .calls[0][1] as Set<string>;

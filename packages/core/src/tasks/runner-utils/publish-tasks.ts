@@ -11,15 +11,15 @@ export type NewListrParentTask<Context extends object> = ListrTaskWrapper<
 
 export function createPublishTaskForPath(
   registryKey: string,
-  packagePath: string,
+  packageKey: string,
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createPublishTask) {
     throw new Error(
-      `No publish task factory registered for registry "${registryKey}". Cannot publish "${packagePath}".`,
+      `No publish task factory registered for registry "${registryKey}". Cannot publish "${packageKey}".`,
     );
   }
-  return descriptor.taskFactory.createPublishTask(packagePath);
+  return descriptor.taskFactory.createPublishTask(packageKey);
 }
 
 export async function collectPublishTasks(ctx: PubmContext) {
@@ -28,12 +28,12 @@ export async function collectPublishTasks(ctx: PubmContext) {
   const ecosystemTasks = await Promise.all(
     groups.map(async (group) => {
       const registryTasks = await Promise.all(
-        group.registries.map(async ({ registry, packagePaths }) => {
+        group.registries.map(async ({ registry, packageKeys }) => {
           const descriptor = registryCatalog.get(registry);
 
-          const paths = descriptor?.orderPackages
-            ? await descriptor.orderPackages(packagePaths)
-            : packagePaths;
+          const keys = descriptor?.orderPackages
+            ? await descriptor.orderPackages(packageKeys)
+            : packageKeys;
 
           const label = descriptor
             ? `Running ${descriptor.label} publish`
@@ -43,7 +43,7 @@ export async function collectPublishTasks(ctx: PubmContext) {
             title: label,
             task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
               task.newListr(
-                paths.map((p) => createPublishTaskForPath(registry, p)),
+                keys.map((k) => createPublishTaskForPath(registry, k)),
                 { concurrent: descriptor?.concurrentPublish ?? true },
               ),
           };
@@ -63,16 +63,16 @@ export async function collectPublishTasks(ctx: PubmContext) {
 
 export function createDryRunTaskForPath(
   registryKey: string,
-  packagePath: string,
-  siblingPaths?: string[],
+  packageKey: string,
+  siblingKeys?: string[],
 ): ListrTask<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createDryRunTask) {
     throw new Error(
-      `No dry-run task factory registered for registry "${registryKey}". Cannot dry-run publish "${packagePath}".`,
+      `No dry-run task factory registered for registry "${registryKey}". Cannot dry-run publish "${packageKey}".`,
     );
   }
-  return descriptor.taskFactory.createDryRunTask(packagePath, siblingPaths);
+  return descriptor.taskFactory.createDryRunTask(packageKey, siblingKeys);
 }
 
 export async function collectDryRunPublishTasks(ctx: PubmContext) {
@@ -81,17 +81,17 @@ export async function collectDryRunPublishTasks(ctx: PubmContext) {
   return await Promise.all(
     groups.map(async (group) => {
       const registryTasks = await Promise.all(
-        group.registries.map(async ({ registry, packagePaths }) => {
+        group.registries.map(async ({ registry, packageKeys }) => {
           const descriptor = registryCatalog.get(registry);
 
-          const paths = descriptor?.orderPackages
-            ? await descriptor.orderPackages(packagePaths)
-            : packagePaths;
+          const keys = descriptor?.orderPackages
+            ? await descriptor.orderPackages(packageKeys)
+            : packageKeys;
 
-          // For non-concurrent registries with multiple packages, pass sibling paths
-          let siblingPaths: string[] | undefined;
-          if (!descriptor?.concurrentPublish && packagePaths.length > 1) {
-            siblingPaths = packagePaths;
+          // For non-concurrent registries with multiple packages, pass sibling keys
+          let siblingKeys: string[] | undefined;
+          if (!descriptor?.concurrentPublish && packageKeys.length > 1) {
+            siblingKeys = packageKeys;
           }
 
           const concurrent = descriptor?.concurrentPublish ?? true;
@@ -103,8 +103,8 @@ export async function collectDryRunPublishTasks(ctx: PubmContext) {
             title: label,
             task: (_ctx: PubmContext, task: NewListrParentTask<PubmContext>) =>
               task.newListr(
-                paths.map((p) =>
-                  createDryRunTaskForPath(registry, p, siblingPaths),
+                keys.map((k) =>
+                  createDryRunTaskForPath(registry, k, siblingKeys),
                 ),
                 { concurrent },
               ),

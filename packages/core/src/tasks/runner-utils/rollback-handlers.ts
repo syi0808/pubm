@@ -3,23 +3,10 @@ import path from "node:path";
 import micromatch from "micromatch";
 import type { Changeset } from "../../changeset/parser.js";
 import type { PubmContext } from "../../context.js";
-import {
-  type EcosystemKey,
-  ecosystemCatalog,
-} from "../../ecosystem/catalog.js";
+import { ecosystemCatalog } from "../../ecosystem/catalog.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
-
-export function requirePackageEcosystem(pkg: {
-  path: string;
-  ecosystem?: EcosystemKey;
-}): EcosystemKey {
-  if (!pkg.ecosystem) {
-    throw new Error(`Package ${pkg.path} is missing an ecosystem.`);
-  }
-
-  return pkg.ecosystem;
-}
+import { packageKey, pathFromKey } from "../../utils/package-key.js";
 
 export function isReleaseExcluded(
   config: { excludeRelease?: string[] },
@@ -30,10 +17,8 @@ export function isReleaseExcluded(
   return micromatch.isMatch(pkgPath, patterns);
 }
 
-export function getPackageName(ctx: PubmContext, packagePath: string): string {
-  return (
-    ctx.config.packages.find((p) => p.path === packagePath)?.name ?? packagePath
-  );
+export function getPackageName(ctx: PubmContext, key: string): string {
+  return ctx.config.packages.find((p) => packageKey(p) === key)?.name ?? key;
 }
 
 export function requireVersionPlan(ctx: PubmContext) {
@@ -49,8 +34,7 @@ export function requireVersionPlan(ctx: PubmContext) {
 export function registerManifestBackups(ctx: PubmContext): void {
   for (const pkg of ctx.config.packages) {
     const absPath = path.resolve(ctx.cwd, pkg.path);
-    const ecosystem = requirePackageEcosystem(pkg);
-    const descriptor = ecosystemCatalog.get(ecosystem);
+    const descriptor = ecosystemCatalog.get(pkg.ecosystem);
     if (!descriptor) continue;
     const eco = new descriptor.ecosystemClass(absPath);
     for (const manifestFile of eco.manifestFiles()) {
@@ -138,9 +122,9 @@ export function registerTagRollback(ctx: PubmContext, tagName: string): void {
 export function registerRemoteTagRollback(ctx: PubmContext): void {
   const plan = requireVersionPlan(ctx);
   if (plan.mode === "independent") {
-    for (const [pkgPath, pkgVersion] of plan.packages) {
-      if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-      const pkgName = getPackageName(ctx, pkgPath);
+    for (const [key, pkgVersion] of plan.packages) {
+      if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
+      const pkgName = getPackageName(ctx, key);
       const tag = `${pkgName}@${pkgVersion}`;
       ctx.runtime.rollback.add({
         label: t("task.push.deleteRemoteTag", { tag }),

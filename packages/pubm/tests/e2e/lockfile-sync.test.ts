@@ -106,6 +106,7 @@ describe("lockfile sync — bun workspace", () => {
           version: "1.0.0",
           dependencies: [],
           registries: ["npm"],
+          ecosystem: "js",
         },
       },
       {
@@ -116,13 +117,14 @@ describe("lockfile sync — bun workspace", () => {
           version: "1.0.0",
           dependencies: ["@test/pkg-a"],
           registries: ["npm"],
+          ecosystem: "js",
         },
       },
     ];
 
     const versions = new Map<string, string>([
-      [pkgAPath, "2.0.0"],
-      [pkgBPath, "2.0.0"],
+      [`${pkgAPath}::js`, "2.0.0"],
+      [`${pkgBPath}::js`, "2.0.0"],
     ]);
 
     const modifiedFiles = await writeVersionsForEcosystem(

@@ -16,6 +16,7 @@ import { restoreManifests } from "../monorepo/resolve-workspace.js";
 import { registryCatalog } from "../registry/catalog.js";
 import { exec } from "../utils/exec.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
+import { packageKey, pathFromKey } from "../utils/package-key.js";
 import { getPackageManager } from "../utils/package-manager.js";
 import { collectRegistries } from "../utils/registries.js";
 import { generateSnapshotVersion } from "../utils/snapshot.js";
@@ -34,7 +35,7 @@ export function applySnapshotFilter(
 
   const resolver = createKeyResolver(packages);
   const resolvedPaths = new Set(filters.map((f) => resolver(f)));
-  const filtered = packages.filter((p) => resolvedPaths.has(p.path));
+  const filtered = packages.filter((p) => resolvedPaths.has(packageKey(p)));
 
   if (filtered.length === 0) {
     throw new AbstractError(t("error.snapshot.noMatchingPackages"));
@@ -67,7 +68,7 @@ export function buildSnapshotVersionPlan(
     return {
       mode: "single",
       version,
-      packageKey: pkg.path,
+      packageKey: packageKey(pkg),
     } satisfies SingleVersionPlan;
   }
 
@@ -78,7 +79,7 @@ export function buildSnapshotVersionPlan(
       tag,
       template,
     });
-    const pkgMap = new Map(packages.map((p) => [p.path, version]));
+    const pkgMap = new Map(packages.map((p) => [packageKey(p), version]));
     return {
       mode: "fixed",
       version,
@@ -88,7 +89,7 @@ export function buildSnapshotVersionPlan(
 
   const pkgMap = new Map(
     packages.map((p) => [
-      p.path,
+      packageKey(p),
       generateSnapshotVersion({
         baseVersion: p.version || "0.0.0",
         tag,
@@ -140,7 +141,7 @@ export async function runSnapshotPipeline(
 
   // Original versions for restore
   const originalVersions = new Map(
-    targetPackages.map((p) => [p.path, p.version || "0.0.0"]),
+    targetPackages.map((p) => [packageKey(p), p.version || "0.0.0"]),
   );
 
   try {
@@ -217,10 +218,10 @@ export async function runSnapshotPipeline(
             const headCommit = await git.latestCommit();
 
             if (plan.mode === "independent") {
-              for (const [pkgPath, pkgVersion] of plan.packages) {
+              for (const [key, pkgVersion] of plan.packages) {
                 const pkgName =
-                  ctx.config.packages.find((p) => p.path === pkgPath)?.name ??
-                  pkgPath;
+                  ctx.config.packages.find((p) => p.path === pathFromKey(key))
+                    ?.name ?? pathFromKey(key);
                 const tagName = `${pkgName}@${pkgVersion}`;
                 task.output = t("task.snapshot.creatingTag", { tag: tagName });
                 await git.createTag(tagName, headCommit);

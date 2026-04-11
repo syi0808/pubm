@@ -38,6 +38,7 @@ const {
         path: ".",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ],
     versionSources: "all",
@@ -198,6 +199,7 @@ beforeEach(() => {
       path: ".",
       registries: ["npm"],
       dependencies: [],
+      ecosystem: "js",
     },
   ];
   sharedResolvedConfig.versionSources = "all";
@@ -333,7 +335,7 @@ describe("CLI action handler - non-CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.2.3",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -374,6 +376,7 @@ describe("CLI action handler - non-CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -381,6 +384,7 @@ describe("CLI action handler - non-CI mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -391,8 +395,8 @@ describe("CLI action handler - non-CI mode", () => {
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["packages/a", "2.0.0"],
-        ["packages/b", "2.0.0"],
+        ["packages/a::js", "2.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     });
   });
@@ -408,6 +412,7 @@ describe("CLI action handler - CI mode", () => {
         path: ".",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -417,7 +422,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "2.0.0",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -430,6 +435,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -437,6 +443,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -447,8 +454,8 @@ describe("CLI action handler - CI mode", () => {
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["packages/a", "2.0.0"],
-        ["packages/b", "2.0.0"],
+        ["packages/a::js", "2.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     });
   });
@@ -463,6 +470,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -470,6 +478,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -479,8 +488,8 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["packages/a", "1.0.0"],
-        ["packages/b", "2.0.0"],
+        ["packages/a::js", "1.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     });
   });
@@ -533,7 +542,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.2.3",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -546,6 +555,7 @@ describe("CLI action handler - CI mode", () => {
         path: ".",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
     mockMergeRecommendations.mockReturnValue([
@@ -559,7 +569,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "1.1.0",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -573,6 +583,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -580,6 +591,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
     mockMergeRecommendations.mockReturnValue([
@@ -595,8 +607,8 @@ describe("CLI action handler - CI mode", () => {
       mode: "fixed",
       version: "2.0.0",
       packages: new Map([
-        ["packages/a", "2.0.0"],
-        ["packages/b", "2.0.0"],
+        ["packages/a::js", "2.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     });
   });
@@ -611,6 +623,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -618,6 +631,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
     mockMergeRecommendations.mockReturnValue([
@@ -632,8 +646,8 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["packages/a", "1.1.0"],
-        ["packages/b", "2.3.1"],
+        ["packages/a::js", "1.1.0"],
+        ["packages/b::js", "2.3.1"],
       ]),
     });
   });
@@ -648,7 +662,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "",
-      packagePath: ".",
+      packageKey: ".",
     });
   });
 
@@ -661,6 +675,7 @@ describe("CLI action handler - CI mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
     mockMergeRecommendations.mockReturnValue([
@@ -681,7 +696,7 @@ describe("CLI action handler - CI mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "2.0.0",
-      packagePath: "packages/a",
+      packageKey: "packages/a::js",
     });
   });
 
@@ -741,6 +756,7 @@ describe("CLI action handler - local publish-only mode", () => {
         path: ".",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -750,7 +766,7 @@ describe("CLI action handler - local publish-only mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "3.0.0",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -763,6 +779,7 @@ describe("CLI action handler - local publish-only mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -770,6 +787,7 @@ describe("CLI action handler - local publish-only mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -779,8 +797,8 @@ describe("CLI action handler - local publish-only mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["packages/a", "1.0.0"],
-        ["packages/b", "2.0.0"],
+        ["packages/a::js", "1.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     });
   });
@@ -793,6 +811,7 @@ describe("CLI action handler - local publish-only mode", () => {
         path: "packages/a",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
       {
         name: "pkg-b",
@@ -800,6 +819,7 @@ describe("CLI action handler - local publish-only mode", () => {
         path: "packages/b",
         registries: ["npm"],
         dependencies: [],
+        ecosystem: "js",
       },
     ];
 
@@ -810,8 +830,8 @@ describe("CLI action handler - local publish-only mode", () => {
       mode: "fixed",
       version: "4.0.0",
       packages: new Map([
-        ["packages/a", "4.0.0"],
-        ["packages/b", "4.0.0"],
+        ["packages/a::js", "4.0.0"],
+        ["packages/b::js", "4.0.0"],
       ]),
     });
   });
@@ -825,7 +845,7 @@ describe("CLI action handler - local publish-only mode", () => {
     expect(ctx.runtime.versionPlan).toEqual({
       mode: "single",
       version: "",
-      packagePath: ".",
+      packageKey: ".",
     });
   });
 });

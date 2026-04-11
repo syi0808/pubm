@@ -2,7 +2,6 @@ import path from "node:path";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
 import { writeVersionsForEcosystem } from "../../manifest/write-versions.js";
-import { requirePackageEcosystem } from "./rollback-handlers.js";
 
 export async function writeVersions(
   ctx: PubmContext,
@@ -10,9 +9,8 @@ export async function writeVersions(
 ): Promise<string[]> {
   const ecosystems = ctx.config.packages.map((pkg) => {
     const absPath = path.resolve(ctx.cwd, pkg.path);
-    const ecosystem = requirePackageEcosystem(pkg);
-    const descriptor = ecosystemCatalog.get(ecosystem);
-    if (!descriptor) throw new Error(`Unknown ecosystem: ${ecosystem}`);
+    const descriptor = ecosystemCatalog.get(pkg.ecosystem);
+    if (!descriptor) throw new Error(`Unknown ecosystem: ${pkg.ecosystem}`);
     const eco = new descriptor.ecosystemClass(absPath);
     return { eco, pkg };
   });

@@ -76,8 +76,12 @@ describe("getPackageVersion", () => {
         tag: "latest",
         promptEnabled: false,
         cleanWorkingTree: false,
-        pluginRunner: { run: async () => {} } as unknown as PubmContext["runtime"]["pluginRunner"],
-        rollback: { add: () => {} } as unknown as PubmContext["runtime"]["rollback"],
+        pluginRunner: {
+          run: async () => {},
+        } as unknown as PubmContext["runtime"]["pluginRunner"],
+        rollback: {
+          add: () => {},
+        } as unknown as PubmContext["runtime"]["rollback"],
         versionPlan: plan,
       },
     } as unknown as PubmContext;

@@ -57,18 +57,18 @@ describe("collectEcosystemRegistryGroups", () => {
   it("collects package paths per registry", () => {
     const groups = collectEcosystemRegistryGroups({
       packages: [
-        { path: "packages/a", registries: ["npm"] },
-        { path: "packages/b", registries: ["npm", "jsr"] },
+        { path: "packages/a", registries: ["npm"], ecosystem: "js" },
+        { path: "packages/b", registries: ["npm", "jsr"], ecosystem: "js" },
       ],
     });
     expect(groups).toHaveLength(1);
     expect(groups[0].ecosystem).toBe("js");
     const npmGroup = groups[0].registries.find((r) => r.registry === "npm");
-    expect(npmGroup?.packagePaths).toEqual(
-      expect.arrayContaining(["packages/a", "packages/b"]),
+    expect(npmGroup?.packageKeys).toEqual(
+      expect.arrayContaining(["packages/a::js", "packages/b::js"]),
     );
     const jsrGroup = groups[0].registries.find((r) => r.registry === "jsr");
-    expect(jsrGroup?.packagePaths).toEqual(["packages/b"]);
+    expect(jsrGroup?.packageKeys).toEqual(["packages/b::js"]);
   });
 
   it("deduplicates registries within a single package", () => {

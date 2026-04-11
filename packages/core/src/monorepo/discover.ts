@@ -127,8 +127,7 @@ async function resolvePackages(
 ): Promise<ResolvedPackage[]> {
   const absPath = path.resolve(cwd, target.path);
 
-  let descriptors: import("../ecosystem/catalog.js").EcosystemDescriptor[] =
-    [];
+  let descriptors: import("../ecosystem/catalog.js").EcosystemDescriptor[] = [];
 
   if (target.ecosystem) {
     const desc = ecosystemCatalog.get(target.ecosystem);

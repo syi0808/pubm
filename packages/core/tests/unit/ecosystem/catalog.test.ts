@@ -55,16 +55,36 @@ describe("EcosystemCatalog", () => {
   describe("detectAll", () => {
     it("returns empty array when no ecosystem matches", async () => {
       const catalog = new EcosystemCatalog();
-      catalog.register(createDescriptor({ key: "js", detect: vi.fn().mockResolvedValue(false) }));
-      catalog.register(createDescriptor({ key: "rust", detect: vi.fn().mockResolvedValue(false) }));
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
       const result = await catalog.detectAll("/some/path");
       expect(result).toEqual([]);
     });
 
     it("returns single matching ecosystem", async () => {
       const catalog = new EcosystemCatalog();
-      catalog.register(createDescriptor({ key: "js", detect: vi.fn().mockResolvedValue(true) }));
-      catalog.register(createDescriptor({ key: "rust", detect: vi.fn().mockResolvedValue(false) }));
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
       const result = await catalog.detectAll("/some/path");
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe("js");
@@ -72,8 +92,18 @@ describe("EcosystemCatalog", () => {
 
     it("returns all matching ecosystems", async () => {
       const catalog = new EcosystemCatalog();
-      catalog.register(createDescriptor({ key: "js", detect: vi.fn().mockResolvedValue(true) }));
-      catalog.register(createDescriptor({ key: "rust", detect: vi.fn().mockResolvedValue(true) }));
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
       const result = await catalog.detectAll("/some/path");
       expect(result).toHaveLength(2);
       const keys = result.map((d) => d.key);

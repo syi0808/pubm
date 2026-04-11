@@ -6,6 +6,7 @@ import type { PubmContext, VersionPlan } from "../../context.js";
 import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
+import { packageKey, pathFromKey } from "../../utils/package-key.js";
 import { parseOwnerRepo } from "../../utils/parse-owner-repo.js";
 import { closeVersionPr, createVersionPr } from "../create-version-pr.js";
 import { buildVersionPrBody } from "../version-pr-body.js";
@@ -83,14 +84,14 @@ export function buildPrBodyFromContext(
   const changelogs = new Map<string, string>();
 
   if (plan.mode === "independent") {
-    for (const [pkgPath, pkgVersion] of plan.packages) {
-      const pkgConfig = ctx.config.packages.find((p) => p.path === pkgPath);
-      const name = pkgConfig?.name ?? pkgPath;
+    for (const [key, pkgVersion] of plan.packages) {
+      const pkgConfig = ctx.config.packages.find((p) => packageKey(p) === key);
+      const name = pkgConfig?.name ?? key;
       packages.push({ name, version: pkgVersion, bump: "" });
 
       const changelogDir = pkgConfig
         ? path.resolve(ctx.cwd, pkgConfig.path)
-        : ctx.cwd;
+        : path.resolve(ctx.cwd, pathFromKey(key));
       const changelogPath = path.join(changelogDir, "CHANGELOG.md");
       if (existsSync(changelogPath)) {
         const section = parseChangelogSection(

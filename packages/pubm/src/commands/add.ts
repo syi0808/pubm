@@ -1,5 +1,10 @@
 import process from "node:process";
-import type { BumpType, Release, ResolvedPubmConfig } from "@pubm/core";
+import type {
+  BumpType,
+  EcosystemKey,
+  Release,
+  ResolvedPubmConfig,
+} from "@pubm/core";
 import { createKeyResolver, t, ui, writeChangeset } from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
@@ -55,12 +60,14 @@ export function registerAddCommand(
           name: string;
           path: string;
           version: string;
+          ecosystem: EcosystemKey;
         }
 
         const availablePackages: PackageInfo[] = config.packages.map((p) => ({
           name: p.name,
           path: p.path,
           version: p.version,
+          ecosystem: p.ecosystem,
         }));
 
         // Step 1: Package selection
@@ -120,7 +127,11 @@ export function registerAddCommand(
           });
 
           for (const pkg of selectedPackages) {
-            releases.push({ path: pkg.path, type: bumpType as BumpType });
+            releases.push({
+              path: pkg.path,
+              ecosystem: pkg.ecosystem,
+              type: bumpType as BumpType,
+            });
           }
         } else {
           for (const pkg of selectedPackages) {
@@ -133,7 +144,11 @@ export function registerAddCommand(
               choices: bumpChoices,
             });
 
-            releases.push({ path: pkg.path, type: bumpType as BumpType });
+            releases.push({
+              path: pkg.path,
+              ecosystem: pkg.ecosystem,
+              type: bumpType as BumpType,
+            });
           }
         }
 

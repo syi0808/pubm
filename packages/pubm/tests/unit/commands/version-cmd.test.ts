@@ -154,7 +154,7 @@ describe("runVersionCommand", () => {
 
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
-      new Map([[".", "1.1.0"]]),
+      new Map([[".::js", "1.1.0"]]),
       undefined,
     );
     expect(mockChangesetChangelogWriterFormatEntries).toHaveBeenCalledWith([
@@ -321,8 +321,8 @@ describe("runVersionCommand", () => {
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([
-        ["packages/pkg-a", "1.1.0"],
-        ["packages/pkg-b", "1.1.0"],
+        ["packages/pkg-a::js", "1.1.0"],
+        ["packages/pkg-b::js", "1.1.0"],
       ]),
       undefined,
     );

@@ -7,6 +7,7 @@ import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
 import type { NpmPackageRegistry } from "../registry/npm.js";
 import { npmPackageRegistry } from "../registry/npm.js";
+import { pathFromKey } from "../utils/package-key.js";
 import { ui } from "../utils/ui.js";
 
 class NpmAvailableError extends AbstractError {
@@ -19,17 +20,15 @@ class NpmAvailableError extends AbstractError {
   }
 }
 
-export function createNpmPublishTask(
-  packagePath: string,
-): ListrTask<PubmContext> {
+export function createNpmPublishTask(key: string): ListrTask<PubmContext> {
   return {
-    title: packagePath,
+    title: key,
     skip: (ctx) => !!ctx.options.dryRun,
     task: async (ctx, task): Promise<void> => {
-      const npm = await npmPackageRegistry(packagePath);
+      const npm = await npmPackageRegistry(pathFromKey(key));
       task.title = npm.packageName;
 
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       // Pre-check: skip if version already published
       if (await npm.isVersionPublished(version)) {

@@ -4,9 +4,7 @@ import { packageKey } from "../utils/package-key.js";
 export function createKeyResolver(
   packages: { name: string; path: string; ecosystem: EcosystemKey }[],
 ): (key: string) => string {
-  const nameToKey = new Map(
-    packages.map((p) => [p.name, packageKey(p)]),
-  );
+  const nameToKey = new Map(packages.map((p) => [p.name, packageKey(p)]));
   const validKeys = new Set(packages.map((p) => packageKey(p)));
   const pathEcosystems = new Map<string, EcosystemKey[]>();
   for (const p of packages) {

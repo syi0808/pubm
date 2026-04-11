@@ -11,6 +11,7 @@ import {
   saveGitHubToken,
 } from "../../utils/github-token.js";
 import { openUrl } from "../../utils/open-url.js";
+import { pathFromKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
 import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
 import { buildReleaseBody, truncateForUrl } from "../release-notes.js";
@@ -134,9 +135,10 @@ export function createReleaseTask(
 
         if (plan.mode === "independent") {
           // Per-package releases
-          for (const [pkgPath, pkgVersion] of plan.packages) {
+          for (const [key, pkgVersion] of plan.packages) {
+            const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-            const pkgName = getPackageName(ctx, pkgPath);
+            const pkgName = getPackageName(ctx, key);
             const tag = `${pkgName}@${pkgVersion}`;
             task.output = t("task.release.creating", { tag });
 
@@ -209,7 +211,8 @@ export function createReleaseTask(
             .replace(/\.git$/, "");
 
           const body = await buildReleaseBody(ctx, {
-            pkgPath: plan.mode === "single" ? plan.packageKey : undefined,
+            pkgPath:
+              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
             version,
             tag,
             repositoryUrl,
@@ -221,7 +224,7 @@ export function createReleaseTask(
               : (ctx.config.packages[0]?.name ?? "");
           const pkgPath =
             plan.mode === "single"
-              ? plan.packageKey
+              ? pathFromKey(plan.packageKey)
               : ctx.config.packages[0]?.path;
           const { assets: preparedAssets, tempDir } =
             await prepareReleaseAssets(ctx, packageName, version, pkgPath);
@@ -279,9 +282,10 @@ export function createReleaseTask(
 
         if (plan.mode === "independent") {
           let first = true;
-          for (const [pkgPath, pkgVersion] of plan.packages) {
+          for (const [key, pkgVersion] of plan.packages) {
+            const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-            const pkgName = getPackageName(ctx, pkgPath);
+            const pkgName = getPackageName(ctx, key);
             const tag = `${pkgName}@${pkgVersion}`;
 
             const body = await buildReleaseBody(ctx, {
@@ -323,7 +327,8 @@ export function createReleaseTask(
           const tag = `v${version}`;
 
           const body = await buildReleaseBody(ctx, {
-            pkgPath: plan.mode === "single" ? plan.packageKey : undefined,
+            pkgPath:
+              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
             version,
             tag,
             repositoryUrl,

@@ -1,7 +1,7 @@
-import path from "node:path";
 import { writeFileSync } from "node:fs";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { e2e, type E2EContext } from "../utils/e2e.js";
+import { type E2EContext, e2e } from "../utils/e2e.js";
 
 describe("mixed-ecosystem", () => {
   let ctx: E2EContext;
