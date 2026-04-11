@@ -236,7 +236,7 @@ describe("buildSnapshotVersionPlan", () => {
     expect(plan).toEqual({
       mode: "single",
       version: "1.0.0-snapshot-20260330T120000",
-      packagePath: ".",
+      packageKey: ".::js",
     });
   });
 
@@ -274,8 +274,8 @@ describe("buildSnapshotVersionPlan", () => {
       mode: "fixed",
       version: "1.0.0-snapshot-20260330T120000",
       packages: new Map([
-        ["packages/a", "1.0.0-snapshot-20260330T120000"],
-        ["packages/b", "1.0.0-snapshot-20260330T120000"],
+        ["packages/a::js", "1.0.0-snapshot-20260330T120000"],
+        ["packages/b::js", "1.0.0-snapshot-20260330T120000"],
       ]),
     });
   });
@@ -313,8 +313,8 @@ describe("buildSnapshotVersionPlan", () => {
     expect(plan).toEqual({
       mode: "independent",
       packages: new Map([
-        ["packages/a", "1.0.0-snapshot-20260330T120000"],
-        ["packages/b", "2.0.0-snapshot-20260330T120000"],
+        ["packages/a::js", "1.0.0-snapshot-20260330T120000"],
+        ["packages/b::js", "2.0.0-snapshot-20260330T120000"],
       ]),
     });
   });
@@ -654,7 +654,7 @@ describe("runSnapshotPipeline", () => {
     // First call: snapshot versions; second call: restore original versions
     expect(writeVersionsCalls).toHaveLength(2);
     // The second call should have the original version "1.0.0"
-    expect(writeVersionsCalls[1]?.get(".")).toBe("1.0.0");
+    expect(writeVersionsCalls[1]?.get(".::js")).toBe("1.0.0");
   });
 
   it("restores original versions even when publish fails", async () => {
@@ -675,7 +675,7 @@ describe("runSnapshotPipeline", () => {
 
     // Should still have restored original versions (finally block)
     expect(writeVersionsCalls).toHaveLength(2);
-    expect(writeVersionsCalls[1]?.get(".")).toBe("1.0.0");
+    expect(writeVersionsCalls[1]?.get(".::js")).toBe("1.0.0");
   });
 
   it("tag task creates git tag and pushes for single/fixed plan", async () => {
@@ -869,8 +869,8 @@ describe("runSnapshotPipeline", () => {
     expect(mockedWriteVersions).toHaveBeenCalled();
     const snapshotVersionsArg = mockedWriteVersions.mock.calls[0]?.[1];
     expect(snapshotVersionsArg).toBeInstanceOf(Map);
-    expect(snapshotVersionsArg?.get("packages/a")).toBe("1.0.0-snap");
-    expect(snapshotVersionsArg?.get("packages/b")).toBe("1.0.0-snap");
+    expect(snapshotVersionsArg?.get("packages/a::js")).toBe("1.0.0-snap");
+    expect(snapshotVersionsArg?.get("packages/b::js")).toBe("1.0.0-snap");
   });
 
   it("tag task uses pkgPath as tag name when pkg name is not found", async () => {

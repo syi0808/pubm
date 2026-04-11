@@ -9,6 +9,7 @@ import {
   type CratesPackageRegistry,
   cratesPackageRegistry,
 } from "../registry/crates.js";
+import { pathFromKey } from "../utils/package-key.js";
 import { ui } from "../utils/ui.js";
 
 class CratesError extends AbstractError {
@@ -26,12 +27,12 @@ async function getCrateName(packagePath: string): Promise<string> {
 }
 
 export function createCratesAvailableCheckTask(
-  packagePath: string,
+  key: string,
 ): ListrTask<PubmContext> {
   return {
-    title: t("task.crates.checkAvailability", { path: packagePath }),
+    title: t("task.crates.checkAvailability", { path: pathFromKey(key) }),
     task: async (): Promise<void> => {
-      const registry = await cratesPackageRegistry(packagePath);
+      const registry = await cratesPackageRegistry(pathFromKey(key));
       const connector = new CratesConnector();
 
       if (!(await connector.isInstalled())) {
@@ -45,16 +46,15 @@ export function createCratesAvailableCheckTask(
   };
 }
 
-export function createCratesPublishTask(
-  packagePath: string,
-): ListrTask<PubmContext> {
+export function createCratesPublishTask(key: string): ListrTask<PubmContext> {
+  const packagePath = pathFromKey(key);
   return {
     title: t("task.crates.publishing", { path: packagePath }),
     task: async (ctx, task): Promise<void> => {
       const packageName = await getCrateName(packagePath);
       const registry = await cratesPackageRegistry(packagePath);
 
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       // Pre-check: skip if version already published
       if (await registry.isVersionPublished(version)) {

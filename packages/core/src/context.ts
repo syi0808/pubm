@@ -8,7 +8,7 @@ import { RollbackTracker } from "./utils/rollback.js";
 export interface SingleVersionPlan {
   mode: "single";
   version: string;
-  packagePath: string;
+  packageKey: string;
 }
 
 export interface FixedVersionPlan {
@@ -42,15 +42,12 @@ export function resolveVersion(
   return picker(plan.packages);
 }
 
-export function getPackageVersion(
-  ctx: PubmContext,
-  packagePath: string,
-): string {
+export function getPackageVersion(ctx: PubmContext, key: string): string {
   const plan = ctx.runtime.versionPlan;
   if (plan) {
     if (plan.mode === "single") return plan.version;
     if (plan.mode === "fixed") return plan.version;
-    return plan.packages.get(packagePath) ?? "";
+    return plan.packages.get(key) ?? "";
   }
   return "";
 }

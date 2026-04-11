@@ -6,6 +6,7 @@ import { AbstractError } from "../error.js";
 import { t } from "../i18n/index.js";
 import { JsrClient, jsrPackageRegistry } from "../registry/jsr.js";
 import { openUrl } from "../utils/open-url.js";
+import { pathFromKey } from "../utils/package-key.js";
 
 class JsrAvailableError extends AbstractError {
   name = t("error.jsr.unavailable");
@@ -17,16 +18,14 @@ class JsrAvailableError extends AbstractError {
   }
 }
 
-export function createJsrPublishTask(
-  packagePath: string,
-): ListrTask<PubmContext> {
+export function createJsrPublishTask(key: string): ListrTask<PubmContext> {
   return {
-    title: packagePath,
+    title: key,
     task: async (ctx, task): Promise<void> => {
-      const jsr = await jsrPackageRegistry(packagePath);
+      const jsr = await jsrPackageRegistry(pathFromKey(key));
       task.title = jsr.packageName;
 
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       // Pre-check: skip if version already published
       if (await jsr.isVersionPublished(version)) {

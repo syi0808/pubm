@@ -6,6 +6,7 @@ import type { VersionBump } from "../../changeset/version.js";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import type { PubmContext } from "../../context.js";
 import { t } from "../../i18n/index.js";
+import { packageKey } from "../../utils/package-key.js";
 import { renderPackageVersionSummary } from "./display.js";
 import { versionChoices } from "./version-choices.js";
 
@@ -65,8 +66,8 @@ export async function handleFixedMode(
   }
 
   const packages = new Map<string, string>();
-  for (const pkgPath of currentVersions.keys()) {
-    packages.set(pkgPath, nextVersion);
+  for (const pkg of packageInfos) {
+    packages.set(packageKey(pkg), nextVersion);
   }
   ctx.runtime.versionPlan = {
     mode: "fixed",
@@ -74,14 +75,9 @@ export async function handleFixedMode(
     packages,
   };
 
-  // Display uses path-keyed map for renderPackageVersionSummary
-  const displayVersions = new Map<string, string>();
-  for (const pkgPath of currentVersions.keys()) {
-    displayVersions.set(pkgPath, nextVersion);
-  }
   task.output = renderPackageVersionSummary(
     packageInfos,
     currentVersions,
-    displayVersions,
+    packages,
   );
 }

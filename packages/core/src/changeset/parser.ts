@@ -1,9 +1,11 @@
 import { parse as parseYaml } from "yaml";
+import type { EcosystemKey } from "../ecosystem/catalog.js";
 
 export type BumpType = "patch" | "minor" | "major";
 
 export interface Release {
   path: string;
+  ecosystem?: EcosystemKey;
   type: BumpType;
 }
 
@@ -43,8 +45,26 @@ export function parseChangeset(
           `Invalid bump type "${type}" for package "${key}" in "${fileName}". Expected: patch, minor, or major.`,
         );
       }
-      const path = resolveKey ? resolveKey(key) : key;
-      releases.push({ path, type: type as BumpType });
+      const resolvedKey = resolveKey ? resolveKey(key) : key;
+
+      // Parse path::ecosystem format
+      const separatorIndex = resolvedKey.lastIndexOf("::");
+      let releasePath: string;
+      let ecosystem: EcosystemKey | undefined;
+      if (separatorIndex !== -1) {
+        releasePath = resolvedKey.slice(0, separatorIndex);
+        ecosystem = resolvedKey.slice(separatorIndex + 2);
+        if (!releasePath || !ecosystem) {
+          throw new Error(
+            `Invalid package key "${resolvedKey}" in "${fileName}". Expected "path::ecosystem" with non-empty path and ecosystem.`,
+          );
+        }
+      } else {
+        releasePath = resolvedKey;
+        ecosystem = undefined;
+      }
+
+      releases.push({ path: releasePath, ecosystem, type: type as BumpType });
     }
   }
 

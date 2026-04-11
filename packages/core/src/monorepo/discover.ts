@@ -4,6 +4,7 @@ import micromatch from "micromatch";
 import type { PackageConfig } from "../config/types.js";
 import { type EcosystemKey, ecosystemCatalog } from "../ecosystem/catalog.js";
 import { inferRegistries } from "../ecosystem/infer.js";
+import { registryCatalog } from "../registry/catalog.js";
 import type { RegistryType } from "../types/options.js";
 import { detectWorkspace } from "./workspace.js";
 
@@ -120,64 +121,77 @@ async function discoverFromWorkspace(
   return targets;
 }
 
-async function resolvePackage(
+async function resolvePackages(
   cwd: string,
   target: DiscoverTarget,
-): Promise<ResolvedPackage | null> {
+): Promise<ResolvedPackage[]> {
   const absPath = path.resolve(cwd, target.path);
 
-  // Detect or use explicit ecosystem
-  let descriptor:
-    | import("../ecosystem/catalog.js").EcosystemDescriptor
-    | null
-    | undefined;
+  let descriptors: import("../ecosystem/catalog.js").EcosystemDescriptor[] = [];
+
   if (target.ecosystem) {
-    descriptor = ecosystemCatalog.get(target.ecosystem);
+    const desc = ecosystemCatalog.get(target.ecosystem);
+    if (desc) descriptors = [desc];
+  } else if (target.registries && target.registries.length > 0) {
+    const detected = await ecosystemCatalog.detectAll(absPath);
+    const registryEcosystems = new Set(
+      target.registries
+        .map((r) => registryCatalog.get(r)?.ecosystem)
+        .filter((e): e is EcosystemKey => e !== undefined),
+    );
+    descriptors = detected.filter((d) => registryEcosystems.has(d.key));
   } else {
-    descriptor = await ecosystemCatalog.detect(absPath);
+    descriptors = await ecosystemCatalog.detectAll(absPath);
   }
 
-  if (!descriptor) return null;
+  const results: ResolvedPackage[] = [];
 
-  const ecosystemKey = descriptor.key;
-  const ecosystem = new descriptor.ecosystemClass(absPath);
+  for (const descriptor of descriptors) {
+    const ecosystemKey = descriptor.key;
+    const ecosystem = new descriptor.ecosystemClass(absPath);
 
-  // Read manifest for name, version, private, dependencies
-  let manifest: {
-    name: string;
-    version: string;
-    private: boolean;
-    dependencies: string[];
-  };
-  try {
-    manifest = await ecosystem.readManifest();
-  } catch {
-    return null;
+    // Read manifest for name, version, private, dependencies
+    let manifest: {
+      name: string;
+      version: string;
+      private: boolean;
+      dependencies: string[];
+    };
+    try {
+      manifest = await ecosystem.readManifest();
+    } catch {
+      continue;
+    }
+
+    // Filter private packages
+    if (manifest.private) continue;
+
+    // Read registry versions for mismatch detection
+    const registryVersions = await ecosystem.readRegistryVersions();
+    const versionValues = [...registryVersions.values()];
+    const hasVersionMismatch =
+      versionValues.length > 1 &&
+      !versionValues.every((v) => v === versionValues[0]);
+
+    // Determine registries
+    const registries = target.registries
+      ? target.registries.filter(
+          (r) => registryCatalog.get(r)?.ecosystem === ecosystemKey,
+        )
+      : await inferRegistries(absPath, ecosystemKey, cwd);
+
+    results.push({
+      name: manifest.name,
+      version: manifest.version,
+      path: target.path,
+      ecosystem: ecosystemKey,
+      registries,
+      dependencies: manifest.dependencies,
+      ...(hasVersionMismatch ? { registryVersions } : {}),
+    });
   }
 
-  // Filter private packages
-  if (manifest.private) return null;
-
-  // Read registry versions for mismatch detection
-  const registryVersions = await ecosystem.readRegistryVersions();
-  const versionValues = [...registryVersions.values()];
-  const hasVersionMismatch =
-    versionValues.length > 1 &&
-    !versionValues.every((v) => v === versionValues[0]);
-
-  // Determine registries
-  const registries =
-    target.registries ?? (await inferRegistries(absPath, ecosystemKey, cwd));
-
-  return {
-    name: manifest.name,
-    version: manifest.version,
-    path: target.path,
-    ecosystem: ecosystemKey,
-    registries,
-    dependencies: manifest.dependencies,
-    ...(hasVersionMismatch ? { registryVersions } : {}),
-  };
+  return results;
 }
 
 export async function discoverPackages(
@@ -204,10 +218,10 @@ export async function discoverPackages(
     });
 
     const results = await Promise.all(
-      targets.map((target) => resolvePackage(cwd, target)),
+      targets.map((target) => resolvePackages(cwd, target)),
     );
 
-    return results.filter((r): r is ResolvedPackage => r !== null);
+    return results.flat();
   }
 
   // Workspace discovery
@@ -217,15 +231,14 @@ export async function discoverPackages(
   if (targets.length === 0) {
     const workspaces = detectWorkspace(cwd);
     if (workspaces.length === 0) {
-      const result = await resolvePackage(cwd, { path: "." });
-      return result ? [result] : [];
+      return await resolvePackages(cwd, { path: "." });
     }
   }
 
   // Resolve each target in parallel
   const results = await Promise.all(
-    targets.map((target) => resolvePackage(cwd, target)),
+    targets.map((target) => resolvePackages(cwd, target)),
   );
 
-  return results.filter((r): r is ResolvedPackage => r !== null);
+  return results.flat();
 }

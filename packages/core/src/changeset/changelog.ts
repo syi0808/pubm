@@ -1,3 +1,4 @@
+import { packageKey } from "../utils/package-key.js";
 import type { BumpType, Changeset } from "./parser.js";
 
 export { writeChangelogToFile } from "../changelog/file.js";
@@ -74,13 +75,16 @@ export function deduplicateEntries(
 
 export function buildChangelogEntries(
   changesets: Changeset[],
-  packagePath: string,
+  targetKey: string,
 ): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      if (release.path === packagePath) {
+      const releaseKey = release.ecosystem
+        ? packageKey({ path: release.path, ecosystem: release.ecosystem })
+        : release.path;
+      if (releaseKey === targetKey || release.path === targetKey) {
         entries.push({
           summary: changeset.summary,
           type: release.type,

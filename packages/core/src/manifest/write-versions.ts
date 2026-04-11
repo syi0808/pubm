@@ -1,5 +1,6 @@
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { Ecosystem } from "../ecosystem/ecosystem.js";
+import { packageKey } from "../utils/package-key.js";
 
 export async function writeVersionsForEcosystem(
   ecosystems: { eco: Ecosystem; pkg: ResolvedPackageConfig }[],
@@ -8,9 +9,9 @@ export async function writeVersionsForEcosystem(
 ): Promise<string[]> {
   const modifiedFiles: string[] = [];
 
-  // Phase 1: Write versions to manifests (path-keyed by pkg.path)
+  // Phase 1: Write versions to manifests (keyed by packageKey)
   for (const { eco, pkg } of ecosystems) {
-    const version = versions.get(pkg.path);
+    const version = versions.get(packageKey(pkg));
     if (version) {
       await eco.writeVersion(version);
       // Invalidate ManifestReader cache
@@ -25,7 +26,7 @@ export async function writeVersionsForEcosystem(
     const nameKeyedVersions = new Map<string, string>();
     for (const { eco, pkg } of ecosystems) {
       const name = await eco.packageName();
-      const version = versions.get(pkg.path);
+      const version = versions.get(packageKey(pkg));
       if (version) nameKeyedVersions.set(name, version);
     }
     await Promise.all(

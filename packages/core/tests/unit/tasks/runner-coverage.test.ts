@@ -392,7 +392,7 @@ function createOptions(
       versionPlan: {
         mode: "single" as const,
         version: "1.0.0",
-        packagePath: ".",
+        packageKey: ".",
       },
       pluginRunner: new PluginRunner([]),
       ...overrides.runtime,
@@ -594,8 +594,8 @@ describe("runner coverage scenarios", () => {
 
   it("builds dry-run crates tasks sequentially during CI prepare validation", async () => {
     mockedCratesDescriptor.orderPackages.mockResolvedValue([
-      "rust/crates/lib-b",
-      "rust/crates/lib-a",
+      "rust/crates/lib-b::rust",
+      "rust/crates/lib-a::rust",
     ]);
     let ecosystemCall = 0;
     mockedDetectEcosystem.mockImplementation(
@@ -614,9 +614,17 @@ describe("runner coverage scenarios", () => {
         options: { mode: "ci" as const, prepare: true },
         config: {
           packages: [
-            { path: ".", registries: ["npm"] },
-            { path: "rust/crates/lib-a", registries: ["crates"] },
-            { path: "rust/crates/lib-b", registries: ["crates"] },
+            { path: ".", registries: ["npm"], ecosystem: "js" },
+            {
+              path: "rust/crates/lib-a",
+              registries: ["crates"],
+              ecosystem: "rust",
+            },
+            {
+              path: "rust/crates/lib-b",
+              registries: ["crates"],
+              ecosystem: "rust",
+            },
           ],
         },
       }),
@@ -632,9 +640,17 @@ describe("runner coverage scenarios", () => {
     const ctx: any = {
       config: {
         packages: [
-          { path: ".", registries: ["npm"] },
-          { path: "rust/crates/lib-a", registries: ["crates"] },
-          { path: "rust/crates/lib-b", registries: ["crates"] },
+          { path: ".", registries: ["npm"], ecosystem: "js" },
+          {
+            path: "rust/crates/lib-a",
+            registries: ["crates"],
+            ecosystem: "rust",
+          },
+          {
+            path: "rust/crates/lib-b",
+            registries: ["crates"],
+            ecosystem: "rust",
+          },
         ],
       },
       runtime: {
@@ -661,9 +677,9 @@ describe("runner coverage scenarios", () => {
 
     expect(
       mockedCratesDescriptor.taskFactory.createDryRunTask,
-    ).toHaveBeenCalledWith("rust/crates/lib-b", [
-      "rust/crates/lib-a",
-      "rust/crates/lib-b",
+    ).toHaveBeenCalledWith("rust/crates/lib-b::rust", [
+      "rust/crates/lib-a::rust",
+      "rust/crates/lib-b::rust",
     ]);
     expect(innerParent.newListr.mock.calls[0][1]).toEqual({
       concurrent: false,
@@ -672,8 +688,8 @@ describe("runner coverage scenarios", () => {
 
   it("handles independent multi-package version bumps with per-package changelogs and tags", async () => {
     const pathVersions = new Map([
-      ["packages/core", "2.0.0"],
-      ["packages/pubm", "2.1.0"],
+      ["packages/core::js", "2.0.0"],
+      ["packages/pubm::js", "2.1.0"],
     ]);
     const pluginRunner = new PluginRunner([]);
     mockedWriteVersionsForEcosystem.mockResolvedValue([]);
@@ -1520,7 +1536,7 @@ describe("independent release draft", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packageName: "pubm",
+          packageKey: ".::js",
         },
       },
     };
@@ -1622,7 +1638,7 @@ describe("CI GitHub Release", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".::js",
           },
         },
       }),
@@ -1652,7 +1668,7 @@ describe("CI GitHub Release", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".::js",
         },
       },
     };
@@ -1672,8 +1688,8 @@ describe("CI GitHub Release", () => {
 
   it("creates independent per-package releases in CI with per-package changelog", async () => {
     const pathVersions = new Map([
-      ["packages/core", "2.0.0"],
-      ["packages/pubm", "2.1.0"],
+      ["packages/core::js", "2.0.0"],
+      ["packages/pubm::js", "2.1.0"],
     ]);
     mockedBuildReleaseBody
       .mockResolvedValueOnce("Core release notes")
@@ -3049,7 +3065,7 @@ describe("dry-run version bump early return", () => {
         versionPlan: {
           mode: "single",
           version: "2.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -3319,8 +3335,8 @@ describe("independent mode GitHub release with null result", () => {
   describe("excludeRelease", () => {
     it("skips tag creation for packages matching excludeRelease patterns", async () => {
       const pathVersions = new Map([
-        ["packages/core", "2.0.0"],
-        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+        ["packages/core::js", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64::js", "2.0.0"],
       ]);
 
       await run(
@@ -3408,8 +3424,8 @@ describe("independent mode GitHub release with null result", () => {
 
     it("skips GitHub release for packages matching excludeRelease patterns", async () => {
       const pathVersions = new Map([
-        ["packages/core", "2.0.0"],
-        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+        ["packages/core::js", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64::js", "2.0.0"],
       ]);
       mockedResolveGitHubToken.mockReturnValue({
         token: "gh-token",
@@ -3503,8 +3519,8 @@ describe("independent mode GitHub release with null result", () => {
 
     it("creates tags for all packages when excludeRelease is undefined", async () => {
       const pathVersions = new Map([
-        ["packages/core", "2.0.0"],
-        ["packages/pubm", "2.1.0"],
+        ["packages/core::js", "2.0.0"],
+        ["packages/pubm::js", "2.1.0"],
       ]);
 
       await run(
@@ -3590,8 +3606,8 @@ describe("independent mode GitHub release with null result", () => {
 
     it("skips rollback tag deletion for excluded packages", async () => {
       const pathVersions = new Map([
-        ["packages/core", "2.0.0"],
-        ["packages/pubm/platforms/darwin-arm64", "2.0.0"],
+        ["packages/core::js", "2.0.0"],
+        ["packages/pubm/platforms/darwin-arm64::js", "2.0.0"],
       ]);
 
       await run(
@@ -4120,7 +4136,7 @@ describe("GitHub release with asset upload hooks", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".",
           },
           pluginRunner,
         },
@@ -4163,7 +4179,7 @@ describe("GitHub release with asset upload hooks", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -4196,7 +4212,7 @@ describe("GitHub release with asset upload hooks", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".",
           },
         },
       }),
@@ -4229,7 +4245,7 @@ describe("GitHub release with asset upload hooks", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -4389,8 +4405,8 @@ describe("local mode JSR token collection", () => {
 describe("formatVersionSummary and formatVersionPlan edge cases", () => {
   it("formats independent version summary with per-package versions", async () => {
     const pathVersions = new Map([
-      ["packages/core", "2.0.0"],
-      ["packages/pubm", "2.1.0"],
+      ["packages/core::js", "2.0.0"],
+      ["packages/pubm::js", "2.1.0"],
     ]);
 
     await run(
@@ -5105,7 +5121,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5157,7 +5173,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5209,7 +5225,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5262,7 +5278,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5574,7 +5590,7 @@ describe("single changeset with pkgPath fallback", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5592,7 +5608,7 @@ describe("single changeset with pkgPath fallback", () => {
 describe("independent release draft with previousTag fallback", () => {
   it("falls back to firstCommit when previousTag returns empty string", async () => {
     mockedResolveGitHubToken.mockReturnValueOnce(undefined as any);
-    const pathVersions = new Map([["packages/core", "2.0.0"]]);
+    const pathVersions = new Map([["packages/core::js", "2.0.0"]]);
 
     // Set up Git mock
     const gitInstance = {
@@ -5764,7 +5780,7 @@ describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
         versionPlan: {
           mode: "single",
           version: "2.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5996,7 +6012,7 @@ describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
         versionPlan: {
           mode: "single",
           version: "1.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };

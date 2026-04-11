@@ -18,9 +18,9 @@ export function formatRegistryGroupSummary(
   ctx: PubmContext,
 ): string {
   const lines = collectEcosystemRegistryGroups(ctx.config).flatMap((group) =>
-    group.registries.map(({ registry, packagePaths }) => {
+    group.registries.map(({ registry, packageKeys }) => {
       const packageSummary =
-        packagePaths.length > 1 ? ` (${packagePaths.length} packages)` : "";
+        packageKeys.length > 1 ? ` (${packageKeys.length} packages)` : "";
       return `- ${ecosystemLabel(group.ecosystem)} > ${registryLabel(registry)}${packageSummary}`;
     }),
   );

@@ -7,7 +7,7 @@ import type { PreparedAsset } from "../../assets/types.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
 import { collectWorkspaceVersions } from "../../monorepo/resolve-workspace.js";
-import { requirePackageEcosystem } from "./rollback-handlers.js";
+import { packageKey } from "../../utils/package-key.js";
 import { writeVersions } from "./write-versions.js";
 
 export async function prepareReleaseAssets(
@@ -74,8 +74,7 @@ export async function resolveWorkspaceProtocols(
 
   for (const pkg of ctx.config.packages) {
     const absPath = path.resolve(ctx.cwd, pkg.path);
-    const ecosystem = requirePackageEcosystem(pkg);
-    const descriptor = ecosystemCatalog.get(ecosystem);
+    const descriptor = ecosystemCatalog.get(pkg.ecosystem);
     if (!descriptor) continue;
 
     const eco = new descriptor.ecosystemClass(absPath);
@@ -96,14 +95,14 @@ export async function applyVersionsForDryRun(ctx: PubmContext): Promise<void> {
 
   // Backup original versions from config (safe: writeVersions not yet called in dry-run)
   ctx.runtime.dryRunVersionBackup = new Map(
-    ctx.config.packages.map((pkg) => [pkg.path, pkg.version ?? "0.0.0"]),
+    ctx.config.packages.map((pkg) => [packageKey(pkg), pkg.version ?? "0.0.0"]),
   );
 
   // Build new versions map from versionPlan
   let newVersions: Map<string, string>;
   if (plan.mode === "single") {
     newVersions = new Map(
-      ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
+      ctx.config.packages.map((pkg) => [packageKey(pkg), plan.version]),
     );
   } else {
     // fixed and independent both use plan.packages

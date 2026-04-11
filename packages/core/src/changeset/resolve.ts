@@ -1,15 +1,45 @@
-import type { ResolvedPackageConfig } from "../config/types.js";
+import type { EcosystemKey } from "../ecosystem/catalog.js";
+import { packageKey } from "../utils/package-key.js";
 
 export function createKeyResolver(
-  packages: Pick<ResolvedPackageConfig, "name" | "path">[],
+  packages: { name: string; path: string; ecosystem: EcosystemKey }[],
 ): (key: string) => string {
-  const nameToPath = new Map(packages.map((p) => [p.name, p.path]));
-  const validPaths = new Set(packages.map((p) => p.path));
+  const validKeys = new Set(packages.map((p) => packageKey(p)));
+  const pathEcosystems = new Map<string, EcosystemKey[]>();
+  const nameEcosystems = new Map<string, EcosystemKey[]>();
+  for (const p of packages) {
+    const existingPath = pathEcosystems.get(p.path) ?? [];
+    if (!existingPath.includes(p.ecosystem)) existingPath.push(p.ecosystem);
+    pathEcosystems.set(p.path, existingPath);
+
+    const existingName = nameEcosystems.get(p.name) ?? [];
+    if (!existingName.includes(p.ecosystem)) existingName.push(p.ecosystem);
+    nameEcosystems.set(p.name, existingName);
+  }
 
   return (key: string): string => {
-    if (validPaths.has(key)) return key;
-    const resolved = nameToPath.get(key);
-    if (resolved) return resolved;
+    if (validKeys.has(key)) return key;
+    const ecosystems = pathEcosystems.get(key);
+    if (ecosystems) {
+      if (ecosystems.length === 1) {
+        return `${key}::${ecosystems[0]}`;
+      }
+      throw new Error(
+        `Ambiguous changeset key "${key}": directory contains multiple ecosystems (${ecosystems.join(", ")}). ` +
+          `Use "${key}::${ecosystems[0]}" or "${key}::${ecosystems[1]}" to specify.`,
+      );
+    }
+    const nameEcos = nameEcosystems.get(key);
+    if (nameEcos) {
+      if (nameEcos.length === 1) {
+        const pkg = packages.find((p) => p.name === key);
+        if (pkg) return packageKey(pkg);
+      }
+      throw new Error(
+        `Ambiguous changeset key "${key}": name is shared across ecosystems (${nameEcos.join(", ")}). ` +
+          `Use the path::ecosystem format to specify.`,
+      );
+    }
     return key;
   };
 }

@@ -13,6 +13,7 @@ import { registryCatalog } from "../registry/catalog.js";
 import { getConnector } from "../registry/index.js";
 import { validateEngineVersion } from "../utils/engine-version.js";
 import { createCiListrOptions, createListr } from "../utils/listr.js";
+import { pathFromKey } from "../utils/package-key.js";
 import {
   collectEcosystemRegistryGroups,
   ecosystemLabel,
@@ -34,18 +35,20 @@ export const requiredConditionsCheckTask = (
 ): Listr<PubmContext> => {
   const createAvailabilityTask = (
     registryKey: string,
-    packagePaths: string[],
+    packageKeys: string[],
   ): ListrTask<PubmContext> => {
     const descriptor = registryCatalog.get(registryKey);
     if (!descriptor) return { title: registryKey, task: async () => {} };
 
-    if (packagePaths.length <= 1) {
+    if (packageKeys.length <= 1) {
       return {
         title: t("task.conditions.checkAvailability", {
           label: descriptor.label,
         }),
         task: async (ctx, task): Promise<void> => {
-          const registry = await descriptor.factory(packagePaths[0]);
+          const registry = await descriptor.factory(
+            pathFromKey(packageKeys[0] ?? ""),
+          );
           await registry.checkAvailability(task, ctx);
         },
       };
@@ -57,10 +60,10 @@ export const requiredConditionsCheckTask = (
       }),
       task: (_ctx, parentTask): Listr<PubmContext> =>
         parentTask.newListr(
-          packagePaths.map((packagePath) => ({
-            title: packagePath,
+          packageKeys.map((key) => ({
+            title: pathFromKey(key),
             task: async (ctx, task): Promise<void> => {
-              const registry = await descriptor.factory(packagePath);
+              const registry = await descriptor.factory(pathFromKey(key));
               await registry.checkAvailability(task, ctx);
             },
           })),
@@ -119,7 +122,7 @@ export const requiredConditionsCheckTask = (
 
               const byEcosystem = new Map<string, ResolvedPackageConfig[]>();
               for (const pkg of ctx.config.packages) {
-                const key = pkg.ecosystem ?? "js";
+                const key = pkg.ecosystem;
                 if (!byEcosystem.has(key)) byEcosystem.set(key, []);
                 byEcosystem.get(key)!.push(pkg);
               }
@@ -235,8 +238,8 @@ export const requiredConditionsCheckTask = (
                   title: ecosystemLabel(group.ecosystem),
                   task: (_ctx, ecosystemTask): Listr<PubmContext> =>
                     ecosystemTask.newListr(
-                      group.registries.map(({ registry, packagePaths }) =>
-                        createAvailabilityTask(registry, packagePaths),
+                      group.registries.map(({ registry, packageKeys }) =>
+                        createAvailabilityTask(registry, packageKeys),
                       ),
                       { concurrent: true },
                     ),

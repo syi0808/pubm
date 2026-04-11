@@ -61,6 +61,18 @@ describe("generateChangesetContent", () => {
     expect(content).toContain("pkg-a: patch");
     expect(content.endsWith("---\n")).toBe(true);
   });
+
+  it("generates content with path::ecosystem keys", () => {
+    const content = generateChangesetContent(
+      [
+        { path: "packages/core", ecosystem: "js", type: "minor" },
+        { path: "packages/core", ecosystem: "rust", type: "patch" },
+      ],
+      "Multi-ecosystem change.",
+    );
+    expect(content).toContain("packages/core::js: minor");
+    expect(content).toContain("packages/core::rust: patch");
+  });
 });
 
 describe("generateChangesetId", () => {

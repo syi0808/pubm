@@ -24,13 +24,14 @@ export class EcosystemCatalog {
     return this.descriptors.get(key);
   }
 
-  async detect(packagePath: string): Promise<EcosystemDescriptor | null> {
+  async detectAll(packagePath: string): Promise<EcosystemDescriptor[]> {
+    const results: EcosystemDescriptor[] = [];
     for (const descriptor of this.descriptors.values()) {
       if (await descriptor.detect(packagePath)) {
-        return descriptor;
+        results.push(descriptor);
       }
     }
-    return null;
+    return results;
   }
 
   all(): EcosystemDescriptor[] {

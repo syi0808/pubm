@@ -15,7 +15,6 @@ import {
 } from "../runner-utils/manifest-handling.js";
 import { formatRegistryGroupSummary } from "../runner-utils/output-formatting.js";
 import { collectDryRunPublishTasks } from "../runner-utils/publish-tasks.js";
-import { requirePackageEcosystem } from "../runner-utils/rollback-handlers.js";
 import { writeVersions } from "../runner-utils/write-versions.js";
 
 export function createDryRunTasks(
@@ -62,8 +61,7 @@ export function createDryRunTasks(
         // Re-sync lockfile to reflect restored workspace:* protocols
         for (const pkg of ctx.config.packages) {
           const absPath = path.resolve(ctx.cwd ?? process.cwd(), pkg.path);
-          const ecosystem = requirePackageEcosystem(pkg);
-          const descriptor = ecosystemCatalog.get(ecosystem);
+          const descriptor = ecosystemCatalog.get(pkg.ecosystem);
           if (!descriptor) continue;
           const eco = new descriptor.ecosystemClass(absPath);
           await eco.syncLockfile(ctx.config.lockfileSync);

@@ -7,6 +7,7 @@ import { registryCatalog } from "../registry/catalog.js";
 import { cratesPackageRegistry } from "../registry/crates.js";
 import { jsrPackageRegistry } from "../registry/jsr.js";
 import { npmPackageRegistry } from "../registry/npm.js";
+import { pathFromKey } from "../utils/package-key.js";
 import { SecureStore } from "../utils/secure-store.js";
 
 const AUTH_ERROR_PATTERNS = [
@@ -66,14 +67,14 @@ async function withTokenRetry(
 }
 
 export function createNpmDryRunPublishTask(
-  packagePath: string,
+  key: string,
 ): ListrTask<PubmContext> {
   return {
-    title: packagePath,
+    title: key,
     task: async (ctx, task): Promise<void> => {
-      const npm = await npmPackageRegistry(packagePath);
+      const npm = await npmPackageRegistry(pathFromKey(key));
       task.title = npm.packageName;
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       if (await npm.isVersionPublished(version)) {
         task.title = t("task.dryRun.npm.skipped", { version });
@@ -93,14 +94,14 @@ export function createNpmDryRunPublishTask(
 }
 
 export function createJsrDryRunPublishTask(
-  packagePath: string,
+  key: string,
 ): ListrTask<PubmContext> {
   return {
-    title: packagePath,
+    title: key,
     task: async (ctx, task): Promise<void> => {
-      const jsr = await jsrPackageRegistry(packagePath);
+      const jsr = await jsrPackageRegistry(pathFromKey(key));
       task.title = jsr.packageName;
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       if (await jsr.isVersionPublished(version)) {
         task.title = t("task.dryRun.jsr.skipped", { version });
@@ -159,16 +160,18 @@ async function findUnpublishedSiblingDeps(
 }
 
 export function createCratesDryRunPublishTask(
-  packagePath: string,
-  siblingPaths?: string[],
+  key: string,
+  siblingKeys?: string[],
 ): ListrTask<PubmContext> {
+  const packagePath = pathFromKey(key);
+  const siblingPaths = siblingKeys?.map(pathFromKey);
   return {
     title: t("task.dryRun.crates.title", { path: packagePath }),
     task: async (ctx, task): Promise<void> => {
       // Pre-check: skip if version already published
       const registry = await cratesPackageRegistry(packagePath);
       const packageName = registry.packageName;
-      const version = getPackageVersion(ctx, packagePath);
+      const version = getPackageVersion(ctx, key);
 
       if (await registry.isVersionPublished(version)) {
         task.title = t("task.dryRun.crates.skipped", {

@@ -1785,8 +1785,8 @@ describe("run", () => {
       await run(options);
 
       expect(cratesDescriptor.orderPackages).toHaveBeenCalledWith([
-        "rust/crates/update-kit",
-        "rust/crates/update-kit-cli",
+        "rust/crates/update-kit::rust",
+        "rust/crates/update-kit-cli::rust",
       ]);
     });
 
@@ -1854,8 +1854,12 @@ describe("run", () => {
       const innerSubtasks = (innerParentTask.newListr as any).mock.calls[0][0];
       const innerOptions = (innerParentTask.newListr as any).mock.calls[0][1];
       expect(innerSubtasks).toHaveLength(2);
-      expect(innerSubtasks[0].title).toBe("crates publish (rust/crates/lib-a)");
-      expect(innerSubtasks[1].title).toBe("crates publish (rust/crates/lib-b)");
+      expect(innerSubtasks[0].title).toBe(
+        "crates publish (rust/crates/lib-a::rust)",
+      );
+      expect(innerSubtasks[1].title).toBe(
+        "crates publish (rust/crates/lib-b::rust)",
+      );
       expect(innerOptions.concurrent).toBe(false);
     });
 

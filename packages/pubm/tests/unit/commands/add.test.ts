@@ -18,6 +18,8 @@ const {
 vi.mock("@pubm/core", () => ({
   writeChangeset: mockWriteChangeset,
   createKeyResolver: mockCreateKeyResolver,
+  packageKey: (pkg: { path: string; ecosystem: string }) =>
+    `${pkg.path}::${pkg.ecosystem}`,
   ui: {
     success: mockUiSuccess,
     warn: mockUiWarn,
@@ -43,11 +45,19 @@ function makeParent(): Command {
 }
 
 function makeConfig(
-  packages: { name: string; path: string; version: string }[] = [],
+  packages: {
+    name: string;
+    path: string;
+    version: string;
+    ecosystem?: string;
+  }[] = [],
   versioning: "independent" | "fixed" = "independent",
 ) {
   return {
-    packages,
+    packages: packages.map((p) => ({
+      ...p,
+      ecosystem: p.ecosystem ?? "js",
+    })),
     versioning,
   } as never;
 }
@@ -141,7 +151,7 @@ describe("registerAddCommand", () => {
 
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("pkg-a"));
     expect(mockWriteChangeset).toHaveBeenCalledWith(
-      [{ path: "packages/a", type: "patch" }],
+      [{ path: "packages/a", ecosystem: "js", type: "patch" }],
       "fix: a bug",
       expect.any(String),
     );
@@ -168,7 +178,9 @@ describe("registerAddCommand", () => {
   it("handles multi-package interactive flow", async () => {
     // For multi-package: package selection, then bump per package, then summary
     mockEnquirerPrompt
-      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b"] })
+      .mockResolvedValueOnce({
+        packages: ["packages/a::js", "packages/b::js"],
+      })
       .mockResolvedValueOnce({ bump: "minor" })
       .mockResolvedValueOnce({ bump: "patch" })
       .mockResolvedValueOnce({ summary: "multi-package update" });
@@ -184,8 +196,8 @@ describe("registerAddCommand", () => {
 
     expect(mockWriteChangeset).toHaveBeenCalledWith(
       [
-        { path: "packages/a", type: "minor" },
-        { path: "packages/b", type: "patch" },
+        { path: "packages/a", ecosystem: "js", type: "minor" },
+        { path: "packages/b", ecosystem: "js", type: "patch" },
       ],
       "multi-package update",
       expect.any(String),
@@ -195,7 +207,9 @@ describe("registerAddCommand", () => {
 
   it("pre-selects all packages in fixed mode interactive flow", async () => {
     mockEnquirerPrompt
-      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b"] })
+      .mockResolvedValueOnce({
+        packages: ["packages/a::js", "packages/b::js"],
+      })
       .mockResolvedValueOnce({ bump: "minor" })
       .mockResolvedValueOnce({ summary: "fixed bump" });
 
@@ -213,23 +227,25 @@ describe("registerAddCommand", () => {
 
     const firstCall = mockEnquirerPrompt.mock.calls[0][0];
     expect(firstCall.type).toBe("multiselect");
-    expect(firstCall.initial).toEqual(["pkg-a", "pkg-b"]);
+    expect(firstCall.initial).toEqual(["packages/a::js", "packages/b::js"]);
 
     expect(mockEnquirerPrompt).toHaveBeenCalledTimes(3);
 
     expect(mockWriteChangeset).toHaveBeenCalledWith(
       [
-        { path: "packages/a", type: "minor" },
-        { path: "packages/b", type: "minor" },
+        { path: "packages/a", ecosystem: "js", type: "minor" },
+        { path: "packages/b", ecosystem: "js", type: "minor" },
       ],
       "fixed bump",
       expect.any(String),
     );
   });
 
-  it("passes initial with all package names in fixed mode (regression)", async () => {
+  it("passes initial with all package keys in fixed mode (regression)", async () => {
     mockEnquirerPrompt
-      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b", "pkg-c"] })
+      .mockResolvedValueOnce({
+        packages: ["packages/a::js", "packages/b::js", "packages/c::js"],
+      })
       .mockResolvedValueOnce({ bump: "patch" })
       .mockResolvedValueOnce({ summary: "regression test" });
 
@@ -244,7 +260,7 @@ describe("registerAddCommand", () => {
     await parent.parseAsync(["node", "test", "add"]);
 
     const firstCall = mockEnquirerPrompt.mock.calls[0][0];
-    expect(firstCall.initial).toEqual(packages.map((pkg) => pkg.name));
+    expect(firstCall.initial).toEqual(packages.map((pkg) => `${pkg.path}::js`));
     expect(firstCall.choices).not.toContainEqual(
       expect.objectContaining({ enabled: true }),
     );
@@ -252,7 +268,9 @@ describe("registerAddCommand", () => {
 
   it("prompts bump per-package in independent mode", async () => {
     mockEnquirerPrompt
-      .mockResolvedValueOnce({ packages: ["pkg-a", "pkg-b"] })
+      .mockResolvedValueOnce({
+        packages: ["packages/a::js", "packages/b::js"],
+      })
       .mockResolvedValueOnce({ bump: "minor" })
       .mockResolvedValueOnce({ bump: "patch" })
       .mockResolvedValueOnce({ summary: "independent bump" });

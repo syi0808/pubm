@@ -4,6 +4,7 @@ import semver from "semver";
 import { isCI } from "std-env";
 import type { PubmContext } from "../../context.js";
 import { t } from "../../i18n/index.js";
+import { packageKey as makePackageKey } from "../../utils/package-key.js";
 import { displayRecommendationSummary, pluralize } from "./display.js";
 import { analyzeAllSources, versionChoices } from "./version-choices.js";
 
@@ -28,7 +29,7 @@ export async function handleSinglePackage(
         ctx.runtime.versionPlan = {
           mode: "single",
           version: newVer,
-          packagePath: pkg.path,
+          packageKey: makePackageKey(pkg),
         };
         ctx.runtime.changesetConsumed = rec.source === "changeset";
         return;
@@ -61,7 +62,7 @@ export async function handleSinglePackage(
         ctx.runtime.versionPlan = {
           mode: "single",
           version: newVer,
-          packagePath: pkg.path,
+          packageKey: makePackageKey(pkg),
         };
         ctx.runtime.changesetConsumed = rec.source === "changeset";
         return;
@@ -88,6 +89,6 @@ export async function handleSinglePackage(
   ctx.runtime.versionPlan = {
     mode: "single",
     version: nextVersion,
-    packagePath: pkg.path,
+    packageKey: makePackageKey(pkg),
   };
 }

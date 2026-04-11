@@ -2,6 +2,7 @@ import { color } from "listr2";
 import semver from "semver";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import { t } from "../../i18n/index.js";
+import { packageKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
 import type { VersionRecommendation } from "../../version-source/types.js";
 
@@ -77,7 +78,7 @@ export function buildDependencyBumpNote(
 
 export function renderPackageVersionSummary(
   packageInfos: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
+  _currentVersions: Map<string, string>,
   selectedVersions: Map<string, string>,
   options: {
     activePackage?: string;
@@ -87,8 +88,8 @@ export function renderPackageVersionSummary(
   const lines = [t("output.packages")];
 
   for (const pkg of packageInfos) {
-    const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
-    const selectedVersion = selectedVersions.get(pkg.path);
+    const currentVersion = pkg.version;
+    const selectedVersion = selectedVersions.get(packageKey(pkg));
     const prefix = options.activePackage === pkg.path ? "> " : "  ";
 
     lines.push(

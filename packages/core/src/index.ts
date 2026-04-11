@@ -236,6 +236,7 @@ export { exec } from "./utils/exec.js";
 export type { GitHubTokenResult } from "./utils/github-token.js";
 export { resolveGitHubToken, saveGitHubToken } from "./utils/github-token.js";
 export { notifyNewVersion } from "./utils/notify-new-version.js";
+export { packageKey, pathFromKey } from "./utils/package-key.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
 export type { ReleasePhase } from "./utils/resolve-phases.js";

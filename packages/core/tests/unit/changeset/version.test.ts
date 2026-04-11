@@ -155,6 +155,28 @@ describe("calculateVersionBumps", () => {
     expect(mockedInc).not.toHaveBeenCalled();
   });
 
+  it("calculates independent bumps for same path with different ecosystems", () => {
+    mockedReadChangesets.mockReturnValue([
+      {
+        id: "c1",
+        summary: "JS fix.",
+        releases: [{ path: ".", ecosystem: "js", type: "patch" }],
+      },
+      {
+        id: "c2",
+        summary: "Rust feature.",
+        releases: [{ path: ".", ecosystem: "rust", type: "minor" }],
+      },
+    ]);
+    const currentVersions = new Map([
+      [".::js", "1.0.0"],
+      [".::rust", "0.5.0"],
+    ]);
+    const result = calculateVersionBumps(currentVersions, "/tmp/project");
+    expect(result.get(".::js")?.bumpType).toBe("patch");
+    expect(result.get(".::rust")?.bumpType).toBe("minor");
+  });
+
   it("ignores changesets when semver cannot produce a next version", () => {
     mockedReadChangesets.mockReturnValue([
       {

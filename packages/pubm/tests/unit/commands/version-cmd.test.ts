@@ -154,7 +154,7 @@ describe("runVersionCommand", () => {
 
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
-      new Map([[".", "1.1.0"]]),
+      new Map([[".::js", "1.1.0"]]),
       undefined,
     );
     expect(mockChangesetChangelogWriterFormatEntries).toHaveBeenCalledWith([
@@ -301,14 +301,9 @@ describe("runVersionCommand", () => {
     });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
     mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
-      // Simulate applyFixedGroup by setting minor for both packages
-      const nameToPaths: Record<string, string> = {
-        "pkg-a": "packages/pkg-a",
-        "pkg-b": "packages/pkg-b",
-      };
+      // Simulate applyFixedGroup by setting minor for both packages (name-keyed)
       for (const name of group) {
-        const p = nameToPaths[name] ?? name;
-        bumpTypes.set(p, "minor");
+        bumpTypes.set(name, "minor");
       }
     });
 
@@ -321,8 +316,8 @@ describe("runVersionCommand", () => {
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([
-        ["packages/pkg-a", "1.1.0"],
-        ["packages/pkg-b", "1.1.0"],
+        ["packages/pkg-a::js", "1.1.0"],
+        ["packages/pkg-b::js", "1.1.0"],
       ]),
       undefined,
     );

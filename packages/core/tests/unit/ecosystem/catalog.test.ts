@@ -52,24 +52,64 @@ describe("EcosystemCatalog", () => {
     expect(catalog.remove("nonexistent")).toBe(false);
   });
 
-  it("detects ecosystem by calling detect functions in order", async () => {
-    const catalog = new EcosystemCatalog();
-    const jsDetect = vi.fn().mockResolvedValue(false);
-    const rustDetect = vi.fn().mockResolvedValue(true);
-    catalog.register(createDescriptor({ key: "js", detect: jsDetect }));
-    catalog.register(createDescriptor({ key: "rust", detect: rustDetect }));
+  describe("detectAll", () => {
+    it("returns empty array when no ecosystem matches", async () => {
+      const catalog = new EcosystemCatalog();
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
+      const result = await catalog.detectAll("/some/path");
+      expect(result).toEqual([]);
+    });
 
-    const result = await catalog.detect("/some/path");
-    expect(result?.key).toBe("rust");
-  });
+    it("returns single matching ecosystem", async () => {
+      const catalog = new EcosystemCatalog();
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(false),
+        }),
+      );
+      const result = await catalog.detectAll("/some/path");
+      expect(result).toHaveLength(1);
+      expect(result[0].key).toBe("js");
+    });
 
-  it("returns null when no ecosystem detected", async () => {
-    const catalog = new EcosystemCatalog();
-    catalog.register(
-      createDescriptor({ detect: vi.fn().mockResolvedValue(false) }),
-    );
-    const result = await catalog.detect("/empty/path");
-    expect(result).toBeNull();
+    it("returns all matching ecosystems", async () => {
+      const catalog = new EcosystemCatalog();
+      catalog.register(
+        createDescriptor({
+          key: "js",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
+      catalog.register(
+        createDescriptor({
+          key: "rust",
+          detect: vi.fn().mockResolvedValue(true),
+        }),
+      );
+      const result = await catalog.detectAll("/some/path");
+      expect(result).toHaveLength(2);
+      const keys = result.map((d) => d.key);
+      expect(keys).toContain("js");
+      expect(keys).toContain("rust");
+    });
   });
 });
 

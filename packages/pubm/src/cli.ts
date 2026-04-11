@@ -15,6 +15,7 @@ import {
   mergeRecommendations,
   notifyNewVersion,
   PUBM_VERSION,
+  packageKey,
   pubm,
   requiredMissingInformationTasks,
   resolveConfig,
@@ -225,14 +226,15 @@ export function createProgram(): Command {
 
         if (nextVersion) {
           if (resolvedConfig.packages.length <= 1) {
+            const pkg0 = resolvedConfig.packages[0];
             ctx.runtime.versionPlan = {
               mode: "single",
               version: nextVersion,
-              packagePath: resolvedConfig.packages[0]?.path ?? ".",
+              packageKey: pkg0 ? packageKey(pkg0) : ".",
             };
           } else {
             const packages = new Map(
-              resolvedConfig.packages.map((p) => [p.path, nextVersion]),
+              resolvedConfig.packages.map((p) => [packageKey(p), nextVersion]),
             );
             ctx.runtime.versionPlan = {
               mode: "fixed",
@@ -258,11 +260,11 @@ export function createProgram(): Command {
               ctx.runtime.versionPlan = {
                 mode: "single",
                 version,
-                packagePath: pkg?.path ?? ".",
+                packageKey: pkg ? packageKey(pkg) : ".",
               };
             } else if (resolvedConfig.versioning === "independent") {
               const packages = new Map(
-                resolvedConfig.packages.map((p) => [p.path, p.version]),
+                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
               );
               ctx.runtime.versionPlan = {
                 mode: "independent",
@@ -270,7 +272,7 @@ export function createProgram(): Command {
               };
             } else {
               const packages = new Map(
-                resolvedConfig.packages.map((p) => [p.path, p.version]),
+                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
               );
               const version = [...packages.values()][0];
               ctx.runtime.versionPlan = {
@@ -291,11 +293,11 @@ export function createProgram(): Command {
               ctx.runtime.versionPlan = {
                 mode: "single",
                 version,
-                packagePath: pkg?.path ?? ".",
+                packageKey: pkg ? packageKey(pkg) : ".",
               };
             } else if (resolvedConfig.versioning === "independent") {
               const packages = new Map(
-                resolvedConfig.packages.map((p) => [p.path, p.version]),
+                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
               );
               ctx.runtime.versionPlan = {
                 mode: "independent",
@@ -303,7 +305,7 @@ export function createProgram(): Command {
               };
             } else {
               const packages = new Map(
-                resolvedConfig.packages.map((p) => [p.path, p.version]),
+                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
               );
               const version = [...packages.values()][0];
               ctx.runtime.versionPlan = {
@@ -314,9 +316,17 @@ export function createProgram(): Command {
             }
           } else if (isCI && mode === "local") {
             // Backward compatibility: isCI detected but --mode not set
+            // currentVersions is path-keyed for VersionSourceContext compatibility
             const currentVersions = new Map(
               resolvedConfig.packages.map((p) => [p.path, p.version]),
             );
+            // pathToKeys maps filesystem path → packageKey[] for building the version plan
+            const pathToKeys = new Map<string, string[]>();
+            for (const p of resolvedConfig.packages) {
+              const existing = pathToKeys.get(p.path) ?? [];
+              existing.push(packageKey(p));
+              pathToKeys.set(p.path, existing);
+            }
 
             const sources: VersionSource[] = [];
             const versionSources = resolvedConfig.versionSources ?? "all";
@@ -344,18 +354,23 @@ export function createProgram(): Command {
             if (recommendations.length > 0) {
               const packages = new Map<string, string>();
               for (const rec of recommendations) {
-                const currentVersion = currentVersions.get(rec.packagePath);
-                if (!currentVersion) continue;
-                const newVersion = semver.inc(currentVersion, rec.bumpType);
-                if (newVersion) packages.set(rec.packagePath, newVersion);
+                const matchingPkgs = resolvedConfig.packages.filter(
+                  (p) => p.path === rec.packagePath,
+                );
+                for (const pkg of matchingPkgs) {
+                  const newVersion = semver.inc(pkg.version, rec.bumpType);
+                  if (newVersion) {
+                    packages.set(packageKey(pkg), newVersion);
+                  }
+                }
               }
 
               if (packages.size === 1) {
-                const [pkgPath, version] = [...packages.entries()][0];
+                const [key, version] = [...packages.entries()][0];
                 ctx.runtime.versionPlan = {
                   mode: "single",
                   version,
-                  packagePath: pkgPath,
+                  packageKey: key,
                 };
               } else if (packages.size > 1) {
                 ctx.runtime.versionPlan =
