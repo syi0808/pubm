@@ -41,11 +41,12 @@ export function detectTagNameCollisions(
 ): string[] {
   const nameToEcosystems = new Map<string, Set<string>>();
   for (const pkg of packages) {
+    const ecosystem = pkg.ecosystem ?? "js";
     const ecosystems = nameToEcosystems.get(pkg.name);
     if (ecosystems) {
-      ecosystems.add(pkg.ecosystem);
+      ecosystems.add(ecosystem);
     } else {
-      nameToEcosystems.set(pkg.name, new Set([pkg.ecosystem]));
+      nameToEcosystems.set(pkg.name, new Set([ecosystem]));
     }
   }
   const collisions: string[] = [];
