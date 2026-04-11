@@ -71,9 +71,6 @@ if (!result.success) {
 if (platform() === "darwin") {
   await $`codesign --remove-signature ${OUT_FILE}`;
   await $`codesign -s - ${OUT_FILE}`;
-} else {
-  await $`rcodesign strip ${OUT_FILE}`;
-  await $`rcodesign sign ${OUT_FILE}`;
 }
 
 console.log(`[@pubm/darwin-x64-baseline] Done → ${OUT_FILE}`);

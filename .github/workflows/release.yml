@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,10 +35,6 @@ jobs:
         with:
           node-version: "24.x"
           registry-url: https://registry.npmjs.org/
-      - name: Install rcodesign (ad-hoc sign darwin binaries)
-        run: |
-          curl -fsSL "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.27.0/apple-codesign-0.27.0-x86_64-unknown-linux-musl.tar.gz" \
-            | tar xz --strip-components=1 -C /usr/local/bin apple-codesign-0.27.0-x86_64-unknown-linux-musl/rcodesign
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Publish and release
