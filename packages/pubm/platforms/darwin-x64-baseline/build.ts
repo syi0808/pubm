@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { platform } from "node:os";
 import { join } from "node:path";
 import { $ } from "bun";
 import pubmPackageJson from "../../package.json" with { type: "json" };
@@ -64,6 +65,13 @@ if (!result.success) {
   }
   console.error("[@pubm/darwin-x64-baseline] Build failed");
   process.exit(1);
+}
+
+// Ad-hoc sign the binary so macOS doesn't SIGKILL it
+if (platform() === "darwin") {
+  await $`codesign -f -s - ${OUT_FILE}`;
+} else {
+  await $`rcodesign sign ${OUT_FILE}`;
 }
 
 console.log(`[@pubm/darwin-x64-baseline] Done → ${OUT_FILE}`);

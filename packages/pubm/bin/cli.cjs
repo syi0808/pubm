@@ -16,6 +16,16 @@ function run(target) {
     console.error(result.error.message);
     process.exit(1);
   }
+  if (result.signal) {
+    console.error(
+      `pubm: binary was terminated by signal ${result.signal}.` +
+        (result.signal === "SIGKILL" && os.platform() === "darwin"
+          ? " This may be caused by macOS Gatekeeper. Try: xattr -d com.apple.quarantine " +
+            JSON.stringify(target)
+          : ""),
+    );
+    process.exit(1);
+  }
   const code = typeof result.status === "number" ? result.status : 0;
   process.exit(code);
 }
