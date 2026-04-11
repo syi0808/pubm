@@ -85,17 +85,16 @@ export async function runVersionCommand(
   // 4. Convert recommendations to VersionBump map (keyed by packageKey)
   const bumps = new Map<string, VersionBump>();
   for (const rec of recommendations) {
-    const currentVersion = currentVersions.get(rec.packagePath);
-    if (!currentVersion) continue;
-    const newVersion = inc(currentVersion, rec.bumpType);
-    if (!newVersion) continue;
     const matchingPkgs = config.packages.filter(
       (p) => p.path === rec.packagePath,
     );
     for (const pkg of matchingPkgs) {
+      const pkgCurrentVersion = pkg.version;
+      const pkgNewVersion = inc(pkgCurrentVersion, rec.bumpType);
+      if (!pkgNewVersion) continue;
       bumps.set(packageKey(pkg), {
-        currentVersion,
-        newVersion,
+        currentVersion: pkgCurrentVersion,
+        newVersion: pkgNewVersion,
         bumpType: rec.bumpType,
       });
     }

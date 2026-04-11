@@ -84,7 +84,7 @@ export function buildChangelogEntries(
       const releaseKey = release.ecosystem
         ? packageKey({ path: release.path, ecosystem: release.ecosystem })
         : release.path;
-      if (releaseKey === targetKey) {
+      if (releaseKey === targetKey || release.path === targetKey) {
         entries.push({
           summary: changeset.summary,
           type: release.type,

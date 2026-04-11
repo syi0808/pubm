@@ -54,6 +54,11 @@ export function parseChangeset(
       if (separatorIndex !== -1) {
         releasePath = resolvedKey.slice(0, separatorIndex);
         ecosystem = resolvedKey.slice(separatorIndex + 2);
+        if (!releasePath || !ecosystem) {
+          throw new Error(
+            `Invalid package key "${resolvedKey}" in "${fileName}". Expected "path::ecosystem" with non-empty path and ecosystem.`,
+          );
+        }
       } else {
         releasePath = resolvedKey;
         ecosystem = undefined;

@@ -354,16 +354,13 @@ export function createProgram(): Command {
             if (recommendations.length > 0) {
               const packages = new Map<string, string>();
               for (const rec of recommendations) {
-                const currentVersion = currentVersions.get(rec.packagePath);
-                if (!currentVersion) continue;
-                const newVersion = semver.inc(currentVersion, rec.bumpType);
-                // Use packageKey as the map key for the version plan
-                const keys = pathToKeys.get(rec.packagePath) ?? [
-                  rec.packagePath,
-                ];
-                if (newVersion) {
-                  for (const key of keys) {
-                    packages.set(key, newVersion);
+                const matchingPkgs = resolvedConfig.packages.filter(
+                  (p) => p.path === rec.packagePath,
+                );
+                for (const pkg of matchingPkgs) {
+                  const newVersion = semver.inc(pkg.version, rec.bumpType);
+                  if (newVersion) {
+                    packages.set(packageKey(pkg), newVersion);
                   }
                 }
               }

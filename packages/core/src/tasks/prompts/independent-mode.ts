@@ -75,13 +75,13 @@ export async function handleMultiPackage(
   if (isCI && recommendations.length > 0) {
     const packages = new Map<string, string>();
     for (const rec of recommendations) {
-      const current = currentVersions.get(rec.packagePath);
-      if (!current) continue;
-      const newVer = semver.inc(current, rec.bumpType);
-      if (newVer) {
-        const keys = pathToKeys.get(rec.packagePath) ?? [rec.packagePath];
-        for (const key of keys) {
-          packages.set(key, newVer);
+      const matchingPkgs = packageInfos.filter(
+        (p) => p.path === rec.packagePath,
+      );
+      for (const pkg of matchingPkgs) {
+        const newVer = semver.inc(pkg.version, rec.bumpType);
+        if (newVer) {
+          packages.set(packageKey(pkg), newVer);
         }
       }
     }
@@ -130,13 +130,13 @@ export async function handleMultiPackage(
   if (action === "accept") {
     selectedVersions = new Map();
     for (const rec of recommendations) {
-      const current = currentVersions.get(rec.packagePath);
-      if (!current) continue;
-      const newVer = semver.inc(current, rec.bumpType);
-      if (newVer) {
-        const keys = pathToKeys.get(rec.packagePath) ?? [rec.packagePath];
-        for (const key of keys) {
-          selectedVersions.set(key, newVer);
+      const matchingPkgs = packageInfos.filter(
+        (p) => p.path === rec.packagePath,
+      );
+      for (const pkg of matchingPkgs) {
+        const newVer = semver.inc(pkg.version, rec.bumpType);
+        if (newVer) {
+          selectedVersions.set(packageKey(pkg), newVer);
         }
       }
     }
@@ -337,12 +337,12 @@ export async function handleIndependentMode(
 
     if (cascadeChoice === "patch") {
       for (const pkgPath of uniqueDependents) {
-        const currentVersion =
-          currentVersions.get(pkgPath) ??
-          (packageVersionByPath.get(pkgPath) as string);
-        const patchVersion = new SemVer(currentVersion).inc("patch").toString();
         const pkgs = packageInfos.filter((p) => p.path === pkgPath);
         for (const pkg of pkgs) {
+          const currentVersion = pkg.version;
+          const patchVersion = new SemVer(currentVersion)
+            .inc("patch")
+            .toString();
           versions.set(packageKey(pkg), patchVersion);
         }
       }

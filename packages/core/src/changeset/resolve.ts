@@ -19,6 +19,16 @@ export function createKeyResolver(
 
   return (key: string): string => {
     if (validKeys.has(key)) return key;
+    const ecosystems = pathEcosystems.get(key);
+    if (ecosystems) {
+      if (ecosystems.length === 1) {
+        return `${key}::${ecosystems[0]}`;
+      }
+      throw new Error(
+        `Ambiguous changeset key "${key}": directory contains multiple ecosystems (${ecosystems.join(", ")}). ` +
+          `Use "${key}::${ecosystems[0]}" or "${key}::${ecosystems[1]}" to specify.`,
+      );
+    }
     const nameEcos = nameEcosystems.get(key);
     if (nameEcos) {
       if (nameEcos.length === 1) {
@@ -28,16 +38,6 @@ export function createKeyResolver(
       throw new Error(
         `Ambiguous changeset key "${key}": name is shared across ecosystems (${nameEcos.join(", ")}). ` +
           `Use the path::ecosystem format to specify.`,
-      );
-    }
-    const ecosystems = pathEcosystems.get(key);
-    if (ecosystems) {
-      if (ecosystems.length === 1) {
-        return `${key}::${ecosystems[0]}`;
-      }
-      throw new Error(
-        `Ambiguous changeset key "${key}": directory contains multiple ecosystems (${ecosystems.join(", ")}). ` +
-          `Use "${key}::${ecosystems[0]}" or "${key}::${ecosystems[1]}" to specify.`,
       );
     }
     return key;
