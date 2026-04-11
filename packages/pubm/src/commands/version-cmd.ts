@@ -89,13 +89,16 @@ export async function runVersionCommand(
     if (!currentVersion) continue;
     const newVersion = inc(currentVersion, rec.bumpType);
     if (!newVersion) continue;
-    const pkg = config.packages.find((p) => p.path === rec.packagePath);
-    if (!pkg) continue;
-    bumps.set(packageKey(pkg), {
-      currentVersion,
-      newVersion,
-      bumpType: rec.bumpType,
-    });
+    const matchingPkgs = config.packages.filter(
+      (p) => p.path === rec.packagePath,
+    );
+    for (const pkg of matchingPkgs) {
+      bumps.set(packageKey(pkg), {
+        currentVersion,
+        newVersion,
+        bumpType: rec.bumpType,
+      });
+    }
   }
 
   if (bumps.size === 0) {

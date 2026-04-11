@@ -63,7 +63,12 @@ export async function handleMultiPackage(
 ): Promise<void> {
   const graph = buildGraphFromPackages(packageInfos);
   const currentVersions = new Map(packageInfos.map((p) => [p.path, p.version]));
-  const pathToKey = new Map(packageInfos.map((p) => [p.path, packageKey(p)]));
+  const pathToKeys = new Map<string, string[]>();
+  for (const p of packageInfos) {
+    const existing = pathToKeys.get(p.path) ?? [];
+    existing.push(packageKey(p));
+    pathToKeys.set(p.path, existing);
+  }
   const recommendations = await analyzeAllSources(ctx);
 
   // CI mode: auto-accept
@@ -74,8 +79,10 @@ export async function handleMultiPackage(
       if (!current) continue;
       const newVer = semver.inc(current, rec.bumpType);
       if (newVer) {
-        const key = pathToKey.get(rec.packagePath) ?? rec.packagePath;
-        packages.set(key, newVer);
+        const keys = pathToKeys.get(rec.packagePath) ?? [rec.packagePath];
+        for (const key of keys) {
+          packages.set(key, newVer);
+        }
       }
     }
     ctx.runtime.versionPlan = buildVersionPlan(
@@ -83,8 +90,8 @@ export async function handleMultiPackage(
       packages,
     );
     ctx.runtime.changesetConsumed = recommendations.some((r) => {
-      const key = pathToKey.get(r.packagePath) ?? r.packagePath;
-      return r.source === "changeset" && packages.has(key);
+      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+      return r.source === "changeset" && keys.some((k) => packages.has(k));
     });
     return;
   }
@@ -127,8 +134,10 @@ export async function handleMultiPackage(
       if (!current) continue;
       const newVer = semver.inc(current, rec.bumpType);
       if (newVer) {
-        const key = pathToKey.get(rec.packagePath) ?? rec.packagePath;
-        selectedVersions.set(key, newVer);
+        const keys = pathToKeys.get(rec.packagePath) ?? [rec.packagePath];
+        for (const key of keys) {
+          selectedVersions.set(key, newVer);
+        }
       }
     }
   } else {
@@ -178,8 +187,8 @@ export async function handleMultiPackage(
     ctx.runtime.changesetConsumed = recommendations.some((r) => {
       if (r.source !== "changeset" || !plan || !("packages" in plan))
         return false;
-      const key = pathToKey.get(r.packagePath) ?? r.packagePath;
-      return plan.packages.has(key);
+      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+      return keys.some((k) => plan.packages.has(k));
     });
     return;
   }
@@ -191,8 +200,8 @@ export async function handleMultiPackage(
     selectedVersions,
   );
   ctx.runtime.changesetConsumed = recommendations.some((r) => {
-    const key = pathToKey.get(r.packagePath) ?? r.packagePath;
-    return r.source === "changeset" && selectedVersions.has(key);
+    const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+    return r.source === "changeset" && keys.some((k) => selectedVersions.has(k));
   });
 }
 
@@ -330,8 +339,8 @@ export async function handleIndependentMode(
           currentVersions.get(pkgPath) ??
           (packageVersionByPath.get(pkgPath) as string);
         const patchVersion = new SemVer(currentVersion).inc("patch").toString();
-        const pkg = packageInfos.find((p) => p.path === pkgPath);
-        if (pkg) {
+        const pkgs = packageInfos.filter((p) => p.path === pkgPath);
+        for (const pkg of pkgs) {
           versions.set(packageKey(pkg), patchVersion);
         }
       }

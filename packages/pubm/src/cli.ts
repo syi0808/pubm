@@ -320,10 +320,13 @@ export function createProgram(): Command {
             const currentVersions = new Map(
               resolvedConfig.packages.map((p) => [p.path, p.version]),
             );
-            // pathToKey maps filesystem path → packageKey for building the version plan
-            const pathToKey = new Map(
-              resolvedConfig.packages.map((p) => [p.path, packageKey(p)]),
-            );
+            // pathToKeys maps filesystem path → packageKey[] for building the version plan
+            const pathToKeys = new Map<string, string[]>();
+            for (const p of resolvedConfig.packages) {
+              const existing = pathToKeys.get(p.path) ?? [];
+              existing.push(packageKey(p));
+              pathToKeys.set(p.path, existing);
+            }
 
             const sources: VersionSource[] = [];
             const versionSources = resolvedConfig.versionSources ?? "all";
@@ -355,8 +358,14 @@ export function createProgram(): Command {
                 if (!currentVersion) continue;
                 const newVersion = semver.inc(currentVersion, rec.bumpType);
                 // Use packageKey as the map key for the version plan
-                const key = pathToKey.get(rec.packagePath) ?? rec.packagePath;
-                if (newVersion) packages.set(key, newVersion);
+                const keys = pathToKeys.get(rec.packagePath) ?? [
+                  rec.packagePath,
+                ];
+                if (newVersion) {
+                  for (const key of keys) {
+                    packages.set(key, newVersion);
+                  }
+                }
               }
 
               if (packages.size === 1) {

@@ -220,7 +220,7 @@ export async function runSnapshotPipeline(
             if (plan.mode === "independent") {
               for (const [key, pkgVersion] of plan.packages) {
                 const pkgName =
-                  ctx.config.packages.find((p) => p.path === pathFromKey(key))
+                  ctx.config.packages.find((p) => packageKey(p) === key)
                     ?.name ?? pathFromKey(key);
                 const tagName = `${pkgName}@${pkgVersion}`;
                 task.output = t("task.snapshot.creatingTag", { tag: tagName });

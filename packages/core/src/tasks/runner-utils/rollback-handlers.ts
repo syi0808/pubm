@@ -18,7 +18,10 @@ export function isReleaseExcluded(
 }
 
 export function getPackageName(ctx: PubmContext, key: string): string {
-  return ctx.config.packages.find((p) => packageKey(p) === key)?.name ?? key;
+  return (
+    ctx.config.packages.find((p) => packageKey(p) === key)?.name ??
+    pathFromKey(key)
+  );
 }
 
 export function requireVersionPlan(ctx: PubmContext) {

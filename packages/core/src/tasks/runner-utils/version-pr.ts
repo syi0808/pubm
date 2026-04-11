@@ -86,7 +86,7 @@ export function buildPrBodyFromContext(
   if (plan.mode === "independent") {
     for (const [key, pkgVersion] of plan.packages) {
       const pkgConfig = ctx.config.packages.find((p) => packageKey(p) === key);
-      const name = pkgConfig?.name ?? key;
+      const name = pkgConfig?.name ?? pathFromKey(key);
       packages.push({ name, version: pkgVersion, bump: "" });
 
       const changelogDir = pkgConfig
