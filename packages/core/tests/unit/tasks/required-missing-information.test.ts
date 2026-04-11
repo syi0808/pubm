@@ -1068,10 +1068,10 @@ describe("requiredMissingInformationTasks", () => {
       expect(ctx.runtime.versionPlan?.packages.has("packages/pubm::js")).toBe(
         false,
       );
-      // filterConfigPackages must be called with only pkgA's path
+      // filterConfigPackages must be called with only pkgA's packageKey
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
-        new Set(["packages/core"]),
+        new Set(["packages/core::js"]),
       );
     });
 
@@ -1784,7 +1784,7 @@ describe("requiredMissingInformationTasks", () => {
       );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
-        new Set(["packages/a"]),
+        new Set(["packages/a::js"]),
       );
     });
 
@@ -1922,7 +1922,7 @@ describe("requiredMissingInformationTasks", () => {
       );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
-        new Set(["packages/a", "packages/b", "packages/c"]),
+        new Set(["packages/a::js", "packages/b::js", "packages/c::js"]),
       );
     });
 
@@ -1981,7 +1981,7 @@ describe("requiredMissingInformationTasks", () => {
       );
       expect(mockedFilterConfigPackages).toHaveBeenCalledWith(
         ctx,
-        new Set(["packages/a", "packages/b"]),
+        new Set(["packages/a::js", "packages/b::js"]),
       );
     });
 
@@ -2172,8 +2172,8 @@ describe("requiredMissingInformationTasks", () => {
 
       const filterArg = mockedFilterConfigPackages.mock
         .calls[0][1] as Set<string>;
-      expect(filterArg.has("packages/a")).toBe(true);
-      expect(filterArg.has("packages/b")).toBe(false);
+      expect(filterArg.has("packages/a::js")).toBe(true);
+      expect(filterArg.has("packages/b::js")).toBe(false);
     });
 
     it("edit → fixed: does NOT call filterConfigPackages", async () => {
@@ -2226,7 +2226,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(mockedFilterConfigPackages).toHaveBeenCalled();
       const filterArg = mockedFilterConfigPackages.mock
         .calls[0][1] as Set<string>;
-      expect(filterArg.has("packages/b")).toBe(false);
+      expect(filterArg.has("packages/b::js")).toBe(false);
     });
 
     it("edit → independent: cascade-accepted packages are included in versionPlan and filterConfigPackages", async () => {
@@ -2284,8 +2284,8 @@ describe("requiredMissingInformationTasks", () => {
 
       const filterArg = mockedFilterConfigPackages.mock
         .calls[0][1] as Set<string>;
-      expect(filterArg.has("packages/a")).toBe(true);
-      expect(filterArg.has("packages/c")).toBe(true);
+      expect(filterArg.has("packages/a::js")).toBe(true);
+      expect(filterArg.has("packages/c::js")).toBe(true);
     });
   });
 

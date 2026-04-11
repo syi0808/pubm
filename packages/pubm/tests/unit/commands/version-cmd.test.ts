@@ -301,14 +301,9 @@ describe("runVersionCommand", () => {
     });
     mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
     mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
-      // Simulate applyFixedGroup by setting minor for both packages
-      const nameToPaths: Record<string, string> = {
-        "pkg-a": "packages/pkg-a",
-        "pkg-b": "packages/pkg-b",
-      };
+      // Simulate applyFixedGroup by setting minor for both packages (name-keyed)
       for (const name of group) {
-        const p = nameToPaths[name] ?? name;
-        bumpTypes.set(p, "minor");
+        bumpTypes.set(name, "minor");
       }
     });
 

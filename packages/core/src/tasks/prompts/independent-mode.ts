@@ -171,8 +171,7 @@ export async function handleMultiPackage(
         plan.packages = new Map(
           [...plan.packages].filter(([k]) => publishKeys.has(k)),
         );
-        const publishPaths = new Set([...publishKeys].map(pathFromKey));
-        filterConfigPackages(ctx, publishPaths);
+        filterConfigPackages(ctx, publishKeys);
       }
     }
     const plan = ctx.runtime.versionPlan;

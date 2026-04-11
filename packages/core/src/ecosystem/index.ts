@@ -1,6 +1,12 @@
 import { ecosystemCatalog } from "./catalog.js";
 import type { Ecosystem } from "./ecosystem.js";
 
+/**
+ * Detects the ecosystem for a single package path, returning only the first
+ * detected ecosystem. This is a convenience API for single-ecosystem packages.
+ * For packages that may belong to multiple ecosystems, use
+ * `ecosystemCatalog.detectAll()` instead.
+ */
 export async function detectEcosystem(
   packagePath: string,
 ): Promise<Ecosystem | null> {

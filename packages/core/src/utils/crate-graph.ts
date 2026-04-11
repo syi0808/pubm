@@ -1,4 +1,5 @@
 import { RustEcosystem } from "../ecosystem/rust.js";
+import { pathFromKey } from "./package-key.js";
 
 export async function sortCratesByDependencyOrder(
   cratePaths: string[],
@@ -7,7 +8,8 @@ export async function sortCratesByDependencyOrder(
 
   const crateInfos = await Promise.all(
     cratePaths.map(async (cratePath) => {
-      const eco = new RustEcosystem(cratePath);
+      const realPath = pathFromKey(cratePath);
+      const eco = new RustEcosystem(realPath);
       const name = await eco.packageName();
       const deps = await eco.dependencies();
       return { cratePath, name, deps };

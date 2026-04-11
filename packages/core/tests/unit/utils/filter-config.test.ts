@@ -60,9 +60,9 @@ describe("filterConfigPackages", () => {
   const pkgB = makePkg("packages/b", "@scope/b");
   const pkgC = makePkg("packages/c", "@scope/c");
 
-  it("replaces ctx.config.packages with only the packages in publishPaths", () => {
+  it("replaces ctx.config.packages with only the packages in publishKeys", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB, pkgC]), makeOptions());
-    filterConfigPackages(ctx, new Set(["packages/a", "packages/c"]));
+    filterConfigPackages(ctx, new Set(["packages/a::js", "packages/c::js"]));
     expect(ctx.config.packages).toHaveLength(2);
     expect(ctx.config.packages.map((p) => p.path)).toEqual([
       "packages/a",
@@ -72,26 +72,26 @@ describe("filterConfigPackages", () => {
 
   it("freezes the new config object", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB]), makeOptions());
-    filterConfigPackages(ctx, new Set(["packages/a"]));
+    filterConfigPackages(ctx, new Set(["packages/a::js"]));
     expect(Object.isFrozen(ctx.config)).toBe(true);
   });
 
-  it("handles an empty publishPaths set (no packages)", () => {
+  it("handles an empty publishKeys set (no packages)", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB]), makeOptions());
     filterConfigPackages(ctx, new Set());
     expect(ctx.config.packages).toHaveLength(0);
   });
 
-  it("preserves all packages when all paths are in publishPaths", () => {
+  it("preserves all packages when all keys are in publishKeys", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB]), makeOptions());
-    filterConfigPackages(ctx, new Set(["packages/a", "packages/b"]));
+    filterConfigPackages(ctx, new Set(["packages/a::js", "packages/b::js"]));
     expect(ctx.config.packages).toHaveLength(2);
   });
 
   it("preserves other config fields unchanged", () => {
     const ctx = createContext(makeConfig([pkgA, pkgB]), makeOptions());
     const originalBranch = ctx.config.branch;
-    filterConfigPackages(ctx, new Set(["packages/a"]));
+    filterConfigPackages(ctx, new Set(["packages/a::js"]));
     expect(ctx.config.branch).toBe(originalBranch);
   });
 });

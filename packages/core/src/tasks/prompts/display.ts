@@ -89,9 +89,7 @@ export function renderPackageVersionSummary(
 
   for (const pkg of packageInfos) {
     const currentVersion = currentVersions.get(pkg.path) ?? pkg.version;
-    // selectedVersions may be keyed by packageKey (path::ecosystem) or plain path
-    const selectedVersion =
-      selectedVersions.get(packageKey(pkg)) ?? selectedVersions.get(pkg.path);
+    const selectedVersion = selectedVersions.get(packageKey(pkg));
     const prefix = options.activePackage === pkg.path ? "> " : "  ";
 
     lines.push(

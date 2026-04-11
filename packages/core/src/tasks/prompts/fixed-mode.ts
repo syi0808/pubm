@@ -75,14 +75,9 @@ export async function handleFixedMode(
     packages,
   };
 
-  // Display uses path-keyed map for renderPackageVersionSummary
-  const displayVersions = new Map<string, string>();
-  for (const pkgPath of currentVersions.keys()) {
-    displayVersions.set(pkgPath, nextVersion);
-  }
   task.output = renderPackageVersionSummary(
     packageInfos,
     currentVersions,
-    displayVersions,
+    packages,
   );
 }
