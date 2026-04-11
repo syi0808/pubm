@@ -105,6 +105,7 @@ export function resolveCliOptions(
     skipReleaseDraft: !!options.skipRelease,
     skipTests: !options.tests,
     skipBuild: !options.build,
+    skipDryRun: !options.dryRunValidation,
     skipPrerequisitesCheck: !options.preCheck,
     skipConditionsCheck: !options.conditionCheck,
     tag: options.tag,
@@ -169,6 +170,7 @@ export function createProgram(): Command {
     .option("--no-tests", t("cli.option.noTests"))
     .option("--no-build", t("cli.option.noBuild"))
     .option("--no-publish", t("cli.option.noPublish"))
+    .option("--no-dry-run-validation", t("cli.option.noDryRunValidation"))
     .option("--skip-release", t("cli.option.skipRelease"))
     .option("-t, --tag <name>", t("cli.option.tag"), "latest")
     .option("-c, --contents <path>", t("cli.option.contents"))
@@ -186,7 +188,11 @@ export function createProgram(): Command {
       ): Promise<void> => {
         console.clear();
 
-        const cliOptions = resolveOptions(resolveCliOptions(options));
+        const rawCliOpts = resolveCliOptions(options);
+        if (!rawCliOpts.skipDryRun && resolvedConfig.skipDryRun) {
+          rawCliOpts.skipDryRun = true;
+        }
+        const cliOptions = resolveOptions(rawCliOpts);
         validateOptions(cliOptions);
 
         if (!isCI && process.stderr.isTTY) {
