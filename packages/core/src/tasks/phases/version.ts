@@ -22,6 +22,7 @@ import {
   formatVersionSummary,
 } from "../runner-utils/output-formatting.js";
 import {
+  formatTag,
   getPackageName,
   isReleaseExcluded,
   registerChangelogBackup,
@@ -277,8 +278,7 @@ export function createVersionTask(
         // Tag existence checks for all packages
         for (const [key, pkgVersion] of plan.packages) {
           if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-          const pkgName = getPackageName(ctx, key);
-          const tagName = `${pkgName}@${pkgVersion}`;
+          const tagName = formatTag(ctx, key, pkgVersion);
           if (await git.checkTagExist(tagName)) {
             if (ctx.runtime.promptEnabled) {
               const deleteTag = await task
@@ -316,8 +316,7 @@ export function createVersionTask(
         task.output = t("task.version.creatingTags");
         for (const [key, pkgVersion] of plan.packages) {
           if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-          const pkgName = getPackageName(ctx, key);
-          const tag = `${pkgName}@${pkgVersion}`;
+          const tag = formatTag(ctx, key, pkgVersion);
           await git.createTag(tag, commit);
           registerTagRollback(ctx, tag);
         }
