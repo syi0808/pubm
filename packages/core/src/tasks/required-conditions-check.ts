@@ -31,7 +31,6 @@ class RequiredConditionCheckError extends AbstractError {
   }
 }
 
-
 /**
  * Detect package names that appear across different ecosystems,
  * which would cause tag collisions in independent versioning mode.
@@ -104,11 +103,6 @@ export const requiredConditionsCheckTask = (
     task: (ctx, parentTask): Listr<PubmContext> =>
       parentTask.newListr(
         [
-          {
-            title: t("task.conditions.title"),
-            task: (_ctx, conditionsTask): Listr<PubmContext> =>
-              conditionsTask.newListr(
-                [
           {
             title: t("task.conditions.pingRegistries"),
             task: (ctx, parentTask): Listr<PubmContext> =>
@@ -291,11 +285,7 @@ export const requiredConditionsCheckTask = (
                 await check.task(ctx, wrapTaskContext(task));
               },
             })),
-                ],
-                { concurrent: true },
-              ),
-          },
-          // NEW: Tag collision check runs sequentially after concurrent checks
+          // Tag name collision check (independent mode only)
           {
             title: t("task.conditions.checkTagCollisions"),
             skip: (ctx) =>
@@ -331,7 +321,9 @@ export const requiredConditionsCheckTask = (
             },
           },
         ],
-        { concurrent: false },
+        {
+          concurrent: true,
+        },
       ),
   };
 

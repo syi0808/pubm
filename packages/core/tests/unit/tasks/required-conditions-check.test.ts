@@ -256,10 +256,10 @@ describe("requiredConditionsCheckTask", () => {
       );
     });
 
-    it("produces 4 subtasks", async () => {
+    it("produces 5 subtasks", async () => {
       const subtasks = await getSubtasks();
 
-      expect(subtasks).toHaveLength(4);
+      expect(subtasks).toHaveLength(5);
     });
   });
 
@@ -1449,8 +1449,8 @@ describe("requiredConditionsCheckTask", () => {
         "conditions",
       );
 
-      // Should have 4 built-in + 1 plugin check = 5
-      expect(captured!).toHaveLength(5);
+      // Should have 5 built-in + 1 plugin check = 6
+      expect(captured!).toHaveLength(6);
       expect(captured![4].title).toBe("Plugin condition check");
 
       // Verify the plugin check task calls through wrapTaskContext
