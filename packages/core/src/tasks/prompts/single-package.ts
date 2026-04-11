@@ -28,7 +28,7 @@ export async function handleSinglePackage(
         ctx.runtime.versionPlan = {
           mode: "single",
           version: newVer,
-          packagePath: pkg.path,
+          packageKey: pkg.path,
         };
         ctx.runtime.changesetConsumed = rec.source === "changeset";
         return;
@@ -61,7 +61,7 @@ export async function handleSinglePackage(
         ctx.runtime.versionPlan = {
           mode: "single",
           version: newVer,
-          packagePath: pkg.path,
+          packageKey: pkg.path,
         };
         ctx.runtime.changesetConsumed = rec.source === "changeset";
         return;
@@ -88,6 +88,6 @@ export async function handleSinglePackage(
   ctx.runtime.versionPlan = {
     mode: "single",
     version: nextVersion,
-    packagePath: pkg.path,
+    packageKey: pkg.path,
   };
 }

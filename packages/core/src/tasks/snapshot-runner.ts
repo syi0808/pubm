@@ -67,7 +67,7 @@ export function buildSnapshotVersionPlan(
     return {
       mode: "single",
       version,
-      packagePath: pkg.path,
+      packageKey: pkg.path,
     } satisfies SingleVersionPlan;
   }
 
@@ -135,7 +135,7 @@ export async function runSnapshotPipeline(
   // Build snapshot version map
   const snapshotVersions: Map<string, string> =
     plan.mode === "single"
-      ? new Map([[plan.packagePath, plan.version]])
+      ? new Map([[plan.packageKey, plan.version]])
       : plan.packages;
 
   // Original versions for restore

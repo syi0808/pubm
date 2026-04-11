@@ -228,7 +228,7 @@ export function createProgram(): Command {
             ctx.runtime.versionPlan = {
               mode: "single",
               version: nextVersion,
-              packagePath: resolvedConfig.packages[0]?.path ?? ".",
+              packageKey: resolvedConfig.packages[0]?.path ?? ".",
             };
           } else {
             const packages = new Map(
@@ -258,7 +258,7 @@ export function createProgram(): Command {
               ctx.runtime.versionPlan = {
                 mode: "single",
                 version,
-                packagePath: pkg?.path ?? ".",
+                packageKey: pkg?.path ?? ".",
               };
             } else if (resolvedConfig.versioning === "independent") {
               const packages = new Map(
@@ -291,7 +291,7 @@ export function createProgram(): Command {
               ctx.runtime.versionPlan = {
                 mode: "single",
                 version,
-                packagePath: pkg?.path ?? ".",
+                packageKey: pkg?.path ?? ".",
               };
             } else if (resolvedConfig.versioning === "independent") {
               const packages = new Map(
@@ -355,7 +355,7 @@ export function createProgram(): Command {
                 ctx.runtime.versionPlan = {
                   mode: "single",
                   version,
-                  packagePath: pkgPath,
+                  packageKey: pkgPath,
                 };
               } else if (packages.size > 1) {
                 ctx.runtime.versionPlan =

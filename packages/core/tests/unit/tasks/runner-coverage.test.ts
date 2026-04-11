@@ -392,7 +392,7 @@ function createOptions(
       versionPlan: {
         mode: "single" as const,
         version: "1.0.0",
-        packagePath: ".",
+        packageKey: ".",
       },
       pluginRunner: new PluginRunner([]),
       ...overrides.runtime,
@@ -1622,7 +1622,7 @@ describe("CI GitHub Release", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".",
           },
         },
       }),
@@ -1652,7 +1652,7 @@ describe("CI GitHub Release", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -3049,7 +3049,7 @@ describe("dry-run version bump early return", () => {
         versionPlan: {
           mode: "single",
           version: "2.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -4120,7 +4120,7 @@ describe("GitHub release with asset upload hooks", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".",
           },
           pluginRunner,
         },
@@ -4163,7 +4163,7 @@ describe("GitHub release with asset upload hooks", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -4196,7 +4196,7 @@ describe("GitHub release with asset upload hooks", () => {
           versionPlan: {
             mode: "single" as const,
             version: "4.0.0",
-            packagePath: ".",
+            packageKey: ".",
           },
         },
       }),
@@ -4229,7 +4229,7 @@ describe("GitHub release with asset upload hooks", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5105,7 +5105,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5157,7 +5157,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5209,7 +5209,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5262,7 +5262,7 @@ describe("GitHub release token prompt paths", () => {
         versionPlan: {
           mode: "single",
           version: "5.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5574,7 +5574,7 @@ describe("single changeset with pkgPath fallback", () => {
         versionPlan: {
           mode: "single",
           version: "4.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5764,7 +5764,7 @@ describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
         versionPlan: {
           mode: "single",
           version: "2.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };
@@ -5996,7 +5996,7 @@ describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
         versionPlan: {
           mode: "single",
           version: "1.0.0",
-          packagePath: ".",
+          packageKey: ".",
         },
       },
     };

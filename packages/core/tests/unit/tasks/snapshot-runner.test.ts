@@ -236,7 +236,7 @@ describe("buildSnapshotVersionPlan", () => {
     expect(plan).toEqual({
       mode: "single",
       version: "1.0.0-snapshot-20260330T120000",
-      packagePath: ".",
+      packageKey: ".",
     });
   });
 

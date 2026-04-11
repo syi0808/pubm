@@ -209,7 +209,7 @@ export function createReleaseTask(
             .replace(/\.git$/, "");
 
           const body = await buildReleaseBody(ctx, {
-            pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
+            pkgPath: plan.mode === "single" ? plan.packageKey : undefined,
             version,
             tag,
             repositoryUrl,
@@ -217,11 +217,11 @@ export function createReleaseTask(
 
           const packageName =
             plan.mode === "single"
-              ? getPackageName(ctx, plan.packagePath)
+              ? getPackageName(ctx, plan.packageKey)
               : (ctx.config.packages[0]?.name ?? "");
           const pkgPath =
             plan.mode === "single"
-              ? plan.packagePath
+              ? plan.packageKey
               : ctx.config.packages[0]?.path;
           const { assets: preparedAssets, tempDir } =
             await prepareReleaseAssets(ctx, packageName, version, pkgPath);
@@ -323,7 +323,7 @@ export function createReleaseTask(
           const tag = `v${version}`;
 
           const body = await buildReleaseBody(ctx, {
-            pkgPath: plan.mode === "single" ? plan.packagePath : undefined,
+            pkgPath: plan.mode === "single" ? plan.packageKey : undefined,
             version,
             tag,
             repositoryUrl,
