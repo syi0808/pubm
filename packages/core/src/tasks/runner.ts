@@ -77,7 +77,12 @@ export async function run(ctx: PubmContext): Promise<void> {
         createBuildTask(hasPrepare, !!ctx.options.skipBuild),
         createVersionTask(hasPrepare, dryRun),
         ...createPublishTasks(hasPublish, dryRun, !!ctx.options.skipPublish),
-        ...createDryRunTasks(dryRun, mode, hasPrepare, !!ctx.options.skipDryRun),
+        ...createDryRunTasks(
+          dryRun,
+          mode,
+          hasPrepare,
+          !!ctx.options.skipDryRun,
+        ),
         createPushTask(hasPrepare, dryRun),
         createReleaseTask(
           hasPublish,
