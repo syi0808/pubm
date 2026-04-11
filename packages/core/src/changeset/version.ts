@@ -1,5 +1,6 @@
 import process from "node:process";
 import { inc } from "semver";
+import { packageKey } from "../utils/package-key.js";
 import { maxBump } from "./bump-utils.js";
 import type { BumpType } from "./parser.js";
 import { readChangesets } from "./reader.js";
@@ -20,13 +21,16 @@ export function calculateVersionBumps(
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      if (!currentVersions.has(release.path)) continue;
+      const key = release.ecosystem
+        ? packageKey({ path: release.path, ecosystem: release.ecosystem })
+        : release.path;
+      if (!currentVersions.has(key)) continue;
 
-      const existing = bumpTypes.get(release.path);
+      const existing = bumpTypes.get(key);
       if (existing) {
-        bumpTypes.set(release.path, maxBump(existing, release.type));
+        bumpTypes.set(key, maxBump(existing, release.type));
       } else {
-        bumpTypes.set(release.path, release.type);
+        bumpTypes.set(key, release.type);
       }
     }
   }

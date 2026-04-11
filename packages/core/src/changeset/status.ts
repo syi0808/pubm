@@ -1,4 +1,5 @@
 import process from "node:process";
+import { packageKey } from "../utils/package-key.js";
 import { maxBump } from "./bump-utils.js";
 import type { BumpType, Changeset } from "./parser.js";
 import { readChangesets } from "./reader.js";
@@ -24,14 +25,17 @@ export function getStatus(
 
   for (const changeset of changesets) {
     for (const release of changeset.releases) {
-      const existing = packages.get(release.path);
+      const key = release.ecosystem
+        ? packageKey({ path: release.path, ecosystem: release.ecosystem })
+        : release.path;
+      const existing = packages.get(key);
 
       if (existing) {
         existing.bumpType = maxBump(existing.bumpType, release.type);
         existing.changesetCount += 1;
         existing.summaries.push(changeset.summary);
       } else {
-        packages.set(release.path, {
+        packages.set(key, {
           bumpType: release.type,
           changesetCount: 1,
           summaries: [changeset.summary],

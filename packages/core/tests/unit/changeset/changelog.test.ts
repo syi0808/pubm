@@ -107,6 +107,27 @@ describe("generateChangelog", () => {
     ]);
   });
 
+  it("filters changelog entries by packageKey, not just path", () => {
+    const changesets = [
+      {
+        id: "cs-1",
+        summary: "JS fix.",
+        releases: [{ path: ".", ecosystem: "js", type: "patch" }],
+      },
+      {
+        id: "cs-2",
+        summary: "Rust feature.",
+        releases: [{ path: ".", ecosystem: "rust", type: "minor" }],
+      },
+    ] as any;
+
+    const jsEntries = buildChangelogEntries(changesets, ".::js");
+    expect(jsEntries).toEqual([{ id: "cs-1", summary: "JS fix.", type: "patch" }]);
+
+    const rustEntries = buildChangelogEntries(changesets, ".::rust");
+    expect(rustEntries).toEqual([{ id: "cs-2", summary: "Rust feature.", type: "minor" }]);
+  });
+
   describe("deduplicateEntries", () => {
     it("removes duplicate entries by changeset id", () => {
       expect(

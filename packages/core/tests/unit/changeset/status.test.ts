@@ -83,6 +83,18 @@ describe("getStatus", () => {
     expect(pkgA!.changesetCount).toBe(3);
   });
 
+  it("tracks status separately for same path with different ecosystems", () => {
+    mockedReadChangesets.mockReturnValue([
+      { id: "change-1", summary: "JS fix.", releases: [{ path: ".", ecosystem: "js", type: "patch" }] },
+      { id: "change-2", summary: "Rust feature.", releases: [{ path: ".", ecosystem: "rust", type: "minor" }] },
+    ]);
+    const result = getStatus("/tmp/project");
+    expect(result.packages.get(".::js")).toBeDefined();
+    expect(result.packages.get(".::js")!.bumpType).toBe("patch");
+    expect(result.packages.get(".::rust")).toBeDefined();
+    expect(result.packages.get(".::rust")!.bumpType).toBe("minor");
+  });
+
   it("tracks multiple packages independently", () => {
     mockedReadChangesets.mockReturnValue([
       {
