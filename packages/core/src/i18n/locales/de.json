@@ -269,6 +269,7 @@
   "cli.option.noTests": "Tests vor der Veröffentlichung überspringen",
   "cli.option.noBuild": "Build vor der Veröffentlichung überspringen",
   "cli.option.noPublish": "Veröffentlichungsaufgabe überspringen",
+  "cli.option.noDryRunValidation": "Dry-Run-Validierung in der Vorbereitungsphase überspringen",
   "cli.option.skipRelease": "GitHub Release-Erstellung überspringen",
   "cli.option.tag": "Unter einem bestimmten dist-tag veröffentlichen",
   "cli.option.contents": "Unterverzeichnis zum Veröffentlichen",

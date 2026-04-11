@@ -269,6 +269,7 @@
   "cli.option.noTests": "Skip running tests before publishing",
   "cli.option.noBuild": "Skip build before publishing",
   "cli.option.noPublish": "Skip publishing task",
+  "cli.option.noDryRunValidation": "Skip dry-run validation during prepare phase",
   "cli.option.skipRelease": "Skip GitHub Release creation",
   "cli.option.tag": "Publish under a specific dist-tag",
   "cli.option.contents": "Subdirectory to publish",
