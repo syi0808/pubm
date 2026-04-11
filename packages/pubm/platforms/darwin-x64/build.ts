@@ -69,7 +69,8 @@ if (!result.success) {
 
 // Ad-hoc sign the binary so macOS doesn't SIGKILL it
 if (platform() === "darwin") {
-  await $`codesign -f -s - ${OUT_FILE}`;
+  await $`codesign --remove-signature ${OUT_FILE}`;
+  await $`codesign -s - ${OUT_FILE}`;
 } else {
   await $`rcodesign strip ${OUT_FILE}`;
   await $`rcodesign sign ${OUT_FILE}`;

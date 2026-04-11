@@ -24,6 +24,10 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: |
             bun-${{ runner.os }}-
+      - name: Install rcodesign (ad-hoc sign darwin binaries)
+        run: |
+          curl -fsSL "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.27.0/apple-codesign-0.27.0-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin apple-codesign-0.27.0-x86_64-unknown-linux-musl/rcodesign
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run typecheck
