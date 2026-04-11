@@ -247,6 +247,8 @@ jobs:
 
 **Important:** This requires a **merge commit or fast-forward merge** strategy. Squash merges change the commit message and break the trigger.
 
+**Note:** For advanced monorepo patterns (cross-platform builds, platform binary signing), see the [CI Patterns](#ci-patterns) section below.
+
 ## Template: Manual Trigger (workflow_dispatch)
 
 ```yaml
