@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Plugin marketplace for pubm - multi-registry package publishing tool",
-    "version": "0.5.4"
+    "version": "0.5.5"
   },
   "plugins": [
     {
       "name": "pubm-plugin",
       "source": "./plugins/pubm-plugin",
       "description": "Publish packages to multiple registries (npm, jsr, crates.io) with pubm. Includes /publish, /publish-preview, /publish-setup, and /version-sync commands.",
-      "version": "0.5.4",
+      "version": "0.5.5",
       "author": {
         "name": "pubm"
       },
