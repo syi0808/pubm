@@ -14,7 +14,7 @@ Summary text here.`;
     expect(result).toEqual({
       id: "cool-change",
       summary: "Summary text here.",
-      releases: [{ path: "pkg-name", type: "minor" }],
+      releases: [{ path: "pkg-name", ecosystem: undefined, type: "minor" }],
     });
   });
 
@@ -33,9 +33,9 @@ Added a new feature.`;
       id: "multi-pkg",
       summary: "Added a new feature.",
       releases: [
-        { path: "pkg-a", type: "major" },
-        { path: "@scope/pkg-b", type: "patch" },
-        { path: "pkg-c", type: "minor" },
+        { path: "pkg-a", ecosystem: undefined, type: "major" },
+        { path: "@scope/pkg-b", ecosystem: undefined, type: "patch" },
+        { path: "pkg-c", ecosystem: undefined, type: "minor" },
       ],
     });
   });
@@ -119,7 +119,7 @@ Summary.`;
     expect(result).toEqual({
       id: "crlf",
       summary: "Windows line endings.",
-      releases: [{ path: "pkg-name", type: "patch" }],
+      releases: [{ path: "pkg-name", ecosystem: undefined, type: "patch" }],
     });
   });
 
@@ -143,5 +143,22 @@ Summary.`;
     const content = '---\n"packages/core": minor\n---\n\nsome change\n';
     const result = parseChangeset(content, "test.md");
     expect(result.releases[0].path).toBe("packages/core");
+  });
+
+  it("parses new path::ecosystem format", () => {
+    const content = `---\n"packages/core::js": minor\n"packages/cli::rust": patch\n---\n\nMulti-ecosystem change.`;
+    const result = parseChangeset(content, "multi-eco.md");
+    expect(result.releases).toEqual([
+      { path: "packages/core", ecosystem: "js", type: "minor" },
+      { path: "packages/cli", ecosystem: "rust", type: "patch" },
+    ]);
+  });
+
+  it("parses legacy path-only format with ecosystem undefined", () => {
+    const content = `---\n"packages/core": minor\n---\n\nLegacy format.`;
+    const result = parseChangeset(content, "legacy.md");
+    expect(result.releases).toEqual([
+      { path: "packages/core", ecosystem: undefined, type: "minor" },
+    ]);
   });
 });
