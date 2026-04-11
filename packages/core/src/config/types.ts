@@ -74,6 +74,8 @@ export interface PubmConfig {
   rollbackStrategy?: "individual" | "all";
   rollback?: RollbackConfig;
   lockfileSync?: "required" | "optional" | "skip";
+  /** Skip dry-run validation during prepare phase. @default false */
+  skipDryRun?: boolean;
   ecosystems?: Record<string, EcosystemConfig>;
   plugins?: PubmPlugin[];
   compress?: CompressOption;
@@ -107,6 +109,7 @@ export interface ResolvedPubmConfig
       | "ecosystems"
       | "testScript"
       | "buildScript"
+      | "skipDryRun"
     >
   > {
   compress?: CompressOption;
@@ -123,6 +126,7 @@ export interface ResolvedPubmConfig
   ecosystems: Record<string, EcosystemConfig>;
   testScript?: string;
   buildScript?: string;
+  skipDryRun?: boolean;
   discoveryEmpty?: boolean;
 }
 
