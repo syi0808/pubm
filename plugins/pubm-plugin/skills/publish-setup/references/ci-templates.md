@@ -488,6 +488,144 @@ permissions:
 
 No additional secrets required; `GITHUB_TOKEN` is automatically available.
 
+## CI Patterns
+
+Advanced CI patterns for complex publishing scenarios. For basic trigger templates (tag-based, commit-based, manual), see the templates above.
+
+### Cross-Platform Matrix Build
+
+Build platform-specific binaries on native runners, collect artifacts, then publish from a single job.
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build binary
+        run: |
+          # Build for ${{ matrix.target }}...
+          # Output to dist/${{ matrix.target }}/
+
+      - name: Sign macOS binary
+        if: runner.os == 'macOS'
+        run: |
+          codesign --remove-signature dist/${{ matrix.target }}/binary
+          codesign -s - dist/${{ matrix.target }}/binary
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: dist/${{ matrix.target }}/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
+
+      - name: Publish and release
+        run: <runner> pubm --mode ci --phase publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+**Key points:**
+- macOS binaries **must** be signed on macOS runners using native `codesign`. `rcodesign` is no longer used.
+- The publish job downloads all artifacts into `dist/` where pubm's asset pipeline can resolve them via glob patterns.
+- Configure `releaseAssets` in `pubm.config.ts` to match the artifact directory structure.
+
+### pubm as CI Trigger
+
+Use local `--phase prepare` to control when releases happen, while CI handles the actual build and publish.
+
+```
+Developer                          CI
+   │                                │
+   ├─ pubm --phase prepare          │
+   │  ├─ runs tests                 │
+   │  ├─ runs build                 │
+   │  ├─ bumps versions             │
+   │  ├─ creates "Version Packages" │
+   │    commit + tags               │
+   │  └─ git push --follow-tags ────┤
+   │                                ├─ triggered by tag/commit
+   │                                ├─ checkout + setup
+   │                                ├─ build (possibly cross-platform)
+   │                                └─ pubm --mode ci --phase publish
+   │                                   ├─ publish to registries
+   │                                   └─ create GitHub Release
+```
+
+**When to use this pattern:**
+- You want manual control over release timing
+- CI needs to do platform-specific builds that can't run locally
+- You want local validation (tests, dry-run) before triggering CI
+
+**Local command:**
+```bash
+pubm --phase prepare
+```
+
+This runs tests, builds, bumps versions, creates the commit and tags, and pushes. The push triggers CI.
+
+### Platform Binary Signing in CI
+
+macOS binaries require code signing. Here's how to handle it in CI:
+
+**macOS runners (recommended):**
+```yaml
+      - name: Sign binary
+        if: runner.os == 'macOS'
+        run: |
+          codesign --remove-signature $BINARY_PATH
+          codesign -s - $BINARY_PATH
+```
+
+**Why `--remove-signature` first:** Some build tools embed a malformed signature. Removing it before re-signing ensures a clean ad-hoc signature.
+
+**Linux cross-compilation for macOS:**
+- Native `codesign` is not available on Linux
+- Build darwin binaries on macOS runners instead
+- If macOS runners are not available, the binaries will be unsigned and will be killed by Gatekeeper on macOS
+
+**Windows:** No code signing needed for basic distribution. Windows SmartScreen warnings can be suppressed with a proper code signing certificate (out of scope for pubm).
+
 ## Notes
 
 - **CI mode requires a phase flag.** `pubm --mode ci` alone is an error. Always specify `--phase prepare` or `--phase publish`.
