@@ -209,6 +209,27 @@ export default defineConfig({
 
 当直接推送到受保护的分支失败时，pubm 会自动回退到 PR 模式。
 
+### `registryQualifiedTags`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+When set to `true`, git tags in independent versioning mode are prefixed with the registry name to avoid collisions when packages from different ecosystems share the same name.
+
+```ts
+export default defineConfig({
+  registryQualifiedTags: true,
+  packages: [
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
+  ],
+})
+```
+
+Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
+
+pubm automatically detects name collisions and prompts you to enable this option. In CI environments, the collision causes an error with instructions to set this config option.
+
 ### `locale`
 
 - 类型：`"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`
