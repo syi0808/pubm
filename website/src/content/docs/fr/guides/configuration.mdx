@@ -144,6 +144,13 @@ Répertoire dans lequel faire `chdir` avant d'exécuter le pipeline de release.
 
 Indique si les tokens de registry pris en charge doivent être stockés pour réutilisation sur les machines locales.
 
+### `skipDryRun`
+
+- Type: `boolean`
+- Default: `false`
+
+Skip dry-run validation during the prepare phase. Useful when workspace crates have internal dependencies whose new versions aren't yet published on crates.io. Can also be set via the `--no-dry-run-validation` CLI flag.
+
 ### `releaseDraft`
 
 - Type : `boolean`

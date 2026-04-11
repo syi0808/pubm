@@ -144,6 +144,13 @@ npm 还适用两条额外规则：
 
 是否将受支持 registry 的 token 保存起来，供本地机器后续复用。
 
+### `skipDryRun`
+
+- Type: `boolean`
+- Default: `false`
+
+Skip dry-run validation during the prepare phase. Useful when workspace crates have internal dependencies whose new versions aren't yet published on crates.io. Can also be set via the `--no-dry-run-validation` CLI flag.
+
 ### `releaseDraft`
 
 - 类型：`boolean`
