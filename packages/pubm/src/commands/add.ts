@@ -5,7 +5,13 @@ import type {
   Release,
   ResolvedPubmConfig,
 } from "@pubm/core";
-import { createKeyResolver, t, ui, writeChangeset } from "@pubm/core";
+import {
+  createKeyResolver,
+  packageKey,
+  t,
+  ui,
+  writeChangeset,
+} from "@pubm/core";
 import type { Command } from "commander";
 import Enquirer from "enquirer";
 
@@ -79,13 +85,19 @@ export function registerAddCommand(
           console.log(`\u{1F4E6} ${pkg.name} (v${pkg.version})`);
         } else {
           const isFixed = config.versioning === "fixed";
-          const choices = availablePackages.map((pkg) => ({
-            name: pkg.name,
-            message: `${pkg.name} (v${pkg.version})`,
-            value: pkg.name,
-          }));
+          const choices = availablePackages.map((pkg) => {
+            const key = packageKey({
+              path: pkg.path,
+              ecosystem: pkg.ecosystem,
+            });
+            return {
+              name: key,
+              message: `${pkg.name} (v${pkg.version}) [${pkg.ecosystem}]`,
+              value: key,
+            };
+          });
 
-          const { packages: selectedNames } = await Enquirer.prompt<{
+          const { packages: selectedKeys } = await Enquirer.prompt<{
             packages: string[];
           }>({
             type: "multiselect",
@@ -93,17 +105,25 @@ export function registerAddCommand(
             message: t("prompt.add.selectPackages"),
             choices,
             ...(isFixed && {
-              initial: availablePackages.map((pkg) => pkg.name),
+              initial: availablePackages.map((pkg) =>
+                packageKey({
+                  path: pkg.path,
+                  ecosystem: pkg.ecosystem,
+                }),
+              ),
             }),
           });
 
-          if (selectedNames.length === 0) {
+          if (selectedKeys.length === 0) {
             ui.warn(t("cmd.add.noPackages"));
             return;
           }
 
+          const selectedKeySet = new Set(selectedKeys);
           selectedPackages = availablePackages.filter((pkg) =>
-            selectedNames.includes(pkg.name),
+            selectedKeySet.has(
+              packageKey({ path: pkg.path, ecosystem: pkg.ecosystem }),
+            ),
           );
         }
 

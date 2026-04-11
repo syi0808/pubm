@@ -118,7 +118,7 @@ export async function runVersionCommand(
       for (const group of resolvedFixed) {
         applyFixedGroup(bumpTypes, group);
       }
-      reapplyBumpTypes(bumps, bumpTypes, config.packages, currentVersions);
+      reapplyBumpTypes(bumps, bumpTypes, config.packages);
     }
 
     if (config.linked && config.linked.length > 0) {
@@ -127,7 +127,7 @@ export async function runVersionCommand(
       for (const group of resolvedLinked) {
         applyLinkedGroup(bumpTypes, group);
       }
-      reapplyBumpTypes(bumps, bumpTypes, config.packages, currentVersions);
+      reapplyBumpTypes(bumps, bumpTypes, config.packages);
     }
   }
 
@@ -251,24 +251,24 @@ function reapplyBumpTypes(
   bumps: Map<string, VersionBump>,
   bumpTypes: Map<string, BumpType>,
   packages: ResolvedPackageConfig[],
-  currentVersions: Map<string, string>,
 ): void {
   for (const [name, bumpType] of bumpTypes) {
-    const pkg = packages.find((p) => p.name === name);
-    if (!pkg) continue;
-    const pkgKey = packageKey(pkg);
-    const existing = bumps.get(pkgKey);
-    const currentVersion = currentVersions.get(pkg.path);
-    if (!currentVersion) continue;
+    const matchingPkgs = packages.filter((p) => p.name === name);
+    for (const pkg of matchingPkgs) {
+      const pkgKey = packageKey(pkg);
+      const existing = bumps.get(pkgKey);
+      const currentVersion = pkg.version;
+      if (!currentVersion) continue;
 
-    const newVersion = inc(currentVersion, bumpType);
-    if (!newVersion) continue;
+      const newVersion = inc(currentVersion, bumpType);
+      if (!newVersion) continue;
 
-    if (existing) {
-      existing.bumpType = bumpType;
-      existing.newVersion = newVersion;
-    } else {
-      bumps.set(pkgKey, { currentVersion, newVersion, bumpType });
+      if (existing) {
+        existing.bumpType = bumpType;
+        existing.newVersion = newVersion;
+      } else {
+        bumps.set(pkgKey, { currentVersion, newVersion, bumpType });
+      }
     }
   }
 }

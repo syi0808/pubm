@@ -14,7 +14,7 @@ import type {
 } from "../../context.js";
 import { t } from "../../i18n/index.js";
 import { filterConfigPackages } from "../../utils/filter-config.js";
-import { packageKey, pathFromKey } from "../../utils/package-key.js";
+import { packageKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
 import {
   buildDependencyBumpNote,
@@ -170,10 +170,12 @@ export async function handleMultiPackage(
       // Filter out packages where the selected version equals the current version.
       const plan = ctx.runtime.versionPlan;
       if (plan && plan.mode === "independent") {
+        const currentVersionsByKey = new Map(
+          packageInfos.map((p) => [packageKey(p), p.version]),
+        );
         const publishKeys = new Set<string>();
         for (const [key, selectedVersion] of plan.packages) {
-          const pkgPath = pathFromKey(key);
-          if (selectedVersion !== (currentVersions.get(pkgPath) ?? "")) {
+          if (selectedVersion !== (currentVersionsByKey.get(key) ?? "")) {
             publishKeys.add(key);
           }
         }
