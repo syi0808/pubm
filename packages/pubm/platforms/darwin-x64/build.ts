@@ -71,6 +71,7 @@ if (!result.success) {
 if (platform() === "darwin") {
   await $`codesign -f -s - ${OUT_FILE}`;
 } else {
+  await $`rcodesign strip ${OUT_FILE}`;
   await $`rcodesign sign ${OUT_FILE}`;
 }
 
