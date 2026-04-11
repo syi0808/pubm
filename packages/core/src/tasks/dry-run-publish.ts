@@ -129,28 +129,36 @@ const MISSING_CRATE_PATTERN = /no matching package named `([^`]+)` found/;
 
 async function findUnpublishedSiblingDeps(
   packagePath: string,
-  siblingPaths: string[],
+  siblingKeys: string[],
+  ctx: PubmContext,
 ): Promise<string[]> {
   const eco = new RustEcosystem(packagePath);
   const deps = await eco.dependencies();
 
-  const siblingNameToPath = new Map<string, string>();
+  const siblingNameToKey = new Map<string, string>();
   await Promise.all(
-    siblingPaths.map(async (p) => {
-      const name = await getCrateName(p);
-      siblingNameToPath.set(name, p);
+    siblingKeys.map(async (k) => {
+      const name = await getCrateName(pathFromKey(k));
+      siblingNameToKey.set(name, k);
     }),
   );
 
-  const siblingDeps = deps.filter((d) => siblingNameToPath.has(d));
+  const siblingDeps = deps.filter((d) => siblingNameToKey.has(d));
 
   const results = await Promise.all(
     siblingDeps.map(async (name) => {
-      const siblingPath = siblingNameToPath.get(name);
-      if (!siblingPath) {
-        throw new Error(`Missing sibling crate path for dependency: ${name}`);
+      const siblingKey = siblingNameToKey.get(name);
+      if (!siblingKey) {
+        throw new Error(`Missing sibling crate key for dependency: ${name}`);
       }
+      const siblingPath = pathFromKey(siblingKey);
       const registry = await cratesPackageRegistry(siblingPath);
+      const version = getPackageVersion(ctx, siblingKey);
+      if (version) {
+        const versionPublished = await registry.isVersionPublished(version);
+        return versionPublished ? null : name;
+      }
+      // Fallback: check if the crate exists at all
       const published = await registry.isPublished();
       return published ? null : name;
     }),
@@ -164,7 +172,6 @@ export function createCratesDryRunPublishTask(
   siblingKeys?: string[],
 ): ListrTask<PubmContext> {
   const packagePath = pathFromKey(key);
-  const siblingPaths = siblingKeys?.map(pathFromKey);
   return {
     title: t("task.dryRun.crates.title", { path: packagePath }),
     task: async (ctx, task): Promise<void> => {
@@ -185,11 +192,12 @@ export function createCratesDryRunPublishTask(
         return task.skip();
       }
 
-      // Proactive: skip if any sibling dependency is not yet on crates.io
-      if (siblingPaths?.length) {
+      // Proactive: skip if any sibling dependency's new version is not yet on crates.io
+      if (siblingKeys?.length) {
         const unpublished = await findUnpublishedSiblingDeps(
           packagePath,
-          siblingPaths,
+          siblingKeys,
+          ctx,
         );
         if (unpublished.length > 0) {
           task.title = t("task.dryRun.crates.skippedSibling", {
@@ -210,9 +218,9 @@ export function createCratesDryRunPublishTask(
         // Reactive fallback: catch sibling-related errors
         const message = error instanceof Error ? error.message : String(error);
         const match = message.match(MISSING_CRATE_PATTERN);
-        if (match && siblingPaths) {
+        if (match && siblingKeys) {
           const siblingNames = await Promise.all(
-            siblingPaths.map((p) => getCrateName(p)),
+            siblingKeys.map((k) => getCrateName(pathFromKey(k))),
           );
           if (siblingNames.includes(match[1])) {
             task.title = t("task.dryRun.crates.skippedSibling", {
