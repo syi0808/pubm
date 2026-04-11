@@ -89,6 +89,8 @@ export interface PubmConfig {
     /** Override default commit type → bump mapping. Set to false to ignore a type. */
     types?: Record<string, BumpType | false>;
   };
+  /** Use registry-qualified tag names (e.g. npm/pkg@1.0.0) to avoid collisions in multi-ecosystem independent versioning. */
+  registryQualifiedTags?: boolean;
 }
 
 export interface ResolvedPubmConfig

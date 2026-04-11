@@ -209,6 +209,27 @@ Crea un pull request para el commit de version bump en lugar de hacer push direc
 
 pubm también cae automáticamente en modo PR cuando falla un push directo a una rama protegida.
 
+### `registryQualifiedTags`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+When set to `true`, git tags in independent versioning mode are prefixed with the registry name to avoid collisions when packages from different ecosystems share the same name.
+
+```ts
+export default defineConfig({
+  registryQualifiedTags: true,
+  packages: [
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
+  ],
+})
+```
+
+Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
+
+pubm automatically detects name collisions and prompts you to enable this option. In CI environments, the collision causes an error with instructions to set this config option.
+
 ### `locale`
 
 - Tipo: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`

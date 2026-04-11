@@ -256,10 +256,10 @@ describe("requiredConditionsCheckTask", () => {
       );
     });
 
-    it("produces 4 subtasks", async () => {
+    it("produces 5 subtasks", async () => {
       const subtasks = await getSubtasks();
 
-      expect(subtasks).toHaveLength(4);
+      expect(subtasks).toHaveLength(5);
     });
   });
 
@@ -1449,14 +1449,91 @@ describe("requiredConditionsCheckTask", () => {
         "conditions",
       );
 
-      // Should have 4 built-in + 1 plugin check = 5
-      expect(captured!).toHaveLength(5);
+      // Should have 5 built-in + 1 plugin check = 6
+      expect(captured!).toHaveLength(6);
       expect(captured![4].title).toBe("Plugin condition check");
 
       // Verify the plugin check task calls through wrapTaskContext
       const mockTask = { output: "", title: "" };
       await captured![4].task(ctx, mockTask);
       expect(pluginCheckFn).toHaveBeenCalled();
+    });
+  });
+
+  describe("Tag collision detection subtask", () => {
+    it("skips when versioning is not independent", async () => {
+      const subtasks = await getSubtasks();
+      const collisionTask = subtasks[subtasks.length - 1];
+      const ctx = createCtx({
+        config: { versioning: "fixed" } as any,
+      });
+      const result = collisionTask.skip(ctx);
+      expect(result).toBe(true);
+    });
+
+    it("skips when registryQualifiedTags is already enabled", async () => {
+      const subtasks = await getSubtasks();
+      const collisionTask = subtasks[subtasks.length - 1];
+      const ctx = createCtx({
+        config: { registryQualifiedTags: true } as any,
+      });
+      const result = collisionTask.skip(ctx);
+      expect(result).toBe(true);
+    });
+
+    it("does not skip in independent mode without registryQualifiedTags", async () => {
+      const subtasks = await getSubtasks();
+      const collisionTask = subtasks[subtasks.length - 1];
+      const ctx = createCtx();
+      const result = collisionTask.skip(ctx);
+      expect(result).toBe(false);
+    });
+
+    it("returns early when no collisions detected", async () => {
+      const subtasks = await getSubtasks();
+      const collisionTask = subtasks[subtasks.length - 1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            { path: "a", name: "pkg-a", registries: ["npm"], ecosystem: "js" },
+            {
+              path: "b",
+              name: "pkg-b",
+              registries: ["crates"],
+              ecosystem: "rust",
+            },
+          ],
+        } as any,
+      });
+      // Should not throw — no collisions
+      await collisionTask.task(ctx, {});
+    });
+
+    it("throws in non-TTY when collision detected", async () => {
+      const subtasks = await getSubtasks();
+      const collisionTask = subtasks[subtasks.length - 1];
+      const ctx = createCtx({
+        config: {
+          packages: [
+            {
+              path: "js",
+              name: "my-tool",
+              registries: ["npm"],
+              ecosystem: "js",
+            },
+            {
+              path: "rust",
+              name: "my-tool",
+              registries: ["crates"],
+              ecosystem: "rust",
+            },
+          ],
+        } as any,
+        runtime: { promptEnabled: false } as any,
+      });
+      await expect(collisionTask.task(ctx, {})).rejects.toThrow(
+        /tag.*collision/i,
+      );
     });
   });
 });

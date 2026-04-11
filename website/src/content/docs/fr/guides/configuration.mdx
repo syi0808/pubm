@@ -149,7 +149,7 @@ Indique si les tokens de registry pris en charge doivent être stockés pour ré
 - Type: `boolean`
 - Default: `false`
 
-Ignorer la validation en dry-run pendant la phase de préparation. Utile lorsque des crates du workspace ont des dépendances internes dont les nouvelles versions ne sont pas encore publiées sur crates.io. Peut aussi être défini via le flag CLI `--no-dry-run-validation`.
+Sauter la validation en dry-run pendant la phase de préparation. Utile lorsque des crates du workspace ont des dépendances internes dont les nouvelles versions ne sont pas encore publiées sur crates.io. Peut aussi être défini via le flag CLI `--no-dry-run-validation`.
 
 ### `releaseDraft`
 
@@ -208,6 +208,27 @@ Variables de modèle disponibles :
 Crée une pull request pour le commit de version bump au lieu de pousser directement vers la branche de base. Lorsque activé, pubm crée une branche `pubm/version-packages-*`, la pousse et ouvre une PR. Le workflow de release se déclenche normalement lorsque la PR est fusionnée.
 
 pubm bascule également automatiquement en mode PR lorsqu'un push direct vers une branche protégée échoue.
+
+### `registryQualifiedTags`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+When set to `true`, git tags in independent versioning mode are prefixed with the registry name to avoid collisions when packages from different ecosystems share the same name.
+
+```ts
+export default defineConfig({
+  registryQualifiedTags: true,
+  packages: [
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
+  ],
+})
+```
+
+Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
+
+pubm automatically detects name collisions and prompts you to enable this option. In CI environments, the collision causes an error with instructions to set this config option.
 
 ### `locale`
 

@@ -209,6 +209,27 @@ version bump 커밋을 베이스 브랜치에 직접 push하는 대신 pull requ
 
 보호된 브랜치로의 직접 push가 실패할 경우 자동으로 PR 모드로 폴백합니다.
 
+### `registryQualifiedTags`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+When set to `true`, git tags in independent versioning mode are prefixed with the registry name to avoid collisions when packages from different ecosystems share the same name.
+
+```ts
+export default defineConfig({
+  registryQualifiedTags: true,
+  packages: [
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
+  ],
+})
+```
+
+Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
+
+pubm automatically detects name collisions and prompts you to enable this option. In CI environments, the collision causes an error with instructions to set this config option.
+
 ### `locale`
 
 - 타입: `"en" | "ko" | "zh-cn" | "fr" | "de" | "es"`

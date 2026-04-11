@@ -50,6 +50,7 @@ const defaultConfig = {
   lockfileSync: "optional" as const,
   versionSources: "all" as const,
   conventionalCommits: { types: {} as Record<string, BumpType | false> },
+  registryQualifiedTags: false,
 };
 
 export async function resolveConfig(

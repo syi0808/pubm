@@ -149,7 +149,7 @@ npm 还适用两条额外规则：
 - Type: `boolean`
 - Default: `false`
 
-跳过准备阶段的 dry-run 验证。当 workspace crate 的内部依赖的新版本尚未发布到 crates.io 时很有用。也可以通过 `--no-dry-run-validation` CLI 标志设置。
+在准备阶段跳过 dry-run 验证。当工作区 crates 具有尚未在 crates.io 上发布新版本的内部依赖项时非常有用。也可以通过 `--no-dry-run-validation` CLI 标志设置。
 
 ### `releaseDraft`
 
@@ -208,6 +208,27 @@ export default defineConfig({
 为版本升级提交创建 pull request，而不是直接推送到基础分支。启用后，pubm 会创建 `pubm/version-packages-*` 分支并推送，然后开启一个 PR。PR 合并后，现有的发布工作流会正常触发。
 
 当直接推送到受保护的分支失败时，pubm 会自动回退到 PR 模式。
+
+### `registryQualifiedTags`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+When set to `true`, git tags in independent versioning mode are prefixed with the registry name to avoid collisions when packages from different ecosystems share the same name.
+
+```ts
+export default defineConfig({
+  registryQualifiedTags: true,
+  packages: [
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
+  ],
+})
+```
+
+Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
+
+pubm automatically detects name collisions and prompts you to enable this option. In CI environments, the collision causes an error with instructions to set this config option.
 
 ### `locale`
 

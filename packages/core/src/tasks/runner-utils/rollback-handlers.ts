@@ -4,6 +4,7 @@ import micromatch from "micromatch";
 import type { Changeset } from "../../changeset/parser.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
+import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
 import { packageKey, pathFromKey } from "../../utils/package-key.js";
@@ -22,6 +23,27 @@ export function getPackageName(ctx: PubmContext, key: string): string {
     ctx.config.packages.find((p) => packageKey(p) === key)?.name ??
     pathFromKey(key)
   );
+}
+
+export function formatTag(
+  ctx: PubmContext,
+  key: string,
+  version: string,
+): string {
+  const pkgName = getPackageName(ctx, key);
+  const qualified =
+    ctx.config.registryQualifiedTags || ctx.runtime.registryQualifiedTags;
+  if (qualified) {
+    const pkg = ctx.config.packages.find((p) => packageKey(p) === key);
+    const registry = pkg?.registries[0];
+    if (!registry) {
+      throw new AbstractError(
+        `Package "${pkgName}" has no registries defined but registryQualifiedTags is enabled`,
+      );
+    }
+    return `${registry}/${pkgName}@${version}`;
+  }
+  return `${pkgName}@${version}`;
 }
 
 export function requireVersionPlan(ctx: PubmContext) {
@@ -127,8 +149,7 @@ export function registerRemoteTagRollback(ctx: PubmContext): void {
   if (plan.mode === "independent") {
     for (const [key, pkgVersion] of plan.packages) {
       if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-      const pkgName = getPackageName(ctx, key);
-      const tag = `${pkgName}@${pkgVersion}`;
+      const tag = formatTag(ctx, key, pkgVersion);
       ctx.runtime.rollback.add({
         label: t("task.push.deleteRemoteTag", { tag }),
         fn: async () => {
