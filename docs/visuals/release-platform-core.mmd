@@ -1,0 +1,29 @@
+%%{init: {"htmlLabels": false}}%%
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Composer: command dispatch from CLI/config
+  Composer --> Plan: PlanRequest{preflight|snapshot}
+  Composer --> Propose: ReleaseInput with proposal flow
+  Composer --> Release: ReleaseInput direct release
+  Composer --> Publish: PublishInput publish\n(load ReleaseRecord snapshot)
+  Plan --> Propose: workflow requires proposal
+  Plan --> Release: proposal optional path
+  Plan --> Recovery: blocking validation
+  Propose --> Release: proposal approved/merged
+  Propose --> Recovery: proposal stale/failed
+  Release --> ReleaseExecution: execute release materialization\n(plan applicability + source mutations)
+  ReleaseExecution --> ReleaseRecord: materialization complete\nrelease state = materialized
+  ReleaseExecution --> PartiallyMaterialized: partial materialization failure\n(manifest/SCM/commit/tag incomplete)
+  PartiallyMaterialized --> Recovery: partial handoff + residual mutations
+  ReleaseRecord --> Publish: consume ReleaseRecord\ntarget snapshot is frozen
+  Publish --> CloseoutEngine: all required publish targets succeeded\nPublishRun state = published
+  Publish --> PartiallyPublished: one+ targets failed\nPublishRun state = partial/failed
+  PartiallyPublished --> Publish: nextAction=publish_retry_failed
+  PartiallyPublished --> Recovery: unrecoverable target failure
+  CloseoutEngine --> Closed: closeout completed (CloseoutRecord)
+  CloseoutEngine --> Recovery: closeout failed or timeout
+  Recovery --> Plan: resume after corrective action
+  Recovery --> ReleaseExecution: resume from partial materialization state
+  Recovery --> Publish: resume publish from PublishRun
+  Recovery --> CloseoutEngine: resume closeout
+  Closed --> [*]

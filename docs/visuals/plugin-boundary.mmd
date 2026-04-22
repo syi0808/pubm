@@ -1,0 +1,21 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  subgraph Public["Public Plugin Contract"]
+    SDK["@pubm/core exports"]
+    API["registerEcosystem / registerTarget / registerCloseout"]
+    Schema["target schemas + options shape"]
+  end
+
+  subgraph Runtime["Internal Runtime"]
+    Loader["PluginLoader"]
+    Host["PluginHostContext"]
+    Hooks["Internal Hooks: validate / publish / closeout / recover"]
+  end
+  SDK --> API
+  SDK --> Schema
+  User["pubm runtime"] --> Loader
+  Loader --> PluginPkg["Plugin package"]
+  Loader --> Hooks
+  PluginPkg --> API
+  PluginPkg -->|must not rely on| Host
+  Hooks --> Host

@@ -1,0 +1,103 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Stable["Stable Public Exports"]
+    S1["PlanRequest"]
+    S2["ReleaseInput"]
+    S3["PublishInput"]
+    S4["CloseoutInput"]
+    S5["StatusQuery"]
+    S6["ReleasePlan"]
+    S7["ReleaseRecord"]
+    S8["PublishRun"]
+    S9["CloseoutRecord"]
+    S10["NextAction"]
+    S11["StatusEnvelope"]
+    S12["ErrorEnvelope"]
+  end
+
+  subgraph Exp["Experimental"]
+    E1["InspectRequest"]
+    E2["InspectResult"]
+    E3["ExecutionState"]
+    E4["TargetContract"]
+    E5["CloseoutTarget SPI"]
+  end
+
+  subgraph Internal["Internal"]
+    I1["ReleaseUnit"]
+    I2["SourceMutationSet"]
+    I3["TargetCapabilities"]
+    I4["Runtime Context"]
+    I5["Recovery State"]
+    I6["Rollback / Compensation Internals"]
+  end
+
+  subgraph Entry["Export Modules"]
+    M1["low-level CLI entry (pubm commands)"]
+    M2["low-level SDK entry (@pubm/core or platform package)"]
+    M3["adapter plugin surface"]
+    M4["web/backend integration clients"]
+  end
+
+  subgraph Services["Service Methods"]
+    A["PlanService.prepare"]
+    B["ReleaseService.runRelease"]
+    C["PublishService.runPublish"]
+    D["CloseoutService.runCloseout"]
+    E["StatusService.query"]
+  end
+
+  M1 --> S1
+  M1 --> S2
+  M1 --> S3
+  M1 --> S4
+  M1 --> S5
+  M1 --> E
+  M1 --> B
+
+  M2 --> S1
+  M2 --> S2
+  M2 --> S3
+  M2 --> S4
+  M2 --> S5
+  M2 --> S6
+  M2 --> S7
+  M2 --> S8
+  M2 --> S9
+  M2 --> S10
+  M2 --> S11
+  M2 --> S12
+  M2 --> E
+  M2 --> A
+  M2 --> B
+  M2 --> C
+  M2 --> D
+  M2 --> E
+
+  M3 --> E5
+  M3 --> E4
+  M3 --> I3
+
+  M4 --> S1
+  M4 --> S2
+  M4 --> S3
+  M4 --> S5
+  M4 --> S11
+
+  A --> S6
+  B --> S7
+  C --> S8
+  C --> S10
+  D --> S9
+  D --> S10
+  E --> S11
+  E --> S12
+
+  S6 --> I1
+  S7 --> I1
+  S8 --> E3
+  S9 --> E3
+  S10 --> S11
+
+  E1 --> I4
+  E2 --> I4

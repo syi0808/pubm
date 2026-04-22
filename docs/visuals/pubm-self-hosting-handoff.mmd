@@ -1,0 +1,13 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Current["Current Handoff"]
+    C1["Local prepare writes versions,\ncreates commit and tags"] --> C2["CI publish infers state\nfrom checkout + package versions"]
+    C2 --> C3["Registry publish + GitHub Release + brew\nall in one publish invocation"]
+  end
+
+  subgraph Future["Proposed Handoff"]
+    F1["pubm preflight\npersists immutable ReleasePlan"] --> F2["pubm release\nmaterializes ReleaseRecord"]
+    F2 --> F3["CI pubm publish\nloads ReleaseRecord"]
+    F3 --> F4["PublishRun / ExecutionState\ntrack registry + closeout progress"]
+    F4 --> F5["Closeout finalizes GitHub Release\nafter brew succeeds"]
+  end

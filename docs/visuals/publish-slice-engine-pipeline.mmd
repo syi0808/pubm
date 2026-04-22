@@ -1,0 +1,38 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  CLI["publish CLI"] --> INPUT["PublishInput"]
+  INPUT --> ENGINE["PublishEngine"]
+
+  ENGINE --> LOAD["Load immutable ReleaseRecord lineage\nfrom PublishInput.from"]
+  LOAD --> SNAPSHOT["Build/restore frozen PublishSnapshot\ndurable targets + publish plan"]
+  SNAPSHOT --> CAP["Load adapter/runtime capabilities\nfrom active plugin contracts"]
+  CAP --> CONTRACTS["Build TargetContracts\nfrom snapshot + runtime capabilities\n(no config inference)"]
+  CONTRACTS --> FILTER["Apply scope + retry filters\nfrom durable snapshot"]
+  FILTER --> RECHECK["Materialize credentials\nand run volatile checks"]
+  RECHECK --> PLAN["Build TargetOrderPlan\nTargetOrderGroup (serial/parallel)"]
+
+  PLAN --> GROUP["Run next group"]
+  GROUP --> PRE["Prepare target contract\n(materialize artifacts if needed)"]
+  PRE --> EXEC["Execute target contract"]
+  EXEC --> UPDATE["Write TargetState transition\nqueued -> running -> final"]
+
+  UPDATE -->|succeeded| NEXT["Commit per-group result\nand continue"]
+  UPDATE -->|skipped| NEXT
+  UPDATE -->|compensated| NEXT
+  UPDATE -->|failed| PARTIAL["PublishRun state = partial/failed"]
+  PARTIAL --> RETRY{"Can user retry target(s)?"}
+  RETRY -->|retry failed| REPLAY["Re-run failed contracts only"]
+  RETRY -->|retry all| REPLAY_ALL["Re-run non-skipped contracts"]
+  RETRY -->|manual stop| WAIT["Persist action for follow-up"]
+  REPLAY --> FILTER
+  REPLAY_ALL --> FILTER
+
+  NEXT --> DONE{More groups?}
+  DONE -->|yes| GROUP
+  DONE -->|no| COMPLETE["Compute PublishRun result"]
+
+  COMPLETE --> HANDOFF["Publish -> CloseoutEngine handoff\nPublishRun + PublishSnapshot"]
+  HANDOFF --> CLOSE["CloseoutEngine"]
+
+  WAIT --> HALT["PublishRun completed with nextAction"]
+  HALT --> DONEH["Execution stops until user action"]

@@ -1,0 +1,88 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  subgraph Consumers["External Consumers"]
+    CLI["CLI Adapter"]
+    CI["CI Automation"]
+    WEB["Webapp / Backend"]
+    TOOL["Custom Tooling"]
+    PLUG["Plugin / Adapter Authors"]
+  end
+
+  subgraph Surfaces["Public Surface Layers"]
+    CLI_SURFACE["Command Surface"]
+    API_SURFACE["Low-Level API"]
+    MACHINE["Machine Contracts"]
+    SPI["Plugin / Adapter SPI"]
+  end
+
+  subgraph Commands["Command Surface"]
+    PRE["pubm preflight"]
+    REL["pubm release [version]"]
+    PUB["pubm publish"]
+    STS["pubm status --json"]
+    INS["pubm inspect"]
+    SNAP["pubm snapshot"]
+    ALI["pubm [version] alias"]
+  end
+
+  subgraph Services["Programmatic Services"]
+    PLAN["PlanService.prepare"]
+    RELEASE["ReleaseService.runRelease"]
+    PUBLISH["PublishService.runPublish"]
+    CLOSE["CloseoutService.runCloseout"]
+    STATUS["StatusService.query"]
+    INS_API["InspectService.inspect"]
+  end
+
+  subgraph Contracts["Stable Contracts"]
+    PLAN_REQ["PlanRequest"]
+    REL_IN["ReleaseInput"]
+    PUB_IN["PublishInput"]
+    CLS_IN["CloseoutInput"]
+    ST_QUERY["StatusQuery"]
+    ST_OUT["StatusEnvelope"]
+    PLAN_OUT["ReleasePlan"]
+    REL_OUT["ReleaseRecord"]
+    PUB_OUT["PublishRun"]
+    CLS_OUT["CloseoutRecord"]
+    NEXT["NextAction"]
+    ERROR["ErrorEnvelope"]
+  end
+
+  subgraph SPI_CONTRACTS["SPI / Adapter Layer"]
+    REG["Registry/Distribution Adapter"]
+    ECO["Ecosystem Adapter"]
+    PLUG_IF["Plugin Host Contract"]
+  end
+
+  Consumers --> CLI_SURFACE
+  Consumers --> API_SURFACE
+  Consumers --> SPI
+
+  CLI_SURFACE --> Commands
+  API_SURFACE --> Services
+  SPI --> SPI_CONTRACTS
+
+  PRE --> PLAN --> PLAN_REQ --> PLAN_OUT
+  REL --> RELEASE --> REL_IN --> REL_OUT
+  PUB --> PUBLISH --> PUB_IN --> PUB_OUT
+  CLOSE --> CLOSE_OUT["CloseoutService.runCloseout"] --> CLS_IN --> CLS_OUT
+  STS --> STATUS --> ST_QUERY --> ST_OUT
+  INS --> INS_API --> PLAN_OUT
+  SNAP --> PLAN
+
+  PUBLISH --> NEXT
+  RELEASE --> NEXT
+  CLOSE --> NEXT
+  STATUS --> NEXT
+  PLAN_OUT --> ST_OUT
+  REL_OUT --> ST_OUT
+  PUB_OUT --> ST_OUT
+  CLS_OUT --> ST_OUT
+  CLS_IN --> ERROR
+  PLAN_OUT --> ERROR
+  ST_OUT --> ERROR
+  ECO --> REL
+  REG --> REL
+  REG --> PUB
+  PLUG_IF --> INS_API

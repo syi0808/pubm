@@ -1,0 +1,54 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Current["Current publish code roots"]
+    PUBLISH["tasks/phases/publish.ts"]
+    PUBLISH_TASKS["runner-utils/publish-tasks.ts"]
+    GROUPING["tasks/grouping.ts"]
+    CATALOG["registry/catalog.ts"]
+    DRY["phases/dry-run.ts\n dry-run-publish.ts"]
+    REQS["required-conditions-check.ts"]
+    MANIFEST["runner-utils/manifest-handling.ts"]
+    TASKS["tasks/{npm,jsr,crates,custom-registry}.ts"]
+    BREW["plugin-brew/src/brew-tap.ts"]
+    CLOSE["tasks/phases/push-release.ts"]
+  end
+
+  subgraph Future["Publish slice components"]
+    PE["PublishEngine"]
+    SS["PublishSnapshot Resolver"]
+    TC["TargetContract Builder"]
+    TO["TargetOrder Planner"]
+    RC["Runtime Capability Resolver"]
+    VA["Volatile Revalidator"]
+    TX["Registry/Distribution executors\n(npm/jsr/crates/custom)"]
+    CX["Closeout executors\n(github_release / notify)"]
+    PB["PublishRun persistence"]
+    PR["Publish -> Closeout handoff"]
+    CE["CloseoutEngine"]
+  end
+
+  PUBLISH --> PE
+  PUBLISH_TASKS --> TC
+  GROUPING --> TO
+  CATALOG --> TC
+  CATALOG --> RC
+  CATALOG --> SS
+  CATALOG --> TX
+  DRY --> PE
+  REQS --> VA
+  MANIFEST --> VA
+  MANIFEST --> SS
+  TASKS --> TX
+  BREW --> TX
+  CLOSE --> PR
+  CLOSE --> CE
+  CLOSE --> CX
+  CX --> CE
+  PE --> PB
+  TO --> PB
+  VA --> PB
+  TX --> PB
+  SS --> PB
+  RC --> TC
+  PB --> PR
+  PR --> CE

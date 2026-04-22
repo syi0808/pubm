@@ -1,0 +1,34 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Current["Current sources"]
+    CLI["packages/pubm/src/cli.ts"]
+    PROMPTS["required-missing-information + prompts/*"]
+    PRE["preflight + prerequisites + required conditions"]
+    TB["test-build + dry-run"]
+    CFG["config loader/defaults/types"]
+    DISC["ecosystem + monorepo discovery + packageKey"]
+  end
+
+  subgraph New["New planning artifacts"]
+    PLANREQ["PlanRequest\n(preflight|snapshot)"]
+    RU["ReleaseUnit[]"]
+    VE["ValidationEvidence"]
+    PLIN["PlannerInput"]
+    RP["ReleasePlan"]
+    PUBIN["PublishInput"]
+    INREQ["InspectRequest"]
+  end
+
+  CLI --> PLANREQ
+  CLI --> PUBIN
+  CLI --> INREQ
+  PROMPTS --> PLANREQ
+  CFG --> PLANREQ
+  CFG --> RU
+  DISC --> RU
+  PRE --> VE
+  TB --> VE
+  PLANREQ --> PLIN
+  PLIN --> RP
+  RU --> RP
+  VE --> RP

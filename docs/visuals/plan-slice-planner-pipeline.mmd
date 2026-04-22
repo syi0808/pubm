@@ -1,0 +1,20 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  INV["CLI/config/invocation"] --> WREQ["PlanRequest\n(preflight|snapshot)"]
+  CFG["ResolvedPubmConfig"] --> CFGSNAP["Cfg snapshot"]
+  REPO --> CFGSNAP
+  WREQ --> PLIN["PlannerInput"]
+  CFGSNAP --> PLIN
+  PLIN --> PL["Planner"]
+
+  subgraph Passes["Planner passes"]
+    P1["Resolve ReleaseUnits"]
+    P2["Resolve intent and scope"]
+    P3["Resolve version decisions"]
+    P4["Resolve target matrix and ordering"]
+    P5["Resolve validation evidence"]
+    P6["Assemble immutable ReleasePlan"]
+  end
+
+  PL --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> RP["ReleasePlan"]
+  RP --> REL["Release consumes plan\nwithout recomputing intent"]

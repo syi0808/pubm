@@ -1,0 +1,31 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  S0["Scope 0
+Canonical contracts and IDs"] --> S1["Scope 1
+Invocation and command-specific request contracts"]
+  S0 --> S2["Scope 2
+Plan and validation evidence"]
+  S0 --> S3["Scope 3
+Release materialization"]
+  S0 --> S4["Scope 4
+Target contract and publish engine"]
+  S0 --> S5["Scope 5
+Artifact / distribution / closeout"]
+  S0 --> S6["Scope 6
+ExecutionState / recovery / ops"]
+
+  S1 --> S2
+  S2 --> S3
+  S2 --> S4
+  S3 --> S4
+  S3 --> S5
+  S4 --> S5
+  S4 --> S6
+  S5 --> S6
+  S2 --> S7["Scope 7
+External CLI/config migration"]
+  S6 --> S7
+  S5 --> S8["Scope 8
+Plugin API migration"]
+  S6 --> S8
+  S7 --> S8

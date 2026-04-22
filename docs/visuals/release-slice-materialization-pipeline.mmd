@@ -1,0 +1,17 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  PLAN["ReleasePlan"] --> G0["Verify plan applicability\ncommitSha / configHash / working tree guards"]
+
+  subgraph Mutations["Release materialization"]
+    G0 --> M1["Resolve source mutation set"]
+    M1 --> M2["Write manifest versions"]
+    M2 --> M3["Write changelogs"]
+    M3 --> M4["Consume changesets"]
+    M4 --> M5["Apply release materializers\nexternal version sync etc."]
+    M5 --> M6["Stage mutation set"]
+    M6 --> M7["Create release anchor commit"]
+    M7 --> M8["Create release tags"]
+  end
+
+  M8 --> REC["ReleaseRecord"]
+  REC --> NEXT["Publish consumes ReleaseRecord\nwithout inferring intent from repo state"]

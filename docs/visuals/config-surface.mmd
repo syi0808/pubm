@@ -1,0 +1,35 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  CFG["pubm.config.ts"] --> WF["workflow"]
+  CFG --> REL["release"]
+  CFG --> PKG["packages"]
+  CFG --> TGT["targets"]
+  CFG --> VAL["validation"]
+  CFG --> REC["recovery"]
+  CFG --> PLG["plugins"]
+
+  WF --> WFKind["workflow.kind: one-shot|split-ci|release-pr"]
+  WF --> WFBranch["workflow.branch"]
+  WF --> WFProposal["workflow.proposal: none|release_pr|manual"]
+
+  REL --> VS["release.versioning.strategy"]
+  REL --> VSrc["release.versioning.source"]
+  REL --> CT["release.changelog.enabled/format"]
+  REL --> TT["release.versioning.snapshotTemplate"]
+  REL --> QTAG["release.versioning.registryQualifiedTags"]
+
+  PKG --> PkgItem["packages[] = { path, manifestPath? }"]
+
+  TGT --> Reg["targets.registries[]"]
+  TGT --> Dist["targets.distributions[]"]
+  TGT --> Close["targets.closeout.githubRelease.mode"]
+
+  VAL --> Tests["validation.tests"]
+  VAL --> Build["validation.build"]
+  VAL --> Dry["validation.dryRunPublish"]
+
+  REC --> Strategy["recovery.strategy"]
+  REC --> Rollback["recovery.allowCompensation"]
+
+  PLG --> PluginList["plugins[]"]
+  PluginList --> PluginDef["pluginPath + options"]

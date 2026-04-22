@@ -1,0 +1,26 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Current["Current code roots"]
+    VER["tasks/phases/version.ts"]
+    GIT["git.ts"]
+    WRITE["manifest/write-versions.ts"]
+    CHANGE["changeset/* + changelog/*"]
+    PR["create-version-pr.ts + runner-utils/version-pr.ts"]
+    XSYNC["plugin-external-version-sync"]
+  end
+
+  subgraph Future["Release slice"]
+    REL["ReleaseEngine"]
+    MUT["SourceMutationSet"]
+    PROP["Proposal seam"]
+    REC["ReleaseRecord"]
+  end
+
+  VER --> REL
+  GIT --> REL
+  WRITE --> MUT
+  CHANGE --> MUT
+  XSYNC --> MUT
+  PR --> PROP
+  MUT --> REL
+  REL --> REC

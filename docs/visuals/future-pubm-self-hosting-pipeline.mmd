@@ -1,0 +1,38 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  subgraph Preflight["Proposed `pubm preflight`"]
+    P0["Discover ReleaseUnits\n- core\n- pubm\n- platform packages\n- plugin-brew\n- plugin-external-version-sync"] --> P1["Resolve versions\n- changesets\n- conventional commits fallback"]
+    P1 --> P2["Resolve targets\n- npm\n- jsr(core)\n- GitHub Release\n- brew(pubm)"]
+    P2 --> P3["Resolve asset manifest\n`packages/pubm/platforms/*/bin/pubm`\n-> `pubm-{platform}`"]
+    P3 --> P4["Validate\n- branch/remote/tree\n- auth\n- registry availability\n- scripts"]
+    P4 --> P5["Run tests + build validation"]
+    P5 --> P6["Run dry-run publish checks\nbefore repo mutation"]
+    P6 --> PLAN[("ReleasePlan")]
+  end
+
+  subgraph Release["Proposed `pubm release`"]
+    PLAN --> R1["Verify plan against repo SHA + config hash"]
+    R1 --> R2["Materialize source of truth\n- write manifest versions\n- update core jsr.json\n- write changelogs\n- consume changesets"]
+    R2 --> R3["Release materializer\nexternal version sync\n- landing.ts\n- plugin.json\n- marketplace.json"]
+    R3 --> R4["Commit\n`Version Packages`"]
+    R4 --> R5["Create tags\nnon-excluded units only"]
+    R5 --> RECORD[("ReleaseRecord")]
+    RECORD --> R6["Push commit + tags"]
+  end
+
+  R6 --> T2["GitHub Actions trigger\nreleased commit on `main`"]
+
+  subgraph Publish["Proposed CI `pubm publish`"]
+    RECORD --> U0["Load ReleaseRecord"]
+    U0 --> U1["Open PublishRun\nand per-target ExecutionState"]
+    U1 --> U2["Build immutable artifacts\n- registry publish inputs\n- pubm binaries"]
+    U2 --> U3["Registry publish ordering"]
+    U3 --> U31["npm wave 1\nplatform packages"]
+    U31 --> U32["npm wave 2\ncore / pubm / plugins"]
+    U32 --> U33["jsr\npackages/core"]
+    U33 --> U4["Create GitHub Release drafts\nfor non-excluded units"]
+    U4 --> U5["Upload `pubm-{platform}` assets\nto `pubm` draft release"]
+    U5 --> U6["Distribution target\nbrewTap consumes draft asset URLs + sha256"]
+    U6 --> U7["Finalize / publish\nGitHub Releases"]
+    U7 --> CLOSE[("CloseoutRecord")]
+  end

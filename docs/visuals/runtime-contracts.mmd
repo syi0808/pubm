@@ -1,0 +1,51 @@
+%%{init: {"htmlLabels": false}}%%
+classDiagram
+  class ReleaseUnit {
+    +key: string
+    +ecosystem: string
+    +packagePath: string
+    +manifestPath: string
+    +versionSource: string
+  }
+  class Artifact {
+    +artifactId: string
+    +unitKey: string
+    +format: string
+    +artifactPath: string
+    +checksum: string
+  }
+  class TargetCapabilities {
+    +targetKey: string
+    +kind: string
+    +requiresArtifact: boolean
+    +canDryRun: boolean
+    +canRetry: boolean
+    +supportsRollback: boolean
+  }
+  class ExecutionState {
+    +executionId: string
+    +phase: string
+    +targetKey: string
+    +artifactId: string
+    +status: string
+    +attempt: number
+    +lastError?: string
+  }
+  class ReleaseRecord {
+    +recordId: string
+    +planId: string
+    +state: string
+    +releaseSha: string
+  }
+  class PublishRun {
+    +runId: string
+    +releaseRecordId: string
+    +targetStates: ExecutionState[]
+  }
+
+  ReleaseUnit "1" --> "*" Artifact : derives
+  ReleaseUnit "1" --> "*" TargetCapabilities : owns target policy
+  Artifact "*" --> "*" ExecutionState : executed as
+  TargetCapabilities "*" --> "*" ExecutionState : constrains
+  ReleaseRecord "1" --> "*" PublishRun : tracks
+  PublishRun "1" --> "*" ExecutionState : owns

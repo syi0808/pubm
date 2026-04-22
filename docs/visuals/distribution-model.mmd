@@ -1,0 +1,21 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  Repo["Git Repository"] --> RepoState["Git Snapshot + Commit Metadata"]
+  RepoState --> Eco["EcosystemAdapter"]
+  Eco --> Unit["ReleaseUnit"]
+  Eco --> Art["ArtifactSpec (path/version/build artifacts)"]
+
+  Unit --> Plan["ReleasePlan"]
+  Art --> Plan
+  Plan --> Record["ReleaseRecord"]
+  Record --> Run["PublishRun"]
+
+  Unit --> Cap["TargetCapabilities[]"]
+  Cap --> Reg["RegistryTarget (npm, jsr, crates)"]
+  Cap --> Dist["DistributionTarget (brew, winget, scoop)"]
+  Cap --> Close["CloseoutTarget (github_release, notify)"]
+
+  Reg --> Run
+  Dist --> Run
+  Close --> Run
+  Run --> ES["ExecutionState[]"]

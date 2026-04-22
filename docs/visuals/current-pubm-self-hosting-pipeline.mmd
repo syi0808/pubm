@@ -1,0 +1,31 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  subgraph Local["Current Local Prepare (`bun run release`)"]
+    A0["CLI bootstrap\n- load config\n- resolve VersionPlan"] --> A1["Preflight credentials\n- npm/jsr tokens\n- brew token\n- optional GH secret sync"]
+    A1 --> A2["Prerequisites\n- branch\n- fetch/pull\n- clean tree\n- commits since latest tag"]
+    A2 --> A3["Required conditions\n- ping registries\n- validate scripts\n- git version\n- registry availability\n- brew access"]
+    A3 --> A4["Test"]
+    A4 --> A5["Build"]
+    A5 --> A6["Version\n- write package versions\n- update core jsr.json\n- write changelogs\n- delete changesets"]
+    A6 --> A7["afterVersion\nexternalVersionSync\n- landing.ts\n- plugin.json\n- marketplace.json"]
+    A7 --> A8["Commit\n`Version Packages`"]
+    A8 --> A9["Tag non-excluded units\n- core\n- pubm\n- plugin-brew\n- plugin-external-version-sync"]
+    A9 --> A10["Dry-run publish validation\n- resolve workspace protocols\n- npm/jsr dry-run checks\n- restore protocols"]
+    A10 --> A11["Push commit + tags"]
+  end
+
+  A11 --> T["GitHub Actions trigger\npush to `main`\nhead commit starts with `Version Packages`"]
+
+  subgraph CI["Current CI Publish (`bunx pubm --mode ci --phase publish`)"]
+    B0["Workflow setup\n- checkout\n- bun install\n- bun run build"] --> B1["CLI rebuilds VersionPlan\nfrom current manifest versions"]
+    B1 --> B2["Preflight\nplugin creds from env only"]
+    B2 --> B3["beforePublish\nresolve workspace:* protocols"]
+    B3 --> B4["npm publish fan-out\n- core\n- pubm\n- platform packages\n- plugin packages"]
+    B3 --> B5["jsr publish fan-out\n- packages/core only"]
+    B4 --> B6["Restore workspace protocols"]
+    B5 --> B6
+    B6 --> B7["afterPublish"]
+    B7 --> B8["Create GitHub Releases\nfor non-excluded units"]
+    B8 --> B9["Upload `pubm-{platform}` assets\nto `pubm` GitHub Release"]
+    B9 --> B10["afterRelease\nbrewTap\n- update Formula/pubm.rb\n- update tap repo or open PR"]
+  end

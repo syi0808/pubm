@@ -1,0 +1,16 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph User["Canonical Public Surface"]
+    Alias["pubm [version]"] --> FlowAlias["alias to preflight -> release -> publish path"]
+    Preflight["pubm preflight"] --> PReq["PlanRequest{preflight}"] --> Plan["ReleasePlan"]
+    Release["pubm release [version]"] --> RReq["ReleaseInput"] --> Proposal["ReleaseProposal (optional)"] --> Record["ReleaseRecord"]
+    Publish["pubm publish"] --> PubReq["PublishInput"] --> PublishRun["PublishRun"]
+    Snapshot["pubm snapshot"] --> SReq["PlanRequest{snapshot}"] --> Plan
+    Status["pubm status --json"] --> StReq["StatusRequest"] --> State["Workflow status\nreleaseState: materializing|materialized|partially_materialized|failed_before_release|released|recovery_handoff\npublishState: running|partial|published|failed\nnextAction: release|publish|publish_retry_failed|publish_retry_all|resume_recovery|none"]
+    Inspect["pubm inspect packages|targets|plan"] --> IReq["InspectRequest{packages|targets|plan}"] --> View["Resolved source/target snapshot"]
+  end
+
+  Release --> Publish
+  Record --> Publish
+  PublishRun --> Status
+  State --> PublishRun

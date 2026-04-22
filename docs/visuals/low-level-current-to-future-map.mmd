@@ -1,0 +1,39 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart LR
+  subgraph Current["Current Subsystems"]
+    CLI["CLI + commands"]
+    CFG["config loader + defaults"]
+    PLANISH["missing-info + prompts + preflight + checks + test/build + dry-run"]
+    RELNOW["version + changelog + commit/tag + version PR"]
+    PUBNOW["registry catalog + grouping + publish tasks"]
+    ASSETNOW["releaseAssets + GitHub Release + brew"]
+    RUNTIME["context.runtime + rollback + snapshot"]
+    PLUGIN["plugin hooks + plugin registries/ecosystems"]
+  end
+
+  subgraph Future["Future Architecture Slots"]
+    PLANREQ["PlanRequest\n(preflight|snapshot)"]
+    RELIN["ReleaseInput"]
+    PUBIN["PublishInput"]
+    INREQ["InspectRequest"]
+    PLAN["Plan / ReleasePlan"]
+    REL["Release / Propose"]
+    PUB["Publish"]
+    ART["Artifact / DistributionTarget / CloseoutTarget"]
+    EXEC["ExecutionState / Recovery"]
+    EXT["External interface / Plugin surface"]
+  end
+
+  CLI --> PLANREQ
+  CLI --> RELIN
+  CLI --> PUBIN
+  CLI --> INREQ
+  CFG --> PLANREQ
+  PLANISH --> PLAN
+  RELNOW --> REL
+  PUBNOW --> PUB
+  ASSETNOW --> ART
+  RUNTIME --> EXEC
+  PLUGIN --> EXT
+  PLUGIN --> PUB
+  PLUGIN --> ART
