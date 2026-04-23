@@ -3,6 +3,8 @@
 **Date:** 2026-04-22
 **Status:** Draft
 
+This draft follows [Architecture Evolution Principles](./2026-04-23-architecture-evolution-principles.md), especially the rule `closed core, open edge`.
+
 ## Goal
 
 Define a user-facing interface that:
@@ -22,10 +24,11 @@ This model intentionally remains command-shaped:
 ## Design Principles
 
 1. Keep the primary UX task-oriented, not engine-oriented.
-2. Do not expose internal state-machine names by default.
-3. Preserve a short path for the common case.
-4. Move workflow policy out of ad-hoc flags and into explicit config.
-5. Make machine-readable state first-class for CI and automation.
+2. Expose closed engine state only where the core truly owns lifecycle or next-action vocabulary.
+3. Keep workflows, proposals, targets, policies, artifacts, and plugins open through refs, keys, and capabilities.
+4. Preserve a short path for the common case.
+5. Move workflow and target policy out of ad-hoc flags and into explicit config.
+6. Make machine-readable state first-class for CI and automation.
 
 ## Proposed Public Surface
 
@@ -113,6 +116,8 @@ Examples:
 
 This command should not require users to know internal execution phases.
 
+Built-in flows such as one-shot, split CI, or release PR remain useful, but they should be selected as open refs such as `builtin:one-shot` or `builtin:release-pr`, not modeled as globally closed public kinds.
+
 ### `pubm publish`
 
 Consumes the current or selected release record and publishes to configured targets.
@@ -158,7 +163,7 @@ pubm status
 --json
 --config <path>
 --locale <locale>
---target <selector>
+--target <key|pattern>
 --package <selector>
 ```
 
@@ -167,18 +172,20 @@ pubm status
 Keep this set intentionally small:
 
 ```bash
---workflow <one-shot|split-ci|release-pr>
+--workflow <ref>
 --dry-run
 --branch <name>
 --any-branch
 ```
+
+Built-in examples can be documented as `builtin:one-shot`, `builtin:split-ci`, or `builtin:release-pr`, but the public contract should accept a workflow ref rather than promise a closed enum.
 
 ### Advanced Release Flags
 
 These should exist, but be treated as advanced:
 
 ```bash
---proposal <none|release_pr|manual_approval>
+--proposal <ref|none>
 --from <plan-id|release-record-id|tag>
 --retry <failed|all>
 --closeout-mode <auto|skip>
@@ -193,21 +200,24 @@ A better public shape is:
 ```ts
 export default defineConfig({
   workflow: {
-    kind: "one-shot", // one-shot | split-ci | release-pr
+    ref: "builtin:release-pr",
     branch: "main",
-    proposal: "release_pr", // none | release_pr | manual_approval
+    proposalRef: "builtin:release-pr",
   },
 
   release: {
     versioning: {
-      strategy: "independent", // independent | fixed
-      source: "all", // all | changesets | commits | manual
+      strategyRef: "builtin:versioning/independent",
+      sourceRef: "builtin:version-source/all",
       snapshotTemplate: "{tag}-{timestamp}",
       registryQualifiedTags: false,
     },
     changelog: {
       enabled: true,
-      format: "default",
+      rendererRef: "builtin:changelog/default",
+    },
+    artifacts: {
+      publishSpecRef: "builtin:package-archive",
     },
   },
 
@@ -216,49 +226,76 @@ export default defineConfig({
   ],
 
   targets: {
-    registries: ["npm", "jsr"],
-    distributions: [],
-    closeout: {
-      githubRelease: {
+    publish: [
+      {
+        key: "npm",
+        ref: "builtin:npm",
+        contractRef: "pubm.publish.package-registry/v1",
+      },
+      {
+        key: "jsr",
+        ref: "builtin:jsr",
+        contractRef: "pubm.publish.package-registry/v1",
+      },
+      {
+        key: "brew-core",
+        ref: "plugin:brew/homebrew-core",
+        contractRef: "pubm.publish.catalog-update/v1",
+        capabilityKeys: ["consumes-release-assets", "scm-review-flow"],
+      },
+    ],
+    closeout: [
+      {
+        key: "github-release",
+        ref: "builtin:github-release",
+        contractRef: "pubm.closeout.release-surface/v1",
         mode: "draft", // off | draft | publish
       },
-    },
+    ],
   },
 
   validation: {
-    tests: true,
-    build: true,
+    policyRefs: [
+      "builtin:validation/tests",
+      "builtin:validation/build",
+    ],
     dryRunPublish: true,
   },
 
   recovery: {
-    strategy: "individual",
+    policyRef: "builtin:recovery/individual",
     allowCompensation: false,
   },
 
-  plugins: [],
+  plugins: [
+    {
+      key: "brew",
+      ref: "@pubm/plugin-brew",
+      contractRef: "pubm.plugin.publish-target-factory/v1",
+      capabilityKeys: ["publish-target-factory"],
+    },
+  ],
 });
 ```
 
 ### Why This Shape
 
-- `workflow` captures execution strategy
-- `release` captures versioning and changelog policy
-- `targets` becomes the long-term home for registries, distributions, and closeout
+- `workflow.ref` selects execution strategy without forcing a public `WorkflowKind`
+- `workflow.proposalRef`, `release.versioning.strategyRef`, `release.versioning.sourceRef`, `release.changelog.rendererRef`, and `release.artifacts.publishSpecRef` keep workflow, policy, and artifact selection open
+- config uses nested paths such as `workflow.ref` and `workflow.proposalRef`, while machine-readable output flattens them to `workflowRef` and `proposalRef`
+- `targets.publish[]` and `targets.closeout[]` distinguish engine lanes without introducing a global target-kind enum
+- `plugins[]` stays open through `key`, `ref`, `contractRef`, and `capabilityKeys`
 - `validation` and `recovery` are explicit instead of scattered as skip flags
 
-### Proposal Vocabulary (Canonical)
+### Proposal References
 
-Use a single public proposal vocabulary across CLI/config and internal mapping:
+Use `workflow.proposalRef` in config and `proposalRef` in machine-readable output and CLI-facing terminology.
 
-- `none`: disable proposal flow.
-- `release_pr`: generate or reuse PR/review workflow.
-- `manual_approval`: require explicit human approval before release materialization.
+- `none` means no proposal binding is selected; it is absence, not a proposal kind.
+- built-in refs can include values such as `builtin:release-pr` or `builtin:manual-approval`
+- plugins can contribute additional proposal refs later without changing the core contract
 
-Internal mapping:
-
-- `release_pr` maps to `ReleaseProposal.kind` values `release_pr` or `preview_branch`.
-- `manual_approval` maps to `ReleaseProposal.kind = "manual_approval"`.
+Internal mapping is intentionally flexible. A public `proposalRef` may resolve to one or more internal handlers, and the external interface should not promise a 1:1 mapping to an internal enum.
 
 ## Suggested Machine-Readable Interface
 
@@ -271,10 +308,23 @@ Returns a `ReleasePlan` summary:
 ```json
 {
   "planId": "plan_123",
+  "workflowRef": "builtin:release-pr",
   "state": "planned",
   "packages": [],
-  "targets": [],
+  "targets": [
+    {
+      "targetKey": "npm",
+      "targetRef": "builtin:npm",
+      "contractRef": "pubm.publish.package-registry/v1"
+    }
+  ],
   "versionPreview": [],
+  "policyBindings": [
+    {
+      "slotKey": "versioning",
+      "policyRef": "builtin:versioning/independent"
+    }
+  ],
   "validation": {
     "ok": true
   }
@@ -288,23 +338,27 @@ Returns workflow state:
 ```json
 {
   "planId": "plan_123",
+  "workflowRef": "builtin:release-pr",
   "proposalId": "prop_456",
+  "proposalRef": "builtin:release-pr",
   "releaseRecordId": "rel_789",
   "publishRunId": "run_999",
   "releaseState": "partially_materialized",
   "publishState": "partial",
   "closeoutState": "partial",
-  "failedTargets": ["brew"],
+  "failedTargets": ["brew-core"],
   "nextAction": "publish_retry_failed"
 }
 ```
 
-The state fields in `status --json` map directly to typed internal contracts:
+The closed state fields in `status --json` map directly to typed internal contracts:
 
 - `releaseState`: `ReleaseRecord.state` (`materializing` | `materialized` | `partially_materialized` | `failed_before_release` | `recovery_handoff` | `released`)
 - `publishState`: `PublishRun.state` (`running` | `partial` | `published` | `failed` | `compensated`)
 - `closeoutState`: `CloseoutRecord.state` (`closed` | `partial` | `failed`)
 - `nextAction`: `NextAction` from [release-platform-architecture](./2026-04-22-release-platform-architecture.md) (`release`, `publish`, `publish_retry_failed`, `publish_retry_all`, `resume_recovery`, `none`)
+
+`workflowRef`, `proposalRef`, target keys, policy refs, and plugin refs remain intentionally open strings. Only lifecycle state and next-action vocabulary are closed.
 
 This is more important than adding many new commands.
 
@@ -316,10 +370,10 @@ This is more important than adding many new commands.
 |---|---|---|---|
 | Primary command | `pubm [version]` | `pubm [version]` as alias, but `preflight / release / publish / status` become canonical | Keep convenience, change center of gravity |
 | Split execution | `--mode ci --phase prepare/publish` | `pubm preflight`, `pubm release`, `pubm publish` with workflow policy in config | Hide runner internals |
-| Workflow style | `--create-pr` flag | `workflow.kind` + `proposal` policy | Make workflow explicit |
-| GitHub Release control | `--release-draft`, `--skip-release` | `targets.closeout.githubRelease.mode=off|draft|publish` | Move product-specific behavior into targets |
+| Workflow style | `--create-pr` flag | `workflow.ref` + `workflow.proposalRef` | Make workflow explicit without closing the vocabulary |
+| GitHub Release control | `--release-draft`, `--skip-release` | `targets.closeout[*].{ref,contractRef,mode}` | Move product-specific behavior into closeout target contracts |
 | Retry / resume | not first-class | `pubm status`, `pubm publish --retry failed` | Make state and recovery visible |
-| Machine-readable workflow state | limited | first-class `--json` on preflight/status/publish | Improve CI contract |
+| Machine-readable workflow state | limited | first-class `--json` on preflight/status/publish with open refs plus closed states | Improve CI contract |
 
 ### Command Comparison
 
@@ -337,11 +391,12 @@ This is more important than adding many new commands.
 
 | Current config surface | Problem | Proposed config surface | Benefit |
 |---|---|---|---|
-| `branch`, `createPr`, `releaseDraft`, `skipDryRun` are flat | workflow policy is scattered | `workflow`, `release`, `targets`, `validation`, `recovery` | clearer mental model |
-| `versioning`, `versionSources`, `snapshotTemplate`, `registryQualifiedTags` are split | release policy is fragmented | `release.versioning.*` | group policy coherently |
-| `packages[].registries` only | assumes registry-first worldview | `targets.registries`, `targets.distributions`, `targets.closeout` | future-proof target taxonomy |
-| `releaseDraft` boolean controls GitHub Release existence | mixes release and closeout semantics | `targets.closeout.githubRelease.mode` | honest modeling |
-| many skip flags and fallback behavior | operational behavior leaks into CLI | explicit workflow and validation policy | more stable interface |
+| `branch`, `createPr`, `releaseDraft`, `skipDryRun` are flat | workflow policy is scattered | `workflow.ref`, `workflow.proposalRef`, `targets`, `validation`, `recovery` | clearer mental model without `*Kind` enums |
+| `versioning`, `versionSources`, `snapshotTemplate`, `registryQualifiedTags` are split | release policy is fragmented | `release.versioning.strategyRef`, `release.versioning.sourceRef`, `release.changelog.rendererRef`, `release.artifacts.publishSpecRef` | group policy while keeping policy and artifact axes open |
+| `packages[].registries` only | assumes registry-first worldview | `targets.publish[].{key,ref,contractRef}` and `targets.closeout[]` | future-proof target modeling |
+| `releaseDraft` boolean controls GitHub Release existence | mixes release and closeout semantics | closeout target entry with `ref`, `contractRef`, and `mode` | honest modeling |
+| plugins trend toward ad-hoc wiring | future plugin taxonomy gets over-closed fast | `plugins[].{key,ref,contractRef,capabilityKeys}` | plugin boundary stays open |
+| many skip flags and fallback behavior | operational behavior leaks into CLI | explicit workflow and validation policy refs | more stable interface |
 
 ## Interface Decisions
 
@@ -357,6 +412,7 @@ This is more important than adding many new commands.
 - stop making `mode` and `phase` the primary public release interface
 - stop making GitHub Release flags look like core release semantics
 - stop treating PR-based release as a push fallback only
+- stop introducing public `*Kind` vocabulary for extension axes the core does not own
 - introduce status as a first-class command
 
 ### Delay

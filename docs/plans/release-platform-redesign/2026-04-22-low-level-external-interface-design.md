@@ -100,7 +100,7 @@ flowchart TB
 
 - `InspectRequest`
 - `InspectResult`
-- `ExecutionState` projection APIs
+- `ExecutionState`-backed status/inspect read APIs
 - non-core target/protocol extension hooks that are not yet tied to stable plugin SPI
 - dedicated `closeout` CLI command behavior (implementation is complete internally; CLI command remains not yet default public)
 
@@ -114,6 +114,21 @@ flowchart TB
 - `TargetState` and retry attempt internals
 - orchestration/runtime context helpers and recovery plan internals
 
+## Closed Core, Open Edge
+
+These contracts use one narrow rule:
+
+- closed enums are reserved for engine-owned lifecycle state and control outcomes such as `executionMode`, record `state`, and `NextAction`;
+- workflow selection stays open and string-keyed through `workflowRef`;
+- extension identity stays open and string-keyed via `targetKey`, `adapterKey`, `proposalRef`, `closeoutKey`, `capabilityKey`, `checkKey`, and artifact refs;
+- request filters prefer keys and refs over extension enums. The stable target surface should stay on `targetCategory`, `targetRef`, `contractRef`, and `adapterKey`, not a public closed target-class field.
+
+The slice docs in
+[plan-slice-detailed-design](./2026-04-22-plan-slice-detailed-design.md),
+[release-slice-detailed-design](./2026-04-22-release-slice-detailed-design.md),
+and [publish-slice-detailed-design](./2026-04-22-publish-slice-detailed-design.md)
+should follow the same rule.
+
 ## Contract Profiles
 
 ### 1) PlanRequest (stable)
@@ -121,7 +136,7 @@ flowchart TB
 Command-level invocation contract for `preflight` and `snapshot`.
 
 ```ts
-type WorkflowKind = "one-shot" | "split-ci" | "release-pr";
+type WorkflowRef = string;
 type ExecutionMode = "local" | "ci";
 
 type PlanRequest =
@@ -129,7 +144,7 @@ type PlanRequest =
   | { command: "snapshot"; input: SnapshotPlanRequest };
 
 type PreflightPlanRequest = {
-  workflowKind: WorkflowKind;
+  workflowRef: WorkflowRef;
   executionMode: ExecutionMode;
   versionSourceStrategy: "all" | "changesets" | "commits";
   tagStrategy: {
@@ -142,8 +157,8 @@ type PreflightPlanRequest = {
     filters?: string[];
   };
   includeTargets?: {
-    allowRegistry?: string[];
-    allowDistribution?: string[];
+    includeTargetKeys?: string[];
+    includeAdapterKeys?: string[];
   };
   prompts?: {
     allowPrompts: boolean;
@@ -197,7 +212,7 @@ Narrow publish command contract from CLI, CI, or automation.
 ```ts
 type PublishInput = {
   requestId: string;
-  workflowKind: WorkflowKind;
+  workflowRef: WorkflowRef;
   executionMode: ExecutionMode;
   from: {
     releaseRecordId?: string;
@@ -206,7 +221,7 @@ type PublishInput = {
   };
   scope?: {
     includeTargetKeys?: string[];
-    includeKinds?: Array<"registry" | "distribution">;
+    includeAdapterKeys?: string[];
     includeUnitKeys?: string[];
   };
   retry?: "failed" | "all";
@@ -231,8 +246,8 @@ type CloseoutInput = {
   releaseRecordId: string;
   closeoutScope?: {
     includeCloseoutKeys?: string[];
-    includeKinds?: Array<"github_release" | "notification" | "deploy" | "assets">;
-    forceTargets?: string[];
+    includeAdapterKeys?: string[];
+    forceCloseoutKeys?: string[];
   };
   includeDistributionArtifacts?: boolean;
   retry?: "failed" | "all";
@@ -277,7 +292,9 @@ type ReleasePlan = {
   targetPlans: Array<{
     unitKey: string;
     targetKey: string;
-    targetKind: "registry" | "distribution";
+    targetCategory: string;
+    targetRef: string;
+    contractRef: string;
     adapterKey: string;
     orderGroup: string;
     requiredForCloseout: boolean;
@@ -288,7 +305,11 @@ type ReleaseRecord = {
   schemaVersion: "1";
   id: string;
   planId: string;
-  proposalId?: string;
+  proposalRef?: {
+    proposalKey: string;
+    adapterKey?: string;
+    externalRef?: string;
+  };
   releaseSha: string;
   branch: string;
   tags: string[];
@@ -330,12 +351,18 @@ type CloseoutRecord = {
   startedAt: string;
   completedAt?: string;
   state: "closed" | "partial" | "failed";
-  performedKinds: string[];
+  performedCloseoutKeys: string[];
   nextAction: NextAction;
 };
 
 type NextAction = "release" | "publish" | "publish_retry_failed" | "publish_retry_all" | "resume_recovery" | "none";
 ```
+
+`workflowRef` stays open because workflow selection is an external binding, while
+record `state` and `NextAction` stay closed because they route core engine
+behavior. Extension-facing target identity hangs off `targetCategory`,
+`targetKey`, `targetRef`, `contractRef`, and `adapterKey`, alongside
+`proposalRef`, closeout keys, and artifact refs.
 
 `ReleaseUnit`, `PublishTargetRef`, `CloseoutTargetRef`, `TargetExecutionState`,
 and `ValidationSummary` remain:
@@ -457,7 +484,8 @@ Expected command/result behavior:
 - All stable contracts include `schemaVersion` and are subject to semantic versioning in the release package.
 - Additive changes:
   - adding optional fields
-  - adding new enum members
+  - adding new string-keyed refs, selectors, or capability/evidence identifiers on open seams
+  - adding new engine-owned enum members only where the contract already requires forward-compatible handling
   - adding new service methods (with defaults)  
   are non-breaking and may land in patch/minor depending on impact.
 - Breaking changes:

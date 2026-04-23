@@ -1,0 +1,79 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  Legend["Dashed arrows = suggested landing order\nSolid arrows = direct dependency signal"]
+
+  subgraph Baseline["Architecture + Slice Baseline"]
+    Principles["Architecture Evolution\nPrinciples"]
+    Architecture["Release Platform\nArchitecture"]
+    Interface["External Interface V1"]
+    LowLevel["Low-Level External\nInterface Design"]
+    Slices["Plan / Release /\nPublish slices"]
+  end
+
+  subgraph Inputs["Cross-Cutting Inputs"]
+    Config["Config V1\nAnd Loader"]
+    Surface["Operational\nSurface"]
+    Recovery["Execution State\nAnd Recovery"]
+    Monorepo["Monorepo And\nTarget Adapter"]
+    Artifact["Artifact And\nCloseout"]
+    Plugin["Plugin SPI"]
+    Sdk["SDK Public\nExports"]
+  end
+
+  subgraph Anchors["Six Implementation Anchors"]
+    Lineage["1. Lineage Store V1\nDurable artifacts, mutable state,\nCI handoff"]
+    Proposal["2. Proposal Workflow\nAnd SCM Adapter"]
+    Credentials["3. Credential Capability\nAnd Preflight Boundary"]
+    TargetOrder["4. Target Order Plan\nAnd Execution Scheduler"]
+    Status["5. Status / Inspect /\nError Projections"]
+    Compose["6. Service Composition\nAnd Legacy Bridge"]
+  end
+
+  Legend -.-> Lineage
+
+  Principles --> Architecture
+  Principles --> Interface
+  Principles --> LowLevel
+  Architecture --> Slices
+  Interface --> Slices
+  LowLevel --> Slices
+
+  Slices --> Lineage
+  Slices --> Proposal
+  Slices --> Credentials
+  Slices --> TargetOrder
+  Slices --> Status
+
+  Config --> Proposal
+  Config --> Compose
+  Surface --> Credentials
+  Surface --> Status
+  Surface --> Compose
+  Recovery --> Lineage
+  Recovery --> Credentials
+  Recovery --> TargetOrder
+  Recovery --> Status
+  Recovery --> Compose
+  Monorepo --> Proposal
+  Monorepo --> TargetOrder
+  Monorepo --> Compose
+  Artifact --> Lineage
+  Artifact --> TargetOrder
+  Artifact --> Compose
+  Plugin --> Credentials
+  Plugin --> Compose
+  Sdk --> Compose
+
+  Lineage --> TargetOrder
+  Lineage --> Status
+  Proposal --> Compose
+  Credentials --> Compose
+  TargetOrder --> Status
+  TargetOrder --> Compose
+  Status --> Compose
+
+  Lineage -.-> Proposal
+  Proposal -.-> Credentials
+  Credentials -.-> TargetOrder
+  TargetOrder -.-> Status
+  Status -.-> Compose

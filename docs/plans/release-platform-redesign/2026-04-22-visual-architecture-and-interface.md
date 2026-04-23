@@ -72,7 +72,7 @@ flowchart LR
   subgraph User["Canonical Public Surface"]
     Alias["pubm [version]"] --> FlowAlias["alias to release + publish path"]
     Preflight["pubm preflight"] --> Plan["ReleasePlan"]
-    Release["pubm release [version]"] --> Proposal["ReleaseProposal (optional)"] --> Record["ReleaseRecord"]
+    Release["pubm release [version]"] --> Proposal["ProposalRecord (optional)"] --> Record["ReleaseRecord"]
     Publish["pubm publish"] --> PublishRun["PublishRun"]
     Status["pubm status --json"] --> State["Plan/Proposal/Release/Publish state"]
     Inspect["pubm inspect packages|targets|plan"] --> View["Resolved source/target snapshot"]
@@ -167,8 +167,9 @@ classDiagram
     +checksum: string
   }
   class TargetCapabilities {
-    +targetKey: string
-    +kind: string
+    +adapterKey: string
+    +targetCategory: string
+    +contractRef: string
     +requiresArtifact: boolean
     +canDryRun: boolean
     +canRetry: boolean
@@ -207,9 +208,9 @@ classDiagram
 
 Keep these six standalone `.mmd` files as the render source:
 
-- `docs/visuals/release-platform-core.mmd`
-- `docs/visuals/distribution-model.mmd`
-- `docs/visuals/cli-surface.mmd`
-- `docs/visuals/config-surface.mmd`
-- `docs/visuals/plugin-boundary.mmd`
-- `docs/visuals/runtime-contracts.mmd`
+- `docs/visuals/release-platform-redesign/release-platform-core.mmd`
+- `docs/visuals/release-platform-redesign/distribution-model.mmd`
+- `docs/visuals/release-platform-redesign/cli-surface.mmd`
+- `docs/visuals/release-platform-redesign/config-surface.mmd`
+- `docs/visuals/release-platform-redesign/plugin-boundary.mmd`
+- `docs/visuals/release-platform-redesign/runtime-contracts.mmd`

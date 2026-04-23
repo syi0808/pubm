@@ -17,6 +17,13 @@ The command slice must not introduce a monolithic request model (e.g., `Session`
 
 This slice starts where `Release` ends and stops where `Closeout` begins.
 
+It follows the
+[closed core, open edge](./2026-04-22-low-level-external-interface-design.md#closed-core-open-edge)
+rule: publish state, retry mode, and ordering mode stay closed because the
+engine owns them, while adapter-facing identity is carried by
+`targetCategory`, `targetKey`, `targetRef`, `contractRef`, `adapterKey`,
+artifact refs, and closeout dependency keys.
+
 ## In Scope / Out of Scope
 
 In scope:
@@ -42,7 +49,7 @@ Out of scope:
 
 ```ts
 type PublishInput = {
-  workflowKind: "one-shot" | "split-ci" | "release-pr";
+  workflowRef: string;
   executionMode: "local" | "ci";
   from?: {
     planId?: string;
@@ -52,7 +59,7 @@ type PublishInput = {
   scope?: {
     includePackageKeys?: string[];
     includeTargetKeys?: string[];
-    includeKinds?: Array<"registry" | "distribution">;
+    includeAdapterKeys?: string[];
     includeTargetPlanGroups?: string[];
   };
   retry?: "failed" | "all";
@@ -85,12 +92,12 @@ This avoids execution-time inference from the current checkout or config snapsho
 Publish is driven by contracts derived from `ReleaseRecord.publishTargets`.
 
 ```ts
-type PublishableTargetKind = "registry" | "distribution";
-
 type TargetContract = {
   targetKey: string;
-  targetKind: PublishableTargetKind;
+  targetRef: string;
+  targetCategory: string;
   adapterKey: string;
+  contractRef: string;
   unitKey: string;
   packagePath: string;
   artifactSpecRef: string;
@@ -98,12 +105,14 @@ type TargetContract = {
   orderGroup: string;
   requiredForCloseout: boolean;
   requiredForProgress: boolean;
-  closeoutGroupingHint?: string;
+  closeoutDependencyKey?: string;
 };
 
 type TargetCapabilities = {
   adapterKey: string;
-  targetKind: PublishableTargetKind;
+  targetCategory: string;
+  contractRef: string;
+  capabilityKeys?: string[];
   canDryRun: boolean;
   canRetry: boolean;
   canReorder: boolean;
@@ -119,6 +128,11 @@ type TargetCapabilities = {
 ```
 
 `TargetCapabilities` is runtime adapter metadata and is loaded from `adapterKey` during publish, not inferred from config.
+
+`TargetContract` carries the open target vocabulary directly:
+`targetCategory` for grouping and UX, `targetRef` plus `contractRef` for bound
+behavior, and `targetKey` plus `adapterKey` for concrete destination and
+executor identity.
 
 ```ts
 type TargetOrderPlan = {
@@ -243,7 +257,7 @@ type PublishRun = {
     | "compensated";
   requested: PublishInput;
   targetStates: TargetState[];
-  artifactBundles: ArtifactBundleRef[];
+  artifactBundleRefs: string[];
   completedAt?: string;
   nextAction?: NextAction;
 };
@@ -251,6 +265,7 @@ type PublishRun = {
 type TargetState = {
   targetStateId: string;
   targetKey: string;
+  adapterKey: string;
   unitKey: string;
   groupId: string;
   status: "queued" | "running" | "succeeded" | "skipped" | "failed" | "compensated";
@@ -312,7 +327,7 @@ Retry policy is deterministic and stored in `TargetState.attempt`.
 From `Release` it gets:
 
 - `ReleaseRecord.id` and exact `releaseSha`;
-- `publishTargets` snapshot with publishable target kind, target key, artifact refs/spec refs, order groups, and requiredForCloseout/gating flags;
+- `publishTargets` snapshot with `targetCategory`, `targetKey`, `targetRef`, `contractRef`, `adapterKey`, artifact refs/spec refs, order groups, and requiredForCloseout/gating flags;
 - tag and mode outputs;
 - version map for all releasable units.
 
@@ -328,10 +343,10 @@ Closeout starts from `PublishRun` and `ReleaseRecord` only.
 
 - `Closeout` inputs:
   - finalized `PublishRun` states,
-  - emitted `artifactBundles`,
+  - emitted `artifactBundleRefs`,
   - retry outcome and `nextAction`.
 - Closeout is eligible when all required publish targets succeed (or `closeoutMode: skip` sets no-op).
-- Distribution targets that create artifacts for closeout should record output metadata in `PublishRun.artifactBundles`.
+- Distribution targets that create artifacts for closeout should record output metadata in `PublishRun.artifactBundleRefs`.
 
 This keeps closeout independent from target execution logic and supports hosted/incremental workflows.
 
@@ -365,7 +380,7 @@ This design is compatible with:
 
 1. Publish consumes `ReleaseRecord` and a narrow `PublishInput` only.
 2. Target intent (what) stays in planning artifacts; publish owns execution (how).
-3. `TargetContract` + `TargetCapabilities` are the explicit adapter boundary.
+3. `TargetContract` + `TargetCapabilities` are the explicit adapter boundary, with open `targetCategory` / `targetKey` / `targetRef` / `contractRef` / `adapterKey` identity.
 4. Publish revalidates volatile readiness in execution process, not in prepare only.
 5. `PublishRun` and per-target states are mandatory for partial failure visibility and deterministic retry.
 6. brew can remain non-registry and still execute as explicit distribution targets.

@@ -7,6 +7,7 @@
 **Depends on:**
 
 - [release-platform-architecture](./2026-04-22-release-platform-architecture.md)
+- [low-level-external-interface-design](./2026-04-22-low-level-external-interface-design.md)
 - [low-level-migration-scope-plan](./2026-04-22-low-level-migration-scope-plan.md)
 - [plan-slice-detailed-design](./2026-04-22-plan-slice-detailed-design.md)
 - [pubm-self-hosting-pipeline-comparison](./2026-04-22-pubm-self-hosting-pipeline-comparison.md)
@@ -28,6 +29,11 @@ ReleaseInput (typed release snapshot + plan) -> ReleaseEngine -> ReleaseRecord -
 ```
 
 This slice is about source mutation and release anchoring only.
+
+It follows the
+[closed core, open edge](./2026-04-22-low-level-external-interface-design.md#closed-core-open-edge)
+rule: release states and workflow routing stay closed, while proposal transports,
+publish targets, artifact refs, and closeout targets remain open and string-keyed.
 
 It is **not** about:
 
@@ -99,6 +105,7 @@ It is intentionally narrow and should never be expanded into a broad orchestrati
 
 ```ts
 type ReleaseInput = {
+  requestId: string;
   plan: ReleasePlan;
   repo: {
     cwd: string;
@@ -107,6 +114,7 @@ type ReleaseInput = {
   };
   runContext: {
     allowDirtyTree: boolean;
+    executionMode: "local" | "ci";
     invocationId?: string;
   };
 };
@@ -260,7 +268,7 @@ ReleaseInput -> ProposalEngine -> approved proposal -> ReleaseEngine -> ReleaseR
 `ReleaseEngine` should consume one of:
 
 - a direct `ReleaseInput` containing an immutable `ReleasePlan`
-- an approved proposal that points to an immutable `planId`, then materialization input is converted into `ReleaseInput`
+- an approved proposal that points to an immutable `planId`, then materialization input is converted into `ReleaseInput` and carried forward as an open `proposalRef`
 
 The important rule is:
 
@@ -285,10 +293,16 @@ It is the source-of-truth artifact that `Publish` must consume instead of redisc
 ### Proposed shape
 
 ```ts
+type ProposalRef = {
+  proposalKey: string;
+  adapterKey?: string;
+  externalRef?: string;
+};
+
 type ReleaseRecord = {
   id: string;
   planId: string;
-  proposalId?: string;
+  proposalRef?: ProposalRef;
 
   releaseSha: string;
   branch: string;
@@ -308,7 +322,9 @@ type ReleaseRecord = {
     unitKey: string;
     packagePath: string;
     targetKey: string;
-    targetKind: "registry" | "distribution";
+    targetCategory: string;
+    targetRef: string;
+    contractRef: string;
     adapterKey: string;
     orderGroup: string;
     orderIndex: number;
@@ -320,11 +336,12 @@ type ReleaseRecord = {
   }[];
 
   closeoutTargets: {
-    closeoutKind: "githubRelease" | "notification" | "assets" | "deploy" | string;
-    unitKey: string;
-    targetKey: string;
+    closeoutKey: string;
+    adapterKey: string;
+    unitKey?: string;
     enabled: boolean;
     requiredForCloseout?: boolean;
+    closeoutDependencyKey?: string;
   }[];
 
   createdAt: string;
@@ -342,6 +359,7 @@ type ReleaseRecord = {
 
 - `ReleaseRecord` is immutable once emitted.
 - `ReleaseRecord` must point back to exactly one `ReleasePlan`.
+- `proposalRef` records proposal/review transport identity without hard-coding one proposal provider.
 - `releaseSha` is the commit that materializes the release source of truth.
 - `tags` are the actual release anchor refs created from the plan.
 - `publishTargets` is the complete frozen publish snapshot used by `Publish`.
@@ -429,7 +447,7 @@ This document does not finalize the recovery model, but it requires `ReleaseEngi
 - selected unit set
 - exact tag set
 - `releaseSha`
-- publishable target snapshot (`publishTargets`) including target kind, target/key, artifact refs, order/group, and gating flags
+- publishable target snapshot (`publishTargets`) including `targetCategory`, `targetKey`, `targetRef`, `contractRef`, `adapterKey`, artifact refs, order/group, and gating flags
 
 ### What Publish must not infer anymore
 
@@ -465,7 +483,7 @@ This is especially important for self-hosting, where current CI publish reconstr
 | `changeset/reader.ts` + `changeset/changelog.ts` | changeset consumption and changelog writes |
 | `plugin-external-version-sync` | release materializer policy |
 | `git.ts` | release anchor transport for commit/tag operations |
-| `create-version-pr.ts` | proposal transport seam |
+| `create-version-pr.ts` | proposal transport seam that can emit `proposalRef` |
 | `runner-utils/version-pr.ts` | temporary current bridge for proposal branch/PR behavior |
 | `runtime.versionPlan` | replaced by `ReleaseInput.plan` |
 | `Version Packages` commit convention | replaced by persisted `ReleaseRecord` as the real handoff artifact |
@@ -492,6 +510,6 @@ This slice locks six decisions:
 3. external version sync is release materialization policy, not arbitrary hook timing.
 4. `ReleaseRecord` is the handoff artifact for `Publish`.
 5. `Publish` must consume `ReleaseRecord`, not infer release intent from repo state.
-6. `Propose` is an optional gate in front of `Release`, not an alternative release-definition engine.
+6. `Propose` is an optional gate in front of `Release`, not an alternative release-definition engine, and its durable identity is an open `proposalRef`.
 
 Everything in the next slice should assume that `ReleasePlan` and `ReleaseRecord` are now the canonical planning and release contracts.

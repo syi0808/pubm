@@ -3,6 +3,8 @@
 **Date:** 2026-04-22
 **Status:** Draft
 
+This draft follows [Architecture Evolution Principles](./2026-04-23-architecture-evolution-principles.md), especially the rule `closed core, open edge`.
+
 ## Goal
 
 Redesign `pubm` from a single publish pipeline into a release platform that can:
@@ -15,27 +17,39 @@ Redesign `pubm` from a single publish pipeline into a release platform that can:
 
 ## Architecture Boundary
 
-This architecture uses one hard rule:
+This architecture uses these hard rules:
 
-- core domain slices exchange **typed artifacts** (for example `ReleasePlan`, `ReleaseRecord`, `PublishRun`, `ReleaseProposal`, `CloseoutRecord`).
+- core domain slices exchange **typed artifacts** (for example `ReleasePlan`, `ProposalRecord`, `ReleaseRecord`, `PublishRun`, `CloseoutRecord`).
 - commands, workflow presets, and CLI entrypoints are composition only; they create orchestration envelopes and dispatch.
 - composition boundaries use narrow slice-specific request contracts, not one large monolithic orchestration object.
 - any shared `session` concept is runtime/orchestration-only and must remain out of domain contracts.
+- engine-owned lifecycle state and next-action vocabularies may stay closed.
+- workflow, proposal, target, policy, artifact, and plugin variation must stay open via `key` / `ref` / `capability` / `contract` patterns.
 
 ```ts
 type PlanRequest =
-  | { command: "preflight"; request: PreflightPlanRequest }
-  | { command: "release"; request: ReleasePlanRequest }
-  | { command: "snapshot"; request: SnapshotPlanRequest };
+  | { command: "preflight"; input: PreflightPlanRequest }
+  | { command: "snapshot"; input: SnapshotPlanRequest };
 ```
 
-`PreflightPlanRequest`, `ReleasePlanRequest`, and `SnapshotPlanRequest`
-are defined in [plan-slice-detailed-design](./2026-04-22-plan-slice-detailed-design.md) and represent planning-entry contracts.
+`PreflightPlanRequest` and `SnapshotPlanRequest` are defined in
+[plan-slice-detailed-design](./2026-04-22-plan-slice-detailed-design.md)
+and represent planning-entry contracts.
+`pubm release` may compose a planning step first, but the stable release-slice handoff remains `ReleaseInput`, not a `PlanRequest` release variant.
 `PublishInput` and `InspectRequest` are separate publish and inspect slice contracts.
 `ReleaseInput` is the release-slice contract and is defined in
 [release-slice-detailed-design](./2026-04-22-release-slice-detailed-design.md).
 
 Each request shape is narrow and carries only command-relevant intent. Domain engines consume typed inputs (`PlanRequest`, `ReleaseInput`, `PublishInput`, `InspectRequest`) from orchestration, not shared session-style state.
+
+## Closed Core, Open Edge
+
+Per [Architecture Evolution Principles](./2026-04-23-architecture-evolution-principles.md):
+
+- closed core: engine-owned lifecycle state, transition state, and machine next-action vocabulary
+- open edge: workflow presets, proposal mechanisms, target definitions, policy bindings, artifact contracts, and plugin integrations
+- test: if adding a new external provider would require extending a core enum, that axis is over-closed
+- default edge shape: use `*Key` for resolved identities, `*Ref` for selected presets or implementations, `contractRef` for behavior, and `capabilityKeys` for optional features
 
 ## Core View
 
@@ -44,6 +58,8 @@ The user-facing model can stay simple:
 - `preflight`
 - `release`
 - `publish`
+
+Built-in workflows such as one-shot, split CI, or PR-oriented release should be modeled as selectable refs at the edge, not as engine-owned enums in the domain core.
 
 But the internal core needs a richer state machine:
 
@@ -65,29 +81,31 @@ flowchart TB
     U3["pubm publish"]
   end
 
-  subgraph Pipelines["Pipeline Presets"]
-    P1["One-shot local"]
-    P2["Split CI"]
-    P3["PR-based release"]
-    P4["Snapshot / Canary"]
+  subgraph Pipelines["Built-in Workflow Presets"]
+    P1["builtin:one-shot"]
+    P2["builtin:split-ci"]
+    P3["builtin:release-pr"]
+    P4["builtin:snapshot"]
   end
 
   subgraph Compose["Composition / Orchestration"]
     CMD["Dispatcher"]
+    WF["WorkflowRef"]
     ENV["PlanRequest"]
     PUBREQ["PublishInput"]
     INREQ["InspectRequest"]
-    POL["Policy Snapshot"]
+    POL["PolicyBindings (ref + digest)"]
+    PLUG["PluginBindings"]
     CTX["RuntimeContext (non-domain)"]
   end
 
-  subgraph Policies["Policies"]
-    V["VersionPolicy"]
-    PP["ProposalPolicy"]
-    TP["TopologyPolicy"]
-    PB["PublishPolicy"]
-    CP["CloseoutPolicy"]
-    RP["RecoveryPolicy"]
+  subgraph Policies["Resolved Policy Contracts"]
+    V["version policy ref"]
+    PP["proposal policy ref"]
+    TP["topology policy ref"]
+    PB["publish policy ref"]
+    CP["closeout policy ref"]
+    RP["recovery policy ref"]
   end
 
   subgraph Core["State-Machine Core"]
@@ -102,7 +120,7 @@ flowchart TB
 
   subgraph Contracts["Typed Contracts"]
     ARP["ReleasePlan"]
-    APR["ReleaseProposal"]
+    APR["ProposalRecord"]
     ARR["ReleaseRecord"]
     APRUN["PublishRun"]
     ACO["CloseoutRecord"]
@@ -122,6 +140,7 @@ flowchart TB
   P2 --> CMD
   P3 --> CMD
   P4 --> CMD
+  WF --> CMD
   V --> POL
   PP --> POL
   TP --> POL
@@ -129,6 +148,7 @@ flowchart TB
   CP --> POL
   RP --> POL
   POL --> CMD
+  PLUG --> CMD
   S1 --> CMD
   S2 --> CMD
   DIST --> T1
@@ -224,6 +244,22 @@ type ReleaseRecordState =
   | "recovery_handoff"
   | "released";
 
+type ProposalRecordState =
+  | "open"
+  | "updated"
+  | "approved"
+  | "rejected"
+  | "merged";
+
+type PublishRunState =
+  | "running"
+  | "partial"
+  | "published"
+  | "failed"
+  | "compensated";
+
+type CloseoutRecordState = "closed" | "partial" | "failed";
+
 type NextAction =
   | "release"
   | "publish"
@@ -232,26 +268,80 @@ type NextAction =
   | "resume_recovery"
   | "none";
 
+type WorkflowBinding = {
+  workflowRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
+};
+
+type PolicyBinding = {
+  slotKey: string;
+  policyRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
+  digest: string;
+};
+
+type PluginBinding = {
+  pluginKey: string;
+  pluginRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
+};
+
 type ReleasePlan = {
   id: string;
   commitSha: string;
   configHash: string;
+  workflow: WorkflowBinding;
   units: ReleaseUnit[];
   targets: TargetSelection[];
   versionDecisions: VersionDecision[];
   changelogPreview: ChangelogPreview[];
   validation: ValidationEvidence;
+  policyBindings: PolicyBinding[];
+  plugins: PluginBinding[];
   policyDigest: string;
 };
 
-type ProposalKind = "release_pr" | "preview_branch" | "manual_approval";
-
-type ReleaseProposal = {
+type ProposalRecord = {
   id: string;
   planId: string;
-  kind: ProposalKind;
-  state: "open" | "updated" | "approved" | "rejected" | "merged";
+  proposalRef: string;
+  contractRef: string;
+  adapterKey: string;
+  capabilityKeys: string[];
+  state: ProposalRecordState;
   reviewUrl?: string;
+};
+
+type ResolvedPublishTarget = {
+  unitKey: string;
+  packagePath: string;
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  adapterKey: string;
+  capabilityKeys: string[];
+  orderGroup: string;
+  orderIndex: number;
+  artifactContractRef: string;
+  artifactRef: string;
+  artifactSpecRef: string;
+  requiredForCloseout: boolean;
+  requiredForProgress: boolean;
+  closeoutDependencyKey?: string;
+};
+
+type ResolvedCloseoutTarget = {
+  unitKey: string;
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  adapterKey: string;
+  capabilityKeys: string[];
+  enabled: boolean;
+  requiredForCloseout?: boolean;
 };
 
 type ReleaseRecord = {
@@ -269,27 +359,8 @@ type ReleaseRecord = {
     unitKey: string;
     version: string;
   }[];
-  publishTargets: {
-    unitKey: string;
-    packagePath: string;
-    targetKey: string;
-    targetKind: "registry" | "distribution";
-    adapterKey: string;
-    orderGroup: string;
-    orderIndex: number;
-    artifactRef: string;
-    artifactSpecRef: string;
-    requiredForCloseout: boolean;
-    requiredForProgress: boolean;
-    closeoutDependencyKey?: string;
-  }[];
-  closeoutTargets: {
-    closeoutKind: "githubRelease" | "notification" | "assets" | "deploy" | string;
-    unitKey: string;
-    targetKey: string;
-    enabled: boolean;
-    requiredForCloseout?: boolean;
-  }[];
+  publishTargets: ResolvedPublishTarget[];
+  closeoutTargets: ResolvedCloseoutTarget[];
   createdAt: string;
   state: ReleaseRecordState;
 };
@@ -298,13 +369,13 @@ type PublishRun = {
   id: string;
   releaseRecordId: string;
   targetStates: TargetState[];
-  state: "running" | "partial" | "published" | "failed" | "compensated";
+  state: PublishRunState;
 };
 
 type CloseoutRecord = {
   id: string;
   releaseRecordId: string;
-  state: "closed" | "partial" | "failed";
+  state: CloseoutRecordState;
 };
 
 `releaseRecordId` fields in `PublishRun` and `CloseoutRecord` are explicit foreign keys to `ReleaseRecord.id`.
@@ -319,7 +390,8 @@ type ValidationEvidence = {
 };
 
 type RepositoryReadinessEvidence = {
-  validator: "RepositoryReadinessValidator";
+  validatorKey: string;
+  contractRef: string;
   branchPolicySatisfied: boolean;
   remotePolicySatisfied: boolean;
   workingTreeSatisfied: boolean;
@@ -328,37 +400,42 @@ type RepositoryReadinessEvidence = {
 
 type CredentialResolutionEvidence = {
   targetKey: string;
-  mechanism: "env" | "oidc" | "keychain" | "ci_secret";
+  mechanismKey: string;
+  capabilityKeys: string[];
   resolvedAt: string;
 };
 
 type CapabilityEvidence = {
-  targetKey: string;
-  checks: Array<"auth" | "publish_scope" | "dry_run">;
+  subjectKey: string;
+  contractRef: string;
+  capabilityKeys: string[];
   observedAt: string;
 };
 
 type StableConditionEvidence = {
-  key: string;
+  conditionKey: string;
+  contractRef?: string;
   satisfied: boolean;
 };
 
 type VolatileTargetReadinessEvidence = {
   targetKey: string;
-  check: "version_available" | "registry_reachable" | "quota_ok" | "target_open";
+  checkKey: string;
+  contractRef?: string;
   observedAt: string;
   mustRevalidateAtPublish: true;
 };
 
 type QualityGateEvidence = {
-  gate: "test" | "build_validation";
+  gateKey: string;
+  contractRef?: string;
   status: "passed" | "failed" | "skipped";
   observedAt: string;
 };
 ```
 
-`ReleaseRecordState` drives `ReleaseRecord.state` and status progression around materialization.
-`NextAction` is the machine-action enum for `status --json`.
+`ReleaseRecordState`, `ProposalRecordState`, `PublishRunState`, `CloseoutRecordState`, and `NextAction` are intentionally closed because the engine owns those transitions.
+Workflow, proposal, target, policy, artifact, and plugin variation stays open through `*Key`, `*Ref`, `contractRef`, and `capabilityKeys`.
 
 `ValidationEvidence` is evidence, not material. `ReleasePlan` can record that credentials were resolved and what capabilities were observed, but it must never persist secrets, raw tokens, or other credential material.
 
@@ -372,6 +449,8 @@ This makes each core step an explicit artifact handoff instead of shared mutable
 ## Ecosystem And Registry
 
 `Ecosystem` and `Registry` should both remain, but not as pipeline phases.
+
+They are adapter boundaries at the edge. The core should reference them through keys, refs, and contracts, not through expanding `EcosystemKind` or `RegistryKind` enums.
 
 They should become separate adapter axes:
 
@@ -533,19 +612,25 @@ That implies a structure like:
 ```ts
 type ReleaseUnit = {
   key: string;
-  ecosystem: string;
+  ecosystemKey: string;
+  ecosystemRef: string;
   packagePath: string;
   packageName: string;
 };
 
-type PublishTarget = {
+type PublishTargetBinding = {
   unitKey: string;
-  targetKind: "registry";
-  registryKey: string;
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
 };
 
-type CloseoutTarget = {
-  targetKind: "github_release" | "assets" | "notification" | "deploy";
+type CloseoutTargetBinding = {
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
 };
 ```
 
@@ -555,7 +640,8 @@ type CloseoutTarget = {
 
 Inputs:
 
-- one normalized `PlanRequest` from orchestration (`PreflightPlanRequest`, `ReleasePlanRequest`, `SnapshotPlanRequest`)
+- one normalized `PlanRequest` from orchestration (`PreflightPlanRequest`, `SnapshotPlanRequest`)
+- resolved workflow, policy, and plugin bindings from composition
 - `Ecosystem` to discover packages, graphs, manifests, and versionable units
 - `Registry` to resolve credentials into non-secret evidence, gather capability evidence, and precheck target readiness
 - `RepositoryReadinessValidator` and quality gates to validate repository state, tests, and build validation
@@ -573,14 +659,14 @@ Inputs:
 
 Produces:
 
-- `ReleaseProposal`
+- `ProposalRecord`
 
 ### ReleaseEngine
 
 Inputs:
 
 - `ReleasePlan`
-- optional `ReleaseProposal`
+- optional `ProposalRecord`
 - `Ecosystem` to materialize manifests and version changes
 - `SCMAdapter` to commit, tag, merge, or create release records
 
@@ -594,7 +680,7 @@ Inputs:
 
 - `ReleaseRecord`
 - `PublishInput` (run selection + retry/closeout mode)
-- `Target capabilities` loaded from adapter metadata (via `adapterKey`)
+- resolved target contracts and capability metadata (via `targetRef`, `contractRef`, and `adapterKey`)
 - `Ecosystem` to build or pack publishable artifacts
 - `Registry` to publish each unit/target pair
 
@@ -608,7 +694,7 @@ Inputs:
 
 - `PublishRun`
 - `ReleaseRecord`
-- `CloseoutTarget`
+- resolved closeout target contracts
 
 Produces:
 
@@ -662,27 +748,33 @@ The mistake is making `Registry` the name of that first-class abstraction.
 
 ### Recommended Direction
 
-If pubm wants a broader platform abstraction, distinguish publishable targets from closeout targets:
+If pubm wants a broader platform abstraction, distinguish publish execution from closeout execution in the core, but keep target taxonomy open:
 
 Then model targets like this:
 
 ```ts
-type PublishableTargetKind = "registry" | "distribution";
+type PublishTarget = {
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
+};
 
-type PublishTarget =
-  | { kind: "registry"; key: "npm" | "jsr" | "crates" | string }
-  | { kind: "distribution"; key: "brew" | "winget" | "scoop" | string };
-
-type CloseoutTargetKind = "github_release" | "notify" | "assets" | "deploy";
-
-type CloseoutTarget = { kind: CloseoutTargetKind; key: string };
+type CloseoutTarget = {
+  targetKey: string;
+  targetRef: string;
+  contractRef: string;
+  capabilityKeys: string[];
+};
 ```
 
 In that model:
 
-- `brewTap` is a `distribution` target
-- `brewCore` is a `distribution` target with stronger SCM/approval semantics
-- GitHub Release remains a `closeout` target
+- `npm` can implement `pubm.publish.package-registry/v1`
+- `brewTap` or `brewCore` can implement `pubm.publish.catalog-update/v1`
+- GitHub Release can implement `pubm.closeout.release-surface/v1`
+
+The engine routes by contract and observed capability, not by a globally closed target-kind enum.
 
 ### Philosophy Fit
 
@@ -831,8 +923,10 @@ Plan(snapshot policy) -> Release(ephemeral or lightweight) -> Publish -> Closeou
 
 - `ReleasePlan` is immutable and replayable.
 - `ReleasePlan` never stores secrets; it stores only non-secret readiness and capability evidence.
-- `ReleaseProposal` is reviewable and updateable.
+- `ProposalRecord` is reviewable and updateable.
 - `ReleaseRecord` is the source of truth for a release.
+- Only engine-owned lifecycle and next-action vocabularies are closed.
+- Workflow, proposal, target, policy, artifact, and plugin modeling stay open through refs, contracts, and capabilities.
 - Stable conditions can be trusted from `Plan` when they are anchored to the planned repository state and policy snapshot.
 - Volatile target readiness must be prechecked in `Plan` and revalidated in `Publish`.
 - `PublishRun` tracks state per target, not just globally.
@@ -843,12 +937,13 @@ Plan(snapshot policy) -> Release(ephemeral or lightweight) -> Publish -> Closeou
 
 ## Recommendation
 
-Keep `Ecosystem` and `Registry`, but narrow their meanings.
+Keep `Ecosystem` and `Registry`, but narrow their meanings. Apply [Architecture Evolution Principles](./2026-04-23-architecture-evolution-principles.md) consistently so the core stays closed only where it owns state.
 
 - `Ecosystem` should remain the source-side package semantics boundary.
 - `Registry` should remain the package publication boundary.
 - PR systems and Git operations should move into `SCMAdapter`.
 - GitHub Release, assets, notifications, and deploy hooks should move into `CloseoutTarget`.
+- workflow, proposal, target, policy, artifact, and plugin variation should stay open through refs and contracts instead of `*Kind` enums
 
 This keeps the architecture modular enough to support:
 

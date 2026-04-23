@@ -281,7 +281,7 @@ So the future self-hosting flow is:
 The default split-CI self-hosting flow should be:
 
 1. Local or controlled prepare computes and freezes a `ReleasePlan`
-2. Optional proposal flow creates or updates a `ReleaseProposal`
+2. Optional proposal flow creates or updates a `ProposalRecord`
 3. Release Anchor materializes source mutations and emits a `ReleaseRecord`
 4. CI publish consumes that `ReleaseRecord`
 5. Final closeout publishes the GitHub Release draft and any notifications
@@ -293,7 +293,7 @@ The new architecture already defines the core records. For self-hosting, the con
 | Artifact | Produced by | Self-hosting contents |
 |---|---|---|
 | `ReleasePlan` | Planner | units, target graph, version decisions, changelog preview, validation evidence, planned source mutations, asset spec |
-| `ReleaseProposal` | ProposalEngine | optional release PR or manual approval record linked to the plan |
+| `ProposalRecord` | ProposalEngine | optional release PR or manual approval record linked to the plan |
 | `ReleaseRecord` | Release Anchor | `releaseSha`, tags, digests for manifests/changelogs/source mutations, target selection, asset manifest inputs |
 | `PublishRun` | PublishEngine | per-target results for npm, jsr, draft GitHub Release, and brew distribution update |
 | `CloseoutRecord` | CloseoutEngine | final release publication and notification status |
@@ -357,7 +357,7 @@ Concrete tasks:
 
 This stage is optional for self-hosting, but should remain available:
 
-- create or update a `ReleaseProposal`
+- create or update a `ProposalRecord`
 - request review or approval
 - keep the plan immutable while the proposal changes state
 - do not mutate manifests or changelogs here
@@ -478,7 +478,7 @@ flowchart TB
   end
 
   subgraph Propose["Propose (optional)"]
-    G0["Create or update ReleaseProposal"]
+    G0["Create or update ProposalRecord"]
     G1["Approval or merge gate"]
   end
 
@@ -553,7 +553,7 @@ sequenceDiagram
   Plan-->>Op: ReleasePlan
 
   opt Proposal required
-    Op->>Rel: Approve ReleaseProposal linked to planId
+    Op->>Rel: Approve ProposalRecord linked to planId
   end
 
   Op->>Rel: Materialize planId
@@ -588,5 +588,5 @@ sequenceDiagram
 - `packages/core/src/tasks/jsr.ts`
 - `packages/plugins/plugin-external-version-sync/src/index.ts`
 - `packages/plugins/plugin-brew/src/brew-tap.ts`
-- `docs/plans/2026-04-22-release-platform-architecture.md`
-- `docs/plans/2026-04-22-external-interface-v1.md`
+- `docs/plans/release-platform-redesign/2026-04-22-release-platform-architecture.md`
+- `docs/plans/release-platform-redesign/2026-04-22-external-interface-v1.md`

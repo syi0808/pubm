@@ -176,7 +176,7 @@ Notes:
 - `cli.ts` currently seeds `ctx.runtime.versionPlan` in multiple branches
 - prompt flows also synthesize planning inputs independently
 - after this scope, the runner should consume one immutable invocation artifact from orchestration instead of piecing planning inputs together from CLI branches
-- the invocation artifact should be a narrow `PlanRequest` contract (for example preflight / release / snapshot), not a large shared session shape
+- the invocation artifact should be a narrow planning `PlanRequest` contract (for example preflight / snapshot), with release composition lowering separately into `ReleaseInput`, not a large shared session shape
 
 ### Scope 2: Plan And Validation Evidence
 
@@ -330,7 +330,7 @@ Current boundary:
 
 Target boundary:
 
-- `ResolvedPubmConfig + normalized CLI state -> PlanRequest` (narrow union of preflight / release / snapshot contracts)
+- `ResolvedPubmConfig + normalized CLI state -> PlanRequest` (narrow union of preflight / snapshot planning contracts, with release composition lowering into `ReleaseInput`)
 
 Why it is the best first engineering slice:
 

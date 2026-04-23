@@ -1,0 +1,83 @@
+%%{init: {"htmlLabels": false}}%%
+flowchart TB
+  subgraph Arch["Architecture + Interface"]
+    Principles["2026-04-23\nArchitecture Evolution Principles"]
+    Architecture["2026-04-22\nRelease Platform Architecture"]
+    Interface["2026-04-22\nExternal Interface V1"]
+    LowLevel["2026-04-22\nLow-Level External Interface Design"]
+  end
+
+  subgraph Slices["Slice Designs"]
+    Plan["Plan Slice\nDetailed Design"]
+    Release["Release Slice\nDetailed Design"]
+    Publish["Publish Slice\nDetailed Design"]
+  end
+
+  subgraph Support["Cross-Cutting Design Specs"]
+    Config["Config V1\nAnd Loader"]
+    Surface["Operational\nSurface"]
+    Recovery["Execution State\nAnd Recovery"]
+    Monorepo["Monorepo And\nTarget Adapter"]
+    Artifact["Artifact And\nCloseout"]
+    Plugin["Plugin SPI"]
+    Sdk["SDK Public\nExports"]
+  end
+
+  subgraph Anchors["Implementation-Anchor Specs"]
+    Proposal["Proposal Workflow\nAnd SCM Adapter"]
+    Credentials["Credential Capability\nAnd Preflight Boundary"]
+    TargetOrder["Target Order Plan\nAnd Execution Scheduler"]
+    Status["Status, Inspect,\nAnd Error Projections"]
+    Lineage["Lineage Store V1"]
+    Compose["Service Composition\nAnd Legacy Bridge"]
+  end
+
+  Principles --> Architecture
+  Principles --> Interface
+  Principles --> LowLevel
+
+  Architecture --> Plan
+  Architecture --> Release
+  Architecture --> Publish
+  Interface --> Plan
+  Interface --> Release
+  Interface --> Publish
+  LowLevel --> Plan
+  LowLevel --> Release
+  LowLevel --> Publish
+
+  Plan --> Credentials
+  Plan --> TargetOrder
+  Plan --> Status
+  Release --> Proposal
+  Release --> Lineage
+  Release --> TargetOrder
+  Publish --> Credentials
+  Publish --> TargetOrder
+  Publish --> Lineage
+
+  Config --> Proposal
+  Config --> Compose
+  Surface --> Credentials
+  Surface --> Status
+  Surface --> Compose
+  Recovery --> Credentials
+  Recovery --> TargetOrder
+  Recovery --> Status
+  Recovery --> Lineage
+  Recovery --> Compose
+  Monorepo --> Proposal
+  Monorepo --> TargetOrder
+  Monorepo --> Compose
+  Artifact --> TargetOrder
+  Artifact --> Lineage
+  Artifact --> Compose
+  Plugin --> Credentials
+  Plugin --> Compose
+  Sdk --> Compose
+
+  Proposal --> Compose
+  Credentials --> Compose
+  TargetOrder --> Compose
+  Status --> Compose
+  Lineage --> Compose

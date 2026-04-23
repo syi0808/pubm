@@ -7,6 +7,7 @@
 **Depends on:**
 
 - [release-platform-architecture](./2026-04-22-release-platform-architecture.md)
+- [low-level-external-interface-design](./2026-04-22-low-level-external-interface-design.md)
 - [low-level-migration-scope-plan](./2026-04-22-low-level-migration-scope-plan.md)
 - [external-interface-v1](./2026-04-22-external-interface-v1.md)
 - [pubm-self-hosting-pipeline-comparison](./2026-04-22-pubm-self-hosting-pipeline-comparison.md)
@@ -175,6 +176,12 @@ The first implementation pass should reuse current `packageKey` semantics and wr
 
 ## PlanRequest
 
+This slice follows the
+[closed core, open edge](./2026-04-22-low-level-external-interface-design.md#closed-core-open-edge)
+rule: workflow selection stays open through `workflowRef`, while planner-owned
+execution state such as `executionMode`, target topology, and evidence surfaces
+stay narrowly typed.
+
 `PlanRequest` is the thin, composition-layer intent request produced before planning starts.
 
 It is the contract between:
@@ -191,16 +198,15 @@ The key constraint is narrowness:
 
 ```ts
 type PlanRequest =
-  | { command: "preflight"; request: PreflightPlanRequest }
-  | { command: "release"; request: ReleasePlanRequest }
-  | { command: "snapshot"; request: SnapshotPlanRequest }
+  | { command: "preflight"; input: PreflightPlanRequest }
+  | { command: "snapshot"; input: SnapshotPlanRequest }
 ```
 
 ### `PreflightPlanRequest`
 
 ```ts
 type PreflightPlanRequest = {
-  workflowKind: "one-shot" | "split-ci" | "release-pr";
+  workflowRef: string;
   executionMode: "local" | "ci";
   versionSourceStrategy: "all" | "changesets" | "commits";
   explicitVersion?: string;
@@ -211,6 +217,10 @@ type PreflightPlanRequest = {
   scope: {
     filters?: string[];
     includePackageKeys?: string[];
+  };
+  targetSelection?: {
+    includeTargetKeys?: string[];
+    includeAdapterKeys?: string[];
   };
   prompting: {
     allowPrompts: boolean;
@@ -227,19 +237,13 @@ type PreflightPlanRequest = {
 };
 ```
 
-### `ReleasePlanRequest`
-
-```ts
-type ReleasePlanRequest = PreflightPlanRequest & {
-  requestedPhases: ("plan" | "propose" | "release")[];
-};
-```
+`pubm release` may compose a `PreflightPlanRequest` into a `ReleasePlan`, but the stable next handoff is `ReleaseInput`; planning does not expose a separate release-planning request contract.
 
 ### `PublishInput`
 
 ```ts
 type PublishInput = {
-  workflowKind: "one-shot" | "split-ci" | "release-pr";
+  workflowRef: string;
   executionMode: "local" | "ci";
   from?: {
     planId?: string;
@@ -250,6 +254,8 @@ type PublishInput = {
   closeoutMode?: "auto" | "skip";
   scope?: {
     includePackageKeys?: string[];
+    includeTargetKeys?: string[];
+    includeAdapterKeys?: string[];
   };
   prompting: {
     allowPrompts: false;
@@ -270,9 +276,8 @@ type PublishInput = {
 
 ```ts
 type SnapshotPlanRequest = {
-  workflowKind: "one-shot" | "split-ci" | "release-pr";
+  workflowRef: string;
   executionMode: "local" | "ci";
-  requestedPhases: ("plan" | "release")[];
   snapshot: {
     tag: string;
     includeBuildMetadata: boolean;
@@ -341,10 +346,9 @@ type ReleasePlan = {
   configHash: string;
 
   command: {
-    invocationKind: "preflight" | "release" | "snapshot";
-    workflowKind: "one-shot" | "split-ci" | "release-pr";
+    invocationKind: "preflight" | "snapshot";
+    workflowRef: string;
     executionMode: "local" | "ci";
-    requestedPhases: ("plan" | "propose" | "release")[];
     versionSourceStrategy: "all" | "changesets" | "commits";
     explicitVersion?: string;
     requestedTag?: string;
@@ -368,7 +372,10 @@ type ReleasePlan = {
   targetPlan: {
     unitKey: string;
     targetKey: string;
-    targetKind: "registry" | "distribution";
+    targetCategory: string;
+    targetRef: string;
+    contractRef: string;
+    adapterKey: string;
     orderGroup: string;
     artifactSpecRef: string;
     requiredForCloseout: boolean;
@@ -386,6 +393,10 @@ type ReleasePlan = {
 ```
 
 `targetPlan` intentionally excludes closeout-only targets; closeout handling is owned by the separate Closeout slice.
+
+`targetPlan` uses open-edge target identity: `targetCategory` for grouping and UX,
+`targetRef` and `contractRef` for bound behavior, and `targetKey` plus
+`adapterKey` for concrete destination and executor identity.
 
 ### Invariants
 
@@ -437,7 +448,9 @@ Proves that a credential resolution mechanism succeeded.
 ```ts
 type CredentialEvidence = {
   targetKey: string;
+  adapterKey?: string;
   mechanism: "env" | "secure-store" | "prompt" | "plugin";
+  resolverKey?: string;
   resolved: boolean;
   observedAt: string;
 };
@@ -455,7 +468,8 @@ Proves what an already-resolved credential appears to be allowed to do.
 ```ts
 type CapabilityEvidence = {
   targetKey: string;
-  capabilities: string[];
+  adapterKey?: string;
+  capabilityKeys: string[];
   satisfied: boolean;
   observedAt: string;
 };
@@ -474,15 +488,31 @@ Stable checks anchored to repo snapshot.
 
 ```ts
 type RepositoryReadinessEvidence = {
-  kind: "branch" | "remote-sync" | "clean-tree" | "commit-anchor" | "tag-safety";
+  checkKey: string;
   satisfied: boolean;
   details?: string;
 };
 ```
 
+Examples for `checkKey`:
+
+- `branch`
+- `remote-sync`
+- `clean-tree`
+- `commit-anchor`
+- `tag-safety`
+
 ### StableConditionEvidence
 
 Plan-time checks that are anchored to the planned repo/config state.
+
+```ts
+type StableConditionEvidence = {
+  conditionKey: string;
+  satisfied: boolean;
+  details?: string;
+};
+```
 
 Examples:
 
@@ -494,6 +524,17 @@ Examples:
 ### VolatileTargetReadinessEvidence
 
 Checks that can drift between plan-time and publish-time.
+
+```ts
+type VolatileTargetReadinessEvidence = {
+  targetKey: string;
+  adapterKey?: string;
+  checkKey: string;
+  satisfied: boolean;
+  details?: string;
+  observedAt: string;
+};
+```
 
 Examples:
 
@@ -514,11 +555,16 @@ Quality checks that answer whether the candidate is releasable.
 
 ```ts
 type QualityGateEvidence = {
-  kind: "test" | "build-validation";
+  gateKey: string;
   satisfied: boolean;
   outputs?: string[];
 };
 ```
+
+Examples for `gateKey`:
+
+- `test`
+- `build-validation`
 
 Important split:
 
@@ -528,6 +574,17 @@ Important split:
 ### DryRunEvidence
 
 Proof that target-side dry-run validation succeeded under planned versions and scope.
+
+```ts
+type DryRunEvidence = {
+  targetKey: string;
+  adapterKey?: string;
+  checkKey: string;
+  satisfied: boolean;
+  details?: string;
+  observedAt: string;
+};
+```
 
 This includes current `dry-run publish` style checks, but records them as planning evidence instead of leaving them as incidental runtime output.
 
@@ -578,6 +635,7 @@ Recommended internal order:
    - explicit version, changesets, commits, snapshot policy
 4. **Resolve targets**
    - per-unit target matrix
+   - `targetKey` / `adapterKey` binding
    - ordering groups
 5. **Resolve validation evidence**
    - credentials
