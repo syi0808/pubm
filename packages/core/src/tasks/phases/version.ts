@@ -15,7 +15,7 @@ import type { PubmContext } from "../../context.js";
 import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
-import { pathFromKey } from "../../utils/package-key.js";
+import { packageKey, pathFromKey } from "../../utils/package-key.js";
 import {
   formatVersionPlan,
   formatVersionSummary,
@@ -59,7 +59,7 @@ export function createVersionTask(
         // Single package: write version for all config packages
         task.output = "Updating package manifest versions...";
         const singleVersions = new Map(
-          ctx.config.packages.map((pkg) => [pkg.path, plan.version]),
+          ctx.config.packages.map((pkg) => [packageKey(pkg), plan.version]),
         );
         if (dryRun) {
           return;
