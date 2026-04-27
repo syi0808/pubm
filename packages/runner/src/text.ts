@@ -15,6 +15,7 @@ const OSC8_PATTERN = new RegExp(
   "g",
 );
 const BELL_PATTERN = new RegExp(BEL, "gim");
+const MARK_PATTERN = /\p{Mark}/u;
 
 export const figures = {
   main: {
@@ -85,7 +86,7 @@ export function wrapTerminalLine(value: string, columns: number): string[] {
   if (!Number.isFinite(columns) || columns <= 0) return [value];
 
   const clean = stripTerminalControls(value);
-  if (clean.length <= columns) return [value];
+  if (stringDisplayWidth(clean) <= columns) return [value];
 
   const lines: string[] = [];
   let current = "";
@@ -104,7 +105,7 @@ export function wrapTerminalLine(value: string, columns: number): string[] {
     if (!char) break;
 
     current += char;
-    currentColumns += stripTerminalControls(char).length;
+    currentColumns += stringDisplayWidth(stripTerminalControls(char));
     index += char.length;
 
     if (currentColumns >= columns && hasVisibleText(value, index)) {
@@ -177,10 +178,63 @@ function hasVisibleText(value: string, index: number): boolean {
     const char =
       codePoint === undefined ? value[cursor] : String.fromCodePoint(codePoint);
     if (!char) return false;
-    if (stripTerminalControls(char).length > 0) return true;
+    if (stringDisplayWidth(stripTerminalControls(char)) > 0) return true;
     cursor += char.length;
   }
   return false;
+}
+
+function stringDisplayWidth(value: string): number {
+  let width = 0;
+  for (let index = 0; index < value.length; ) {
+    const codePoint = value.codePointAt(index);
+    const char =
+      codePoint === undefined ? value[index] : String.fromCodePoint(codePoint);
+    if (!char || codePoint === undefined) break;
+
+    if (!isZeroWidthCodePoint(codePoint, char)) {
+      width += isWideCodePoint(codePoint) ? 2 : 1;
+    }
+    index += char.length;
+  }
+  return width;
+}
+
+function isZeroWidthCodePoint(codePoint: number, char: string): boolean {
+  return (
+    codePoint <= 0x1f ||
+    (codePoint >= 0x7f && codePoint <= 0x9f) ||
+    codePoint === 0x00ad ||
+    codePoint === 0x200b ||
+    codePoint === 0x200c ||
+    codePoint === 0x200d ||
+    codePoint === 0xfeff ||
+    (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
+    (codePoint >= 0xe0100 && codePoint <= 0xe01ef) ||
+    MARK_PATTERN.test(char)
+  );
+}
+
+function isWideCodePoint(codePoint: number): boolean {
+  return (
+    codePoint >= 0x1100 &&
+    (codePoint <= 0x115f ||
+      codePoint === 0x2329 ||
+      codePoint === 0x232a ||
+      (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+      (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+      (codePoint >= 0xff00 && codePoint <= 0xff60) ||
+      (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+      (codePoint >= 0x1f300 && codePoint <= 0x1f5ff) ||
+      (codePoint >= 0x1f600 && codePoint <= 0x1f64f) ||
+      (codePoint >= 0x1f680 && codePoint <= 0x1f6ff) ||
+      (codePoint >= 0x1f900 && codePoint <= 0x1f9ff) ||
+      (codePoint >= 0x1fa70 && codePoint <= 0x1faff) ||
+      (codePoint >= 0x20000 && codePoint <= 0x3fffd))
+  );
 }
 
 export type ColorName = keyof typeof inspect.colors;

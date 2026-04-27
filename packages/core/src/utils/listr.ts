@@ -19,9 +19,9 @@ export function createCiListrOptions<Context extends object>(
 export function createListr<Context extends object>(
   task: PubmTask<Context>,
   options?: PubmRunnerOptions<Context>,
-  _parentTask?: RuntimeTask<Context>,
+  parentTask?: RuntimeTask<Context>,
 ): TaskRunner<Context> {
-  return createTaskRunner(task, options);
+  return createTaskRunner(task, options, parentTask);
 }
 
 export type {

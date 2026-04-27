@@ -166,4 +166,42 @@ describe("terminal text helpers", () => {
       "def",
     ]);
   });
+
+  it("wraps non-ASCII text by terminal display width", () => {
+    expect(wrapTerminalLine("語語a", 4)).toEqual(["語語", "a"]);
+
+    const wrapped = wrapTerminalLine("\u001b[32m語語a\u001b[39m", 4);
+
+    expect(wrapped.join("")).toBe("\u001b[32m語語a\u001b[39m");
+    expect(wrapped.map(normalizeTerminalText)).toEqual(["語語", "a"]);
+  });
+
+  it("counts common wide and zero-width Unicode ranges", () => {
+    const wideSamples = [
+      String.fromCodePoint(0x1100),
+      String.fromCodePoint(0x2329),
+      "가",
+      String.fromCodePoint(0xf900),
+      String.fromCodePoint(0xfe19),
+      String.fromCodePoint(0xfe30),
+      String.fromCodePoint(0xff21),
+      String.fromCodePoint(0xffe6),
+      "😀",
+      "🚀",
+      "🧪",
+      String.fromCodePoint(0x1fa70),
+      String.fromCodePoint(0x20000),
+    ];
+
+    for (const char of wideSamples) {
+      expect(wrapTerminalLine(`${char}${char}a`, 4)).toEqual([
+        `${char}${char}`,
+        "a",
+      ]);
+    }
+
+    expect(wrapTerminalLine("a\u200bb", 2)).toEqual(["a\u200bb"]);
+    expect(wrapTerminalLine("a\ufe0fb", 2)).toEqual(["a\ufe0fb"]);
+    expect(wrapTerminalLine("e\u0301", 1)).toEqual(["e\u0301"]);
+  });
 });

@@ -230,11 +230,7 @@ export class PubmTaskRunner<Context extends object = object>
         ? undefined
         : new ProcessSignalController());
     const taskList = Array.isArray(task) ? task : [task];
-    this.tasks = taskList.map((item) => {
-      const title = item.title ?? "background task";
-      const path = parentTask ? [...parentTask.path, title] : [title];
-      return new RuntimeTask(item, path, this.sink);
-    });
+    this.tasks = taskList.map((item) => this.createRuntimeTask(item));
   }
 
   isRoot(): boolean {
@@ -268,12 +264,7 @@ export class PubmTaskRunner<Context extends object = object>
 
   add(tasks: Task<Context> | Task<Context>[]): void {
     const taskList = Array.isArray(tasks) ? tasks : [tasks];
-    this.tasks.push(
-      ...taskList.map((item) => {
-        const title = item.title ?? "background task";
-        return new RuntimeTask(item, [title], this.sink);
-      }),
-    );
+    this.tasks.push(...taskList.map((item) => this.createRuntimeTask(item)));
   }
 
   emit(event: TaskEvent): void {
@@ -320,6 +311,12 @@ export class PubmTaskRunner<Context extends object = object>
         throw error;
       }
     });
+  }
+
+  private createRuntimeTask(task: Task<Context>): RuntimeTask<Context> {
+    const title = task.title ?? "background task";
+    const path = this.parentTask ? [...this.parentTask.path, title] : [title];
+    return new RuntimeTask(task, path, this.sink);
   }
 
   private createPromptCapture(
@@ -749,8 +746,9 @@ function sleep(ms: number): Promise<void> {
 export function createTaskRunner<Context extends object>(
   task: Task<Context> | Task<Context>[],
   options?: TaskRunnerOptions<Context>,
+  parentTask?: ParentTaskRef,
 ): PubmTaskRunner<Context> {
-  return new PubmTaskRunner(task, options);
+  return new PubmTaskRunner(task, options, parentTask);
 }
 
 export function createCiRunnerOptions<Context extends object>(

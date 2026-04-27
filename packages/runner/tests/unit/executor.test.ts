@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { createCiRunnerOptions, createTaskRunner } from "../../src/executor.js";
+import { RuntimeTask } from "../../src/runtime-task.js";
 import type {
   ObservableLike,
   PromptOptions,
@@ -268,6 +269,28 @@ describe("PubmTaskRunner execution", () => {
     expect(outputEvent).toBeDefined();
   });
 
+  it("creates child task paths when a parent task is passed to createTaskRunner", async () => {
+    const paths: string[] = [];
+    const parentTask = new RuntimeTask({ title: "parent" }, ["parent"], {
+      emit: vi.fn(),
+    });
+    const runner = createTaskRunner(
+      {
+        title: "child",
+        task: (_context, task) => {
+          paths.push(task.task.path.join("/"));
+        },
+      },
+      { registerSignalListeners: false },
+      parentTask,
+    );
+
+    expect(runner.isRoot()).toBe(false);
+    await runner.run({});
+
+    expect(paths).toEqual(["parent/child"]);
+  });
+
   it("emits renderer lifecycle events and passes the final result to end", async () => {
     const renderer = new RecordingRenderer();
 
@@ -339,6 +362,46 @@ describe("PubmTaskRunner execution", () => {
         type: "task.completed",
       }),
     );
+  });
+
+  it("adds child-runner tasks with parent-prefixed paths", async () => {
+    const renderer = new RecordingRenderer();
+    const paths: string[] = [];
+
+    await createTaskRunner(
+      {
+        title: "parent",
+        task: async (context, task) => {
+          const child = task.newTaskRunner([
+            {
+              title: "initial",
+              task: (_childContext, childTask) => {
+                paths.push(childTask.task.path.join("/"));
+              },
+            },
+          ]) as {
+            add(tasks: Task<object> | Task<object>[]): void;
+            run(ctx: object): Promise<object>;
+          };
+          child.add({
+            title: "dynamic",
+            task: (_childContext, childTask) => {
+              paths.push(childTask.task.path.join("/"));
+            },
+          });
+
+          await child.run(context);
+        },
+      },
+      { renderer, registerSignalListeners: false },
+    ).run({});
+
+    expect(paths).toEqual(["parent/initial", "parent/dynamic"]);
+    expect(
+      renderer.events
+        .filter((event) => event.type === "task.subtasks")
+        .map((event) => event.tasks?.map((task) => task.path.join("/"))),
+    ).toEqual([["parent/initial", "parent/dynamic"]]);
   });
 
   it("uses option context, blocks disabled tasks, and skips predicate-only tasks", async () => {

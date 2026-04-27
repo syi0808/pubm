@@ -702,10 +702,12 @@ class PromptFrameOutput implements PromptWritable {
     }
 
     if (mode === 1) {
-      const current = this.currentLine().slice(this.column);
-      this.rows = [current, ...this.rows.slice(this.row + 1)];
-      this.row = 0;
-      this.column = 0;
+      for (let row = 0; row < this.row; row += 1) {
+        this.rows[row] = "";
+      }
+      this.rows[this.row] =
+        " ".repeat(Math.min(this.column + 1, this.currentLine().length)) +
+        this.currentLine().slice(this.column + 1);
       return;
     }
 
@@ -721,8 +723,8 @@ class PromptFrameOutput implements PromptWritable {
     }
     if (mode === 1) {
       this.rows[this.row] =
-        " ".repeat(Math.min(this.column, current.length)) +
-        current.slice(this.column);
+        " ".repeat(Math.min(this.column + 1, current.length)) +
+        current.slice(this.column + 1);
       return;
     }
     this.rows[this.row] = current.slice(0, this.column);

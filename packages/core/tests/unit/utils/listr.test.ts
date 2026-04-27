@@ -1,30 +1,90 @@
+import { describe, expect, it, vi } from "vitest";
+
+const runnerMock = vi.hoisted(() => {
+  class CiRenderer {}
+  class TestRenderer {}
+
+  return {
+    CiRenderer,
+    TestRenderer,
+    createCiRunnerOptions: vi.fn(),
+    createTaskRunner: vi.fn(),
+    runner: {
+      isRoot: vi.fn(),
+      run: vi.fn(),
+    },
+  };
+});
+
+vi.mock("@pubm/runner", () => ({
+  CiRenderer: runnerMock.CiRenderer,
+  TestRenderer: runnerMock.TestRenderer,
+  createCiRunnerOptions: runnerMock.createCiRunnerOptions,
+  createTaskRunner: runnerMock.createTaskRunner,
+}));
+
+import type { RuntimeTask } from "@pubm/runner";
 import { TestRenderer } from "@pubm/runner";
-import { describe, expect, it } from "vitest";
 import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
 import { PubmCiRenderer } from "../../../src/utils/listr-ci-renderer.js";
 
 describe("createListr", () => {
-  it("returns a pubm task runner and runs tasks", async () => {
-    const order: string[] = [];
+  it("returns the pubm task runner created by the runner package", () => {
+    const tasks = [
+      { title: "first", task: vi.fn() },
+      { title: "second", task: vi.fn() },
+    ];
     const renderer = new TestRenderer();
-    const runner = createListr(
-      [
-        { title: "first", task: () => order.push("first") },
-        { title: "second", task: () => order.push("second") },
-      ],
-      { renderer },
+
+    runnerMock.createTaskRunner.mockReturnValueOnce(runnerMock.runner);
+
+    const runner = createListr(tasks, { renderer });
+
+    expect(runner).toBe(runnerMock.runner);
+    expect(runnerMock.createTaskRunner).toHaveBeenCalledWith(
+      tasks,
+      {
+        renderer,
+      },
+      undefined,
     );
+  });
 
-    expect(runner.isRoot()).toBe(true);
-    await runner.run({});
+  it("forwards a parent task to the runner package", () => {
+    const task = { title: "child", task: vi.fn() };
+    const parentTask = {
+      path: ["parent"],
+      setSubtasks: vi.fn(),
+    } as unknown as RuntimeTask<object>;
 
-    expect(order).toEqual(["first", "second"]);
-    expect(renderer.result).toMatchObject({ status: "success" });
+    runnerMock.createTaskRunner.mockReturnValueOnce(runnerMock.runner);
+
+    createListr(task, undefined, parentTask);
+
+    expect(runnerMock.createTaskRunner).toHaveBeenCalledWith(
+      task,
+      undefined,
+      parentTask,
+    );
   });
 });
 
 describe("createCiListrOptions", () => {
   it("configures the pubm CI renderer for primary and fallback output", () => {
+    runnerMock.createCiRunnerOptions.mockImplementationOnce((options = {}) => ({
+      ...options,
+      renderer: options.renderer ?? runnerMock.CiRenderer,
+      fallbackRenderer: options.fallbackRenderer ?? runnerMock.CiRenderer,
+      rendererOptions: {
+        logTitleChange: true,
+        ...options.rendererOptions,
+      },
+      fallbackRendererOptions: {
+        logTitleChange: true,
+        ...options.fallbackRendererOptions,
+      },
+    }));
+
     const options = createCiListrOptions();
 
     expect(options.renderer).toBe(PubmCiRenderer);
@@ -34,6 +94,20 @@ describe("createCiListrOptions", () => {
   });
 
   it("merges custom renderer options", () => {
+    runnerMock.createCiRunnerOptions.mockImplementationOnce((options = {}) => ({
+      ...options,
+      renderer: options.renderer ?? runnerMock.CiRenderer,
+      fallbackRenderer: options.fallbackRenderer ?? runnerMock.CiRenderer,
+      rendererOptions: {
+        logTitleChange: true,
+        ...options.rendererOptions,
+      },
+      fallbackRendererOptions: {
+        logTitleChange: true,
+        ...options.fallbackRendererOptions,
+      },
+    }));
+
     const options = createCiListrOptions({
       rendererOptions: { logTitleChange: false },
     });

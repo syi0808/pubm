@@ -849,6 +849,61 @@ describe("DefaultRenderer", () => {
     expect(latestPromptFrame).toContain("   X");
   });
 
+  it("erases from line start through the cursor cell for CSI 1 K", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("abcde\u001b[3G\u001b[1K");
+    renderer.end();
+
+    const latestPromptFrame = lastChunkContaining(chunks, "de");
+    expect(latestPromptFrame).toContain("   de");
+    expect(latestPromptFrame).not.toContain("cde");
+  });
+
+  it("preserves the prompt cursor position for CSI 1 J", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("first\nsecond\u001b[1JX");
+    renderer.end();
+
+    const latestPromptFrame = lastChunkContaining(chunks, "X");
+    expect(latestPromptFrame).toContain("      X");
+    expect(latestPromptFrame).not.toContain("first");
+    expect(latestPromptFrame).not.toContain("second");
+  });
+
   it("applies prompt cursor movement, erase controls, and output listeners", () => {
     const chunks: string[] = [];
     const source = new EventSource();
