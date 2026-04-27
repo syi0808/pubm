@@ -21,4 +21,23 @@ describe("ProcessSignalController", () => {
 
     expect(terminate).not.toHaveBeenCalled();
   });
+
+  it("handles sync throws and async rejections from process signal handlers", async () => {
+    const throwingController = new ProcessSignalController();
+    const rejectingController = new ProcessSignalController();
+
+    throwingController.onInterrupt(() => {
+      throw new Error("sync failure");
+    });
+    rejectingController.onTerminate(async () => {
+      throw new Error("async failure");
+    });
+
+    expect(() => process.emit("SIGINT")).not.toThrow();
+    process.emit("SIGTERM");
+    await new Promise((resolve) => setImmediate(resolve));
+
+    throwingController.dispose();
+    rejectingController.dispose();
+  });
 });

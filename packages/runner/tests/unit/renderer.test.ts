@@ -37,18 +37,57 @@ function lastChunkContaining(chunks: readonly string[], ...needles: string[]) {
 describe("terminal text normalization", () => {
   it("preserves OSC hyperlink labels while removing ANSI controls and bells", () => {
     const value =
-      "\u001B]8;;https://example.com\u0007Artifact\u001B]8;;\u0007 " +
+      "\u001B]8;id=artifact;https://example.com\u0007Artifact\u001B]8;;\u0007 " +
       "\u001b[31mready\u001b[39m\u0007";
 
     expect(normalizeTerminalText(value)).toBe("Artifact ready");
   });
 
-  it("drops clear-line terminal update payloads", () => {
-    expect(normalizeTerminalText("\u001b[2Kready")).toBe("");
+  it("removes clear-line controls without dropping following visible text", () => {
+    expect(normalizeTerminalText("\u001b[2Kready")).toBe("ready");
+    expect(normalizeTerminalText("\u001b[2K")).toBe("");
   });
 });
 
 describe("CiRenderer", () => {
+  it("uses default output streams and skips empty normalized messages", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const source = new EventSource();
+    const renderer = new CiRenderer();
+
+    try {
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({
+          title: "\u001b[2K",
+          initialTitle: "\u001b[2K",
+          path: [],
+        }),
+      });
+      source.emit({
+        type: "task.title",
+        title: "\u001b[2K",
+        task: taskSnapshot(),
+      });
+      source.emit({
+        type: "task.message",
+        message: { skip: "\u001b[2K" },
+        task: taskSnapshot(),
+      });
+      source.emit({
+        type: "task.failed",
+        error: undefined,
+        task: taskSnapshot(),
+      });
+      renderer.end();
+
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("logs listr-style CI events with normalized titles and output", () => {
     const logs: string[] = [];
     const source = new EventSource();
@@ -137,6 +176,29 @@ describe("CiRenderer", () => {
 });
 
 describe("SimpleRenderer", () => {
+  it("uses default line outputs and ignores unrelated message events", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const source = new EventSource();
+    const renderer = new SimpleRenderer();
+
+    try {
+      renderer.render(source);
+      source.emit({
+        type: "task.message",
+        message: { skip: "skip is handled by task.skipped" },
+        task: taskSnapshot(),
+      });
+      renderer.end();
+
+      expect(log).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+      error.mockRestore();
+    }
+  });
+
   it("prints stable simple-renderer symbols, indentation, and failure stream output", () => {
     const previousForceUnicode = process.env.FORCE_UNICODE;
     process.env.FORCE_UNICODE = "1";
@@ -759,6 +821,77 @@ describe("DefaultRenderer", () => {
     expect(latestPromptFrame).toContain("new option");
     expect(latestPromptFrame).not.toContain("Old prompt");
     expect(latestPromptFrame).not.toContain("old option");
+  });
+
+  it("does not move the prompt cursor when erasing the current line", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("abc\u001b[2KX");
+    renderer.end();
+
+    const latestPromptFrame = lastChunkContaining(chunks, "X");
+    expect(latestPromptFrame).toContain("   X");
+  });
+
+  it("applies prompt cursor movement, erase controls, and output listeners", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      columns: 12,
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+    const listener = vi.fn();
+
+    expect(promptCapture.output.columns).toBe(12);
+    promptCapture.output.on("resize", listener);
+    promptCapture.output.off("resize", listener);
+    promptCapture.output.off("resize");
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("abcd\nwxyz");
+    promptCapture.output.write(
+      "\u001b[1A!\u001b[1B?\u001b[1Dq\u001b[1Eend",
+    );
+    promptCapture.output.write("\u001b[1Frow\u001b[3Gro");
+    promptCapture.output.write("\u001b[1;2Hh\u001b[2;1ff");
+    promptCapture.output.write("\u001b[Jj");
+    promptCapture.output.write("\u001b[2Jreset\nsecond\u001b[1Jtop");
+    promptCapture.output.write("abcde\u001b[3G\u001b[1K\u001b[Kz");
+    promptCapture.output.write("\u001b]0;title\u0007\u001b]0;title\u001b\\");
+    promptCapture.output.write("\u001bxvisible\u001b[12\u001b]0;unterminated");
+    renderer.end();
+
+    const output = chunks.join("");
+    expect(output).toContain("top");
+    expect(output).toContain("zvisible");
+    expect(normalizeTerminalText(output)).not.toContain("title");
   });
 
   it("renders nested task states, suffixes, and child output", () => {

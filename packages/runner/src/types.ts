@@ -31,6 +31,8 @@ export interface TaskEvent {
     | "task.failed"
     | "task.skipped"
     | "task.blocked"
+    | "task.waiting"
+    | "task.prompting"
     | "task.retrying"
     | "task.rolling-back"
     | "task.rolled-back"

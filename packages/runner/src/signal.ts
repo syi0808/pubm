@@ -21,7 +21,11 @@ export class ProcessSignalController implements SignalController {
 
   private add(signal: NodeJS.Signals, handler: SignalHandler): void {
     const listener = () => {
-      void handler(signal);
+      try {
+        void Promise.resolve(handler(signal)).catch(() => {});
+      } catch {
+        // Signal listeners cannot return failures to process.once.
+      }
     };
     process.once(signal, listener);
     this.disposers.push(() => {

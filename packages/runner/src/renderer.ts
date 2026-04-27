@@ -717,7 +717,6 @@ class PromptFrameOutput implements PromptWritable {
     const current = this.currentLine();
     if (mode === 2) {
       this.rows[this.row] = "";
-      this.column = 0;
       return;
     }
     if (mode === 1) {

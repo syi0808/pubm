@@ -70,7 +70,7 @@ describe("RuntimeTask", () => {
   });
 
   it("supports legacy listener removal and state predicate helpers", () => {
-    const { task } = createRuntimeTask();
+    const { sink, task } = createRuntimeTask();
     const stateListener = vi.fn();
     const allEventListener = vi.fn();
 
@@ -104,5 +104,11 @@ describe("RuntimeTask", () => {
     task.setState("blocked");
     task.setState("waiting");
     task.setState("prompting");
+
+    expect(
+      sink.emit.mock.calls
+        .map(([event]) => event.type)
+        .filter((type) => type === "task.waiting" || type === "task.prompting"),
+    ).toEqual(["task.waiting", "task.prompting"]);
   });
 });

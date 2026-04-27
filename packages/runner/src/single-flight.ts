@@ -17,7 +17,7 @@ export class InMemorySingleFlightRegistry implements SingleFlightRegistry {
   }
 
   clear(key?: string): void {
-    if (key) {
+    if (key !== undefined) {
       this.pending.delete(key);
       return;
     }

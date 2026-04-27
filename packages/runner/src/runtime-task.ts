@@ -219,6 +219,8 @@ function stateEventType(state: TaskState): TaskEvent["type"] {
   if (state === "failed") return "task.failed";
   if (state === "skipped") return "task.skipped";
   if (state === "blocked") return "task.blocked";
+  if (state === "waiting") return "task.waiting";
+  if (state === "prompting") return "task.prompting";
   if (state === "retrying") return "task.retrying";
   if (state === "rolling-back") return "task.rolling-back";
   if (state === "rolled-back") return "task.rolled-back";

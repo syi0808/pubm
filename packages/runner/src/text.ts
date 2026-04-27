@@ -1,19 +1,15 @@
-import { inspect, stripVTControlCharacters, styleText } from "node:util";
+import { inspect, stripVTControlCharacters } from "node:util";
+import * as nodeUtil from "node:util";
 
-const ESC = "\\u001B";
-const C1 = "\\u009B";
 const BEL = "\\u0007";
-const STRING_TERMINATOR = "\\u001B\\\\";
 
-const CLEAR_LINE_PATTERN = new RegExp(
-  `(?:${ESC}|${C1})[[\\]=><~/#&.:=?%@~_-]*[0-9]*[a-ln-tqyz=><~/#&.:=?%@~_-]+`,
-  "gim",
-);
+const styleTerminalText =
+  typeof nodeUtil.styleText === "function"
+    ? nodeUtil.styleText
+    : (_name: string, value: string) => value;
+const OSC8_PATTERN =
+  /\u001B]8;[^;\u0007]*(?:;[^\u0007\u001B]*)?(?:\u0007|\u001B\\)(.*?)\u001B]8;[^;\u0007]*(?:;[^\u0007\u001B]*)?(?:\u0007|\u001B\\)/g;
 const BELL_PATTERN = new RegExp(BEL, "gim");
-const OSC8_PATTERN = new RegExp(
-  `${ESC}]8;;.*?(?:${BEL}|${STRING_TERMINATOR})(.*?)${ESC}]8;;(?:${BEL}|${STRING_TERMINATOR})`,
-  "g",
-);
 
 export const figures = {
   main: {
@@ -76,10 +72,7 @@ export function normalizeTerminalText(value: unknown): string {
 
 export function stripTerminalControls(value: unknown): string {
   return stripVTControlCharacters(
-    String(value)
-      .replace(OSC8_PATTERN, "$1")
-      .replace(CLEAR_LINE_PATTERN, "")
-      .replace(BELL_PATTERN, ""),
+    String(value).replace(OSC8_PATTERN, "$1").replace(BELL_PATTERN, ""),
   );
 }
 
@@ -90,13 +83,88 @@ export function wrapTerminalLine(value: string, columns: number): string[] {
   if (clean.length <= columns) return [value];
 
   const lines: string[] = [];
-  let remaining = clean;
-  while (remaining.length > columns) {
-    lines.push(remaining.slice(0, columns));
-    remaining = remaining.slice(columns);
+  let current = "";
+  let currentColumns = 0;
+  for (let index = 0; index < value.length; ) {
+    const controlEnd = terminalControlEnd(value, index);
+    if (controlEnd !== undefined) {
+      current += value.slice(index, controlEnd);
+      index = controlEnd;
+      continue;
+    }
+
+    const codePoint = value.codePointAt(index);
+    const char =
+      codePoint === undefined
+        ? value[index]
+        : String.fromCodePoint(codePoint);
+    if (!char) break;
+
+    current += char;
+    currentColumns += stripTerminalControls(char).length;
+    index += char.length;
+
+    if (currentColumns >= columns && hasVisibleText(value, index)) {
+      lines.push(current);
+      current = "";
+      currentColumns = 0;
+    }
   }
-  if (remaining) lines.push(remaining);
+  if (current) lines.push(current);
   return lines;
+}
+
+function terminalControlEnd(value: string, index: number): number | undefined {
+  const char = value[index];
+  if (char === "\u0007") return index + 1;
+
+  if (char === "\u009B") {
+    return csiEnd(value, index + 1);
+  }
+
+  if (char !== "\u001B") return undefined;
+
+  const marker = value[index + 1];
+  if (marker === "[") return csiEnd(value, index + 2);
+  if (marker === "]") return oscEnd(value, index + 2);
+  return Math.min(index + 2, value.length);
+}
+
+function csiEnd(value: string, index: number): number {
+  for (let cursor = index; cursor < value.length; cursor += 1) {
+    const code = value.charCodeAt(cursor);
+    if (code >= 0x40 && code <= 0x7e) return cursor + 1;
+  }
+  return value.length;
+}
+
+function oscEnd(value: string, index: number): number {
+  for (let cursor = index; cursor < value.length; cursor += 1) {
+    const char = value[cursor];
+    if (char === "\u0007") return cursor + 1;
+    if (char === "\\" && value[cursor - 1] === "\u001B") return cursor + 1;
+  }
+  return value.length;
+}
+
+function hasVisibleText(value: string, index: number): boolean {
+  for (let cursor = index; cursor < value.length; ) {
+    const controlEnd = terminalControlEnd(value, cursor);
+    if (controlEnd !== undefined) {
+      cursor = controlEnd;
+      continue;
+    }
+
+    const codePoint = value.codePointAt(cursor);
+    const char =
+      codePoint === undefined
+        ? value[cursor]
+        : String.fromCodePoint(codePoint);
+    if (!char) return false;
+    if (stripTerminalControls(char).length > 0) return true;
+    cursor += char.length;
+  }
+  return false;
 }
 
 export type ColorName = keyof typeof inspect.colors;
@@ -107,7 +175,7 @@ export const color = Object.fromEntries(
     (value: unknown) =>
       process.env.NO_COLOR
         ? String(value)
-        : styleText(name as ColorName, String(value)),
+        : styleTerminalText(name as ColorName, String(value)),
   ]),
 ) as Record<ColorName, (value: unknown) => string>;
 

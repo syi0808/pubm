@@ -56,6 +56,28 @@ describe("InMemorySingleFlightRegistry", () => {
     await expect(second).resolves.toBe("second");
   });
 
+  it("clears only the empty-string key when one is provided", async () => {
+    const registry = new InMemorySingleFlightRegistry();
+    const emptyRelease = deferred<string>();
+    const namedRelease = deferred<string>();
+
+    const empty = registry.run("", () => emptyRelease.promise);
+    const named = registry.run("named", () => namedRelease.promise);
+
+    registry.clear("");
+
+    const replacement = registry.run("", async () => "replacement");
+
+    expect(replacement).not.toBe(empty);
+    await expect(replacement).resolves.toBe("replacement");
+
+    emptyRelease.resolve("empty");
+    namedRelease.resolve("named");
+
+    await expect(empty).resolves.toBe("empty");
+    await expect(named).resolves.toBe("named");
+  });
+
   it("clears all pending keys", async () => {
     const registry = new InMemorySingleFlightRegistry();
     const release = deferred<string>();

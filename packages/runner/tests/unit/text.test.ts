@@ -52,9 +52,10 @@ describe("terminal text helpers", () => {
   it("normalizes OSC hyperlinks, ANSI controls, bells, and non-string values", () => {
     expect(
       normalizeTerminalText(
-        "\u001B]8;;https://example.com\u001B\\Label\u001B]8;;\u001B\\\u0007",
+        "\u001B]8;id=docs;https://example.com\u001B\\Label\u001B]8;;\u001B\\\u0007",
       ),
     ).toBe("Label");
+    expect(normalizeTerminalText("\u001b[2Kready")).toBe("ready");
     expect(normalizeTerminalText(42)).toBe("42");
   });
 
@@ -127,10 +128,36 @@ describe("terminal text helpers", () => {
   });
 
   it("wraps long terminal lines after stripping control sequences", () => {
-    expect(wrapTerminalLine("\u001b[32mabcdef\u001b[39m", 3)).toEqual([
-      "abc",
-      "def",
-    ]);
+    const wrapped = wrapTerminalLine("\u001b[32mabcdef\u001b[39m", 3);
+
+    expect(wrapped.join("")).toBe("\u001b[32mabcdef\u001b[39m");
+    expect(wrapped.map(normalizeTerminalText)).toEqual(["abc", "def"]);
     expect(wrapTerminalLine("short", 80)).toEqual(["short"]);
+  });
+
+  it("wraps around terminal controls without counting them as columns", () => {
+    const hyperlink =
+      "\u001b]8;;https://example.com\u0007abcdef\u001b]8;;\u0007";
+
+    expect(wrapTerminalLine("text", 0)).toEqual(["text"]);
+    const wrappedHyperlink = wrapTerminalLine(`\u0007${hyperlink}`, 3);
+    expect(wrappedHyperlink).toHaveLength(2);
+    expect(normalizeTerminalText(wrappedHyperlink.join(""))).toBe("abcdef");
+    expect(
+      normalizeTerminalText(
+        wrapTerminalLine(
+          "\u001b]8;;https://example.com\u001b\\abcdef\u001b]8;;\u001b\\",
+          3,
+        ).join(""),
+      ),
+    ).toBe("abcdef");
+    expect(
+      wrapTerminalLine("\u009B32mabcdef\u009B39m", 3).map(
+        normalizeTerminalText,
+      ),
+    ).toEqual(["abc", "def"]);
+    const wrappedUnknownEscape = wrapTerminalLine("\u001bxabcdef", 3);
+    expect(wrappedUnknownEscape).toHaveLength(2);
+    expect(wrappedUnknownEscape.join("")).toBe("\u001bxabcdef");
   });
 });
