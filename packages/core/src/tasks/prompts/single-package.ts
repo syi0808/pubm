@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { TaskContext } from "@pubm/runner";
 import semver from "semver";
 import { isCI } from "std-env";
 import type { PubmContext } from "../../context.js";
@@ -13,7 +12,7 @@ import { analyzeAllSources, versionChoices } from "./version-choices.js";
  */
 export async function handleSinglePackage(
   ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
 ): Promise<void> {
   const pkg = ctx.config.packages[0];
   const currentVersion = pkg?.version ?? "0.0.0";
@@ -37,7 +36,7 @@ export async function handleSinglePackage(
 
       task.output = displayRecommendationSummary([rec]);
 
-      const choice = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+      const choice = await task.prompt().run<string>({
         type: "select",
         message: t("prompt.changeset.suggest", {
           current: currentVersion,
@@ -71,7 +70,7 @@ export async function handleSinglePackage(
   }
 
   // Fallback: manual version selection
-  let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+  let nextVersion = await task.prompt().run<string>({
     type: "select",
     message: t("prompt.changeset.selectOrSpecify"),
     choices: versionChoices(currentVersion),
@@ -79,7 +78,7 @@ export async function handleSinglePackage(
   });
 
   if (nextVersion === "specify") {
-    nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+    nextVersion = await task.prompt().run<string>({
       type: "input",
       message: t("prompt.version.enterVersionGeneric"),
       name: "version",

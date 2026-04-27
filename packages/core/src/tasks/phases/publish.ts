@@ -1,4 +1,4 @@
-import type { Listr, ListrTask } from "listr2";
+import type { Task, TaskRunner } from "@pubm/runner";
 import type { PubmContext } from "../../context.js";
 import { t } from "../../i18n/index.js";
 import { restoreManifests } from "../../monorepo/resolve-workspace.js";
@@ -13,12 +13,12 @@ export function createPublishTasks(
   hasPublish: boolean,
   dryRun: boolean,
   skipPublish: boolean,
-): ListrTask<PubmContext>[] {
+): Task<PubmContext>[] {
   return [
     {
       enabled: hasPublish && !skipPublish && !dryRun,
       title: t("task.publish.title"),
-      task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+      task: async (ctx, parentTask): Promise<TaskRunner<PubmContext>> => {
         parentTask.output = t("task.publish.runningBeforeHooksDetail");
         await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
         await resolveWorkspaceProtocols(ctx);

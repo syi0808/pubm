@@ -1,6 +1,5 @@
 import process from "node:process";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { t } from "../i18n/index.js";
@@ -20,7 +19,7 @@ class NpmAvailableError extends AbstractError {
   }
 }
 
-export function createNpmPublishTask(key: string): ListrTask<PubmContext> {
+export function createNpmPublishTask(key: string): Task<PubmContext> {
   return {
     title: key,
     skip: (ctx) => !!ctx.options.dryRun,
@@ -57,20 +56,18 @@ export function createNpmPublishTask(key: string): ListrTask<PubmContext> {
                 const maxAttempts = 3;
 
                 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                  const otp = await task
-                    .prompt(ListrEnquirerPromptAdapter)
-                    .run<string>({
-                      type: "password",
-                      message: t("prompt.npm.otp", {
-                        attempt:
-                          attempt > 1
-                            ? t("prompt.npm.otpAttempt", {
-                                current: attempt,
-                                max: maxAttempts,
-                              })
-                            : "",
-                      }),
-                    });
+                  const otp = await task.prompt().run<string>({
+                    type: "password",
+                    message: t("prompt.npm.otp", {
+                      attempt:
+                        attempt > 1
+                          ? t("prompt.npm.otpAttempt", {
+                              current: attempt,
+                              max: maxAttempts,
+                            })
+                          : "",
+                    }),
+                  });
 
                   const success = await npm.publish(otp, ctx.runtime.tag);
                   if (success) {

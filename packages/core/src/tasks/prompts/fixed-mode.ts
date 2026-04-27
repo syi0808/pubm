@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import { color, type ListrTask } from "listr2";
+import { color, type TaskContext } from "@pubm/runner";
 import semver from "semver";
 
 import type { VersionBump } from "../../changeset/version.js";
@@ -15,7 +14,7 @@ import { versionChoices } from "./version-choices.js";
  */
 export async function handleFixedMode(
   ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
   packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   bumps?: Map<string, VersionBump>,
@@ -48,7 +47,7 @@ export async function handleFixedMode(
     }
   }
 
-  let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+  let nextVersion = await task.prompt().run<string>({
     type: "select",
     message: t("prompt.version.selectForAll", {
       highestVersion: color.dim(`(highest current: ${highestVersion})`),
@@ -58,7 +57,7 @@ export async function handleFixedMode(
   });
 
   if (nextVersion === "specify") {
-    nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+    nextVersion = await task.prompt().run<string>({
       type: "input",
       message: t("prompt.version.enterVersionGeneric"),
       name: "version",

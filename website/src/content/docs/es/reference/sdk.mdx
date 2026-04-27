@@ -101,7 +101,7 @@ Usa las exportaciones de plugins cuando quieras extender el pipeline de publicac
 | `PluginRunner` | class | Utilidad que ejecuta hooks y recopila registries/ecosystems de los plugins cargados. También expone `collectCredentials()` y `collectChecks()` para reunir descriptores de credenciales y checks de preflight de todos los plugins registrados. |
 | `PluginCredential` | type | Descriptor declarativo de un token o secret requerido por un plugin. Consulta la [Referencia de la API de plugins](/pubm/es/reference/plugins/#plugincredential). |
 | `PluginCheck` | type | Descriptor de un check de preflight aportado por un plugin. Consulta la [Referencia de la API de plugins](/pubm/es/reference/plugins/#plugincheck). |
-| `PluginTaskContext` | type | Wrapper agnóstico de listr2 que se pasa a `PluginCheck.task`. Expone `output`, `title` y `prompt()`. |
+| `PluginTaskContext` | type | Wrapper agnóstico del runner que se pasa a `PluginCheck.task`. Expone `output`, `title` y `prompt()`. |
 | `GhSecretEntry` | type | Una entrada devuelta por los helpers de sincronización de GitHub Secrets: `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | Reúne `PluginCredential[]` de todos los plugins registrados en la config y resuelve sus valores. |
 | `injectPluginTokensToEnv` | function | Escribe los valores de tokens de plugin resueltos en `process.env` para que los pasos posteriores de publish puedan leerlos como variables de entorno normales. |

@@ -1,7 +1,6 @@
 import { rmSync } from "node:fs";
 import process from "node:process";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import SemVer from "semver";
 import type { PubmContext } from "../../context.js";
 import { Git } from "../../git.js";
@@ -30,7 +29,7 @@ const { prerelease } = SemVer;
 export function createPushTask(
   hasPrepare: boolean,
   dryRun: boolean,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   return {
     title: t("task.push.title"),
     enabled: hasPrepare && !dryRun,
@@ -78,7 +77,7 @@ export function createReleaseTask(
   dryRun: boolean,
   mode: string,
   skipReleaseDraft: boolean,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   return {
     enabled: hasPublish && !skipReleaseDraft && !dryRun,
     title: t("task.release.title"),
@@ -93,28 +92,24 @@ export function createReleaseTask(
         process.env.GITHUB_TOKEN = tokenResult.token;
       } else if (mode !== "ci") {
         // Local/interactive mode: prompt for token or fall back to browser
-        const answer = await task
-          .prompt(ListrEnquirerPromptAdapter)
-          .run<string>({
-            type: "select",
-            message: t("task.release.noTokenPrompt"),
-            choices: [
-              { name: "enter", message: t("task.release.enterToken") },
-              {
-                name: "browser",
-                message: t("task.release.openDraft"),
-              },
-              { name: "skip", message: t("task.release.skip") },
-            ],
-          });
+        const answer = await task.prompt().run<string>({
+          type: "select",
+          message: t("task.release.noTokenPrompt"),
+          choices: [
+            { name: "enter", message: t("task.release.enterToken") },
+            {
+              name: "browser",
+              message: t("task.release.openDraft"),
+            },
+            { name: "skip", message: t("task.release.skip") },
+          ],
+        });
 
         if (answer === "enter") {
-          const token = await task
-            .prompt(ListrEnquirerPromptAdapter)
-            .run<string>({
-              type: "password",
-              message: t("task.release.tokenPrompt"),
-            });
+          const token = await task.prompt().run<string>({
+            type: "password",
+            message: t("task.release.tokenPrompt"),
+          });
           if (token) {
             process.env.GITHUB_TOKEN = token;
             saveGitHubToken(token);

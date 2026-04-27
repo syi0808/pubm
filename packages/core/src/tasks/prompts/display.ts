@@ -1,4 +1,4 @@
-import { color } from "listr2";
+import { color } from "@pubm/runner";
 import semver from "semver";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import { t } from "../../i18n/index.js";

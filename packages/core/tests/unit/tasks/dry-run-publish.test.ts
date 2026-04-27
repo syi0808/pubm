@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@listr2/prompt-adapter-enquirer", () => ({
-  ListrEnquirerPromptAdapter: vi.fn(),
-}));
 vi.mock("../../../src/utils/secure-store.js", () => ({
   SecureStore: vi.fn().mockImplementation(function () {
     return {

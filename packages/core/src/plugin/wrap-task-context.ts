@@ -1,11 +1,10 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import type { PluginTaskContext } from "./types.js";
 
 /**
- * Wraps a listr2 TaskWrapper into the plugin-facing PluginTaskContext,
- * so plugins do not depend on listr2 internals.
+ * Wraps a runner task context into the plugin-facing PluginTaskContext,
+ * so plugins do not depend on runner internals.
  */
-// biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
+// biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
 export function wrapTaskContext(listrTask: any): PluginTaskContext {
   return {
     get output() {
@@ -20,7 +19,6 @@ export function wrapTaskContext(listrTask: any): PluginTaskContext {
     set title(v: string) {
       listrTask.title = v;
     },
-    prompt: (options) =>
-      listrTask.prompt(ListrEnquirerPromptAdapter).run(options),
+    prompt: (options) => listrTask.prompt().run(options),
   };
 }

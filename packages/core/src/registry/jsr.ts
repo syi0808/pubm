@@ -1,7 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
 import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
@@ -282,14 +281,14 @@ export class JsrPackageRegistry extends PackageRegistry {
   }
 
   async checkAvailability(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
     ctx: PubmContext,
   ): Promise<void> {
     // Existing: jsr CLI install prompt
     const connector = new JsrConnector();
     if (!(await connector.isInstalled())) {
-      const install = await task.prompt(ListrEnquirerPromptAdapter).run({
+      const install = await task.prompt().run({
         type: "toggle",
         message: `${ui.labels.WARNING} jsr is not installed. Do you want to install jsr?`,
         enabled: "Yes",
@@ -339,33 +338,30 @@ export class JsrPackageRegistry extends PackageRegistry {
         const { Git } = await import("../git.js");
         const userName = await new Git().userName();
 
-        const selectedName: string = await task
-          .prompt(ListrEnquirerPromptAdapter)
-          .run({
-            type: "select",
-            message:
-              "Package name is not scoped. Please select a scope for jsr",
-            choices: [
-              {
-                message: `@${this.packageName}/${this.packageName} (scoped by package name)`,
-                name: `@${this.packageName}/${this.packageName}`,
-              },
-              {
-                message: `@${userName}/${this.packageName} (scoped by git name)`,
-                name: `@${userName}/${this.packageName}`,
-              },
-              ...scopes.flatMap((scope) =>
-                scope === this.packageName || scope === userName
-                  ? []
-                  : [
-                      {
-                        message: `@${scope}/${this.packageName} (scope from jsr)`,
-                        name: `@${scope}/${this.packageName}`,
-                      },
-                    ],
-              ),
-            ],
-          });
+        const selectedName: string = await task.prompt().run({
+          type: "select",
+          message: "Package name is not scoped. Please select a scope for jsr",
+          choices: [
+            {
+              message: `@${this.packageName}/${this.packageName} (scoped by package name)`,
+              name: `@${this.packageName}/${this.packageName}`,
+            },
+            {
+              message: `@${userName}/${this.packageName} (scoped by git name)`,
+              name: `@${userName}/${this.packageName}`,
+            },
+            ...scopes.flatMap((scope) =>
+              scope === this.packageName || scope === userName
+                ? []
+                : [
+                    {
+                      message: `@${scope}/${this.packageName} (scope from jsr)`,
+                      name: `@${scope}/${this.packageName}`,
+                    },
+                  ],
+            ),
+          ],
+        });
 
         this.packageName = selectedName;
 

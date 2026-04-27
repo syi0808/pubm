@@ -6,13 +6,13 @@ const {
   mockUiSuccess,
   mockUiWarn,
   mockCreateKeyResolver,
-  mockEnquirerPrompt,
+  mockRunnerPrompt,
 } = vi.hoisted(() => ({
   mockWriteChangeset: vi.fn().mockReturnValue("/path/to/changeset.md"),
   mockUiSuccess: vi.fn(),
   mockUiWarn: vi.fn(),
   mockCreateKeyResolver: vi.fn(),
-  mockEnquirerPrompt: vi.fn(),
+  mockRunnerPrompt: vi.fn(),
 }));
 
 vi.mock("@pubm/core", () => ({
@@ -32,8 +32,8 @@ vi.mock("@pubm/core", () => ({
   },
 }));
 
-vi.mock("enquirer", () => ({
-  default: { prompt: mockEnquirerPrompt },
+vi.mock("@pubm/runner", () => ({
+  prompt: mockRunnerPrompt,
 }));
 
 import { registerAddCommand } from "../../../src/commands/add.js";
@@ -80,7 +80,7 @@ describe("registerAddCommand", () => {
 
     expect(mockWriteChangeset).toHaveBeenCalledWith([], "");
     expect(mockUiSuccess).toHaveBeenCalledWith(expect.any(String));
-    expect(mockEnquirerPrompt).not.toHaveBeenCalled();
+    expect(mockRunnerPrompt).not.toHaveBeenCalled();
   });
 
   it("creates changeset from CLI options", async () => {
@@ -108,7 +108,7 @@ describe("registerAddCommand", () => {
       "feat",
     );
     expect(mockUiSuccess).toHaveBeenCalledWith(expect.any(String));
-    expect(mockEnquirerPrompt).not.toHaveBeenCalled();
+    expect(mockRunnerPrompt).not.toHaveBeenCalled();
   });
 
   it("throws on invalid bump type from CLI options", async () => {
@@ -139,9 +139,9 @@ describe("registerAddCommand", () => {
 
   it("auto-selects single package in interactive mode", async () => {
     // For single package: bump prompt then summary prompt
-    mockEnquirerPrompt
-      .mockResolvedValueOnce({ bump: "patch" })
-      .mockResolvedValueOnce({ summary: "fix: a bug" });
+    mockRunnerPrompt
+      .mockResolvedValueOnce("patch")
+      .mockResolvedValueOnce("fix: a bug");
 
     const parent = makeParent();
     registerAddCommand(parent, () =>
@@ -160,7 +160,7 @@ describe("registerAddCommand", () => {
 
   it("warns when no packages are selected in interactive mode", async () => {
     // For multi-package: first prompt returns empty selection
-    mockEnquirerPrompt.mockResolvedValueOnce({ packages: [] });
+    mockRunnerPrompt.mockResolvedValueOnce([]);
 
     const parent = makeParent();
     registerAddCommand(parent, () =>
@@ -177,13 +177,11 @@ describe("registerAddCommand", () => {
 
   it("handles multi-package interactive flow", async () => {
     // For multi-package: package selection, then bump per package, then summary
-    mockEnquirerPrompt
-      .mockResolvedValueOnce({
-        packages: ["packages/a::js", "packages/b::js"],
-      })
-      .mockResolvedValueOnce({ bump: "minor" })
-      .mockResolvedValueOnce({ bump: "patch" })
-      .mockResolvedValueOnce({ summary: "multi-package update" });
+    mockRunnerPrompt
+      .mockResolvedValueOnce(["packages/a::js", "packages/b::js"])
+      .mockResolvedValueOnce("minor")
+      .mockResolvedValueOnce("patch")
+      .mockResolvedValueOnce("multi-package update");
 
     const parent = makeParent();
     registerAddCommand(parent, () =>
@@ -206,12 +204,10 @@ describe("registerAddCommand", () => {
   });
 
   it("pre-selects all packages in fixed mode interactive flow", async () => {
-    mockEnquirerPrompt
-      .mockResolvedValueOnce({
-        packages: ["packages/a::js", "packages/b::js"],
-      })
-      .mockResolvedValueOnce({ bump: "minor" })
-      .mockResolvedValueOnce({ summary: "fixed bump" });
+    mockRunnerPrompt
+      .mockResolvedValueOnce(["packages/a::js", "packages/b::js"])
+      .mockResolvedValueOnce("minor")
+      .mockResolvedValueOnce("fixed bump");
 
     const parent = makeParent();
     registerAddCommand(parent, () =>
@@ -225,11 +221,11 @@ describe("registerAddCommand", () => {
     );
     await parent.parseAsync(["node", "test", "add"]);
 
-    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    const firstCall = mockRunnerPrompt.mock.calls[0][0];
     expect(firstCall.type).toBe("multiselect");
     expect(firstCall.initial).toEqual(["packages/a::js", "packages/b::js"]);
 
-    expect(mockEnquirerPrompt).toHaveBeenCalledTimes(3);
+    expect(mockRunnerPrompt).toHaveBeenCalledTimes(3);
 
     expect(mockWriteChangeset).toHaveBeenCalledWith(
       [
@@ -242,12 +238,14 @@ describe("registerAddCommand", () => {
   });
 
   it("passes initial with all package keys in fixed mode (regression)", async () => {
-    mockEnquirerPrompt
-      .mockResolvedValueOnce({
-        packages: ["packages/a::js", "packages/b::js", "packages/c::js"],
-      })
-      .mockResolvedValueOnce({ bump: "patch" })
-      .mockResolvedValueOnce({ summary: "regression test" });
+    mockRunnerPrompt
+      .mockResolvedValueOnce([
+        "packages/a::js",
+        "packages/b::js",
+        "packages/c::js",
+      ])
+      .mockResolvedValueOnce("patch")
+      .mockResolvedValueOnce("regression test");
 
     const packages = [
       { name: "pkg-a", path: "packages/a", version: "1.0.0" },
@@ -259,7 +257,7 @@ describe("registerAddCommand", () => {
     registerAddCommand(parent, () => makeConfig(packages, "fixed"));
     await parent.parseAsync(["node", "test", "add"]);
 
-    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    const firstCall = mockRunnerPrompt.mock.calls[0][0];
     expect(firstCall.initial).toEqual(packages.map((pkg) => `${pkg.path}::js`));
     expect(firstCall.choices).not.toContainEqual(
       expect.objectContaining({ enabled: true }),
@@ -267,13 +265,11 @@ describe("registerAddCommand", () => {
   });
 
   it("prompts bump per-package in independent mode", async () => {
-    mockEnquirerPrompt
-      .mockResolvedValueOnce({
-        packages: ["packages/a::js", "packages/b::js"],
-      })
-      .mockResolvedValueOnce({ bump: "minor" })
-      .mockResolvedValueOnce({ bump: "patch" })
-      .mockResolvedValueOnce({ summary: "independent bump" });
+    mockRunnerPrompt
+      .mockResolvedValueOnce(["packages/a::js", "packages/b::js"])
+      .mockResolvedValueOnce("minor")
+      .mockResolvedValueOnce("patch")
+      .mockResolvedValueOnce("independent bump");
 
     const parent = makeParent();
     registerAddCommand(parent, () =>
@@ -287,10 +283,10 @@ describe("registerAddCommand", () => {
     );
     await parent.parseAsync(["node", "test", "add"]);
 
-    const firstCall = mockEnquirerPrompt.mock.calls[0][0];
+    const firstCall = mockRunnerPrompt.mock.calls[0][0];
     expect(firstCall.type).toBe("multiselect");
     expect(firstCall.initial).toBeUndefined();
 
-    expect(mockEnquirerPrompt).toHaveBeenCalledTimes(4);
+    expect(mockRunnerPrompt).toHaveBeenCalledTimes(4);
   });
 });

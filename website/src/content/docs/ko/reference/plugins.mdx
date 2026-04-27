@@ -193,7 +193,7 @@ export interface PluginCheck {
 
 ## `PluginTaskContext`
 
-`PluginCheck.task`의 두 번째 인자로 전달되는 listr2 비종속 래퍼입니다.
+`PluginCheck.task`의 두 번째 인자로 전달되는 runner 비종속 래퍼입니다.
 
 ```ts
 export interface PluginTaskContext {
@@ -209,7 +209,7 @@ export interface PluginTaskContext {
 
 - `output` - 작업 목록 UI에서 check 제목 아래에 상태 줄을 표시합니다.
 - `title` - 작업 제목을 동적으로 변경합니다.
-- `prompt()` - enquirer 프롬프트를 실행합니다. 대화형 모드에서만 사용할 수 있습니다.
+- `prompt()` - pubm 대화형 프롬프트를 실행합니다.
 
 ## 예시
 

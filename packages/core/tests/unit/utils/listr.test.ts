@@ -1,85 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TestRenderer } from "@pubm/runner";
+import { describe, expect, it } from "vitest";
+import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
 import { PubmCiRenderer } from "../../../src/utils/listr-ci-renderer.js";
 
-const { mockListrCtor, mockListrInstance } = vi.hoisted(() => {
-  const instance = {
-    isRoot: () => true,
-    externalSignalHandler: undefined as unknown,
-  };
-
-  return {
-    mockListrInstance: instance,
-    mockListrCtor: vi.fn(function () {
-      return instance;
-    }),
-  };
-});
-
-vi.mock("listr2", () => {
-  class MockListrRenderer {}
-
-  return {
-    Listr: mockListrCtor,
-    ListrTaskState: {
-      STARTED: "STARTED",
-      COMPLETED: "COMPLETED",
-    },
-    ListrTaskEventType: {
-      SUBTASK: "SUBTASK",
-      STATE: "STATE",
-      OUTPUT: "OUTPUT",
-      TITLE: "TITLE",
-      MESSAGE: "MESSAGE",
-    },
-    ListrRenderer: MockListrRenderer,
-  };
-});
-
-let createListr: typeof import("../../../src/utils/listr.js").createListr;
-let createCiListrOptions: typeof import("../../../src/utils/listr.js").createCiListrOptions;
-
-beforeEach(async () => {
-  mockListrInstance.isRoot = () => true;
-  mockListrInstance.externalSignalHandler = undefined;
-  mockListrCtor.mockClear();
-
-  vi.resetModules();
-
-  // Re-apply mocks after resetModules since hoisted mocks persist
-  const listrMod = await import("../../../src/utils/listr.js");
-  createListr = listrMod.createListr;
-  createCiListrOptions = listrMod.createCiListrOptions;
-});
-
 describe("createListr", () => {
-  it("returns a Listr instance", () => {
-    const result = createListr([]);
+  it("returns a pubm task runner and runs tasks", async () => {
+    const order: string[] = [];
+    const renderer = new TestRenderer();
+    const runner = createListr(
+      [
+        { title: "first", task: () => order.push("first") },
+        { title: "second", task: () => order.push("second") },
+      ],
+      { renderer },
+    );
 
-    expect(result).toBeDefined();
-    expect(result).toBe(mockListrInstance);
-  });
+    expect(runner.isRoot()).toBe(true);
+    await runner.run({});
 
-  it("overrides isRoot to always return false", () => {
-    const result = createListr([]);
-
-    expect(result.isRoot()).toBe(false);
-  });
-
-  it("passes constructor options through to Listr", () => {
-    const options = createCiListrOptions();
-
-    createListr([], options);
-
-    expect(mockListrCtor).toHaveBeenCalledWith([], options, undefined);
+    expect(order).toEqual(["first", "second"]);
+    expect(renderer.result).toMatchObject({ status: "success" });
   });
 });
 
 describe("createCiListrOptions", () => {
-  it("configures the CI renderer for both primary and fallback renderers", () => {
+  it("configures the pubm CI renderer for primary and fallback output", () => {
     const options = createCiListrOptions();
 
-    expect(options.renderer?.name).toBe(PubmCiRenderer.name);
-    expect(options.fallbackRenderer?.name).toBe(PubmCiRenderer.name);
+    expect(options.renderer).toBe(PubmCiRenderer);
+    expect(options.fallbackRenderer).toBe(PubmCiRenderer);
     expect(options.rendererOptions).toEqual({ logTitleChange: true });
     expect(options.fallbackRendererOptions).toEqual({ logTitleChange: true });
   });

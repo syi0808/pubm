@@ -62,6 +62,7 @@
   "task.info.checking": "필수 정보 확인 중",
   "task.info.checkingVersion": "버전 정보 확인 중",
   "task.info.checkingTag": "태그 정보 확인 중",
+  "task.info.selectVersion": "버전 작업 선택",
   "prompt.version.keepCurrent": "현재 버전 {version} 유지",
   "prompt.version.recommendedMarker": "← changesets 권장",
   "prompt.version.releaseChoice": "{releaseType} {version}{marker}",

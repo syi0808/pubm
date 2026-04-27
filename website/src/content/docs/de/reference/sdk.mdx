@@ -101,7 +101,7 @@ Nutze die Plugin-Exports, wenn du die Publish-Pipeline um benutzerdefinierte Reg
 | `PluginRunner` | class | Hilfsklasse, die Hooks ausführt und Registries/Ecosystems aus geladenen Plugins sammelt. Stellt außerdem `collectCredentials()` und `collectChecks()` bereit, um Credential-Deskriptoren und Preflight-Checks aus allen registrierten Plugins zu sammeln. |
 | `PluginCredential` | type | Deklarativer Deskriptor für ein Token oder Secret, das ein Plugin benötigt. Siehe [Plugin-API-Referenz](/pubm/de/reference/plugins/#plugincredential). |
 | `PluginCheck` | type | Deskriptor für einen Preflight-Check, den ein Plugin beiträgt. Siehe [Plugin-API-Referenz](/pubm/de/reference/plugins/#plugincheck). |
-| `PluginTaskContext` | type | listr2-unabhaengiger Wrapper für `PluginCheck.task`. Stellt `output`, `title` und `prompt()` bereit. |
+| `PluginTaskContext` | type | runner-unabhaengiger Wrapper für `PluginCheck.task`. Stellt `output`, `title` und `prompt()` bereit. |
 | `GhSecretEntry` | type | Ein Eintrag aus den GitHub-Secret-Sync-Helfern: `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | Sammelt `PluginCredential[]` aus allen in der Config registrierten Plugins und löst ihre Werte auf. |
 | `injectPluginTokensToEnv` | function | Schreibt aufgeloeste Plugin-Tokenwerte in `process.env`, damit spaetere Publish-Schritte sie wie normale Umgebungsvariablen lesen können. |

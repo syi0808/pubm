@@ -1,0 +1,38 @@
+{
+  "name": "@pubm/runner",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Task execution, rendering, prompt, and signal primitives for pubm",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "bun run ./build.ts",
+    "check": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "coverage": "vitest --run --coverage"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.2.0"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syi0808/pubm.git",
+    "directory": "packages/runner"
+  }
+}
