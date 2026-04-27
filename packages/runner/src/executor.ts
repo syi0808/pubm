@@ -15,6 +15,7 @@ import { splat } from "./text.js";
 import type {
   ObservableLike,
   PromptOptions,
+  PromptOutputCapture,
   PromptProvider,
   ReadableLike,
   RendererValue,
@@ -285,6 +286,10 @@ export class PubmTaskRunner<Context extends object = object>
   ): Promise<T> {
     return await this.promptCoordinator.run(async () => {
       const priorState = runtimeTask.state;
+      const promptCapture = this.createPromptCapture(runtimeTask, options);
+      const providerOptions = promptCapture
+        ? { ...options, output: promptCapture.output }
+        : options;
       this.emit({
         type: "prompt.started",
         task: runtimeTask.snapshot(),
@@ -292,7 +297,9 @@ export class PubmTaskRunner<Context extends object = object>
       });
       runtimeTask.setState("prompting");
       try {
-        const value = await this.promptProvider.prompt<T>(options);
+        const value = await this.promptProvider.prompt<T>(providerOptions);
+        promptCapture?.close();
+        runtimeTask.promptOutput = undefined;
         runtimeTask.setState(priorState);
         this.emit({
           type: "prompt.completed",
@@ -301,6 +308,8 @@ export class PubmTaskRunner<Context extends object = object>
         });
         return value;
       } catch (error) {
+        promptCapture?.close();
+        runtimeTask.promptOutput = undefined;
         runtimeTask.setState("failed");
         this.emit({
           type: "prompt.failed",
@@ -311,6 +320,14 @@ export class PubmTaskRunner<Context extends object = object>
         throw error;
       }
     });
+  }
+
+  private createPromptCapture(
+    runtimeTask: RuntimeTask<Context>,
+    options: PromptOptions,
+  ): PromptOutputCapture | undefined {
+    if (options.output !== undefined) return undefined;
+    return this.renderer.createPromptOutput?.(runtimeTask.snapshot());
   }
 
   async run(context?: Context): Promise<Context> {

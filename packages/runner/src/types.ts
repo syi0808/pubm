@@ -161,6 +161,20 @@ export interface TaskRunnerOptions<Context extends object = object> {
 export interface TaskRenderer {
   render(events: TaskEventSource): void | Promise<void>;
   end(result?: TaskRunResult | Error): void | Promise<void>;
+  createPromptOutput?(task: RuntimeTaskSnapshot): PromptOutputCapture;
+}
+
+export interface PromptOutputCapture {
+  output: PromptWritable;
+  close(): void;
+}
+
+export interface PromptWritable {
+  readonly columns?: number;
+  readonly isTTY?: boolean;
+  write(chunk: unknown): unknown;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  off(event: string, listener?: (...args: unknown[]) => void): this;
 }
 
 export type TaskRendererFactory = {

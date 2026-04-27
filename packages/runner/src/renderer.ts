@@ -6,6 +6,8 @@ import {
   wrapTerminalLine,
 } from "./text.js";
 import type {
+  PromptOutputCapture,
+  PromptWritable,
   RuntimeTaskSnapshot,
   TaskEvent,
   TaskEventSource,
@@ -250,11 +252,11 @@ export class DefaultRenderer implements TaskRenderer {
   private readonly parents = new Map<string, string>();
   private readonly order = new Map<string, number>();
   private readonly outputBuffers = new Map<string, string[]>();
+  private readonly promptBuffers = new Map<string, string[]>();
   private renderedLines = 0;
   private spinnerIndex = 0;
   private nextOrder = 0;
   private timer?: ReturnType<typeof setInterval>;
-  private paused = false;
 
   constructor(options: CiRendererOptions = {}) {
     this.output = {
@@ -286,7 +288,7 @@ export class DefaultRenderer implements TaskRenderer {
     if (this.lazy) return;
 
     this.timer = setInterval(() => {
-      if (!this.paused && this.hasActiveTasks()) {
+      if (this.hasActiveTasks()) {
         this.spinnerIndex += 1;
         this.redraw();
       }
@@ -304,26 +306,39 @@ export class DefaultRenderer implements TaskRenderer {
     this.output.write("\u001b[?25h");
   }
 
+  createPromptOutput(task: RuntimeTaskSnapshot): PromptOutputCapture {
+    const output = new PromptFrameOutput(
+      () => this.terminalColumns(),
+      (lines) => {
+        if (lines.length > 0) {
+          this.promptBuffers.set(task.id, lines);
+        } else {
+          this.promptBuffers.delete(task.id);
+        }
+        this.redraw();
+      },
+    );
+
+    return {
+      output,
+      close: () => {
+        this.promptBuffers.delete(task.id);
+        this.redraw();
+      },
+    };
+  }
+
   private handle(event: TaskEvent): void {
     if (event.task) this.upsert(event.task);
     if (event.type === "task.output" && event.task && event.output) {
       this.pushOutput(event.task.id, event.output);
     }
 
-    if (event.type === "prompt.started") {
-      this.paused = true;
-      this.clearFrame();
-      this.writeStaticFrame(this.frameLines());
-      this.output.write("\u001b[?25h");
-      return;
-    }
-
     if (event.type === "prompt.completed" || event.type === "prompt.failed") {
       if (event.task && !this.persistentOutput) {
         this.outputBuffers.delete(event.task.id);
       }
-      this.paused = false;
-      this.output.write("\u001b[?25l");
+      if (event.task) this.promptBuffers.delete(event.task.id);
       this.redraw();
       return;
     }
@@ -341,9 +356,10 @@ export class DefaultRenderer implements TaskRenderer {
 
     if (event.task && isFinalized(event.task.state) && !this.persistentOutput) {
       this.outputBuffers.delete(event.task.id);
+      this.promptBuffers.delete(event.task.id);
     }
 
-    if (!this.paused) this.redraw();
+    this.redraw();
   }
 
   private upsert(task: RuntimeTaskSnapshot): void {
@@ -385,12 +401,6 @@ export class DefaultRenderer implements TaskRenderer {
     this.renderedLines = formattedLines.length;
   }
 
-  private writeStaticFrame(lines: string[]): void {
-    const formattedLines = this.formatFrameLines(lines);
-    if (formattedLines.length === 0) return;
-    this.output.write(`${formattedLines.join("\n")}\n`);
-  }
-
   private formatFrameLines(lines: string[]): string[] {
     const columns = this.terminalColumns();
     if (!columns) return lines;
@@ -408,7 +418,16 @@ export class DefaultRenderer implements TaskRenderer {
     for (const root of this.rootTasks()) {
       this.addTaskLines(lines, root, 0);
     }
+    const promptLines = this.promptLines();
+    if (promptLines.length > 0) {
+      if (lines.length > 0) lines.push("");
+      lines.push(...promptLines);
+    }
     return lines;
+  }
+
+  private promptLines(): string[] {
+    return [...this.promptBuffers.values()].flat();
   }
 
   private rootTasks(): RuntimeTaskSnapshot[] {
@@ -537,6 +556,212 @@ export class TestRenderer implements TaskRenderer {
   }
 }
 
+type PromptOutputListener = (...args: unknown[]) => void;
+
+class PromptFrameOutput implements PromptWritable {
+  readonly isTTY = true;
+
+  private readonly listeners = new Map<string, Set<PromptOutputListener>>();
+  private rows: string[] = [""];
+  private row = 0;
+  private column = 0;
+
+  constructor(
+    private readonly terminalColumns: () => number | undefined,
+    private readonly onFrame: (lines: string[]) => void,
+  ) {}
+
+  get columns(): number {
+    return this.terminalColumns() ?? 80;
+  }
+
+  write(chunk: unknown): boolean {
+    this.consume(String(chunk));
+    this.onFrame(this.lines());
+    return true;
+  }
+
+  on(event: string, listener: PromptOutputListener): this {
+    const listeners =
+      this.listeners.get(event) ?? new Set<PromptOutputListener>();
+    listeners.add(listener);
+    this.listeners.set(event, listeners);
+    return this;
+  }
+
+  off(event: string, listener?: PromptOutputListener): this {
+    if (!listener) {
+      this.listeners.delete(event);
+      return this;
+    }
+
+    this.listeners.get(event)?.delete(listener);
+    return this;
+  }
+
+  private consume(value: string): void {
+    for (let index = 0; index < value.length; index += 1) {
+      const char = value[index] ?? "";
+      if (char === "\u001b") {
+        index = this.consumeEscape(value, index);
+        continue;
+      }
+      if (char === "\r") {
+        this.column = 0;
+        continue;
+      }
+      if (char === "\n") {
+        this.row += 1;
+        this.column = 0;
+        this.ensureRow();
+        continue;
+      }
+      if (char === "\u0007") continue;
+
+      this.writeVisible(char);
+    }
+  }
+
+  private consumeEscape(value: string, index: number): number {
+    const marker = value[index + 1];
+    if (marker === "[") {
+      return this.consumeCsi(value, index);
+    }
+    if (marker === "]") {
+      return this.consumeOsc(value, index);
+    }
+    return Math.min(index + 1, value.length - 1);
+  }
+
+  private consumeCsi(value: string, index: number): number {
+    let cursor = index + 2;
+    while (cursor < value.length) {
+      const char = value[cursor] ?? "";
+      const code = char.charCodeAt(0);
+      if (code >= 0x40 && code <= 0x7e) {
+        this.applyCsi(value.slice(index + 2, cursor), char);
+        return cursor;
+      }
+      cursor += 1;
+    }
+    return value.length - 1;
+  }
+
+  private consumeOsc(value: string, index: number): number {
+    let cursor = index + 2;
+    while (cursor < value.length) {
+      const char = value[cursor] ?? "";
+      if (char === "\u0007") return cursor;
+      if (char === "\\" && value[cursor - 1] === "\u001b") return cursor;
+      cursor += 1;
+    }
+    return value.length - 1;
+  }
+
+  private applyCsi(params: string, command: string): void {
+    const values = csiParams(params);
+    const first = values[0] ?? 0;
+
+    if (command === "A") this.moveRow(-(first || 1));
+    if (command === "B") this.moveRow(first || 1);
+    if (command === "C") this.moveColumn(first || 1);
+    if (command === "D") this.moveColumn(-(first || 1));
+    if (command === "E") {
+      this.moveRow(first || 1);
+      this.column = 0;
+    }
+    if (command === "F") {
+      this.moveRow(-(first || 1));
+      this.column = 0;
+    }
+    if (command === "G") this.column = Math.max((first || 1) - 1, 0);
+    if (command === "H" || command === "f") {
+      this.row = Math.max((values[0] || 1) - 1, 0);
+      this.column = Math.max((values[1] || 1) - 1, 0);
+      this.ensureRow();
+    }
+    if (command === "J") this.eraseScreen(first);
+    if (command === "K") this.eraseLine(first);
+  }
+
+  private moveRow(delta: number): void {
+    this.row = Math.max(this.row + delta, 0);
+    this.ensureRow();
+  }
+
+  private moveColumn(delta: number): void {
+    this.column = Math.max(this.column + delta, 0);
+  }
+
+  private eraseScreen(mode: number): void {
+    if (mode === 2) {
+      this.rows = [""];
+      this.row = 0;
+      this.column = 0;
+      return;
+    }
+
+    if (mode === 1) {
+      const current = this.currentLine().slice(this.column);
+      this.rows = [current, ...this.rows.slice(this.row + 1)];
+      this.row = 0;
+      this.column = 0;
+      return;
+    }
+
+    this.rows[this.row] = this.currentLine().slice(0, this.column);
+    this.rows.splice(this.row + 1);
+  }
+
+  private eraseLine(mode: number): void {
+    const current = this.currentLine();
+    if (mode === 2) {
+      this.rows[this.row] = "";
+      this.column = 0;
+      return;
+    }
+    if (mode === 1) {
+      this.rows[this.row] =
+        " ".repeat(Math.min(this.column, current.length)) +
+        current.slice(this.column);
+      return;
+    }
+    this.rows[this.row] = current.slice(0, this.column);
+  }
+
+  private writeVisible(char: string): void {
+    this.ensureRow();
+    const current = this.currentLine();
+    const padded =
+      current.length < this.column
+        ? `${current}${" ".repeat(this.column - current.length)}`
+        : current;
+    this.rows[this.row] =
+      padded.slice(0, this.column) + char + padded.slice(this.column + 1);
+    this.column += 1;
+  }
+
+  private ensureRow(): void {
+    while (this.rows.length <= this.row) this.rows.push("");
+  }
+
+  private currentLine(): string {
+    this.ensureRow();
+    return this.rows[this.row] ?? "";
+  }
+
+  private lines(): string[] {
+    const lines = [...this.rows];
+    while (
+      lines.length > 0 &&
+      normalizeTerminalText(lines[lines.length - 1] ?? "") === ""
+    ) {
+      lines.pop();
+    }
+    return lines;
+  }
+}
+
 type StyledLevel =
   | "pending"
   | "completed"
@@ -647,6 +872,14 @@ function outputLimit(value: boolean | number): number {
   if (value === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
   if (Number.isFinite(value)) return Math.max(0, Math.floor(value));
   return 1;
+}
+
+function csiParams(params: string): number[] {
+  const normalized = params.replace(/^[?>=]*/, "");
+  if (!normalized) return [];
+  return normalized
+    .split(";")
+    .map((value) => Number.parseInt(value || "0", 10));
 }
 
 function baseLabel(task: RuntimeTaskSnapshot): string {

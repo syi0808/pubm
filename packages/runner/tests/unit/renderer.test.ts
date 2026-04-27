@@ -138,49 +138,58 @@ describe("CiRenderer", () => {
 
 describe("SimpleRenderer", () => {
   it("prints stable simple-renderer symbols, indentation, and failure stream output", () => {
+    const previousForceUnicode = process.env.FORCE_UNICODE;
     process.env.FORCE_UNICODE = "1";
-    const logs: string[] = [];
-    const errors: string[] = [];
-    const source = new EventSource();
-    const renderer = new SimpleRenderer({
-      output: {
-        log: (line) => logs.push(line),
-        error: (line) => errors.push(line),
-      },
-      useColor: false,
-    });
-    const task = taskSnapshot();
+    try {
+      const logs: string[] = [];
+      const errors: string[] = [];
+      const source = new EventSource();
+      const renderer = new SimpleRenderer({
+        output: {
+          log: (line) => logs.push(line),
+          error: (line) => errors.push(line),
+        },
+        useColor: false,
+      });
+      const task = taskSnapshot();
 
-    renderer.render(source);
-    source.emit({ type: "task.started", task });
-    source.emit({ type: "task.completed", task });
-    source.emit({ type: "task.output", output: "line one\nline two", task });
-    source.emit({
-      type: "task.retrying",
-      task: taskSnapshot({ message: { retry: { count: 2 } } }),
-    });
-    source.emit({ type: "task.rolling-back", task });
-    source.emit({
-      type: "task.rolled-back",
-      task: taskSnapshot({ message: { rollback: "Restored files" } }),
-    });
-    source.emit({
-      type: "task.skipped",
-      task: taskSnapshot({ message: { skip: "Already done" } }),
-    });
-    source.emit({ type: "task.failed", task });
+      renderer.render(source);
+      source.emit({ type: "task.started", task });
+      source.emit({ type: "task.completed", task });
+      source.emit({ type: "task.output", output: "line one\nline two", task });
+      source.emit({
+        type: "task.retrying",
+        task: taskSnapshot({ message: { retry: { count: 2 } } }),
+      });
+      source.emit({ type: "task.rolling-back", task });
+      source.emit({
+        type: "task.rolled-back",
+        task: taskSnapshot({ message: { rollback: "Restored files" } }),
+      });
+      source.emit({
+        type: "task.skipped",
+        task: taskSnapshot({ message: { skip: "Already done" } }),
+      });
+      source.emit({ type: "task.failed", task });
 
-    expect(logs).toEqual([
-      "  ❯ Release > Build",
-      "  ✔ Release > Build",
-      "    › line one",
-      "    › line two",
-      "  ⚠ Release > Build (attempt 2)",
-      "  ⚠ Release > Build",
-      "  ← Release > Build: Restored files",
-      "  ↓ Release > Build: Already done",
-    ]);
-    expect(errors).toEqual(["  ✖ Release > Build"]);
+      expect(logs).toEqual([
+        "  ❯ Release > Build",
+        "  ✔ Release > Build",
+        "    › line one",
+        "    › line two",
+        "  ⚠ Release > Build (attempt 2)",
+        "  ⚠ Release > Build",
+        "  ← Release > Build: Restored files",
+        "  ↓ Release > Build: Already done",
+      ]);
+      expect(errors).toEqual(["  ✖ Release > Build"]);
+    } finally {
+      if (previousForceUnicode === undefined) {
+        delete process.env.FORCE_UNICODE;
+      } else {
+        process.env.FORCE_UNICODE = previousForceUnicode;
+      }
+    }
   });
 
   it("ignores empty normalized output and handles root fallback labels and null suffixes", () => {
@@ -334,7 +343,7 @@ describe("DefaultRenderer", () => {
     );
   });
 
-  it("flushes active output before prompt ownership and clears it after prompt completion", () => {
+  it("renders prompt output in the live frame and clears transient output after completion", () => {
     vi.useFakeTimers();
 
     try {
@@ -347,6 +356,13 @@ describe("DefaultRenderer", () => {
         spinnerInterval: 10,
         useColor: false,
       });
+      const promptTask = taskSnapshot({
+        title: "Checking version information",
+        initialTitle: "Checking version information",
+        path: ["Checking required information", "Checking version information"],
+        state: "running",
+      });
+      const promptCapture = renderer.createPromptOutput(promptTask);
 
       renderer.render(source);
       source.emit({
@@ -377,24 +393,22 @@ describe("DefaultRenderer", () => {
 
       source.emit({
         type: "prompt.started",
-        task: taskSnapshot({
-          title: "Checking version information",
-          initialTitle: "Checking version information",
-          path: [
-            "Checking required information",
-            "Checking version information",
-          ],
-          state: "running",
-        }),
+        task: promptTask,
         prompt: { type: "select", message: "Enter npm access token" },
       });
-      const promptPrelude = chunks.join("");
-      const afterPromptStarted = chunks.length;
+      promptCapture.output.write("◆  Select version\n│  Recommended: patch");
+      const promptFrame = lastChunkContaining(
+        chunks,
+        "Select version",
+        "Version Recommendations",
+      );
+      const afterPromptFrame = chunks.length;
       vi.advanceTimersByTime(50);
 
-      expect(promptPrelude).toContain("Checking version information");
-      expect(promptPrelude).toContain("  › Version Recommendations");
-      expect(chunks.length).toBe(afterPromptStarted);
+      expect(promptFrame).toContain("Checking version information");
+      expect(promptFrame).toContain("  › Version Recommendations");
+      expect(promptFrame).toContain("◆  Select version");
+      expect(chunks.length).toBeGreaterThan(afterPromptFrame);
 
       source.emit({
         type: "prompt.completed",
@@ -409,6 +423,7 @@ describe("DefaultRenderer", () => {
         }),
         prompt: { type: "select", message: "Enter npm access token" },
       });
+      promptCapture.close();
       source.emit({
         type: "task.completed",
         task: taskSnapshot({
@@ -426,6 +441,9 @@ describe("DefaultRenderer", () => {
       expect(
         lastChunkContaining(chunks, "✔ Checking version information"),
       ).not.toContain("Version Recommendations");
+      expect(
+        lastChunkContaining(chunks, "✔ Checking version information"),
+      ).not.toContain("Select version");
     } finally {
       vi.useRealTimers();
     }
@@ -650,7 +668,7 @@ describe("DefaultRenderer", () => {
     }
   });
 
-  it("pauses live redraws while prompts own the terminal", () => {
+  it("continues live redraws while prompts are active", () => {
     vi.useFakeTimers();
 
     try {
@@ -663,6 +681,13 @@ describe("DefaultRenderer", () => {
         spinnerInterval: 10,
         useColor: false,
       });
+      const promptTask = taskSnapshot({
+        title: "Prompt",
+        initialTitle: "Prompt",
+        path: ["Prompt"],
+        state: "prompting",
+      });
+      const promptCapture = renderer.createPromptOutput(promptTask);
 
       renderer.render(source);
       source.emit({
@@ -677,17 +702,14 @@ describe("DefaultRenderer", () => {
       const beforePrompt = chunks.length;
       source.emit({
         type: "prompt.started",
-        task: taskSnapshot({
-          title: "Prompt",
-          initialTitle: "Prompt",
-          path: ["Prompt"],
-          state: "prompting",
-        }),
+        task: promptTask,
         prompt: { type: "text", message: "Name" },
       });
+      promptCapture.output.write("◇  Name\n│  pubm");
       const afterPromptStarted = chunks.length;
       vi.advanceTimersByTime(50);
-      expect(chunks.length).toBe(afterPromptStarted);
+      expect(chunks.length).toBeGreaterThan(afterPromptStarted);
+      expect(chunks.join("")).toContain("◇  Name");
       source.emit({
         type: "prompt.completed",
         task: taskSnapshot({
@@ -698,6 +720,7 @@ describe("DefaultRenderer", () => {
         }),
         prompt: { type: "text", message: "Name" },
       });
+      promptCapture.close();
       vi.advanceTimersByTime(10);
       renderer.end();
 
@@ -707,6 +730,35 @@ describe("DefaultRenderer", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("applies prompt clear controls so stale prompt frames do not accumulate", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("Old prompt\nold option");
+    promptCapture.output.write("\u001b[1A\r\u001b[JNew prompt\nnew option");
+    renderer.end();
+
+    const latestPromptFrame = lastChunkContaining(chunks, "New prompt");
+    expect(latestPromptFrame).toContain("new option");
+    expect(latestPromptFrame).not.toContain("Old prompt");
+    expect(latestPromptFrame).not.toContain("old option");
   });
 
   it("renders nested task states, suffixes, and child output", () => {

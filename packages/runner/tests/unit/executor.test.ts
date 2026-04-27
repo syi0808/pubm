@@ -4,8 +4,11 @@ import { createCiRunnerOptions, createTaskRunner } from "../../src/executor.js";
 import type {
   ObservableLike,
   PromptOptions,
+  PromptOutputCapture,
   PromptProvider,
+  PromptWritable,
   ReadableLike,
+  RuntimeTaskSnapshot,
   SignalController,
   Task,
   TaskContext,
@@ -40,6 +43,34 @@ class RecordingRenderer implements TaskRenderer {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
+}
+
+class FakePromptOutput implements PromptWritable {
+  readonly columns = 80;
+  readonly isTTY = true;
+  readonly write = vi.fn(() => true);
+
+  on(): this {
+    return this;
+  }
+
+  off(): this {
+    return this;
+  }
+}
+
+class PromptCapturingRenderer extends RecordingRenderer {
+  readonly captures: PromptOutputCapture[] = [];
+  readonly createPromptOutput = vi.fn(
+    (_task: RuntimeTaskSnapshot): PromptOutputCapture => {
+      const capture = {
+        output: new FakePromptOutput(),
+        close: vi.fn(),
+      };
+      this.captures.push(capture);
+      return capture;
+    },
+  );
 }
 
 class RecordingSignalController implements SignalController {
@@ -495,6 +526,75 @@ describe("PubmTaskRunner execution", () => {
         .filter((event) => event.type.startsWith("prompt."))
         .map((event) => event.type),
     ).toEqual(["prompt.started", "prompt.completed"]);
+  });
+
+  it("injects renderer prompt output capture without exposing it in lifecycle events", async () => {
+    const renderer = new PromptCapturingRenderer();
+    const provider = new RecordingPromptProvider();
+    provider.prompt.mockResolvedValueOnce("pubm");
+
+    await createTaskRunner(
+      {
+        title: "ask",
+        task: async (_context, task) => {
+          await task.prompt().run({ type: "text", message: "Name" });
+        },
+      },
+      { promptProvider: provider, renderer, registerSignalListeners: false },
+    ).run({});
+
+    expect(renderer.createPromptOutput).toHaveBeenCalledOnce();
+    expect(provider.prompt).toHaveBeenCalledWith(
+      expect.objectContaining({ output: renderer.captures[0]?.output }),
+    );
+    expect(renderer.captures[0]?.close).toHaveBeenCalledOnce();
+    expect(
+      renderer.events
+        .filter((event) => event.type.startsWith("prompt."))
+        .map((event) => event.prompt?.output),
+    ).toEqual([undefined, undefined]);
+  });
+
+  it("respects explicit prompt output and skips renderer prompt capture", async () => {
+    const renderer = new PromptCapturingRenderer();
+    const provider = new RecordingPromptProvider();
+    const output = new FakePromptOutput();
+    provider.prompt.mockResolvedValueOnce("pubm");
+
+    await createTaskRunner(
+      {
+        title: "ask",
+        task: async (_context, task) => {
+          await task.prompt().run({ type: "text", message: "Name", output });
+        },
+      },
+      { promptProvider: provider, renderer, registerSignalListeners: false },
+    ).run({});
+
+    expect(renderer.createPromptOutput).not.toHaveBeenCalled();
+    expect(provider.prompt).toHaveBeenCalledWith(
+      expect.objectContaining({ output }),
+    );
+  });
+
+  it("leaves prompt output untouched for renderers without prompt capture", async () => {
+    const renderer = new RecordingRenderer();
+    const provider = new RecordingPromptProvider();
+    provider.prompt.mockResolvedValueOnce("pubm");
+
+    await createTaskRunner(
+      {
+        title: "ask",
+        task: async (_context, task) => {
+          await task.prompt().run({ type: "text", message: "Name" });
+        },
+      },
+      { promptProvider: provider, renderer, registerSignalListeners: false },
+    ).run({});
+
+    expect(provider.prompt).toHaveBeenCalledWith(
+      expect.not.objectContaining({ output: expect.anything() }),
+    );
   });
 
   it("emits queued prompt lifecycle only after acquiring the shared prompt coordinator", async () => {

@@ -61,6 +61,16 @@ describe("terminal text helpers", () => {
   it("selects unicode and fallback figures for common terminal environments", () => {
     resetEnv();
     setPlatform("win32");
+    for (const key of [
+      "FORCE_UNICODE",
+      "LISTR_FORCE_UNICODE",
+      "CI",
+      "WT_SESSION",
+      "TERM_PROGRAM",
+      "TERM",
+    ] as const) {
+      delete process.env[key];
+    }
 
     expect(isUnicodeSupported()).toBe(false);
     expect(terminalFigures()).toBe(figures.fallback);
