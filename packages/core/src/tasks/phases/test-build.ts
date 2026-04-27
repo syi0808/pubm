@@ -89,8 +89,8 @@ function groupByEcosystem(
 
   for (const pkg of ctx.config.packages) {
     const key = pkg.ecosystem ?? "js";
-    if (!map.has(key)) map.set(key, { group: [], individual: [] });
-    const entry = map.get(key)!;
+    const entry = map.get(key) ?? { group: [], individual: [] };
+    map.set(key, entry);
     if (hasPackageLevelOverride(pkg, type)) {
       entry.individual.push(pkg);
     } else {

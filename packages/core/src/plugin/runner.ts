@@ -23,11 +23,21 @@ export class PluginRunner {
     for (const plugin of plugins) {
       for (const def of plugin.registries ?? []) {
         const { createPublishTask, createDryRunTask, ...rest } = def;
+        const taskFactory = createPublishTask
+          ? {
+              createPublishTask,
+              createDryRunTask:
+                createDryRunTask ??
+                ((packagePath: string) => {
+                  throw new Error(
+                    `Plugin registry "${def.key}" cannot dry-run publish "${packagePath}" because createDryRunTask is not defined`,
+                  );
+                }),
+            }
+          : undefined;
         registryCatalog.register({
           ...rest,
-          taskFactory: createPublishTask
-            ? { createPublishTask, createDryRunTask: createDryRunTask! }
-            : undefined,
+          taskFactory,
         });
       }
       for (const desc of plugin.ecosystems ?? []) {

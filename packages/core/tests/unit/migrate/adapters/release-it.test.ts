@@ -80,8 +80,8 @@ describe("releaseItAdapter.parse()", () => {
   it("parses full JSON config with git/npm/github/hooks/plugins", async () => {
     const config = {
       git: {
-        commitMessage: "chore: release v${version}",
-        tagName: "v${version}",
+        commitMessage: `chore: release v\${version}`,
+        tagName: `v\${version}`,
         requireBranch: "main",
         requireCleanWorkingDir: true,
       },
@@ -120,8 +120,8 @@ describe("releaseItAdapter.parse()", () => {
     );
 
     expect(result.source).toBe("release-it");
-    expect(result.git?.commitMessage).toBe("chore: release v${version}");
-    expect(result.git?.tagFormat).toBe("v${version}");
+    expect(result.git?.commitMessage).toBe(`chore: release v\${version}`);
+    expect(result.git?.tagFormat).toBe(`v\${version}`);
     expect(result.git?.branch).toBe("main");
     expect(result.git?.requireCleanWorkdir).toBe(true);
     expect(result.npm?.publish).toBe(true);
@@ -205,7 +205,7 @@ describe("releaseItAdapter.parse()", () => {
   });
 
   it("handles requireBranch: false → no branch set", async () => {
-    const config = { git: { requireBranch: false, tagName: "v${version}" } };
+    const config = { git: { requireBranch: false, tagName: `v\${version}` } };
 
     mockedReadFileSync.mockImplementation((p) => {
       if (p === path.join(CWD, ".release-it.json")) {
@@ -220,7 +220,7 @@ describe("releaseItAdapter.parse()", () => {
     );
 
     expect(result.git?.branch).toBeUndefined();
-    expect(result.git?.tagFormat).toBe("v${version}");
+    expect(result.git?.tagFormat).toBe(`v\${version}`);
   });
 
   it("extracts @release-it/conventional-changelog plugin → changelog fields", async () => {
@@ -391,7 +391,7 @@ npm:
     );
 
     expect(result.source).toBe("release-it");
-    expect(result.git?.tagFormat).toBe("v${version}");
+    expect(result.git?.tagFormat).toBe(`v\${version}`);
     expect(result.git?.branch).toBe("main");
     expect(result.npm?.publish).toBe(true);
     expect(result.npm?.tag).toBe("beta");

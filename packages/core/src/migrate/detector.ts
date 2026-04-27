@@ -9,6 +9,12 @@ export interface DetectedSource {
   result: DetectResult;
 }
 
+function isDetectedSource(
+  result: DetectedSource | undefined,
+): result is DetectedSource {
+  return result?.result.found === true;
+}
+
 export async function detectMigrationSources(
   cwd: string,
   adapters: MigrationSource[],
@@ -26,7 +32,5 @@ export async function detectMigrationSources(
     }),
   );
 
-  return results.filter(
-    (r): r is DetectedSource => r != null && r.result.found,
-  );
+  return results.filter(isDetectedSource);
 }

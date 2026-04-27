@@ -876,9 +876,7 @@ describe("DefaultRenderer", () => {
     renderer.render(source);
     source.emit({ type: "task.started", task: promptTask });
     promptCapture.output.write("abcd\nwxyz");
-    promptCapture.output.write(
-      "\u001b[1A!\u001b[1B?\u001b[1Dq\u001b[1Eend",
-    );
+    promptCapture.output.write("\u001b[1A!\u001b[1B?\u001b[1Dq\u001b[1Eend");
     promptCapture.output.write("\u001b[1Frow\u001b[3Gro");
     promptCapture.output.write("\u001b[1;2Hh\u001b[2;1ff");
     promptCapture.output.write("\u001b[Jj");

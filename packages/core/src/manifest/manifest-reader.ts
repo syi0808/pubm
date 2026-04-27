@@ -123,7 +123,17 @@ export class ManifestReader<
     }
 
     if (!this.schema.validate || manifests.size <= 1) {
-      const resolved = manifests.values().next().value!;
+      const firstManifest = manifests.values().next();
+      if (firstManifest.done) {
+        return {
+          resolved: { name: "", version: "", private: false, dependencies: [] },
+          errors: [
+            `No manifest file found in ${packagePath} (looked for: ${this.files.join(", ")})`,
+          ],
+          warnings: [],
+        };
+      }
+      const resolved = firstManifest.value;
       return { resolved, errors: [], warnings: [] };
     }
 

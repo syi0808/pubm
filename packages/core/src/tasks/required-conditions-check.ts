@@ -152,8 +152,9 @@ export const requiredConditionsCheckTask = (
               const byEcosystem = new Map<string, ResolvedPackageConfig[]>();
               for (const pkg of ctx.config.packages) {
                 const key = pkg.ecosystem;
-                if (!byEcosystem.has(key)) byEcosystem.set(key, []);
-                byEcosystem.get(key)!.push(pkg);
+                const packages = byEcosystem.get(key) ?? [];
+                packages.push(pkg);
+                byEcosystem.set(key, packages);
               }
 
               for (const [ecosystemKey, packages] of byEcosystem) {

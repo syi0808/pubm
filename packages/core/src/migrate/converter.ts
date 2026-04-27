@@ -1,6 +1,6 @@
 import type { ConvertResult, ParsedMigrationConfig } from "./types.js";
 
-const DEFAULT_TAG_FORMAT = "v${version}";
+const DEFAULT_TAG_FORMAT = `v\${version}`;
 
 export function convertToPublishConfig(
   parsed: ParsedMigrationConfig,

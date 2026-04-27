@@ -1,14 +1,19 @@
-import { inspect, stripVTControlCharacters } from "node:util";
 import * as nodeUtil from "node:util";
+import { inspect, stripVTControlCharacters } from "node:util";
 
+const ESC = "\\u001B";
 const BEL = "\\u0007";
 
 const styleTerminalText =
   typeof nodeUtil.styleText === "function"
     ? nodeUtil.styleText
     : (_name: string, value: string) => value;
-const OSC8_PATTERN =
-  /\u001B]8;[^;\u0007]*(?:;[^\u0007\u001B]*)?(?:\u0007|\u001B\\)(.*?)\u001B]8;[^;\u0007]*(?:;[^\u0007\u001B]*)?(?:\u0007|\u001B\\)/g;
+const OSC8_PARAMS = `[^;${BEL}]*(?:;[^${BEL}${ESC}]*)?`;
+const OSC8_TERMINATOR = `(?:${BEL}|${ESC}\\\\)`;
+const OSC8_PATTERN = new RegExp(
+  `${ESC}\\]8;${OSC8_PARAMS}${OSC8_TERMINATOR}(.*?)${ESC}\\]8;${OSC8_PARAMS}${OSC8_TERMINATOR}`,
+  "g",
+);
 const BELL_PATTERN = new RegExp(BEL, "gim");
 
 export const figures = {
@@ -95,9 +100,7 @@ export function wrapTerminalLine(value: string, columns: number): string[] {
 
     const codePoint = value.codePointAt(index);
     const char =
-      codePoint === undefined
-        ? value[index]
-        : String.fromCodePoint(codePoint);
+      codePoint === undefined ? value[index] : String.fromCodePoint(codePoint);
     if (!char) break;
 
     current += char;
@@ -172,9 +175,7 @@ function hasVisibleText(value: string, index: number): boolean {
 
     const codePoint = value.codePointAt(cursor);
     const char =
-      codePoint === undefined
-        ? value[cursor]
-        : String.fromCodePoint(codePoint);
+      codePoint === undefined ? value[cursor] : String.fromCodePoint(codePoint);
     if (!char) return false;
     if (stripTerminalControls(char).length > 0) return true;
     cursor += char.length;
