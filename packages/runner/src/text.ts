@@ -127,7 +127,22 @@ function terminalControlEnd(value: string, index: number): number | undefined {
   const marker = value[index + 1];
   if (marker === "[") return csiEnd(value, index + 2);
   if (marker === "]") return oscEnd(value, index + 2);
-  return Math.min(index + 2, value.length);
+  return escapeEnd(value, index + 1);
+}
+
+function escapeEnd(value: string, index: number): number {
+  let cursor = index;
+  while (cursor < value.length) {
+    const code = value.charCodeAt(cursor);
+    if (code < 0x20 || code > 0x2f) break;
+    cursor += 1;
+  }
+
+  if (cursor >= value.length) return value.length;
+
+  const finalCode = value.charCodeAt(cursor);
+  if (finalCode >= 0x30 && finalCode <= 0x7e) return cursor + 1;
+  return cursor;
 }
 
 function csiEnd(value: string, index: number): number {

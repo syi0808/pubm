@@ -159,5 +159,11 @@ describe("terminal text helpers", () => {
     const wrappedUnknownEscape = wrapTerminalLine("\u001bxabcdef", 3);
     expect(wrappedUnknownEscape).toHaveLength(2);
     expect(wrappedUnknownEscape.join("")).toBe("\u001bxabcdef");
+    const wrappedCharsetEscape = wrapTerminalLine("\u001b(Babcdef", 3);
+    expect(wrappedCharsetEscape.join("")).toBe("\u001b(Babcdef");
+    expect(wrappedCharsetEscape.map(normalizeTerminalText)).toEqual([
+      "abc",
+      "def",
+    ]);
   });
 });
