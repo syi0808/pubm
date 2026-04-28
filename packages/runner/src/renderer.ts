@@ -33,6 +33,7 @@ export interface CiRendererOptions {
   removeEmptyLines?: boolean;
   lazy?: boolean;
   columns?: number;
+  rows?: number;
 }
 
 export class SilentRenderer implements TaskRenderer {
@@ -246,6 +247,7 @@ export class DefaultRenderer implements TaskRenderer {
   private readonly removeEmptyLines: boolean;
   private readonly lazy: boolean;
   private readonly columns?: number;
+  private readonly rows?: number;
   private readonly frames = terminalSpinnerFrames();
   private readonly tasks = new Map<string, RuntimeTaskSnapshot>();
   private readonly children = new Map<string, Set<string>>();
@@ -259,16 +261,23 @@ export class DefaultRenderer implements TaskRenderer {
     process.stdout,
   ]);
   private readonly handleTerminalResize = (): void => {
+    const hasPromptOutputs = this.promptOutputs.size > 0;
     for (const output of this.promptOutputs) {
       output.emitResize();
     }
-    this.redraw();
+    if (hasPromptOutputs) {
+      this.scheduleRedraw();
+    } else {
+      this.redraw();
+    }
   };
   private renderedLines = 0;
   private renderedFrameLines: string[] = [];
   private renderedColumns?: number;
   private spinnerIndex = 0;
   private nextOrder = 0;
+  private renderActive = false;
+  private redrawScheduled = false;
   private timer?: ReturnType<typeof setInterval>;
 
   constructor(options: CiRendererOptions = {}) {
@@ -291,9 +300,11 @@ export class DefaultRenderer implements TaskRenderer {
     this.removeEmptyLines = options.removeEmptyLines !== false;
     this.lazy = options.lazy === true;
     this.columns = options.columns;
+    this.rows = options.rows;
   }
 
   render(events: TaskEventSource): void {
+    this.renderActive = true;
     this.output.write("\u001b[?25l");
     this.unsubscribe = events.subscribe((event) => {
       this.handle(event);
@@ -317,20 +328,22 @@ export class DefaultRenderer implements TaskRenderer {
     this.timer = undefined;
     this.unbindResizeListeners();
     this.clearFrame();
-    if (!this.clearOutput) this.writeFrame(this.frameLines());
+    if (!this.clearOutput) this.writeFrame(this.frameLines(), true);
     this.output.write("\u001b[?25h");
+    this.renderActive = false;
   }
 
   createPromptOutput(task: RuntimeTaskSnapshot): PromptOutputCapture {
     const output = new PromptFrameOutput(
       () => this.terminalColumns(),
+      () => this.terminalRows(),
       (lines) => {
         if (lines.length > 0) {
           this.promptBuffers.set(task.id, lines);
         } else {
           this.promptBuffers.delete(task.id);
         }
-        this.redraw();
+        this.scheduleRedraw();
       },
     );
     this.promptOutputs.add(output);
@@ -401,11 +414,28 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   private redraw(): void {
-    this.clearFrame();
-    this.writeFrame(this.frameLines());
+    const clearChunk = this.clearFrameChunk();
+    const frameChunk = this.writeFrameChunk(this.frameLines());
+    if (clearChunk || frameChunk) {
+      this.output.write(`${clearChunk}${frameChunk}`);
+    }
+  }
+
+  private scheduleRedraw(): void {
+    if (this.redrawScheduled) return;
+    this.redrawScheduled = true;
+    void Promise.resolve().then(() => {
+      this.redrawScheduled = false;
+      if (this.renderActive) this.redraw();
+    });
   }
 
   private clearFrame(): void {
+    const chunk = this.clearFrameChunk();
+    if (chunk) this.output.write(chunk);
+  }
+
+  private clearFrameChunk(): string {
     const currentColumns = this.terminalColumns();
     const linesToClear = Math.max(
       this.renderedLines,
@@ -413,22 +443,50 @@ export class DefaultRenderer implements TaskRenderer {
       this.physicalFrameLines(this.renderedFrameLines, currentColumns),
     );
 
+    let chunk = "";
     for (let i = 0; i < linesToClear; i += 1) {
-      this.output.write("\u001b[1A\r\u001b[2K");
+      chunk += "\r\u001b[2K";
+      if (i < linesToClear - 1) chunk += "\u001b[1A";
     }
     this.renderedLines = 0;
     this.renderedFrameLines = [];
     this.renderedColumns = undefined;
+    return chunk;
   }
 
-  private writeFrame(lines: string[]): void {
+  private writeFrame(lines: string[], trailingNewline = false): void {
+    const chunk = this.writeFrameChunk(lines, trailingNewline);
+    if (chunk) this.output.write(chunk);
+  }
+
+  private writeFrameChunk(lines: string[], trailingNewline = false): string {
     const columns = this.terminalColumns();
-    const formattedLines = this.formatFrameLines(lines, columns);
-    if (formattedLines.length === 0) return;
-    this.output.write(`${formattedLines.join("\n")}\n`);
+    const formattedLines = this.visibleFrameLines(
+      this.formatFrameLines(lines, columns),
+      trailingNewline,
+    );
+    if (formattedLines.length === 0) return "";
     this.renderedLines = formattedLines.length;
-    this.renderedFrameLines = [...lines];
+    this.renderedFrameLines = [...formattedLines];
     this.renderedColumns = columns;
+    return `${formattedLines.join("\n")}${trailingNewline ? "\n" : ""}`;
+  }
+
+  private visibleFrameLines(
+    lines: string[],
+    persistentFrame: boolean,
+  ): string[] {
+    if (persistentFrame) return lines;
+    const limit = this.liveFrameLineLimit();
+    if (!limit || lines.length <= limit) return lines;
+    return lines.slice(-limit);
+  }
+
+  private liveFrameLineLimit(): number | undefined {
+    const rows = this.terminalRows();
+    if (!rows) return undefined;
+    const headroom = rows <= 4 ? 1 : rows <= 8 ? 2 : 3;
+    return Math.max(1, rows - headroom);
   }
 
   private formatFrameLines(
@@ -450,6 +508,11 @@ export class DefaultRenderer implements TaskRenderer {
     const columns =
       this.columns ?? process.stderr.columns ?? process.stdout.columns;
     return typeof columns === "number" && columns > 0 ? columns : undefined;
+  }
+
+  private terminalRows(): number | undefined {
+    const rows = this.rows ?? process.stderr.rows ?? process.stdout.rows;
+    return typeof rows === "number" && rows > 0 ? rows : undefined;
   }
 
   private bindResizeListeners(): void {
@@ -494,12 +557,16 @@ export class DefaultRenderer implements TaskRenderer {
   ): void {
     lines.push(this.taskLine(task, depth));
     if (this.shouldRenderOutput(task)) {
-      for (const outputLine of outputDetailLines(
+      const outputLines = outputDetailLines(
         this.outputBuffers.get(task.id),
         depth + 1,
         this.useColor,
         this.removeEmptyLines,
         this.indentation,
+      );
+      for (const outputLine of trimOutputDetailLines(
+        outputLines,
+        this.remainingLiveOutputLines(lines.length, task),
       )) {
         lines.push(outputLine);
       }
@@ -517,6 +584,16 @@ export class DefaultRenderer implements TaskRenderer {
     const title = leafLabel(task);
     const suffix = stateSuffix(task);
     return `${prefix}${this.stateIcon(task)} ${title}${suffix}`;
+  }
+
+  private remainingLiveOutputLines(
+    renderedLineCount: number,
+    task: RuntimeTaskSnapshot,
+  ): number {
+    const limit = this.liveFrameLineLimit();
+    if (!limit) return Number.POSITIVE_INFINITY;
+    if (isPendingForOutput(task.state)) return Math.max(0, limit - 1);
+    return Math.max(0, limit - renderedLineCount);
   }
 
   private stateIcon(task: RuntimeTaskSnapshot): string {
@@ -615,7 +692,7 @@ class PromptFrameOutput implements PromptWritable {
   readonly isTTY = true;
 
   private readonly listeners = new Map<string, Set<PromptOutputListener>>();
-  private rows: string[] = [""];
+  private bufferRows: string[] = [""];
   private row = 0;
   private column = 0;
   private frameScheduled = false;
@@ -623,11 +700,16 @@ class PromptFrameOutput implements PromptWritable {
 
   constructor(
     private readonly terminalColumns: () => number | undefined,
+    private readonly terminalRows: () => number | undefined,
     private readonly onFrame: (lines: string[]) => void,
   ) {}
 
   get columns(): number {
     return this.terminalColumns() ?? 80;
+  }
+
+  get rows(): number {
+    return this.terminalRows() ?? 20;
   }
 
   write(chunk: unknown): boolean {
@@ -774,7 +856,7 @@ class PromptFrameOutput implements PromptWritable {
 
   private eraseScreen(mode: number): void {
     if (mode === 2) {
-      this.rows = [""];
+      this.bufferRows = [""];
       this.row = 0;
       this.column = 0;
       return;
@@ -782,31 +864,31 @@ class PromptFrameOutput implements PromptWritable {
 
     if (mode === 1) {
       for (let row = 0; row < this.row; row += 1) {
-        this.rows[row] = "";
+        this.bufferRows[row] = "";
       }
-      this.rows[this.row] =
+      this.bufferRows[this.row] =
         " ".repeat(Math.min(this.column + 1, this.currentLine().length)) +
         this.currentLine().slice(this.column + 1);
       return;
     }
 
-    this.rows[this.row] = this.currentLine().slice(0, this.column);
-    this.rows.splice(this.row + 1);
+    this.bufferRows[this.row] = this.currentLine().slice(0, this.column);
+    this.bufferRows.splice(this.row + 1);
   }
 
   private eraseLine(mode: number): void {
     const current = this.currentLine();
     if (mode === 2) {
-      this.rows[this.row] = "";
+      this.bufferRows[this.row] = "";
       return;
     }
     if (mode === 1) {
-      this.rows[this.row] =
+      this.bufferRows[this.row] =
         " ".repeat(Math.min(this.column + 1, current.length)) +
         current.slice(this.column + 1);
       return;
     }
-    this.rows[this.row] = current.slice(0, this.column);
+    this.bufferRows[this.row] = current.slice(0, this.column);
   }
 
   private writeVisible(char: string): void {
@@ -816,22 +898,22 @@ class PromptFrameOutput implements PromptWritable {
       current.length < this.column
         ? `${current}${" ".repeat(this.column - current.length)}`
         : current;
-    this.rows[this.row] =
+    this.bufferRows[this.row] =
       padded.slice(0, this.column) + char + padded.slice(this.column + 1);
     this.column += 1;
   }
 
   private ensureRow(): void {
-    while (this.rows.length <= this.row) this.rows.push("");
+    while (this.bufferRows.length <= this.row) this.bufferRows.push("");
   }
 
   private currentLine(): string {
     this.ensureRow();
-    return this.rows[this.row] ?? "";
+    return this.bufferRows[this.row] ?? "";
   }
 
   private lines(): string[] {
-    const lines = [...this.rows];
+    const lines = [...this.bufferRows];
     while (
       lines.length > 0 &&
       normalizeTerminalText(lines[lines.length - 1] ?? "") === ""
@@ -900,6 +982,13 @@ function outputDetailLines(
     }
   }
   return lines;
+}
+
+function trimOutputDetailLines(lines: string[], limit: number): string[] {
+  if (limit === Number.POSITIVE_INFINITY || lines.length <= limit) return lines;
+  if (limit <= 0) return [];
+  if (limit === 1) return lines.slice(-1);
+  return [lines[0] ?? "", ...lines.slice(-(limit - 1))].filter(Boolean);
 }
 
 function leafLabel(task: RuntimeTaskSnapshot): string {

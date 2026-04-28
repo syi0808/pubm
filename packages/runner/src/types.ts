@@ -173,6 +173,7 @@ export interface PromptOutputCapture {
 
 export interface PromptWritable {
   readonly columns?: number;
+  readonly rows?: number;
   readonly isTTY?: boolean;
   write(chunk: unknown): unknown;
   on(event: string, listener: (...args: unknown[]) => void): this;

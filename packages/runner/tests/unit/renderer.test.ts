@@ -56,6 +56,7 @@ function setColumns(stream: NodeJS.WriteStream, columns: number): () => void {
 
 async function flushPromptFrame(): Promise<void> {
   await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe("terminal text normalization", () => {
@@ -395,6 +396,179 @@ describe("DefaultRenderer", () => {
         process.env.FORCE_UNICODE = previousForceUnicode;
       }
     }
+  });
+
+  it("keeps live redraws in-place without pushing intermediate frames into scrollback", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({ path: ["Build"], state: "running" }),
+    });
+    const firstLiveFrame = chunks.at(-1) ?? "";
+    expect(firstLiveFrame).toContain("Build");
+    expect(firstLiveFrame.endsWith("\n")).toBe(false);
+
+    source.emit({
+      type: "task.output",
+      output: "line one",
+      task: taskSnapshot({ path: ["Build"], state: "running" }),
+    });
+    const liveRedraw = chunks.at(-1) ?? "";
+    expect(liveRedraw).toContain("\r\u001b[2K");
+    expect(liveRedraw).toContain("  › line one");
+    expect(liveRedraw.endsWith("\n")).toBe(false);
+
+    source.emit({
+      type: "task.completed",
+      task: taskSnapshot({ path: ["Build"], state: "success" }),
+    });
+    renderer.end();
+
+    expect(lastChunkContaining(chunks, "✔ Build").endsWith("\n")).toBe(true);
+  });
+
+  it("clips oversized live frames while leaving terminal headroom", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      rows: 3,
+      useColor: false,
+    });
+
+    renderer.render(source);
+    for (let index = 1; index <= 5; index += 1) {
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({
+          id: `task-${index}`,
+          title: `Task ${index}`,
+          initialTitle: `Task ${index}`,
+          path: [`Task ${index}`],
+          state: "running",
+        }),
+      });
+    }
+
+    const liveFrame = chunks.at(-1) ?? "";
+    expect(liveFrame.split("\n")).toHaveLength(2);
+    expect(liveFrame).not.toContain("Task 1");
+    expect(liveFrame).toContain("Task 5");
+    expect(liveFrame.endsWith("\n")).toBe(false);
+
+    renderer.end();
+    expect(lastChunkContaining(chunks, "Task 1", "Task 5")).toContain("Task 1");
+  });
+
+  it("trims live output details before dropping the active task line", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      rows: 5,
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({
+        title: "Running tests (bun run test)",
+        initialTitle: "Running tests",
+        path: ["Running tests"],
+        state: "running",
+      }),
+    });
+    source.emit({
+      type: "task.output",
+      output: "Executing `bun run test`\nline 1\nline 2\nline 3\nline 4",
+      task: taskSnapshot({
+        title: "Running tests (bun run test)",
+        initialTitle: "Running tests",
+        path: ["Running tests"],
+        state: "running",
+      }),
+    });
+
+    const liveFrame = chunks.at(-1) ?? "";
+    expect(liveFrame.split("\n")).toHaveLength(3);
+    expect(liveFrame).toContain("Running tests (bun run test)");
+    expect(liveFrame).toContain("  › Executing `bun run test`");
+    expect(liveFrame).toContain("  › line 4");
+    expect(liveFrame).not.toContain("  › line 1");
+    expect(liveFrame.endsWith("\n")).toBe(false);
+
+    renderer.end();
+  });
+
+  it("keeps live task output away from the terminal top edge", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      rows: 7,
+      useColor: false,
+    });
+
+    renderer.render(source);
+    for (let index = 1; index <= 4; index += 1) {
+      source.emit({
+        type: "task.completed",
+        task: taskSnapshot({
+          id: `done-${index}`,
+          title: `Done ${index}`,
+          initialTitle: `Done ${index}`,
+          path: [`Done ${index}`],
+          state: "success",
+        }),
+      });
+    }
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({
+        id: "test",
+        title: "Running tests (bun run test)",
+        initialTitle: "Running tests",
+        path: ["Running tests"],
+        state: "running",
+      }),
+    });
+    source.emit({
+      type: "task.output",
+      output: "Executing `bun run test`\nline 1\nline 2\nline 3\nline 4",
+      task: taskSnapshot({
+        id: "test",
+        title: "Running tests (bun run test)",
+        initialTitle: "Running tests",
+        path: ["Running tests"],
+        state: "running",
+      }),
+    });
+
+    const liveFrame = chunks.at(-1) ?? "";
+    expect(liveFrame.split("\n")).toHaveLength(5);
+    expect(liveFrame).toContain("Running tests (bun run test)");
+    expect(liveFrame).toContain("  › Executing `bun run test`");
+    expect(liveFrame).toContain("  › line 4");
+    expect(liveFrame).not.toContain("Done 1");
+    expect(liveFrame.endsWith("\n")).toBe(false);
+
+    renderer.end();
   });
 
   it("keeps completed task output only when persistent output is enabled", () => {
@@ -749,13 +923,13 @@ describe("DefaultRenderer", () => {
       expect(afterStart).toContain("⠋ Lo\nngTi\ntle");
       expect(chunks.join("")).toContain("\u001b[?25h");
       expect(chunks.join("")).not.toContain("✔ LongTitle");
-      expect(chunks.join("").split("\u001b[1A")).toHaveLength(4);
+      expect(chunks.join("").split("\u001b[1A")).toHaveLength(3);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("continues live redraws while prompts are active", async () => {
+  it("continues spinner redraws while prompts are active", async () => {
     vi.useFakeTimers();
 
     try {
@@ -813,8 +987,66 @@ describe("DefaultRenderer", () => {
       renderer.end();
 
       expect(beforePrompt).toBeGreaterThan(0);
-      expect(chunks.length).toBeGreaterThan(afterPromptStarted);
+      expect(chunks.join("")).toContain("⠙ Prompt");
       expect(chunks.join("")).toContain("Prompt");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps spinner redraws flowing during rapid prompt updates", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        spinnerInterval: 10,
+        useColor: false,
+      });
+      const promptTask = taskSnapshot({
+        title: "Prompt",
+        initialTitle: "Prompt",
+        path: ["Prompt"],
+        state: "prompting",
+      });
+      const promptCapture = renderer.createPromptOutput(promptTask);
+
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({
+          title: "Prompt",
+          initialTitle: "Prompt",
+          path: ["Prompt"],
+          state: "running",
+        }),
+      });
+      source.emit({
+        type: "prompt.started",
+        task: promptTask,
+        prompt: { type: "select", message: "Choice" },
+      });
+      promptCapture.output.write("◆  Choice\n│  one");
+      await flushPromptFrame();
+      const afterPromptFrame = chunks.length;
+
+      for (const option of ["two", "three", "four", "five"]) {
+        promptCapture.output.write(`◆  Choice\n│  ${option}`);
+        await flushPromptFrame();
+        vi.advanceTimersByTime(10);
+      }
+
+      expect(chunks.length).toBeGreaterThan(afterPromptFrame + 4);
+      expect(chunks.join("")).toContain("⠙ Prompt");
+      expect(chunks.join("")).toContain("⠹ Prompt");
+      expect(chunks.join("")).toContain("◆  Choice");
+
+      promptCapture.close();
+      renderer.end();
     } finally {
       vi.useRealTimers();
     }
@@ -849,7 +1081,7 @@ describe("DefaultRenderer", () => {
       const resizeOutput = chunks.slice(beforeResize).join("");
 
       expect(
-        countOccurrences(resizeOutput, "\u001b[1A\r\u001b[2K"),
+        countOccurrences(resizeOutput, "\r\u001b[2K"),
       ).toBeGreaterThanOrEqual(5);
       expect(lastChunkContaining(chunks, "Build", "xxxxxxxx")).toContain("\n");
       renderer.end();
@@ -1046,6 +1278,7 @@ describe("DefaultRenderer", () => {
         write: (chunk) => chunks.push(chunk),
       },
       columns: 12,
+      rows: 6,
       useColor: false,
     });
     const promptTask = taskSnapshot({
@@ -1058,6 +1291,7 @@ describe("DefaultRenderer", () => {
     const listener = vi.fn();
 
     expect(promptCapture.output.columns).toBe(12);
+    expect(promptCapture.output.rows).toBe(6);
     promptCapture.output.on("resize", listener);
     promptCapture.output.off("resize", listener);
     promptCapture.output.off("resize");
