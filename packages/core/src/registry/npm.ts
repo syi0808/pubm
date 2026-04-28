@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { color } from "listr2";
+import { color } from "@pubm/runner";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
@@ -421,7 +421,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   async checkAvailability(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
     ctx: PubmContext,
   ): Promise<void> {
@@ -533,7 +533,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   private async runDirectWebLogin(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
   ): Promise<void> {
     task.output = "Launching npm login...";
@@ -625,7 +625,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   private async runInteractiveLogin(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
   ): Promise<void> {
     if (this.isOfficialNpmRegistry()) {

@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { Listr, ListrTask } from "listr2";
+import type { Task, TaskRunner } from "@pubm/runner";
 import semver from "semver";
 
 import type { PubmContext } from "../context.js";
@@ -13,12 +12,12 @@ import { handleSinglePackage } from "./prompts/single-package.js";
 const { prerelease } = semver;
 
 export const requiredMissingInformationTasks = (
-  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
-): Listr<PubmContext> =>
+  options?: Omit<Task<PubmContext>, "title" | "task">,
+): TaskRunner<PubmContext> =>
   createListr<PubmContext>({
     ...options,
     title: t("task.info.checking"),
-    task: (_, parentTask): Listr<PubmContext> =>
+    task: (_, parentTask): TaskRunner<PubmContext> =>
       parentTask.newListr([
         {
           title: t("task.info.checkingVersion"),
@@ -72,27 +71,25 @@ export const requiredMissingInformationTasks = (
 
             if (distTags.length <= 0) distTags.push("next");
 
-            let tag = await task
-              .prompt(ListrEnquirerPromptAdapter)
-              .run<string>({
-                type: "select",
-                message: t("prompt.tag.selectPrerelease"),
-                choices: distTags
-                  .map((distTag) => ({
-                    message: distTag,
-                    name: distTag,
-                  }))
-                  .concat([
-                    {
-                      message: t("prompt.tag.customTag"),
-                      name: "specify",
-                    },
-                  ]),
-                name: "tag",
-              });
+            let tag = await task.prompt().run<string>({
+              type: "select",
+              message: t("prompt.tag.selectPrerelease"),
+              choices: distTags
+                .map((distTag) => ({
+                  message: distTag,
+                  name: distTag,
+                }))
+                .concat([
+                  {
+                    message: t("prompt.tag.customTag"),
+                    name: "specify",
+                  },
+                ]),
+              name: "tag",
+            });
 
             if (tag === "specify") {
-              tag = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+              tag = await task.prompt().run<string>({
                 type: "input",
                 message: t("prompt.tag.enterTag"),
                 name: "tag",

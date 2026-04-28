@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
@@ -89,8 +89,8 @@ function groupByEcosystem(
 
   for (const pkg of ctx.config.packages) {
     const key = pkg.ecosystem ?? "js";
-    if (!map.has(key)) map.set(key, { group: [], individual: [] });
-    const entry = map.get(key)!;
+    const entry = map.get(key) ?? { group: [], individual: [] };
+    map.set(key, entry);
     if (hasPackageLevelOverride(pkg, type)) {
       entry.individual.push(pkg);
     } else {
@@ -218,7 +218,7 @@ async function resolveExecutions(
 async function runExecution(
   execution: ResolvedExecution,
   ctx: PubmContext,
-  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+  // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
   task: any,
 ): Promise<void> {
   const liveOutput = shouldRenderLiveCommandOutput(ctx)
@@ -241,7 +241,7 @@ async function runExecution(
 export function createTestTask(
   hasPrepare: boolean,
   skipTests: boolean,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   return {
     enabled: hasPrepare && !skipTests,
     title: t("task.test.title"),
@@ -279,7 +279,7 @@ export function createTestTask(
 export function createBuildTask(
   hasPrepare: boolean,
   skipBuild: boolean,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   return {
     enabled: hasPrepare && !skipBuild,
     title: t("task.build.title"),

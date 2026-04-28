@@ -1,18 +1,14 @@
-import type { ListrRenderer, ListrTask, ListrTaskWrapper } from "listr2";
+import type { Task, TaskContext } from "@pubm/runner";
 import type { PubmContext } from "../../context.js";
 import { registryCatalog } from "../../registry/catalog.js";
 import { collectEcosystemRegistryGroups, ecosystemLabel } from "../grouping.js";
 
-export type NewListrParentTask<Context extends object> = ListrTaskWrapper<
-  Context,
-  typeof ListrRenderer,
-  typeof ListrRenderer
->;
+export type NewListrParentTask<Context extends object> = TaskContext<Context>;
 
 export function createPublishTaskForPath(
   registryKey: string,
   packageKey: string,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createPublishTask) {
     throw new Error(
@@ -65,7 +61,7 @@ export function createDryRunTaskForPath(
   registryKey: string,
   packageKey: string,
   siblingKeys?: string[],
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor?.taskFactory?.createDryRunTask) {
     throw new Error(

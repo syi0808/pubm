@@ -7,7 +7,7 @@ import {
   t,
   type WorkspaceInfo,
 } from "@pubm/core";
-import Enquirer from "enquirer";
+import { prompt } from "@pubm/runner";
 
 export interface PackageDetectionResult {
   isMonorepo: boolean;
@@ -83,9 +83,8 @@ export async function promptPackages(
   detected: PackageDetectionResult,
 ): Promise<string[]> {
   if (!detected.isMonorepo) {
-    const { confirmed } = await Enquirer.prompt<{ confirmed: boolean }>({
+    const confirmed = await prompt<boolean>({
       type: "confirm",
-      name: "confirmed",
       message: t("prompt.init.confirmPackage", {
         name: detected.packages[0].name,
       }),
@@ -100,13 +99,12 @@ export async function promptPackages(
     value: pkg.path,
   }));
 
-  const { selected } = await Enquirer.prompt<{ selected: string[] }>({
+  const selected = await prompt<string[]>({
     type: "multiselect",
-    name: "selected",
     message: t("prompt.init.selectPackages"),
     choices,
     initial: detected.packages.map((_, i) => i),
-  } as Parameters<typeof Enquirer.prompt>[0]);
+  });
 
   return selected;
 }
@@ -114,9 +112,8 @@ export async function promptPackages(
 export async function promptBranch(cwd: string): Promise<string> {
   const detected = detectDefaultBranch(cwd);
 
-  const { choice } = await Enquirer.prompt<{ choice: string }>({
+  const choice = await prompt<string>({
     type: "select",
-    name: "choice",
     message: "Release branch",
     choices: [
       {
@@ -128,12 +125,11 @@ export async function promptBranch(cwd: string): Promise<string> {
   });
 
   if (choice === "__other__") {
-    const { branch } = await Enquirer.prompt<{ branch: string }>({
+    const branch = await prompt<string>({
       type: "input",
-      name: "branch",
       message: t("prompt.init.enterBranch"),
-      validate: (value: string) =>
-        value.trim().length > 0 || t("error.init.branchEmpty"),
+      validate: (value) =>
+        String(value ?? "").trim().length > 0 || t("error.init.branchEmpty"),
     });
     return branch.trim();
   }
@@ -142,11 +138,8 @@ export async function promptBranch(cwd: string): Promise<string> {
 }
 
 export async function promptVersioning(): Promise<"independent" | "fixed"> {
-  const { versioning } = await Enquirer.prompt<{
-    versioning: "independent" | "fixed";
-  }>({
+  const versioning = await prompt<"independent" | "fixed">({
     type: "select",
-    name: "versioning",
     message: t("prompt.init.versioning"),
     choices: [
       {
@@ -167,20 +160,16 @@ export async function promptChangelog(): Promise<{
   enabled: boolean;
   format: "default" | "github";
 }> {
-  const { enabled } = await Enquirer.prompt<{ enabled: boolean }>({
+  const enabled = await prompt<boolean>({
     type: "confirm",
-    name: "enabled",
     message: t("prompt.init.changelog"),
     initial: true,
   });
 
   if (!enabled) return { enabled: false, format: "default" };
 
-  const { format } = await Enquirer.prompt<{
-    format: "default" | "github";
-  }>({
+  const format = await prompt<"default" | "github">({
     type: "select",
-    name: "format",
     message: t("prompt.init.changelogFormat"),
     choices: [
       { name: "github", message: t("prompt.init.changelogGithub") },
@@ -192,9 +181,8 @@ export async function promptChangelog(): Promise<{
 }
 
 export async function promptGithubRelease(): Promise<boolean> {
-  const { enabled } = await Enquirer.prompt<{ enabled: boolean }>({
+  const enabled = await prompt<boolean>({
     type: "confirm",
-    name: "enabled",
     message: t("prompt.init.releaseDraft"),
     initial: true,
   });
@@ -202,9 +190,8 @@ export async function promptGithubRelease(): Promise<boolean> {
 }
 
 export async function promptChangesets(): Promise<boolean> {
-  const { enabled } = await Enquirer.prompt<{ enabled: boolean }>({
+  const enabled = await prompt<boolean>({
     type: "confirm",
-    name: "enabled",
     message: t("prompt.init.changesets"),
     initial: true,
   });
@@ -212,9 +199,8 @@ export async function promptChangesets(): Promise<boolean> {
 }
 
 export async function promptCI(): Promise<boolean> {
-  const { enabled } = await Enquirer.prompt<{ enabled: boolean }>({
+  const enabled = await prompt<boolean>({
     type: "confirm",
-    name: "enabled",
     message: t("prompt.init.ciWorkflow"),
     initial: true,
   });
@@ -222,18 +208,16 @@ export async function promptCI(): Promise<boolean> {
 }
 
 export async function promptSkills(): Promise<boolean> {
-  const { enabled } = await Enquirer.prompt<{ enabled: boolean }>({
+  const enabled = await prompt<boolean>({
     type: "confirm",
-    name: "enabled",
     message: t("prompt.init.skills"),
   });
   return enabled;
 }
 
 export async function promptOverwriteConfig(): Promise<boolean> {
-  const { overwrite } = await Enquirer.prompt<{ overwrite: boolean }>({
+  const overwrite = await prompt<boolean>({
     type: "confirm",
-    name: "overwrite",
     message: t("prompt.init.overwrite"),
   });
   return overwrite;

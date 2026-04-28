@@ -1,4 +1,4 @@
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { AbstractError } from "../error.js";
@@ -26,9 +26,7 @@ async function getCrateName(packagePath: string): Promise<string> {
   return await eco.packageName();
 }
 
-export function createCratesAvailableCheckTask(
-  key: string,
-): ListrTask<PubmContext> {
+export function createCratesAvailableCheckTask(key: string): Task<PubmContext> {
   return {
     title: t("task.crates.checkAvailability", { path: pathFromKey(key) }),
     task: async (): Promise<void> => {
@@ -46,7 +44,7 @@ export function createCratesAvailableCheckTask(
   };
 }
 
-export function createCratesPublishTask(key: string): ListrTask<PubmContext> {
+export function createCratesPublishTask(key: string): Task<PubmContext> {
   const packagePath = pathFromKey(key);
   return {
     title: t("task.crates.publishing", { path: packagePath }),

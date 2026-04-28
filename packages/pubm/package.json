@@ -37,8 +37,8 @@
   },
   "dependencies": {
     "@pubm/core": "workspace:*",
+    "@pubm/runner": "workspace:*",
     "commander": "^14.0.3",
-    "enquirer": "^2.4.1",
     "semver": "^7.6.3",
     "std-env": "^4.0.0",
     "update-kit": "^0.1.12"

@@ -193,7 +193,7 @@ export interface PluginCheck {
 
 ## `PluginTaskContext`
 
-Wrapper agnostique à listr2 passé en second argument à `PluginCheck.task`.
+Wrapper agnostique au runner passé en second argument à `PluginCheck.task`.
 
 ```ts
 export interface PluginTaskContext {
@@ -209,7 +209,7 @@ export interface PluginTaskContext {
 
 - `output` - affiche une ligne d'état sous le titre du check dans l'interface de tâches.
 - `title` - modifie dynamiquement le titre de la tâche.
-- `prompt()` - lance une invite enquirer. Disponible uniquement en mode interactif.
+- `prompt()` - lance une invite interactive pubm.
 
 ## Exemple
 

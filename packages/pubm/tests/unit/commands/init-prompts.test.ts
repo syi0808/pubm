@@ -3,10 +3,9 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("enquirer", () => ({
-  default: {
-    prompt: vi.fn(),
-  },
+vi.mock("@pubm/runner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@pubm/runner")>()),
+  prompt: vi.fn(),
 }));
 
 vi.mock("@pubm/core", async (importOriginal) => {
@@ -19,7 +18,7 @@ vi.mock("@pubm/core", async (importOriginal) => {
 });
 
 import { detectWorkspace, discoverPackages } from "@pubm/core";
-import Enquirer from "enquirer";
+import { prompt } from "@pubm/runner";
 
 import {
   buildConfigContent,
@@ -40,7 +39,7 @@ import {
   shouldCreateConfig,
 } from "../../../src/commands/init-prompts.js";
 
-const mockPrompt = vi.mocked(Enquirer.prompt);
+const mockPrompt = vi.mocked(prompt);
 const mockDetectWorkspace = vi.mocked(detectWorkspace);
 const mockDiscoverPackages = vi.mocked(discoverPackages);
 
@@ -393,7 +392,7 @@ describe("detectPackages", () => {
 
 describe("promptPackages", () => {
   it("returns package path when single package is confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ confirmed: true });
+    mockPrompt.mockResolvedValueOnce(true);
 
     const detected: PackageDetectionResult = {
       isMonorepo: false,
@@ -407,13 +406,12 @@ describe("promptPackages", () => {
     expect(mockPrompt).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "confirm",
-        name: "confirmed",
       }),
     );
   });
 
   it("returns empty array when single package is rejected", async () => {
-    mockPrompt.mockResolvedValueOnce({ confirmed: false });
+    mockPrompt.mockResolvedValueOnce(false);
 
     const detected: PackageDetectionResult = {
       isMonorepo: false,
@@ -427,9 +425,7 @@ describe("promptPackages", () => {
   });
 
   it("returns selected packages from multiselect for monorepo", async () => {
-    mockPrompt.mockResolvedValueOnce({
-      selected: ["packages/a", "packages/b"],
-    });
+    mockPrompt.mockResolvedValueOnce(["packages/a", "packages/b"]);
 
     const detected: PackageDetectionResult = {
       isMonorepo: true,
@@ -447,13 +443,12 @@ describe("promptPackages", () => {
     expect(mockPrompt).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "multiselect",
-        name: "selected",
       }),
     );
   });
 
   it("passes all packages as choices with path and name in message for monorepo", async () => {
-    mockPrompt.mockResolvedValueOnce({ selected: [] });
+    mockPrompt.mockResolvedValueOnce([]);
 
     const detected: PackageDetectionResult = {
       isMonorepo: true,
@@ -477,7 +472,7 @@ describe("promptPackages", () => {
   });
 
   it("shows the package name in the confirm message for single package", async () => {
-    mockPrompt.mockResolvedValueOnce({ confirmed: true });
+    mockPrompt.mockResolvedValueOnce(true);
 
     const detected: PackageDetectionResult = {
       isMonorepo: false,
@@ -501,7 +496,7 @@ describe("promptPackages", () => {
 
 describe("promptBranch", () => {
   it("returns detected branch when user selects it", async () => {
-    mockPrompt.mockResolvedValueOnce({ choice: "main" });
+    mockPrompt.mockResolvedValueOnce("main");
 
     const result = await promptBranch(TEST_DIR);
 
@@ -511,8 +506,8 @@ describe("promptBranch", () => {
 
   it("prompts for input and returns typed branch when 'Other...' is selected", async () => {
     mockPrompt
-      .mockResolvedValueOnce({ choice: "__other__" })
-      .mockResolvedValueOnce({ branch: "release/v2" });
+      .mockResolvedValueOnce("__other__")
+      .mockResolvedValueOnce("release/v2");
 
     const result = await promptBranch(TEST_DIR);
 
@@ -522,8 +517,8 @@ describe("promptBranch", () => {
 
   it("trims whitespace from custom branch name", async () => {
     mockPrompt
-      .mockResolvedValueOnce({ choice: "__other__" })
-      .mockResolvedValueOnce({ branch: "  my-branch  " });
+      .mockResolvedValueOnce("__other__")
+      .mockResolvedValueOnce("  my-branch  ");
 
     const result = await promptBranch(TEST_DIR);
 
@@ -532,7 +527,7 @@ describe("promptBranch", () => {
 
   it("includes detected branch and 'Other...' as choices", async () => {
     // In TEST_DIR there's no remote so detectDefaultBranch returns "main"
-    mockPrompt.mockResolvedValueOnce({ choice: "main" });
+    mockPrompt.mockResolvedValueOnce("main");
 
     await promptBranch(TEST_DIR);
 
@@ -546,8 +541,8 @@ describe("promptBranch", () => {
 
   it("second prompt uses input type for custom branch", async () => {
     mockPrompt
-      .mockResolvedValueOnce({ choice: "__other__" })
-      .mockResolvedValueOnce({ branch: "custom" });
+      .mockResolvedValueOnce("__other__")
+      .mockResolvedValueOnce("custom");
 
     await promptBranch(TEST_DIR);
 
@@ -562,22 +557,22 @@ describe("promptBranch", () => {
 
 describe("promptVersioning", () => {
   it("returns 'independent' when selected", async () => {
-    mockPrompt.mockResolvedValueOnce({ versioning: "independent" });
+    mockPrompt.mockResolvedValueOnce("independent");
     const result = await promptVersioning();
     expect(result).toBe("independent");
   });
 
   it("returns 'fixed' when selected", async () => {
-    mockPrompt.mockResolvedValueOnce({ versioning: "fixed" });
+    mockPrompt.mockResolvedValueOnce("fixed");
     const result = await promptVersioning();
     expect(result).toBe("fixed");
   });
 
   it("uses select type prompt", async () => {
-    mockPrompt.mockResolvedValueOnce({ versioning: "independent" });
+    mockPrompt.mockResolvedValueOnce("independent");
     await promptVersioning();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "select", name: "versioning" }),
+      expect.objectContaining({ type: "select" }),
     );
   });
 });
@@ -588,9 +583,7 @@ describe("promptVersioning", () => {
 
 describe("promptChangelog", () => {
   it("returns enabled=true with github format when confirmed and github selected", async () => {
-    mockPrompt
-      .mockResolvedValueOnce({ enabled: true })
-      .mockResolvedValueOnce({ format: "github" });
+    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("github");
 
     const result = await promptChangelog();
 
@@ -599,9 +592,7 @@ describe("promptChangelog", () => {
   });
 
   it("returns enabled=true with default format when confirmed and default selected", async () => {
-    mockPrompt
-      .mockResolvedValueOnce({ enabled: true })
-      .mockResolvedValueOnce({ format: "default" });
+    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("default");
 
     const result = await promptChangelog();
 
@@ -609,7 +600,7 @@ describe("promptChangelog", () => {
   });
 
   it("returns enabled=false with default format when declined — skips format prompt", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: false });
+    mockPrompt.mockResolvedValueOnce(false);
 
     const result = await promptChangelog();
 
@@ -618,28 +609,24 @@ describe("promptChangelog", () => {
   });
 
   it("first prompt is confirm type", async () => {
-    mockPrompt
-      .mockResolvedValueOnce({ enabled: true })
-      .mockResolvedValueOnce({ format: "default" });
+    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("default");
 
     await promptChangelog();
 
     expect(mockPrompt).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ type: "confirm", name: "enabled" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 
   it("second prompt is select type for format", async () => {
-    mockPrompt
-      .mockResolvedValueOnce({ enabled: true })
-      .mockResolvedValueOnce({ format: "github" });
+    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("github");
 
     await promptChangelog();
 
     expect(mockPrompt).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ type: "select", name: "format" }),
+      expect.objectContaining({ type: "select" }),
     );
   });
 });
@@ -650,20 +637,20 @@ describe("promptChangelog", () => {
 
 describe("promptGithubRelease", () => {
   it("returns true when confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     expect(await promptGithubRelease()).toBe(true);
   });
 
   it("returns false when declined", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: false });
+    mockPrompt.mockResolvedValueOnce(false);
     expect(await promptGithubRelease()).toBe(false);
   });
 
   it("uses confirm type prompt with 'enabled' field", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     await promptGithubRelease();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "confirm", name: "enabled" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 });
@@ -674,20 +661,20 @@ describe("promptGithubRelease", () => {
 
 describe("promptChangesets", () => {
   it("returns true when confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     expect(await promptChangesets()).toBe(true);
   });
 
   it("returns false when declined", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: false });
+    mockPrompt.mockResolvedValueOnce(false);
     expect(await promptChangesets()).toBe(false);
   });
 
   it("uses confirm type prompt", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     await promptChangesets();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "confirm", name: "enabled" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 });
@@ -698,20 +685,20 @@ describe("promptChangesets", () => {
 
 describe("promptCI", () => {
   it("returns true when confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     expect(await promptCI()).toBe(true);
   });
 
   it("returns false when declined", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: false });
+    mockPrompt.mockResolvedValueOnce(false);
     expect(await promptCI()).toBe(false);
   });
 
   it("uses confirm type prompt", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     await promptCI();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "confirm", name: "enabled" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 });
@@ -722,20 +709,20 @@ describe("promptCI", () => {
 
 describe("promptSkills", () => {
   it("returns true when confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     expect(await promptSkills()).toBe(true);
   });
 
   it("returns false when declined", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: false });
+    mockPrompt.mockResolvedValueOnce(false);
     expect(await promptSkills()).toBe(false);
   });
 
   it("uses confirm type prompt", async () => {
-    mockPrompt.mockResolvedValueOnce({ enabled: true });
+    mockPrompt.mockResolvedValueOnce(true);
     await promptSkills();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "confirm", name: "enabled" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 });
@@ -746,25 +733,25 @@ describe("promptSkills", () => {
 
 describe("promptOverwriteConfig", () => {
   it("returns true when overwrite is confirmed", async () => {
-    mockPrompt.mockResolvedValueOnce({ overwrite: true });
+    mockPrompt.mockResolvedValueOnce(true);
     expect(await promptOverwriteConfig()).toBe(true);
   });
 
   it("returns false when overwrite is declined", async () => {
-    mockPrompt.mockResolvedValueOnce({ overwrite: false });
+    mockPrompt.mockResolvedValueOnce(false);
     expect(await promptOverwriteConfig()).toBe(false);
   });
 
   it("uses confirm type prompt with 'overwrite' field", async () => {
-    mockPrompt.mockResolvedValueOnce({ overwrite: true });
+    mockPrompt.mockResolvedValueOnce(true);
     await promptOverwriteConfig();
     expect(mockPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "confirm", name: "overwrite" }),
+      expect.objectContaining({ type: "confirm" }),
     );
   });
 
   it("mentions pubm.config.ts in the prompt message", async () => {
-    mockPrompt.mockResolvedValueOnce({ overwrite: false });
+    mockPrompt.mockResolvedValueOnce(false);
     await promptOverwriteConfig();
     expect(mockPrompt).toHaveBeenCalledWith(
       expect.objectContaining({

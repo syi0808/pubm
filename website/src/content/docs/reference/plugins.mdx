@@ -193,7 +193,7 @@ export interface PluginCheck {
 
 ## `PluginTaskContext`
 
-A listr2-agnostic wrapper passed as the second argument to `PluginCheck.task`.
+A runner-agnostic wrapper passed as the second argument to `PluginCheck.task`.
 
 ```ts
 export interface PluginTaskContext {
@@ -209,7 +209,7 @@ export interface PluginTaskContext {
 
 - `output` displays a status line beneath the check title in the task list UI.
 - `title` changes the task title dynamically.
-- `prompt()` runs an enquirer prompt, available in interactive mode.
+- `prompt()` runs a pubm interactive prompt.
 
 ## Example
 

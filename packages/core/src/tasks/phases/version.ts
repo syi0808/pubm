@@ -1,6 +1,5 @@
 import path from "node:path";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import {
   buildChangelogEntries,
   deduplicateEntries,
@@ -37,7 +36,7 @@ import { writeVersions } from "../runner-utils/write-versions.js";
 export function createVersionTask(
   hasPrepare: boolean,
   dryRun: boolean,
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   return {
     title: t("task.version.title"),
     enabled: hasPrepare,
@@ -102,14 +101,12 @@ export function createVersionTask(
         const tagName = `v${plan.version}`;
         if (await git.checkTagExist(tagName)) {
           if (ctx.runtime.promptEnabled) {
-            const deleteTag = await task
-              .prompt(ListrEnquirerPromptAdapter)
-              .run<boolean>({
-                type: "toggle",
-                message: t("task.version.tagExists", { tag: tagName }),
-                enabled: "Yes",
-                disabled: "No",
-              });
+            const deleteTag = await task.prompt().run<boolean>({
+              type: "toggle",
+              message: t("task.version.tagExists", { tag: tagName }),
+              enabled: "Yes",
+              disabled: "No",
+            });
             if (deleteTag) {
               await git.deleteTag(tagName);
             } else {
@@ -184,14 +181,12 @@ export function createVersionTask(
         const tagName = `v${plan.version}`;
         if (await git.checkTagExist(tagName)) {
           if (ctx.runtime.promptEnabled) {
-            const deleteTag = await task
-              .prompt(ListrEnquirerPromptAdapter)
-              .run<boolean>({
-                type: "toggle",
-                message: t("task.version.tagExists", { tag: tagName }),
-                enabled: "Yes",
-                disabled: "No",
-              });
+            const deleteTag = await task.prompt().run<boolean>({
+              type: "toggle",
+              message: t("task.version.tagExists", { tag: tagName }),
+              enabled: "Yes",
+              disabled: "No",
+            });
             if (deleteTag) {
               await git.deleteTag(tagName);
             } else {
@@ -281,14 +276,12 @@ export function createVersionTask(
           const tagName = formatTag(ctx, key, pkgVersion);
           if (await git.checkTagExist(tagName)) {
             if (ctx.runtime.promptEnabled) {
-              const deleteTag = await task
-                .prompt(ListrEnquirerPromptAdapter)
-                .run<boolean>({
-                  type: "toggle",
-                  message: t("task.version.tagExists", { tag: tagName }),
-                  enabled: "Yes",
-                  disabled: "No",
-                });
+              const deleteTag = await task.prompt().run<boolean>({
+                type: "toggle",
+                message: t("task.version.tagExists", { tag: tagName }),
+                enabled: "Yes",
+                disabled: "No",
+              });
               if (deleteTag) {
                 await git.deleteTag(tagName);
               } else {

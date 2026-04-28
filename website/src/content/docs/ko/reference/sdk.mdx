@@ -101,7 +101,7 @@ type PackageConfig = {
 | `PluginRunner` | class | 로드된 플러그인의 훅을 실행하고 registry/ecosystem을 수집하는 유틸리티입니다. 또한 모든 등록된 플러그인에서 자격 증명 설명자와 preflight check를 모으는 `collectCredentials()`와 `collectChecks()`를 제공합니다. |
 | `PluginCredential` | type | 플러그인이 요구하는 토큰 또는 secret을 선언적으로 설명하는 타입입니다. [플러그인 API 레퍼런스](/pubm/ko/reference/plugins/#plugincredential)를 참고합니다. |
 | `PluginCheck` | type | 플러그인이 제공하는 preflight check 설명자입니다. [플러그인 API 레퍼런스](/pubm/ko/reference/plugins/#plugincheck)를 참고합니다. |
-| `PluginTaskContext` | type | `PluginCheck.task`에 전달되는 listr2 비종속 래퍼입니다. `output`, `title`, `prompt()`를 제공합니다. |
+| `PluginTaskContext` | type | `PluginCheck.task`에 전달되는 runner 비종속 래퍼입니다. `output`, `title`, `prompt()`를 제공합니다. |
 | `GhSecretEntry` | type | GitHub Secrets 동기화 헬퍼가 반환하는 항목 하나입니다: `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | config에 등록된 모든 플러그인에서 `PluginCredential[]`를 모으고 값을 해석합니다. |
 | `injectPluginTokensToEnv` | function | 해석된 플러그인 토큰 값을 `process.env`에 기록해 이후 publish 단계가 일반 환경 변수처럼 읽을 수 있게 합니다. |

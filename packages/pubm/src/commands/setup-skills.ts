@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { t, ui } from "@pubm/core";
+import { prompt } from "@pubm/runner";
 import type { Command } from "commander";
-import Enquirer from "enquirer";
 
 export type Agent = "claude-code" | "codex" | "gemini";
 
@@ -90,9 +90,8 @@ export async function runSetupSkills(cwd: string): Promise<{
   agents: Agent[];
   skillCount: number;
 }> {
-  const { agents } = await Enquirer.prompt<{ agents: Agent[] }>({
+  const agents = await prompt<Agent[]>({
     type: "multiselect",
-    name: "agents",
     message: "Select coding agents",
     choices: [
       { name: "claude-code", message: "Claude Code" },

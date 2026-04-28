@@ -193,7 +193,7 @@ export interface PluginCheck {
 
 ## `PluginTaskContext`
 
-作为第二个参数传给 `PluginCheck.task` 的 listr2 无关包装器。
+作为第二个参数传给 `PluginCheck.task` 的 runner 无关包装器。
 
 ```ts
 export interface PluginTaskContext {
@@ -209,7 +209,7 @@ export interface PluginTaskContext {
 
 - `output` - 在任务列表 UI 中于 check 标题下显示状态行。
 - `title` - 动态修改任务标题。
-- `prompt()` - 运行 enquirer prompt，仅在交互模式下可用。
+- `prompt()` - 运行 pubm 交互式 prompt。
 
 ## 示例
 

@@ -1,4 +1,4 @@
-import type { ListrTask } from "listr2";
+import type { Task } from "@pubm/runner";
 import type { AssetPipelineHooks, ReleaseContext } from "../assets/types.js";
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
@@ -66,7 +66,7 @@ export interface PluginTaskContext {
   output: string;
   /** Modify task title */
   title: string;
-  /** Run an enquirer prompt */
+  /** Run an interactive pubm prompt */
   prompt<T = unknown>(options: {
     type: string;
     message: string;
@@ -124,11 +124,11 @@ export interface PluginRegistryDefinition {
   orderPackages?: (paths: string[]) => Promise<string[]>;
   connector: () => RegistryConnector;
   factory: (packagePath: string) => Promise<PackageRegistry>;
-  createPublishTask?: (packagePath: string) => ListrTask<PubmContext>;
+  createPublishTask?: (packagePath: string) => Task<PubmContext>;
   createDryRunTask?: (
     packagePath: string,
     siblingPaths?: string[],
-  ) => ListrTask<PubmContext>;
+  ) => Task<PubmContext>;
 }
 
 export interface PubmPlugin {

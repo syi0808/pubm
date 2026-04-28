@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { Listr, ListrTask } from "listr2";
+import type { Task, TaskRunner } from "@pubm/runner";
 import { isCI } from "std-env";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
@@ -20,10 +19,10 @@ class PrerequisitesCheckError extends AbstractError {
 }
 
 export const prerequisitesCheckTask = (
-  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
-): Listr<PubmContext> => {
+  options?: Omit<Task<PubmContext>, "title" | "task">,
+): TaskRunner<PubmContext> => {
   const git = new Git();
-  const taskDef: ListrTask<PubmContext> = {
+  const taskDef: Task<PubmContext> = {
     ...options,
     exitOnError: true,
     title: t("task.prerequisites.title"),
@@ -34,17 +33,15 @@ export const prerequisitesCheckTask = (
           title: t("task.prerequisites.verifyBranch"),
           task: async (ctx, task): Promise<void> => {
             if ((await git.branch()) !== ctx.options.branch) {
-              const swtichBranch = await task
-                .prompt(ListrEnquirerPromptAdapter)
-                .run<boolean>({
-                  type: "toggle",
-                  message: t("task.prerequisites.switchBranchPrompt", {
-                    warning: ui.labels.WARNING,
-                    branch: ctx.options.branch,
-                  }),
-                  enabled: "Yes",
-                  disabled: "No",
-                });
+              const swtichBranch = await task.prompt().run<boolean>({
+                type: "toggle",
+                message: t("task.prerequisites.switchBranchPrompt", {
+                  warning: ui.labels.WARNING,
+                  branch: ctx.options.branch,
+                }),
+                enabled: "Yes",
+                disabled: "No",
+              });
 
               if (swtichBranch) {
                 task.output = t("task.prerequisites.switchingBranch", {
@@ -65,16 +62,14 @@ export const prerequisitesCheckTask = (
             task.output = t("task.prerequisites.checkingFetch");
 
             if ((await git.dryFetch()).trim()) {
-              const fetch = await task
-                .prompt(ListrEnquirerPromptAdapter)
-                .run<boolean>({
-                  type: "toggle",
-                  message: t("task.prerequisites.outdatedFetchPrompt", {
-                    warning: ui.labels.WARNING,
-                  }),
-                  enabled: "Yes",
-                  disabled: "No",
-                });
+              const fetch = await task.prompt().run<boolean>({
+                type: "toggle",
+                message: t("task.prerequisites.outdatedFetchPrompt", {
+                  warning: ui.labels.WARNING,
+                }),
+                enabled: "Yes",
+                disabled: "No",
+              });
 
               if (fetch) {
                 task.output = t("task.prerequisites.executingFetch");
@@ -88,16 +83,14 @@ export const prerequisitesCheckTask = (
 
             task.output = t("task.prerequisites.checkingPull");
             if (await git.revisionDiffsCount()) {
-              const pull = await task
-                .prompt(ListrEnquirerPromptAdapter)
-                .run<boolean>({
-                  type: "toggle",
-                  message: t("task.prerequisites.outdatedPullPrompt", {
-                    warning: ui.labels.WARNING,
-                  }),
-                  enabled: "Yes",
-                  disabled: "No",
-                });
+              const pull = await task.prompt().run<boolean>({
+                type: "toggle",
+                message: t("task.prerequisites.outdatedPullPrompt", {
+                  warning: ui.labels.WARNING,
+                }),
+                enabled: "Yes",
+                disabled: "No",
+              });
 
               if (pull) {
                 task.output = t("task.prerequisites.executingPull");
@@ -117,7 +110,7 @@ export const prerequisitesCheckTask = (
               task.output = t("task.prerequisites.workingTreeDirty");
 
               if (
-                !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
+                !(await task.prompt().run<boolean>({
                   type: "toggle",
                   message: t("task.prerequisites.workingTreePrompt", {
                     warning: ui.labels.WARNING,
@@ -150,7 +143,7 @@ export const prerequisitesCheckTask = (
 
             if ((await git.commits(latestTag, "HEAD")).length <= 0) {
               if (
-                !(await task.prompt(ListrEnquirerPromptAdapter).run<boolean>({
+                !(await task.prompt().run<boolean>({
                   type: "toggle",
                   message: t("task.prerequisites.noCommitsPrompt", {
                     warning: ui.labels.WARNING,
@@ -171,7 +164,7 @@ export const prerequisitesCheckTask = (
           .collectChecks(ctx, "prerequisites")
           .map((check) => ({
             title: check.title,
-            // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+            // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
             task: async (ctx: PubmContext, task: any) => {
               await check.task(ctx, wrapTaskContext(task));
             },

@@ -62,6 +62,7 @@
   "task.info.checking": "Erforderliche Informationen werden geprüft",
   "task.info.checkingVersion": "Versionsinformationen werden geprüft",
   "task.info.checkingTag": "Tag-Informationen werden geprüft",
+  "task.info.selectVersion": "Versionsaktion auswählen",
   "prompt.version.keepCurrent": "Aktuelle Version {version} beibehalten",
   "prompt.version.recommendedMarker": "← von changesets empfohlen",
   "prompt.version.releaseChoice": "{releaseType} {version}{marker}",

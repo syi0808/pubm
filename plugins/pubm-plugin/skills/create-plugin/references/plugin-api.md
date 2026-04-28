@@ -74,7 +74,7 @@ Throw from `task` to fail the check and stop the pipeline.
 
 ## PluginTaskContext
 
-A listr2-agnostic wrapper passed as the second argument to `PluginCheck.task`.
+A runner-agnostic wrapper passed as the second argument to `PluginCheck.task`.
 
 ```typescript
 interface PluginTaskContext {
@@ -90,7 +90,7 @@ interface PluginTaskContext {
 
 - `output`: display a status line beneath the check title in the terminal UI.
 - `title`: change the task title dynamically.
-- `prompt()`: run an enquirer prompt in interactive mode.
+- `prompt()`: run a pubm interactive prompt.
 
 ## Plugin Hooks
 

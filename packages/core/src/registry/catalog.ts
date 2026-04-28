@@ -1,4 +1,4 @@
-import type { ListrTask } from "listr2";
+import type { Task, TaskContext } from "@pubm/runner";
 import type {
   PrivateRegistryConfig,
   ResolvedPackageConfig,
@@ -43,7 +43,7 @@ export interface RegistryDescriptor {
   unpublishLabel: string;
   /** If true, token is collected early in prepare phase */
   requiresEarlyAuth: boolean;
-  /** Task factory for listr2 publish/dry-run task creation */
+  /** Task factory for runner publish/dry-run task creation */
   taskFactory?: RegistryTaskFactory;
 }
 
@@ -80,13 +80,13 @@ export class RegistryCatalog {
 export const registryCatalog = new RegistryCatalog();
 
 /**
- * Creates a ListrTask wrapper that lazily imports the actual task creator
+ * Creates a Task wrapper that lazily imports the actual task creator
  * to break circular dependencies between catalog.ts and task modules.
  */
 function lazyTask(
   title: string,
-  loader: () => Promise<ListrTask<PubmContext>>,
-): ListrTask<PubmContext> {
+  loader: () => Promise<Task<PubmContext>>,
+): Task<PubmContext> {
   return {
     title,
     task: async (ctx, task) => {
@@ -107,7 +107,7 @@ function lazyTask(
       return (
         inner.task as (
           ctx: PubmContext,
-          task: Parameters<ListrTask<PubmContext>["task"]>[1],
+          task: TaskContext<PubmContext>,
         ) => Promise<void>
       )(ctx, task);
     },

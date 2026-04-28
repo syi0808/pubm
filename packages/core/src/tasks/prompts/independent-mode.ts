@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { TaskContext } from "@pubm/runner";
 import semver from "semver";
 
 const { SemVer } = semver;
@@ -58,7 +57,7 @@ export function buildVersionPlan(
  */
 export async function handleMultiPackage(
   ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
   packageInfos: ResolvedPackageConfig[],
 ): Promise<void> {
   const graph = buildGraphFromPackages(packageInfos);
@@ -104,7 +103,7 @@ export async function handleMultiPackage(
   }
 
   // Action selection
-  const prompt = task.prompt(ListrEnquirerPromptAdapter);
+  const prompt = task.prompt();
   const action = await prompt.run<string>({
     type: "select",
     message: t("task.info.selectVersion"),
@@ -214,7 +213,7 @@ export async function handleMultiPackage(
  */
 export async function handleIndependentMode(
   ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
   packageInfos: ResolvedPackageConfig[],
   currentVersions: Map<string, string>,
   graph: Map<string, string[]>,
@@ -325,17 +324,15 @@ export async function handleIndependentMode(
       { notes },
     );
 
-    const cascadeChoice = await task
-      .prompt(ListrEnquirerPromptAdapter)
-      .run<string>({
-        type: "select",
-        message: t("prompt.dependency.bumpPrompt"),
-        choices: [
-          { message: t("prompt.dependency.yesApplyPatch"), name: "patch" },
-          { message: t("prompt.dependency.noKeepCurrent"), name: "skip" },
-        ],
-        name: "cascade",
-      });
+    const cascadeChoice = await task.prompt().run<string>({
+      type: "select",
+      message: t("prompt.dependency.bumpPrompt"),
+      choices: [
+        { message: t("prompt.dependency.yesApplyPatch"), name: "patch" },
+        { message: t("prompt.dependency.noKeepCurrent"), name: "skip" },
+      ],
+      name: "cascade",
+    });
 
     if (cascadeChoice === "patch") {
       for (const pkgPath of uniqueDependents) {

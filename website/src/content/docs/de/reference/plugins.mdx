@@ -193,7 +193,7 @@ export interface PluginCheck {
 
 ## `PluginTaskContext`
 
-Ein listr2-unabhaengiger Wrapper, der als zweites Argument an `PluginCheck.task` übergeben wird.
+Ein runner-unabhaengiger Wrapper, der als zweites Argument an `PluginCheck.task` übergeben wird.
 
 ```ts
 export interface PluginTaskContext {
@@ -209,7 +209,7 @@ export interface PluginTaskContext {
 
 - `output` - zeigt eine Statuszeile unterhalb des Check-Titels in der Aufgabenliste an.
 - `title` - aendert den Aufgabentitel dynamisch.
-- `prompt()` - fuehrt einen enquirer-Prompt aus. Verfügbar im interaktiven Modus.
+- `prompt()` - fuehrt einen interaktiven pubm-Prompt aus.
 
 ## Beispiel
 

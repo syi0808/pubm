@@ -1,6 +1,5 @@
 import path from "node:path";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { Listr, ListrTask } from "listr2";
+import type { Task, TaskRunner } from "@pubm/runner";
 import { isCI } from "std-env";
 import type { ResolvedPackageConfig } from "../config/types.js";
 import type { PubmContext } from "../context.js";
@@ -57,12 +56,12 @@ export function detectTagNameCollisions(
 }
 
 export const requiredConditionsCheckTask = (
-  options?: Omit<ListrTask<PubmContext>, "title" | "task">,
-): Listr<PubmContext> => {
+  options?: Omit<Task<PubmContext>, "title" | "task">,
+): TaskRunner<PubmContext> => {
   const createAvailabilityTask = (
     registryKey: string,
     packageKeys: string[],
-  ): ListrTask<PubmContext> => {
+  ): Task<PubmContext> => {
     const descriptor = registryCatalog.get(registryKey);
     if (!descriptor) return { title: registryKey, task: async () => {} };
 
@@ -84,9 +83,9 @@ export const requiredConditionsCheckTask = (
       title: t("task.conditions.checkAvailability", {
         label: descriptor.label,
       }),
-      task: (_ctx, parentTask): Listr<PubmContext> =>
+      task: (_ctx, parentTask): TaskRunner<PubmContext> =>
         parentTask.newListr(
-          packageKeys.map((key) => ({
+          packageKeys.map<Task<PubmContext>>((key) => ({
             title: pathFromKey(key),
             task: async (ctx, task): Promise<void> => {
               const registry = await descriptor.factory(pathFromKey(key));
@@ -98,30 +97,34 @@ export const requiredConditionsCheckTask = (
     };
   };
 
-  const taskDef: ListrTask<PubmContext> = {
+  const taskDef: Task<PubmContext> = {
     ...options,
     title: t("task.conditions.title"),
-    task: (ctx, parentTask): Listr<PubmContext> =>
+    task: (ctx, parentTask): TaskRunner<PubmContext> =>
       parentTask.newListr(
         [
           {
             title: t("task.conditions.pingRegistries"),
-            task: (ctx, parentTask): Listr<PubmContext> =>
+            task: (ctx, parentTask): TaskRunner<PubmContext> =>
               parentTask.newListr(
-                collectEcosystemRegistryGroups(ctx.config).map((group) => ({
+                collectEcosystemRegistryGroups(ctx.config).map<
+                  Task<PubmContext>
+                >((group) => ({
                   title: ecosystemLabel(group.ecosystem),
-                  task: (_ctx, ecosystemTask): Listr<PubmContext> =>
+                  task: (_ctx, ecosystemTask): TaskRunner<PubmContext> =>
                     ecosystemTask.newListr(
-                      group.registries.map(({ registry }) => ({
-                        title: t("task.conditions.pingRegistry", {
-                          registry: registryLabel(registry),
-                        }),
-                        task: async (): Promise<void> => {
-                          const connector = getConnector(registry);
+                      group.registries.map<Task<PubmContext>>(
+                        ({ registry }) => ({
+                          title: t("task.conditions.pingRegistry", {
+                            registry: registryLabel(registry),
+                          }),
+                          task: async (): Promise<void> => {
+                            const connector = getConnector(registry);
 
-                          await connector.ping();
-                        },
-                      })),
+                            await connector.ping();
+                          },
+                        }),
+                      ),
                       {
                         concurrent: true,
                       },
@@ -148,9 +151,10 @@ export const requiredConditionsCheckTask = (
 
               const byEcosystem = new Map<string, ResolvedPackageConfig[]>();
               for (const pkg of ctx.config.packages) {
-                const key = pkg.ecosystem;
-                if (!byEcosystem.has(key)) byEcosystem.set(key, []);
-                byEcosystem.get(key)!.push(pkg);
+                const key = pkg.ecosystem ?? "js";
+                const packages = byEcosystem.get(key) ?? [];
+                packages.push(pkg);
+                byEcosystem.set(key, packages);
               }
 
               for (const [ecosystemKey, packages] of byEcosystem) {
@@ -258,11 +262,13 @@ export const requiredConditionsCheckTask = (
           },
           {
             title: t("task.conditions.checkRegistries"),
-            task: (ctx, parentTask): Listr<PubmContext> => {
+            task: (ctx, parentTask): TaskRunner<PubmContext> => {
               return parentTask.newListr(
-                collectEcosystemRegistryGroups(ctx.config).map((group) => ({
+                collectEcosystemRegistryGroups(ctx.config).map<
+                  Task<PubmContext>
+                >((group) => ({
                   title: ecosystemLabel(group.ecosystem),
-                  task: (_ctx, ecosystemTask): Listr<PubmContext> =>
+                  task: (_ctx, ecosystemTask): TaskRunner<PubmContext> =>
                     ecosystemTask.newListr(
                       group.registries.map(({ registry, packageKeys }) =>
                         createAvailabilityTask(registry, packageKeys),
@@ -281,7 +287,7 @@ export const requiredConditionsCheckTask = (
             .collectChecks(ctx, "conditions")
             .map((check) => ({
               title: check.title,
-              // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+              // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
               task: async (ctx: PubmContext, task: any) => {
                 await check.task(ctx, wrapTaskContext(task));
               },
@@ -299,14 +305,12 @@ export const requiredConditionsCheckTask = (
               const names = collisions.join(", ");
 
               if (ctx.runtime.promptEnabled) {
-                const useQualified = await task
-                  .prompt(ListrEnquirerPromptAdapter)
-                  .run<boolean>({
-                    type: "toggle",
-                    message: t("task.conditions.tagCollisionPrompt", { names }),
-                    enabled: "Yes",
-                    disabled: "No",
-                  });
+                const useQualified = await task.prompt().run<boolean>({
+                  type: "toggle",
+                  message: t("task.conditions.tagCollisionPrompt", { names }),
+                  enabled: "Yes",
+                  disabled: "No",
+                });
                 if (useQualified) {
                   ctx.runtime.registryQualifiedTags = true;
                 } else {
