@@ -34,6 +34,26 @@ function lastChunkContaining(chunks: readonly string[], ...needles: string[]) {
   );
 }
 
+function countOccurrences(value: string, needle: string): number {
+  return value.split(needle).length - 1;
+}
+
+function setColumns(stream: NodeJS.WriteStream, columns: number): () => void {
+  const descriptor = Object.getOwnPropertyDescriptor(stream, "columns");
+  Object.defineProperty(stream, "columns", {
+    configurable: true,
+    writable: true,
+    value: columns,
+  });
+  return () => {
+    if (descriptor) {
+      Object.defineProperty(stream, "columns", descriptor);
+    } else {
+      delete (stream as NodeJS.WriteStream & { columns?: number }).columns;
+    }
+  };
+}
+
 describe("terminal text normalization", () => {
   it("preserves OSC hyperlink labels while removing ANSI controls and bells", () => {
     const value =
@@ -792,6 +812,78 @@ describe("DefaultRenderer", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("clears reflowed frame lines after terminal resize", () => {
+    const restoreColumns = setColumns(process.stderr, 80);
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    try {
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      source.emit({
+        type: "task.output",
+        output: "x".repeat(70),
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+
+      process.stderr.columns = 20;
+      const beforeResize = chunks.length;
+      process.stderr.emit("resize");
+      const resizeOutput = chunks.slice(beforeResize).join("");
+
+      expect(
+        countOccurrences(resizeOutput, "\u001b[1A\r\u001b[2K"),
+      ).toBeGreaterThanOrEqual(5);
+      expect(lastChunkContaining(chunks, "Build", "xxxxxxxx")).toContain("\n");
+      renderer.end();
+    } finally {
+      restoreColumns();
+    }
+  });
+
+  it("forwards terminal resize events to active prompt outputs only", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+    const listener = vi.fn();
+
+    promptCapture.output.on("resize", listener);
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+
+    process.stderr.emit("resize");
+    expect(listener).toHaveBeenCalledOnce();
+
+    promptCapture.close();
+    process.stderr.emit("resize");
+    expect(listener).toHaveBeenCalledOnce();
+
+    renderer.end();
+    process.stderr.emit("resize");
+    expect(listener).toHaveBeenCalledOnce();
   });
 
   it("applies prompt clear controls so stale prompt frames do not accumulate", () => {

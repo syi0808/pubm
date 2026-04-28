@@ -39,6 +39,14 @@ interface ParentTaskRef {
   setSubtasks(tasks: Array<{ snapshot(): RuntimeTaskSnapshot }>): void;
 }
 
+interface SharedRunnerState {
+  source: EventSource;
+  singleFlight: SingleFlightRegistry;
+  promptProvider: PromptProvider;
+  promptCoordinator: PromptCoordinator;
+  renderer: TaskRenderer;
+}
+
 class SkipSignal extends Error {
   constructor() {
     super("Task skipped.");
@@ -202,12 +210,7 @@ export class PubmTaskRunner<Context extends object = object>
     task: Task<Context> | Task<Context>[],
     private readonly options: TaskRunnerOptions<Context> = {},
     private readonly parentTask?: ParentTaskRef,
-    shared?: {
-      source: EventSource;
-      singleFlight: SingleFlightRegistry;
-      promptProvider: PromptProvider;
-      promptCoordinator: PromptCoordinator;
-    },
+    shared?: SharedRunnerState,
   ) {
     applyEnvironmentOptions(options);
     this.source = shared?.source ?? new EventSource();
@@ -223,7 +226,7 @@ export class PubmTaskRunner<Context extends object = object>
     this.promptCoordinator =
       shared?.promptCoordinator ?? new PromptCoordinator();
     this.concurrent = normalizeConcurrency(options.concurrent);
-    this.renderer = instantiateRenderer(options);
+    this.renderer = shared?.renderer ?? instantiateRenderer(options);
     this.signalController =
       options.signalController ??
       (options.registerSignalListeners !== true
@@ -258,6 +261,7 @@ export class PubmTaskRunner<Context extends object = object>
         singleFlight: this.singleFlight,
         promptProvider: this.promptProvider,
         promptCoordinator: this.promptCoordinator,
+        renderer: this.renderer,
       },
     );
   }

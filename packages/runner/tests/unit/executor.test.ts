@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { createCiRunnerOptions, createTaskRunner } from "../../src/executor.js";
+import { DefaultRenderer } from "../../src/renderer.js";
 import { RuntimeTask } from "../../src/runtime-task.js";
 import type {
   ObservableLike,
@@ -74,6 +75,16 @@ class PromptCapturingRenderer extends RecordingRenderer {
   );
 }
 
+class PromptCapturingRendererFactory extends PromptCapturingRenderer {
+  static nonTTY = true;
+  static instances: PromptCapturingRendererFactory[] = [];
+
+  constructor(_options?: Record<string, unknown>) {
+    super();
+    PromptCapturingRendererFactory.instances.push(this);
+  }
+}
+
 class RecordingSignalController implements SignalController {
   readonly interruptHandlers: ((
     signal: NodeJS.Signals,
@@ -144,6 +155,14 @@ async function withTTY(
     restoreStderr();
     restoreStdout();
   }
+}
+
+function lastChunkContaining(chunks: readonly string[], ...needles: string[]) {
+  return (
+    chunks
+      .filter((chunk) => needles.every((needle) => chunk.includes(needle)))
+      .at(-1) ?? ""
+  );
 }
 
 describe("PubmTaskRunner execution", () => {
@@ -616,6 +635,128 @@ describe("PubmTaskRunner execution", () => {
         .filter((event) => event.type.startsWith("prompt."))
         .map((event) => event.prompt?.output),
     ).toEqual([undefined, undefined]);
+  });
+
+  it("uses the root renderer prompt capture for nested task runners", async () => {
+    PromptCapturingRendererFactory.instances = [];
+    const provider = new RecordingPromptProvider();
+    provider.prompt.mockResolvedValueOnce("pubm");
+
+    await createTaskRunner(
+      {
+        title: "parent",
+        task: async (_context, task) => {
+          await task
+            .newListr([
+              {
+                title: "child",
+                task: async (_childContext, childTask) => {
+                  await childTask.prompt().run({
+                    type: "text",
+                    message: "Name",
+                  });
+                },
+              },
+            ])
+            .run(_context);
+        },
+      },
+      {
+        promptProvider: provider,
+        renderer: PromptCapturingRendererFactory,
+        registerSignalListeners: false,
+      },
+    ).run({});
+
+    expect(PromptCapturingRendererFactory.instances).toHaveLength(1);
+    expect(PromptCapturingRendererFactory.instances[0]?.captures).toHaveLength(
+      1,
+    );
+  });
+
+  it("keeps nested prompt output inside root live redraws", async () => {
+    vi.useFakeTimers();
+
+    try {
+      await withTTY(true, async () => {
+        const chunks: string[] = [];
+        const provider = new RecordingPromptProvider();
+        const answer = deferred<string>();
+        provider.prompt.mockImplementationOnce(
+          async <T = unknown>(options: PromptOptions): Promise<T> => {
+            (options.output as PromptWritable).write(
+              "◆  Select version\n● Accept\n○ Skip",
+            );
+            return (await answer.promise) as T;
+          },
+        );
+
+        const run = createTaskRunner(
+          {
+            title: "Checking required information",
+            task: async (context, task) => {
+              await task
+                .newListr([
+                  {
+                    title: "Checking version information",
+                    task: async (_childContext, childTask) => {
+                      childTask.output =
+                        "Version Recommendations\nchangeset packages/core minor";
+                      await childTask.prompt().run({
+                        type: "select",
+                        message: "Select version",
+                        choices: [
+                          { name: "accept", message: "Accept" },
+                          { name: "skip", message: "Skip" },
+                        ],
+                      });
+                    },
+                  },
+                ])
+                .run(context);
+            },
+          },
+          {
+            promptProvider: provider,
+            renderer: DefaultRenderer,
+            rendererOptions: {
+              output: {
+                write: (chunk: string) => {
+                  chunks.push(chunk);
+                },
+              },
+              spinnerInterval: 10,
+              useColor: false,
+            },
+            registerSignalListeners: false,
+          },
+        ).run({});
+
+        await vi.waitFor(() => expect(provider.prompt).toHaveBeenCalledOnce());
+        expect(
+          lastChunkContaining(
+            chunks,
+            "Select version",
+            "Version Recommendations",
+          ),
+        ).toContain("Accept");
+
+        vi.advanceTimersByTime(30);
+
+        expect(
+          lastChunkContaining(
+            chunks,
+            "Checking required information",
+            "Select version",
+          ),
+        ).toContain("Accept");
+
+        answer.resolve("accept");
+        await run;
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("respects explicit prompt output and skips renderer prompt capture", async () => {

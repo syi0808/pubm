@@ -253,7 +253,20 @@ export class DefaultRenderer implements TaskRenderer {
   private readonly order = new Map<string, number>();
   private readonly outputBuffers = new Map<string, string[]>();
   private readonly promptBuffers = new Map<string, string[]>();
+  private readonly promptOutputs = new Set<PromptFrameOutput>();
+  private readonly resizeTargets = new Set<NodeJS.WriteStream>([
+    process.stderr,
+    process.stdout,
+  ]);
+  private readonly handleTerminalResize = (): void => {
+    for (const output of this.promptOutputs) {
+      output.emitResize();
+    }
+    this.redraw();
+  };
   private renderedLines = 0;
+  private renderedFrameLines: string[] = [];
+  private renderedColumns?: number;
   private spinnerIndex = 0;
   private nextOrder = 0;
   private timer?: ReturnType<typeof setInterval>;
@@ -285,6 +298,7 @@ export class DefaultRenderer implements TaskRenderer {
     this.unsubscribe = events.subscribe((event) => {
       this.handle(event);
     });
+    this.bindResizeListeners();
     if (this.lazy) return;
 
     this.timer = setInterval(() => {
@@ -301,6 +315,7 @@ export class DefaultRenderer implements TaskRenderer {
     this.unsubscribe = undefined;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    this.unbindResizeListeners();
     this.clearFrame();
     if (!this.clearOutput) this.writeFrame(this.frameLines());
     this.output.write("\u001b[?25h");
@@ -318,10 +333,12 @@ export class DefaultRenderer implements TaskRenderer {
         this.redraw();
       },
     );
+    this.promptOutputs.add(output);
 
     return {
       output,
       close: () => {
+        this.promptOutputs.delete(output);
         this.promptBuffers.delete(task.id);
         this.redraw();
       },
@@ -388,29 +405,62 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   private clearFrame(): void {
-    for (let i = 0; i < this.renderedLines; i += 1) {
+    const currentColumns = this.terminalColumns();
+    const linesToClear = Math.max(
+      this.renderedLines,
+      this.physicalFrameLines(this.renderedFrameLines, this.renderedColumns),
+      this.physicalFrameLines(this.renderedFrameLines, currentColumns),
+    );
+
+    for (let i = 0; i < linesToClear; i += 1) {
       this.output.write("\u001b[1A\r\u001b[2K");
     }
     this.renderedLines = 0;
+    this.renderedFrameLines = [];
+    this.renderedColumns = undefined;
   }
 
   private writeFrame(lines: string[]): void {
-    const formattedLines = this.formatFrameLines(lines);
+    const columns = this.terminalColumns();
+    const formattedLines = this.formatFrameLines(lines, columns);
     if (formattedLines.length === 0) return;
     this.output.write(`${formattedLines.join("\n")}\n`);
     this.renderedLines = formattedLines.length;
+    this.renderedFrameLines = [...lines];
+    this.renderedColumns = columns;
   }
 
-  private formatFrameLines(lines: string[]): string[] {
-    const columns = this.terminalColumns();
+  private formatFrameLines(
+    lines: string[],
+    columns: number | undefined,
+  ): string[] {
     if (!columns) return lines;
     return lines.flatMap((line) => wrapTerminalLine(line, columns));
+  }
+
+  private physicalFrameLines(
+    lines: string[],
+    columns: number | undefined,
+  ): number {
+    return this.formatFrameLines(lines, columns).length;
   }
 
   private terminalColumns(): number | undefined {
     const columns =
       this.columns ?? process.stderr.columns ?? process.stdout.columns;
     return typeof columns === "number" && columns > 0 ? columns : undefined;
+  }
+
+  private bindResizeListeners(): void {
+    for (const target of this.resizeTargets) {
+      target.on("resize", this.handleTerminalResize);
+    }
+  }
+
+  private unbindResizeListeners(): void {
+    for (const target of this.resizeTargets) {
+      target.off("resize", this.handleTerminalResize);
+    }
   }
 
   private frameLines(): string[] {
@@ -597,6 +647,12 @@ class PromptFrameOutput implements PromptWritable {
 
     this.listeners.get(event)?.delete(listener);
     return this;
+  }
+
+  emitResize(): void {
+    for (const listener of this.listeners.get("resize") ?? []) {
+      listener();
+    }
   }
 
   private consume(value: string): void {
