@@ -54,6 +54,10 @@ function setColumns(stream: NodeJS.WriteStream, columns: number): () => void {
   };
 }
 
+async function flushPromptFrame(): Promise<void> {
+  await Promise.resolve();
+}
+
 describe("terminal text normalization", () => {
   it("preserves OSC hyperlink labels while removing ANSI controls and bells", () => {
     const value =
@@ -425,7 +429,7 @@ describe("DefaultRenderer", () => {
     );
   });
 
-  it("renders prompt output in the live frame and clears transient output after completion", () => {
+  it("renders prompt output in the live frame and clears transient output after completion", async () => {
     vi.useFakeTimers();
 
     try {
@@ -479,6 +483,7 @@ describe("DefaultRenderer", () => {
         prompt: { type: "select", message: "Enter npm access token" },
       });
       promptCapture.output.write("◆  Select version\n│  Recommended: patch");
+      await flushPromptFrame();
       const promptFrame = lastChunkContaining(
         chunks,
         "Select version",
@@ -750,7 +755,7 @@ describe("DefaultRenderer", () => {
     }
   });
 
-  it("continues live redraws while prompts are active", () => {
+  it("continues live redraws while prompts are active", async () => {
     vi.useFakeTimers();
 
     try {
@@ -788,6 +793,7 @@ describe("DefaultRenderer", () => {
         prompt: { type: "text", message: "Name" },
       });
       promptCapture.output.write("◇  Name\n│  pubm");
+      await flushPromptFrame();
       const afterPromptStarted = chunks.length;
       vi.advanceTimersByTime(50);
       expect(chunks.length).toBeGreaterThan(afterPromptStarted);
@@ -886,7 +892,7 @@ describe("DefaultRenderer", () => {
     expect(listener).toHaveBeenCalledOnce();
   });
 
-  it("applies prompt clear controls so stale prompt frames do not accumulate", () => {
+  it("batches prompt frame writes so partial prompt redraws do not flicker", async () => {
     const chunks: string[] = [];
     const source = new EventSource();
     const renderer = new DefaultRenderer({
@@ -906,7 +912,13 @@ describe("DefaultRenderer", () => {
     renderer.render(source);
     source.emit({ type: "task.started", task: promptTask });
     promptCapture.output.write("Old prompt\nold option");
-    promptCapture.output.write("\u001b[1A\r\u001b[JNew prompt\nnew option");
+    await flushPromptFrame();
+
+    const beforeReplacement = chunks.length;
+    promptCapture.output.write("\u001b[1A\r\u001b[J");
+    promptCapture.output.write("New prompt\nnew option");
+    expect(chunks).toHaveLength(beforeReplacement);
+    await flushPromptFrame();
     renderer.end();
 
     const latestPromptFrame = lastChunkContaining(chunks, "New prompt");
@@ -915,7 +927,34 @@ describe("DefaultRenderer", () => {
     expect(latestPromptFrame).not.toContain("old option");
   });
 
-  it("does not move the prompt cursor when erasing the current line", () => {
+  it("ignores pending prompt frame flushes after capture close", async () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("Hidden prompt");
+    promptCapture.close();
+    await flushPromptFrame();
+    renderer.end();
+
+    expect(chunks.join("")).not.toContain("Hidden prompt");
+  });
+
+  it("does not move the prompt cursor when erasing the current line", async () => {
     const chunks: string[] = [];
     const source = new EventSource();
     const renderer = new DefaultRenderer({
@@ -935,13 +974,14 @@ describe("DefaultRenderer", () => {
     renderer.render(source);
     source.emit({ type: "task.started", task: promptTask });
     promptCapture.output.write("abc\u001b[2KX");
+    await flushPromptFrame();
     renderer.end();
 
     const latestPromptFrame = lastChunkContaining(chunks, "X");
     expect(latestPromptFrame).toContain("   X");
   });
 
-  it("erases from line start through the cursor cell for CSI 1 K", () => {
+  it("erases from line start through the cursor cell for CSI 1 K", async () => {
     const chunks: string[] = [];
     const source = new EventSource();
     const renderer = new DefaultRenderer({
@@ -961,6 +1001,7 @@ describe("DefaultRenderer", () => {
     renderer.render(source);
     source.emit({ type: "task.started", task: promptTask });
     promptCapture.output.write("abcde\u001b[3G\u001b[1K");
+    await flushPromptFrame();
     renderer.end();
 
     const latestPromptFrame = lastChunkContaining(chunks, "de");
@@ -968,7 +1009,7 @@ describe("DefaultRenderer", () => {
     expect(latestPromptFrame).not.toContain("cde");
   });
 
-  it("preserves the prompt cursor position for CSI 1 J", () => {
+  it("preserves the prompt cursor position for CSI 1 J", async () => {
     const chunks: string[] = [];
     const source = new EventSource();
     const renderer = new DefaultRenderer({
@@ -988,6 +1029,7 @@ describe("DefaultRenderer", () => {
     renderer.render(source);
     source.emit({ type: "task.started", task: promptTask });
     promptCapture.output.write("first\nsecond\u001b[1JX");
+    await flushPromptFrame();
     renderer.end();
 
     const latestPromptFrame = lastChunkContaining(chunks, "X");
@@ -996,7 +1038,7 @@ describe("DefaultRenderer", () => {
     expect(latestPromptFrame).not.toContain("second");
   });
 
-  it("applies prompt cursor movement, erase controls, and output listeners", () => {
+  it("applies prompt cursor movement, erase controls, and output listeners", async () => {
     const chunks: string[] = [];
     const source = new EventSource();
     const renderer = new DefaultRenderer({
@@ -1028,9 +1070,11 @@ describe("DefaultRenderer", () => {
     promptCapture.output.write("\u001b[1;2Hh\u001b[2;1ff");
     promptCapture.output.write("\u001b[Jj");
     promptCapture.output.write("\u001b[2Jreset\nsecond\u001b[1Jtop");
+    await flushPromptFrame();
     promptCapture.output.write("abcde\u001b[3G\u001b[1K\u001b[Kz");
     promptCapture.output.write("\u001b]0;title\u0007\u001b]0;title\u001b\\");
     promptCapture.output.write("\u001bxvisible\u001b[12\u001b]0;unterminated");
+    await flushPromptFrame();
     renderer.end();
 
     const output = chunks.join("");
@@ -1106,7 +1150,7 @@ describe("DefaultRenderer", () => {
       const output = chunks.join("");
       expect(output).toContain("✔ Release");
       expect(output).toContain("  ❯ Auto child");
-      expect(output).toContain("  ⚠ Blocked");
+      expect(output).not.toContain("Blocked");
       expect(output).toContain("  ✖ Failed: broken");
       expect(output).toContain("  ⠋ Retrying (attempt 3)");
       expect(output).toContain("  ← Rollback: Restored files");
@@ -1115,8 +1159,54 @@ describe("DefaultRenderer", () => {
       expect(output).toContain("Undo");
       expect(output).toContain("Waiting input");
       expect(output.indexOf("Auto child")).toBeLessThan(
-        output.indexOf("Blocked"),
+        output.indexOf("Failed"),
       );
+    } finally {
+      if (previousForceUnicode === undefined) {
+        delete process.env.FORCE_UNICODE;
+      } else {
+        process.env.FORCE_UNICODE = previousForceUnicode;
+      }
+    }
+  });
+
+  it("does not render blocked tasks in the live task list", () => {
+    const previousForceUnicode = process.env.FORCE_UNICODE;
+    process.env.FORCE_UNICODE = "1";
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      collapseSubtasks: false,
+      useColor: false,
+    });
+
+    try {
+      const blockedRoot = taskSnapshot({
+        id: "blocked-root",
+        title: "Publishing",
+        initialTitle: "Publishing",
+        path: ["Publishing"],
+        state: "blocked",
+      });
+      const runningRoot = taskSnapshot({
+        id: "running-root",
+        title: "Validating publish (dry-run)",
+        initialTitle: "Validating publish (dry-run)",
+        path: ["Validating publish (dry-run)"],
+        state: "running",
+      });
+
+      renderer.render(source);
+      source.emit({ type: "task.blocked", task: blockedRoot });
+      source.emit({ type: "task.started", task: runningRoot });
+      renderer.end();
+
+      const output = chunks.join("");
+      expect(output).not.toContain("Publishing");
+      expect(output).toContain("Validating publish (dry-run)");
     } finally {
       if (previousForceUnicode === undefined) {
         delete process.env.FORCE_UNICODE;

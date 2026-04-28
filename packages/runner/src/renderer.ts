@@ -338,6 +338,7 @@ export class DefaultRenderer implements TaskRenderer {
     return {
       output,
       close: () => {
+        output.dispose();
         this.promptOutputs.delete(output);
         this.promptBuffers.delete(task.id);
         this.redraw();
@@ -482,7 +483,7 @@ export class DefaultRenderer implements TaskRenderer {
 
   private rootTasks(): RuntimeTaskSnapshot[] {
     return [...this.tasks.values()]
-      .filter((task) => !this.parents.has(task.id))
+      .filter((task) => !this.parents.has(task.id) && shouldRenderTask(task))
       .sort((left, right) => this.compareTasks(left, right));
   }
 
@@ -506,12 +507,7 @@ export class DefaultRenderer implements TaskRenderer {
 
     if (!this.shouldRenderSubtasks(task)) return;
 
-    const childIds = [...(this.children.get(task.id) ?? [])];
-    const childTasks = childIds
-      .map((id) => this.tasks.get(id))
-      .filter((child): child is RuntimeTaskSnapshot => !!child)
-      .sort((left, right) => this.compareTasks(left, right));
-    for (const child of childTasks) {
+    for (const child of this.childTasks(task)) {
       this.addTaskLines(lines, child, depth + 1);
     }
   }
@@ -568,17 +564,24 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   private shouldRenderSubtasks(task: RuntimeTaskSnapshot): boolean {
-    const childIds = this.children.get(task.id);
-    if (!childIds || childIds.size === 0) return false;
+    const childTasks = this.childTasks(task);
+    if (childTasks.length === 0) return false;
     if (!this.collapseSubtasks) return true;
     if (isPendingForOutput(task.state)) return true;
 
-    const childTasks = [...childIds]
-      .map((id) => this.tasks.get(id))
-      .filter((child): child is RuntimeTaskSnapshot => !!child);
     return childTasks.some(
       (child) => child.state === "failed" || child.state === "rolled-back",
     );
+  }
+
+  private childTasks(task: RuntimeTaskSnapshot): RuntimeTaskSnapshot[] {
+    return [...(this.children.get(task.id) ?? [])]
+      .map((id) => this.tasks.get(id))
+      .filter(
+        (child): child is RuntimeTaskSnapshot =>
+          !!child && shouldRenderTask(child),
+      )
+      .sort((left, right) => this.compareTasks(left, right));
   }
 }
 
@@ -615,6 +618,8 @@ class PromptFrameOutput implements PromptWritable {
   private rows: string[] = [""];
   private row = 0;
   private column = 0;
+  private frameScheduled = false;
+  private disposed = false;
 
   constructor(
     private readonly terminalColumns: () => number | undefined,
@@ -626,12 +631,14 @@ class PromptFrameOutput implements PromptWritable {
   }
 
   write(chunk: unknown): boolean {
+    if (this.disposed) return true;
     this.consume(String(chunk));
-    this.onFrame(this.lines());
+    this.scheduleFrame();
     return true;
   }
 
   on(event: string, listener: PromptOutputListener): this {
+    if (this.disposed) return this;
     const listeners =
       this.listeners.get(event) ?? new Set<PromptOutputListener>();
     listeners.add(listener);
@@ -650,9 +657,25 @@ class PromptFrameOutput implements PromptWritable {
   }
 
   emitResize(): void {
+    if (this.disposed) return;
     for (const listener of this.listeners.get("resize") ?? []) {
       listener();
     }
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.listeners.clear();
+  }
+
+  private scheduleFrame(): void {
+    if (this.frameScheduled || this.disposed) return;
+    this.frameScheduled = true;
+    void Promise.resolve().then(() => {
+      this.frameScheduled = false;
+      if (this.disposed) return;
+      this.onFrame(this.lines());
+    });
   }
 
   private consume(value: string): void {
@@ -921,6 +944,10 @@ function isFinalized(state: RuntimeTaskSnapshot["state"]): boolean {
     state === "skipped" ||
     state === "rolled-back"
   );
+}
+
+function shouldRenderTask(task: RuntimeTaskSnapshot): boolean {
+  return task.state !== "blocked";
 }
 
 function outputLimit(value: boolean | number): number {
