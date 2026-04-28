@@ -230,6 +230,57 @@ describe("PubmTaskRunner execution", () => {
     ]);
   });
 
+  it("stops scheduling new tasks after a fatal concurrent failure", async () => {
+    const renderer = new RecordingRenderer();
+    const releaseSlow = deferred();
+    const order: string[] = [];
+
+    const run = createTaskRunner(
+      [
+        {
+          title: "fail",
+          task: () => {
+            order.push("fail");
+            throw new Error("fatal");
+          },
+        },
+        {
+          title: "slow",
+          task: async () => {
+            order.push("slow:start");
+            await releaseSlow.promise;
+            order.push("slow:end");
+          },
+        },
+        {
+          title: "after",
+          task: () => {
+            order.push("after");
+          },
+        },
+      ],
+      {
+        concurrent: 2,
+        renderer,
+        registerSignalListeners: false,
+      },
+    ).run({});
+
+    await vi.waitFor(() =>
+      expect(
+        renderer.events.some(
+          (event) =>
+            event.type === "task.failed" &&
+            event.task?.path.join("/") === "fail",
+        ),
+      ).toBe(true),
+    );
+    releaseSlow.resolve(undefined);
+
+    await expect(run).rejects.toThrow("fatal");
+    expect(order).toEqual(["fail", "slow:start", "slow:end"]);
+  });
+
   it("runs nested newListr tasks with parent paths and shared context", async () => {
     interface NestedContext {
       steps: string[];
@@ -1146,9 +1197,10 @@ describe("PubmTaskRunner execution", () => {
     await started.promise;
     await signalController.interruptHandlers[0]?.("SIGINT");
     release.resolve(undefined);
-    await run;
+    await expect(run).rejects.toThrow("Task run interrupted by SIGINT.");
 
     expect(ctx.interrupted).toBe("SIGINT");
+    expect((renderer.result as TaskRunResult).status).toBe("failed");
     expect(
       renderer.events
         .filter((event) =>
@@ -1273,6 +1325,32 @@ describe("PubmTaskRunner failure behavior", () => {
     ).run({});
 
     expect(attempts).toBe(2);
+  });
+
+  it("does not retry tasks that skip during execution", async () => {
+    const renderer = new RecordingRenderer();
+    let attempts = 0;
+
+    await createTaskRunner(
+      {
+        title: "optional",
+        retry: 2,
+        task: (_context, task) => {
+          attempts += 1;
+          task.skip("not needed");
+        },
+      },
+      { renderer, registerSignalListeners: false },
+    ).run({});
+
+    expect(attempts).toBe(1);
+    expect(
+      renderer.events
+        .filter((event) =>
+          ["task.skipped", "task.retrying"].includes(event.type),
+        )
+        .map((event) => event.type),
+    ).toEqual(["task.skipped"]);
   });
 
   it("continues after nonfatal exitOnError failures", async () => {

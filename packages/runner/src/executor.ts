@@ -205,6 +205,7 @@ export class PubmTaskRunner<Context extends object = object>
   private readonly promptCoordinator: PromptCoordinator;
   private readonly concurrent: number;
   private interrupted = false;
+  private interruptionError?: Error;
 
   constructor(
     task: Task<Context> | Task<Context>[],
@@ -346,11 +347,15 @@ export class PubmTaskRunner<Context extends object = object>
     try {
       await this.runTasks(ctx, errors);
       const fatalErrors = errors.filter((error) => !error.nonFatal);
-      if (fatalErrors.length > 0) {
+      if (fatalErrors.length > 0 || this.interruptionError) {
+        const error =
+          fatalErrors[0]?.error ??
+          this.interruptionError ??
+          new Error("Task run failed.");
         const result: TaskRunResult = { status: "failed", errors };
-        this.emit({ type: "run.failed", error: fatalErrors[0]?.error });
+        this.emit({ type: "run.failed", error });
         if (this.isRoot()) await this.renderer.end(result);
-        throw fatalErrors[0]?.error ?? new Error("Task run failed.");
+        throw error;
       }
       const result: TaskRunResult = { status: "success", errors };
       if (this.isRoot()) {
@@ -368,15 +373,13 @@ export class PubmTaskRunner<Context extends object = object>
     const workers = Array.from(
       { length: Math.min(this.concurrent, this.tasks.length) },
       async () => {
-        while (cursor < this.tasks.length && !this.interrupted) {
+        while (
+          cursor < this.tasks.length &&
+          !this.interrupted &&
+          !hasFatalErrors(errors)
+        ) {
           const task = this.tasks[cursor++];
           await this.runOne(task, ctx, errors);
-          if (
-            errors.some((error) => !error.nonFatal) &&
-            this.concurrent === 1
-          ) {
-            break;
-          }
         }
       },
     );
@@ -388,8 +391,7 @@ export class PubmTaskRunner<Context extends object = object>
     ctx: Context,
     errors: TaskRunError[],
   ): Promise<void> {
-    if (errors.some((error) => !error.nonFatal) && this.concurrent === 1)
-      return;
+    if (hasFatalErrors(errors)) return;
 
     try {
       const enabled = await valueOrCall(runtimeTask.task.enabled ?? true, ctx);
@@ -474,6 +476,7 @@ export class PubmTaskRunner<Context extends object = object>
         await handleResult(result, ctx, wrapper);
         return;
       } catch (error) {
+        if (error instanceof SkipSignal) throw error;
         if (attempt >= attempts) throw error;
         runtimeTask.retry = { count: attempt, error };
         runtimeTask.setMessage({ retry: runtimeTask.retry });
@@ -538,6 +541,7 @@ export class PubmTaskRunner<Context extends object = object>
     }
     const handle = async (signal: NodeJS.Signals) => {
       this.interrupted = true;
+      this.interruptionError = new Error(`Task run interrupted by ${signal}.`);
       for (const task of this.tasks) {
         if (task.isPending()) task.setState("failed");
       }
@@ -547,6 +551,10 @@ export class PubmTaskRunner<Context extends object = object>
     this.signalController.onInterrupt(handle);
     this.signalController.onTerminate(handle);
   }
+}
+
+function hasFatalErrors(errors: TaskRunError[]): boolean {
+  return errors.some((error) => !error.nonFatal);
 }
 
 function normalizeConcurrency(value: boolean | number | undefined): number {
