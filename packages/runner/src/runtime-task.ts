@@ -112,7 +112,7 @@ export class RuntimeTask<Context extends object = object>
       promptOutput: this.promptOutput,
       state: this.state,
       message: this.message,
-      path: this.path,
+      path: [...this.path],
     };
   }
 

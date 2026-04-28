@@ -7,11 +7,13 @@ export class InMemorySingleFlightRegistry implements SingleFlightRegistry {
     const existing = this.pending.get(key);
     if (existing) return existing as Promise<T>;
 
-    const promise = run().finally(() => {
-      if (this.pending.get(key) === promise) {
-        this.pending.delete(key);
-      }
-    });
+    const promise = Promise.resolve()
+      .then(run)
+      .finally(() => {
+        if (this.pending.get(key) === promise) {
+          this.pending.delete(key);
+        }
+      });
     this.pending.set(key, promise);
     return promise;
   }

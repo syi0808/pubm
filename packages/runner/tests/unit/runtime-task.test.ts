@@ -69,6 +69,15 @@ describe("RuntimeTask", () => {
     );
   });
 
+  it("returns a copy of path in snapshots", () => {
+    const { task } = createRuntimeTask();
+    const snapshot = task.snapshot();
+
+    snapshot.path.push("mutated");
+
+    expect(task.snapshot().path).toEqual(["Release", "Build"]);
+  });
+
   it("supports legacy listener removal and state predicate helpers", () => {
     const { sink, task } = createRuntimeTask();
     const stateListener = vi.fn();

@@ -21,6 +21,8 @@ describe("InMemorySingleFlightRegistry", () => {
     const second = registry.run("asset", run);
 
     expect(first).toBe(second);
+    expect(run).not.toHaveBeenCalled();
+    await Promise.resolve();
     expect(run).toHaveBeenCalledTimes(1);
 
     release.resolve("built");
@@ -32,6 +34,20 @@ describe("InMemorySingleFlightRegistry", () => {
       "rebuilt",
     );
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers pending work before invoking user code", async () => {
+    const registry = new InMemorySingleFlightRegistry();
+    let reentrant: Promise<string> | undefined;
+
+    const first = registry.run("asset", async () => {
+      reentrant = registry.run("asset", async () => "duplicate");
+      return "built";
+    });
+
+    await expect(first).resolves.toBe("built");
+    expect(reentrant).toBe(first);
+    await expect(reentrant).resolves.toBe("built");
   });
 
   it("clears a single pending key without clearing other keys", async () => {

@@ -202,7 +202,7 @@ function stringDisplayWidth(value: string): number {
 
 function isZeroWidthCodePoint(codePoint: number, char: string): boolean {
   return (
-    codePoint <= 0x1f ||
+    (codePoint <= 0x1f && codePoint !== 0x09) ||
     (codePoint >= 0x7f && codePoint <= 0x9f) ||
     codePoint === 0x00ad ||
     codePoint === 0x200b ||

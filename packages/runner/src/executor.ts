@@ -720,11 +720,24 @@ function handleReadable<Context extends object>(
   wrapper: ContextWrapper<Context>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
     readable.on("data", (chunk) => {
       wrapper.output = String(chunk);
     });
-    readable.on("error", reject);
-    readable.on("end", () => resolve());
+    readable.on("error", fail);
+    readable.on("end", finish);
+    readable.on("close", finish);
   });
 }
 

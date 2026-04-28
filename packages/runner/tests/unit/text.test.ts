@@ -135,6 +135,12 @@ describe("terminal text helpers", () => {
     expect(wrapTerminalLine("short", 80)).toEqual(["short"]);
   });
 
+  it("counts tab characters when wrapping terminal lines", () => {
+    const wrapped = wrapTerminalLine("ab\tc", 3);
+
+    expect(wrapped).toEqual(["ab\t", "c"]);
+  });
+
   it("wraps around terminal controls without counting them as columns", () => {
     const hyperlink =
       "\u001b]8;;https://example.com\u0007abcdef\u001b]8;;\u0007";

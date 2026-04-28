@@ -949,6 +949,43 @@ describe("PubmTaskRunner execution", () => {
     ]);
   });
 
+  it("completes readable task returns that close without end", async () => {
+    const renderer = new RecordingRenderer();
+    const readable = new FakeReadable();
+
+    const run = createTaskRunner(
+      {
+        title: "readable",
+        task: () => {
+          setTimeout(() => {
+            readable.emit("data", "closing");
+            readable.emit("close");
+          }, 0);
+          return readable;
+        },
+      },
+      { renderer, registerSignalListeners: false },
+    ).run({});
+
+    await expect(
+      Promise.race([
+        run,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("timed out waiting for readable close")),
+            50,
+          ),
+        ),
+      ]),
+    ).resolves.toEqual({});
+
+    expect(
+      renderer.events
+        .filter((event) => event.type === "task.output")
+        .map((event) => event.output),
+    ).toEqual(["closing"]);
+  });
+
   it("fails tasks when readable or observable returns error", async () => {
     const readable = new FakeReadable();
     const observable: ObservableLike<string> = {

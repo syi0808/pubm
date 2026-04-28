@@ -1095,6 +1095,8 @@ describe("requiredConditionsCheckTask", () => {
       });
 
       await expect(scriptsTask.task(ctx)).resolves.toBeUndefined();
+      expect(mockValidateScript).toHaveBeenCalledWith("test", "test");
+      expect(mockValidateScript).toHaveBeenCalledWith("build", "build");
     });
 
     it("skips validation when testCommand is set on package", async () => {
