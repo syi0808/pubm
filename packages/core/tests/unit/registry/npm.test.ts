@@ -764,9 +764,11 @@ describe("NpmPackageRegistry checkAvailability()", () => {
   }
 
   describe("isOfficialNpmRegistry()", () => {
+    const isOfficialNpmRegistry = "isOfficialNpmRegistry";
+
     it("returns true for default registry", () => {
       const registry = new NpmPackageRegistry("my-package", FIXTURE_PATH);
-      expect(registry["isOfficialNpmRegistry"]()).toBe(true);
+      expect(registry[isOfficialNpmRegistry]()).toBe(true);
     });
 
     it("returns true for registry with trailing slash", () => {
@@ -775,7 +777,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
         FIXTURE_PATH,
         "https://registry.npmjs.org/",
       );
-      expect(registry["isOfficialNpmRegistry"]()).toBe(true);
+      expect(registry[isOfficialNpmRegistry]()).toBe(true);
     });
 
     it("returns false for private registry", () => {
@@ -784,7 +786,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
         FIXTURE_PATH,
         "https://npm.mycompany.com",
       );
-      expect(registry["isOfficialNpmRegistry"]()).toBe(false);
+      expect(registry[isOfficialNpmRegistry]()).toBe(false);
     });
   });
 
@@ -865,6 +867,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       );
       // Verify loginUrl shown in task output
       expect(task.output).toContain(loginUrl);
+      expect(task.output).toContain(
+        `\u001b]8;;${loginUrl}\u0007${loginUrl}\u001b]8;;\u0007`,
+      );
     });
 
     it("throws when POST response is missing loginUrl", async () => {
@@ -1082,7 +1087,7 @@ describe("NpmPackageRegistry checkAvailability()", () => {
         "https://www.npmjs.com/login?next=/login/cli/abc-123\n",
       ]);
 
-      const { FreshNpmRegistry, openUrl, spawnInteractive } =
+      const { FreshNpmRegistry, spawnInteractive } =
         await importFreshRegistryWithMocks(child);
 
       const freshRegistry = new FreshNpmRegistry(
@@ -1679,6 +1684,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       );
       expect(task.output).toContain(
         "https://www.npmjs.com/login?next=/login/cli/abc-123",
+      );
+      expect(task.output).toContain(
+        "\u001b]8;;https://www.npmjs.com/login?next=/login/cli/abc-123\u0007https://www.npmjs.com/login?next=/login/cli/abc-123\u001b]8;;\u0007",
       );
     });
 

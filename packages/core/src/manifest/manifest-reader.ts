@@ -123,7 +123,7 @@ export class ManifestReader<
     }
 
     if (!this.schema.validate || manifests.size <= 1) {
-      const resolved = manifests.values().next().value!;
+      const resolved = Array.from(manifests.values())[0];
       return { resolved, errors: [], warnings: [] };
     }
 

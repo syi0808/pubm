@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
+import { prompt } from "@pubm/runner";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -10,10 +11,9 @@ import {
   runSetupSkills,
 } from "../../../src/commands/setup-skills.js";
 
-vi.mock("enquirer", () => ({
-  default: {
-    prompt: vi.fn(),
-  },
+vi.mock("@pubm/runner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@pubm/runner")>()),
+  prompt: vi.fn(),
 }));
 
 vi.mock("@pubm/core", async (importOriginal) => {
@@ -95,8 +95,7 @@ const SKILL_FILES = [
 ];
 
 async function setupPromptMock(agents: Agent[]): Promise<void> {
-  const { default: Enquirer } = await import("enquirer");
-  vi.mocked(Enquirer.prompt).mockResolvedValue({ agents });
+  vi.mocked(prompt).mockResolvedValue(agents);
 }
 
 function setupHappyFetch(tagName = "v1.2.3"): void {
@@ -193,18 +192,16 @@ describe("runSetupSkills — Happy Path", () => {
   it("prompts user for agent selection", async () => {
     await setupPromptMock(["claude-code"]);
     setupHappyFetch();
-    const { default: Enquirer } = await import("enquirer");
 
     await runSetupSkills(TEST_DIR);
 
-    expect(Enquirer.prompt).toHaveBeenCalledOnce();
-    const callArg = vi.mocked(Enquirer.prompt).mock.calls[0][0] as Record<
+    expect(prompt).toHaveBeenCalledOnce();
+    const callArg = vi.mocked(prompt).mock.calls[0][0] as Record<
       string,
       unknown
     >;
     expect(callArg).toMatchObject({
       type: "multiselect",
-      name: "agents",
     });
   });
 

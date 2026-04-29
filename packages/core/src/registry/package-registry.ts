@@ -109,7 +109,7 @@ export abstract class PackageRegistry {
   }
 
   async checkAvailability(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     _task: any,
     _ctx: PubmContext,
   ): Promise<void> {

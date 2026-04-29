@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { color } from "listr2";
+import { color } from "@pubm/runner";
 import type { PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { ManifestReader } from "../manifest/manifest-reader.js";
@@ -10,6 +10,7 @@ import type { RegistryType } from "../types/options.js";
 import { exec, NonZeroExitError } from "../utils/exec.js";
 import { normalizeRegistryUrl } from "../utils/normalize-registry-url.js";
 import { isValidPackageName } from "../utils/package-name.js";
+import { ui } from "../utils/ui.js";
 import { registerPrivateRegistry } from "./catalog.js";
 import { RegistryConnector } from "./connector.js";
 import {
@@ -67,6 +68,10 @@ function extractNpmLoginUrl(text: string): string | null {
   }
 
   return null;
+}
+
+function formatLoginUrl(url: string): string {
+  return color.cyan(ui.link(url, url));
 }
 
 async function runNpm(args: string[], cwd?: string): Promise<string> {
@@ -421,7 +426,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   async checkAvailability(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
     ctx: PubmContext,
   ): Promise<void> {
@@ -533,7 +538,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   private async runDirectWebLogin(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
   ): Promise<void> {
     task.output = "Launching npm login...";
@@ -578,7 +583,7 @@ export class NpmPackageRegistry extends PackageRegistry {
     }
 
     // Step 2: Open browser and show URL
-    task.output = `Login at: ${color.cyan(loginUrl)}`;
+    task.output = `Login at: ${formatLoginUrl(loginUrl)}`;
     const { openUrl } = await import("../utils/open-url.js");
     void openUrl(loginUrl).catch(() => {});
 
@@ -625,7 +630,7 @@ export class NpmPackageRegistry extends PackageRegistry {
   }
 
   private async runInteractiveLogin(
-    // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex
+    // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
     task: any,
   ): Promise<void> {
     if (this.isOfficialNpmRegistry()) {
@@ -652,7 +657,7 @@ export class NpmPackageRegistry extends PackageRegistry {
       }
 
       openedUrl = canonicalUrl;
-      task.output = `Login at: ${color.cyan(canonicalUrl)}`;
+      task.output = `Login at: ${formatLoginUrl(canonicalUrl)}`;
       void openUrl(canonicalUrl);
     };
 

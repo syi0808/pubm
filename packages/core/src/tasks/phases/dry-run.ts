@@ -1,6 +1,6 @@
 import path from "node:path";
 import process from "node:process";
-import type { Listr, ListrTask } from "listr2";
+import type { Task, TaskRunner } from "@pubm/runner";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
 import { t } from "../../i18n/index.js";
@@ -22,12 +22,12 @@ export function createDryRunTasks(
   mode: string,
   hasPrepare: boolean,
   skipDryRun: boolean,
-): ListrTask<PubmContext>[] {
+): Task<PubmContext>[] {
   return [
     {
       enabled: !skipDryRun && (dryRun || (mode === "ci" && hasPrepare)),
       title: t("task.dryRunValidation.title"),
-      task: async (ctx, parentTask): Promise<Listr<PubmContext>> => {
+      task: async (ctx, parentTask): Promise<TaskRunner<PubmContext>> => {
         await resolveWorkspaceProtocols(ctx);
         await applyVersionsForDryRun(ctx);
 

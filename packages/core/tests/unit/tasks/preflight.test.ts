@@ -101,6 +101,31 @@ describe("collectTokens", () => {
     expect(mockDbSet).toHaveBeenCalledWith("npm-token", "new-token");
   });
 
+  it("shows the npm token URL as a clickable label with visible fallback", async () => {
+    mockedLoadTokens.mockReturnValue({});
+    mockedExec.mockResolvedValue({ stdout: "testuser\n", stderr: "" } as any);
+
+    const mockPromptAdapter = {
+      run: vi.fn().mockResolvedValue("new-token"),
+    };
+    const mockTask = {
+      output: "",
+      prompt: vi.fn().mockReturnValue(mockPromptAdapter),
+    };
+
+    await collectTokens(["npm"], mockTask as any);
+
+    const expectedUrl =
+      "https://www.npmjs.com/settings/testuser/tokens/granular-access-tokens/new";
+    const promptOptions = mockPromptAdapter.run.mock.calls[0]?.[0];
+
+    expect(promptOptions.footer).toContain("Generate a token from");
+    expect(promptOptions.footer).toContain(
+      `\u001B]8;;${expectedUrl}\u0007npmjs.com\u001B]8;;\u0007`,
+    );
+    expect(promptOptions.footer).toContain(`(${expectedUrl})`);
+  });
+
   it("throws when a required token input is empty", async () => {
     mockedLoadTokens.mockReturnValue({});
     mockedExec.mockResolvedValue({ stdout: "testuser\n", stderr: "" } as any);
@@ -518,6 +543,38 @@ describe("collectPluginCredentials", () => {
     );
 
     expect(result).toEqual({ "test-key": "prompted-token" });
+  });
+
+  it("shows plugin credential token URLs as clickable labels with visible fallback", async () => {
+    mockedSecureStore.mockImplementation(function () {
+      return {
+        get: vi.fn().mockReturnValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+      } as any;
+    });
+
+    const task = makePluginTask();
+    const credentials: PluginCredential[] = [
+      {
+        key: "test-key",
+        env: "NONEXISTENT_VAR_URL",
+        label: "Test Token",
+        tokenUrl: "https://example.com/token",
+        tokenUrlLabel: "example.com",
+      },
+    ];
+
+    await collectPluginCredentials(credentials, true, task as any);
+
+    const promptAdapter = task.prompt.mock.results[0]?.value;
+    const promptOptions = promptAdapter.run.mock.calls[0]?.[0];
+
+    expect(promptOptions.footer).toContain("Generate a token from");
+    expect(promptOptions.footer).toContain(
+      "\u001B]8;;https://example.com/token\u0007example.com\u001B]8;;\u0007",
+    );
+    expect(promptOptions.footer).toContain("(https://example.com/token)");
   });
 
   it("throws for required credential when prompt is disabled (CI)", async () => {

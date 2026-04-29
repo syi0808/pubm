@@ -49,6 +49,7 @@
     "@pubm/linux-x64": "workspace:^",
     "@pubm/plugin-brew": "workspace:^",
     "@pubm/plugin-external-version-sync": "workspace:^",
+    "@pubm/runner": "workspace:^",
     "@pubm/windows-x64": "workspace:^",
     "@types/bun": "^1.3.10",
     "@types/node": "^25.4.0",
@@ -58,8 +59,5 @@
     "turbo": "^2.8.16",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
-  },
-  "patchedDependencies": {
-    "listr2@10.2.1": "patches/listr2.patch"
   }
 }

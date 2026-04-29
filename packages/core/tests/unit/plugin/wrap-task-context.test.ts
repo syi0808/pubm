@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { wrapTaskContext } from "../../../src/plugin/wrap-task-context.js";
 
-function makeMockListrTask() {
+function makeMockRunnerTask() {
   const promptRun = vi.fn();
   return {
     _output: "",
@@ -25,7 +25,7 @@ function makeMockListrTask() {
 
 describe("wrapTaskContext", () => {
   it("proxies output getter/setter", () => {
-    const mock = makeMockListrTask();
+    const mock = makeMockRunnerTask();
     const ctx = wrapTaskContext(mock as any);
 
     ctx.output = "hello";
@@ -34,7 +34,7 @@ describe("wrapTaskContext", () => {
   });
 
   it("proxies title getter/setter", () => {
-    const mock = makeMockListrTask();
+    const mock = makeMockRunnerTask();
     const ctx = wrapTaskContext(mock as any);
 
     ctx.title = "New title";
@@ -42,8 +42,8 @@ describe("wrapTaskContext", () => {
     expect(ctx.title).toBe("New title");
   });
 
-  it("delegates prompt to listr2 prompt adapter", async () => {
-    const mock = makeMockListrTask();
+  it("delegates prompt to the runner prompt session", async () => {
+    const mock = makeMockRunnerTask();
     mock._promptRun.mockResolvedValue("user-input");
     const ctx = wrapTaskContext(mock as any);
 

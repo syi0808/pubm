@@ -80,7 +80,7 @@ describe("semanticReleaseAdapter.parse()", () => {
   it("parses full config with all plugin types", async () => {
     const config = {
       branches: ["main", { name: "beta", prerelease: true }],
-      tagFormat: "v${version}",
+      tagFormat: `v\${version}`,
       plugins: [
         ["@semantic-release/commit-analyzer", { preset: "angular" }],
         "@semantic-release/release-notes-generator",
@@ -92,7 +92,7 @@ describe("semanticReleaseAdapter.parse()", () => {
         ["@semantic-release/changelog", { changelogFile: "CHANGELOG.md" }],
         [
           "@semantic-release/git",
-          { message: "chore(release): ${nextRelease.version}" },
+          { message: `chore(release): \${nextRelease.version}` },
         ],
       ],
     };
@@ -110,10 +110,10 @@ describe("semanticReleaseAdapter.parse()", () => {
     );
 
     expect(result.source).toBe("semantic-release");
-    expect(result.git?.tagFormat).toBe("v${version}");
+    expect(result.git?.tagFormat).toBe(`v\${version}`);
     expect(result.git?.branch).toBe("main");
     expect(result.git?.commitMessage).toBe(
-      "chore(release): ${nextRelease.version}",
+      `chore(release): \${nextRelease.version}`,
     );
     expect(result.npm?.publish).toBe(true);
     expect(result.npm?.publishPath).toBe("dist");
@@ -324,7 +324,7 @@ plugins:
 
     expect(result.source).toBe("semantic-release");
     expect(result.git?.branch).toBe("main");
-    expect(result.git?.tagFormat).toBe("v${version}");
+    expect(result.git?.tagFormat).toBe(`v\${version}`);
     expect(result.npm?.publish).toBe(true);
   });
 

@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import type { ListrTask } from "listr2";
+import type { Task, TaskContext } from "@pubm/runner";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { RustEcosystem } from "../ecosystem/rust.js";
 import { t } from "../i18n/index.js";
@@ -27,7 +26,7 @@ function isAuthError(error: unknown): boolean {
 async function withTokenRetry(
   registryKey: string,
   ctx: PubmContext,
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
   action: () => Promise<void>,
 ): Promise<void> {
   try {
@@ -47,14 +46,12 @@ async function withTokenRetry(
         task.output = t("task.preflight.authFailed", {
           label: config.promptLabel,
         });
-        const newToken: string = await task
-          .prompt(ListrEnquirerPromptAdapter)
-          .run({
-            type: "password",
-            message: t("prompt.preflight.reenter", {
-              label: config.promptLabel,
-            }),
-          });
+        const newToken: string = await task.prompt().run({
+          type: "password",
+          message: t("prompt.preflight.reenter", {
+            label: config.promptLabel,
+          }),
+        });
         new SecureStore().set(config.dbKey, newToken);
         process.env[config.envVar] = newToken;
         return newToken;
@@ -66,9 +63,7 @@ async function withTokenRetry(
   }
 }
 
-export function createNpmDryRunPublishTask(
-  key: string,
-): ListrTask<PubmContext> {
+export function createNpmDryRunPublishTask(key: string): Task<PubmContext> {
   return {
     title: key,
     task: async (ctx, task): Promise<void> => {
@@ -93,9 +88,7 @@ export function createNpmDryRunPublishTask(
   };
 }
 
-export function createJsrDryRunPublishTask(
-  key: string,
-): ListrTask<PubmContext> {
+export function createJsrDryRunPublishTask(key: string): Task<PubmContext> {
   return {
     title: key,
     task: async (ctx, task): Promise<void> => {
@@ -172,7 +165,7 @@ async function findUnpublishedSiblingDeps(
 export function createCratesDryRunPublishTask(
   key: string,
   siblingKeys?: string[],
-): ListrTask<PubmContext> {
+): Task<PubmContext> {
   const packagePath = pathFromKey(key);
   return {
     title: t("task.dryRun.crates.title", { path: packagePath }),

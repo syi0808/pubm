@@ -20,7 +20,7 @@ export async function pubm(ctx: PubmContext): Promise<void> {
 }
 
 // External re-exports
-export { color } from "listr2";
+export { color } from "@pubm/runner";
 export type {
   AssetPipelineHooks,
   CompressedAsset,

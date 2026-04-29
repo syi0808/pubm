@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -14,12 +14,27 @@ function loadLocale(locale: string): Record<string, string> {
 const EN_MESSAGES = loadLocale("en");
 const EN_KEYS = Object.keys(EN_MESSAGES).sort();
 const LOCALES = ["ko", "zh-cn", "fr", "de", "es"];
+const sourceDirs = [
+  path.join(__dirname, "../../../src"),
+  path.join(__dirname, "../../../../pubm/src"),
+];
 
 describe("JSON integrity", () => {
   it("en.json has no empty values", () => {
     for (const [key, value] of Object.entries(EN_MESSAGES)) {
       expect(value, `Key "${key}" has empty value`).not.toBe("");
     }
+  });
+
+  it("contains all static translation keys used by source files", () => {
+    const usedKeys = new Set<string>();
+    for (const dir of sourceDirs) {
+      collectTranslationKeys(dir, usedKeys);
+    }
+
+    const missing = [...usedKeys].filter((key) => !(key in EN_MESSAGES)).sort();
+
+    expect(missing).toEqual([]);
   });
 
   for (const locale of LOCALES) {
@@ -67,3 +82,22 @@ describe("JSON integrity", () => {
     });
   }
 });
+
+function collectTranslationKeys(dir: string, keys: Set<string>): void {
+  if (!existsSync(dir)) return;
+
+  for (const entry of readdirSync(dir)) {
+    const filePath = path.join(dir, entry);
+    const stat = statSync(filePath);
+    if (stat.isDirectory()) {
+      collectTranslationKeys(filePath, keys);
+      continue;
+    }
+    if (!entry.endsWith(".ts")) continue;
+
+    const source = readFileSync(filePath, "utf-8");
+    for (const match of source.matchAll(/\bt\(\s*["']([^"']+)["']/g)) {
+      keys.add(match[1]);
+    }
+  }
+}

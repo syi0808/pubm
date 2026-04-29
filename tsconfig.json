@@ -16,6 +16,7 @@
     "noFallthroughCasesInSwitch": true
   },
   "references": [
+    { "path": "packages/runner" },
     { "path": "packages/core" },
     { "path": "packages/pubm" },
     { "path": "packages/plugins/plugin-external-version-sync" },

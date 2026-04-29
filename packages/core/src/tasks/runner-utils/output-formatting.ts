@@ -80,16 +80,26 @@ export function createLiveCommandOutput(
     stdout: "",
     stderr: "",
   };
+  let lastRenderedOutput = "";
 
-  const render = (partialLine?: string): void => {
-    const previewLines = partialLine
-      ? [...recentLines, partialLine].slice(-LIVE_COMMAND_OUTPUT_LINE_LIMIT)
-      : recentLines;
+  const pendingPreviewLines = (): string[] =>
+    [pending.stdout, pending.stderr]
+      .map((line) => normalizeLiveCommandOutputLine(line))
+      .filter((line) => line.length > 0);
 
-    task.output =
+  const render = (): void => {
+    const previewLines = [...recentLines, ...pendingPreviewLines()].slice(
+      -LIVE_COMMAND_OUTPUT_LINE_LIMIT,
+    );
+
+    const nextOutput =
       previewLines.length > 0
-        ? [`Executing \`${command}\``, ...previewLines].join("\n")
+        ? previewLines.join("\n")
         : `Executing \`${command}\``;
+    if (nextOutput === lastRenderedOutput) return;
+
+    lastRenderedOutput = nextOutput;
+    task.output = nextOutput;
   };
 
   const pushLine = (line: string): void => {
@@ -118,8 +128,7 @@ export function createLiveCommandOutput(
       pushLine(segment);
     }
 
-    const partialLine = normalizeLiveCommandOutputLine(pending[source]);
-    render(partialLine || undefined);
+    render();
   };
 
   const finish = (): void => {

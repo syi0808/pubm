@@ -1,6 +1,5 @@
 import process from "node:process";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import { color, type ListrTask } from "listr2";
+import { color, type Task } from "@pubm/runner";
 import { getPackageVersion, type PubmContext } from "../context.js";
 import { AbstractError } from "../error.js";
 import { t } from "../i18n/index.js";
@@ -18,7 +17,7 @@ class JsrAvailableError extends AbstractError {
   }
 }
 
-export function createJsrPublishTask(key: string): ListrTask<PubmContext> {
+export function createJsrPublishTask(key: string): Task<PubmContext> {
   return {
     title: key,
     task: async (ctx, task): Promise<void> => {
@@ -65,7 +64,7 @@ export function createJsrPublishTask(key: string): ListrTask<PubmContext> {
             openUrl(urls[0]);
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+              await task.prompt().run<string>({
                 type: "input",
                 message: t("prompt.jsr.pressEnter", {
                   key: color.bold("enter"),

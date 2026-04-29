@@ -1384,7 +1384,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      // The summary table should include both packages
+      // The recommendation summary should include both packages
       const summaryOutput = mockTask.outputs.find((output) =>
         output.includes("Version Recommendations"),
       );

@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import { color } from "listr2";
+import { color } from "@pubm/runner";
 import { AbstractError } from "../error.js";
 import { t } from "../i18n/index.js";
 import type { PluginCredential } from "../plugin/types.js";
@@ -19,9 +18,17 @@ class PreflightError extends AbstractError {
   name = t("error.preflight.name");
 }
 
+function formatTokenUrlInfo(label: string, url: string): string {
+  const linkedLabel = ui.link(label, url);
+  const display = label === url ? linkedLabel : `${linkedLabel} (${url})`;
+  return t("task.preflight.tokenUrl", {
+    url: color.bold(display),
+  });
+}
+
 export async function collectTokens(
   registries: string[],
-  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
+  // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
   task: any,
 ): Promise<Record<string, string>> {
   const existing = loadTokensFromDb(registries);
@@ -66,12 +73,10 @@ export async function collectTokens(
     // Prompt loop (infinite until valid token or Ctrl+C)
     while (true) {
       task.output = t("task.preflight.enter", { label: config.promptLabel });
-      const token = await task.prompt(ListrEnquirerPromptAdapter).run({
+      const token = await task.prompt().run({
         type: "password",
         message: t("task.preflight.enter", { label: config.promptLabel }),
-        footer: t("task.preflight.tokenUrl", {
-          url: color.bold(ui.link(config.tokenUrlLabel, tokenUrl)),
-        }),
+        footer: formatTokenUrlInfo(config.tokenUrlLabel, tokenUrl),
       });
 
       if (!`${token}`.trim()) {
@@ -150,7 +155,7 @@ function tokensSyncHash(
 
 export async function promptGhSecretsSync(
   tokens: Record<string, string>,
-  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
+  // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
   task: any,
   pluginSecrets: GhSecretEntry[] = [],
   repoSlug: string,
@@ -163,7 +168,7 @@ export async function promptGhSecretsSync(
     return;
   }
 
-  const shouldSync = await task.prompt(ListrEnquirerPromptAdapter).run({
+  const shouldSync = await task.prompt().run({
     type: "toggle",
     message: t("prompt.preflight.syncSecrets"),
     enabled: "Yes",
@@ -194,7 +199,7 @@ export async function promptGhSecretsSync(
 export async function collectPluginCredentials(
   credentials: PluginCredential[],
   promptEnabled: boolean,
-  // biome-ignore lint/suspicious/noExplicitAny: listr2 TaskWrapper type is complex and not easily typed inline
+  // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
   task: any,
 ): Promise<Record<string, string>> {
   const tokens: Record<string, string> = {};
@@ -285,14 +290,10 @@ export async function collectPluginCredentials(
         label: credential.label,
       });
       const tokenUrlInfo = credential.tokenUrl
-        ? t("task.preflight.tokenUrl", {
-            url: color.bold(
-              ui.link(
-                credential.tokenUrlLabel ?? credential.tokenUrl,
-                credential.tokenUrl,
-              ),
-            ),
-          })
+        ? formatTokenUrlInfo(
+            credential.tokenUrlLabel ?? credential.tokenUrl,
+            credential.tokenUrl,
+          )
         : "";
       const token = await wrappedTask.prompt({
         type: "password",

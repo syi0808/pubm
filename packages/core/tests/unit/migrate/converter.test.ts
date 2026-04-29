@@ -227,7 +227,7 @@ describe("convertToPublishConfig", () => {
   it("generates warning for custom commitMessage", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
-      git: { commitMessage: "chore: release v${version}" },
+      git: { commitMessage: `chore: release v\${version}` },
     };
     const result = convertToPublishConfig(parsed);
     expect(result.warnings).toContain(
@@ -238,7 +238,7 @@ describe("convertToPublishConfig", () => {
   it("generates warning for non-default tagFormat", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
-      git: { tagFormat: "release-${version}" },
+      git: { tagFormat: `release-\${version}` },
     };
     const result = convertToPublishConfig(parsed);
     expect(result.warnings.some((w) => w.includes("custom tag format"))).toBe(
@@ -246,10 +246,10 @@ describe("convertToPublishConfig", () => {
     );
   });
 
-  it("does not generate warning for default tagFormat v${version}", () => {
+  it(`does not generate warning for default tagFormat v\${version}`, () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
-      git: { tagFormat: "v${version}" },
+      git: { tagFormat: `v\${version}` },
     };
     const result = convertToPublishConfig(parsed);
     expect(result.warnings.some((w) => w.includes("custom tag format"))).toBe(

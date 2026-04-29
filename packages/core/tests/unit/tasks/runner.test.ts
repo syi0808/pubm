@@ -1037,9 +1037,7 @@ describe("run", () => {
           mockTask,
         );
 
-        expect(outputHistory).toContain(
-          "Executing `pnpm run test`\nwarn 1\nline 3\nline 4\nline 5",
-        );
+        expect(outputHistory).toContain("warn 1\nline 3\nline 4\nline 5");
       } finally {
         Object.defineProperty(process.stdout, "isTTY", {
           value: originalIsTTY,
@@ -1086,9 +1084,7 @@ describe("run", () => {
           mockTask,
         );
 
-        expect(outputHistory).toContain(
-          "Executing `pnpm run test`\npartial line",
-        );
+        expect(outputHistory).toContain("partial line");
       } finally {
         Object.defineProperty(process.stdout, "isTTY", {
           value: originalIsTTY,

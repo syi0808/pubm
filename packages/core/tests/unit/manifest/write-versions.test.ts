@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import type { Ecosystem } from "../../../src/ecosystem/ecosystem.js";
 import { writeVersionsForEcosystem } from "../../../src/manifest/write-versions.js";
-import { packageKey } from "../../../src/utils/package-key.js";
 
 function createMockEcosystem(name: string, lockfilePath?: string) {
   return {

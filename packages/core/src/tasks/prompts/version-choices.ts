@@ -1,5 +1,4 @@
-import { ListrEnquirerPromptAdapter } from "@listr2/prompt-adapter-enquirer";
-import { color, type ListrTask } from "listr2";
+import { color, type TaskContext } from "@pubm/runner";
 import semver from "semver";
 import { createKeyResolver } from "../../changeset/resolve.js";
 import type { ResolvedPackageConfig } from "../../config/types.js";
@@ -68,7 +67,7 @@ export function versionChoices(
         .toString();
       const marker =
         recommendedBumpType === releaseType
-          ? ` ${color.dim(t("prompt.version.recommendedMarker"))}`
+          ? ` ${color.yellowBright(t("prompt.version.recommendedMarker"))}`
           : "";
       return {
         message: t("prompt.version.releaseChoice", {
@@ -84,7 +83,7 @@ export function versionChoices(
 }
 
 export async function promptVersion(
-  task: Parameters<ListrTask<PubmContext>["task"]>[1],
+  task: TaskContext<PubmContext>,
   currentVersion: string,
   label: string,
   recommendedBumpType?: string,
@@ -94,7 +93,7 @@ export async function promptVersion(
     ? RELEASE_TYPES.indexOf(initialBumpType as semver.ReleaseType) + 1
     : 0;
 
-  let nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+  let nextVersion = await task.prompt().run<string>({
     type: "select",
     message: t("prompt.version.selectIncrement", {
       label,
@@ -106,7 +105,7 @@ export async function promptVersion(
   });
 
   if (nextVersion === "specify") {
-    nextVersion = await task.prompt(ListrEnquirerPromptAdapter).run<string>({
+    nextVersion = await task.prompt().run<string>({
       type: "input",
       message: t("prompt.version.enterVersion", { label }),
       name: "version",

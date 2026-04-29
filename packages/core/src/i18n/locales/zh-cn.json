@@ -62,6 +62,7 @@
   "task.info.checking": "检查必要信息",
   "task.info.checkingVersion": "检查版本信息",
   "task.info.checkingTag": "检查标签信息",
+  "task.info.selectVersion": "选择版本操作",
   "prompt.version.keepCurrent": "保留当前版本 {version}",
   "prompt.version.recommendedMarker": "← changesets 推荐",
   "prompt.version.releaseChoice": "{releaseType} {version}{marker}",

@@ -12,8 +12,8 @@ import {
   ui,
   writeChangeset,
 } from "@pubm/core";
+import { prompt } from "@pubm/runner";
 import type { Command } from "commander";
-import Enquirer from "enquirer";
 
 export function registerAddCommand(
   parent: Command,
@@ -97,11 +97,8 @@ export function registerAddCommand(
             };
           });
 
-          const { packages: selectedKeys } = await Enquirer.prompt<{
-            packages: string[];
-          }>({
+          const selectedKeys = await prompt<string[]>({
             type: "multiselect",
-            name: "packages",
             message: t("prompt.add.selectPackages"),
             choices,
             ...(isFixed && {
@@ -137,11 +134,8 @@ export function registerAddCommand(
         const releases: Release[] = [];
 
         if (config.versioning === "fixed") {
-          const { bump: bumpType } = await Enquirer.prompt<{
-            bump: string;
-          }>({
+          const bumpType = await prompt<string>({
             type: "select",
-            name: "bump",
             message: t("prompt.add.selectBumpAll"),
             choices: bumpChoices,
           });
@@ -155,11 +149,8 @@ export function registerAddCommand(
           }
         } else {
           for (const pkg of selectedPackages) {
-            const { bump: bumpType } = await Enquirer.prompt<{
-              bump: string;
-            }>({
+            const bumpType = await prompt<string>({
               type: "select",
-              name: "bump",
               message: t("prompt.add.selectBump", { name: pkg.name }),
               choices: bumpChoices,
             });
@@ -173,9 +164,8 @@ export function registerAddCommand(
         }
 
         // Step 3: Summary input
-        const { summary } = await Enquirer.prompt<{ summary: string }>({
+        const summary = await prompt<string>({
           type: "input",
-          name: "summary",
           message: t("prompt.add.summary"),
         });
 
