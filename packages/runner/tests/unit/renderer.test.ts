@@ -504,6 +504,51 @@ describe("DefaultRenderer", () => {
     renderer.end();
   });
 
+  it("inserts late enabled tasks by original sort order", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const firstTask = taskSnapshot({
+      id: "first",
+      title: "First",
+      initialTitle: "First",
+      path: ["First"],
+      state: "pending",
+      sortOrder: 0,
+    });
+    const middleTask = taskSnapshot({
+      id: "middle",
+      title: "Middle",
+      initialTitle: "Middle",
+      path: ["Middle"],
+      state: "pending",
+      sortOrder: 1,
+    });
+    const lastTask = taskSnapshot({
+      id: "last",
+      title: "Last",
+      initialTitle: "Last",
+      path: ["Last"],
+      state: "pending",
+      sortOrder: 2,
+    });
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({ type: "run.tasks", tasks: [firstTask, lastTask] });
+    source.emit({ type: "task.enabled", state: "pending", task: middleTask });
+
+    const output = chunks.at(-1) ?? "";
+    expect(output.indexOf("First")).toBeLessThan(output.indexOf("Middle"));
+    expect(output.indexOf("Middle")).toBeLessThan(output.indexOf("Last"));
+
+    renderer.end();
+  });
+
   it("renders multiline task output without treating outputBar as a line cap", () => {
     const chunks: string[] = [];
     const source = new EventSource();
@@ -1885,6 +1930,45 @@ describe("DefaultRenderer", () => {
       const output = chunks.join("");
       expect(output).not.toContain("Publishing");
       expect(output).toContain("Validating publish (dry-run)");
+    } finally {
+      if (previousForceUnicode === undefined) {
+        delete process.env.FORCE_UNICODE;
+      } else {
+        process.env.FORCE_UNICODE = previousForceUnicode;
+      }
+    }
+  });
+
+  it("renders skipped tasks in the live task list", () => {
+    const previousForceUnicode = process.env.FORCE_UNICODE;
+    process.env.FORCE_UNICODE = "1";
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      collapseSubtasks: false,
+      useColor: false,
+    });
+
+    try {
+      const skippedRoot = taskSnapshot({
+        id: "skipped-root",
+        title: "Restoring workspace protocols",
+        initialTitle: "Restoring workspace protocols",
+        path: ["Restoring workspace protocols"],
+        state: "skipped",
+        message: { skip: "No workspace backups" },
+      });
+
+      renderer.render(source);
+      source.emit({ type: "task.skipped", task: skippedRoot });
+      renderer.end();
+
+      const output = chunks.join("");
+      expect(output).toContain("↓ Restoring workspace protocols");
+      expect(output).toContain("No workspace backups");
     } finally {
       if (previousForceUnicode === undefined) {
         delete process.env.FORCE_UNICODE;

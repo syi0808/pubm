@@ -234,7 +234,9 @@ export class PubmTaskRunner<Context extends object = object>
         ? undefined
         : new ProcessSignalController());
     const taskList = Array.isArray(task) ? task : [task];
-    this.tasks = taskList.map((item) => this.createRuntimeTask(item));
+    this.tasks = taskList.map((item, index) =>
+      this.createRuntimeTask(item, index),
+    );
   }
 
   isRoot(): boolean {
@@ -269,7 +271,12 @@ export class PubmTaskRunner<Context extends object = object>
 
   add(tasks: Task<Context> | Task<Context>[]): void {
     const taskList = Array.isArray(tasks) ? tasks : [tasks];
-    this.tasks.push(...taskList.map((item) => this.createRuntimeTask(item)));
+    const baseOrder = this.tasks.length;
+    this.tasks.push(
+      ...taskList.map((item, index) =>
+        this.createRuntimeTask(item, baseOrder + index),
+      ),
+    );
   }
 
   emit(event: TaskEvent): void {
@@ -318,10 +325,20 @@ export class PubmTaskRunner<Context extends object = object>
     });
   }
 
-  private createRuntimeTask(task: Task<Context>): RuntimeTask<Context> {
+  private createRuntimeTask(
+    task: Task<Context>,
+    sortOrder: number,
+  ): RuntimeTask<Context> {
     const title = task.title ?? "background task";
     const path = this.parentTask ? [...this.parentTask.path, title] : [title];
-    return new RuntimeTask(task, path, this.sink);
+    return new RuntimeTask(task, path, this.sink, sortOrder);
+  }
+
+  private initialVisibleTasks(): RuntimeTask<Context>[] {
+    return this.tasks.filter((task) => {
+      const enabled = task.task.enabled;
+      return enabled === undefined || enabled === true;
+    });
   }
 
   private createPromptCapture(
@@ -342,7 +359,7 @@ export class PubmTaskRunner<Context extends object = object>
       this.emitInitialTasks();
       this.registerSignals(ctx);
     } else if (this.parentTask) {
-      this.parentTask.setSubtasks(this.tasks);
+      this.parentTask.setSubtasks(this.initialVisibleTasks());
     }
 
     try {
@@ -390,7 +407,7 @@ export class PubmTaskRunner<Context extends object = object>
   private emitInitialTasks(): void {
     this.emit({
       type: "run.tasks",
-      tasks: this.tasks.map((task) => task.snapshot()),
+      tasks: this.initialVisibleTasks().map((task) => task.snapshot()),
     });
   }
 

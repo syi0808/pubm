@@ -475,7 +475,7 @@ describe("PubmTaskRunner execution", () => {
     ).toEqual([["parent/initial", "parent/dynamic"]]);
   });
 
-  it("uses option context, blocks disabled tasks, and skips predicate-only tasks", async () => {
+  it("keeps disabled tasks out of initial lists and renders skipped tasks", async () => {
     interface Context {
       ran: string[];
     }
@@ -485,6 +485,13 @@ describe("PubmTaskRunner execution", () => {
 
     await createTaskRunner<Context>(
       [
+        {
+          title: "static disabled",
+          enabled: false,
+          task: (context) => {
+            context.ran.push("static-disabled-task");
+          },
+        },
         {
           title: "disabled",
           enabled: (context) => {
@@ -496,6 +503,7 @@ describe("PubmTaskRunner execution", () => {
           },
         },
         {
+          title: "skipped",
           skip: true,
           task: (context) => {
             context.ran.push("skipped-task");
@@ -515,7 +523,10 @@ describe("PubmTaskRunner execution", () => {
       },
     ).run();
 
-    const blocked = renderer.events.find(
+    const initialTasks = renderer.events.find(
+      (event) => event.type === "run.tasks",
+    )?.tasks;
+    const blocked = renderer.events.filter(
       (event) => event.type === "task.blocked",
     );
     const skipped = renderer.events.find(
@@ -523,8 +534,69 @@ describe("PubmTaskRunner execution", () => {
     );
 
     expect(ctx.ran).toEqual(["enabled-check", "after"]);
-    expect(blocked?.task?.path).toEqual(["disabled"]);
-    expect(skipped?.task?.message?.skip).toBe("Skipped task without a title.");
+    expect(initialTasks?.map((task) => task.path)).toEqual([
+      ["skipped"],
+      ["after"],
+    ]);
+    expect(blocked.map((event) => event.task?.path)).toEqual([
+      ["static disabled"],
+      ["disabled"],
+    ]);
+    expect(skipped?.task?.path).toEqual(["skipped"]);
+    expect(skipped?.task?.message?.skip).toBe("skipped");
+  });
+
+  it("adds function-enabled tasks after evaluation with original sort order", async () => {
+    interface Context {
+      ran: string[];
+    }
+
+    const renderer = new RecordingRenderer();
+    const ctx: Context = { ran: [] };
+
+    await createTaskRunner<Context>(
+      [
+        {
+          title: "first",
+          task: (context) => {
+            context.ran.push("first");
+          },
+        },
+        {
+          title: "middle",
+          enabled: () => true,
+          task: (context) => {
+            context.ran.push("middle");
+          },
+        },
+        {
+          title: "last",
+          task: (context) => {
+            context.ran.push("last");
+          },
+        },
+      ],
+      {
+        ctx,
+        renderer,
+        registerSignalListeners: false,
+      },
+    ).run();
+
+    const initialTasks = renderer.events.find(
+      (event) => event.type === "run.tasks",
+    )?.tasks;
+    const middleEnabled = renderer.events.find(
+      (event) =>
+        event.type === "task.enabled" && event.task?.path[0] === "middle",
+    );
+
+    expect(ctx.ran).toEqual(["first", "middle", "last"]);
+    expect(initialTasks?.map((task) => task.path)).toEqual([
+      ["first"],
+      ["last"],
+    ]);
+    expect(middleEnabled?.task?.sortOrder).toBe(1);
   });
 
   it("supports context snapshots, prompt output, custom events, reports, and skip without a message", async () => {

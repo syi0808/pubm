@@ -500,6 +500,7 @@ export class DefaultRenderer implements TaskRenderer {
       existing.output === task.output &&
       existing.promptOutput === task.promptOutput &&
       existing.state === task.state &&
+      existing.sortOrder === task.sortOrder &&
       existing.path.join("\0") === task.path.join("\0") &&
       JSON.stringify(existing.message) === JSON.stringify(task.message)
     );
@@ -795,7 +796,10 @@ export class DefaultRenderer implements TaskRenderer {
     left: RuntimeTaskSnapshot,
     right: RuntimeTaskSnapshot,
   ): number {
-    return (this.order.get(left.id) ?? 0) - (this.order.get(right.id) ?? 0);
+    return (
+      (left.sortOrder ?? this.order.get(left.id) ?? 0) -
+      (right.sortOrder ?? this.order.get(right.id) ?? 0)
+    );
   }
 
   private setTaskOutput(taskId: string, output: string): void {

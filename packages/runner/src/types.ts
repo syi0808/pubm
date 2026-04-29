@@ -66,6 +66,7 @@ export interface RuntimeTaskSnapshot {
   id: string;
   title?: string;
   initialTitle?: string;
+  sortOrder?: number;
   output?: string;
   promptOutput?: string;
   state: TaskState;

@@ -58,6 +58,7 @@ export class RuntimeTask<Context extends object = object>
     task: Task<Context>,
     path: string[],
     private readonly sink: WorkflowEventSink,
+    readonly sortOrder?: number,
   ) {
     this.task = task;
     this.title = task.title;
@@ -108,6 +109,7 @@ export class RuntimeTask<Context extends object = object>
       id: this.id,
       title: this.title,
       initialTitle: this.initialTitle,
+      sortOrder: this.sortOrder,
       output: this.output,
       promptOutput: this.promptOutput,
       state: this.state,
