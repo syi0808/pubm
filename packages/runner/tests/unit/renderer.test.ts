@@ -917,12 +917,12 @@ describe("DefaultRenderer", () => {
 
       renderer.render(source);
       source.emit({ type: "task.started", task: promptTask });
-      promptCapture.output.write("\u001b[31mRed\u001b[39m plain");
+      promptCapture.output.write("\u001b[1;31m\u001b[22mRed\u001b[39m plain");
       await flushPromptFrame();
       renderer.end();
 
       const output = chunks.join("");
-      expect(output).toContain("\u001b[31mRed");
+      expect(output).toContain("\u001b[1;31m\u001b[22mRed");
       expect(output).toContain("\u001b[0m plain");
       expect(normalizeTerminalText(output)).toContain("Red plain");
     } finally {
@@ -1182,6 +1182,9 @@ describe("DefaultRenderer", () => {
         "\u001b[0;31mabcdefghijklmnopqrstuvwxyz\u001b[0m",
         "\u001b[38;2;255;0;0mabcdefghijklmnopqrstuvwxyz\u001b[39m",
         "\u001b[38;5;1mabcdefghijklmnopqrstuvwxyz\u001b[39m",
+        "\u001b[1;31m\u001b[22mabcdefghijklmnopqrstuvwxyz\u001b[39m",
+        "\u001b[1;31m\u001b[39mabcdefghijklmnopqrstuvwxyz\u001b[22m",
+        "\u001b[31;44m\u001b[39mabcdefghijklmnopqrstuvwxyz\u001b[49m",
       ];
 
       for (const output of outputs) {
@@ -1227,33 +1230,41 @@ describe("DefaultRenderer", () => {
     delete process.env.NO_COLOR;
 
     try {
-      const chunks: string[] = [];
-      const source = new EventSource();
-      const renderer = new DefaultRenderer({
-        output: {
-          write: (chunk) => chunks.push(chunk),
-        },
-        columns: 16,
-        rows: 6,
-        useColor: true,
-      });
+      const outputs = [
+        "\u001b[1m\u001b[22mabcdefghijklmnopqrstuvwxyz",
+        "\u001b[1;31m\u001b[22;39mabcdefghijklmnopqrstuvwxyz",
+        "\u001b[31;44m\u001b[39;49mabcdefghijklmnopqrstuvwxyz",
+      ];
 
-      renderer.render(source);
-      source.emit({
-        type: "task.started",
-        task: taskSnapshot({ path: ["Build"], state: "running" }),
-      });
-      source.emit({
-        type: "task.output",
-        output: "\u001b[1m\u001b[22mabcdefghijklmnopqrstuvwxyz",
-        task: taskSnapshot({ path: ["Build"], state: "running" }),
-      });
+      for (const output of outputs) {
+        const chunks: string[] = [];
+        const source = new EventSource();
+        const renderer = new DefaultRenderer({
+          output: {
+            write: (chunk) => chunks.push(chunk),
+          },
+          columns: 16,
+          rows: 6,
+          useColor: true,
+        });
 
-      const liveFrame = chunks.at(-1) ?? "";
-      expect(liveFrame).not.toContain("\u001b[0m");
-      expect(normalizeTerminalText(liveFrame)).toContain("abc");
+        renderer.render(source);
+        source.emit({
+          type: "task.started",
+          task: taskSnapshot({ path: ["Build"], state: "running" }),
+        });
+        source.emit({
+          type: "task.output",
+          output,
+          task: taskSnapshot({ path: ["Build"], state: "running" }),
+        });
 
-      renderer.end();
+        const liveFrame = chunks.at(-1) ?? "";
+        expect(liveFrame).not.toContain("\u001b[0m");
+        expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+        renderer.end();
+      }
     } finally {
       if (previousNoColor === undefined) {
         delete process.env.NO_COLOR;

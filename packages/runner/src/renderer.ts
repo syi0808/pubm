@@ -1084,6 +1084,7 @@ class PromptFrameOutput implements PromptWritable {
   private column = 0;
   private activeLink = "";
   private activeStyle = "";
+  private activeStyleFlags = 0;
   private frameScheduled = false;
   private disposed = false;
 
@@ -1254,6 +1255,7 @@ class PromptFrameOutput implements PromptWritable {
       this.column = 0;
       this.activeLink = "";
       this.activeStyle = "";
+      this.activeStyleFlags = 0;
       return;
     }
 
@@ -1330,19 +1332,26 @@ class PromptFrameOutput implements PromptWritable {
   private applyStyle(params: string): void {
     if (!this.preserveStyle() || !isSafeSgrParams(params)) {
       this.activeStyle = "";
+      this.activeStyleFlags = 0;
       return;
     }
 
     const values = sgrParams(params);
+    const nextActiveStyleFlags = applySgrParamsToActiveStyle(
+      this.activeStyleFlags,
+      values,
+    );
     if (values.some((value) => value === 0)) {
       this.activeStyle = "";
     }
 
-    if (values.length === 0 || values.every(isResetSgrParam)) {
+    if (nextActiveStyleFlags === 0) {
       this.activeStyle = "";
+      this.activeStyleFlags = 0;
       return;
     }
 
+    this.activeStyleFlags = nextActiveStyleFlags;
     this.activeStyle += `\u001b[${params}m`;
   }
 
@@ -1454,25 +1463,132 @@ function sgrParams(params: string): number[] {
     .filter((value) => Number.isFinite(value));
 }
 
+const SGR_STYLE_FLAG = {
+  intensity: 1 << 0,
+  italic: 1 << 1,
+  underline: 1 << 2,
+  blink: 1 << 3,
+  inverse: 1 << 4,
+  conceal: 1 << 5,
+  strike: 1 << 6,
+  foreground: 1 << 7,
+  background: 1 << 8,
+  underlineColor: 1 << 9,
+  font: 1 << 10,
+  frame: 1 << 11,
+  overline: 1 << 12,
+  ideogram: 1 << 13,
+  script: 1 << 14,
+  other: 1 << 15,
+} as const;
+
+const RESET_SGR_STYLE_FLAGS: Partial<Record<number, number>> = {
+  10: SGR_STYLE_FLAG.font,
+  22: SGR_STYLE_FLAG.intensity,
+  23: SGR_STYLE_FLAG.italic,
+  24: SGR_STYLE_FLAG.underline,
+  25: SGR_STYLE_FLAG.blink,
+  27: SGR_STYLE_FLAG.inverse,
+  28: SGR_STYLE_FLAG.conceal,
+  29: SGR_STYLE_FLAG.strike,
+  39: SGR_STYLE_FLAG.foreground,
+  49: SGR_STYLE_FLAG.background,
+  54: SGR_STYLE_FLAG.frame,
+  55: SGR_STYLE_FLAG.overline,
+  59: SGR_STYLE_FLAG.underlineColor,
+  65: SGR_STYLE_FLAG.ideogram,
+  75: SGR_STYLE_FLAG.script,
+};
+
+const SGR_STYLE_FLAGS_BY_PARAM: Partial<Record<number, number>> = {
+  1: SGR_STYLE_FLAG.intensity,
+  2: SGR_STYLE_FLAG.intensity,
+  3: SGR_STYLE_FLAG.italic,
+  4: SGR_STYLE_FLAG.underline,
+  5: SGR_STYLE_FLAG.blink,
+  6: SGR_STYLE_FLAG.blink,
+  7: SGR_STYLE_FLAG.inverse,
+  8: SGR_STYLE_FLAG.conceal,
+  9: SGR_STYLE_FLAG.strike,
+  11: SGR_STYLE_FLAG.font,
+  12: SGR_STYLE_FLAG.font,
+  13: SGR_STYLE_FLAG.font,
+  14: SGR_STYLE_FLAG.font,
+  15: SGR_STYLE_FLAG.font,
+  16: SGR_STYLE_FLAG.font,
+  17: SGR_STYLE_FLAG.font,
+  18: SGR_STYLE_FLAG.font,
+  19: SGR_STYLE_FLAG.font,
+  20: SGR_STYLE_FLAG.italic,
+  21: SGR_STYLE_FLAG.underline,
+  30: SGR_STYLE_FLAG.foreground,
+  31: SGR_STYLE_FLAG.foreground,
+  32: SGR_STYLE_FLAG.foreground,
+  33: SGR_STYLE_FLAG.foreground,
+  34: SGR_STYLE_FLAG.foreground,
+  35: SGR_STYLE_FLAG.foreground,
+  36: SGR_STYLE_FLAG.foreground,
+  37: SGR_STYLE_FLAG.foreground,
+  38: SGR_STYLE_FLAG.foreground,
+  40: SGR_STYLE_FLAG.background,
+  41: SGR_STYLE_FLAG.background,
+  42: SGR_STYLE_FLAG.background,
+  43: SGR_STYLE_FLAG.background,
+  44: SGR_STYLE_FLAG.background,
+  45: SGR_STYLE_FLAG.background,
+  46: SGR_STYLE_FLAG.background,
+  47: SGR_STYLE_FLAG.background,
+  48: SGR_STYLE_FLAG.background,
+  51: SGR_STYLE_FLAG.frame,
+  52: SGR_STYLE_FLAG.frame,
+  53: SGR_STYLE_FLAG.overline,
+  58: SGR_STYLE_FLAG.underlineColor,
+  60: SGR_STYLE_FLAG.ideogram,
+  61: SGR_STYLE_FLAG.ideogram,
+  62: SGR_STYLE_FLAG.ideogram,
+  63: SGR_STYLE_FLAG.ideogram,
+  64: SGR_STYLE_FLAG.ideogram,
+  73: SGR_STYLE_FLAG.script,
+  74: SGR_STYLE_FLAG.script,
+  90: SGR_STYLE_FLAG.foreground,
+  91: SGR_STYLE_FLAG.foreground,
+  92: SGR_STYLE_FLAG.foreground,
+  93: SGR_STYLE_FLAG.foreground,
+  94: SGR_STYLE_FLAG.foreground,
+  95: SGR_STYLE_FLAG.foreground,
+  96: SGR_STYLE_FLAG.foreground,
+  97: SGR_STYLE_FLAG.foreground,
+  100: SGR_STYLE_FLAG.background,
+  101: SGR_STYLE_FLAG.background,
+  102: SGR_STYLE_FLAG.background,
+  103: SGR_STYLE_FLAG.background,
+  104: SGR_STYLE_FLAG.background,
+  105: SGR_STYLE_FLAG.background,
+  106: SGR_STYLE_FLAG.background,
+  107: SGR_STYLE_FLAG.background,
+};
+
 function applySgrParamsToActiveStyle(
-  activeStyle: boolean,
+  activeStyle: number,
   params: number[],
-): boolean {
-  if (params.length === 0) return false;
+): number {
+  if (params.length === 0) return 0;
 
   let nextActiveStyle = activeStyle;
   for (let index = 0; index < params.length; index += 1) {
     const param = params[index];
     if (param === 0) {
-      nextActiveStyle = false;
-      continue;
-    }
-    if (isResetSgrParam(param)) {
-      nextActiveStyle = false;
+      nextActiveStyle = 0;
       continue;
     }
 
-    nextActiveStyle = true;
+    const resetFlag = resetSgrStyleFlag(param);
+    if (resetFlag !== undefined) {
+      nextActiveStyle &= ~resetFlag;
+      continue;
+    }
+
+    nextActiveStyle |= sgrStyleFlag(param);
     index = skipSgrColorParams(params, index);
   }
 
@@ -1489,20 +1605,12 @@ function skipSgrColorParams(params: number[], index: number): number {
   return index;
 }
 
-function isResetSgrParam(value: number): boolean {
-  return (
-    value === 0 ||
-    value === 22 ||
-    value === 23 ||
-    value === 24 ||
-    value === 25 ||
-    value === 27 ||
-    value === 28 ||
-    value === 29 ||
-    value === 39 ||
-    value === 49 ||
-    value === 59
-  );
+function resetSgrStyleFlag(param: number): number | undefined {
+  return RESET_SGR_STYLE_FLAGS[param];
+}
+
+function sgrStyleFlag(param: number): number {
+  return SGR_STYLE_FLAGS_BY_PARAM[param] ?? SGR_STYLE_FLAG.other;
 }
 
 type StyledLevel =
@@ -1559,7 +1667,7 @@ function terminateTerminalControls(value: string): string {
 }
 
 function hasActiveSgrStyle(value: string): boolean {
-  let activeStyle = false;
+  let activeStyle = 0;
   for (let index = 0; index < value.length; ) {
     const char = value[index];
     const paramsStart =
@@ -1585,7 +1693,7 @@ function hasActiveSgrStyle(value: string): boolean {
     );
     index = end;
   }
-  return activeStyle;
+  return activeStyle !== 0;
 }
 
 function hasActiveOsc8Link(value: string): boolean {
