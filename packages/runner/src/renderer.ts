@@ -1454,6 +1454,41 @@ function sgrParams(params: string): number[] {
     .filter((value) => Number.isFinite(value));
 }
 
+function applySgrParamsToActiveStyle(
+  activeStyle: boolean,
+  params: number[],
+): boolean {
+  if (params.length === 0) return false;
+
+  let nextActiveStyle = activeStyle;
+  for (let index = 0; index < params.length; index += 1) {
+    const param = params[index];
+    if (param === 0) {
+      nextActiveStyle = false;
+      continue;
+    }
+    if (isResetSgrParam(param)) {
+      nextActiveStyle = false;
+      continue;
+    }
+
+    nextActiveStyle = true;
+    index = skipSgrColorParams(params, index);
+  }
+
+  return nextActiveStyle;
+}
+
+function skipSgrColorParams(params: number[], index: number): number {
+  const param = params[index];
+  if (param !== 38 && param !== 48 && param !== 58) return index;
+
+  const mode = params[index + 1];
+  if (mode === 2) return Math.min(index + 4, params.length - 1);
+  if (mode === 5) return Math.min(index + 2, params.length - 1);
+  return index;
+}
+
 function isResetSgrParam(value: number): boolean {
   return (
     value === 0 ||
@@ -1544,13 +1579,10 @@ function hasActiveSgrStyle(value: string): boolean {
       continue;
     }
 
-    const values = sgrParams(value.slice(paramsStart, end - 1));
-    if (values.some((param) => param === 0)) {
-      activeStyle = false;
-      index = end;
-      continue;
-    }
-    activeStyle = !(values.length === 0 || values.every(isResetSgrParam));
+    activeStyle = applySgrParamsToActiveStyle(
+      activeStyle,
+      sgrParams(value.slice(paramsStart, end - 1)),
+    );
     index = end;
   }
   return activeStyle;

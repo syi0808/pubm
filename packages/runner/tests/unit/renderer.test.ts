@@ -1173,6 +1173,96 @@ describe("DefaultRenderer", () => {
     }
   });
 
+  it("terminates clipped live frame output when compound SGR leaves style active", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const outputs = [
+        "\u001b[0;31mabcdefghijklmnopqrstuvwxyz\u001b[0m",
+        "\u001b[38;2;255;0;0mabcdefghijklmnopqrstuvwxyz\u001b[39m",
+        "\u001b[38;5;1mabcdefghijklmnopqrstuvwxyz\u001b[39m",
+      ];
+
+      for (const output of outputs) {
+        const chunks: string[] = [];
+        const source = new EventSource();
+        const renderer = new DefaultRenderer({
+          output: {
+            write: (chunk) => chunks.push(chunk),
+          },
+          columns: 16,
+          rows: 6,
+          useColor: true,
+        });
+
+        renderer.render(source);
+        source.emit({
+          type: "task.started",
+          task: taskSnapshot({ path: ["Build"], state: "running" }),
+        });
+        source.emit({
+          type: "task.output",
+          output,
+          task: taskSnapshot({ path: ["Build"], state: "running" }),
+        });
+
+        const liveFrame = chunks.at(-1) ?? "";
+        expect(liveFrame).toContain("\u001b[0m");
+        expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+        renderer.end();
+      }
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
+  it("does not terminate clipped live frame output after SGR resets style", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        columns: 16,
+        rows: 6,
+        useColor: true,
+      });
+
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      source.emit({
+        type: "task.output",
+        output: "\u001b[1m\u001b[22mabcdefghijklmnopqrstuvwxyz",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+
+      const liveFrame = chunks.at(-1) ?? "";
+      expect(liveFrame).not.toContain("\u001b[0m");
+      expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+      renderer.end();
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
   it("terminates C1 SGR controls in clipped live frame output", () => {
     const previousNoColor = process.env.NO_COLOR;
     delete process.env.NO_COLOR;

@@ -3,10 +3,17 @@ import { inspect, stripVTControlCharacters } from "node:util";
 
 const BEL = "\\u0007";
 
-const styleTerminalText =
+export type ColorName = keyof typeof inspect.colors;
+
+function fallbackStyleText(name: ColorName, value: string): string {
+  const [open, close] = inspect.colors[name];
+  return `\u001b[${open}m${value}\u001b[${close}m`;
+}
+
+const styleTerminalText: (name: ColorName, value: string) => string =
   typeof nodeUtil.styleText === "function"
-    ? nodeUtil.styleText
-    : (_name: string, value: string) => value;
+    ? (nodeUtil.styleText as (name: ColorName, value: string) => string)
+    : fallbackStyleText;
 const BELL_PATTERN = new RegExp(BEL, "gim");
 const MARK_PATTERN = /\p{Mark}/u;
 
@@ -375,8 +382,6 @@ function isWideCodePoint(codePoint: number): boolean {
       (codePoint >= 0x20000 && codePoint <= 0x3fffd))
   );
 }
-
-export type ColorName = keyof typeof inspect.colors;
 
 export const color = Object.fromEntries(
   Object.keys(inspect.colors).map((name) => [
