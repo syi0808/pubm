@@ -146,7 +146,3 @@ pubm 不收集遥测数据、分析数据或使用数据。
 ## 许可证
 
 本项目采用 Apache License 2.0。详情见 [LICENSE](LICENSE)。
-
-## 作者
-
-**Yein Sung** - [GitHub](https://github.com/syi0808)

@@ -146,7 +146,3 @@ Beitraege sind willkommen. Bitte lies vor einem Pull Request den [Contributing G
 ## Lizenz
 
 Dieses Projekt steht unter der Apache License 2.0. Details findest du in [LICENSE](LICENSE).
-
-## Autor
-
-**Yein Sung** - [GitHub](https://github.com/syi0808)

@@ -146,7 +146,3 @@ Las contribuciones son bienvenidas. Lee la [Contributing Guide](CONTRIBUTING.md)
 ## Licencia
 
 Este proyecto esta bajo Apache License 2.0. Consulta [LICENSE](LICENSE) para mas detalles.
-
-## Autor
-
-**Yein Sung** - [GitHub](https://github.com/syi0808)
