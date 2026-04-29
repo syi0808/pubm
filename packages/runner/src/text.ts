@@ -72,14 +72,39 @@ export function terminalSpinnerFrames(): readonly string[] {
     : figures.fallback.spinnerFrames;
 }
 
+export function shouldUseColor(useColor = true): boolean {
+  return useColor && !process.env.NO_COLOR;
+}
+
 export function normalizeTerminalText(value: unknown): string {
   return stripTerminalControls(value).trim();
 }
 
-export function stripTerminalControls(value: unknown): string {
-  return stripVTControlCharacters(
-    String(value).replace(OSC8_PATTERN, "$1").replace(BELL_PATTERN, ""),
-  );
+export function normalizeTerminalDisplayText(
+  value: unknown,
+  useColor = true,
+  preserveLinks = true,
+): string {
+  const sanitized = stripTerminalControls(value, {
+    preserveLinks,
+    preserveStyle: shouldUseColor(useColor),
+  });
+  return normalizeTerminalText(sanitized) ? sanitized.trim() : "";
+}
+
+export function stripTerminalControls(
+  value: unknown,
+  options: { preserveLinks?: boolean; preserveStyle?: boolean } = {},
+): string {
+  const normalized = String(value);
+  if (!options.preserveLinks && !options.preserveStyle) {
+    const withoutHyperlinkControls = normalized.replace(OSC8_PATTERN, "$1");
+    return stripVTControlCharacters(withoutHyperlinkControls).replace(
+      BELL_PATTERN,
+      "",
+    );
+  }
+  return stripTerminalControlsPreservingDisplay(normalized, options);
 }
 
 export function wrapTerminalLine(value: string, columns: number): string[] {
@@ -125,6 +150,9 @@ function terminalControlEnd(value: string, index: number): number | undefined {
   if (char === "\u009B") {
     return csiEnd(value, index + 1);
   }
+  if (char === "\u009D") {
+    return oscEnd(value, index + 1);
+  }
 
   if (char !== "\u001B") return undefined;
 
@@ -132,6 +160,122 @@ function terminalControlEnd(value: string, index: number): number | undefined {
   if (marker === "[") return csiEnd(value, index + 2);
   if (marker === "]") return oscEnd(value, index + 2);
   return escapeEnd(value, index + 1);
+}
+
+function stripTerminalControlsPreservingDisplay(
+  value: string,
+  options: { preserveLinks?: boolean; preserveStyle?: boolean },
+): string {
+  let result = "";
+  for (let index = 0; index < value.length; ) {
+    const char = value[index] ?? "";
+
+    if (char === "\u009B") {
+      const end = csiEnd(value, index + 1);
+      if (options.preserveStyle && isSafeSgrSequence(value, index + 1, end)) {
+        result += value.slice(index, end);
+      }
+      index = end;
+      continue;
+    }
+
+    if (char === "\u009D") {
+      const end = oscEnd(value, index + 1);
+      if (options.preserveLinks && isSafeOsc8Sequence(value, index + 1, end)) {
+        result += value.slice(index, end);
+      }
+      index = end;
+      continue;
+    }
+
+    if (char === "\u001B") {
+      const marker = value[index + 1];
+      if (marker === "[") {
+        const end = csiEnd(value, index + 2);
+        if (options.preserveStyle && isSafeSgrSequence(value, index + 2, end)) {
+          result += value.slice(index, end);
+        }
+        index = end;
+        continue;
+      }
+      if (marker === "]") {
+        const end = oscEnd(value, index + 2);
+        if (
+          options.preserveLinks &&
+          isSafeOsc8Sequence(value, index + 2, end)
+        ) {
+          result += value.slice(index, end);
+        }
+        index = end;
+        continue;
+      }
+      index = escapeEnd(value, index + 1);
+      continue;
+    }
+
+    const code = char.charCodeAt(0);
+    if (
+      (code < 0x20 && char !== "\n" && char !== "\r" && char !== "\t") ||
+      (code >= 0x7f && code <= 0x9f)
+    ) {
+      index += 1;
+      continue;
+    }
+
+    result += char;
+    index += 1;
+  }
+  return result;
+}
+
+function isSafeOsc8Sequence(
+  value: string,
+  payloadStart: number,
+  end: number,
+): boolean {
+  const payload = oscPayload(value, payloadStart, end);
+  if (payload === undefined) return false;
+  return isSafeOsc8Payload(payload);
+}
+
+function oscPayload(
+  value: string,
+  payloadStart: number,
+  end: number,
+): string | undefined {
+  if (end <= payloadStart) return undefined;
+  if (value[end - 1] === "\u0007") {
+    return value.slice(payloadStart, end - 1);
+  }
+  if (value[end - 1] === "\\" && value[end - 2] === "\u001B") {
+    return value.slice(payloadStart, end - 2);
+  }
+  return undefined;
+}
+
+function isSafeOsc8Payload(payload: string): boolean {
+  if (!payload.startsWith("8;")) return false;
+  if (payload.indexOf(";", 2) === -1) return false;
+  return !hasControlCode(payload);
+}
+
+function hasControlCode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return false;
+}
+
+function isSafeSgrSequence(
+  value: string,
+  paramsStart: number,
+  end: number,
+): boolean {
+  if (end <= paramsStart) return false;
+  if (value[end - 1] !== "m") return false;
+  const params = value.slice(paramsStart, end - 1);
+  return /^[0-9;:]*$/.test(params);
 }
 
 function escapeEnd(value: string, index: number): number {
@@ -243,9 +387,9 @@ export const color = Object.fromEntries(
   Object.keys(inspect.colors).map((name) => [
     name,
     (value: unknown) =>
-      process.env.NO_COLOR
-        ? String(value)
-        : styleTerminalText(name as ColorName, String(value)),
+      shouldUseColor()
+        ? styleTerminalText(name as ColorName, String(value))
+        : String(value),
   ]),
 ) as Record<ColorName, (value: unknown) => string>;
 

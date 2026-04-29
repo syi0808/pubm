@@ -3,9 +3,13 @@ import {
   color,
   figures,
   isUnicodeSupported,
+  normalizeTerminalDisplayText,
   normalizeTerminalText,
+  shouldUseColor,
   splat,
+  stripTerminalControls,
   terminalFigures,
+  terminalSpinnerFrames,
   wrapTerminalLine,
 } from "../../src/text.js";
 
@@ -111,9 +115,101 @@ describe("terminal text helpers", () => {
   it("formats colors unless NO_COLOR is set", () => {
     delete process.env.NO_COLOR;
     expect(normalizeTerminalText(color.red("danger"))).toBe("danger");
+    expect(shouldUseColor()).toBe(true);
+    expect(shouldUseColor(false)).toBe(false);
 
     process.env.NO_COLOR = "1";
     expect(color.red("danger")).toBe("danger");
+    expect(shouldUseColor()).toBe(false);
+  });
+
+  it("selects fallback spinner frames when unicode is not supported", () => {
+    resetEnv();
+    setPlatform("win32");
+    for (const key of [
+      "FORCE_UNICODE",
+      "LISTR_FORCE_UNICODE",
+      "CI",
+      "WT_SESSION",
+      "TERM_PROGRAM",
+      "TERM",
+    ] as const) {
+      delete process.env[key];
+    }
+
+    expect(terminalSpinnerFrames()).toBe(figures.fallback.spinnerFrames);
+  });
+
+  it("preserves safe SGR styles for display text only when color is enabled", () => {
+    delete process.env.NO_COLOR;
+    const styled = "\u001b[31mred\u001b[39m\u001b[2K";
+
+    expect(normalizeTerminalDisplayText(styled, true)).toBe(
+      "\u001b[31mred\u001b[39m",
+    );
+    expect(normalizeTerminalDisplayText(styled, false)).toBe("red");
+
+    process.env.NO_COLOR = "1";
+    expect(normalizeTerminalDisplayText(styled, true)).toBe("red");
+  });
+
+  it("strips unsafe terminal controls while preserving safe OSC hyperlinks in display text", () => {
+    delete process.env.NO_COLOR;
+    const hyperlink = "\u001b]8;;https://example.com\u0007Docs\u001b]8;;\u0007";
+    const value = `${hyperlink} \u001b[32mready\u001b[39m\u001b]0;title\u0007 visible`;
+
+    expect(normalizeTerminalDisplayText(value, true)).toBe(
+      `${hyperlink} \u001b[32mready\u001b[39m visible`,
+    );
+    expect(normalizeTerminalDisplayText(value, false)).toBe(
+      `${hyperlink} ready visible`,
+    );
+    expect(normalizeTerminalText(value)).toBe("Docs ready visible");
+  });
+
+  it("handles display text defaults, C1 controls, and link preservation options", () => {
+    delete process.env.NO_COLOR;
+    const stLink =
+      "\u001b]8;;https://example.com\u001b\\Docs\u001b]8;;\u001b\\";
+    const c1Link = "\u009D8;;https://example.com\u0007Docs\u009D8;;\u0007";
+
+    expect(normalizeTerminalDisplayText("plain")).toBe("plain");
+    expect(normalizeTerminalDisplayText("\u001b[31m\u001b[39m")).toBe("");
+    expect(normalizeTerminalDisplayText(stLink, true)).toBe(stLink);
+    expect(normalizeTerminalDisplayText(c1Link, true)).toBe(c1Link);
+    expect(normalizeTerminalDisplayText(c1Link, true, false)).toBe("Docs");
+    expect(normalizeTerminalDisplayText("\u009B31mred\u009B39m", true)).toBe(
+      "\u009B31mred\u009B39m",
+    );
+    expect(stripTerminalControls(stLink, { preserveLinks: true })).toBe(stLink);
+  });
+
+  it("strips malformed and unsafe display controls", () => {
+    delete process.env.NO_COLOR;
+
+    expect(normalizeTerminalDisplayText("\u009B2Kclear", true)).toBe("clear");
+    expect(
+      normalizeTerminalDisplayText("\u009D0;title\u0007visible", true),
+    ).toBe("visible");
+    expect(normalizeTerminalDisplayText("\u001b(Bbox", true)).toBe("box");
+    expect(normalizeTerminalDisplayText("a\u0001b\u0080c", true)).toBe("abc");
+    expect(
+      normalizeTerminalDisplayText("\u001b]8;;https://example.com", true),
+    ).toBe("");
+    expect(normalizeTerminalDisplayText("\u001b]", true)).toBe("");
+    expect(
+      normalizeTerminalDisplayText(
+        "\u001b]8;;https://exa\u0001mple\u0007Docs",
+        true,
+      ),
+    ).toBe("Docs");
+    expect(normalizeTerminalDisplayText("\u001b]8;id\u0007Docs", true)).toBe(
+      "Docs",
+    );
+    expect(normalizeTerminalDisplayText("\u001b[", true)).toBe("");
+    expect(normalizeTerminalDisplayText("\u001b[31", true)).toBe("");
+    expect(normalizeTerminalDisplayText("\u001b", true)).toBe("");
+    expect(normalizeTerminalDisplayText("\u001b\u0001x", true)).toBe("x");
   });
 
   it("supports listr-style splat formatting tokens", () => {

@@ -867,6 +867,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       );
       // Verify loginUrl shown in task output
       expect(task.output).toContain(loginUrl);
+      expect(task.output).toContain(
+        `\u001b]8;;${loginUrl}\u0007${loginUrl}\u001b]8;;\u0007`,
+      );
     });
 
     it("throws when POST response is missing loginUrl", async () => {
@@ -1681,6 +1684,9 @@ describe("NpmPackageRegistry checkAvailability()", () => {
       );
       expect(task.output).toContain(
         "https://www.npmjs.com/login?next=/login/cli/abc-123",
+      );
+      expect(task.output).toContain(
+        "\u001b]8;;https://www.npmjs.com/login?next=/login/cli/abc-123\u0007https://www.npmjs.com/login?next=/login/cli/abc-123\u001b]8;;\u0007",
       );
     });
 
