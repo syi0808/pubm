@@ -179,6 +179,14 @@ vi.mock("std-env", () => ({
   },
 }));
 
+vi.mock("@pubm/runner", () => ({
+  createCiRunnerOptions: vi.fn(() => ({ renderer: "ci" })),
+  createTaskRunner: vi.fn((tasks: any[]) => ({
+    run: async (ctx: any) =>
+      mockState.runTaskList(Array.isArray(tasks) ? tasks : [tasks], ctx),
+  })),
+}));
+
 vi.mock("../../../src/i18n/index.js", () => ({
   t: (key: string, values?: Record<string, unknown>) =>
     values ? `${key} ${JSON.stringify(values)}` : key,
@@ -1168,8 +1176,8 @@ async function executeCurrentRunner(
     return;
   }
 
-  const { run } = await import("../../../src/tasks/runner.js");
-  await executeReleaseRunner(scenario, world, () => run(ctx));
+  const { runLegacyRunnerOracle } = await import("./legacy-runner-oracle.js");
+  await executeReleaseRunner(scenario, world, () => runLegacyRunnerOracle(ctx));
 }
 
 const currentRunnerAdapter: ReleaseExecutionAdapter = {
@@ -1180,11 +1188,17 @@ const currentRunnerAdapter: ReleaseExecutionAdapter = {
 const compatibilityShimAdapter: ReleaseExecutionAdapter = {
   name: "compatibility-shim",
   execute: async (ctx, scenario, world) => {
+    if (scenario.mode === "snapshot") {
+      await executeCurrentRunner(ctx, scenario, world);
+      return;
+    }
+
     world.ledger.events.push({
       name: "compatibilityShim.enter",
       target: scenario.id,
     });
-    await executeCurrentRunner(ctx, scenario, world);
+    const { run } = await import("../../../src/tasks/runner.js");
+    await executeReleaseRunner(scenario, world, () => run(ctx));
     world.ledger.events.push({
       name: "compatibilityShim.exit",
       target: scenario.id,
@@ -1725,6 +1739,7 @@ describe("release behavior contract against the current runner", () => {
     "local-independent-crates-order-and-yank",
     "local-private-registry-boundary",
     "local-push-fallback-version-pr",
+    "partial-publish-failure-rollback",
     "github-release-create-fails-after-push",
   ])("keeps migrated runner behavior equal to the current runner for %s", async (scenarioId) => {
     const testScenario = scenario(scenarioId);

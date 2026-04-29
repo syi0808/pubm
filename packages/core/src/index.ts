@@ -1,6 +1,6 @@
 import type { PubmContext } from "./context.js";
 import { PluginRunner } from "./plugin/runner.js";
-import { run } from "./tasks/runner.js";
+import { run } from "./workflow/runner-entry.js";
 
 /**
  * Runs the pubm publish pipeline with the provided context.

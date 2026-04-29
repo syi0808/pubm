@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const runnerMocks = vi.hoisted(() => ({
+  createRunnerOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
+  createTaskRunner: vi.fn(),
+}));
+
+vi.mock("@pubm/runner", () => ({
+  createCiRunnerOptions: runnerMocks.createRunnerOptions,
+  createTaskRunner: runnerMocks.createTaskRunner,
+}));
+
 vi.mock("std-env", () => ({ isCI: false }));
 vi.mock("node:fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
@@ -21,8 +31,8 @@ vi.mock("../../../src/git.js", () => ({
   Git: vi.fn(),
 }));
 vi.mock("../../../src/utils/listr.js", () => ({
-  createListr: vi.fn(),
-  createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
+  createListr: runnerMocks.createTaskRunner,
+  createCiListrOptions: runnerMocks.createRunnerOptions,
 }));
 vi.mock("../../../src/tasks/github-release.js", () => ({
   createGitHubRelease: vi.fn(),
@@ -419,6 +429,25 @@ function createTask() {
   };
 }
 
+const pipelineTaskTitles = new Set([
+  "Running tests",
+  "Building the project",
+  "Bumping version",
+  "Publishing",
+  "Restoring workspace protocols",
+  "Running post-publish hooks",
+  "Validating publish (dry-run)",
+  "Restoring original versions (dry-run)",
+  "Pushing tags to GitHub",
+  "Creating GitHub Release",
+]);
+
+function collectedPipelineTasks(): any[] {
+  return mockedCreateListr.mock.calls
+    .flatMap(([tasks]) => (Array.isArray(tasks) ? tasks : [tasks]))
+    .filter((task) => pipelineTaskTitles.has(task?.title));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -532,7 +561,7 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat task list
     const releaseCtx: any = {
       cwd: process.cwd(),
@@ -630,11 +659,7 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    // First createListr call is token collection, second is the pipeline
-    const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-      Array.isArray(call[0]),
-    );
-    const pipelineTasks = pipelineCall![0] as any[];
+    const pipelineTasks = collectedPipelineTasks();
     const validateTask = pipelineTasks[6];
     const parentTask = createParentTask();
     const ctx: any = {
@@ -734,7 +759,7 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const rollback = new RollbackTracker();
     const ctx: any = {
@@ -851,7 +876,7 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -928,7 +953,7 @@ describe("runner coverage scenarios", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const releaseCtx: any = {
       config: {
@@ -979,7 +1004,7 @@ describe("runner coverage scenarios", () => {
 
     await run(createOptions({ runtime: { version: "4.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -1034,7 +1059,7 @@ describe("tag existence check", () => {
   it("prompts to delete existing tag when promptEnabled and user confirms", async () => {
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -1094,7 +1119,7 @@ describe("tag existence check", () => {
   it("throws when tag exists and promptEnabled but user declines deletion", async () => {
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -1153,7 +1178,7 @@ describe("tag existence check", () => {
   it("throws when tag exists and promptEnabled is false", async () => {
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -1232,7 +1257,7 @@ describe("tag existence check", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -1330,7 +1355,7 @@ describe("tag existence check", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -1432,7 +1457,7 @@ describe("independent release draft", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     // Find the release draft task (last task in the pipeline)
     const releaseDraftTask = tasks.find(
       (t: any) =>
@@ -1507,7 +1532,7 @@ describe("independent release draft", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseDraftTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -1644,7 +1669,7 @@ describe("CI GitHub Release", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
@@ -1727,7 +1752,7 @@ describe("CI GitHub Release", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     const ctx: any = {
@@ -1791,7 +1816,7 @@ describe("post-publish", () => {
   it("falls back to PR creation when push --follow-tags fails (protected branch)", async () => {
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const pushTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("Pushing tags"),
@@ -1864,7 +1889,7 @@ describe("post-publish", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const postPublishTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("post-publish"),
@@ -1906,7 +1931,7 @@ describe("post-publish", () => {
 
     await run(createOptions({ runtime: { version: "6.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseDraftTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -2009,7 +2034,7 @@ describe("publish-only mode", () => {
     );
 
     // Flat list always has 10 tasks; publish is at index 3
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     expect(tasks[3].title).toBe("Publishing");
 
     const parentTask = createParentTask();
@@ -2056,7 +2081,7 @@ describe("normal pipeline test and build tasks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const testTask = tasks[0];
     const task = createTask();
     const ctx: any = {
@@ -2098,7 +2123,7 @@ describe("normal pipeline test and build tasks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const buildTask = tasks[1];
     const task = createTask();
     const ctx: any = {
@@ -2141,7 +2166,7 @@ describe("normal pipeline test and build tasks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const testTask = tasks[0];
     const buildTask = tasks[1];
     const ctx: any = {
@@ -2179,7 +2204,7 @@ describe("version bump rollback", () => {
   it("rollback handler deletes tag for single mode", async () => {
     await run(createOptions({ runtime: { version: "7.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2237,7 +2262,7 @@ describe("version bump rollback", () => {
   it("rollback handler handles dirty working tree with stash", async () => {
     await run(createOptions({ runtime: { version: "7.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2317,7 +2342,7 @@ describe("tag existence in fixed and independent modes", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2389,7 +2414,7 @@ describe("tag existence in fixed and independent modes", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2476,7 +2501,7 @@ describe("tag existence in fixed and independent modes", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2563,7 +2588,7 @@ describe("tag existence in fixed and independent modes", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -2653,7 +2678,7 @@ describe("version plan formatting fallbacks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks[10]; // "Creating GitHub Release" in flat list
     const task = createTask();
     // No versionPlan but versions has > 1 entries
@@ -2700,7 +2725,7 @@ describe("enabled/skip conditions", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     // In the new design, dryRun does not disable version bump — the task handles it internally
@@ -2715,7 +2740,7 @@ describe("enabled/skip conditions", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const publishTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" &&
@@ -2733,7 +2758,7 @@ describe("enabled/skip conditions", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseDraftTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -2751,7 +2776,7 @@ describe("enabled/skip conditions", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const pushTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("Pushing tags"),
@@ -2799,7 +2824,7 @@ describe("fixed mode changeset with empty entries", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -2888,7 +2913,7 @@ describe("fixed mode changeset deduplicates entries across packages", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -2986,7 +3011,7 @@ describe("independent changeset with empty entries for some packages", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -3043,7 +3068,7 @@ describe("dry-run version bump early return", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2]; // "Bumping version"
     const ctx: any = {
       cwd: process.cwd(),
@@ -3115,7 +3140,7 @@ describe("dry-run version bump early return", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -3192,7 +3217,7 @@ describe("dry-run version bump early return", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -3296,7 +3321,7 @@ describe("independent mode GitHub release with null result", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -3372,7 +3397,7 @@ describe("independent mode GitHub release with null result", () => {
         }),
       );
 
-      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const tasks = collectedPipelineTasks();
       const versionTask = tasks[2];
       const ctx: any = {
         cwd: process.cwd(),
@@ -3465,7 +3490,7 @@ describe("independent mode GitHub release with null result", () => {
         }),
       );
 
-      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const tasks = collectedPipelineTasks();
       const releaseTask = tasks.find(
         (t: any) => t.title === "Creating GitHub Release",
       );
@@ -3555,7 +3580,7 @@ describe("independent mode GitHub release with null result", () => {
         }),
       );
 
-      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const tasks = collectedPipelineTasks();
       const versionTask = tasks[2];
       const ctx: any = {
         cwd: process.cwd(),
@@ -3643,7 +3668,7 @@ describe("independent mode GitHub release with null result", () => {
         }),
       );
 
-      const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+      const tasks = collectedPipelineTasks();
       const versionTask = tasks[2];
       const rollback = new RollbackTracker();
       const ctx: any = {
@@ -3703,7 +3728,7 @@ describe("rollback error handling branches", () => {
   it("handles tag deletion error in single mode rollback", async () => {
     await run(createOptions({ runtime: { version: "8.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -3759,7 +3784,7 @@ describe("rollback error handling branches", () => {
   it("handles commit reset error in rollback", async () => {
     await run(createOptions({ runtime: { version: "8.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -3852,7 +3877,7 @@ describe("rollback error handling branches", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -3951,7 +3976,7 @@ describe("independent rollback with non-Error rejection in tag deletion", () => 
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -4052,7 +4077,7 @@ describe("GitHub release with asset upload hooks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -4143,7 +4168,7 @@ describe("GitHub release with asset upload hooks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -4218,7 +4243,7 @@ describe("GitHub release with asset upload hooks", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -4296,7 +4321,7 @@ describe("independent release draft with excludeRelease", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseDraftTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -4441,7 +4466,7 @@ describe("formatVersionSummary and formatVersionPlan edge cases", () => {
     );
 
     // The version bump task should use formatVersionSummary
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const task = createTask();
     const ctx: any = {
@@ -4548,7 +4573,7 @@ describe("dry-run version application with independent mode", () => {
     );
 
     // Extract the dry-run validation task (index 6) and execute it manually
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const dryRunValidateTask = tasks[6]; // "Validating publish (dry-run)"
     const parentTask = createParentTask();
     const ctx: any = {
@@ -4604,7 +4629,7 @@ describe("restore workspace protocols task (publish phase)", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     // Task at index 4 is "Restoring workspace protocols" (publish)
     const restoreTask = tasks[4];
 
@@ -4631,7 +4656,7 @@ describe("restore workspace protocols task (publish phase)", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const restoreTask = tasks[4];
 
     const ctx: any = {
@@ -4658,7 +4683,7 @@ describe("restore workspace protocols task (dry-run phase)", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     // Task at index 7 is "Restoring workspace protocols" (dry-run)
     const restoreTask = tasks[7];
 
@@ -4684,7 +4709,7 @@ describe("restore workspace protocols task (dry-run phase)", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const restoreTask = tasks[7];
 
     const ctx: any = {
@@ -4712,7 +4737,7 @@ describe("dry-run version restore task", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     // Task at index 8 is "Restoring original versions (dry-run)"
     const restoreVersionTask = tasks[8];
 
@@ -4751,7 +4776,7 @@ describe("dry-run version restore task", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const restoreVersionTask = tasks[8];
 
     const ctx: any = {
@@ -4770,7 +4795,7 @@ describe("rollback with non-Error objects", () => {
   it("rollback handles non-Error object in tag deletion", async () => {
     await run(createOptions({ runtime: { version: "9.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     const gitInstance = {
@@ -4825,7 +4850,7 @@ describe("rollback with non-Error objects", () => {
   it("rollback handles non-Error object during commit reset", async () => {
     await run(createOptions({ runtime: { version: "9.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
 
     let resetCallCount = 0;
@@ -4917,7 +4942,7 @@ describe("independent changelog without pkgConfig match", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -4961,7 +4986,7 @@ describe("single changeset with no changesets found", () => {
 
     await run(createOptions({ runtime: { version: "4.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -5027,7 +5052,7 @@ describe("independent tempDir cleanup in release", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5080,7 +5105,7 @@ describe("GitHub release token prompt paths", () => {
 
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5137,7 +5162,7 @@ describe("GitHub release token prompt paths", () => {
 
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5189,7 +5214,7 @@ describe("GitHub release token prompt paths", () => {
 
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5242,7 +5267,7 @@ describe("GitHub release token prompt paths", () => {
 
     await run(createOptions({ runtime: { version: "5.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5320,7 +5345,7 @@ describe("fixed mode release with tempDir cleanup", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5388,7 +5413,7 @@ describe("fixed mode release with tempDir cleanup", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5456,7 +5481,7 @@ describe("fixed mode release with changelog sections", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5518,7 +5543,7 @@ describe("fixed mode packageName fallback in release", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5566,7 +5591,7 @@ describe("single changeset with pkgPath fallback", () => {
 
     await run(createOptions({ runtime: { version: "4.0.0" } }));
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const versionTask = tasks[2];
     const ctx: any = {
       cwd: process.cwd(),
@@ -5649,7 +5674,7 @@ describe("independent release draft with previousTag fallback", () => {
       }),
     );
 
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const releaseDraftTask = tasks.find(
       (t: any) =>
         typeof t.title === "string" && t.title.includes("GitHub Release"),
@@ -5707,7 +5732,7 @@ describe("empty registry group summary", () => {
     );
 
     // With empty packages, the publish task should still work
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     const publishTask = tasks[3];
     const parentTask = createParentTask();
     const ctx: any = {
@@ -5744,7 +5769,7 @@ describe("pushViaPr via push task (buildPrBodyFromContext coverage)", () => {
 
   async function getPushTask() {
     await run(createOptions());
-    const tasks = mockedCreateListr.mock.calls[0][0] as any[];
+    const tasks = collectedPipelineTasks();
     // Push task is index 9 in the flat task list
     return tasks[9];
   }

@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIsCI = vi.hoisted(() => ({ value: false }));
+const runnerMocks = vi.hoisted(() => ({
+  createRunnerOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
+  createTaskRunner: vi.fn(),
+}));
 vi.mock("std-env", () => ({
   get isCI() {
     return mockIsCI.value;
   },
+}));
+vi.mock("@pubm/runner", () => ({
+  createCiRunnerOptions: runnerMocks.createRunnerOptions,
+  createTaskRunner: runnerMocks.createTaskRunner,
 }));
 vi.mock("../../../src/utils/exec.js", () => ({
   exec: vi.fn(),
@@ -286,8 +294,8 @@ vi.mock("../../../src/utils/registries.js", async (importOriginal) => {
 });
 
 vi.mock("../../../src/utils/listr.js", () => ({
-  createListr: vi.fn(),
-  createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
+  createListr: runnerMocks.createTaskRunner,
+  createCiListrOptions: runnerMocks.createRunnerOptions,
 }));
 
 vi.mock("../../../src/registry/jsr.js", () => ({
@@ -413,6 +421,25 @@ function setupCreateListrMock() {
       }),
     } as any;
   });
+}
+
+const pipelineTaskTitles = new Set([
+  "Running tests",
+  "Building the project",
+  "Bumping version",
+  "Publishing",
+  "Restoring workspace protocols",
+  "Running post-publish hooks",
+  "Validating publish (dry-run)",
+  "Restoring original versions (dry-run)",
+  "Pushing tags to GitHub",
+  "Creating GitHub Release",
+]);
+
+function collectedPipelineTasks(): any[] {
+  return mockedCreateListr.mock.calls
+    .flatMap(([tasks]) => (Array.isArray(tasks) ? tasks : [tasks]))
+    .filter((task) => pipelineTaskTitles.has(task?.title));
 }
 
 function createMockTaskRecorder() {
@@ -655,10 +682,8 @@ describe("run", () => {
       const options = createOptions({ options: { publish: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      expect(Array.isArray(callArgs[0])).toBe(true);
+      const tasks = collectedPipelineTasks();
       // The flat list always has 10 tasks; prepare-phase tasks are skipped
-      const tasks = callArgs[0] as any[];
       expect(tasks[3]).toHaveProperty("title", "Publishing");
       expect(tasks[4]).toHaveProperty("title", "Restoring workspace protocols");
     });
@@ -677,9 +702,10 @@ describe("run", () => {
         await run(options);
 
         expect(mockedCreateCiListrOptions).toHaveBeenCalled();
-        // First createListr call is token collection, second is the pipeline
         const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-          Array.isArray(call[0]),
+          (Array.isArray(call[0]) ? call[0] : [call[0]]).some((task) =>
+            pipelineTaskTitles.has(task?.title),
+          ),
         );
         expect(pipelineCall?.[1]).toBe(ciListrOptions);
       } finally {
@@ -740,8 +766,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(Array.isArray(tasks)).toBe(true);
       expect(tasks).toHaveLength(11);
@@ -764,8 +789,7 @@ describe("run", () => {
       const options = createOptions({ options: { skipTests: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(tasks[0].enabled).toBe(false);
     });
@@ -774,8 +798,7 @@ describe("run", () => {
       const options = createOptions({ options: { skipBuild: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(tasks[1].enabled).toBe(false);
     });
@@ -784,8 +807,7 @@ describe("run", () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       // Version bump enabled is `hasPrepare`, which is true for full pipeline
       expect(tasks[2].enabled).toBe(true);
@@ -795,8 +817,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(tasks[2].enabled).toBe(true);
     });
@@ -805,8 +826,7 @@ describe("run", () => {
       const options = createOptions({ options: { skipPublish: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(tasks[3].enabled).toBe(false);
     });
@@ -815,8 +835,7 @@ describe("run", () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       // dryRun causes publish to be disabled via the static `dryRun` closure
       expect(tasks[3].enabled).toBe(false);
@@ -826,8 +845,7 @@ describe("run", () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       // Push tags enabled is static: `hasPrepare && !dryRun`
       expect(tasks[9].enabled).toBe(false);
@@ -837,8 +855,7 @@ describe("run", () => {
       const options = createOptions({ options: { skipReleaseDraft: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(tasks[10].enabled).toBe(false);
     });
@@ -847,8 +864,7 @@ describe("run", () => {
       const options = createOptions({ options: { dryRun: true } });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
 
       // dryRun causes release draft to be disabled
       expect(tasks[10].enabled).toBe(false);
@@ -922,8 +938,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const testTask = tasks[0];
       const { task: mockTask } = createMockTaskRecorder();
 
@@ -953,8 +968,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const testTask = tasks[0];
       const { task: mockTask } = createMockTaskRecorder();
 
@@ -983,8 +997,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const testTask = tasks[0];
       const { task: mockTask } = createMockTaskRecorder();
 
@@ -1023,8 +1036,7 @@ describe("run", () => {
           },
         );
 
-        const callArgs = mockedCreateListr.mock.calls[0];
-        const tasks = callArgs[0] as any[];
+        const tasks = collectedPipelineTasks();
         const testTask = tasks[0];
         const { outputHistory, task: mockTask } = createMockTaskRecorder();
 
@@ -1070,8 +1082,7 @@ describe("run", () => {
           },
         );
 
-        const callArgs = mockedCreateListr.mock.calls[0];
-        const tasks = callArgs[0] as any[];
+        const tasks = collectedPipelineTasks();
         const testTask = tasks[0];
         const { outputHistory, task: mockTask } = createMockTaskRecorder();
 
@@ -1107,8 +1118,7 @@ describe("run", () => {
 
         mockedExec.mockClear();
 
-        const callArgs = mockedCreateListr.mock.calls[0];
-        const tasks = callArgs[0] as any[];
+        const tasks = collectedPipelineTasks();
         const testTask = tasks[0];
         const { task: mockTask } = createMockTaskRecorder();
 
@@ -1515,8 +1525,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       expect(tasks[3].title).toBe("Publishing");
     });
 
@@ -1539,8 +1548,7 @@ describe("run", () => {
       const options = createOptions();
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3];
       const mockParentTask = {
         output: "",
@@ -1574,8 +1582,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3]; // Publishing task
 
       // Get the subtasks generated by the publishing task
@@ -1606,8 +1613,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3]; // Publishing task
 
       const mockParentTask = {
@@ -1638,8 +1644,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3];
 
       const mockParentTask = {
@@ -1685,8 +1690,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3];
 
       const mockParentTask = {
@@ -1739,8 +1743,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3]; // Publishing task
 
       const mockParentTask = {
@@ -1800,8 +1803,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3];
 
       const mockParentTask = {
@@ -1867,8 +1869,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const callArgs = mockedCreateListr.mock.calls[0];
-      const tasks = callArgs[0] as any[];
+      const tasks = collectedPipelineTasks();
       const publishTask = tasks[3];
 
       const mockParentTask = {
@@ -2157,11 +2158,7 @@ describe("run", () => {
       });
       await run(options);
 
-      // First createListr call is token collection, second is pipeline
-      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-        Array.isArray(call[0]),
-      );
-      const tasks = pipelineCall![0] as any[];
+      const tasks = collectedPipelineTasks();
 
       expect(Array.isArray(tasks)).toBe(true);
       expect(tasks).toHaveLength(11);
@@ -2199,10 +2196,7 @@ describe("run", () => {
       });
       await run(options);
 
-      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-        Array.isArray(call[0]),
-      );
-      const tasks = pipelineCall![0] as any[];
+      const tasks = collectedPipelineTasks();
 
       // Publishing should be disabled (hasPublish=false)
       expect(tasks[3].enabled).toBe(false);
@@ -2233,10 +2227,7 @@ describe("run", () => {
         }),
       );
 
-      const pipelineCall = mockedCreateListr.mock.calls.find((call) =>
-        Array.isArray(call[0]),
-      );
-      const tasks = pipelineCall![0] as any[];
+      const tasks = collectedPipelineTasks();
       const validateTask = tasks[6];
       const parentTask = {
         output: "",

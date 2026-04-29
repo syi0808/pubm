@@ -5,10 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockPrompt = vi.hoisted(() => vi.fn());
 
-vi.mock("enquirer", () => ({
-  default: {
-    prompt: mockPrompt,
-  },
+vi.mock("@pubm/runner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@pubm/runner")>()),
+  prompt: mockPrompt,
 }));
 
 vi.mock("@pubm/core", async (importOriginal) => {
@@ -52,7 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   fetchCalls.length = 0;
   originalFetch = globalThis.fetch;
-  mockPrompt.mockResolvedValue({ agents: ["codex", "gemini"] });
+  mockPrompt.mockResolvedValue(["codex", "gemini"]);
   globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
     const href = String(url);
     fetchCalls.push(href);

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/tasks/runner.js", () => ({
+vi.mock("../../src/workflow/runner-entry.js", () => ({
   run: vi.fn().mockResolvedValue(undefined),
 }));
 
 import type { PubmContext } from "../../src/context.js";
 import { pubm } from "../../src/index.js";
 import { PluginRunner } from "../../src/plugin/runner.js";
-import { run } from "../../src/tasks/runner.js";
+import { run } from "../../src/workflow/runner-entry.js";
 import { makeTestContext } from "../helpers/make-context.js";
 
 const mockedRun = vi.mocked(run);

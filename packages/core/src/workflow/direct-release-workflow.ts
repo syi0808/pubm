@@ -4,30 +4,58 @@ import type { PubmContext } from "../context.js";
 import { consoleError } from "../error.js";
 import { t } from "../i18n/index.js";
 import { registryCatalog } from "../registry/catalog.js";
-import { createDryRunTasks } from "../tasks/phases/dry-run.js";
 import {
   type CleanupRef,
   runCiPreparePreflight,
   runCiPublishPluginCreds,
   runLocalPreflight,
 } from "../tasks/phases/preflight.js";
-import { createPublishTasks } from "../tasks/phases/publish.js";
 import {
-  createPushTask,
-  createReleaseTask,
-} from "../tasks/phases/push-release.js";
-import { createBuildTask, createTestTask } from "../tasks/phases/test-build.js";
-import { createVersionTask } from "../tasks/phases/version.js";
+  nativeReleasePhaseService,
+  type ReleasePhaseService,
+} from "../tasks/release-phase-service.js";
 import { packageKey } from "../utils/package-key.js";
 import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
 import { ui } from "../utils/ui.js";
 import type {
   Workflow,
+  WorkflowCompensationExpectation,
+  WorkflowFactDescriptor,
   WorkflowRunResult,
   WorkflowServices,
   WorkflowStep,
+  WorkflowStepContext,
+  WorkflowStepResult,
 } from "./types.js";
+
+const releasePhaseService = nativeReleasePhaseService;
+
+interface VersionStepInput {
+  hasPrepare: boolean;
+  dryRun: boolean;
+  versionPlanMode:
+    | NonNullable<PubmContext["runtime"]["versionPlan"]>["mode"]
+    | "unknown";
+}
+
+interface VersionStepOutput {
+  summary: string;
+}
+
+interface ExecutableWorkflowStepDefinition<I = unknown, O = unknown> {
+  id: string;
+  input?: I;
+  output?: O;
+  resolveOutput?: (ctx: PubmContext) => O;
+  emittedFacts?: readonly WorkflowFactDescriptor[];
+  compensation?: readonly WorkflowCompensationExpectation[];
+  execute(
+    input: I,
+    ctx: PubmContext,
+    phases: ReleasePhaseService,
+  ): Promise<void>;
+}
 
 function chainCleanup(
   existing: (() => void) | undefined,
@@ -37,6 +65,39 @@ function chainCleanup(
     existing?.();
     next();
   };
+}
+
+function createExecutableWorkflowStep<I, O>(
+  definition: ExecutableWorkflowStepDefinition<I, O>,
+): WorkflowStep<I, O> {
+  const step: WorkflowStep<I, O> = {
+    id: definition.id,
+    emittedFacts: definition.emittedFacts,
+    compensation: definition.compensation,
+    run: async (
+      input: I,
+      { ctx }: WorkflowStepContext,
+    ): Promise<WorkflowStepResult<O>> => {
+      await definition.execute(input, ctx, releasePhaseService);
+      return {
+        output: resolveStepOutput(definition, ctx),
+        facts: definition.emittedFacts,
+      };
+    },
+  };
+
+  if ("input" in definition) step.input = definition.input;
+  if ("output" in definition) step.output = definition.output;
+
+  return step;
+}
+
+function resolveStepOutput<I, O>(
+  definition: ExecutableWorkflowStepDefinition<I, O>,
+  ctx: PubmContext,
+): O {
+  if (definition.resolveOutput) return definition.resolveOutput(ctx);
+  return definition.output as O;
 }
 
 function createPipelineSteps(
@@ -49,38 +110,86 @@ function createPipelineSteps(
   skipBuild: boolean,
   skipPublish: boolean,
   skipDryRun: boolean,
+  ctx: PubmContext,
 ): WorkflowStep[] {
   return [
-    {
+    createExecutableWorkflowStep({
       id: "test",
-      tasks: () => [createTestTask(hasPrepare, skipTests)],
-    },
-    {
+      input: { hasPrepare, skipTests },
+      execute: (input, ctx, phases) => phases.runTest(ctx, input),
+    }),
+    createExecutableWorkflowStep({
       id: "build",
-      tasks: () => [createBuildTask(hasPrepare, skipBuild)],
-    },
-    {
+      input: { hasPrepare, skipBuild },
+      execute: (input, ctx, phases) => phases.runBuild(ctx, input),
+    }),
+    createExecutableWorkflowStep<VersionStepInput, VersionStepOutput>({
       id: "version",
-      tasks: () => [createVersionTask(hasPrepare, dryRun)],
-    },
-    {
-      id: "publish",
-      tasks: () => createPublishTasks(hasPublish, dryRun, skipPublish),
-    },
-    {
-      id: "dry-run",
-      tasks: () => createDryRunTasks(dryRun, mode, hasPrepare, skipDryRun),
-    },
-    {
-      id: "push",
-      tasks: () => [createPushTask(hasPrepare, dryRun)],
-    },
-    {
-      id: "release",
-      tasks: () => [
-        createReleaseTask(hasPublish, dryRun, mode, skipReleaseDraft),
+      input: {
+        hasPrepare,
+        dryRun,
+        versionPlanMode: ctx.runtime.versionPlan?.mode ?? "unknown",
+      },
+      output: {
+        summary: formatWorkflowVersionSummary(ctx),
+      },
+      resolveOutput: (ctx) => ({
+        summary: formatWorkflowVersionSummary(ctx),
+      }),
+      emittedFacts: [
+        { name: "VersionDecisionObserved", target: "version" },
+        { name: "ReleaseFilesMaterialized", target: "version" },
+        { name: "ReleaseReferenceLocalTagCreated", target: "version" },
       ],
-    },
+      compensation: [
+        {
+          name: "RestoreManifest",
+          target: "version",
+          before: "manifest write",
+        },
+        {
+          name: "RestoreChangesetFiles",
+          target: "version",
+          before: "changeset deletion",
+        },
+        {
+          name: "RestoreChangelog",
+          target: "version",
+          before: "changelog write",
+        },
+        {
+          name: "ResetGitCommit",
+          target: "version",
+          after: "commit creation",
+        },
+        {
+          name: "DeleteLocalTag",
+          target: "version",
+          after: "local tag creation",
+        },
+      ],
+      execute: (input, ctx, phases) => phases.runVersion(ctx, input),
+    }),
+    createExecutableWorkflowStep({
+      id: "publish",
+      input: { hasPublish, dryRun, skipPublish },
+      execute: (input, ctx, phases) => phases.runPublish(ctx, input),
+    }),
+    createExecutableWorkflowStep({
+      id: "dry-run",
+      input: { dryRun, mode, hasPrepare, skipDryRun },
+      execute: (input, ctx, phases) => phases.runDryRun(ctx, input),
+    }),
+    createExecutableWorkflowStep({
+      id: "push",
+      input: { hasPrepare, dryRun },
+      execute: (input, ctx, phases) => phases.runPush(ctx, input),
+    }),
+    createExecutableWorkflowStep({
+      id: "release",
+      input: { hasPublish, dryRun, mode, skipReleaseDraft },
+      execute: (input, ctx, phases) => phases.runRelease(ctx, input),
+    }),
   ];
 }
 
@@ -135,7 +244,50 @@ function createRenderablePipeline(
     !!ctx.options.skipBuild,
     !!ctx.options.skipPublish,
     !!ctx.options.skipDryRun,
+    ctx,
   );
+}
+
+async function runWorkflowStep<I, O>(
+  step: WorkflowStep<I, O>,
+  context: WorkflowStepContext,
+): Promise<WorkflowStepResult<O>> {
+  context.services.record.stepStarted(step);
+  await context.services.events.emit({
+    type: "workflow.step.started",
+    stepId: step.id,
+  });
+  try {
+    const result = await step.run(step.input as I, context);
+    context.services.record.stepCompleted(step, result);
+    await context.services.events.emit({
+      type: "workflow.step.completed",
+      stepId: step.id,
+      detail: {
+        facts: result.facts?.map((fact) => fact.name) ?? [],
+      },
+    });
+    return result;
+  } catch (error) {
+    context.services.record.stepFailed(step, error);
+    await context.services.events.emit({
+      type: "workflow.step.failed",
+      stepId: step.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+async function runWorkflowSteps(
+  steps: readonly WorkflowStep[],
+  ctx: PubmContext,
+  services: WorkflowServices,
+): Promise<void> {
+  const stepContext: WorkflowStepContext = { ctx, services };
+  for (const step of steps) {
+    await runWorkflowStep(step, stepContext);
+  }
 }
 
 export class DirectReleaseWorkflow implements Workflow {
@@ -203,7 +355,7 @@ export class DirectReleaseWorkflow implements Workflow {
         !!ctx.options.skipReleaseDraft,
         ctx,
       );
-      await services.view.run(ctx, steps);
+      await runWorkflowSteps(steps, ctx, services);
 
       const parts = await formatSuccessParts(ctx);
 
@@ -215,8 +367,10 @@ export class DirectReleaseWorkflow implements Workflow {
       } else if (dryRun) {
         console.log(`\n\n✅ ${t("output.dryRunComplete")}\n`);
       } else {
+        const versionSummary =
+          services.record.versionSummary() ?? formatWorkflowVersionSummary(ctx);
         console.log(
-          `\n\n🚀 ${t("output.publishSuccess", { parts: parts.join(", "), version: ui.chalk.blueBright(formatWorkflowVersionSummary(ctx)) })} 🚀\n`,
+          `\n\n🚀 ${t("output.publishSuccess", { parts: parts.join(", "), version: ui.chalk.blueBright(versionSummary) })} 🚀\n`,
         );
       }
 
