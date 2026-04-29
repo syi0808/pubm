@@ -18,6 +18,14 @@ class PreflightError extends AbstractError {
   name = t("error.preflight.name");
 }
 
+function formatTokenUrlInfo(label: string, url: string): string {
+  const linkedLabel = ui.link(label, url);
+  const display = label === url ? linkedLabel : `${linkedLabel} (${url})`;
+  return t("task.preflight.tokenUrl", {
+    url: color.bold(display),
+  });
+}
+
 export async function collectTokens(
   registries: string[],
   // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
@@ -68,9 +76,7 @@ export async function collectTokens(
       const token = await task.prompt().run({
         type: "password",
         message: t("task.preflight.enter", { label: config.promptLabel }),
-        footer: t("task.preflight.tokenUrl", {
-          url: color.bold(ui.link(config.tokenUrlLabel, tokenUrl)),
-        }),
+        footer: formatTokenUrlInfo(config.tokenUrlLabel, tokenUrl),
       });
 
       if (!`${token}`.trim()) {
@@ -284,14 +290,10 @@ export async function collectPluginCredentials(
         label: credential.label,
       });
       const tokenUrlInfo = credential.tokenUrl
-        ? t("task.preflight.tokenUrl", {
-            url: color.bold(
-              ui.link(
-                credential.tokenUrlLabel ?? credential.tokenUrl,
-                credential.tokenUrl,
-              ),
-            ),
-          })
+        ? formatTokenUrlInfo(
+            credential.tokenUrlLabel ?? credential.tokenUrl,
+            credential.tokenUrl,
+          )
         : "";
       const token = await wrappedTask.prompt({
         type: "password",
