@@ -16,6 +16,18 @@ function createOutputRecorder() {
 }
 
 describe("createLiveCommandOutput", () => {
+  it("renders a command fallback before live output receives visible lines", () => {
+    const { history, task } = createOutputRecorder();
+    const liveOutput = createLiveCommandOutput(task, "bun run test");
+
+    expect(task.output).toBe("Executing `bun run test`");
+
+    liveOutput.onStdout("\n");
+    liveOutput.finish();
+
+    expect(history).toEqual(["Executing `bun run test`"]);
+  });
+
   it("previews pending stdout and stderr before finish flushes them", () => {
     const { history, task } = createOutputRecorder();
     const liveOutput = createLiveCommandOutput(task, "bun run test");

@@ -172,12 +172,19 @@ describe("terminal text helpers", () => {
     const stLink =
       "\u001b]8;;https://example.com\u001b\\Docs\u001b]8;;\u001b\\";
     const c1Link = "\u009D8;;https://example.com\u0007Docs\u009D8;;\u0007";
+    const c1StLink = "\u009D8;;https://example.com\u009CDocs\u009D8;;\u009C";
 
     expect(normalizeTerminalDisplayText("plain")).toBe("plain");
     expect(normalizeTerminalDisplayText("\u001b[31m\u001b[39m")).toBe("");
     expect(normalizeTerminalDisplayText(stLink, true)).toBe(stLink);
     expect(normalizeTerminalDisplayText(c1Link, true)).toBe(c1Link);
+    expect(normalizeTerminalDisplayText(c1StLink, true)).toBe(c1StLink);
     expect(normalizeTerminalDisplayText(c1Link, true, false)).toBe("Docs");
+    expect(normalizeTerminalDisplayText(c1StLink, true, false)).toBe("Docs");
+    expect(normalizeTerminalText(c1StLink)).toBe("Docs");
+    expect(
+      wrapTerminalLine(`${c1StLink}abcd`, 4).map(normalizeTerminalText),
+    ).toEqual(["Docs", "abcd"]);
     expect(normalizeTerminalDisplayText("\u009B31mred\u009B39m", true)).toBe(
       "\u009B31mred\u009B39m",
     );

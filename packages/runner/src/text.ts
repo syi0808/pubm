@@ -1,19 +1,12 @@
 import * as nodeUtil from "node:util";
 import { inspect, stripVTControlCharacters } from "node:util";
 
-const ESC = "\\u001B";
 const BEL = "\\u0007";
 
 const styleTerminalText =
   typeof nodeUtil.styleText === "function"
     ? nodeUtil.styleText
     : (_name: string, value: string) => value;
-const OSC8_PARAMS = `[^;${BEL}]*(?:;[^${BEL}${ESC}]*)?`;
-const OSC8_TERMINATOR = `(?:${BEL}|${ESC}\\\\)`;
-const OSC8_PATTERN = new RegExp(
-  `${ESC}\\]8;${OSC8_PARAMS}${OSC8_TERMINATOR}(.*?)${ESC}\\]8;${OSC8_PARAMS}${OSC8_TERMINATOR}`,
-  "g",
-);
 const BELL_PATTERN = new RegExp(BEL, "gim");
 const MARK_PATTERN = /\p{Mark}/u;
 
@@ -98,11 +91,9 @@ export function stripTerminalControls(
 ): string {
   const normalized = String(value);
   if (!options.preserveLinks && !options.preserveStyle) {
-    const withoutHyperlinkControls = normalized.replace(OSC8_PATTERN, "$1");
-    return stripVTControlCharacters(withoutHyperlinkControls).replace(
-      BELL_PATTERN,
-      "",
-    );
+    return stripVTControlCharacters(
+      stripTerminalControlsPreservingDisplay(normalized, options),
+    ).replace(BELL_PATTERN, "");
   }
   return stripTerminalControlsPreservingDisplay(normalized, options);
 }
@@ -247,6 +238,9 @@ function oscPayload(
   if (value[end - 1] === "\u0007") {
     return value.slice(payloadStart, end - 1);
   }
+  if (value[end - 1] === "\u009C") {
+    return value.slice(payloadStart, end - 1);
+  }
   if (value[end - 1] === "\\" && value[end - 2] === "\u001B") {
     return value.slice(payloadStart, end - 2);
   }
@@ -305,6 +299,7 @@ function oscEnd(value: string, index: number): number {
   for (let cursor = index; cursor < value.length; cursor += 1) {
     const char = value[cursor];
     if (char === "\u0007") return cursor + 1;
+    if (char === "\u009C") return cursor + 1;
     if (char === "\\" && value[cursor - 1] === "\u001B") return cursor + 1;
   }
   return value.length;

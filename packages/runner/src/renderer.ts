@@ -632,7 +632,14 @@ export class DefaultRenderer implements TaskRenderer {
   ): string[] {
     if (!columns) return lines;
     const width = Math.max(1, columns - 1);
-    return lines.map((line) => wrapTerminalLine(line, width)[0] ?? "");
+    return lines.map((line) => {
+      const wrapped = wrapTerminalLine(line, width);
+      const firstLine = wrapped[0] ?? "";
+      if (wrapped.length <= 1 || !hasUnterminatedTerminalControls(firstLine)) {
+        return firstLine;
+      }
+      return terminateTerminalControls(firstLine);
+    });
   }
 
   private renderedFrameMatches(lines: string[]): boolean {
@@ -863,7 +870,6 @@ class ProcessOutputController {
   private active = false;
   private nextOrder = 0;
   private readonly captured: CapturedProcessOutput[] = [];
-  private readonly pendingCallbacks: ProcessWriteCallback[] = [];
   private readonly streams: Record<
     ProcessOutputStreamName,
     { stream: NodeJS.WriteStream; state?: ProcessOutputStreamState }
@@ -885,7 +891,6 @@ class ProcessOutputController {
 
   release(): CapturedProcessOutput[] {
     if (!this.active) return [];
-    this.drainWriteCallbacks();
     const captured = [...this.captured];
     this.captured.length = 0;
     this.restoreStream("stdout");
@@ -949,16 +954,12 @@ class ProcessOutputController {
     });
     this.nextOrder += 1;
 
-    if (writeCallback) this.pendingCallbacks.push(writeCallback);
-    return true;
-  }
-
-  private drainWriteCallbacks(): void {
-    for (let index = 0; index < this.pendingCallbacks.length; index += 1) {
-      const callback = this.pendingCallbacks[index];
-      callback?.();
+    if (writeCallback) {
+      void Promise.resolve().then(() => {
+        writeCallback();
+      });
     }
-    this.pendingCallbacks.length = 0;
+    return true;
   }
 }
 
@@ -1392,7 +1393,16 @@ function oscSequenceEnd(value: string, index: number): number {
   for (let cursor = index; cursor < value.length; cursor += 1) {
     const char = value[cursor];
     if (char === "\u0007") return cursor + 1;
+    if (char === "\u009c") return cursor + 1;
     if (char === "\\" && value[cursor - 1] === "\u001b") return cursor + 1;
+  }
+  return value.length;
+}
+
+function csiSequenceEnd(value: string, index: number): number {
+  for (let cursor = index; cursor < value.length; cursor += 1) {
+    const code = value.charCodeAt(cursor);
+    if (code >= 0x40 && code <= 0x7e) return cursor + 1;
   }
   return value.length;
 }
@@ -1404,6 +1414,9 @@ function promptOscPayload(
 ): string | undefined {
   if (end <= payloadStart) return undefined;
   if (value[end - 1] === "\u0007") {
+    return value.slice(payloadStart, end - 1);
+  }
+  if (value[end - 1] === "\u009c") {
     return value.slice(payloadStart, end - 1);
   }
   if (value[end - 1] === "\\" && value[end - 2] === "\u001b") {
@@ -1497,6 +1510,74 @@ function paint(
   return shouldUseColor(useColor)
     ? (color[colorName]?.(value) ?? value)
     : value;
+}
+
+function hasUnterminatedTerminalControls(value: string): boolean {
+  return hasActiveSgrStyle(value) || hasActiveOsc8Link(value);
+}
+
+function terminateTerminalControls(value: string): string {
+  let terminated = value;
+  if (hasActiveSgrStyle(value)) terminated += "\u001b[0m";
+  if (hasActiveOsc8Link(value)) terminated += "\u001b]8;;\u0007";
+  return terminated;
+}
+
+function hasActiveSgrStyle(value: string): boolean {
+  let activeStyle = false;
+  for (let index = 0; index < value.length; ) {
+    const char = value[index];
+    const paramsStart =
+      char === "\u001b" && value[index + 1] === "["
+        ? index + 2
+        : char === "\u009b"
+          ? index + 1
+          : undefined;
+    if (paramsStart === undefined) {
+      index += 1;
+      continue;
+    }
+
+    const end = csiSequenceEnd(value, paramsStart);
+    if (value[end - 1] !== "m") {
+      index = end;
+      continue;
+    }
+
+    const values = sgrParams(value.slice(paramsStart, end - 1));
+    if (values.some((param) => param === 0)) {
+      activeStyle = false;
+      index = end;
+      continue;
+    }
+    activeStyle = !(values.length === 0 || values.every(isResetSgrParam));
+    index = end;
+  }
+  return activeStyle;
+}
+
+function hasActiveOsc8Link(value: string): boolean {
+  let activeLink = false;
+  for (let index = 0; index < value.length; ) {
+    const char = value[index];
+    const payloadStart =
+      char === "\u001b" && value[index + 1] === "]"
+        ? index + 2
+        : char === "\u009d"
+          ? index + 1
+          : undefined;
+    if (payloadStart === undefined) {
+      index += 1;
+      continue;
+    }
+
+    const end = oscSequenceEnd(value, payloadStart);
+    const payload = promptOscPayload(value, payloadStart, end);
+    const url = payload === undefined ? undefined : safeOsc8Url(payload);
+    if (url !== undefined) activeLink = Boolean(url);
+    index = end;
+  }
+  return activeLink;
 }
 
 function styleTaskSuffix(

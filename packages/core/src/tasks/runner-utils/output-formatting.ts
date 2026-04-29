@@ -73,7 +73,7 @@ export function normalizeLiveCommandOutputLine(line: string): string {
 
 export function createLiveCommandOutput(
   task: Pick<NewListrParentTask<PubmContext>, "output">,
-  _command: string,
+  command: string,
 ) {
   const recentLines: string[] = [];
   const pending = {
@@ -92,9 +92,10 @@ export function createLiveCommandOutput(
       -LIVE_COMMAND_OUTPUT_LINE_LIMIT,
     );
 
-    if (previewLines.length === 0) return;
-
-    const nextOutput = previewLines.join("\n");
+    const nextOutput =
+      previewLines.length > 0
+        ? previewLines.join("\n")
+        : `Executing \`${command}\``;
     if (nextOutput === lastRenderedOutput) return;
 
     lastRenderedOutput = nextOutput;
@@ -137,6 +138,8 @@ export function createLiveCommandOutput(
     pending.stderr = "";
     render();
   };
+
+  render();
 
   return {
     onStdout: (chunk: string) => {

@@ -1131,6 +1131,122 @@ describe("DefaultRenderer", () => {
     }
   });
 
+  it("terminates controls in clipped live frame output", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        columns: 16,
+        rows: 6,
+        useColor: true,
+      });
+
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      source.emit({
+        type: "task.output",
+        output: "\u001b[32mabcdefghijklmnopqrstuvwxyz\u001b[39m",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+
+      const liveFrame = chunks.at(-1) ?? "";
+      expect(liveFrame).toContain("\u001b[32m");
+      expect(liveFrame).toContain("\u001b[0m");
+      expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+      renderer.end();
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
+  it("terminates C1 SGR controls in clipped live frame output", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        columns: 16,
+        rows: 6,
+        useColor: true,
+      });
+
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      source.emit({
+        type: "task.output",
+        output: "\u009B32mabcdefghijklmnopqrstuvwxyz\u009B39m",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+
+      const liveFrame = chunks.at(-1) ?? "";
+      expect(liveFrame).toContain("\u009B32m");
+      expect(liveFrame).toContain("\u001b[0m");
+      expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+      renderer.end();
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
+  it("terminates OSC hyperlinks in clipped live frame output", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      columns: 18,
+      rows: 6,
+      useColor: false,
+    });
+    const link =
+      "\u001b]8;;https://example.com\u0007abcdefghijklmnopqrstuvwxyz\u001b]8;;\u0007";
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({ path: ["Build"], state: "running" }),
+    });
+    source.emit({
+      type: "task.output",
+      output: link,
+      task: taskSnapshot({ path: ["Build"], state: "running" }),
+    });
+
+    const liveFrame = chunks.at(-1) ?? "";
+    expect(liveFrame).toContain("\u001b]8;;\u0007");
+    expect(normalizeTerminalText(liveFrame)).toContain("abc");
+
+    renderer.end();
+  });
+
   it("preserves task output OSC hyperlinks while stripping unsafe controls", () => {
     const chunks: string[] = [];
     const source = new EventSource();
@@ -2095,6 +2211,7 @@ describe("DefaultRenderer", () => {
         process.stderr.write("callback follow-up\n");
       });
       process.stderr.write("\u001b[2Kredraw stderr\n");
+      await Promise.resolve();
 
       expect(stdoutChunks.join("")).not.toContain("external stdout");
       expect(stderrChunks.join("")).not.toContain("plain stderr");
@@ -2124,6 +2241,37 @@ describe("DefaultRenderer", () => {
       expect(stderrOutput.endsWith("\u001b[?25h")).toBe(true);
       await Promise.resolve();
       expect(stderrChunks.join("")).toBe(stderrOutput);
+    } finally {
+      if (!ended) renderer.end();
+      stdoutWrite.mockRestore();
+      stderrWrite.mockRestore();
+    }
+  });
+
+  it("invokes captured process write callbacks before renderer end", async () => {
+    const stdoutWrite = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    const stderrWrite = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({ lazy: true, useColor: false });
+    let ended = false;
+    let callbackCalled = false;
+
+    try {
+      renderer.render(source);
+      process.stdout.write("external stdout", () => {
+        callbackCalled = true;
+      });
+
+      expect(callbackCalled).toBe(false);
+      await Promise.resolve();
+      expect(callbackCalled).toBe(true);
+
+      renderer.end();
+      ended = true;
     } finally {
       if (!ended) renderer.end();
       stdoutWrite.mockRestore();
