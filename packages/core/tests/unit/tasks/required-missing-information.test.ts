@@ -1340,7 +1340,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(hasMarker).toBe(false);
     });
 
-    it("shows recommendations in summary table", async () => {
+    it("shows recommendations in summary list", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "pubm",
@@ -1384,7 +1384,7 @@ describe("requiredMissingInformationTasks", () => {
 
       await versionTask.task(ctx, mockTask);
 
-      // The summary table should include both packages
+      // The recommendation summary should include both packages
       const summaryOutput = mockTask.outputs.find((output) =>
         output.includes("Version Recommendations"),
       );

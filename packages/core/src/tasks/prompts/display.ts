@@ -17,32 +17,45 @@ export function pluralize(count: number, singular: string): string {
 export function displayRecommendationSummary(
   recommendations: VersionRecommendation[],
 ): string {
-  const lines: string[] = ["", "  Version Recommendations", ""];
-  const sourceWidth = 10;
-  const pkgWidth = Math.max(
-    ...recommendations.map((r) => r.packagePath.length),
-    7,
-  );
-  const bumpWidth = 7;
-  lines.push(
-    `  ${"Source".padEnd(sourceWidth)} ${"Package".padEnd(pkgWidth)} ${"Bump".padEnd(bumpWidth)} Details`,
-  );
-  lines.push(
-    `  ${"-".repeat(sourceWidth)} ${"-".repeat(pkgWidth)} ${"-".repeat(bumpWidth)} ${"-".repeat(20)}`,
-  );
+  const lines: string[] = [
+    "",
+    `  ${color.bold("Version Recommendations")}`,
+    "",
+  ];
+
   for (const rec of recommendations) {
-    const source = rec.source === "changeset" ? "changeset" : "commit";
-    const detail = rec.entries[0]?.summary ?? "";
-    const more =
-      rec.entries.length > 1 ? ` (+${rec.entries.length - 1} more)` : "";
-    const detailDisplay =
-      rec.source === "changeset" ? `"${detail}"${more}` : `${detail}${more}`;
     lines.push(
-      `  ${source.padEnd(sourceWidth)} ${rec.packagePath.padEnd(pkgWidth)} ${rec.bumpType.padEnd(bumpWidth)} ${detailDisplay}`,
+      `  ${color.bold(rec.packagePath)}`,
+      `    ${color.dim("bump:")} ${formatBumpType(rec.bumpType)}    ${color.dim("source:")} ${formatSource(rec.source)}`,
+      `    ${color.dim("detail:")} ${formatRecommendationDetail(rec)}`,
+      "",
     );
   }
-  lines.push("", `  ${recommendations.length} packages to bump`, "");
+
+  lines.push(
+    `  ${color.bold(String(recommendations.length))} packages to bump`,
+    "",
+  );
   return lines.join("\n");
+}
+
+function formatBumpType(bumpType: string): string {
+  if (bumpType === "major") return color.redBright(bumpType);
+  if (bumpType === "minor") return color.cyan(bumpType);
+  return color.green(bumpType);
+}
+
+function formatSource(source: string): string {
+  if (source === "changeset") return color.magenta(source);
+  if (source === "commit") return color.cyan(source);
+  return source;
+}
+
+function formatRecommendationDetail(rec: VersionRecommendation): string {
+  const detail = rec.entries[0]?.summary ?? "";
+  const more =
+    rec.entries.length > 1 ? ` (+${rec.entries.length - 1} more)` : "";
+  return rec.source === "changeset" ? `"${detail}"${more}` : `${detail}${more}`;
 }
 
 function formatPackageVersionSummary(
@@ -55,7 +68,7 @@ function formatPackageVersionSummary(
     return current;
   }
 
-  return `${current} -> ${color.dim(`v${selectedVersion}`)}`;
+  return `${current} ${color.dim("->")} ${color.green(`v${selectedVersion}`)}`;
 }
 
 export function buildDependencyBumpNote(
@@ -70,8 +83,8 @@ export function buildDependencyBumpNote(
     "hint",
     t("note.dependency.bumped", {
       label: dependencyLabel,
-      dependencies: bumpedDependencies.join(", "),
-      version: suggestedVersion,
+      dependencies: color.bold(bumpedDependencies.join(", ")),
+      version: color.green(suggestedVersion),
     }),
   );
 }

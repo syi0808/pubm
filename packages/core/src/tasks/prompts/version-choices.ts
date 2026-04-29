@@ -67,7 +67,7 @@ export function versionChoices(
         .toString();
       const marker =
         recommendedBumpType === releaseType
-          ? ` ${color.dim(t("prompt.version.recommendedMarker"))}`
+          ? ` ${color.yellowBright(t("prompt.version.recommendedMarker"))}`
           : "";
       return {
         message: t("prompt.version.releaseChoice", {
