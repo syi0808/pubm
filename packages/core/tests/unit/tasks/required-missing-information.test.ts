@@ -1340,7 +1340,7 @@ describe("requiredMissingInformationTasks", () => {
       expect(hasMarker).toBe(false);
     });
 
-    it("shows recommendations in summary list", async () => {
+    it("shows recommendations in summary table", async () => {
       const packages: ResolvedPackageConfig[] = [
         makePkg({
           name: "pubm",
