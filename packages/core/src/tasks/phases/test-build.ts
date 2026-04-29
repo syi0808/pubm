@@ -224,7 +224,7 @@ async function runExecution(
   const liveOutput = shouldRenderLiveCommandOutput(ctx)
     ? createLiveCommandOutput(task, execution.label)
     : undefined;
-  task.output = `Executing \`${execution.label}\``;
+  if (!liveOutput) task.output = `Executing \`${execution.label}\``;
 
   try {
     await exec(execution.cmd, execution.args, {

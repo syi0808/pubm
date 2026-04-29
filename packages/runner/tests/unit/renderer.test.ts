@@ -150,7 +150,7 @@ describe("CiRenderer", () => {
       "[pubm][start] Release > Build",
       "[pubm][title] Release > Build -> Release > Build red",
       "[pubm][output]     › Artifact",
-      "[pubm][output]     › ready",
+      "[pubm][output]       ready",
       "[pubm][retry] Release > Build (attempt 2)",
       "[pubm][done] Release > Build",
     ]);
@@ -263,7 +263,7 @@ describe("SimpleRenderer", () => {
         "  ❯ Release > Build",
         "  ✔ Release > Build",
         "    › line one",
-        "    › line two",
+        "      line two",
         "  ⚠ Release > Build (attempt 2)",
         "  ⚠ Release > Build",
         "  ← Release > Build: Restored files",
@@ -381,7 +381,8 @@ describe("DefaultRenderer", () => {
       expect(output).toContain("⠋ Build");
       expect(output).toContain("⠙ Build");
       expect(output).toContain("  › line one");
-      expect(output).toContain("  › line two");
+      expect(output).toContain("    line two");
+      expect(output).not.toContain("  › line two");
       expect(output).not.toContain("Build: line one");
       expect(output).toContain("✔ Build");
 
@@ -433,7 +434,141 @@ describe("DefaultRenderer", () => {
     });
     renderer.end();
 
-    expect(lastChunkContaining(chunks, "✔ Build").endsWith("\n")).toBe(true);
+    expect(chunks.join("")).toContain("✔ Build\n");
+  });
+
+  it("does not redraw unchanged frames for lifecycle events", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.completed",
+      task: taskSnapshot({ path: ["Build"], state: "success" }),
+    });
+
+    const beforeRunCompleted = chunks.length;
+    source.emit({ type: "run.completed" });
+    source.emit({
+      type: "task.closed",
+      task: taskSnapshot({ path: ["Build"], state: "success" }),
+    });
+
+    expect(chunks).toHaveLength(beforeRunCompleted);
+
+    renderer.end();
+  });
+
+  it("renders initial root tasks as one stable frame", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const testTask = taskSnapshot({
+      id: "test",
+      title: "Running tests",
+      initialTitle: "Running tests",
+      path: ["Running tests"],
+      state: "pending",
+    });
+    const buildTask = taskSnapshot({
+      id: "build",
+      title: "Building the project",
+      initialTitle: "Building the project",
+      path: ["Building the project"],
+      state: "pending",
+    });
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({ type: "run.tasks", tasks: [testTask, buildTask] });
+
+    const initialFrame = chunks.at(-1) ?? "";
+    expect(initialFrame).toContain("❯ Running tests");
+    expect(initialFrame).toContain("❯ Building the project");
+
+    const beforeDuplicateEnabled = chunks.length;
+    source.emit({ type: "task.enabled", state: "pending", task: testTask });
+
+    expect(chunks).toHaveLength(beforeDuplicateEnabled);
+
+    renderer.end();
+  });
+
+  it("renders multiline task output without treating outputBar as a line cap", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const testTask = taskSnapshot({
+      id: "test",
+      title: "Running tests",
+      initialTitle: "Running tests",
+      path: ["Running tests"],
+      state: "pending",
+    });
+    const buildTask = taskSnapshot({
+      id: "build",
+      title: "Building the project",
+      initialTitle: "Building the project",
+      path: ["Building the project"],
+      state: "pending",
+    });
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      rows: 10,
+      columns: 80,
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({ type: "run.tasks", tasks: [testTask, buildTask] });
+    expect((chunks.at(-1) ?? "").split("\n")).toHaveLength(2);
+
+    source.emit({
+      type: "task.started",
+      task: {
+        ...testTask,
+        title: "Running tests (bun run test)",
+        state: "running",
+      },
+    });
+    expect((chunks.at(-1) ?? "").split("\n")).toHaveLength(2);
+
+    source.emit({
+      type: "task.output",
+      output: "stdout partial\nstderr partial",
+      task: {
+        ...testTask,
+        title: "Running tests (bun run test)",
+        state: "running",
+      },
+    });
+    const outputFrame = chunks.at(-1) ?? "";
+    expect(outputFrame.split("\n")).toHaveLength(4);
+    expect(outputFrame).toContain("  › stdout partial");
+    expect(outputFrame).toContain("    stderr partial");
+
+    source.emit({
+      type: "task.completed",
+      task: {
+        ...testTask,
+        title: "Running tests (bun run test)",
+        state: "success",
+      },
+    });
+    expect((chunks.at(-1) ?? "").split("\n")).toHaveLength(4);
+
+    renderer.end();
   });
 
   it("clips oversized live frames while leaving terminal headroom", () => {
@@ -468,7 +603,9 @@ describe("DefaultRenderer", () => {
     expect(liveFrame.endsWith("\n")).toBe(false);
 
     renderer.end();
-    expect(lastChunkContaining(chunks, "Task 1", "Task 5")).toContain("Task 1");
+    const finalFrame = lastChunkContaining(chunks, "Task 1", "Task 5");
+    expect(finalFrame).toContain("Task 1");
+    expect(finalFrame.endsWith("\n")).toBe(true);
   });
 
   it("trims live output details before dropping the active task line", () => {
@@ -478,6 +615,7 @@ describe("DefaultRenderer", () => {
       output: {
         write: (chunk) => chunks.push(chunk),
       },
+      outputBar: 2,
       rows: 5,
       useColor: false,
     });
@@ -507,8 +645,8 @@ describe("DefaultRenderer", () => {
     expect(liveFrame.split("\n")).toHaveLength(3);
     expect(liveFrame).toContain("Running tests (bun run test)");
     expect(liveFrame).toContain("  › Executing `bun run test`");
-    expect(liveFrame).toContain("  › line 4");
-    expect(liveFrame).not.toContain("  › line 1");
+    expect(liveFrame).toContain("    line 4");
+    expect(liveFrame).not.toContain("    line 1");
     expect(liveFrame.endsWith("\n")).toBe(false);
 
     renderer.end();
@@ -521,6 +659,7 @@ describe("DefaultRenderer", () => {
       output: {
         write: (chunk) => chunks.push(chunk),
       },
+      outputBar: 2,
       rows: 7,
       useColor: false,
     });
@@ -564,7 +703,7 @@ describe("DefaultRenderer", () => {
     expect(liveFrame.split("\n")).toHaveLength(5);
     expect(liveFrame).toContain("Running tests (bun run test)");
     expect(liveFrame).toContain("  › Executing `bun run test`");
-    expect(liveFrame).toContain("  › line 4");
+    expect(liveFrame).toContain("    line 4");
     expect(liveFrame).not.toContain("Done 1");
     expect(liveFrame.endsWith("\n")).toBe(false);
 
@@ -710,6 +849,109 @@ describe("DefaultRenderer", () => {
     }
   });
 
+  it("preserves prompt SGR styles in the live frame when color is enabled", async () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        useColor: true,
+      });
+      const promptTask = taskSnapshot({
+        title: "Prompt",
+        initialTitle: "Prompt",
+        path: ["Prompt"],
+        state: "prompting",
+      });
+      const promptCapture = renderer.createPromptOutput(promptTask);
+
+      renderer.render(source);
+      source.emit({ type: "task.started", task: promptTask });
+      promptCapture.output.write("\u001b[31mRed\u001b[39m plain");
+      await flushPromptFrame();
+      renderer.end();
+
+      const output = chunks.join("");
+      expect(output).toContain("\u001b[31mRed");
+      expect(output).toContain("\u001b[0m plain");
+      expect(normalizeTerminalText(output)).toContain("Red plain");
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
+  it("preserves prompt OSC hyperlinks in the live frame", async () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+    const link =
+      "\u001b]8;;https://example.com/token\u0007npmjs.com\u001b]8;;\u0007";
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write(
+      `Generate a token from ${link}\u001b]0;ignored title\u0007`,
+    );
+    await flushPromptFrame();
+    renderer.end();
+
+    const output = chunks.join("");
+    expect(output).toContain(link);
+    expect(output).not.toContain("ignored title");
+    expect(normalizeTerminalText(output)).toContain(
+      "Generate a token from npmjs.com",
+    );
+  });
+
+  it("strips prompt SGR styles when renderer color is disabled", async () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const promptTask = taskSnapshot({
+      title: "Prompt",
+      initialTitle: "Prompt",
+      path: ["Prompt"],
+      state: "prompting",
+    });
+    const promptCapture = renderer.createPromptOutput(promptTask);
+
+    renderer.render(source);
+    source.emit({ type: "task.started", task: promptTask });
+    promptCapture.output.write("\u001b[31mRed\u001b[39m plain");
+    await flushPromptFrame();
+    renderer.end();
+
+    const output = chunks.join("");
+    expect(output).not.toContain("\u001b[31m");
+    expect(normalizeTerminalText(output)).toContain("Red plain");
+  });
+
   it("limits live task output to the latest entry by default", () => {
     const chunks: string[] = [];
     const source = new EventSource();
@@ -740,6 +982,140 @@ describe("DefaultRenderer", () => {
     const latestFrame = lastChunkContaining(chunks, "Build", "second");
     expect(latestFrame).toContain("  › second");
     expect(latestFrame).not.toContain("  › first");
+  });
+
+  it("treats task output on snapshots as live task state", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({
+        path: ["Build"],
+        state: "running",
+        output: "snapshot output",
+      }),
+    });
+    renderer.end();
+
+    expect(chunks.join("")).toContain("  › snapshot output");
+  });
+
+  it("clears live task output when task output state is cleared", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({ path: ["Build"], state: "running" }),
+    });
+    source.emit({
+      type: "task.output",
+      output: "first",
+      task: taskSnapshot({
+        path: ["Build"],
+        state: "running",
+        output: "first",
+      }),
+    });
+    source.emit({
+      type: "task.output",
+      output: "",
+      task: taskSnapshot({
+        path: ["Build"],
+        state: "running",
+        output: "",
+      }),
+    });
+
+    expect(chunks.at(-1) ?? "").not.toContain("first");
+    renderer.end();
+  });
+
+  it("preserves task output SGR styles while stripping unsafe controls", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        useColor: true,
+      });
+
+      renderer.render(source);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      source.emit({
+        type: "task.output",
+        output:
+          "\u001b[32mready\u001b[39m\u001b[2K" + "\u001b]0;title\u0007 visible",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+      renderer.end();
+
+      const output = chunks.join("");
+      expect(output).toContain("\u001b[32mready\u001b[39m visible");
+      expect(output).not.toContain("\u001b[2Kready");
+      expect(normalizeTerminalText(output)).not.toContain("title");
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+    }
+  });
+
+  it("preserves task output OSC hyperlinks while stripping unsafe controls", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+    const link =
+      "\u001b]8;;https://www.npmjs.com/auth/cli/x\u0007https://www.npmjs.com/auth/cli/x\u001b]8;;\u0007";
+
+    renderer.render(source);
+    source.emit({
+      type: "task.started",
+      task: taskSnapshot({ path: ["Login"], state: "running" }),
+    });
+    source.emit({
+      type: "task.output",
+      output: `Login at: ${link}\u001b]0;ignored title\u0007`,
+      task: taskSnapshot({ path: ["Login"], state: "running" }),
+    });
+    renderer.end();
+
+    const output = chunks.join("");
+    expect(output).toContain(link);
+    expect(output).not.toContain("ignored title");
+    expect(normalizeTerminalText(output)).toContain(
+      "Login at: https://www.npmjs.com/auth/cli/x",
+    );
   });
 
   it("supports disabled, numeric, and infinite output bars", () => {
@@ -847,8 +1223,8 @@ describe("DefaultRenderer", () => {
 
     const latestFrame = lastChunkContaining(chunks, "line one", "line two");
     expect(latestFrame).toContain("  › line one");
-    expect(latestFrame).toContain("  › line two");
-    expect(latestFrame).not.toContain("  › \n");
+    expect(latestFrame).toContain("    line two");
+    expect(latestFrame).not.toContain("    \n");
   });
 
   it("collapses successful completed subtasks by default", () => {
@@ -888,7 +1264,7 @@ describe("DefaultRenderer", () => {
     expect(finalFrame).not.toContain("Child");
   });
 
-  it("supports lazy rendering, final clearing, and terminal-column wrapping", () => {
+  it("supports lazy rendering, final clearing, and terminal-column clipping", () => {
     vi.useFakeTimers();
 
     try {
@@ -920,10 +1296,11 @@ describe("DefaultRenderer", () => {
       expect(chunks.join("")).toBe(afterStart);
       renderer.end();
 
-      expect(afterStart).toContain("⠋ Lo\nngTi\ntle");
+      expect(afterStart).toContain("⠋ L");
+      expect(afterStart).not.toContain("ngTi");
       expect(chunks.join("")).toContain("\u001b[?25h");
       expect(chunks.join("")).not.toContain("✔ LongTitle");
-      expect(chunks.join("").split("\u001b[1A")).toHaveLength(3);
+      expect(chunks.join("")).toContain("\r\u001b[2K");
     } finally {
       vi.useRealTimers();
     }
@@ -1404,6 +1781,73 @@ describe("DefaultRenderer", () => {
     }
   });
 
+  it("dims pending and waiting task icons without coloring task titles", () => {
+    const previousNoColor = process.env.NO_COLOR;
+    const previousForceColor = process.env.FORCE_COLOR;
+    const previousForceUnicode = process.env.FORCE_UNICODE;
+    delete process.env.NO_COLOR;
+    process.env.FORCE_COLOR = "1";
+    process.env.FORCE_UNICODE = "1";
+
+    try {
+      const chunks: string[] = [];
+      const source = new EventSource();
+      const renderer = new DefaultRenderer({
+        output: {
+          write: (chunk) => chunks.push(chunk),
+        },
+        collapseSubtasks: false,
+        useColor: true,
+      });
+
+      renderer.render(source);
+      source.emit({
+        type: "task.enabled",
+        task: taskSnapshot({
+          id: "queued",
+          title: "Queued",
+          initialTitle: "Queued",
+          path: ["Queued"],
+          state: "pending",
+        }),
+      });
+      source.emit({
+        type: "task.waiting",
+        task: taskSnapshot({
+          id: "waiting",
+          title: "Waiting",
+          initialTitle: "Waiting",
+          path: ["Waiting"],
+          state: "waiting",
+        }),
+      });
+      renderer.end();
+
+      const output = lastChunkContaining(chunks, "Queued", "Waiting");
+      expect(output).toContain("\u001b[2m❯\u001b[22m");
+      expect(output).toContain("Queued");
+      expect(output).toContain("Waiting");
+      expect(output).not.toContain("\u001b[2mQueued");
+      expect(output).not.toContain("\u001b[2mWaiting");
+    } finally {
+      if (previousNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previousNoColor;
+      }
+      if (previousForceUnicode === undefined) {
+        delete process.env.FORCE_UNICODE;
+      } else {
+        process.env.FORCE_UNICODE = previousForceUnicode;
+      }
+      if (previousForceColor === undefined) {
+        delete process.env.FORCE_COLOR;
+      } else {
+        process.env.FORCE_COLOR = previousForceColor;
+      }
+    }
+  });
+
   it("does not render blocked tasks in the live task list", () => {
     const previousForceUnicode = process.env.FORCE_UNICODE;
     process.env.FORCE_UNICODE = "1";
@@ -1529,6 +1973,175 @@ describe("DefaultRenderer", () => {
     } finally {
       write.mockRestore();
     }
+  });
+
+  it("replays plain buffered output before the final frame and drops redraw output", async () => {
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    const stdoutWrite = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+    const stderrWrite = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        stderrChunks.push(String(chunk));
+        return true;
+      });
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({ lazy: true, useColor: false });
+    const stdoutSpyWrite = process.stdout.write;
+    const stderrSpyWrite = process.stderr.write;
+    let ended = false;
+
+    try {
+      renderer.render(source);
+      expect(process.stdout.write).not.toBe(stdoutSpyWrite);
+      expect(process.stderr.write).not.toBe(stderrSpyWrite);
+      source.emit({
+        type: "task.started",
+        task: taskSnapshot({ path: ["Build"], state: "running" }),
+      });
+
+      process.stdout.write("external stdout\n");
+      process.stderr.write("plain stderr\n");
+      process.stderr.write("callback stderr", () => {
+        process.stderr.write("callback follow-up\n");
+      });
+      process.stderr.write("\u001b[2Kredraw stderr\n");
+
+      expect(stdoutChunks.join("")).not.toContain("external stdout");
+      expect(stderrChunks.join("")).not.toContain("plain stderr");
+      expect(stderrChunks.join("")).not.toContain("redraw stderr");
+
+      source.emit({
+        type: "task.completed",
+        task: taskSnapshot({ path: ["Build"], state: "success" }),
+      });
+
+      renderer.end();
+      ended = true;
+
+      expect(process.stdout.write).toBe(stdoutSpyWrite);
+      expect(process.stderr.write).toBe(stderrSpyWrite);
+      expect(stdoutChunks.join("")).toContain("external stdout\n");
+      const stderrOutput = stderrChunks.join("");
+      expect(stderrOutput).toContain("plain stderr\n");
+      expect(stderrOutput).toContain("callback stderrcallback follow-up\n");
+      expect(stderrOutput).not.toContain("redraw stderr");
+      expect(stderrOutput.indexOf("plain stderr")).toBeLessThan(
+        stderrOutput.lastIndexOf("✔ Build"),
+      );
+      expect(stderrOutput.indexOf("callback follow-up")).toBeLessThan(
+        stderrOutput.lastIndexOf("✔ Build"),
+      );
+      expect(stderrOutput.endsWith("\u001b[?25h")).toBe(true);
+      await Promise.resolve();
+      expect(stderrChunks.join("")).toBe(stderrOutput);
+    } finally {
+      if (!ended) renderer.end();
+      stdoutWrite.mockRestore();
+      stderrWrite.mockRestore();
+    }
+  });
+
+  it("does not replay nested renderer frames from an outer process capture", () => {
+    const stderrChunks: string[] = [];
+    const stderrWrite = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        stderrChunks.push(String(chunk));
+        return true;
+      });
+    const parentSource = new EventSource();
+    const childSource = new EventSource();
+    const parent = new DefaultRenderer({
+      lazy: true,
+      rows: 10,
+      useColor: false,
+    });
+    const child = new DefaultRenderer({
+      lazy: true,
+      rows: 10,
+      useColor: false,
+    });
+    let childEnded = false;
+    let parentEnded = false;
+
+    try {
+      parent.render(parentSource);
+      parentSource.emit({
+        type: "task.started",
+        task: taskSnapshot({
+          id: "parent",
+          title: "Parent",
+          initialTitle: "Parent",
+          path: ["Parent"],
+          state: "running",
+        }),
+      });
+      child.render(childSource);
+      childSource.emit({
+        type: "task.completed",
+        task: taskSnapshot({
+          id: "test",
+          title: "Running tests (bun run test)",
+          initialTitle: "Running tests (bun run test)",
+          path: ["Running tests (bun run test)"],
+          state: "success",
+        }),
+      });
+      childSource.emit({
+        type: "task.completed",
+        task: taskSnapshot({
+          id: "build",
+          title: "Building the project (bun run build)",
+          initialTitle: "Building the project (bun run build)",
+          path: ["Building the project (bun run build)"],
+          state: "success",
+        }),
+      });
+      child.end();
+      childEnded = true;
+
+      const afterChildEnd = stderrChunks.length;
+      parent.end();
+      parentEnded = true;
+
+      const parentShutdown = stderrChunks.slice(afterChildEnd).join("");
+      expect(parentShutdown).not.toContain("Running tests (bun run test)");
+      expect(parentShutdown).not.toContain("Building the project");
+    } finally {
+      if (!childEnded) child.end();
+      if (!parentEnded) parent.end();
+      stderrWrite.mockRestore();
+    }
+  });
+
+  it("does not write the final frame more than once when end is called again", () => {
+    const chunks: string[] = [];
+    const source = new EventSource();
+    const renderer = new DefaultRenderer({
+      output: {
+        write: (chunk) => chunks.push(chunk),
+      },
+      useColor: false,
+    });
+
+    renderer.render(source);
+    source.emit({
+      type: "task.completed",
+      task: taskSnapshot({ path: ["Build"], state: "success" }),
+    });
+    renderer.end();
+    const afterFirstEnd = chunks.length;
+
+    renderer.end();
+
+    expect(chunks).toHaveLength(afterFirstEnd);
+    expect(countOccurrences(chunks.join(""), "✔ Build")).toBe(1);
   });
 });
 

@@ -23,6 +23,7 @@ export type TaskMessage = {
 export interface TaskEvent {
   type:
     | "run.started"
+    | "run.tasks"
     | "run.completed"
     | "run.failed"
     | "task.enabled"

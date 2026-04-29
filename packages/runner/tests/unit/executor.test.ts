@@ -377,6 +377,7 @@ describe("PubmTaskRunner execution", () => {
 
     expect(renderer.events.map((event) => event.type)).toEqual([
       "run.started",
+      "run.tasks",
       "task.enabled",
       "task.started",
       "task.title",

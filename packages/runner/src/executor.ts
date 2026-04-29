@@ -339,6 +339,7 @@ export class PubmTaskRunner<Context extends object = object>
     if (this.isRoot()) {
       await this.renderer.render(this.source);
       this.emit({ type: "run.started" });
+      this.emitInitialTasks();
       this.registerSignals(ctx);
     } else if (this.parentTask) {
       this.parentTask.setSubtasks(this.tasks);
@@ -384,6 +385,13 @@ export class PubmTaskRunner<Context extends object = object>
       },
     );
     await Promise.all(workers);
+  }
+
+  private emitInitialTasks(): void {
+    this.emit({
+      type: "run.tasks",
+      tasks: this.tasks.map((task) => task.snapshot()),
+    });
   }
 
   private async runOne(

@@ -1,6 +1,9 @@
 import {
   color,
+  normalizeTerminalDisplayText,
   normalizeTerminalText,
+  shouldUseColor,
+  stripTerminalControls,
   terminalFigures,
   terminalSpinnerFrames,
   wrapTerminalLine,
@@ -19,6 +22,25 @@ import type {
 type LineOutput = Pick<typeof console, "log" | "error">;
 type RawOutput = LineOutput & { write(chunk: string): void };
 type OutputOptions = Partial<LineOutput & { write(chunk: string): void }>;
+type ProcessOutputStreamName = "stdout" | "stderr";
+type ProcessWrite = NodeJS.WriteStream["write"];
+type ProcessWriteCallback = (error?: Error | null) => void;
+type CapturedProcessOutput = {
+  stream: ProcessOutputStreamName;
+  chunk: string;
+  order: number;
+};
+type ProcessOutputStreamState = {
+  originalWrite: ProcessWrite;
+  activeCaptures: Array<{
+    controller: ProcessOutputController;
+    stream: ProcessOutputStreamName;
+  }>;
+  dispatcher: ProcessWrite;
+};
+type FrameLineOptions = {
+  limitOutputToViewport?: boolean;
+};
 
 export interface CiRendererOptions {
   output?: OutputOptions;
@@ -98,6 +120,8 @@ export class CiRenderer implements TaskRenderer {
       [output],
       task.path.length,
       false,
+      false,
+      2,
       false,
     )) {
       this.log("output", line);
@@ -188,9 +212,24 @@ export class SimpleRenderer implements TaskRenderer {
     const normalized = normalizeTerminalText(output);
     if (!normalized) return;
 
-    for (const line of normalized.split("\n")) {
-      this.writeOutput(task, line);
-    }
+    normalized.split("\n").forEach((line, index) => {
+      this.writeOutput(task, line, index === 0);
+    });
+  }
+
+  private outputMarker(visible: boolean): string {
+    const marker = style("output", this.useColor);
+    return visible ? marker : " ".repeat(normalizeTerminalText(marker).length);
+  }
+
+  private writeOutput(
+    task: RuntimeTaskSnapshot,
+    line: string,
+    showMarker: boolean,
+  ): void {
+    const prefix = " ".repeat(task.path.length * 2);
+    const message = `${prefix}${this.outputMarker(showMarker)} ${line}`;
+    if (normalizeTerminalText(message)) this.output.log(message);
   }
 
   private line(
@@ -224,18 +263,13 @@ export class SimpleRenderer implements TaskRenderer {
     const writer = level === "failed" ? this.output.error : this.output.log;
     writer(message);
   }
-
-  private writeOutput(task: RuntimeTaskSnapshot, line: string): void {
-    const prefix = " ".repeat(task.path.length * 2);
-    const message = `${prefix}${style("output", this.useColor)} ${line}`;
-    if (normalizeTerminalText(message)) this.output.log(message);
-  }
 }
 
 export class DefaultRenderer implements TaskRenderer {
   static nonTTY = false;
 
   private unsubscribe?: () => void;
+  private readonly processOutput?: ProcessOutputController;
   private readonly output: RawOutput;
   private readonly useColor: boolean;
   private readonly spinnerInterval: number;
@@ -261,6 +295,7 @@ export class DefaultRenderer implements TaskRenderer {
     process.stdout,
   ]);
   private readonly handleTerminalResize = (): void => {
+    this.reservedLiveLines = undefined;
     const hasPromptOutputs = this.promptOutputs.size > 0;
     for (const output of this.promptOutputs) {
       output.emitResize();
@@ -274,20 +309,25 @@ export class DefaultRenderer implements TaskRenderer {
   private renderedLines = 0;
   private renderedFrameLines: string[] = [];
   private renderedColumns?: number;
+  private reservedLiveLines?: number;
   private spinnerIndex = 0;
   private nextOrder = 0;
   private renderActive = false;
   private redrawScheduled = false;
+  private ended = false;
   private timer?: ReturnType<typeof setInterval>;
 
   constructor(options: CiRendererOptions = {}) {
+    this.processOutput = options.output?.write
+      ? undefined
+      : new ProcessOutputController();
     this.output = {
       log: options.output?.log ?? console.log,
       error: options.output?.error ?? console.error,
       write:
         options.output?.write ??
         ((chunk: string) => {
-          process.stderr.write(chunk);
+          this.processOutput?.writeStderr(chunk);
         }),
     };
     this.useColor = options.useColor !== false;
@@ -304,6 +344,7 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   render(events: TaskEventSource): void {
+    this.processOutput?.hijack();
     this.renderActive = true;
     this.output.write("\u001b[?25l");
     this.unsubscribe = events.subscribe((event) => {
@@ -322,21 +363,41 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   end(): void {
+    if (this.ended) return;
+    this.ended = true;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     this.unbindResizeListeners();
-    this.clearFrame();
-    if (!this.clearOutput) this.writeFrame(this.frameLines(), true);
-    this.output.write("\u001b[?25h");
     this.renderActive = false;
+    const capturedOutput = this.processOutput?.release() ?? [];
+    try {
+      const finalLines = this.frameLines();
+      const canCommitRenderedFrame =
+        !this.clearOutput &&
+        capturedOutput.length === 0 &&
+        this.renderedFrameMatches(finalLines);
+
+      if (canCommitRenderedFrame) {
+        this.output.write("\n");
+      } else {
+        this.clearFrame();
+        this.writeBufferedProcessOutput(capturedOutput);
+        if (!this.clearOutput) this.writeFrame(finalLines, true, false);
+      }
+      this.output.write("\u001b[?25h");
+    } finally {
+      this.processOutput?.release();
+      this.resetFrameState();
+    }
   }
 
   createPromptOutput(task: RuntimeTaskSnapshot): PromptOutputCapture {
     const output = new PromptFrameOutput(
       () => this.terminalColumns(),
       () => this.terminalRows(),
+      () => shouldUseColor(this.useColor),
       (lines) => {
         if (lines.length > 0) {
           this.promptBuffers.set(task.id, lines);
@@ -360,9 +421,26 @@ export class DefaultRenderer implements TaskRenderer {
   }
 
   private handle(event: TaskEvent): void {
+    if (event.type === "run.tasks" && event.tasks) {
+      for (const task of event.tasks) {
+        this.upsert(task);
+      }
+      this.redraw();
+      return;
+    }
+
+    if (!event.task && event.type.startsWith("run.")) return;
+    if (event.type === "task.closed") return;
+    if (event.type === "task.enabled" && event.task) {
+      if (this.taskSnapshotMatches(event.task)) return;
+    }
+
     if (event.task) this.upsert(event.task);
-    if (event.type === "task.output" && event.task && event.output) {
-      this.pushOutput(event.task.id, event.output);
+    if (event.type === "task.output" && event.task) {
+      this.setTaskOutput(
+        event.task.id,
+        event.output ?? event.task.output ?? "",
+      );
     }
 
     if (event.type === "prompt.completed" || event.type === "prompt.failed") {
@@ -413,9 +491,25 @@ export class DefaultRenderer implements TaskRenderer {
     }
   }
 
+  private taskSnapshotMatches(task: RuntimeTaskSnapshot): boolean {
+    const existing = this.tasks.get(task.id);
+    return (
+      !!existing &&
+      existing.title === task.title &&
+      existing.initialTitle === task.initialTitle &&
+      existing.output === task.output &&
+      existing.promptOutput === task.promptOutput &&
+      existing.state === task.state &&
+      existing.path.join("\0") === task.path.join("\0") &&
+      JSON.stringify(existing.message) === JSON.stringify(task.message)
+    );
+  }
+
   private redraw(): void {
+    if (!this.renderActive) return;
+
     const clearChunk = this.clearFrameChunk();
-    const frameChunk = this.writeFrameChunk(this.frameLines());
+    const frameChunk = this.writeFrameChunk(this.liveFrameLines());
     if (clearChunk || frameChunk) {
       this.output.write(`${clearChunk}${frameChunk}`);
     }
@@ -433,6 +527,21 @@ export class DefaultRenderer implements TaskRenderer {
   private clearFrame(): void {
     const chunk = this.clearFrameChunk();
     if (chunk) this.output.write(chunk);
+  }
+
+  private writeBufferedProcessOutput(entries: CapturedProcessOutput[]): void {
+    let lastStream: ProcessOutputStreamName | undefined;
+    let lastChunk = "";
+    for (const entry of entries) {
+      const chunk = sanitizeBufferedProcessOutput(entry.chunk);
+      if (!chunk || !normalizeTerminalText(chunk)) continue;
+      this.processOutput?.writeDirect(entry.stream, chunk);
+      lastStream = entry.stream;
+      lastChunk = chunk;
+    }
+    if (lastStream && !lastChunk.endsWith("\n")) {
+      this.processOutput?.writeDirect(lastStream, "\n");
+    }
   }
 
   private clearFrameChunk(): string {
@@ -454,17 +563,24 @@ export class DefaultRenderer implements TaskRenderer {
     return chunk;
   }
 
-  private writeFrame(lines: string[], trailingNewline = false): void {
-    const chunk = this.writeFrameChunk(lines, trailingNewline);
+  private writeFrame(
+    lines: string[],
+    trailingNewline = false,
+    fitToViewport = true,
+  ): void {
+    const chunk = this.writeFrameChunk(lines, trailingNewline, fitToViewport);
     if (chunk) this.output.write(chunk);
   }
 
-  private writeFrameChunk(lines: string[], trailingNewline = false): string {
+  private writeFrameChunk(
+    lines: string[],
+    trailingNewline = false,
+    fitToViewport = true,
+  ): string {
     const columns = this.terminalColumns();
-    const formattedLines = this.visibleFrameLines(
-      this.formatFrameLines(lines, columns),
-      trailingNewline,
-    );
+    const formattedLines = fitToViewport
+      ? this.stableLiveFrameLines(lines, columns)
+      : this.formatFrameLines(lines, columns);
     if (formattedLines.length === 0) return "";
     this.renderedLines = formattedLines.length;
     this.renderedFrameLines = [...formattedLines];
@@ -472,14 +588,62 @@ export class DefaultRenderer implements TaskRenderer {
     return `${formattedLines.join("\n")}${trailingNewline ? "\n" : ""}`;
   }
 
-  private visibleFrameLines(
-    lines: string[],
-    persistentFrame: boolean,
-  ): string[] {
-    if (persistentFrame) return lines;
+  private visibleFrameLines(lines: string[], fitToViewport: boolean): string[] {
+    if (!fitToViewport) return lines;
     const limit = this.liveFrameLineLimit();
     if (!limit || lines.length <= limit) return lines;
     return lines.slice(-limit);
+  }
+
+  private stableLiveFrameLines(
+    lines: string[],
+    columns: number | undefined,
+  ): string[] {
+    const visibleLines = this.visibleFrameLines(
+      this.formatLiveFrameLines(lines, columns),
+      true,
+    );
+    const limit = this.liveFrameLineLimit();
+    if (!limit || visibleLines.length === 0) return visibleLines;
+
+    this.reservedLiveLines = Math.min(
+      limit,
+      Math.max(this.reservedLiveLines ?? 0, visibleLines.length),
+    );
+
+    const reservedLines =
+      visibleLines.length > this.reservedLiveLines
+        ? visibleLines.slice(-this.reservedLiveLines)
+        : visibleLines;
+
+    return [
+      ...reservedLines,
+      ...Array.from(
+        { length: this.reservedLiveLines - reservedLines.length },
+        () => "",
+      ),
+    ];
+  }
+
+  private formatLiveFrameLines(
+    lines: string[],
+    columns: number | undefined,
+  ): string[] {
+    if (!columns) return lines;
+    const width = Math.max(1, columns - 1);
+    return lines.map((line) => wrapTerminalLine(line, width)[0] ?? "");
+  }
+
+  private renderedFrameMatches(lines: string[]): boolean {
+    const columns = this.terminalColumns();
+    const formattedLines = this.formatFrameLines(lines, columns);
+    return (
+      this.renderedColumns === columns &&
+      this.renderedFrameLines.length === formattedLines.length &&
+      this.renderedFrameLines.every(
+        (line, index) => line === formattedLines[index],
+      )
+    );
   }
 
   private liveFrameLineLimit(): number | undefined {
@@ -495,6 +659,13 @@ export class DefaultRenderer implements TaskRenderer {
   ): string[] {
     if (!columns) return lines;
     return lines.flatMap((line) => wrapTerminalLine(line, columns));
+  }
+
+  private resetFrameState(): void {
+    this.renderedLines = 0;
+    this.renderedFrameLines = [];
+    this.renderedColumns = undefined;
+    this.reservedLiveLines = undefined;
   }
 
   private physicalFrameLines(
@@ -527,10 +698,14 @@ export class DefaultRenderer implements TaskRenderer {
     }
   }
 
-  private frameLines(): string[] {
+  private liveFrameLines(): string[] {
+    return this.frameLines({ limitOutputToViewport: true });
+  }
+
+  private frameLines(options: FrameLineOptions = {}): string[] {
     const lines: string[] = [];
     for (const root of this.rootTasks()) {
-      this.addTaskLines(lines, root, 0);
+      this.addTaskLines(lines, root, 0, options);
     }
     const promptLines = this.promptLines();
     if (promptLines.length > 0) {
@@ -554,20 +729,20 @@ export class DefaultRenderer implements TaskRenderer {
     lines: string[],
     task: RuntimeTaskSnapshot,
     depth: number,
+    options: FrameLineOptions,
   ): void {
     lines.push(this.taskLine(task, depth));
     if (this.shouldRenderOutput(task)) {
       const outputLines = outputDetailLines(
-        this.outputBuffers.get(task.id),
+        this.taskOutputEntries(task),
         depth + 1,
         this.useColor,
         this.removeEmptyLines,
         this.indentation,
+        true,
+        this.remainingLiveOutputLines(lines.length, task, options),
       );
-      for (const outputLine of trimOutputDetailLines(
-        outputLines,
-        this.remainingLiveOutputLines(lines.length, task),
-      )) {
+      for (const outputLine of outputLines) {
         lines.push(outputLine);
       }
     }
@@ -575,25 +750,15 @@ export class DefaultRenderer implements TaskRenderer {
     if (!this.shouldRenderSubtasks(task)) return;
 
     for (const child of this.childTasks(task)) {
-      this.addTaskLines(lines, child, depth + 1);
+      this.addTaskLines(lines, child, depth + 1, options);
     }
   }
 
   private taskLine(task: RuntimeTaskSnapshot, depth: number): string {
     const prefix = " ".repeat(depth * this.indentation);
     const title = leafLabel(task);
-    const suffix = stateSuffix(task);
+    const suffix = styleTaskSuffix(task, stateSuffix(task), this.useColor);
     return `${prefix}${this.stateIcon(task)} ${title}${suffix}`;
-  }
-
-  private remainingLiveOutputLines(
-    renderedLineCount: number,
-    task: RuntimeTaskSnapshot,
-  ): number {
-    const limit = this.liveFrameLineLimit();
-    if (!limit) return Number.POSITIVE_INFINITY;
-    if (isPendingForOutput(task.state)) return Math.max(0, limit - 1);
-    return Math.max(0, limit - renderedLineCount);
   }
 
   private stateIcon(task: RuntimeTaskSnapshot): string {
@@ -610,6 +775,18 @@ export class DefaultRenderer implements TaskRenderer {
     return style("pending", this.useColor);
   }
 
+  private remainingLiveOutputLines(
+    renderedLineCount: number,
+    task: RuntimeTaskSnapshot,
+    options: FrameLineOptions,
+  ): number {
+    if (!options.limitOutputToViewport) return Number.POSITIVE_INFINITY;
+    const limit = this.liveFrameLineLimit();
+    if (!limit) return Number.POSITIVE_INFINITY;
+    if (isPendingForOutput(task.state)) return Math.max(0, limit - 1);
+    return Math.max(0, limit - renderedLineCount);
+  }
+
   private hasActiveTasks(): boolean {
     return [...this.tasks.values()].some((task) => isActive(task.state));
   }
@@ -621,9 +798,16 @@ export class DefaultRenderer implements TaskRenderer {
     return (this.order.get(left.id) ?? 0) - (this.order.get(right.id) ?? 0);
   }
 
-  private pushOutput(taskId: string, output: string): void {
+  private setTaskOutput(taskId: string, output: string): void {
     const limit = outputLimit(this.outputBar);
-    if (limit <= 0) return;
+    if (limit <= 0) {
+      this.outputBuffers.delete(taskId);
+      return;
+    }
+    if (!output) {
+      this.outputBuffers.delete(taskId);
+      return;
+    }
 
     const entries = this.outputBuffers.get(taskId) ?? [];
     entries.push(output);
@@ -633,9 +817,18 @@ export class DefaultRenderer implements TaskRenderer {
     this.outputBuffers.set(taskId, entries);
   }
 
+  private taskOutputEntries(
+    task: RuntimeTaskSnapshot,
+  ): readonly string[] | undefined {
+    const buffered = this.outputBuffers.get(task.id);
+    if (buffered && buffered.length > 0) return buffered;
+    return task.output ? [task.output] : undefined;
+  }
+
   private shouldRenderOutput(task: RuntimeTaskSnapshot): boolean {
     return (
-      this.outputBuffers.has(task.id) &&
+      outputLimit(this.outputBar) > 0 &&
+      !!this.taskOutputEntries(task) &&
       (this.persistentOutput || isPendingForOutput(task.state))
     );
   }
@@ -660,6 +853,195 @@ export class DefaultRenderer implements TaskRenderer {
       )
       .sort((left, right) => this.compareTasks(left, right));
   }
+}
+
+class ProcessOutputController {
+  private active = false;
+  private nextOrder = 0;
+  private readonly captured: CapturedProcessOutput[] = [];
+  private readonly pendingCallbacks: ProcessWriteCallback[] = [];
+  private readonly streams: Record<
+    ProcessOutputStreamName,
+    { stream: NodeJS.WriteStream; state?: ProcessOutputStreamState }
+  >;
+
+  constructor(stdout = process.stdout, stderr = process.stderr) {
+    this.streams = {
+      stdout: { stream: stdout },
+      stderr: { stream: stderr },
+    };
+  }
+
+  hijack(): void {
+    if (this.active) return;
+    this.captureStream("stdout");
+    this.captureStream("stderr");
+    this.active = true;
+  }
+
+  release(): CapturedProcessOutput[] {
+    if (!this.active) return [];
+    this.drainWriteCallbacks();
+    const captured = [...this.captured];
+    this.captured.length = 0;
+    this.restoreStream("stdout");
+    this.restoreStream("stderr");
+    this.active = false;
+
+    return captured.sort((left, right) => left.order - right.order);
+  }
+
+  writeStderr(chunk: string): boolean {
+    return this.writeDirect("stderr", chunk);
+  }
+
+  writeDirect(name: ProcessOutputStreamName, chunk: string): boolean {
+    const target = this.streams[name];
+    const state = target.state ?? processOutputStreamStates.get(target.stream);
+    const write = state?.originalWrite ?? target.stream.write;
+    return write.call(target.stream, chunk);
+  }
+
+  private captureStream(name: ProcessOutputStreamName): void {
+    const target = this.streams[name];
+    const state = processOutputStreamState(target.stream);
+    target.state = state;
+    state.activeCaptures.push({ controller: this, stream: name });
+    target.stream.write = state.dispatcher;
+  }
+
+  private restoreStream(name: ProcessOutputStreamName): void {
+    const target = this.streams[name];
+    const state = target.state;
+    if (!state) return;
+    for (let index = state.activeCaptures.length - 1; index >= 0; index -= 1) {
+      if (state.activeCaptures[index]?.controller === this) {
+        state.activeCaptures.splice(index, 1);
+        break;
+      }
+    }
+    if (state.activeCaptures.length === 0) {
+      target.stream.write = state.originalWrite;
+      processOutputStreamStates.delete(target.stream);
+    }
+    target.state = undefined;
+  }
+
+  capture(
+    name: ProcessOutputStreamName,
+    chunk: string | Uint8Array,
+    encodingOrCallback?: BufferEncoding | ProcessWriteCallback,
+    callback?: ProcessWriteCallback,
+  ): boolean {
+    const encoding =
+      typeof encodingOrCallback === "string" ? encodingOrCallback : undefined;
+    const writeCallback =
+      typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
+
+    this.captured.push({
+      stream: name,
+      chunk: processWriteChunkToString(chunk, encoding),
+      order: this.nextOrder,
+    });
+    this.nextOrder += 1;
+
+    if (writeCallback) this.pendingCallbacks.push(writeCallback);
+    return true;
+  }
+
+  private drainWriteCallbacks(): void {
+    for (let index = 0; index < this.pendingCallbacks.length; index += 1) {
+      const callback = this.pendingCallbacks[index];
+      callback?.();
+    }
+    this.pendingCallbacks.length = 0;
+  }
+}
+
+const processOutputStreamStates = new WeakMap<
+  NodeJS.WriteStream,
+  ProcessOutputStreamState
+>();
+
+function processOutputStreamState(
+  stream: NodeJS.WriteStream,
+): ProcessOutputStreamState {
+  const existing = processOutputStreamStates.get(stream);
+  if (existing) return existing;
+
+  const state: ProcessOutputStreamState = {
+    originalWrite: stream.write,
+    activeCaptures: [],
+    dispatcher: ((
+      chunk: string | Uint8Array,
+      encodingOrCallback?: BufferEncoding | ProcessWriteCallback,
+      callback?: ProcessWriteCallback,
+    ) => {
+      const active = state.activeCaptures[state.activeCaptures.length - 1];
+      if (!active) {
+        return state.originalWrite.call(
+          stream,
+          chunk as string,
+          encodingOrCallback as BufferEncoding,
+          callback as ProcessWriteCallback,
+        );
+      }
+      return active.controller.capture(
+        active.stream,
+        chunk as string | Uint8Array,
+        encodingOrCallback as BufferEncoding | ProcessWriteCallback,
+        callback as ProcessWriteCallback,
+      );
+    }) as ProcessWrite,
+  };
+  processOutputStreamStates.set(stream, state);
+  return state;
+}
+
+function processWriteChunkToString(
+  chunk: string | Uint8Array,
+  encoding?: BufferEncoding,
+): string {
+  if (typeof chunk === "string") return chunk;
+  return Buffer.from(chunk).toString(encoding);
+}
+
+function sanitizeBufferedProcessOutput(chunk: string): string {
+  if (hasTerminalRedrawControls(chunk)) return "";
+  return stripTerminalControls(chunk, {
+    preserveLinks: false,
+    preserveStyle: false,
+  }).replace(/\r\n/g, "\n");
+}
+
+const REDRAW_CSI_COMMANDS = "ABCDEFGHJKSTfhl";
+
+function hasTerminalRedrawControls(chunk: string): boolean {
+  if (/\r(?!\n)/.test(chunk)) return true;
+  for (let index = 0; index < chunk.length; index += 1) {
+    const marker = chunk[index];
+    const csiStart =
+      marker === "\u001b" && chunk[index + 1] === "["
+        ? index + 2
+        : marker === "\u009b"
+          ? index + 1
+          : undefined;
+    if (csiStart === undefined) continue;
+
+    const end = bufferedCsiEnd(chunk, csiStart);
+    const command = chunk[end - 1];
+    if (command && REDRAW_CSI_COMMANDS.includes(command)) return true;
+    index = end - 1;
+  }
+  return false;
+}
+
+function bufferedCsiEnd(value: string, index: number): number {
+  for (let cursor = index; cursor < value.length; cursor += 1) {
+    const code = value.charCodeAt(cursor);
+    if (code >= 0x40 && code <= 0x7e) return cursor + 1;
+  }
+  return value.length;
 }
 
 export class VerboseRenderer extends SimpleRenderer {
@@ -692,15 +1074,18 @@ class PromptFrameOutput implements PromptWritable {
   readonly isTTY = true;
 
   private readonly listeners = new Map<string, Set<PromptOutputListener>>();
-  private bufferRows: string[] = [""];
+  private bufferRows: PromptCell[][] = [[]];
   private row = 0;
   private column = 0;
+  private activeLink = "";
+  private activeStyle = "";
   private frameScheduled = false;
   private disposed = false;
 
   constructor(
     private readonly terminalColumns: () => number | undefined,
     private readonly terminalRows: () => number | undefined,
+    private readonly preserveStyle: () => boolean,
     private readonly onFrame: (lines: string[]) => void,
   ) {}
 
@@ -809,17 +1194,20 @@ class PromptFrameOutput implements PromptWritable {
   }
 
   private consumeOsc(value: string, index: number): number {
-    let cursor = index + 2;
-    while (cursor < value.length) {
-      const char = value[cursor] ?? "";
-      if (char === "\u0007") return cursor;
-      if (char === "\\" && value[cursor - 1] === "\u001b") return cursor;
-      cursor += 1;
+    const end = oscSequenceEnd(value, index + 2);
+    const payload = promptOscPayload(value, index + 2, end);
+    if (payload !== undefined) {
+      this.applyOsc(payload, value.slice(index, end));
     }
-    return value.length - 1;
+    return Math.max(index, end - 1);
   }
 
   private applyCsi(params: string, command: string): void {
+    if (command === "m") {
+      this.applyStyle(params);
+      return;
+    }
+
     const values = csiParams(params);
     const first = values[0] ?? 0;
 
@@ -856,64 +1244,75 @@ class PromptFrameOutput implements PromptWritable {
 
   private eraseScreen(mode: number): void {
     if (mode === 2) {
-      this.bufferRows = [""];
+      this.bufferRows = [[]];
       this.row = 0;
       this.column = 0;
+      this.activeLink = "";
+      this.activeStyle = "";
       return;
     }
 
     if (mode === 1) {
       for (let row = 0; row < this.row; row += 1) {
-        this.bufferRows[row] = "";
+        this.bufferRows[row] = [];
       }
-      this.bufferRows[this.row] =
-        " ".repeat(Math.min(this.column + 1, this.currentLine().length)) +
-        this.currentLine().slice(this.column + 1);
+      const current = this.currentLine();
+      for (
+        let column = 0;
+        column < Math.min(this.column + 1, current.length);
+        column += 1
+      ) {
+        current[column] = blankPromptCell();
+      }
       return;
     }
 
-    this.bufferRows[this.row] = this.currentLine().slice(0, this.column);
+    this.currentLine().splice(this.column);
     this.bufferRows.splice(this.row + 1);
   }
 
   private eraseLine(mode: number): void {
     const current = this.currentLine();
     if (mode === 2) {
-      this.bufferRows[this.row] = "";
+      this.bufferRows[this.row] = [];
       return;
     }
     if (mode === 1) {
-      this.bufferRows[this.row] =
-        " ".repeat(Math.min(this.column + 1, current.length)) +
-        current.slice(this.column + 1);
+      for (
+        let column = 0;
+        column < Math.min(this.column + 1, current.length);
+        column += 1
+      ) {
+        current[column] = blankPromptCell();
+      }
       return;
     }
-    this.bufferRows[this.row] = current.slice(0, this.column);
+    current.splice(this.column);
   }
 
   private writeVisible(char: string): void {
     this.ensureRow();
     const current = this.currentLine();
-    const padded =
-      current.length < this.column
-        ? `${current}${" ".repeat(this.column - current.length)}`
-        : current;
-    this.bufferRows[this.row] =
-      padded.slice(0, this.column) + char + padded.slice(this.column + 1);
+    while (current.length < this.column) current.push(blankPromptCell());
+    current[this.column] = {
+      char,
+      link: this.activeLink,
+      style: this.preserveStyle() ? this.activeStyle : "",
+    };
     this.column += 1;
   }
 
   private ensureRow(): void {
-    while (this.bufferRows.length <= this.row) this.bufferRows.push("");
+    while (this.bufferRows.length <= this.row) this.bufferRows.push([]);
   }
 
-  private currentLine(): string {
+  private currentLine(): PromptCell[] {
     this.ensureRow();
-    return this.bufferRows[this.row] ?? "";
+    return this.bufferRows[this.row] ?? [];
   }
 
   private lines(): string[] {
-    const lines = [...this.bufferRows];
+    const lines = this.bufferRows.map(serializePromptRow);
     while (
       lines.length > 0 &&
       normalizeTerminalText(lines[lines.length - 1] ?? "") === ""
@@ -922,6 +1321,136 @@ class PromptFrameOutput implements PromptWritable {
     }
     return lines;
   }
+
+  private applyStyle(params: string): void {
+    if (!this.preserveStyle() || !isSafeSgrParams(params)) {
+      this.activeStyle = "";
+      return;
+    }
+
+    const values = sgrParams(params);
+    if (values.some((value) => value === 0)) {
+      this.activeStyle = "";
+    }
+
+    if (values.length === 0 || values.every(isResetSgrParam)) {
+      this.activeStyle = "";
+      return;
+    }
+
+    this.activeStyle += `\u001b[${params}m`;
+  }
+
+  private applyOsc(payload: string, sequence: string): void {
+    const url = safeOsc8Url(payload);
+    if (url === undefined) return;
+    this.activeLink = url ? sequence : "";
+  }
+}
+
+type PromptCell = {
+  char: string;
+  link: string;
+  style: string;
+};
+
+function blankPromptCell(): PromptCell {
+  return { char: " ", link: "", style: "" };
+}
+
+function serializePromptRow(row: PromptCell[]): string {
+  let result = "";
+  let activeLink = "";
+  let activeStyle = "";
+  for (const cell of row) {
+    if (cell.link !== activeLink) {
+      if (activeStyle) {
+        result += "\u001b[0m";
+        activeStyle = "";
+      }
+      if (activeLink) result += "\u001b]8;;\u0007";
+      if (cell.link) result += cell.link;
+      activeLink = cell.link;
+    }
+    if (cell.style !== activeStyle) {
+      if (activeStyle) result += "\u001b[0m";
+      if (cell.style) result += cell.style;
+      activeStyle = cell.style;
+    }
+    result += cell.char;
+  }
+  if (activeStyle) result += "\u001b[0m";
+  if (activeLink) result += "\u001b]8;;\u0007";
+  return result;
+}
+
+function oscSequenceEnd(value: string, index: number): number {
+  for (let cursor = index; cursor < value.length; cursor += 1) {
+    const char = value[cursor];
+    if (char === "\u0007") return cursor + 1;
+    if (char === "\\" && value[cursor - 1] === "\u001b") return cursor + 1;
+  }
+  return value.length;
+}
+
+function promptOscPayload(
+  value: string,
+  payloadStart: number,
+  end: number,
+): string | undefined {
+  if (end <= payloadStart) return undefined;
+  if (value[end - 1] === "\u0007") {
+    return value.slice(payloadStart, end - 1);
+  }
+  if (value[end - 1] === "\\" && value[end - 2] === "\u001b") {
+    return value.slice(payloadStart, end - 2);
+  }
+  return undefined;
+}
+
+function safeOsc8Url(payload: string): string | undefined {
+  if (!payload.startsWith("8;")) return undefined;
+  const separator = payload.indexOf(";", 2);
+  if (separator === -1) return undefined;
+  if (hasControlCode(payload)) return undefined;
+  return payload.slice(separator + 1);
+}
+
+function hasControlCode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return false;
+}
+
+function isSafeSgrParams(params: string): boolean {
+  return /^[0-9;:]*$/.test(params);
+}
+
+function sgrParams(params: string): number[] {
+  if (!params) return [0];
+  return params
+    .split(/[;:]/)
+    .filter(Boolean)
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isFinite(value));
+}
+
+function isResetSgrParam(value: number): boolean {
+  return (
+    value === 0 ||
+    value === 22 ||
+    value === 23 ||
+    value === 24 ||
+    value === 25 ||
+    value === 27 ||
+    value === 28 ||
+    value === 29 ||
+    value === 39 ||
+    value === 49 ||
+    value === 59
+  );
 }
 
 type StyledLevel =
@@ -952,7 +1481,7 @@ function style(level: StyledLevel, useColor: boolean): string {
                 ]
               : level === "output"
                 ? [f.pointerSmall, "dim" as const]
-                : [f.pointer, "yellow" as const];
+                : [f.pointer, "dim" as const];
   return paint(icon, colorName, useColor);
 }
 
@@ -961,7 +1490,24 @@ function paint(
   colorName: keyof typeof color,
   useColor: boolean,
 ): string {
-  return useColor ? (color[colorName]?.(value) ?? value) : value;
+  return shouldUseColor(useColor)
+    ? (color[colorName]?.(value) ?? value)
+    : value;
+}
+
+function styleTaskSuffix(
+  task: RuntimeTaskSnapshot,
+  suffix: string,
+  useColor: boolean,
+): string {
+  if (!suffix) return "";
+  if (task.state === "retrying") return paint(suffix, "yellowBright", useColor);
+  if (task.state === "failed") return paint(suffix, "red", useColor);
+  if (task.state === "skipped") return paint(suffix, "yellow", useColor);
+  if (task.state === "rolling-back" || task.state === "rolled-back") {
+    return paint(suffix, "redBright", useColor);
+  }
+  return paint(suffix, "dim", useColor);
 }
 
 function outputDetailLines(
@@ -970,25 +1516,55 @@ function outputDetailLines(
   useColor: boolean,
   removeEmptyLines: boolean,
   indentation = 2,
+  preserveLinks = true,
+  lineLimit = Number.POSITIVE_INFINITY,
 ): string[] {
   if (!entries || entries.length === 0) return [];
   const prefix = " ".repeat(depth * indentation);
-  const lines: string[] = [];
+  const lines: Array<{ text: string; markerVisible: boolean }> = [];
   for (const entry of entries) {
+    let isFirstLine = true;
     for (const line of String(entry).split("\n")) {
-      const normalized = normalizeTerminalText(line);
+      const normalized = normalizeTerminalDisplayText(
+        line,
+        useColor,
+        preserveLinks,
+      );
       if (!normalized && removeEmptyLines) continue;
-      lines.push(`${prefix}${style("output", useColor)} ${normalized}`);
+      lines.push({ text: normalized, markerVisible: isFirstLine });
+      isFirstLine = false;
     }
   }
-  return lines;
+  return trimOutputDetailLines(lines, lineLimit).map((line) => {
+    const marker = outputMarker(line.markerVisible, useColor);
+    return `${prefix}${marker} ${line.text}`;
+  });
 }
 
-function trimOutputDetailLines(lines: string[], limit: number): string[] {
+function outputMarker(visible: boolean, useColor: boolean): string {
+  const marker = style("output", useColor);
+  return visible ? marker : " ".repeat(normalizeTerminalText(marker).length);
+}
+
+type OutputDetailLine = {
+  text: string;
+  markerVisible: boolean;
+};
+
+function trimOutputDetailLines(
+  lines: OutputDetailLine[],
+  limit: number,
+): OutputDetailLine[] {
   if (limit === Number.POSITIVE_INFINITY || lines.length <= limit) return lines;
   if (limit <= 0) return [];
-  if (limit === 1) return lines.slice(-1);
-  return [lines[0] ?? "", ...lines.slice(-(limit - 1))].filter(Boolean);
+  if (limit === 1) {
+    return lines.slice(-1).map((line) => ({ ...line, markerVisible: true }));
+  }
+  return [lines[0], ...lines.slice(-(limit - 1))]
+    .filter((line): line is OutputDetailLine => Boolean(line))
+    .map((line, index) =>
+      index === 0 ? { ...line, markerVisible: true } : line,
+    );
 }
 
 function leafLabel(task: RuntimeTaskSnapshot): string {
