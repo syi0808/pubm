@@ -81,8 +81,7 @@ pubm --tag beta
 | 플래그 | 기본값 | 설명 |
 |------|--------|------|
 | `-d, --dry-run` | `false` | Git 상태를 바꾸거나 publish하지 않고 작업 그래프만 보여줍니다. |
-| `--mode <mode>` | `local` | 실행 모드입니다. `local`은 대화형, `ci`는 비대화형이고 tag 기반입니다. |
-| `--phase <phase>` | - | 파이프라인 단계입니다. `prepare`는 검증과 dry-run, `publish`는 최신 태그에서 publish입니다. |
+| `--phase <phase>` | - | 릴리스 단계입니다. `prepare`는 검증, 버전 변경, 태그, push를 실행하고 `publish`는 manifest 버전을 publish하고 release를 생성합니다. 생략하면 둘 다 실행합니다. |
 | `--release-draft` | `false` | publish된 release 대신 draft GitHub Release를 만듭니다. |
 | `-b, --branch <name>` | `main` | publish 전에 현재 브랜치가 일치해야 합니다. |
 | `-a, --any-branch` | `false` | 현재 실행에서 브랜치 가드를 비활성화합니다. |
@@ -133,27 +132,27 @@ pubm --dry-run
 
 부작용 없이 작업 계획을 확인해야 할 때 사용합니다.
 
-## CI 준비 모드
+## Prepare 단계
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
-CI 준비:
+Prepare 단계:
 
 - 누락된 토큰을 대화형으로 수집할 수 있습니다.
 - 이를 GitHub Secrets로 동기화할 수 있습니다.
-- CI를 모방하도록 비대화형 동작으로 전환합니다.
+- 분리된 워크플로의 남은 단계가 비대화형으로 동작하도록 전환합니다.
 - 사전 조건과 필수 조건 검사를 실행합니다.
 - 설정된 registry에 대해 publish를 dry-run합니다.
 
-## CI publish 모드
+## Publish 단계
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
-CI publish 모드는 최신 Git tag에서 publish하고 GitHub Release를 API로 생성합니다. version bump와 태깅이 파이프라인의 앞 단계에서 이미 끝났을 때 사용합니다. `--release-draft`를 넘기면 published release 대신 draft release를 만듭니다.
+Publish 단계는 manifest 버전을 읽고 registry publish와 GitHub Release 생성을 API로 실행합니다. versioning과 태깅이 분리된 워크플로의 앞 단계에서 이미 끝났을 때 사용합니다. `--release-draft`를 넘기면 published release 대신 draft release를 만듭니다.
 
 ## 환경 변수
 
@@ -257,7 +256,7 @@ pubm secrets sync --registry npm,jsr
 주의:
 
 - `gh`가 설치되고 인증되어 있어야 합니다.
-- 로컬에 저장된 토큰을 사용하므로, 아직 아무것도 저장되지 않았다면 먼저 `pubm --mode ci --phase prepare`를 실행합니다.
+- 로컬에 저장된 토큰을 사용하므로, 아직 아무것도 저장되지 않았다면 먼저 `pubm --phase prepare`를 실행합니다.
 
 ## `pubm sync --discover`
 
@@ -370,7 +369,7 @@ pubm changesets migrate
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --mode ci --phase prepare
+pubm --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -378,13 +377,13 @@ pubm
 ### 로컬 CI 리허설
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### CI에서 현재 태그된 릴리스만 publish
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ### 준비 후 저장된 토큰 동기화

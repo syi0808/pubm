@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: string) => value,
+    },
+  ),
+  prompt: vi.fn(),
+}));
+
 const mockIsCI = vi.hoisted(() => ({ value: false }));
 const mockRegistryTaskFactory = vi.hoisted(() => vi.fn());
 vi.mock("std-env", () => ({
@@ -462,22 +472,25 @@ describe("runSnapshotPipeline", () => {
     process.stdin.isTTY = originalIsTTY;
   });
 
-  it("collects CI publish plugin credentials when snapshot runs in CI mode", async () => {
+  it("collects publish plugin credentials when snapshot runs non-interactively", async () => {
     mockIsCI.value = true;
-    const ctx = makeSnapshotContext({}, { mode: "ci" });
+    const ctx = makeSnapshotContext();
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
     expect(mockedRunCiPublishPluginCreds).toHaveBeenCalled();
   });
 
-  it("does not collect CI publish plugin credentials in local mode", async () => {
+  it("does not collect publish plugin credentials in interactive local runs", async () => {
     mockIsCI.value = false;
+    const originalIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = true;
     const ctx = makeSnapshotContext();
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
     expect(mockedRunCiPublishPluginCreds).not.toHaveBeenCalled();
+    process.stdin.isTTY = originalIsTTY;
   });
 
   it("applies filter to packages when provided", async () => {

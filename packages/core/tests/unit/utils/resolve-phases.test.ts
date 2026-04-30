@@ -5,57 +5,38 @@ import {
 } from "../../../src/utils/resolve-phases.js";
 
 describe("resolvePhases", () => {
-  it("returns both phases for local mode without explicit phase", () => {
+  it("returns both phases without explicit phase", () => {
     expect(resolvePhases({})).toEqual(["prepare", "publish"]);
   });
 
-  it("returns both phases for explicit local mode without phase", () => {
-    expect(resolvePhases({ mode: "local" })).toEqual(["prepare", "publish"]);
+  it("returns prepare only when phase is prepare", () => {
+    expect(resolvePhases({ phase: "prepare" })).toEqual(["prepare"]);
   });
 
-  it("returns prepare only when --prepare is set", () => {
-    expect(resolvePhases({ prepare: true })).toEqual(["prepare"]);
+  it("returns publish only when phase is publish", () => {
+    expect(resolvePhases({ phase: "publish" })).toEqual(["publish"]);
   });
 
-  it("returns publish only when --publish is set", () => {
-    expect(resolvePhases({ publish: true })).toEqual(["publish"]);
-  });
-
-  it("throws when both --prepare and --publish are set", () => {
-    expect(() => resolvePhases({ prepare: true, publish: true })).toThrow(
-      "Cannot specify both --prepare and --publish",
+  it("throws for invalid phases", () => {
+    expect(() => resolvePhases({ phase: "invalid" as "prepare" })).toThrow(
+      'Invalid release phase "invalid". Use "prepare" or "publish".',
     );
-  });
-
-  it("throws when ci mode has no phase", () => {
-    expect(() => resolvePhases({ mode: "ci" })).toThrow(
-      "CI mode requires --prepare or --publish",
-    );
-  });
-
-  it("returns prepare for ci mode with --prepare", () => {
-    expect(resolvePhases({ mode: "ci", prepare: true })).toEqual(["prepare"]);
-  });
-
-  it("returns publish for ci mode with --publish", () => {
-    expect(resolvePhases({ mode: "ci", publish: true })).toEqual(["publish"]);
   });
 });
 
 describe("validateOptions", () => {
-  it("throws when both --prepare and --publish are set", () => {
-    expect(() => validateOptions({ prepare: true, publish: true })).toThrow(
-      "Cannot specify both --prepare and --publish",
+  it("throws for invalid phases", () => {
+    expect(() => validateOptions({ phase: "invalid" as "prepare" })).toThrow(
+      'Invalid release phase "invalid". Use "prepare" or "publish".',
     );
   });
 
-  it("throws when ci mode has no phase", () => {
-    expect(() => validateOptions({ mode: "ci" })).toThrow(
-      "CI mode requires --prepare or --publish",
-    );
-  });
-
-  it("allows local mode without any phase", () => {
+  it("allows options without any phase", () => {
     expect(() => validateOptions({})).not.toThrow();
+  });
+
+  it("allows known phases", () => {
+    expect(() => validateOptions({ phase: "prepare" })).not.toThrow();
+    expect(() => validateOptions({ phase: "publish" })).not.toThrow();
   });
 });

@@ -31,9 +31,9 @@ describe("pubm --help", () => {
     expect(stdout).toContain("-d, --dry-run");
   });
 
-  it("should list the --mode option", async () => {
+  it("should not list the removed --mode option", async () => {
     const { stdout } = await ctx.run("--help");
-    expect(stdout).toContain("--mode");
+    expect(stdout).not.toContain("--mode");
   });
 
   it("should list the --phase option", async () => {

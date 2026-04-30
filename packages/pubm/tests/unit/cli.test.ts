@@ -72,10 +72,19 @@ const {
 
 vi.mock("std-env", () => mockIsCI);
 
-vi.mock("@pubm/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@pubm/core")>();
+vi.mock("@cluvo/sdk", () => ({
+  Reporter: vi.fn(function Reporter() {
+    return {
+      installExitHandler: vi.fn(),
+      installGlobalHandlers: vi.fn(),
+      reportError: vi.fn(async () => undefined),
+      wrapCommand: vi.fn(async () => undefined),
+    };
+  }),
+}));
+
+vi.mock("@pubm/core", () => {
   return {
-    ...actual,
     consoleError: mockConsoleError,
     AbstractError: class extends Error {},
     Git: vi.fn(function () {
@@ -89,34 +98,51 @@ vi.mock("@pubm/core", async (importOriginal) => {
     }),
     mergeRecommendations: mockMergeRecommendations,
     createContext: mockCreateContext,
+    initI18n: vi.fn(),
     loadConfig: mockLoadConfig,
+    packageKey: vi.fn(
+      (pkg: { path?: string; ecosystem?: string }) =>
+        `${pkg.path ?? "."}::${pkg.ecosystem ?? "js"}`,
+    ),
     pubm: mockPubm,
     PUBM_VERSION: mockPubmVersion,
     requiredMissingInformationTasks: mockRequiredMissingInformationTasks,
     resolveConfig: mockResolveConfig,
     resolveOptions: mockResolveOptions,
     resolvePhases: vi.fn((opts: any) => {
-      const mode = opts.mode ?? "local";
-      if (opts.prepare && opts.publish) {
-        throw new Error("Cannot specify both --prepare and --publish.");
+      if (
+        opts.phase !== undefined &&
+        opts.phase !== "prepare" &&
+        opts.phase !== "publish"
+      ) {
+        throw new Error(
+          `Invalid release phase "${opts.phase}". Use "prepare" or "publish".`,
+        );
       }
-      if (mode === "ci" && !opts.prepare && !opts.publish) {
-        throw new Error("CI mode requires --prepare or --publish.");
-      }
-      if (opts.prepare) return ["prepare"];
-      if (opts.publish) return ["publish"];
+      if (opts.phase) return [opts.phase];
       return ["prepare", "publish"];
     }),
     validateOptions: vi.fn((opts: any) => {
-      const mode = opts.mode ?? "local";
-      if (opts.prepare && opts.publish) {
-        throw new Error("Cannot specify both --prepare and --publish.");
-      }
-      if (mode === "ci" && !opts.prepare && !opts.publish) {
-        throw new Error("CI mode requires --prepare or --publish.");
+      if (
+        opts.phase !== undefined &&
+        opts.phase !== "prepare" &&
+        opts.phase !== "publish"
+      ) {
+        throw new Error(
+          `Invalid release phase "${opts.phase}". Use "prepare" or "publish".`,
+        );
       }
     }),
     notifyNewVersion: mockNotifyNewVersion,
+    t: vi.fn((key: string, values?: Record<string, unknown>) => {
+      if (key === "cli.helpText.version") {
+        return `Version can be: ${values?.types ?? ""}`;
+      }
+      if (key === "error.cli.versionRequired") {
+        return "Version must be set in the CI environment";
+      }
+      return values ? `${key} ${JSON.stringify(values)}` : key;
+    }),
     ui: {
       success: vi.fn(),
       info: vi.fn(),
@@ -163,6 +189,18 @@ vi.mock("../../src/commands/inspect.js", () => ({
   }),
 }));
 
+vi.mock("../../src/commands/migrate.js", () => ({
+  registerMigrateCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/setup-skills.js", () => ({
+  registerSetupSkillsCommand: vi.fn(),
+}));
+
+vi.mock("../../src/commands/snapshot.js", () => ({
+  registerSnapshotCommand: vi.fn(),
+}));
+
 const mockShowSplash = vi.hoisted(() => vi.fn());
 vi.mock("../../src/splash.js", () => ({
   showSplash: mockShowSplash,
@@ -172,7 +210,7 @@ import type { Command } from "commander";
 import { createProgram } from "../../src/cli.js";
 
 async function run(...args: string[]): Promise<Command> {
-  const program = createProgram();
+  const program = createProgram(sharedResolvedConfig as any);
   program.exitOverride();
   await program.parseAsync(["node", "pubm", ...args]);
   return program;
@@ -208,7 +246,7 @@ beforeEach(() => {
 
 describe("resolveCliOptions (tested through CLI action)", () => {
   it("sets the CLI version from package metadata", () => {
-    const program = createProgram();
+    const program = createProgram(sharedResolvedConfig as any);
 
     expect(program.version()).toBe(mockPubmVersion);
   });
@@ -287,7 +325,7 @@ describe("resolveCliOptions (tested through CLI action)", () => {
   });
 
   it("renders trailing help text describing accepted version formats", () => {
-    const program = createProgram();
+    const program = createProgram(sharedResolvedConfig as any);
     const writeSpy = vi
       .spyOn(process.stdout, "write")
       .mockReturnValue(true as never);
@@ -400,10 +438,25 @@ describe("CLI action handler - non-CI mode", () => {
       ]),
     });
   });
+
+  it("falls back to the root package key when explicit version is given without packages", async () => {
+    mockIsCI.isCI = false;
+    mockRequiredMissingInformationTasks.mockReturnValue({ run: vi.fn() });
+    sharedResolvedConfig.packages = [];
+
+    await run("2.0.0");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      version: "2.0.0",
+      packageKey: ".",
+    });
+  });
 });
 
 describe("CLI action handler - CI mode", () => {
-  it("should read version from manifest when --mode ci --phase publish is set", async () => {
+  it("should read version from manifest when --phase publish is set", async () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.packages = [
       {
@@ -416,7 +469,7 @@ describe("CLI action handler - CI mode", () => {
       },
     ];
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
@@ -426,7 +479,7 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
-  it("creates a fixed versionPlan from manifests for multi-package in --mode ci --phase publish", async () => {
+  it("creates a fixed versionPlan from manifests for multi-package in --phase publish", async () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.packages = [
       {
@@ -447,7 +500,7 @@ describe("CLI action handler - CI mode", () => {
       },
     ];
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
@@ -460,7 +513,7 @@ describe("CLI action handler - CI mode", () => {
     });
   });
 
-  it("creates an independent versionPlan from manifests for independent versioning in --mode ci --phase publish", async () => {
+  it("creates an independent versionPlan from manifests for independent versioning in --phase publish", async () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.versioning = "independent";
     sharedResolvedConfig.packages = [
@@ -482,7 +535,7 @@ describe("CLI action handler - CI mode", () => {
       },
     ];
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
@@ -512,7 +565,7 @@ describe("CLI action handler - CI mode", () => {
     mockIsCI.isCI = true;
     mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     expect(mockNotifyNewVersion).not.toHaveBeenCalled();
   });
@@ -521,17 +574,17 @@ describe("CLI action handler - CI mode", () => {
     mockIsCI.isCI = true;
     mockGitInstance.latestTag.mockResolvedValue("v2.0.0");
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
   });
 
-  it("runs prepare phase prompts in CI mode with --mode ci --phase prepare", async () => {
+  it("runs prepare phase prompts in CI mode with --phase prepare", async () => {
     mockIsCI.isCI = true;
     const mockRun = vi.fn();
     mockRequiredMissingInformationTasks.mockReturnValue({ run: mockRun });
 
-    await run("1.2.3", "--mode", "ci", "--phase", "prepare");
+    await run("1.2.3", "--phase", "prepare");
 
     expect(mockRun).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -656,7 +709,7 @@ describe("CLI action handler - CI mode", () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.packages = [];
 
-    await run("--mode", "ci", "--phase", "publish");
+    await run("--phase", "publish");
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.versionPlan).toEqual({
@@ -744,6 +797,7 @@ describe("CLI action handler - CI mode", () => {
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.runtime.changesetConsumed).toBeUndefined();
     expect(ctx.runtime.versionPlan).toMatchObject({ version: "3.4.5" });
+    expect(mockRequiredMissingInformationTasks).not.toHaveBeenCalled();
   });
 });
 

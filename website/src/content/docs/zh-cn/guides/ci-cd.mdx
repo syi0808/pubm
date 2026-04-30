@@ -11,20 +11,20 @@ description: 为 pubm 配置 CI preparation、token 处理和发布自动化。
 
 使用两个阶段：
 
-1. 在本地或受控的 release job 中运行 `pubm --mode ci --phase prepare`
-2. 在 CI 中使用 `pubm --mode ci --phase publish` 发布
+1. 在本地或受控的 release job 中运行 `pubm --phase prepare`
+2. 在 CI 中使用 `pubm --phase publish` 发布
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ## CI preparation 会做什么
 
-`pubm --mode ci --phase prepare` 不只是检查 token。它会把发布流程运行到真正发布之前的那一步：
+`pubm --phase prepare` 不只是检查 token。它会把发布流程运行到真正发布之前的那一步：
 
 - 收集 registry token 和插件凭证
 - 可选地将 token 同步到 GitHub Secrets
@@ -89,7 +89,7 @@ jobs:
           node-version: 24
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -134,18 +134,18 @@ CI 发布请使用兼容 automation 的 token。
 
 ### `contents` 中没有构建产物
 
-如果你从 `dist/` 发布，请确保 workflow 在 `pubm --mode ci --phase publish` 之前确实创建了 `dist/`。
+如果你从 `dist/` 发布，请确保 workflow 在 `pubm --phase publish` 之前确实创建了 `dist/`。
 
 ## GitHub Release 资产
 
-如果你的项目在 `pubm.config.ts` 中使用了 `releaseAssets`，那么 `pubm --mode ci --phase publish` 会运行资产流水线，并自动将构件上传到 GitHub Release。
+如果你的项目在 `pubm.config.ts` 中使用了 `releaseAssets`，那么 `pubm --phase publish` 会运行资产流水线，并自动将构件上传到 GitHub Release。
 
 ### `GITHUB_TOKEN` 要求
 
 GitHub Release 创建和资产上传都会使用 GitHub API。请提供 `GITHUB_TOKEN`（或具备 `contents: write` 权限的 fine-grained token）。这个 token 不仅用于上传资产，也用于所有 GitHub Release 创建：
 
 ```yaml
-- run: pubm --mode ci --phase publish
+- run: pubm --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,7 +155,7 @@ GitHub Actions 会在每次 workflow 运行中自动注入 `GITHUB_TOKEN` 作为
 
 ### 上传前必须存在构建产物
 
-资产流水线在构建步骤之后运行。请确保你的 workflow 在 `pubm --mode ci --phase publish` 执行之前生成了二进制产物（例如 `platforms/*/bin/` 中的编译产物）。如果配置的 glob 模式在上传时匹配到 0 个文件，`pubm` 会将其视为错误。
+资产流水线在构建步骤之后运行。请确保你的 workflow 在 `pubm --phase publish` 执行之前生成了二进制产物（例如 `platforms/*/bin/` 中的编译产物）。如果配置的 glob 模式在上传时匹配到 0 个文件，`pubm` 会将其视为错误。
 
 ### 带 release assets 的示例
 
@@ -181,7 +181,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build       # Must produce platforms/*/bin/mytool
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

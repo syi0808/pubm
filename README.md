@@ -60,10 +60,10 @@ Registry rejected your package? pubm undoes the version bump, git tag, and commi
 
 ### Preflight checks
 
-Branch, working tree, remote sync, login status, publish permissions - all verified **before** pubm touches anything. In CI mode, pubm validates tokens and runs publish dry-runs to catch issues before the real publish:
+Branch, working tree, remote sync, login status, publish permissions - all verified **before** pubm touches anything. The prepare phase validates tokens and runs publish dry-runs to catch issues before the real publish:
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### Same command, local and CI

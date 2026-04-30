@@ -1,6 +1,8 @@
 import type {
   Options,
+  PubmContext,
   ResolvedPubmConfig,
+  VersionPlan,
   VersionRecommendation,
   VersionSource,
   VersionSourceContext,
@@ -60,7 +62,6 @@ interface CliOptions {
   version: string;
   testScript: string;
   buildScript: string;
-  mode?: string;
   phase?: string;
   dryRun?: boolean;
   releaseDraft?: boolean;
@@ -83,11 +84,6 @@ interface CliOptions {
 }
 
 type ResolvedCliOptionsInput = Omit<CliOptions, "version">;
-type ResolvedCliMode = Options["mode"];
-
-function resolveCliMode(mode?: string): ResolvedCliMode {
-  return mode === "ci" ? "ci" : "local";
-}
 
 export function resolveCliOptions(
   options: ResolvedCliOptionsInput,
@@ -95,9 +91,7 @@ export function resolveCliOptions(
   return {
     testScript: options.testScript,
     buildScript: options.buildScript,
-    mode: resolveCliMode(options.mode),
-    prepare: options.phase === "prepare" ? true : undefined,
-    publish: options.phase === "publish" ? true : undefined,
+    phase: options.phase as Options["phase"] | undefined,
     dryRun: options.dryRun,
     releaseDraft: options.releaseDraft,
     branch: options.branch,
@@ -118,13 +112,118 @@ export function resolveCliOptions(
 
 let resolvedConfig: ResolvedPubmConfig;
 
+function createVersionPlanFromManifests(
+  config: ResolvedPubmConfig,
+): VersionPlan {
+  if (config.packages.length <= 1) {
+    const pkg = config.packages[0];
+    const version = pkg?.version ?? "";
+    return {
+      mode: "single",
+      version,
+      packageKey: pkg ? packageKey(pkg) : ".",
+    };
+  }
+
+  const packages = new Map(
+    config.packages.map((pkg) => [packageKey(pkg), pkg.version]),
+  );
+
+  if (config.versioning === "independent") {
+    return {
+      mode: "independent",
+      packages,
+    };
+  }
+
+  return {
+    mode: "fixed",
+    version: [...packages.values()][0],
+    packages,
+  };
+}
+
+async function applyVersionSourcePlan(
+  ctx: PubmContext,
+  config: ResolvedPubmConfig,
+): Promise<void> {
+  const currentVersions = new Map(
+    config.packages.map((pkg) => [pkg.path, pkg.version]),
+  );
+
+  const sources: VersionSource[] = [];
+  const versionSources = config.versionSources ?? "all";
+  if (versionSources === "all" || versionSources === "changesets") {
+    sources.push(new ChangesetSource());
+  }
+  if (versionSources === "all" || versionSources === "commits") {
+    sources.push(
+      new ConventionalCommitSource(config.conventionalCommits?.types),
+    );
+  }
+
+  const vsContext: VersionSourceContext = {
+    cwd: process.cwd(),
+    packages: currentVersions,
+  };
+  const sourceResults: VersionRecommendation[][] = [];
+  for (const source of sources) {
+    sourceResults.push(await source.analyze(vsContext));
+  }
+  const recommendations = mergeRecommendations(sourceResults);
+
+  if (recommendations.length === 0) return;
+
+  const packages = new Map<string, string>();
+  for (const rec of recommendations) {
+    const matchingPkgs = config.packages.filter(
+      (pkg) => pkg.path === rec.packagePath,
+    );
+    for (const pkg of matchingPkgs) {
+      const newVersion = semver.inc(pkg.version, rec.bumpType);
+      if (newVersion) {
+        packages.set(packageKey(pkg), newVersion);
+      }
+    }
+  }
+
+  if (packages.size === 1) {
+    const [key, version] = [...packages.entries()][0];
+    ctx.runtime.versionPlan = {
+      mode: "single",
+      version,
+      packageKey: key,
+    };
+  } else if (packages.size > 1) {
+    ctx.runtime.versionPlan =
+      config.versioning === "fixed"
+        ? {
+            mode: "fixed",
+            version: [...packages.values()][0],
+            packages,
+          }
+        : { mode: "independent", packages };
+  }
+
+  const hasChangesetSource = recommendations.some(
+    (rec) => rec.source === "changeset",
+  );
+  if (hasChangesetSource) {
+    ctx.runtime.changesetConsumed = true;
+  }
+}
+
 /* istanbul ignore next -- argv parsing for early locale init before Commander parses */
 function parseArgvForLocale(argv: string[]): string | undefined {
   const idx = argv.indexOf("--locale");
   return idx !== -1 && idx + 1 < argv.length ? argv[idx + 1] : undefined;
 }
 
-export function createProgram(): Command {
+export function createProgram(config?: ResolvedPubmConfig): Command {
+  if (config) {
+    resolvedConfig = config;
+  }
+
   const program = new Command("pubm");
 
   program.description(t("cli.description"));
@@ -160,7 +259,6 @@ export function createProgram(): Command {
     )
     .option("--test-script <script>", t("cli.option.testScript"), "test")
     .option("--build-script <script>", t("cli.option.buildScript"), "build")
-    .option("--mode <mode>", t("cli.option.mode"))
     .option("--phase <phase>", t("cli.option.phase"))
     .option("-d, --dry-run", t("cli.option.dryRun"))
     .option("--release-draft", t("cli.option.releaseDraft"))
@@ -253,156 +351,20 @@ export function createProgram(): Command {
         ctx.runtime.tag = options.tag;
 
         try {
-          const mode = cliOptions.mode ?? "local";
-          const phases = resolvePhases(cliOptions);
+          resolvePhases(cliOptions);
+          const phase = cliOptions.phase;
 
-          if (mode === "ci" && phases.includes("prepare")) {
-            // CI prepare: collect tokens interactively, then run pipeline
-            await requiredMissingInformationTasks().run(ctx);
-          } else if (mode === "ci" && phases.includes("publish")) {
-            // CI publish: read version from package.json
-            if (resolvedConfig.packages.length <= 1) {
-              const pkg = resolvedConfig.packages[0];
-              const version = pkg?.version ?? "";
-              ctx.runtime.versionPlan = {
-                mode: "single",
-                version,
-                packageKey: pkg ? packageKey(pkg) : ".",
-              };
-            } else if (resolvedConfig.versioning === "independent") {
-              const packages = new Map(
-                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
-              );
-              ctx.runtime.versionPlan = {
-                mode: "independent",
-                packages,
-              };
-            } else {
-              const packages = new Map(
-                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
-              );
-              const version = [...packages.values()][0];
-              ctx.runtime.versionPlan = {
-                mode: "fixed",
-                version,
-                packages,
-              };
-            }
-          } else if (
-            mode === "local" &&
-            phases.includes("publish") &&
-            !phases.includes("prepare")
-          ) {
-            // Local publish-only: read version from package.json (same as old --publish-only)
-            if (resolvedConfig.packages.length <= 1) {
-              const pkg = resolvedConfig.packages[0];
-              const version = pkg?.version ?? "";
-              ctx.runtime.versionPlan = {
-                mode: "single",
-                version,
-                packageKey: pkg ? packageKey(pkg) : ".",
-              };
-            } else if (resolvedConfig.versioning === "independent") {
-              const packages = new Map(
-                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
-              );
-              ctx.runtime.versionPlan = {
-                mode: "independent",
-                packages,
-              };
-            } else {
-              const packages = new Map(
-                resolvedConfig.packages.map((p) => [packageKey(p), p.version]),
-              );
-              const version = [...packages.values()][0];
-              ctx.runtime.versionPlan = {
-                mode: "fixed",
-                version,
-                packages,
-              };
-            }
-          } else if (isCI && mode === "local") {
-            // Backward compatibility: isCI detected but --mode not set
-            // currentVersions is path-keyed for VersionSourceContext compatibility
-            const currentVersions = new Map(
-              resolvedConfig.packages.map((p) => [p.path, p.version]),
-            );
-            // pathToKeys maps filesystem path → packageKey[] for building the version plan
-            const pathToKeys = new Map<string, string[]>();
-            for (const p of resolvedConfig.packages) {
-              const existing = pathToKeys.get(p.path) ?? [];
-              existing.push(packageKey(p));
-              pathToKeys.set(p.path, existing);
-            }
-
-            const sources: VersionSource[] = [];
-            const versionSources = resolvedConfig.versionSources ?? "all";
-            if (versionSources === "all" || versionSources === "changesets") {
-              sources.push(new ChangesetSource());
-            }
-            if (versionSources === "all" || versionSources === "commits") {
-              sources.push(
-                new ConventionalCommitSource(
-                  resolvedConfig.conventionalCommits?.types,
-                ),
-              );
-            }
-
-            const vsContext: VersionSourceContext = {
-              cwd: process.cwd(),
-              packages: currentVersions,
-            };
-            const sourceResults: VersionRecommendation[][] = [];
-            for (const source of sources) {
-              sourceResults.push(await source.analyze(vsContext));
-            }
-            const recommendations = mergeRecommendations(sourceResults);
-
-            if (recommendations.length > 0) {
-              const packages = new Map<string, string>();
-              for (const rec of recommendations) {
-                const matchingPkgs = resolvedConfig.packages.filter(
-                  (p) => p.path === rec.packagePath,
-                );
-                for (const pkg of matchingPkgs) {
-                  const newVersion = semver.inc(pkg.version, rec.bumpType);
-                  if (newVersion) {
-                    packages.set(packageKey(pkg), newVersion);
-                  }
-                }
+          if (phase === "publish") {
+            ctx.runtime.versionPlan =
+              createVersionPlanFromManifests(resolvedConfig);
+          } else if (isCI && phase === undefined) {
+            if (!nextVersion) {
+              await applyVersionSourcePlan(ctx, resolvedConfig);
+              if (!ctx.runtime.versionPlan) {
+                throw new Error(t("error.cli.versionRequired"));
               }
-
-              if (packages.size === 1) {
-                const [key, version] = [...packages.entries()][0];
-                ctx.runtime.versionPlan = {
-                  mode: "single",
-                  version,
-                  packageKey: key,
-                };
-              } else if (packages.size > 1) {
-                ctx.runtime.versionPlan =
-                  resolvedConfig.versioning === "fixed"
-                    ? {
-                        mode: "fixed",
-                        version: [...packages.values()][0],
-                        packages,
-                      }
-                    : { mode: "independent", packages };
-              }
-
-              const hasChangesetSource = recommendations.some(
-                (r) => r.source === "changeset",
-              );
-              if (hasChangesetSource) {
-                ctx.runtime.changesetConsumed = true;
-              }
-            }
-
-            if (!ctx.runtime.versionPlan) {
-              throw new Error(t("error.cli.versionRequired"));
             }
           } else {
-            // Local mode: interactive prompts
             await requiredMissingInformationTasks().run(ctx);
           }
 

@@ -116,7 +116,7 @@ describe("CLI runner wiring smoke contract", () => {
     });
   });
 
-  it("runs pubm --mode ci --phase publish from manifest versions without latest tag parsing errors", async () => {
+  it("runs pubm --phase publish from manifest versions without latest tag parsing errors", async () => {
     await withFixture("ci-manifest", async (ctx) => {
       await writeFile(
         path.join(ctx.dir, "pubm.config.ts"),
@@ -132,8 +132,6 @@ describe("CLI runner wiring smoke contract", () => {
 
       const result = await ctx.runWithEnv(
         smokeEnv(fakeNpm),
-        "--mode",
-        "ci",
         "--phase",
         "publish",
       );
@@ -173,8 +171,6 @@ describe("CLI runner wiring smoke contract", () => {
 
       const result = await ctx.runWithEnv(
         smokeEnv(fakeNpm),
-        "--mode",
-        "ci",
         "--phase",
         "publish",
         "--dry-run",
@@ -219,8 +215,6 @@ describe("CLI runner wiring smoke contract", () => {
 
       const result = await ctx.runWithEnv(
         smokeEnv(fakeNpm),
-        "--mode",
-        "ci",
         "--phase",
         "publish",
         "--dry-run",

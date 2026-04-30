@@ -7,6 +7,10 @@ import { registryCatalog } from "../registry/catalog.js";
 import { collectRegistries } from "../utils/registries.js";
 import { resolvePhases } from "../utils/resolve-phases.js";
 import { ui } from "../utils/ui.js";
+import type {
+  ReleaseOperation,
+  ReleaseOperationRunnerOptions,
+} from "./release-operation.js";
 import { runReleaseOperations } from "./release-operation.js";
 import { createDryRunOperations } from "./release-phases/dry-run.js";
 import {
@@ -29,6 +33,7 @@ import type {
   Workflow,
   WorkflowCompensationExpectation,
   WorkflowFactDescriptor,
+  WorkflowOperationRunner,
   WorkflowRunResult,
   WorkflowServices,
   WorkflowStep,
@@ -50,8 +55,11 @@ interface VersionStepInput {
     | "unknown";
 }
 
+type WorkflowReleaseProfile = "full" | "split-ci";
+
 interface ExecutableWorkflowStepDefinition<I = unknown, O = unknown> {
   id: string;
+  title: string;
   input?: I;
   output?: O;
   resolveOutput?: (ctx: PubmContext, input: I) => O;
@@ -62,7 +70,7 @@ interface ExecutableWorkflowStepDefinition<I = unknown, O = unknown> {
   ) => readonly WorkflowFactDescriptor[];
   emittedFacts?: readonly WorkflowFactDescriptor[];
   compensation?: readonly WorkflowCompensationExpectation[];
-  execute(input: I, ctx: PubmContext): Promise<void>;
+  execute(input: I, context: WorkflowStepContext): Promise<void>;
 }
 
 function chainCleanup(
@@ -75,18 +83,25 @@ function chainCleanup(
   };
 }
 
+function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
+  if (ctx.options.phase !== undefined && isCI) return "split-ci";
+  return "full";
+}
+
 function createExecutableWorkflowStep<I, O>(
   definition: ExecutableWorkflowStepDefinition<I, O>,
 ): WorkflowStep<I, O> {
   const step: WorkflowStep<I, O> = {
     id: definition.id,
+    title: definition.title,
     emittedFacts: definition.emittedFacts,
     compensation: definition.compensation,
     run: async (
       input: I,
-      { ctx }: WorkflowStepContext,
+      context: WorkflowStepContext,
     ): Promise<WorkflowStepResult<O>> => {
-      await definition.execute(input, ctx);
+      await definition.execute(input, context);
+      const { ctx } = context;
       const output = resolveStepOutput(definition, ctx, input);
       return {
         output,
@@ -112,11 +127,23 @@ function resolveStepOutput<I, O>(
   return definition.output as O;
 }
 
+function runWorkflowOperations(
+  context: WorkflowStepContext,
+  operations: ReleaseOperation | readonly ReleaseOperation[],
+  options?: ReleaseOperationRunnerOptions,
+): Promise<void> {
+  const runner: WorkflowOperationRunner = context.services.operations ?? {
+    run: runReleaseOperations,
+  };
+  return runner.run(context.ctx, operations, options);
+}
+
 function createPipelineSteps(
   hasPrepare: boolean,
   hasPublish: boolean,
   dryRun: boolean,
-  mode: string,
+  validatePreparePhase: boolean,
+  allowInteractiveReleasePrompt: boolean,
   skipReleaseDraft: boolean,
   skipTests: boolean,
   skipBuild: boolean,
@@ -127,22 +154,25 @@ function createPipelineSteps(
   return [
     createExecutableWorkflowStep({
       id: "test",
+      title: t("task.test.title"),
       input: { hasPrepare, skipTests },
-      execute: (input, ctx) =>
-        runReleaseOperations(ctx, [
+      execute: (input, context) =>
+        runWorkflowOperations(context, [
           createTestOperation(input.hasPrepare, input.skipTests),
         ]),
     }),
     createExecutableWorkflowStep({
       id: "build",
+      title: t("task.build.title"),
       input: { hasPrepare, skipBuild },
-      execute: (input, ctx) =>
-        runReleaseOperations(ctx, [
+      execute: (input, context) =>
+        runWorkflowOperations(context, [
           createBuildOperation(input.hasPrepare, input.skipBuild),
         ]),
     }),
     createExecutableWorkflowStep<VersionStepInput, WorkflowVersionStepOutput>({
       id: "version",
+      title: t("task.version.title"),
       input: {
         hasPrepare,
         dryRun,
@@ -186,17 +216,18 @@ function createPipelineSteps(
           after: "local tag creation",
         },
       ],
-      execute: (input, ctx) =>
-        runReleaseOperations(ctx, [
+      execute: (input, context) =>
+        runWorkflowOperations(context, [
           createVersionOperation(input.hasPrepare, input.dryRun),
         ]),
     }),
     createExecutableWorkflowStep({
       id: "publish",
+      title: t("task.publish.title"),
       input: { hasPublish, dryRun, skipPublish },
-      execute: (input, ctx) =>
-        runReleaseOperations(
-          ctx,
+      execute: (input, context) =>
+        runWorkflowOperations(
+          context,
           createPublishOperations(
             input.hasPublish,
             input.dryRun,
@@ -206,35 +237,42 @@ function createPipelineSteps(
     }),
     createExecutableWorkflowStep({
       id: "dry-run",
-      input: { dryRun, mode, hasPrepare, skipDryRun },
-      execute: (input, ctx) =>
-        runReleaseOperations(
-          ctx,
+      title: t("task.dryRunValidation.title"),
+      input: { dryRun, validatePreparePhase, skipDryRun },
+      execute: (input, context) =>
+        runWorkflowOperations(
+          context,
           createDryRunOperations(
             input.dryRun,
-            input.mode,
-            input.hasPrepare,
+            input.validatePreparePhase,
             input.skipDryRun,
           ),
         ),
     }),
     createExecutableWorkflowStep({
       id: "push",
+      title: t("task.push.title"),
       input: { hasPrepare, dryRun },
-      execute: (input, ctx) =>
-        runReleaseOperations(ctx, [
+      execute: (input, context) =>
+        runWorkflowOperations(context, [
           createPushOperation(input.hasPrepare, input.dryRun),
         ]),
     }),
     createExecutableWorkflowStep({
       id: "release",
-      input: { hasPublish, dryRun, mode, skipReleaseDraft },
-      execute: (input, ctx) =>
-        runReleaseOperations(ctx, [
+      title: t("task.release.title"),
+      input: {
+        allowInteractiveReleasePrompt,
+        dryRun,
+        hasPublish,
+        skipReleaseDraft,
+      },
+      execute: (input, context) =>
+        runWorkflowOperations(context, [
           createGitHubReleaseOperation(
             input.hasPublish,
             input.dryRun,
-            input.mode,
+            input.allowInteractiveReleasePrompt,
             input.skipReleaseDraft,
           ),
         ]),
@@ -299,7 +337,8 @@ function createRenderablePipeline(
   hasPrepare: boolean,
   hasPublish: boolean,
   dryRun: boolean,
-  mode: string,
+  validatePreparePhase: boolean,
+  allowInteractiveReleasePrompt: boolean,
   skipReleaseDraft: boolean,
   ctx: PubmContext,
 ): WorkflowStep[] {
@@ -307,7 +346,8 @@ function createRenderablePipeline(
     hasPrepare,
     hasPublish,
     dryRun,
-    mode,
+    validatePreparePhase,
+    allowInteractiveReleasePrompt,
     skipReleaseDraft,
     !!ctx.options.skipTests,
     !!ctx.options.skipBuild,
@@ -317,7 +357,7 @@ function createRenderablePipeline(
   );
 }
 
-async function runWorkflowStep<I, O>(
+export async function runWorkflowStep<I, O>(
   step: WorkflowStep<I, O>,
   context: WorkflowStepContext,
 ): Promise<WorkflowStepResult<O>> {
@@ -353,6 +393,11 @@ async function runWorkflowSteps(
   ctx: PubmContext,
   services: WorkflowServices,
 ): Promise<void> {
+  if (services.steps) {
+    await services.steps.run(steps, ctx, services);
+    return;
+  }
+
   const stepContext: WorkflowStepContext = { ctx, services };
   for (const step of steps) {
     await runWorkflowStep(step, stepContext);
@@ -363,15 +408,18 @@ export class DirectReleaseWorkflow implements Workflow {
   readonly name = "direct-release";
 
   describe(ctx: PubmContext): readonly WorkflowStep[] {
-    const mode = ctx.options.mode ?? "local";
+    const profile = resolveWorkflowProfile(ctx);
     const phases = resolvePhases(ctx.options);
     const dryRun = !!ctx.options.dryRun;
+    const hasPrepare = phases.includes("prepare");
+    const hasPublish = phases.includes("publish");
 
     return createRenderablePipeline(
-      phases.includes("prepare"),
-      phases.includes("publish"),
+      hasPrepare,
+      hasPublish,
       dryRun,
-      mode,
+      profile === "split-ci" && hasPrepare,
+      profile === "full",
       !!ctx.options.skipReleaseDraft,
       ctx,
     );
@@ -383,7 +431,7 @@ export class DirectReleaseWorkflow implements Workflow {
   ): Promise<WorkflowRunResult> {
     ctx.runtime.promptEnabled = !isCI && process.stdin.isTTY;
 
-    const mode = ctx.options.mode ?? "local";
+    const profile = resolveWorkflowProfile(ctx);
     const phases = resolvePhases(ctx.options);
     const dryRun = !!ctx.options.dryRun;
     const hasPrepare = phases.includes("prepare");
@@ -402,25 +450,42 @@ export class DirectReleaseWorkflow implements Workflow {
       process.exit(130);
     };
     const removeInterruptListener = services.signals.onInterrupt(onSigint);
+    const executeOperations = services.operations?.run ?? runReleaseOperations;
 
     try {
       if (ctx.options.contents) process.chdir(ctx.options.contents);
 
-      if (mode === "ci" && hasPrepare) {
-        await runCiPreparePreflight(ctx, chainCleanup, cleanupRef);
+      if (profile === "split-ci" && hasPrepare) {
+        await runCiPreparePreflight(
+          ctx,
+          chainCleanup,
+          cleanupRef,
+          executeOperations,
+        );
       }
-      if (mode === "local" && hasPrepare) {
-        await runLocalPreflight(ctx, chainCleanup, cleanupRef);
+      if (profile === "full" && hasPrepare) {
+        await runLocalPreflight(
+          ctx,
+          chainCleanup,
+          cleanupRef,
+          executeOperations,
+        );
       }
-      if (mode === "ci" && hasPublish && !hasPrepare) {
-        await runCiPublishPluginCreds(ctx, chainCleanup, cleanupRef);
+      if (profile === "split-ci" && hasPublish && !hasPrepare) {
+        await runCiPublishPluginCreds(
+          ctx,
+          chainCleanup,
+          cleanupRef,
+          executeOperations,
+        );
       }
 
       const steps = createRenderablePipeline(
         hasPrepare,
         hasPublish,
         dryRun,
-        mode,
+        profile === "split-ci" && hasPrepare,
+        profile === "full",
         !!ctx.options.skipReleaseDraft,
         ctx,
       );
@@ -430,7 +495,7 @@ export class DirectReleaseWorkflow implements Workflow {
 
       removeInterruptListener();
 
-      if (mode === "ci" && hasPrepare && !hasPublish) {
+      if (profile === "split-ci" && hasPrepare && !hasPublish) {
         cleanupRef.current?.();
         console.log(`\n\n✅ ${t("output.ciPrepareComplete")}\n`);
       } else if (dryRun) {

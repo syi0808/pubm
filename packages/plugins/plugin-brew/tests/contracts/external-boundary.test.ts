@@ -286,8 +286,8 @@ describe("Homebrew plugin external boundary contract", () => {
 
     expect(
       separateTap.credentials?.({
-        options: { mode: "ci" },
-        runtime: {},
+        options: { phase: "publish" },
+        runtime: { promptEnabled: true },
       } as never),
     ).toEqual([
       expect.objectContaining({
@@ -298,14 +298,14 @@ describe("Homebrew plugin external boundary contract", () => {
     ]);
     expect(
       separateTap.credentials?.({
-        options: { mode: "local" },
-        runtime: {},
+        options: {},
+        runtime: { promptEnabled: true },
       } as never),
     ).toEqual([]);
     expect(
       localOnly.credentials?.({
-        options: { mode: "ci" },
-        runtime: {},
+        options: { phase: "publish" },
+        runtime: { promptEnabled: true },
       } as never),
     ).toEqual([]);
   });

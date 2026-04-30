@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { type PubmPlugin, resolvePhases } from "@pubm/core";
+import { type PubmContext, type PubmPlugin, resolvePhases } from "@pubm/core";
 import {
   generateFormula,
   releaseAssetsToFormulaAssets,
@@ -9,6 +9,10 @@ import {
 } from "./formula.js";
 import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewCoreOptions } from "./types.js";
+
+function needsTokenAuth(ctx: PubmContext): boolean {
+  return ctx.options.phase !== undefined || !ctx.runtime.promptEnabled;
+}
 
 export function brewCore(options: BrewCoreOptions): PubmPlugin {
   return {
@@ -56,8 +60,8 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
       },
     ],
     credentials: (ctx) => {
-      // PAT is only needed in CI where interactive gh auth is unavailable
-      if (ctx.options.mode !== "ci") return [];
+      // PAT is needed for split or non-interactive workflows where gh auth is unavailable.
+      if (!needsTokenAuth(ctx)) return [];
       return [
         {
           key: "brew-github-token",
@@ -73,10 +77,10 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
     },
     checks: (ctx) => {
       const phases = resolvePhases(ctx.options);
-      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      const tokenAuth = needsTokenAuth(ctx);
+      if (!phases.includes("publish") && !tokenAuth) return [];
 
-      // CI: verify PAT exists
-      if (ctx.options.mode === "ci") {
+      if (tokenAuth) {
         return [
           {
             title: "Checking Homebrew core token availability",

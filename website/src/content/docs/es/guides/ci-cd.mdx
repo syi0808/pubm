@@ -11,20 +11,20 @@ description: Configura la preparación de CI, el manejo de tokens y la automatiz
 
 Usa dos fases:
 
-1. ejecuta `pubm --mode ci --phase prepare` localmente o en un job de release controlado
-2. publica desde CI con `pubm --mode ci --phase publish`
+1. ejecuta `pubm --phase prepare` localmente o en un job de release controlado
+2. publica desde CI con `pubm --phase publish`
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ## Qué hace la preparación de CI
 
-`pubm --mode ci --phase prepare` no es solo una verificación de tokens. Ejecuta el pipeline de release hasta justo antes de la publicación real:
+`pubm --phase prepare` no es solo una verificación de tokens. Ejecuta el pipeline de release hasta justo antes de la publicación real:
 
 - recopila los tokens de registry y las credenciales de plugins
 - sincroniza opcionalmente con GitHub Secrets
@@ -89,7 +89,7 @@ jobs:
           node-version: 24
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -134,18 +134,18 @@ Usa tokens compatibles con automatización para publicar en CI.
 
 ### La salida de build no está presente en `contents`
 
-Si publicas desde `dist/`, asegúrate de que el workflow realmente cree `dist/` antes de `pubm --mode ci --phase publish`.
+Si publicas desde `dist/`, asegúrate de que el workflow realmente cree `dist/` antes de `pubm --phase publish`.
 
 ## Assets de GitHub Release
 
-Si tu proyecto usa `releaseAssets` en `pubm.config.ts`, `pubm --mode ci --phase publish` ejecuta el asset pipeline y sube los artefactos a GitHub Release automáticamente.
+Si tu proyecto usa `releaseAssets` en `pubm.config.ts`, `pubm --phase publish` ejecuta el asset pipeline y sube los artefactos a GitHub Release automáticamente.
 
 ### Requisito de `GITHUB_TOKEN`
 
 La creación del GitHub Release y la subida de assets usan la API de GitHub. Proporciona `GITHUB_TOKEN` o un token de grano fino con permiso `contents: write`. El token es necesario para toda creación de GitHub Release, no solo para subir assets:
 
 ```yaml
-- run: pubm --mode ci --phase publish
+- run: pubm --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,7 +155,7 @@ GitHub Actions inyecta `GITHUB_TOKEN` como secreto integrado en cada ejecución 
 
 ### Los outputs de build deben existir antes de subir
 
-El asset pipeline se ejecuta después del build step. Asegúrate de que tu workflow produzca los binarios o artefactos necesarios, por ejemplo en `platforms/*/bin/`, antes de que se ejecute `pubm --mode ci --phase publish`. Si un patrón glob configurado no coincide con ningún archivo al subir, `pubm` lo trata como error.
+El asset pipeline se ejecuta después del build step. Asegúrate de que tu workflow produzca los binarios o artefactos necesarios, por ejemplo en `platforms/*/bin/`, antes de que se ejecute `pubm --phase publish`. Si un patrón glob configurado no coincide con ningún archivo al subir, `pubm` lo trata como error.
 
 ### Ejemplo con assets de release
 
@@ -181,7 +181,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build       # Debe producir platforms/*/bin/mytool
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

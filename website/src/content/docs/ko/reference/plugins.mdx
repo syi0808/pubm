@@ -104,7 +104,7 @@ export interface PubmContext {
 주요 필드는 다음과 같습니다.
 
 - `ctx.config` - 해석된 pubm 설정(packages, registries, plugins, releaseAssets 등)
-- `ctx.options` - 해석된 CLI 옵션(version, tag, mode, dryRun 등)
+- `ctx.options` - 해석된 CLI 옵션(version, tag, phase, dryRun 등)
 - `ctx.cwd` - 작업 디렉터리
 - `ctx.runtime` - 가변 런타임 상태(version plan, temp directory 등)
 - `ctx.runtime.pluginTokens` - `PluginCredential.key`를 키로 하는 해석된 플러그인 자격 증명 값 맵입니다. 자격 증명 수집 단계 이후 채워지며 이후 모든 hook에서 사용할 수 있습니다.

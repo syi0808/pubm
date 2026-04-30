@@ -438,12 +438,12 @@ describe("brewCore", () => {
   });
 
   describe("credentials", () => {
-    it("returns credential in CI mode", () => {
+    it("returns credential for split publish phase", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const creds = plugin.credentials!(ctx);
@@ -452,10 +452,10 @@ describe("brewCore", () => {
       expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
     });
 
-    it("returns empty in local mode", () => {
+    it("returns empty for interactive full releases", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local", publish: true },
+        options: {},
         config: {},
         runtime: { promptEnabled: true },
       } as any;
@@ -464,24 +464,24 @@ describe("brewCore", () => {
       expect(creds).toHaveLength(0);
     });
 
-    it("returns credential in CI mode regardless of phase", () => {
+    it("returns credential for non-interactive full releases", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: false },
       } as any;
 
       const creds = plugin.credentials!(ctx);
       expect(creds).toHaveLength(1);
     });
 
-    it("returns empty in local mode regardless of phase", () => {
+    it("returns empty when no split phase and prompts are enabled", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const creds = plugin.credentials!(ctx);
@@ -490,12 +490,12 @@ describe("brewCore", () => {
   });
 
   describe("checks", () => {
-    it("returns CI PAT check when mode is ci", () => {
+    it("returns PAT check for split publish phase", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -504,12 +504,12 @@ describe("brewCore", () => {
       expect(checks[0].title).toContain("token");
     });
 
-    it("CI PAT check throws when token is missing", async () => {
+    it("PAT check throws when token is missing", async () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -521,12 +521,12 @@ describe("brewCore", () => {
       );
     });
 
-    it("CI PAT check succeeds when token is present", async () => {
+    it("PAT check succeeds when token is present", async () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -539,12 +539,12 @@ describe("brewCore", () => {
       expect(taskObj.output).toBe("Homebrew core token verified");
     });
 
-    it("returns gh auth + homebrew-core access check in local mode", () => {
+    it("returns gh auth + homebrew-core access check for interactive full publish", () => {
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -558,9 +558,9 @@ describe("brewCore", () => {
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -590,9 +590,9 @@ describe("brewCore", () => {
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -612,9 +612,9 @@ describe("brewCore", () => {
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -626,28 +626,28 @@ describe("brewCore", () => {
       );
     });
 
-    it("returns empty checks when local mode and phases do not include publish", () => {
+    it("returns empty checks when interactive phases do not include publish", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(0);
     });
 
-    it("returns checks in CI mode even when phases only include prepare", () => {
+    it("returns checks for split prepare even when phases do not include publish", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "prepare" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);

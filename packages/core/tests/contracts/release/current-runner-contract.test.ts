@@ -1473,9 +1473,7 @@ async function runScenario(
   const options = {
     testScript: "test",
     buildScript: "build",
-    mode: scenario.options.ci ? "ci" : "local",
-    prepare: undefined,
-    publish: scenario.options.publishOnly ? true : undefined,
+    phase: scenario.options.publishOnly ? "publish" : undefined,
     dryRun: !!scenario.options.dryRun,
     branch: "main",
     tag: scenario.options.tag ?? "latest",

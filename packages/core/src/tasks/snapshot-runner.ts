@@ -271,7 +271,7 @@ export async function runSnapshotPipeline(
   const cleanupRef: CleanupRef = { current: undefined };
 
   try {
-    if (ctx.options.mode === "ci") {
+    if (!ctx.runtime.promptEnabled) {
       await runCiPublishPluginCreds(ctx, chainCleanup, cleanupRef);
     }
 

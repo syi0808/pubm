@@ -8,6 +8,10 @@ import {
   type WorkflowVersionStepOutput,
 } from "../../../src/workflow/version-step-output.js";
 
+vi.mock("@pubm/runner", () => ({
+  prompt: vi.fn(),
+}));
+
 const phaseMocks = vi.hoisted(() => ({
   runCiPreparePreflight: vi.fn(),
   runCiPublishPluginCreds: vi.fn(),
@@ -65,7 +69,6 @@ function createMockContext(
   return {
     cwd: "/tmp/pubm-workflow-test",
     options: {
-      mode: "local",
       tag: "latest",
       ...options,
     } as PubmContext["options"],
@@ -258,7 +261,7 @@ describe("DirectReleaseWorkflow", () => {
     const workflow = new DirectReleaseWorkflow();
     const ctx = createMockContext(
       { mode: "single", packageKey: "packages/a::js", version: "1.2.3" },
-      { publish: true },
+      { phase: "publish" },
     );
     const services = createMockServices();
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -284,7 +287,6 @@ describe("DirectReleaseWorkflow", () => {
     );
     expect(operationMocks.createDryRunOperations).toHaveBeenCalledWith(
       false,
-      "local",
       false,
       false,
     );
@@ -295,7 +297,7 @@ describe("DirectReleaseWorkflow", () => {
     expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
       true,
       false,
-      "local",
+      true,
       false,
     );
     expect(services.events.emit).toHaveBeenCalledWith({
@@ -334,7 +336,7 @@ describe("DirectReleaseWorkflow", () => {
     const workflow = new DirectReleaseWorkflow();
     const ctx = createMockContext(
       { mode: "single", packageKey: "packages/a::js", version: "1.2.3" },
-      { publish: true },
+      { phase: "publish" },
     );
     const services = createMockServices();
     const pinnedOutput: WorkflowVersionStepOutput = {
@@ -359,9 +361,9 @@ describe("DirectReleaseWorkflow", () => {
     };
     vi.spyOn(console, "log").mockImplementation(() => {});
     operationMocks.createVersionOperation.mockReturnValueOnce({
-      run: async (runCtx: PubmContext) => {
-        pinWorkflowVersionStepOutput(runCtx, pinnedOutput);
-        runCtx.runtime.versionPlan = {
+      run: async () => {
+        pinWorkflowVersionStepOutput(ctx, pinnedOutput);
+        ctx.runtime.versionPlan = {
           mode: "single",
           packageKey: "packages/a::js",
           version: "9.9.9",

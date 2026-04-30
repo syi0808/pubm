@@ -43,6 +43,7 @@ interface CliContractScenario {
     isCI: boolean;
   };
   config: Record<string, any>;
+  requiredInfoVersionPlan?: Record<string, unknown>;
   recommendations?: {
     changesets?: Array<Record<string, unknown>>;
     commits?: Array<Record<string, unknown>>;
@@ -127,6 +128,7 @@ const mockState = vi.hoisted(() => {
     mergedRecommendations: undefined as
       | Array<Record<string, unknown>>
       | undefined,
+    requiredInfoVersionPlan: undefined as Record<string, unknown> | undefined,
     ledger: createLedger(),
     lastContext: undefined as any,
   };
@@ -154,6 +156,7 @@ const mockState = vi.hoisted(() => {
     state.changesetRecommendations = [];
     state.commitRecommendations = [];
     state.mergedRecommendations = undefined;
+    state.requiredInfoVersionPlan = undefined;
     state.ledger = createLedger();
     state.lastContext = undefined;
   };
@@ -214,10 +217,8 @@ vi.mock("std-env", () => ({
   },
 }));
 
-vi.mock("@pubm/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@pubm/core")>();
+vi.mock("@pubm/core", () => {
   return {
-    ...actual,
     ChangesetSource: vi.fn(function ChangesetSource() {
       mockState.recordEvent({
         name: "versionSource.created",
@@ -322,6 +323,9 @@ vi.mock("@pubm/core", async (importOriginal) => {
     }),
     requiredMissingInformationTasks: vi.fn(() => ({
       run: vi.fn(async (ctx: any) => {
+        if (mockState.state.requiredInfoVersionPlan) {
+          ctx.runtime.versionPlan = mockState.state.requiredInfoVersionPlan;
+        }
         mockState.recordSideEffect({
           kind: "requiredTasks.run",
           target: "missing-information",
@@ -338,7 +342,16 @@ vi.mock("@pubm/core", async (importOriginal) => {
       return mockState.state.resolvedConfig;
     }),
     resolveOptions: vi.fn((options: Record<string, unknown>) => {
-      const resolved = actual.resolveOptions(options);
+      const defined = Object.fromEntries(
+        Object.entries(options).filter(([, value]) => value !== undefined),
+      );
+      const resolved = {
+        testScript: "test",
+        buildScript: "build",
+        branch: "main",
+        tag: "latest",
+        ...defined,
+      };
       mockState.recordDecision(
         "options.resolved",
         mockState.normalizeOptions(resolved),
@@ -346,7 +359,16 @@ vi.mock("@pubm/core", async (importOriginal) => {
       return resolved;
     }),
     resolvePhases: vi.fn((options: any) => {
-      const phases = actual.resolvePhases(options);
+      if (
+        options.phase !== undefined &&
+        options.phase !== "prepare" &&
+        options.phase !== "publish"
+      ) {
+        throw new Error(
+          `Invalid release phase "${options.phase}". Use "prepare" or "publish".`,
+        );
+      }
+      const phases = options.phase ? [options.phase] : ["prepare", "publish"];
       mockState.recordDecision("phases.resolved", phases);
       return phases;
     }),
@@ -367,7 +389,15 @@ vi.mock("@pubm/core", async (importOriginal) => {
       warn: vi.fn(),
     },
     validateOptions: vi.fn((options: any) => {
-      actual.validateOptions(options);
+      if (
+        options.phase !== undefined &&
+        options.phase !== "prepare" &&
+        options.phase !== "publish"
+      ) {
+        throw new Error(
+          `Invalid release phase "${options.phase}". Use "prepare" or "publish".`,
+        );
+      }
       mockState.recordEvent({
         name: "options.validated",
         detail: { options: mockState.normalizeOptions(options) },
@@ -460,7 +490,6 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
         skipDryRun: false,
         skipPublish: false,
       },
@@ -488,7 +517,6 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
         skipDryRun: false,
         skipPublish: false,
       },
@@ -508,7 +536,7 @@ const scenarios: CliContractScenario[] = [
     id: "ci-publish-manifest-versions",
     description:
       "CI publish phase uses manifest versions without interactive missing-information tasks",
-    argv: ["--mode", "ci", "--phase", "publish"],
+    argv: ["--phase", "publish"],
     env: { isCI: true },
     config: config({
       packages: [
@@ -519,8 +547,7 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "ci",
-        publish: true,
+        phase: "publish",
         skipDryRun: false,
       },
       versionPlan: {
@@ -549,8 +576,7 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
-        publish: true,
+        phase: "publish",
         skipDryRun: false,
       },
       versionPlan: {
@@ -583,7 +609,6 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
         skipDryRun: false,
       },
       registries: {
@@ -609,7 +634,6 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
         skipDryRun: false,
       },
       rollback: {
@@ -635,12 +659,38 @@ const scenarios: CliContractScenario[] = [
     }),
     expected: {
       options: {
-        mode: "local",
         skipDryRun: true,
       },
       versionPlan: {
         mode: "single",
         version: "1.2.3",
+        packageKey: ".::js",
+      },
+      requiredTasksRun: true,
+      pubmCalled: true,
+    },
+  },
+  {
+    id: "local-missing-version-required-info-handoff",
+    description:
+      "local missing-version flow hands the required-information version plan to pubm",
+    argv: [],
+    env: { isCI: false },
+    config: config({
+      packages: [pkg({ name: "prompted-single", version: "1.0.0", path: "." })],
+    }),
+    requiredInfoVersionPlan: {
+      mode: "single",
+      version: "1.2.4",
+      packageKey: ".::js",
+    },
+    expected: {
+      options: {
+        skipDryRun: false,
+      },
+      versionPlan: {
+        mode: "single",
+        version: "1.2.4",
         packageKey: ".::js",
       },
       requiredTasksRun: true,
@@ -664,7 +714,6 @@ const scenarios: CliContractScenario[] = [
     },
     expected: {
       options: {
-        mode: "local",
         skipDryRun: false,
       },
       requiredTasksRun: false,
@@ -692,6 +741,7 @@ async function runScenario(
   mockState.state.commitRecommendations =
     scenario.recommendations?.commits ?? [];
   mockState.state.mergedRecommendations = scenario.recommendations?.merged;
+  mockState.state.requiredInfoVersionPlan = scenario.requiredInfoVersionPlan;
   mockState.state.ledger.forbiddenSideEffects =
     scenario.expected.forbiddenSideEffects ?? [];
 
@@ -715,7 +765,7 @@ afterEach(() => {
   process.exitCode = undefined;
 });
 
-describe("CLI mode and option contracts", () => {
+describe("CLI phase and option contracts", () => {
   it.each(scenarios)("$id: $description", async (scenario) => {
     const ledger = await runScenario(scenario);
 
@@ -747,6 +797,17 @@ describe("CLI mode and option contracts", () => {
       expect(ledger.finalState.requiredTaskRuns).toBe(
         scenario.expected.requiredTasksRun ? 1 : 0,
       );
+    }
+
+    if (scenario.expected.requiredTasksRun && scenario.expected.pubmCalled) {
+      const requiredIndex = ledger.sideEffects.findIndex(
+        (effect) => effect.kind === "requiredTasks.run",
+      );
+      const pubmIndex = ledger.sideEffects.findIndex(
+        (effect) => effect.kind === "pubm.call",
+      );
+      expect(requiredIndex).toBeGreaterThanOrEqual(0);
+      expect(pubmIndex).toBeGreaterThan(requiredIndex);
     }
 
     if (scenario.expected.errorMessage) {

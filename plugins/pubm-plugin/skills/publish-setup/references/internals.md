@@ -24,16 +24,16 @@ pubm executes phases in this order:
 |---|---|---|
 | **Command** | `pubm --phase prepare` | `pubm --phase publish` |
 | **Does** | test, build, version bump, dry-run validation, git push | registry publish, GitHub Release |
-| **When omitted** | Both phases run (local default) | Both phases run (local default) |
-| **CI requirement** | Must specify exactly one phase | Must specify exactly one phase |
+| **When omitted** | Both phases run | Both phases run |
+| **Split workflow** | Use this phase before CI publish | Use this phase inside CI |
 
-Running locally without `--phase` executes both phases sequentially. In CI mode (`--mode ci`), omitting `--phase` is an error.
+Running without `--phase` executes both phases sequentially. Use `--phase prepare` or `--phase publish` only when a workflow intentionally splits release preparation from publishing.
 
 ### Common CI pattern
 
 1. Run `pubm --phase prepare` locally — runs tests, builds, bumps versions, creates tags, pushes
 2. Tag/commit push triggers CI workflow
-3. CI runs `pubm --mode ci --phase publish` — publishes and creates releases
+3. CI runs `pubm --phase publish` — publishes and creates releases
 
 ## Version Phase
 

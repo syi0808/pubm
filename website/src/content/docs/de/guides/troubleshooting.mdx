@@ -13,7 +13,7 @@ Nutze diese Befehle, bevor du einen fehlgeschlagenen Publish erneut startest:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Zusammen beantworten diese Befehle:
@@ -107,7 +107,7 @@ Symptome:
 Was du prüfen solltest:
 
 - `JSR_TOKEN` kontrollieren
-- `pubm --mode ci --phase prepare` ausführen
+- `pubm --phase prepare` ausführen
 - bestaetigen, dass die Paketmetadaten für jsr gueltig sind
 
 Weil `pubm` an mehrere Ziele veröffentlicht, solltest du die fehlerhafte Registry reparieren, statt blind erneut zu versuchen und damit mögliche Teilveröffentlichungen zu verwechseln.
@@ -183,7 +183,7 @@ Warum das passiert:
 
 Was du prüfen solltest:
 
-- `pubm --mode ci --phase prepare` lokal ausführen
+- `pubm --phase prepare` lokal ausführen
 - in CI den vollen Git-Verlauf verwenden
 - bestaetigen, dass jedes erforderliche Token in der Job-Umgebung vorhanden ist
 
@@ -198,9 +198,9 @@ Was du prüfen solltest:
 
 - bestaetigen, dass die Remote-Metadaten des Repositories gueltig sind
 - sicherstellen, dass Git-Tags existieren und gepusht wurden
-- zwischen normalem Publish-Flow und `--mode ci --phase publish` unterscheiden
+- zwischen normalem Publish-Flow und `--phase publish` unterscheiden
 
-`pubm` erstellt einen GitHub Release über die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--mode ci --phase publish` erstellt im Rahmen der Pipeline einen GitHub Release über die API.
+`pubm` erstellt einen GitHub Release über die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--phase publish` erstellt im Rahmen der Pipeline einen GitHub Release über die API.
 
 ## Rollback ist passiert und der Repository-Zustand wirkt verwirrend
 
@@ -260,7 +260,7 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Fuehre einen echten Publish erst dann wieder aus, wenn die Ausgaben des Dry-Runs und der CI-Vorbereitung wieder sinnvoll aussehen.

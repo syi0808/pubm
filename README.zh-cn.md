@@ -59,10 +59,10 @@ pubm 会读取你的清单文件并判断该发布到哪些仓库。
 
 ### 预检查
 
-分支、工作区、远端同步、登录状态和发布权限，都会在 pubm **真正动手前** 检查完成。在 CI 模式下，pubm 还会验证 token 并执行 publish dry-run，在真正发布前发现问题：
+分支、工作区、远端同步、登录状态和发布权限，都会在 pubm **真正动手前** 检查完成。prepare 阶段会验证 token 并执行 publish dry-run，在真正发布前发现问题：
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### 同一条命令，兼顾本地与 CI

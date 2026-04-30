@@ -1,4 +1,8 @@
 import type { PubmContext } from "../context.js";
+import type {
+  ReleaseOperation,
+  ReleaseOperationRunnerOptions,
+} from "./release-operation.js";
 import type { WorkflowVersionStepOutput } from "./version-step-output.js";
 
 export interface WorkflowEvent {
@@ -37,6 +41,7 @@ export interface WorkflowStepContext {
 
 export interface WorkflowStep<I = unknown, O = unknown> {
   id: string;
+  title?: string;
   input?: I;
   output?: O;
   emittedFacts?: readonly WorkflowFactDescriptor[];
@@ -63,6 +68,24 @@ export interface WorkflowServices {
   events: WorkflowEventSink;
   record: WorkflowReleaseRecord;
   signals: SignalController;
+  operations?: WorkflowOperationRunner;
+  steps?: WorkflowStepRunner;
+}
+
+export interface WorkflowOperationRunner {
+  run(
+    ctx: PubmContext,
+    operations: ReleaseOperation | readonly ReleaseOperation[],
+    options?: ReleaseOperationRunnerOptions,
+  ): Promise<void>;
+}
+
+export interface WorkflowStepRunner {
+  run(
+    steps: readonly WorkflowStep[],
+    ctx: PubmContext,
+    services: WorkflowServices,
+  ): Promise<void>;
 }
 
 export interface WorkflowRunResult {

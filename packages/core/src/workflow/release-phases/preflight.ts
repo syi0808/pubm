@@ -25,6 +25,8 @@ export interface CleanupRef {
   current: (() => void) | undefined;
 }
 
+type OperationExecutor = typeof runReleaseOperations;
+
 export async function runCiPreparePreflight(
   ctx: PubmContext,
   chainCleanup: (
@@ -32,9 +34,10 @@ export async function runCiPreparePreflight(
     next: () => void,
   ) => () => void,
   cleanupRef: CleanupRef,
+  executeOperations: OperationExecutor = runReleaseOperations,
 ): Promise<void> {
   // CI prepare: Collect tokens (interactive)
-  await runReleaseOperations(ctx, {
+  await executeOperations(ctx, {
     title: t("task.tokens.collecting"),
     run: async (ctx, task): Promise<void> => {
       const registries = collectRegistries(ctx.config);
@@ -81,12 +84,12 @@ export async function runCiPreparePreflight(
     },
   });
 
-  await runReleaseOperations(
+  await executeOperations(
     ctx,
     createPrerequisitesCheckOperation(ctx.options.skipPrerequisitesCheck),
   );
 
-  await runReleaseOperations(
+  await executeOperations(
     ctx,
     createRequiredConditionsCheckOperation(ctx.options.skipConditionsCheck),
   );
@@ -99,8 +102,9 @@ export async function runLocalPreflight(
     next: () => void,
   ) => () => void,
   cleanupRef: CleanupRef,
+  executeOperations: OperationExecutor = runReleaseOperations,
 ): Promise<void> {
-  await runReleaseOperations(
+  await executeOperations(
     ctx,
     createPrerequisitesCheckOperation(ctx.options.skipPrerequisitesCheck),
   );
@@ -113,7 +117,7 @@ export async function runLocalPreflight(
   });
 
   if (earlyAuthRegistries.length > 0 && ctx.runtime.promptEnabled) {
-    await runReleaseOperations(ctx, {
+    await executeOperations(ctx, {
       title: t("task.tokens.ensuring"),
       run: async (_ctx, task): Promise<void> => {
         const tokens = await collectTokens(earlyAuthRegistries, task);
@@ -129,7 +133,7 @@ export async function runLocalPreflight(
   // Collect plugin credentials
   const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
   if (pluginCreds.length > 0) {
-    await runReleaseOperations(ctx, {
+    await executeOperations(ctx, {
       title: t("task.tokens.collectingPlugin"),
       run: async (ctx, task): Promise<void> => {
         const pluginTokens = await collectPluginCredentials(
@@ -146,7 +150,7 @@ export async function runLocalPreflight(
     });
   }
 
-  await runReleaseOperations(
+  await executeOperations(
     ctx,
     createRequiredConditionsCheckOperation(ctx.options.skipConditionsCheck),
   );
@@ -159,11 +163,12 @@ export async function runCiPublishPluginCreds(
     next: () => void,
   ) => () => void,
   cleanupRef: CleanupRef,
+  executeOperations: OperationExecutor = runReleaseOperations,
 ): Promise<void> {
   // CI publish: collect plugin credentials from env (no prompting)
   const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
   if (pluginCreds.length > 0) {
-    await runReleaseOperations(ctx, {
+    await executeOperations(ctx, {
       title: t("task.tokens.collectingPlugin"),
       run: async (ctx, task): Promise<void> => {
         const pluginTokens = await collectPluginCredentials(

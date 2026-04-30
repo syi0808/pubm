@@ -59,10 +59,10 @@ Un registre refuse votre package ? pubm annule le bump de version, le git tag et
 
 ### Verifications prealables
 
-Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action. En mode CI, pubm valide les tokens et effectue un publish dry-run pour detecter les problemes avant la vraie publication :
+Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action. La phase prepare valide les tokens et effectue un publish dry-run pour detecter les problemes avant la vraie publication :
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### La meme commande en local et en CI

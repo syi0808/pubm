@@ -109,19 +109,22 @@ export default defineConfig({
 
 If you want to avoid the PR fallback, ensure the pushing user/token has bypass permissions on the branch protection rules.
 
-### CI fails with "phase required" error
+### CI full release prompts for missing version
 
-**Symptom:** `pubm --mode ci` fails with an error about requiring a phase flag.
+**Symptom:** `pubm` in CI fails because no version could be determined.
 
-**Cause:** CI mode requires exactly one of `--phase prepare` or `--phase publish`. Omitting the phase flag is only valid for local (non-CI) runs.
+**Cause:** Bare `pubm` runs the full release pipeline. In CI it must receive an explicit version or derive one from configured version sources such as changesets or conventional commits.
 
-**Solution:** Add the appropriate phase flag:
+**Solution:** Use the command shape that matches the workflow:
 ```bash
-# For the publish step in CI
-pubm --mode ci --phase publish
+# For a split publish job after prepare has already versioned manifests
+pubm --phase publish
 
-# For the prepare/validation step in CI
-pubm --mode ci --phase prepare
+# For the prepare half of a split workflow
+pubm --phase prepare
+
+# For a full CI release with an explicit version
+pubm 1.2.3
 ```
 
 ### Tag already exists
@@ -173,4 +176,4 @@ pubm registers rollback actions in LIFO (last-in, first-out) order. On failure:
 - **crates.io:** Published crates cannot be unpublished, only yanked (`cargo yank`)
 - **jsr:** Check jsr.io for unpublish/deprecation options
 
-Re-run `pubm --mode ci --phase publish` after fixing the root cause — already-published versions are automatically skipped.
+Re-run `pubm --phase publish` after fixing the root cause — already-published versions are automatically skipped.

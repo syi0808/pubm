@@ -77,7 +77,7 @@ export function createPushOperation(
 export function createGitHubReleaseOperation(
   hasPublish: boolean,
   dryRun: boolean,
-  mode: string,
+  allowInteractiveTokenPrompt: boolean,
   skipReleaseDraft: boolean,
 ): ReleaseOperation {
   return {
@@ -92,7 +92,7 @@ export function createGitHubReleaseOperation(
 
       if (tokenResult) {
         process.env.GITHUB_TOKEN = tokenResult.token;
-      } else if (mode !== "ci" && ctx.runtime.promptEnabled) {
+      } else if (allowInteractiveTokenPrompt && ctx.runtime.promptEnabled) {
         // Local/interactive mode: prompt for token or fall back to browser
         const answer = await task.prompt().run<string>({
           type: "select",

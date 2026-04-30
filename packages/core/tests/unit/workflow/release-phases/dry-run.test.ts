@@ -80,29 +80,29 @@ describe("createDryRunOperations", () => {
     dryRunState.writeVersionsCalls = [];
   });
 
-  it("returns enabled operations when skipDryRun is false and ci+prepare", () => {
-    const tasks = createDryRunOperations(false, "ci", true, false);
+  it("returns enabled operations when skipDryRun is false and prepare phase validation is enabled", () => {
+    const tasks = createDryRunOperations(false, true, false);
     expect(tasks[0].enabled).toBe(true);
   });
 
   it("returns disabled operations when skipDryRun is true", () => {
-    const tasks = createDryRunOperations(false, "ci", true, true);
+    const tasks = createDryRunOperations(false, true, true);
     expect(tasks[0].enabled).toBe(false);
     expect(tasks[1].enabled).toBe(false);
   });
 
-  it("returns disabled operations when neither dryRun nor ci+prepare", () => {
-    const tasks = createDryRunOperations(false, "local", false, false);
+  it("returns disabled operations when neither dryRun nor prepare phase validation is enabled", () => {
+    const tasks = createDryRunOperations(false, false, false);
     expect(tasks[0].enabled).toBe(false);
   });
 
   it("returns enabled operations when dryRun is true and skipDryRun is false", () => {
-    const tasks = createDryRunOperations(true, "local", false, false);
+    const tasks = createDryRunOperations(true, false, false);
     expect(tasks[0].enabled).toBe(true);
   });
 
   it("skipDryRun overrides dryRun flag", () => {
-    const tasks = createDryRunOperations(true, "local", false, true);
+    const tasks = createDryRunOperations(true, false, true);
     expect(tasks[0].enabled).toBe(false);
   });
 
@@ -133,7 +133,7 @@ describe("createDryRunOperations", () => {
       }),
     };
 
-    await createDryRunOperations(true, "local", true, false)[0]?.run?.(
+    await createDryRunOperations(true, true, false)[0]?.run?.(
       {
         config: { packages: [] },
         runtime: {},
@@ -160,7 +160,7 @@ describe("createDryRunOperations", () => {
       runtime: { workspaceBackups: backups },
     };
 
-    await createDryRunOperations(true, "local", true, false)[1]?.run?.(
+    await createDryRunOperations(true, true, false)[1]?.run?.(
       ctx as never,
       {} as never,
     );
@@ -175,14 +175,14 @@ describe("createDryRunOperations", () => {
 
   it("throws when restore operations are missing their required backups", async () => {
     await expect(
-      createDryRunOperations(true, "local", true, false)[1]?.run?.(
+      createDryRunOperations(true, true, false)[1]?.run?.(
         { runtime: {} } as never,
         {} as never,
       ),
     ).rejects.toThrow("Workspace backups are required");
 
     await expect(
-      createDryRunOperations(true, "local", true, false)[2]?.run?.(
+      createDryRunOperations(true, true, false)[2]?.run?.(
         { runtime: {} } as never,
         {} as never,
       ),
@@ -193,7 +193,7 @@ describe("createDryRunOperations", () => {
     const backupVersions = new Map([["packages/a::js", "1.0.0"]]);
     const ctx = { runtime: { dryRunVersionBackup: backupVersions } };
 
-    await createDryRunOperations(true, "local", true, false)[2]?.run?.(
+    await createDryRunOperations(true, true, false)[2]?.run?.(
       ctx as never,
       {} as never,
     );

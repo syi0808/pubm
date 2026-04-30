@@ -11,20 +11,20 @@ description: CI-Vorbereitung, Token-Verwaltung und Release-Automatisierung für 
 
 Use two phases:
 
-1. fuehre `pubm --mode ci --phase prepare` lokal oder in einem kontrollierten Release-Job aus
-2. veröffentliche aus CI mit `pubm --mode ci --phase publish`
+1. fuehre `pubm --phase prepare` lokal oder in einem kontrollierten Release-Job aus
+2. veröffentliche aus CI mit `pubm --phase publish`
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ## What CI preparation does
 
-`pubm --mode ci --phase prepare` ist nicht nur ein Token-Check. Es laeuft durch die Release-Pipeline bis direkt vor das eigentliche Veröffentlichen:
+`pubm --phase prepare` ist nicht nur ein Token-Check. Es laeuft durch die Release-Pipeline bis direkt vor das eigentliche Veröffentlichen:
 
 - sammelt Registry-Tokens und Plugin-Credentials ein
 - synchronisiert sie optional mit GitHub Secrets
@@ -89,7 +89,7 @@ jobs:
           node-version: 24
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -134,18 +134,18 @@ Verwende für CI-Veröffentlichungen Automation-kompatible Tokens.
 
 ### Build output is not present in `contents`
 
-Wenn du aus `dist/` veröffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --mode ci --phase publish` laeuft.
+Wenn du aus `dist/` veröffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --phase publish` laeuft.
 
 ## GitHub Release assets
 
-Wenn dein Projekt `releaseAssets` in `pubm.config.ts` nutzt, fuehrt `pubm --mode ci --phase publish` die Asset-Pipeline aus und laedt die Artefakte automatisch in den GitHub Release hoch.
+Wenn dein Projekt `releaseAssets` in `pubm.config.ts` nutzt, fuehrt `pubm --phase publish` die Asset-Pipeline aus und laedt die Artefakte automatisch in den GitHub Release hoch.
 
 ### `GITHUB_TOKEN` requirement
 
 GitHub-Release-Erstellung und Asset-Upload nutzen die GitHub API. Stelle `GITHUB_TOKEN` bereit, oder alternativ ein fein granulars Token mit `contents: write`-Berechtigung. Das Token wird für jede GitHub-Release-Erstellung benötigt, nicht nur für Asset-Uploads:
 
 ```yaml
-- run: pubm --mode ci --phase publish
+- run: pubm --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,7 +155,7 @@ GitHub Actions fuegt `GITHUB_TOKEN` in jedem Workflow-Lauf als eingebautes Secre
 
 ### Build outputs must exist before upload
 
-Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --mode ci --phase publish` ausgeführt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
+Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --phase publish` ausgeführt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
 
 ### Example with release assets
 
@@ -181,7 +181,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build       # Must produce platforms/*/bin/mytool
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

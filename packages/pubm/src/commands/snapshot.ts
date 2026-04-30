@@ -46,7 +46,6 @@ export function registerSnapshotCommand(
         const resolvedOpts = resolveOptions({
           testScript: options.testScript,
           buildScript: options.buildScript,
-          mode: "local",
           branch: options.branch,
           anyBranch: options.anyBranch,
           dryRun: options.dryRun,

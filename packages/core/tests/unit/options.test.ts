@@ -9,7 +9,6 @@ describe("defaultOptions", () => {
       buildScript: "build",
       branch: "main",
       tag: "latest",
-      mode: "local",
     });
   });
 

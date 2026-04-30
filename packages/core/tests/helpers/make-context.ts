@@ -39,7 +39,6 @@ export function makeTestOptions(
   return {
     testScript: "test",
     buildScript: "build",
-    mode: "local",
     branch: "main",
     tag: "latest",
     saveToken: true,

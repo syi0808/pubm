@@ -104,7 +104,7 @@ export interface PubmContext {
 Campos clave:
 
 - `ctx.config` - configuración de pubm resuelta (packages, registries, plugins, releaseAssets, etc.)
-- `ctx.options` - opciones de CLI resueltas (version, tag, mode, dryRun, etc.)
+- `ctx.options` - opciones de CLI resueltas (version, tag, phase, dryRun, etc.)
 - `ctx.cwd` - directorio de trabajo
 - `ctx.runtime` - estado mutable en runtime (version plan, temp directory, etc.)
 - `ctx.runtime.pluginTokens` - mapa de valores de credenciales de plugin resueltas, indexado por `PluginCredential.key`. Se rellena después del paso de recolección de credenciales y queda disponible en todos los hooks posteriores.

@@ -21,13 +21,14 @@ import { writeVersions } from "../release-utils/write-versions.js";
 
 export function createDryRunOperations(
   dryRun: boolean,
-  mode: string,
-  hasPrepare: boolean,
+  validatePreparePhase: boolean,
   skipDryRun: boolean,
 ): ReleaseOperation[] {
+  const shouldValidatePublishability = dryRun || validatePreparePhase;
+
   return [
     {
-      enabled: !skipDryRun && (dryRun || (mode === "ci" && hasPrepare)),
+      enabled: !skipDryRun && shouldValidatePublishability,
       title: t("task.dryRunValidation.title"),
       run: async (ctx, parentTask): Promise<void> => {
         await resolveWorkspaceProtocols(ctx);
@@ -50,7 +51,7 @@ export function createDryRunOperations(
       },
     },
     {
-      enabled: !skipDryRun && (dryRun || (mode === "ci" && hasPrepare)),
+      enabled: !skipDryRun && shouldValidatePublishability,
       skip: (ctx) => !ctx.runtime.workspaceBackups?.size,
       title: t("task.dryRunValidation.restoreProtocols"),
       run: async (ctx) => {

@@ -889,15 +889,15 @@ describe("brewTap", () => {
   });
 
   describe("credentials", () => {
-    it("returns credential for external repo in CI mode", () => {
+    it("returns credential for external repo in split publish phase", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const creds = plugin.credentials!(ctx);
@@ -906,13 +906,13 @@ describe("brewTap", () => {
       expect(creds[0].env).toBe("PUBM_BREW_GITHUB_TOKEN");
     });
 
-    it("returns empty for external repo in local mode", () => {
+    it("returns empty for external repo in interactive full releases", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local", publish: true },
+        options: {},
         config: {},
         runtime: { promptEnabled: true },
       } as any;
@@ -924,39 +924,39 @@ describe("brewTap", () => {
     it("returns empty for same-repo formula", () => {
       const plugin = brewTap({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const creds = plugin.credentials!(ctx);
       expect(creds).toHaveLength(0);
     });
 
-    it("returns credential in CI mode regardless of phase", () => {
+    it("returns credential for external repo in non-interactive full releases", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: false },
       } as any;
 
       const creds = plugin.credentials!(ctx);
       expect(creds).toHaveLength(1);
     });
 
-    it("returns empty in local mode regardless of phase", () => {
+    it("returns empty when no split phase and prompts are enabled", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const creds = plugin.credentials!(ctx);
@@ -965,15 +965,15 @@ describe("brewTap", () => {
   });
 
   describe("checks", () => {
-    it("returns CI PAT check when mode is ci and repo is set", () => {
+    it("returns PAT check when split phase and repo is set", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -982,15 +982,15 @@ describe("brewTap", () => {
       expect(checks[0].title).toContain("token");
     });
 
-    it("CI PAT check throws when token is missing", async () => {
+    it("PAT check throws when token is missing", async () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1002,15 +1002,15 @@ describe("brewTap", () => {
       );
     });
 
-    it("CI PAT check succeeds when token is present", async () => {
+    it("PAT check succeeds when token is present", async () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1023,39 +1023,39 @@ describe("brewTap", () => {
       expect(taskObj.output).toBe("Homebrew tap token verified");
     });
 
-    it("returns empty checks for CI when repo is not set", () => {
+    it("returns empty token checks when repo is not set", () => {
       const plugin = brewTap({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "publish" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(0);
     });
 
-    it("returns empty checks for local mode without repo", () => {
+    it("returns empty checks for interactive full release without repo", () => {
       const plugin = brewTap({ formula: "Formula/test.rb" });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(0);
     });
 
-    it("returns gh auth check for local mode with repo", () => {
+    it("returns gh auth check for interactive full release with repo", () => {
       const plugin = brewTap({
         formula: "Formula/test.rb",
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1072,9 +1072,9 @@ describe("brewTap", () => {
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1106,9 +1106,9 @@ describe("brewTap", () => {
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1131,9 +1131,9 @@ describe("brewTap", () => {
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1153,9 +1153,9 @@ describe("brewTap", () => {
         repo: "https://github.com/user/homebrew-test.git",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1178,9 +1178,9 @@ describe("brewTap", () => {
         repo: "https://gitlab.com/group/homebrew-tap.git",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
@@ -1197,7 +1197,7 @@ describe("brewTap", () => {
       expect(taskObj.output).toBe("GitHub CLI authenticated");
     });
 
-    it("returns empty checks when local mode and phases do not include publish", () => {
+    it("returns empty checks when interactive phases do not include publish", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewTap({
@@ -1205,16 +1205,16 @@ describe("brewTap", () => {
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "local" },
+        options: {},
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);
       expect(checks).toHaveLength(0);
     });
 
-    it("returns checks in CI mode even when phases only include prepare", () => {
+    it("returns checks for split prepare even when phases only include prepare", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewTap({
@@ -1222,9 +1222,9 @@ describe("brewTap", () => {
         repo: "user/homebrew-test",
       });
       const ctx = {
-        options: { mode: "ci" },
+        options: { phase: "prepare" },
         config: {},
-        runtime: {},
+        runtime: { promptEnabled: true },
       } as any;
 
       const checks = plugin.checks!(ctx);

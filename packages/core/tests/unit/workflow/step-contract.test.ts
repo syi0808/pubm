@@ -18,6 +18,13 @@ function readWorkflowSources() {
         continue;
       }
 
+      if (
+        entry.name === "runner-entry.ts" ||
+        entry.name === "release-operation-task.ts"
+      ) {
+        continue;
+      }
+
       files.push({
         path: entryUrl.pathname,
         source: readFileSync(entryUrl, "utf-8"),

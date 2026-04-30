@@ -346,7 +346,6 @@ function createSnapshotContext(
   const options = {
     testScript: "test",
     buildScript: "build",
-    mode: "local",
     branch: "main",
     tag: "snapshot",
     saveToken: true,

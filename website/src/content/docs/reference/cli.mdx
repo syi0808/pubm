@@ -81,8 +81,7 @@ pubm --tag beta
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | Show the task graph without mutating Git state or publishing. |
-| `--mode <mode>` | `local` | Execution mode: `local` (interactive) or `ci` (non-interactive, tag-based). |
-| `--phase <phase>` | - | Pipeline phase: `prepare` (validate and dry-run) or `publish` (publish from latest tag). |
+| `--phase <phase>` | - | Release phase: `prepare` (validate, version, tag, and push) or `publish` (publish manifest versions and create releases). Omit to run both. |
 | `--release-draft` | `false` | Create a draft GitHub Release instead of a published one. |
 | `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
 | `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
@@ -133,27 +132,27 @@ pubm --dry-run
 
 Use dry-run mode when you need to inspect the task plan without side effects.
 
-## CI prepare mode
+## Prepare phase
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
-CI prepare mode:
+Prepare phase:
 
 - collects missing tokens interactively
 - can sync them to GitHub Secrets
-- switches into non-interactive behavior to mimic CI
+- switches into non-interactive behavior for the remaining split workflow
 - runs prerequisite and condition checks
 - dry-runs publish for configured registries
 
-## CI publish mode
+## Publish phase
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
-CI publish mode publishes from the latest Git tag and creates a GitHub Release via API. Use it when the version bump and tagging already happened earlier in the pipeline. Pass `--release-draft` to create a draft release instead of a published one.
+Publish phase reads manifest versions, publishes registries, and creates a GitHub Release via API. Use it when versioning and tagging already happened earlier in the split workflow. Pass `--release-draft` to create a draft release instead of a published one.
 
 ## Environment variables
 
@@ -257,7 +256,7 @@ pubm secrets sync --registry npm,jsr
 Notes:
 
 - requires `gh` to be installed and authenticated
-- uses locally stored tokens, so run `pubm --mode ci --phase prepare` first if nothing has been saved yet
+- uses locally stored tokens, so run `pubm --phase prepare` first if nothing has been saved yet
 
 ## `pubm sync --discover`
 
@@ -370,7 +369,7 @@ In normal publish mode, failures also trigger rollback behavior where possible.
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --mode ci --phase prepare
+pubm --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -378,13 +377,13 @@ pubm
 ### Local CI rehearsal
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### Publish only the current tagged release in CI
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ### Sync stored tokens after preparation

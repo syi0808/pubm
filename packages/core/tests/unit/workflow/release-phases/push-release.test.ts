@@ -5,6 +5,10 @@ import {
   createPushOperation,
 } from "../../../../src/workflow/release-phases/push-release.js";
 
+vi.mock("@pubm/runner", () => ({
+  prompt: vi.fn(),
+}));
+
 const pushState = vi.hoisted(() => ({
   git: {
     pushResult: true,
@@ -372,7 +376,7 @@ describe("createGitHubReleaseOperation", () => {
       { promptEnabled: true },
     );
 
-    await createGitHubReleaseOperation(true, false, "local", false).run?.(
+    await createGitHubReleaseOperation(true, false, true, false).run?.(
       ctx,
       createTask(["enter", "token-from-prompt"]) as never,
     );
@@ -396,7 +400,7 @@ describe("createGitHubReleaseOperation", () => {
       { promptEnabled: true },
     );
 
-    await createGitHubReleaseOperation(true, false, "local", false).run?.(
+    await createGitHubReleaseOperation(true, false, true, false).run?.(
       ctx,
       createTask(["enter", ""]) as never,
     );
@@ -417,7 +421,7 @@ describe("createGitHubReleaseOperation", () => {
       { promptEnabled: true },
     );
 
-    await createGitHubReleaseOperation(true, false, "local", false).run?.(
+    await createGitHubReleaseOperation(true, false, true, false).run?.(
       ctx,
       createTask(["browser"]) as never,
     );
@@ -436,7 +440,7 @@ describe("createGitHubReleaseOperation", () => {
     });
 
     await expect(
-      createGitHubReleaseOperation(true, false, "ci", false).run?.(
+      createGitHubReleaseOperation(true, false, false, false).run?.(
         ctx,
         createTask() as never,
       ),
@@ -456,7 +460,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -484,7 +488,7 @@ describe("createGitHubReleaseOperation", () => {
       packages: new Map([["packages/a::js", "1.2.0"]]),
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -501,7 +505,7 @@ describe("createGitHubReleaseOperation", () => {
       packages: new Map([["packages/a::js", "1.2.0"]]),
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -520,7 +524,7 @@ describe("createGitHubReleaseOperation", () => {
       packages: new Map([["packages/a::js", "1.2.0"]]),
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -539,7 +543,7 @@ describe("createGitHubReleaseOperation", () => {
       { config: { packages: [] } },
     );
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -560,7 +564,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -588,7 +592,7 @@ describe("createGitHubReleaseOperation", () => {
       version: "1.2.0",
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -606,7 +610,7 @@ describe("createGitHubReleaseOperation", () => {
       version: "1.2.0",
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -627,7 +631,7 @@ describe("createGitHubReleaseOperation", () => {
       { config: { excludeRelease: ["packages/b"] } },
     );
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -649,7 +653,7 @@ describe("createGitHubReleaseOperation", () => {
       ]),
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -672,7 +676,7 @@ describe("createGitHubReleaseOperation", () => {
       { config: { excludeRelease: ["packages/a"] } },
     );
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -691,7 +695,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -709,7 +713,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -724,7 +728,7 @@ describe("createGitHubReleaseOperation", () => {
       version: "1.2.0",
     });
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       createTask() as never,
     );
@@ -744,7 +748,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -763,7 +767,7 @@ describe("createGitHubReleaseOperation", () => {
     });
     const task = createTask();
 
-    await createGitHubReleaseOperation(true, false, "ci", false).run?.(
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
       ctx,
       task as never,
     );
@@ -782,7 +786,7 @@ describe("createGitHubReleaseOperation", () => {
     );
     const task = createTask(["skip"]);
 
-    await createGitHubReleaseOperation(true, false, "local", false).run?.(
+    await createGitHubReleaseOperation(true, false, true, false).run?.(
       ctx,
       task as never,
     );
