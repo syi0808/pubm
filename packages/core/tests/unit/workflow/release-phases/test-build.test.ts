@@ -13,11 +13,11 @@ const mockResolveBuildCommand = vi.hoisted(() =>
   ),
 );
 
-vi.mock("../../../src/monorepo/workspace.js", () => ({
+vi.mock("../../../../src/monorepo/workspace.js", () => ({
   detectWorkspace: mockDetectWorkspace,
 }));
 
-vi.mock("../../../src/ecosystem/catalog.js", () => {
+vi.mock("../../../../src/ecosystem/catalog.js", () => {
   class MockJsEcosystem {
     packagePath: string;
     constructor(p: string) {
@@ -64,17 +64,41 @@ vi.mock("../../../src/ecosystem/catalog.js", () => {
   };
 });
 
-vi.mock("../../../src/utils/exec.js", () => ({
+vi.mock("../../../../src/utils/exec.js", () => ({
   exec: mockExec,
 }));
 
-vi.mock("../../../src/tasks/runner-utils/output-formatting.js", () => ({
+vi.mock("../../../../src/plugin/runner.js", () => ({
+  PluginRunner: class {
+    collectAssetHooks() {
+      return {};
+    }
+
+    collectCredentials() {
+      return [];
+    }
+
+    runAfterReleaseHook() {
+      return Promise.resolve();
+    }
+
+    runErrorHook() {
+      return Promise.resolve();
+    }
+
+    runHook() {
+      return Promise.resolve();
+    }
+  },
+}));
+
+vi.mock("../../../../src/workflow/release-utils/output-formatting.js", () => ({
   shouldRenderLiveCommandOutput: vi.fn(() => false),
   createLiveCommandOutput: vi.fn(),
 }));
 
-import type { PubmContext } from "../../../src/context.js";
-import { makeTestContext } from "../../helpers/make-context.js";
+import type { PubmContext } from "../../../../src/context.js";
+import { makeTestContext } from "../../../helpers/make-context.js";
 
 function createCtx(
   overrides: {
@@ -129,54 +153,54 @@ beforeEach(() => {
   );
 });
 
-describe("createTestTask", () => {
+describe("createTestOperation", () => {
   it("is disabled when hasPrepare is false", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createTestTask(false, false);
+    const task = createTestOperation(false, false);
     expect(task.enabled).toBe(false);
   });
 
   it("is disabled when skipTests is true", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createTestTask(true, true);
+    const task = createTestOperation(true, true);
     expect(task.enabled).toBe(false);
   });
 
   it("is enabled when hasPrepare is true and skipTests is false", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createTestTask(true, false);
+    const task = createTestOperation(true, false);
     expect(task.enabled).toBe(true);
   });
 });
 
-describe("createBuildTask", () => {
+describe("createBuildOperation", () => {
   it("is disabled when hasPrepare is false", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createBuildTask(false, false);
+    const task = createBuildOperation(false, false);
     expect(task.enabled).toBe(false);
   });
 
   it("is disabled when skipBuild is true", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createBuildTask(true, true);
+    const task = createBuildOperation(true, true);
     expect(task.enabled).toBe(false);
   });
 
   it("is enabled when hasPrepare is true and skipBuild is false", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const task = createBuildTask(true, false);
+    const task = createBuildOperation(true, false);
     expect(task.enabled).toBe(true);
   });
 });
@@ -186,14 +210,14 @@ describe("test task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx();
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "pnpm",
@@ -203,10 +227,10 @@ describe("test task execution", () => {
   });
 
   it("runs test with testCommand as sh -c", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -221,7 +245,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -231,10 +255,10 @@ describe("test task execution", () => {
   });
 
   it("runs test with ecosystem-level testCommand", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { testCommand: "npx vitest run" } },
@@ -249,7 +273,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -259,10 +283,10 @@ describe("test task execution", () => {
   });
 
   it("runs test with ecosystem-level testScript", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { testScript: "test:ci" } },
@@ -278,32 +302,32 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockResolveTestCommand).toHaveBeenCalledWith("test:ci");
   });
 
   it("uses ECOSYSTEM_DEFAULTS when no script is configured", async () => {
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       options: { testScript: undefined },
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockResolveTestCommand).toHaveBeenCalledWith("test");
   });
 
   it("runs per-package when no workspace detected", async () => {
     mockDetectWorkspace.mockReturnValue([]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -314,7 +338,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledTimes(2);
   });
@@ -323,10 +347,10 @@ describe("test task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -342,7 +366,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     // Group run for packages/a + individual run for packages/b
     expect(mockExec).toHaveBeenCalledTimes(2);
@@ -352,10 +376,10 @@ describe("test task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -370,7 +394,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -381,24 +405,24 @@ describe("test task execution", () => {
 
   it("throws AbstractError when test execution fails", async () => {
     mockExec.mockRejectedValue(new Error("test failed"));
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx();
     const task = createTask();
 
-    await expect((testTask as any).task(ctx, task)).rejects.toThrow();
+    await expect((testTask as any).run(ctx, task)).rejects.toThrow();
   });
 
   it("runs rust ecosystem test with cargo", async () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "cargo", patterns: ["crates/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
@@ -407,7 +431,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "cargo",
@@ -418,10 +442,10 @@ describe("test task execution", () => {
 
   it("runs rust per-package without workspace", async () => {
     mockDetectWorkspace.mockReturnValue([]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -432,7 +456,7 @@ describe("test task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "cargo",
@@ -447,14 +471,14 @@ describe("build task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx();
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "pnpm",
@@ -464,10 +488,10 @@ describe("build task execution", () => {
   });
 
   it("runs build with buildCommand as sh -c", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -482,7 +506,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -492,10 +516,10 @@ describe("build task execution", () => {
   });
 
   it("runs build with ecosystem-level buildCommand", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { buildCommand: "npx tsup" } },
@@ -510,7 +534,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -520,10 +544,10 @@ describe("build task execution", () => {
   });
 
   it("runs build with ecosystem-level buildScript", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { buildScript: "build:prod" } },
@@ -539,17 +563,17 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockResolveBuildCommand).toHaveBeenCalledWith("build:prod");
   });
 
   it("runs per-package when no workspace detected", async () => {
     mockDetectWorkspace.mockReturnValue([]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -560,7 +584,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledTimes(2);
   });
@@ -569,10 +593,10 @@ describe("build task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -587,7 +611,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -600,10 +624,10 @@ describe("build task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -618,31 +642,31 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockResolveBuildCommand).toHaveBeenCalledWith("build:special");
   });
 
   it("throws AbstractError when build execution fails", async () => {
     mockExec.mockRejectedValue(new Error("build failed"));
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx();
     const task = createTask();
 
-    await expect((buildTask as any).task(ctx, task)).rejects.toThrow();
+    await expect((buildTask as any).run(ctx, task)).rejects.toThrow();
   });
 
   it("runs rust ecosystem build with cargo", async () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "cargo", patterns: ["crates/*"] },
     ]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [{ path: ".", registries: ["crates"], ecosystem: "rust" }],
@@ -651,7 +675,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "cargo",
@@ -661,16 +685,16 @@ describe("build task execution", () => {
   });
 
   it("uses ECOSYSTEM_DEFAULTS build for unknown global script", async () => {
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       options: { buildScript: undefined },
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockResolveBuildCommand).toHaveBeenCalledWith("build");
   });
@@ -679,10 +703,10 @@ describe("build task execution", () => {
     // This tests the ?? type fallback in ECOSYSTEM_DEFAULTS
     // We can't easily test an unknown ecosystem, but we ensure
     // the defaults path works for known ecosystems
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [{ path: ".", registries: ["npm"], ecosystem: "js" }],
@@ -691,7 +715,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     expect(mockResolveBuildCommand).toHaveBeenCalledWith("build");
   });
@@ -701,10 +725,10 @@ describe("build task execution", () => {
       { type: "pnpm", patterns: ["packages/*"] },
       { type: "cargo", patterns: ["crates/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         packages: [
@@ -716,7 +740,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     // Should have 2 exec calls: one for js workspace, one for rust workspace
     expect(mockExec).toHaveBeenCalledTimes(2);
@@ -726,10 +750,10 @@ describe("build task execution", () => {
     mockDetectWorkspace.mockReturnValue([
       { type: "pnpm", patterns: ["packages/*"] },
     ]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { testCommand: "npx vitest" } },
@@ -741,7 +765,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     expect(mockExec).toHaveBeenCalledWith(
       "sh",
@@ -754,10 +778,10 @@ describe("build task execution", () => {
 
   it("runs ecosystem-level testCommand per-package when no workspace detected", async () => {
     mockDetectWorkspace.mockReturnValue([]);
-    const { createTestTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createTestOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const testTask = createTestTask(true, false);
+    const testTask = createTestOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { testCommand: "npx vitest run" } },
@@ -769,7 +793,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (testTask as any).task(ctx, task);
+    await (testTask as any).run(ctx, task);
 
     // Without a workspace, command must run once per package
     expect(mockExec).toHaveBeenCalledTimes(2);
@@ -795,10 +819,10 @@ describe("build task execution", () => {
 
   it("runs ecosystem-level buildCommand per-package when no workspace detected", async () => {
     mockDetectWorkspace.mockReturnValue([]);
-    const { createBuildTask } = await import(
-      "../../../src/tasks/phases/test-build.js"
+    const { createBuildOperation } = await import(
+      "../../../../src/workflow/release-phases/test-build.js"
     );
-    const buildTask = createBuildTask(true, false);
+    const buildTask = createBuildOperation(true, false);
     const ctx = createCtx({
       config: {
         ecosystems: { js: { buildCommand: "npx tsup" } },
@@ -810,7 +834,7 @@ describe("build task execution", () => {
     });
     const task = createTask();
 
-    await (buildTask as any).task(ctx, task);
+    await (buildTask as any).run(ctx, task);
 
     // Without a workspace, command must run once per package
     expect(mockExec).toHaveBeenCalledTimes(2);

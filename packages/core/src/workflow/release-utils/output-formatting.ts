@@ -7,8 +7,7 @@ import {
   countRegistryTargets,
   ecosystemLabel,
   registryLabel,
-} from "../grouping.js";
-import type { NewListrParentTask } from "./publish-tasks.js";
+} from "../../tasks/grouping.js";
 import { getPackageName } from "./rollback-handlers.js";
 
 export const LIVE_COMMAND_OUTPUT_LINE_LIMIT = 4;
@@ -72,7 +71,7 @@ export function normalizeLiveCommandOutputLine(line: string): string {
 }
 
 export function createLiveCommandOutput(
-  task: Pick<NewListrParentTask<PubmContext>, "output">,
+  task: { output: string },
   command: string,
 ) {
   const recentLines: string[] = [];

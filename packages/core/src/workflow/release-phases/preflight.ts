@@ -3,21 +3,23 @@ import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
 import { registryCatalog } from "../../registry/catalog.js";
 import { JsrClient } from "../../registry/jsr.js";
-import { createListr } from "../../utils/listr.js";
+import {
+  collectPluginCredentials,
+  collectTokens,
+  type GhSecretEntry,
+  promptGhSecretsSync,
+} from "../../tasks/preflight.js";
 import { parseOwnerRepo } from "../../utils/parse-owner-repo.js";
 import { collectRegistries } from "../../utils/registries.js";
 import {
   injectPluginTokensToEnv,
   injectTokensToEnv,
 } from "../../utils/token.js";
+import { runReleaseOperations } from "../release-operation.js";
 import {
-  collectPluginCredentials,
-  collectTokens,
-  type GhSecretEntry,
-  promptGhSecretsSync,
-} from "../preflight.js";
-import { prerequisitesCheckTask } from "../prerequisites-check.js";
-import { requiredConditionsCheckTask } from "../required-conditions-check.js";
+  createPrerequisitesCheckOperation,
+  createRequiredConditionsCheckOperation,
+} from "./preflight-checks.js";
 
 export interface CleanupRef {
   current: (() => void) | undefined;
@@ -32,9 +34,9 @@ export async function runCiPreparePreflight(
   cleanupRef: CleanupRef,
 ): Promise<void> {
   // CI prepare: Collect tokens (interactive)
-  await createListr<PubmContext>({
+  await runReleaseOperations(ctx, {
     title: t("task.tokens.collecting"),
-    task: async (ctx, task): Promise<void> => {
+    run: async (ctx, task): Promise<void> => {
       const registries = collectRegistries(ctx.config);
       const tokens = await collectTokens(registries, task);
 
@@ -77,15 +79,17 @@ export async function runCiPreparePreflight(
       );
       ctx.runtime.promptEnabled = false;
     },
-  }).run(ctx);
+  });
 
-  await prerequisitesCheckTask({
-    skip: ctx.options.skipPrerequisitesCheck,
-  }).run(ctx);
+  await runReleaseOperations(
+    ctx,
+    createPrerequisitesCheckOperation(ctx.options.skipPrerequisitesCheck),
+  );
 
-  await requiredConditionsCheckTask({
-    skip: ctx.options.skipConditionsCheck,
-  }).run(ctx);
+  await runReleaseOperations(
+    ctx,
+    createRequiredConditionsCheckOperation(ctx.options.skipConditionsCheck),
+  );
 }
 
 export async function runLocalPreflight(
@@ -96,9 +100,10 @@ export async function runLocalPreflight(
   ) => () => void,
   cleanupRef: CleanupRef,
 ): Promise<void> {
-  await prerequisitesCheckTask({
-    skip: ctx.options.skipPrerequisitesCheck,
-  }).run(ctx);
+  await runReleaseOperations(
+    ctx,
+    createPrerequisitesCheckOperation(ctx.options.skipPrerequisitesCheck),
+  );
 
   // Collect tokens early for registries that require early auth
   const registries = collectRegistries(ctx.config);
@@ -108,9 +113,9 @@ export async function runLocalPreflight(
   });
 
   if (earlyAuthRegistries.length > 0 && ctx.runtime.promptEnabled) {
-    await createListr<PubmContext>({
+    await runReleaseOperations(ctx, {
       title: t("task.tokens.ensuring"),
-      task: async (_ctx, task): Promise<void> => {
+      run: async (_ctx, task): Promise<void> => {
         const tokens = await collectTokens(earlyAuthRegistries, task);
         cleanupRef.current = injectTokensToEnv(tokens);
         // TODO(extensibility): replace with descriptor-driven client injection (e.g., onTokenCollected callback)
@@ -118,15 +123,15 @@ export async function runLocalPreflight(
           JsrClient.token = tokens.jsr;
         }
       },
-    }).run(ctx);
+    });
   }
 
   // Collect plugin credentials
   const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
   if (pluginCreds.length > 0) {
-    await createListr<PubmContext>({
+    await runReleaseOperations(ctx, {
       title: t("task.tokens.collectingPlugin"),
-      task: async (ctx, task): Promise<void> => {
+      run: async (ctx, task): Promise<void> => {
         const pluginTokens = await collectPluginCredentials(
           pluginCreds,
           ctx.runtime.promptEnabled,
@@ -138,12 +143,13 @@ export async function runLocalPreflight(
           injectPluginTokensToEnv(pluginTokens, pluginCreds),
         );
       },
-    }).run(ctx);
+    });
   }
 
-  await requiredConditionsCheckTask({
-    skip: ctx.options.skipConditionsCheck,
-  }).run(ctx);
+  await runReleaseOperations(
+    ctx,
+    createRequiredConditionsCheckOperation(ctx.options.skipConditionsCheck),
+  );
 }
 
 export async function runCiPublishPluginCreds(
@@ -157,9 +163,9 @@ export async function runCiPublishPluginCreds(
   // CI publish: collect plugin credentials from env (no prompting)
   const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
   if (pluginCreds.length > 0) {
-    await createListr<PubmContext>({
+    await runReleaseOperations(ctx, {
       title: t("task.tokens.collectingPlugin"),
-      task: async (ctx, task): Promise<void> => {
+      run: async (ctx, task): Promise<void> => {
         const pluginTokens = await collectPluginCredentials(
           pluginCreds,
           false, // No prompting in CI
@@ -171,6 +177,6 @@ export async function runCiPublishPluginCreds(
           injectPluginTokensToEnv(pluginTokens, pluginCreds),
         );
       },
-    }).run(ctx);
+    });
   }
 }

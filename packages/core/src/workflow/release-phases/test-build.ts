@@ -1,5 +1,4 @@
 import path from "node:path";
-import type { Task } from "@pubm/runner";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
@@ -7,10 +6,14 @@ import { AbstractError } from "../../error.js";
 import { t } from "../../i18n/index.js";
 import { detectWorkspace } from "../../monorepo/workspace.js";
 import { exec } from "../../utils/exec.js";
+import type {
+  ReleaseOperation,
+  ReleaseOperationContext,
+} from "../release-operation.js";
 import {
   createLiveCommandOutput,
   shouldRenderLiveCommandOutput,
-} from "../runner-utils/output-formatting.js";
+} from "../release-utils/output-formatting.js";
 
 interface ResolvedExecution {
   label: string;
@@ -218,8 +221,7 @@ async function resolveExecutions(
 async function runExecution(
   execution: ResolvedExecution,
   ctx: PubmContext,
-  // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex
-  task: any,
+  task: ReleaseOperationContext,
 ): Promise<void> {
   const liveOutput = shouldRenderLiveCommandOutput(ctx)
     ? createLiveCommandOutput(task, execution.label)
@@ -238,24 +240,24 @@ async function runExecution(
   }
 }
 
-export function createTestTask(
+export function createTestOperation(
   hasPrepare: boolean,
   skipTests: boolean,
-): Task<PubmContext> {
+): ReleaseOperation {
   return {
     enabled: hasPrepare && !skipTests,
     title: t("task.test.title"),
-    task: async (ctx, task): Promise<void> => {
-      task.output = t("task.test.runningBeforeHooks");
+    run: async (ctx, operation): Promise<void> => {
+      operation.output = t("task.test.runningBeforeHooks");
       await ctx.runtime.pluginRunner.runHook("beforeTest", ctx);
 
       const executions = await resolveExecutions(ctx, "test");
       for (const execution of executions) {
-        task.title = t("task.test.titleWithCommand", {
+        operation.title = t("task.test.titleWithCommand", {
           command: execution.label,
         });
         try {
-          await runExecution(execution, ctx, task);
+          await runExecution(execution, ctx, operation);
         } catch (error) {
           throw new AbstractError(
             t("error.test.failedWithHint", {
@@ -267,33 +269,33 @@ export function createTestTask(
         }
       }
 
-      task.output = t("task.test.runningAfterHooks");
+      operation.output = t("task.test.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterTest", ctx);
-      task.output = t("task.test.completed", {
+      operation.output = t("task.test.completed", {
         command: executions.map((e) => e.label).join(", "),
       });
     },
   };
 }
 
-export function createBuildTask(
+export function createBuildOperation(
   hasPrepare: boolean,
   skipBuild: boolean,
-): Task<PubmContext> {
+): ReleaseOperation {
   return {
     enabled: hasPrepare && !skipBuild,
     title: t("task.build.title"),
-    task: async (ctx, task): Promise<void> => {
-      task.output = t("task.build.runningBeforeHooks");
+    run: async (ctx, operation): Promise<void> => {
+      operation.output = t("task.build.runningBeforeHooks");
       await ctx.runtime.pluginRunner.runHook("beforeBuild", ctx);
 
       const executions = await resolveExecutions(ctx, "build");
       for (const execution of executions) {
-        task.title = t("task.build.titleWithCommand", {
+        operation.title = t("task.build.titleWithCommand", {
           command: execution.label,
         });
         try {
-          await runExecution(execution, ctx, task);
+          await runExecution(execution, ctx, operation);
         } catch (error) {
           throw new AbstractError(
             t("error.build.failedWithHint", {
@@ -305,9 +307,9 @@ export function createBuildTask(
         }
       }
 
-      task.output = t("task.build.runningAfterHooks");
+      operation.output = t("task.build.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterBuild", ctx);
-      task.output = t("task.build.completed", {
+      operation.output = t("task.build.completed", {
         command: executions.map((e) => e.label).join(", "),
       });
     },

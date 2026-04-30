@@ -1,5 +1,4 @@
 import path from "node:path";
-import type { Task } from "@pubm/runner";
 import {
   buildChangelogEntries,
   deduplicateEntries,
@@ -11,36 +10,40 @@ import {
   readChangesets,
 } from "../../changeset/reader.js";
 import { createKeyResolver } from "../../changeset/resolve.js";
-import type { PubmContext } from "../../context.js";
 import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
-import { packageKey, pathFromKey } from "../../utils/package-key.js";
+import { pathFromKey } from "../../utils/package-key.js";
+import type { ReleaseOperation } from "../release-operation.js";
 import {
   formatVersionPlan,
   formatVersionSummary,
-} from "../runner-utils/output-formatting.js";
+} from "../release-utils/output-formatting.js";
 import {
-  formatTag,
-  getPackageName,
-  isReleaseExcluded,
   registerChangelogBackup,
   registerChangesetBackups,
   registerCommitRollback,
   registerManifestBackups,
   registerTagRollback,
   requireVersionPlan,
-} from "../runner-utils/rollback-handlers.js";
-import { writeVersions } from "../runner-utils/write-versions.js";
+} from "../release-utils/rollback-handlers.js";
+import { writeVersions } from "../release-utils/write-versions.js";
+import {
+  createWorkflowVersionMap,
+  createWorkflowVersionStepOutputFromParts,
+  createWorkflowVersionTagReferences,
+  pinWorkflowVersionStepOutput,
+  workflowPackageNameForKey,
+} from "../version-step-output.js";
 
-export function createVersionTask(
+export function createVersionOperation(
   hasPrepare: boolean,
   dryRun: boolean,
-): Task<PubmContext> {
+): ReleaseOperation {
   return {
     title: t("task.version.title"),
     enabled: hasPrepare,
-    task: async (ctx, task): Promise<void> => {
+    run: async (ctx, task): Promise<void> => {
       task.title = t("task.version.titleWithSummary", {
         summary: formatVersionSummary(ctx),
       });
@@ -49,6 +52,20 @@ export function createVersionTask(
       const git = new Git();
 
       const plan = requireVersionPlan(ctx);
+      const versionMap = createWorkflowVersionMap(ctx, plan);
+      const plannedTagReferences = createWorkflowVersionTagReferences(
+        ctx,
+        plan,
+      );
+      pinWorkflowVersionStepOutput(
+        ctx,
+        createWorkflowVersionStepOutputFromParts(
+          ctx,
+          plan,
+          versionMap,
+          plannedTagReferences,
+        ),
+      );
 
       task.output = formatVersionPlan(ctx);
 
@@ -58,16 +75,13 @@ export function createVersionTask(
       if (plan.mode === "single") {
         // Single package: write version for all config packages
         task.output = "Updating package manifest versions...";
-        const singleVersions = new Map(
-          ctx.config.packages.map((pkg) => [packageKey(pkg), plan.version]),
-        );
         if (dryRun) {
           return;
         }
 
         registerManifestBackups(ctx);
 
-        const replaced = await writeVersions(ctx, singleVersions);
+        const replaced = await writeVersions(ctx, new Map(versionMap));
 
         for (const replacedFile of replaced) {
           await git.stage(replacedFile);
@@ -98,7 +112,10 @@ export function createVersionTask(
         await git.stage(".");
 
         // Tag existence check
-        const tagName = `v${plan.version}`;
+        const tagReferences = createWorkflowVersionTagReferences(ctx, plan, {
+          strictQualifiedTags: true,
+        });
+        const tagName = tagReferences[0]?.tagName ?? `v${plan.version}`;
         if (await git.checkTagExist(tagName)) {
           if (ctx.runtime.promptEnabled) {
             const deleteTag = await task.prompt().run<boolean>({
@@ -122,8 +139,11 @@ export function createVersionTask(
         }
 
         task.output = t("task.version.creatingCommit", { tag: tagName });
-        const singleCommitMsg = `Version Packages\n\n${ctx.config.packages
-          .map((pkg) => `- ${pkg.name}: ${plan.version}`)
+        const singleCommitMsg = `Version Packages\n\n${versionMap
+          .map(
+            ([key, version]) =>
+              `- ${workflowPackageNameForKey(ctx, key)}: ${version}`,
+          )
           .join("\n")}`;
         const commit = await git.commit(singleCommitMsg);
         registerCommitRollback(ctx);
@@ -140,7 +160,7 @@ export function createVersionTask(
 
         registerManifestBackups(ctx);
 
-        const replaced = await writeVersions(ctx, plan.packages);
+        const replaced = await writeVersions(ctx, new Map(versionMap));
 
         for (const f of replaced) {
           await git.stage(f);
@@ -178,7 +198,10 @@ export function createVersionTask(
         task.output = "Staging version updates...";
         await git.stage(".");
 
-        const tagName = `v${plan.version}`;
+        const tagReferences = createWorkflowVersionTagReferences(ctx, plan, {
+          strictQualifiedTags: true,
+        });
+        const tagName = tagReferences[0]?.tagName ?? `v${plan.version}`;
         if (await git.checkTagExist(tagName)) {
           if (ctx.runtime.promptEnabled) {
             const deleteTag = await task.prompt().run<boolean>({
@@ -202,8 +225,11 @@ export function createVersionTask(
         }
 
         task.output = t("task.version.creatingCommit", { tag: tagName });
-        const fixedCommitMsg = `Version Packages\n\n${[...plan.packages]
-          .map(([key]) => `- ${getPackageName(ctx, key)}: ${plan.version}`)
+        const fixedCommitMsg = `Version Packages\n\n${versionMap
+          .map(
+            ([key, version]) =>
+              `- ${workflowPackageNameForKey(ctx, key)}: ${version}`,
+          )
           .join("\n")}`;
         const commit = await git.commit(fixedCommitMsg);
         registerCommitRollback(ctx);
@@ -220,7 +246,7 @@ export function createVersionTask(
 
         registerManifestBackups(ctx);
 
-        const replaced = await writeVersions(ctx, plan.packages);
+        const replaced = await writeVersions(ctx, new Map(versionMap));
 
         for (const f of replaced) {
           await git.stage(f);
@@ -270,10 +296,13 @@ export function createVersionTask(
         task.output = "Staging version updates...";
         await git.stage(".");
 
+        const tagReferences = createWorkflowVersionTagReferences(ctx, plan, {
+          strictQualifiedTags: true,
+        });
+
         // Tag existence checks for all packages
-        for (const [key, pkgVersion] of plan.packages) {
-          if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-          const tagName = formatTag(ctx, key, pkgVersion);
+        for (const reference of tagReferences) {
+          const tagName = reference.tagName;
           if (await git.checkTagExist(tagName)) {
             if (ctx.runtime.promptEnabled) {
               const deleteTag = await task.prompt().run<boolean>({
@@ -298,8 +327,10 @@ export function createVersionTask(
         }
 
         // Commit with "Version Packages" message
-        const commitMsg = `Version Packages\n\n${[...plan.packages]
-          .map(([key, ver]) => `- ${getPackageName(ctx, key)}: ${ver}`)
+        const commitMsg = `Version Packages\n\n${versionMap
+          .map(
+            ([key, ver]) => `- ${workflowPackageNameForKey(ctx, key)}: ${ver}`,
+          )
           .join("\n")}`;
         task.output = t("task.version.creatingCommitGeneric");
         const commit = await git.commit(commitMsg);
@@ -307,11 +338,9 @@ export function createVersionTask(
 
         // Create per-package tags
         task.output = t("task.version.creatingTags");
-        for (const [key, pkgVersion] of plan.packages) {
-          if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-          const tag = formatTag(ctx, key, pkgVersion);
-          await git.createTag(tag, commit);
-          registerTagRollback(ctx, tag);
+        for (const reference of tagReferences) {
+          await git.createTag(reference.tagName, commit);
+          registerTagRollback(ctx, reference.tagName);
         }
       }
     },

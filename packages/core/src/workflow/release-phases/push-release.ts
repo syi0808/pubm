@@ -1,10 +1,13 @@
 import { rmSync } from "node:fs";
 import process from "node:process";
-import type { Task } from "@pubm/runner";
 import SemVer from "semver";
-import type { PubmContext } from "../../context.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
+import {
+  createGitHubRelease,
+  deleteGitHubRelease,
+} from "../../tasks/github-release.js";
+import { buildReleaseBody, truncateForUrl } from "../../tasks/release-notes.js";
 import {
   resolveGitHubToken,
   saveGitHubToken,
@@ -12,28 +15,27 @@ import {
 import { openUrl } from "../../utils/open-url.js";
 import { pathFromKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
-import { createGitHubRelease, deleteGitHubRelease } from "../github-release.js";
-import { buildReleaseBody, truncateForUrl } from "../release-notes.js";
-import { prepareReleaseAssets } from "../runner-utils/manifest-handling.js";
-import { formatVersionSummary } from "../runner-utils/output-formatting.js";
+import type { ReleaseOperation } from "../release-operation.js";
+import { prepareReleaseAssets } from "../release-utils/manifest-handling.js";
+import { formatVersionSummary } from "../release-utils/output-formatting.js";
 import {
   getPackageName,
   isReleaseExcluded,
   registerRemoteTagRollback,
   requireVersionPlan,
-} from "../runner-utils/rollback-handlers.js";
-import { pushViaPr } from "../runner-utils/version-pr.js";
+} from "../release-utils/rollback-handlers.js";
+import { pushViaPr } from "../release-utils/version-pr.js";
 
 const { prerelease } = SemVer;
 
-export function createPushTask(
+export function createPushOperation(
   hasPrepare: boolean,
   dryRun: boolean,
-): Task<PubmContext> {
+): ReleaseOperation {
   return {
     title: t("task.push.title"),
     enabled: hasPrepare && !dryRun,
-    task: async (ctx, task): Promise<void> => {
+    run: async (ctx, task): Promise<void> => {
       task.output = t("task.push.runningBeforeHooks");
       await ctx.runtime.pluginRunner.runHook("beforePush", ctx);
       const git = new Git();
@@ -72,16 +74,16 @@ export function createPushTask(
   };
 }
 
-export function createReleaseTask(
+export function createGitHubReleaseOperation(
   hasPublish: boolean,
   dryRun: boolean,
   mode: string,
   skipReleaseDraft: boolean,
-): Task<PubmContext> {
+): ReleaseOperation {
   return {
     enabled: hasPublish && !skipReleaseDraft && !dryRun,
     title: t("task.release.title"),
-    task: async (ctx, task): Promise<void> => {
+    run: async (ctx, task): Promise<void> => {
       const plan = requireVersionPlan(ctx);
 
       // Resolve GitHub token from env or secure store
@@ -90,7 +92,7 @@ export function createReleaseTask(
 
       if (tokenResult) {
         process.env.GITHUB_TOKEN = tokenResult.token;
-      } else if (mode !== "ci") {
+      } else if (mode !== "ci" && ctx.runtime.promptEnabled) {
         // Local/interactive mode: prompt for token or fall back to browser
         const answer = await task.prompt().run<string>({
           type: "select",
@@ -232,6 +234,15 @@ export function createReleaseTask(
             draft: !!ctx.options.releaseDraft,
           });
           if (result) {
+            if (result.releaseId) {
+              const releaseId = result.releaseId;
+              ctx.runtime.rollback.add({
+                label: t("task.release.deleteRelease", { tag }),
+                fn: async () => {
+                  await deleteGitHubRelease(releaseId);
+                },
+              });
+            }
             const assetHooks = ctx.runtime.pluginRunner.collectAssetHooks();
             if (assetHooks.uploadAssets) {
               const additional = await assetHooks.uploadAssets(
@@ -248,15 +259,6 @@ export function createReleaseTask(
               );
             }
             task.output = t("task.release.created", { url: result.releaseUrl });
-            if (result.releaseId) {
-              const releaseId = result.releaseId;
-              ctx.runtime.rollback.add({
-                label: t("task.release.deleteRelease", { tag }),
-                fn: async () => {
-                  await deleteGitHubRelease(releaseId);
-                },
-              });
-            }
             await ctx.runtime.pluginRunner.runAfterReleaseHook(ctx, result);
           } else {
             task.output = t("task.release.alreadyExists", { tag });

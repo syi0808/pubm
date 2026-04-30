@@ -6,10 +6,13 @@ import type { PubmContext, VersionPlan } from "../../context.js";
 import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
+import {
+  closeVersionPr,
+  createVersionPr,
+} from "../../tasks/create-version-pr.js";
+import { buildVersionPrBody } from "../../tasks/version-pr-body.js";
 import { packageKey, pathFromKey } from "../../utils/package-key.js";
 import { parseOwnerRepo } from "../../utils/parse-owner-repo.js";
-import { closeVersionPr, createVersionPr } from "../create-version-pr.js";
-import { buildVersionPrBody } from "../version-pr-body.js";
 import {
   registerRemoteTagRollback,
   requireVersionPlan,

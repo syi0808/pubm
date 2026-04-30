@@ -1,4 +1,5 @@
 import type { PubmContext } from "../context.js";
+import type { WorkflowVersionStepOutput } from "./version-step-output.js";
 
 export interface WorkflowEvent {
   type: string;
@@ -48,6 +49,7 @@ export interface WorkflowReleaseRecord {
   stepCompleted(step: WorkflowStep, result: WorkflowStepResult): void;
   stepFailed(step: WorkflowStep, error: unknown): void;
   versionSummary(): string | undefined;
+  versionStepOutput(): WorkflowVersionStepOutput | undefined;
 }
 
 export type SignalHandler = () => void | Promise<void>;

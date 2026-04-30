@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createLiveCommandOutput } from "../../../src/tasks/runner-utils/output-formatting.js";
+import { createLiveCommandOutput } from "../../../../src/workflow/release-utils/output-formatting.js";
 
 function createOutputRecorder() {
   const history: string[] = [];

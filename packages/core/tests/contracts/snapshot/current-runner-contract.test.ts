@@ -49,71 +49,42 @@ vi.mock("../../../src/i18n/index.js", () => ({
   },
 }));
 
-vi.mock("../../../src/tasks/prerequisites-check.js", () => ({
-  prerequisitesCheckTask: vi.fn(() => ({
+vi.mock("../../../src/workflow/release-phases/preflight-checks.js", () => ({
+  createPrerequisitesCheckOperation: vi.fn(() => ({
+    title: "Prerequisites",
     run: vi.fn(async () => {
       mockState.record({ kind: "preflight", target: "prerequisites" });
     }),
   })),
-}));
-
-vi.mock("../../../src/tasks/required-conditions-check.js", () => ({
-  requiredConditionsCheckTask: vi.fn(() => ({
+  createRequiredConditionsCheckOperation: vi.fn(() => ({
+    title: "Required conditions",
     run: vi.fn(async () => {
       mockState.record({ kind: "preflight", target: "conditions" });
     }),
   })),
 }));
 
+vi.mock("../../../src/workflow/release-phases/preflight.js", () => ({
+  runCiPublishPluginCreds: vi.fn(async () => {
+    mockState.record({ kind: "preflight", target: "ci-plugin-creds" });
+  }),
+}));
+
 vi.mock("../../../src/utils/listr.js", () => {
-  const runTasks = async (tasks: any[], ctx: PubmContext): Promise<void> => {
-    for (const task of tasks) {
-      const enabled =
-        typeof task.enabled === "function"
-          ? await task.enabled(ctx)
-          : task.enabled;
-      if (enabled === false) continue;
-
-      const skip =
-        typeof task.skip === "function" ? await task.skip(ctx) : task.skip;
-      if (skip) continue;
-
-      const wrapper = {
-        title: task.title ?? "",
-        output: "",
-        newListr: vi.fn((subtasks: any[]) => ({
-          run: async (innerCtx: PubmContext = ctx) =>
-            runTasks(Array.isArray(subtasks) ? subtasks : [subtasks], innerCtx),
-        })),
-      };
-
-      const result = task.task ? await task.task(ctx, wrapper) : undefined;
-      if (result && typeof result.run === "function") {
-        await result.run(ctx);
-      }
-    }
-  };
-
   return {
     createCiListrOptions: vi.fn(() => ({ renderer: "ci" })),
-    createListr: vi.fn((tasks: any[]) => ({
-      run: async (ctx: PubmContext) =>
-        runTasks(Array.isArray(tasks) ? tasks : [tasks], ctx),
-    })),
+    createListr: vi.fn(() => {
+      throw new Error("Snapshot contract must not use createListr");
+    }),
   };
 });
 
-vi.mock("../../../src/tasks/runner.js", () => {
+vi.mock("../../../src/workflow/release-utils/write-versions.js", () => {
   const packageKey = (pkg: ResolvedPackageConfig) =>
     `${pkg.path}::${pkg.ecosystem}`;
 
   const manifestPath = (ctx: PubmContext, pkg: ResolvedPackageConfig) =>
     path.join(ctx.cwd, pkg.path, "package.json");
-
-  const manifestVersion = (ctx: PubmContext, pkg: ResolvedPackageConfig) => {
-    const manifest = JSON.parse(readFileSync(manifestPath(ctx, pkg), "utf-8"));
-    return manifest.version;
-  };
 
   return {
     writeVersions: vi.fn(
@@ -138,33 +109,42 @@ vi.mock("../../../src/tasks/runner.js", () => {
         return touched;
       },
     ),
-    collectPublishTasks: vi.fn(async (ctx: PubmContext) => [
+  };
+});
+
+vi.mock("../../../src/workflow/release-phases/publish.js", () => {
+  const manifestPath = (ctx: PubmContext, pkg: ResolvedPackageConfig) =>
+    path.join(ctx.cwd, pkg.path, "package.json");
+
+  const manifestVersion = (ctx: PubmContext, pkg: ResolvedPackageConfig) => {
+    const manifest = JSON.parse(readFileSync(manifestPath(ctx, pkg), "utf-8"));
+    return manifest.version;
+  };
+
+  return {
+    collectPublishOperations: vi.fn(async (ctx: PubmContext) => [
       {
         title: "Publish snapshot packages",
-        task: (_ctx: PubmContext, task: any) =>
-          task.newListr(
-            ctx.config.packages.map((pkg) => ({
-              title: `Publish ${pkg.name}`,
-              task: async () => {
-                const version = manifestVersion(ctx, pkg);
-                const target = `npm:${pkg.name}@${version}`;
-                mockState.record({
-                  kind: "registry.publish",
-                  target,
-                  detail: { tag: ctx.runtime.tag, version },
-                });
-                if (mockState.state.failPublish) {
-                  throw new Error("Injected snapshot publish failure");
-                }
-              },
-            })),
-          ),
+        run: async () => {
+          for (const pkg of ctx.config.packages) {
+            const version = manifestVersion(ctx, pkg);
+            const target = `npm:${pkg.name}@${version}`;
+            mockState.record({
+              kind: "registry.publish",
+              target,
+              detail: { tag: ctx.runtime.tag, version },
+            });
+            if (mockState.state.failPublish) {
+              throw new Error("Injected snapshot publish failure");
+            }
+          }
+        },
       },
     ]),
   };
 });
 
-vi.mock("../../../src/tasks/runner-utils/manifest-handling.js", () => ({
+vi.mock("../../../src/workflow/release-utils/manifest-handling.js", () => ({
   resolveWorkspaceProtocols: vi.fn(async (ctx: PubmContext) => {
     const versionsByName = new Map(
       ctx.config.packages.map((pkg) => {

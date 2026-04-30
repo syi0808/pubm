@@ -139,7 +139,7 @@ describe("CLI runner wiring smoke contract", () => {
       );
       const output = `${result.stdout}\n${result.stderr}`;
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(0);
       expect(output).not.toContain("Cannot find the latest tag");
       expect(output).not.toContain("Cannot parse the latest tag");
       expect(output).toContain("v1.0.0");

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIsCI = vi.hoisted(() => ({ value: false }));
+const mockRegistryTaskFactory = vi.hoisted(() => vi.fn());
 vi.mock("std-env", () => ({
   get isCI() {
     return mockIsCI.value;
@@ -11,24 +12,32 @@ vi.mock("../../../src/utils/snapshot.js", () => ({
   generateSnapshotVersion: vi.fn(() => "1.0.0-snapshot-20260330T120000"),
 }));
 
-vi.mock("../../../src/tasks/prerequisites-check.js", () => ({
-  prerequisitesCheckTask: vi.fn().mockReturnValue({
+vi.mock("../../../src/workflow/release-phases/preflight-checks.js", () => ({
+  createPrerequisitesCheckOperation: vi.fn((skip) => ({
+    skip,
+    title: "Prerequisites",
     run: vi.fn().mockResolvedValue(undefined),
-  }),
+  })),
+  createRequiredConditionsCheckOperation: vi.fn((skip) => ({
+    skip,
+    title: "Required conditions",
+    run: vi.fn().mockResolvedValue(undefined),
+  })),
 }));
 
-vi.mock("../../../src/tasks/required-conditions-check.js", () => ({
-  requiredConditionsCheckTask: vi.fn().mockReturnValue({
-    run: vi.fn().mockResolvedValue(undefined),
-  }),
+vi.mock("../../../src/workflow/release-phases/preflight.js", () => ({
+  runCiPublishPluginCreds: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../../src/tasks/runner.js", () => ({
+vi.mock("../../../src/workflow/release-utils/write-versions.js", () => ({
   writeVersions: vi.fn().mockResolvedValue(undefined),
-  collectPublishTasks: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("../../../src/tasks/runner-utils/manifest-handling.js", () => ({
+vi.mock("../../../src/workflow/release-phases/publish.js", () => ({
+  collectPublishOperations: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../../../src/workflow/release-utils/manifest-handling.js", () => ({
   resolveWorkspaceProtocols: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -38,7 +47,6 @@ vi.mock("../../../src/monorepo/resolve-workspace.js", () => ({
 
 vi.mock("../../../src/utils/listr.js", () => ({
   createListr: vi.fn(),
-  createCiListrOptions: vi.fn(() => ({ renderer: "ci-renderer" })),
 }));
 
 vi.mock("../../../src/utils/exec.js", () => ({
@@ -75,6 +83,7 @@ vi.mock("../../../src/registry/catalog.js", () => ({
         return {
           key: "npm",
           label: "npm",
+          taskFactory: mockRegistryTaskFactory,
           resolveDisplayName: vi.fn(async () => ["my-package"]),
         };
       }
@@ -105,82 +114,44 @@ import type { PubmContext } from "../../../src/context.js";
 import { Git } from "../../../src/git.js";
 import { restoreManifests } from "../../../src/monorepo/resolve-workspace.js";
 import { PluginRunner } from "../../../src/plugin/runner.js";
-import { prerequisitesCheckTask } from "../../../src/tasks/prerequisites-check.js";
-import { requiredConditionsCheckTask } from "../../../src/tasks/required-conditions-check.js";
-import {
-  collectPublishTasks,
-  writeVersions,
-} from "../../../src/tasks/runner.js";
-import { resolveWorkspaceProtocols } from "../../../src/tasks/runner-utils/manifest-handling.js";
 import {
   applySnapshotFilter,
   buildSnapshotVersionPlan,
   runSnapshotPipeline,
 } from "../../../src/tasks/snapshot-runner.js";
-import { createCiListrOptions, createListr } from "../../../src/utils/listr.js";
+import type { ResolvedOptions } from "../../../src/types/options.js";
+import { exec } from "../../../src/utils/exec.js";
+import { createListr } from "../../../src/utils/listr.js";
 import { generateSnapshotVersion } from "../../../src/utils/snapshot.js";
+import { runCiPublishPluginCreds } from "../../../src/workflow/release-phases/preflight.js";
+import {
+  createPrerequisitesCheckOperation,
+  createRequiredConditionsCheckOperation,
+} from "../../../src/workflow/release-phases/preflight-checks.js";
+import { collectPublishOperations } from "../../../src/workflow/release-phases/publish.js";
+import { resolveWorkspaceProtocols } from "../../../src/workflow/release-utils/manifest-handling.js";
+import { writeVersions } from "../../../src/workflow/release-utils/write-versions.js";
 import { makeTestContext } from "../../helpers/make-context.js";
 
 const mockedGenerateSnapshotVersion = vi.mocked(generateSnapshotVersion);
-const mockedPrerequisitesCheckTask = vi.mocked(prerequisitesCheckTask);
-const mockedRequiredConditionsCheckTask = vi.mocked(
-  requiredConditionsCheckTask,
+const mockedCreatePrerequisitesCheckOperation = vi.mocked(
+  createPrerequisitesCheckOperation,
+);
+const mockedCreateRequiredConditionsCheckOperation = vi.mocked(
+  createRequiredConditionsCheckOperation,
 );
 const mockedCreateListr = vi.mocked(createListr);
-const mockedCreateCiListrOptions = vi.mocked(createCiListrOptions);
+const mockedExec = vi.mocked(exec);
+const mockedRunCiPublishPluginCreds = vi.mocked(runCiPublishPluginCreds);
 const mockedWriteVersions = vi.mocked(writeVersions);
-const mockedCollectPublishTasks = vi.mocked(collectPublishTasks);
+const mockedCollectPublishOperations = vi.mocked(collectPublishOperations);
 const mockedResolveWorkspaceProtocols = vi.mocked(resolveWorkspaceProtocols);
 const mockedRestoreManifests = vi.mocked(restoreManifests);
 const mockedGit = vi.mocked(Git);
 
-function _makeMockTaskRunner() {
-  return {
-    run: vi.fn(async (ctx: PubmContext) => {
-      // runs all tasks by default
-      for (const task of capturedTasks) {
-        if (typeof task.enabled === "boolean" && !task.enabled) continue;
-        if (typeof task.skip === "boolean" && task.skip) continue;
-        const mockTask = {
-          output: "",
-          title: task.title || "",
-          newListr: vi.fn(() => ({ run: vi.fn() })),
-        };
-        if (task.task) {
-          await task.task(ctx, mockTask);
-        }
-      }
-    }),
-  };
-}
-
-let capturedTasks: any[] = [];
-
-function setupCreateListrMock() {
-  mockedCreateListr.mockImplementation((...args: any[]) => {
-    const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-    capturedTasks = tasks;
-    return {
-      run: vi.fn(async (ctx: PubmContext) => {
-        for (const task of tasks) {
-          if (typeof task.enabled === "boolean" && !task.enabled) continue;
-          if (typeof task.skip === "boolean" && task.skip) continue;
-          const mockTask = {
-            output: "",
-            title: task.title || "",
-            newListr: vi.fn(() => ({ run: vi.fn() })),
-          };
-          if (task.task) {
-            await task.task(ctx, mockTask);
-          }
-        }
-      }),
-    } as any;
-  });
-}
-
 function makeSnapshotContext(
   overrides: Partial<PubmContext["config"]> = {},
+  options: Partial<ResolvedOptions> = {},
 ): PubmContext {
   return makeTestContext({
     config: {
@@ -197,6 +168,7 @@ function makeSnapshotContext(
       versioning: "fixed",
       ...overrides,
     },
+    options,
     runtime: {
       pluginRunner: new PluginRunner([]),
     },
@@ -424,14 +396,9 @@ describe("runSnapshotPipeline", () => {
       "1.0.0-snapshot-20260330T120000",
     );
 
-    const mockRun = vi.fn().mockResolvedValue(undefined);
-    mockedPrerequisitesCheckTask.mockReturnValue({ run: mockRun } as any);
-    mockedRequiredConditionsCheckTask.mockReturnValue({
-      run: mockRun,
-    } as any);
-
+    mockedExec.mockResolvedValue({ stdout: "", stderr: "", code: 0 } as any);
     mockedWriteVersions.mockResolvedValue(undefined);
-    mockedCollectPublishTasks.mockResolvedValue([]);
+    mockedCollectPublishOperations.mockResolvedValue([]);
     mockedResolveWorkspaceProtocols.mockResolvedValue(undefined);
     mockedRestoreManifests.mockReset();
 
@@ -443,9 +410,6 @@ describe("runSnapshotPipeline", () => {
         push: vi.fn().mockResolvedValue(undefined),
       } as any;
     });
-
-    setupCreateListrMock();
-    capturedTasks = [];
   });
 
   afterEach(() => {
@@ -453,15 +417,15 @@ describe("runSnapshotPipeline", () => {
     mockIsCI.value = false;
   });
 
-  it("calls prerequisitesCheckTask and requiredConditionsCheckTask", async () => {
+  it("runs workflow-native prerequisites and required conditions checks", async () => {
     const ctx = makeSnapshotContext();
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(mockedPrerequisitesCheckTask).toHaveBeenCalledWith({ skip: false });
-    expect(mockedRequiredConditionsCheckTask).toHaveBeenCalledWith({
-      skip: false,
-    });
+    expect(mockedCreatePrerequisitesCheckOperation).toHaveBeenCalledWith(false);
+    expect(mockedCreateRequiredConditionsCheckOperation).toHaveBeenCalledWith(
+      false,
+    );
   });
 
   it("sets versionPlan and tag on ctx.runtime", async () => {
@@ -498,22 +462,22 @@ describe("runSnapshotPipeline", () => {
     process.stdin.isTTY = originalIsTTY;
   });
 
-  it("uses createCiListrOptions when isCI is true", async () => {
+  it("collects CI publish plugin credentials when snapshot runs in CI mode", async () => {
     mockIsCI.value = true;
-    const ctx = makeSnapshotContext();
+    const ctx = makeSnapshotContext({}, { mode: "ci" });
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(mockedCreateCiListrOptions).toHaveBeenCalled();
+    expect(mockedRunCiPublishPluginCreds).toHaveBeenCalled();
   });
 
-  it("does not use createCiListrOptions when isCI is false", async () => {
+  it("does not collect CI publish plugin credentials in local mode", async () => {
     mockIsCI.value = false;
     const ctx = makeSnapshotContext();
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(mockedCreateCiListrOptions).not.toHaveBeenCalled();
+    expect(mockedRunCiPublishPluginCreds).not.toHaveBeenCalled();
   });
 
   it("applies filter to packages when provided", async () => {
@@ -547,97 +511,73 @@ describe("runSnapshotPipeline", () => {
     expect(ctx.runtime.versionPlan?.mode).toBe("single");
   });
 
-  it("creates tasks list with test, build, snapshot, and tag tasks", async () => {
+  it("does not use legacy createListr or registry taskFactory orchestration for snapshot publishing", async () => {
     const ctx = makeSnapshotContext();
+    const registryOperation = vi.fn().mockResolvedValue(undefined);
+    mockedCollectPublishOperations.mockResolvedValueOnce([
+      { title: "Publish package", run: registryOperation },
+    ]);
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(mockedCreateListr).toHaveBeenCalled();
-    const tasks = mockedCreateListr.mock.calls[0]?.[0] as any[];
-    expect(tasks).toHaveLength(4);
+    expect(mockedCreateListr).not.toHaveBeenCalled();
+    expect(mockRegistryTaskFactory).not.toHaveBeenCalled();
+    expect(registryOperation).toHaveBeenCalledWith(
+      ctx,
+      expect.objectContaining({
+        runOperations: expect.any(Function),
+      }),
+    );
   });
 
-  it("skips test task when skipTests is true", async () => {
+  it("skips test operation when skipTests is true", async () => {
     const ctx = makeSnapshotContext();
-
-    // Set up createListr to track task skip values
-    let capturedSkipValues: boolean[] = [];
-    mockedCreateListr.mockImplementationOnce((...args: any[]) => {
-      const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-      capturedSkipValues = tasks.map((t) => t.skip);
-      return { run: vi.fn().mockResolvedValue(undefined) } as any;
-    });
 
     await runSnapshotPipeline(ctx, {
       tag: "snapshot",
       skipTests: true,
     });
 
-    expect(capturedSkipValues[0]).toBe(true);
+    expect(mockedExec).not.toHaveBeenCalledWith(
+      "npm",
+      ["run", ctx.options.testScript],
+      expect.anything(),
+    );
   });
 
-  it("skips build task when skipBuild is true", async () => {
+  it("skips build operation when skipBuild is true", async () => {
     const ctx = makeSnapshotContext();
-
-    let capturedSkipValues: boolean[] = [];
-    mockedCreateListr.mockImplementationOnce((...args: any[]) => {
-      const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-      capturedSkipValues = tasks.map((t) => t.skip);
-      return { run: vi.fn().mockResolvedValue(undefined) } as any;
-    });
 
     await runSnapshotPipeline(ctx, {
       tag: "snapshot",
       skipBuild: true,
     });
 
-    expect(capturedSkipValues[1]).toBe(true);
+    expect(mockedExec).not.toHaveBeenCalledWith(
+      "npm",
+      ["run", ctx.options.buildScript],
+      expect.anything(),
+    );
   });
 
-  it("disables tag task when dryRun is true", async () => {
+  it("skips tag operation when dryRun is true", async () => {
     const ctx = makeSnapshotContext();
-
-    let capturedEnabledValues: (boolean | undefined)[] = [];
-    mockedCreateListr.mockImplementationOnce((...args: any[]) => {
-      const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-      capturedEnabledValues = tasks.map((t) => t.enabled);
-      return { run: vi.fn().mockResolvedValue(undefined) } as any;
-    });
 
     await runSnapshotPipeline(ctx, {
       tag: "snapshot",
       dryRun: true,
     });
 
-    // The 4th task (createTag) should be disabled
-    expect(capturedEnabledValues[3]).toBe(false);
+    expect(mockedGit).not.toHaveBeenCalled();
   });
 
-  it("enables tag task when dryRun is false", async () => {
-    const ctx = makeSnapshotContext();
-
-    let capturedEnabledValues: (boolean | undefined)[] = [];
-    mockedCreateListr.mockImplementationOnce((...args: any[]) => {
-      const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-      capturedEnabledValues = tasks.map((t) => t.enabled);
-      return { run: vi.fn().mockResolvedValue(undefined) } as any;
-    });
-
-    await runSnapshotPipeline(ctx, {
-      tag: "snapshot",
-      dryRun: false,
-    });
-
-    expect(capturedEnabledValues[3]).toBe(true);
-  });
-
-  it("snapshot task calls writeVersions and collectPublishTasks", async () => {
+  it("snapshot task calls writeVersions and collectPublishOperations", async () => {
     const ctx = makeSnapshotContext();
 
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
     expect(mockedWriteVersions).toHaveBeenCalled();
-    expect(mockedCollectPublishTasks).toHaveBeenCalledWith(ctx);
+    expect(mockedCollectPublishOperations).toHaveBeenCalledWith(ctx);
   });
 
   it("restores original versions in snapshot task finally block", async () => {
@@ -659,7 +599,7 @@ describe("runSnapshotPipeline", () => {
 
   it("restores original versions even when publish fails", async () => {
     const ctx = makeSnapshotContext();
-    mockedCollectPublishTasks.mockRejectedValueOnce(
+    mockedCollectPublishOperations.mockRejectedValueOnce(
       new Error("publish failed"),
     );
     const writeVersionsCalls: Map<string, string>[] = [];
@@ -783,7 +723,7 @@ describe("runSnapshotPipeline", () => {
     consoleSpy.mockRestore();
   });
 
-  it("snapshot task label shows package count for independent plan", async () => {
+  it("snapshot publish operation writes every independent package version", async () => {
     mockedGenerateSnapshotVersion
       .mockReturnValueOnce("1.0.0-snap")
       .mockReturnValueOnce("2.0.0-snap");
@@ -810,32 +750,11 @@ describe("runSnapshotPipeline", () => {
       versioning: "independent",
     });
 
-    // Capture the task to check its label
-    let snapshotTask: any;
-    mockedCreateListr.mockImplementationOnce((...args: any[]) => {
-      const tasks = Array.isArray(args[0]) ? args[0] : [args[0]];
-      snapshotTask = tasks[2]; // 3rd task is the snapshot task
-      capturedTasks = tasks;
-      return {
-        run: vi.fn(async (ctx: PubmContext) => {
-          for (const task of tasks) {
-            if (typeof task.enabled === "boolean" && !task.enabled) continue;
-            if (typeof task.skip === "boolean" && task.skip) continue;
-            const mockTask = {
-              output: "",
-              title: task.title || "",
-              newListr: vi.fn(() => ({ run: vi.fn() })),
-            };
-            if (task.task) await task.task(ctx, mockTask);
-          }
-        }),
-      } as any;
-    });
-
     await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    // Verify the snapshot task was called (task exists)
-    expect(snapshotTask).toBeDefined();
+    const snapshotVersionsArg = mockedWriteVersions.mock.calls[0]?.[1];
+    expect(snapshotVersionsArg?.get("packages/a::js")).toBe("1.0.0-snap");
+    expect(snapshotVersionsArg?.get("packages/b::js")).toBe("2.0.0-snap");
   });
 
   it("snapshot task for fixed monorepo uses plan.packages map", async () => {
@@ -958,7 +877,7 @@ describe("runSnapshotPipeline", () => {
     mockedResolveWorkspaceProtocols.mockImplementation(async (c) => {
       (c as PubmContext).runtime.workspaceBackups = backups;
     });
-    mockedCollectPublishTasks.mockRejectedValueOnce(
+    mockedCollectPublishOperations.mockRejectedValueOnce(
       new Error("publish failed"),
     );
 

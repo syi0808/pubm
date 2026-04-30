@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PubmContext } from "../../../src/context.js";
-import { registerRemoteTagRollback } from "../../../src/tasks/runner-utils/rollback-handlers.js";
+import type { PubmContext } from "../../../../src/context.js";
+import { registerRemoteTagRollback } from "../../../../src/workflow/release-utils/rollback-handlers.js";
 
 function createMockContext(
   plan: PubmContext["runtime"]["versionPlan"],

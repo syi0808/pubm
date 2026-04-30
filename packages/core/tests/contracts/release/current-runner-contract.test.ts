@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createContext } from "../../../src/context.js";
 import { RollbackTracker } from "../../../src/utils/rollback.js";
 import type {
-  ReleaseBehaviorRecord,
   ReleaseBehaviorScenario,
   ReleaseScenarioPackage,
   SemanticLedger,
@@ -44,6 +43,7 @@ const mockState = vi.hoisted(() => {
     isCI: false,
     world: undefined as ContractWorld | undefined,
     runnerSigintHandler: undefined as undefined | (() => void | Promise<void>),
+    sigintSkipConfirmTarget: undefined as string | undefined,
   };
 
   const toPosix = (value: string) => value.replace(/\\/g, "/");
@@ -185,6 +185,30 @@ vi.mock("@pubm/runner", () => ({
     run: async (ctx: any) =>
       mockState.runTaskList(Array.isArray(tasks) ? tasks : [tasks], ctx),
   })),
+  prompt: vi.fn(async (options: Record<string, unknown>) => {
+    const world = mockState.currentWorld();
+    const response =
+      world.promptResponses.length > 0 ? world.promptResponses.shift() : "";
+    const promptRecord = {
+      name: "prompt.requested",
+      target: "workflow.prompt",
+      type: typeof options.type === "string" ? options.type : undefined,
+      message:
+        typeof options.message === "string" ? options.message : undefined,
+      response,
+    };
+    world.ledger.prompts.push({
+      ...promptRecord,
+    });
+    if (response && typeof response === "object" && "throws" in response) {
+      world.ledger.prompts[world.ledger.prompts.length - 1] = {
+        ...promptRecord,
+        cancelled: true,
+      };
+      throw new Error(String((response as { throws: unknown }).throws));
+    }
+    return response;
+  }),
 }));
 
 vi.mock("../../../src/i18n/index.js", () => ({
@@ -202,6 +226,7 @@ vi.mock("../../../src/utils/ui.js", () => ({
     chalk: {
       bold: (s: string) => s,
       blueBright: (s: string) => s,
+      cyan: (s: string) => s,
       dim: (s: string) => s,
       green: (s: string) => s,
       red: (s: string) => s,
@@ -313,6 +338,10 @@ vi.mock("../../../src/ecosystem/catalog.js", async () => {
     async resolveBuildCommand(script: string) {
       return { cmd: "bun", args: ["run", script] };
     }
+
+    async validateScript() {
+      return undefined;
+    }
   }
 
   class MockRustEcosystem {
@@ -379,6 +408,10 @@ vi.mock("../../../src/ecosystem/catalog.js", async () => {
 
     async resolveBuildCommand(script: string) {
       return { cmd: "cargo", args: script.split(" ") };
+    }
+
+    async validateScript() {
+      return undefined;
     }
   }
 
@@ -471,6 +504,116 @@ vi.mock("../../../src/registry/catalog.js", async () => {
     };
   }
 
+  function packageNameForPath(packagePath: string): string {
+    const packageDir = nodePath.join(
+      mockState.currentWorld().root,
+      packagePath,
+    );
+    const packageJsonPath = nodePath.join(packageDir, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      return JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")).name;
+    }
+
+    const cargo = fs.readFileSync(
+      nodePath.join(packageDir, "Cargo.toml"),
+      "utf-8",
+    );
+    return cargo.match(/name = "([^"]+)"/)?.[1] ?? packagePath;
+  }
+
+  function manifestVersionForPath(packagePath: string): string {
+    const packageDir = nodePath.join(
+      mockState.currentWorld().root,
+      packagePath,
+    );
+    const packageJsonPath = nodePath.join(packageDir, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      return JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")).version;
+    }
+
+    const cargo = fs.readFileSync(
+      nodePath.join(packageDir, "Cargo.toml"),
+      "utf-8",
+    );
+    return cargo.match(/version = "([^"]+)"/)?.[1] ?? "";
+  }
+
+  function registryTarget(
+    registry: string,
+    packagePath: string,
+    version: string,
+  ): string {
+    return `${registry}:${packageNameForPath(packagePath)}@${version}`;
+  }
+
+  function createPackageRegistry(registry: string, packagePath: string) {
+    const publishToRegistry = async (tag = "latest") => {
+      const version = manifestVersionForPath(packagePath);
+      const target = registryTarget(registry, packagePath, version);
+
+      if (mockState.currentWorld().failAt === `registry.publish:${target}`) {
+        throw new Error(`Injected failure at ${target}`);
+      }
+
+      mockState.currentWorld().registry.published.set(target, version);
+      mockState.recordSideEffect({
+        kind: "registry.publish",
+        target,
+        detail: { tag, version },
+      });
+
+      return true;
+    };
+
+    const registryObject: Record<string, unknown> = {
+      packageName: packageNameForPath(packagePath),
+      packagePath,
+      registry,
+      supportsUnpublish: registry !== "jsr",
+      isVersionPublished: vi.fn(async (version: string) =>
+        mockState
+          .currentWorld()
+          .registry.published.has(
+            registryTarget(registry, packagePath, version),
+          ),
+      ),
+      isPublished: vi.fn(async () => false),
+      hasPermission: vi.fn(async () => true),
+      isPackageNameAvailable: vi.fn(async () => true),
+      distTags: vi.fn(async () => []),
+      getRequirements: vi.fn(() => ({ requiredManifest: "manifest" })),
+      checkAvailability: vi.fn(async () => undefined),
+      publish: vi.fn(async (first?: string, second?: string) =>
+        publishToRegistry(second ?? first ?? "latest"),
+      ),
+      dryRunPublish: vi.fn(async (tag = "latest") => {
+        const version = manifestVersionForPath(packagePath);
+        mockState.recordSideEffect({
+          kind: "registry.dryRun",
+          target: registryTarget(registry, packagePath, version),
+          detail: { tag, version },
+        });
+      }),
+      unpublish: vi.fn(async (_name: string, version: string) => {
+        const target = registryTarget(registry, packagePath, version);
+        mockState.currentWorld().registry.published.delete(target);
+        mockState.currentWorld().registry.unpublished.push(target);
+        mockState.recordSideEffect({
+          kind: registry === "crates" ? "registry.yank" : "registry.unpublish",
+          target,
+        });
+      }),
+    };
+
+    if (registry !== "jsr" && registry !== "crates") {
+      registryObject.publishProvenance = vi.fn(async (tag = "latest") =>
+        publishToRegistry(tag),
+      );
+    }
+
+    return registryObject;
+  }
+
   const descriptor = (
     key: string,
     ecosystem: "js" | "rust",
@@ -480,7 +623,12 @@ vi.mock("../../../src/registry/catalog.js", async () => {
     ecosystem,
     label,
     tokenConfig: {
-      envVar: `${key.toUpperCase()}_TOKEN`,
+      envVar:
+        key === "npm"
+          ? "NODE_AUTH_TOKEN"
+          : key === "crates"
+            ? "CARGO_REGISTRY_TOKEN"
+            : `${key.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_TOKEN`,
       dbKey: `${key}-token`,
       ghSecretName: `${key.toUpperCase()}_TOKEN`,
       promptLabel: `${key} token`,
@@ -506,8 +654,10 @@ vi.mock("../../../src/registry/catalog.js", async () => {
       ctx.packages
         ?.filter((pkg) => pkg.registries.includes(key))
         .map((pkg) => pkg.name) ?? [],
-    connector: vi.fn(),
-    factory: vi.fn(),
+    connector: vi.fn(() => ({ ping: vi.fn(async () => undefined) })),
+    factory: vi.fn((packagePath: string) =>
+      Promise.resolve(createPackageRegistry(key, packagePath)),
+    ),
   });
 
   const descriptors = new Map([
@@ -537,7 +687,7 @@ vi.mock("../../../src/registry/catalog.js", async () => {
   };
 });
 
-vi.mock("../../../src/tasks/phases/preflight.js", () => ({
+vi.mock("../../../src/workflow/release-phases/preflight.js", () => ({
   runLocalPreflight: vi.fn(async () => {
     mockState.currentWorld().ledger.events.push({ name: "preflight.local" });
   }),
@@ -865,8 +1015,28 @@ vi.mock("../../../src/git.js", () => ({
       return "main";
     }
 
+    async dryFetch() {
+      return "";
+    }
+
+    async fetch() {}
+
+    async revisionDiffsCount() {
+      return 0;
+    }
+
+    async pull() {}
+
     async revParse(ref: string) {
       return `sha-${ref}`;
+    }
+
+    async latestTag() {
+      return undefined;
+    }
+
+    async version() {
+      return "git version 2.45.0";
     }
 
     async latestCommit() {
@@ -1078,6 +1248,26 @@ function buildVersionPlan(scenario: ReleaseBehaviorScenario) {
 function createRollbackTracker(ledger: SemanticLedger): RollbackTracker<any> {
   const rollback = new RollbackTracker<any>();
   const add = rollback.add.bind(rollback);
+  const labelMatchesRegistryTarget = (label: string, target: string) => {
+    if (label.includes(target)) return true;
+
+    const payloadMatch = label.match(/\{.+\}$/);
+    if (!payloadMatch) return false;
+    try {
+      const payload = JSON.parse(payloadMatch[0]) as {
+        name?: string;
+        version?: string;
+      };
+      return (
+        typeof payload.name === "string" &&
+        typeof payload.version === "string" &&
+        target.endsWith(`${payload.name}@${payload.version}`)
+      );
+    } catch {
+      return false;
+    }
+  };
+
   rollback.add = (action) => {
     const label = mockState.toPosix(action.label);
     ledger.compensations.push({ label, confirm: !!action.confirm });
@@ -1089,6 +1279,11 @@ function createRollbackTracker(ledger: SemanticLedger): RollbackTracker<any> {
     add({
       ...action,
       fn: async (ctx: any) => {
+        const skipConfirmTarget = mockState.state.sigintSkipConfirmTarget;
+        if (action.confirm && skipConfirmTarget) {
+          return;
+        }
+
         await action.fn(ctx);
         if (label.startsWith("Restore ")) {
           const relativePath = label.replace(/^Restore /, "");
@@ -1103,6 +1298,20 @@ function createRollbackTracker(ledger: SemanticLedger): RollbackTracker<any> {
         }
       },
     });
+
+    const sigintAfter = mockState.currentWorld().sigintAfter;
+    if (sigintAfter?.startsWith("registry.publish:")) {
+      const target = sigintAfter.replace(/^registry\.publish:/, "");
+      if (labelMatchesRegistryTarget(label, target)) {
+        mockState.currentWorld().sigintAfter = undefined;
+        mockState.state.sigintSkipConfirmTarget = target;
+        ledger.events.push({
+          name: "process.exit",
+          detail: { code: 130 },
+        });
+        throw new Error(`Injected SIGINT after ${target}`);
+      }
+    }
   };
   return rollback;
 }
@@ -1176,59 +1385,30 @@ async function executeCurrentRunner(
     return;
   }
 
-  const { runLegacyRunnerOracle } = await import("./legacy-runner-oracle.js");
-  await executeReleaseRunner(scenario, world, () => runLegacyRunnerOracle(ctx));
+  const entry = new URL(
+    "../../../src/workflow/runner-entry.ts",
+    import.meta.url,
+  ).href;
+  world.ledger.events.push({
+    name: "workflowRunner.enter",
+    target: scenario.id,
+    detail: { entry },
+  });
+  const imported = await import(entry);
+  const execute = imported.run ?? imported.default;
+  if (typeof execute !== "function") {
+    throw new Error("Workflow runner entry must export run or default.");
+  }
+  await executeReleaseRunner(scenario, world, () => execute(ctx));
+  world.ledger.events.push({
+    name: "workflowRunner.exit",
+    target: scenario.id,
+  });
 }
 
 const currentRunnerAdapter: ReleaseExecutionAdapter = {
-  name: "current-runner",
+  name: "workflow-runner",
   execute: executeCurrentRunner,
-};
-
-const compatibilityShimAdapter: ReleaseExecutionAdapter = {
-  name: "compatibility-shim",
-  execute: async (ctx, scenario, world) => {
-    if (scenario.mode === "snapshot") {
-      await executeCurrentRunner(ctx, scenario, world);
-      return;
-    }
-
-    world.ledger.events.push({
-      name: "compatibilityShim.enter",
-      target: scenario.id,
-    });
-    const { run } = await import("../../../src/tasks/runner.js");
-    await executeReleaseRunner(scenario, world, () => run(ctx));
-    world.ledger.events.push({
-      name: "compatibilityShim.exit",
-      target: scenario.id,
-    });
-  },
-};
-
-const migratedRunnerAdapter: ReleaseExecutionAdapter = {
-  name: "migrated-runner",
-  execute: async (ctx, scenario, world) => {
-    const entry = new URL(
-      "../../../src/workflow/runner-entry.ts",
-      import.meta.url,
-    ).href;
-    world.ledger.events.push({
-      name: "migratedRunner.enter",
-      target: scenario.id,
-      detail: { entry },
-    });
-    const imported = await import(entry);
-    const execute = imported.run ?? imported.default;
-    if (typeof execute !== "function") {
-      throw new Error("Migrated runner entry must export run or default.");
-    }
-    await executeReleaseRunner(scenario, world, () => execute(ctx));
-    world.ledger.events.push({
-      name: "migratedRunner.exit",
-      target: scenario.id,
-    });
-  },
 };
 
 async function runScenario(
@@ -1245,6 +1425,7 @@ async function runScenario(
   const world = createWorld(root, scenario);
   mockState.state.world = world;
   mockState.state.isCI = world.isCI;
+  mockState.state.sigintSkipConfirmTarget = undefined;
 
   const config = {
     versioning:
@@ -1311,6 +1492,22 @@ async function runScenario(
   } else {
     delete process.env.GITHUB_TOKEN;
   }
+  const registryEnvKeys = [
+    "NODE_AUTH_TOKEN",
+    "JSR_TOKEN",
+    "CARGO_REGISTRY_TOKEN",
+    "REGISTRY_INTERNAL_TEST_NPM_TOKEN",
+  ];
+  const originalRegistryEnv = new Map(
+    registryEnvKeys.map((key) => [key, process.env[key]]),
+  );
+  for (const key of registryEnvKeys) {
+    process.env[key] = "registry-token";
+  }
+  process.env.NODE_AUTH_TOKEN = "node-token";
+  process.env.JSR_TOKEN = "jsr-token";
+  process.env.CARGO_REGISTRY_TOKEN = "cargo-token";
+  process.env.REGISTRY_INTERNAL_TEST_NPM_TOKEN = "private-token";
 
   const ctx = createContext(config as any, options as any, root);
   ctx.runtime.versionPlan = buildVersionPlan(scenario) as any;
@@ -1342,6 +1539,8 @@ async function runScenario(
       });
     }),
     collectAssetHooks: vi.fn(() => ({})),
+    collectChecks: vi.fn(() => []),
+    collectCredentials: vi.fn(() => []),
   } as any;
 
   const originalIsTTY = process.stdin.isTTY;
@@ -1353,6 +1552,13 @@ async function runScenario(
   try {
     await adapter.execute(ctx, scenario, world);
   } finally {
+    for (const [key, value] of originalRegistryEnv) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
     Object.defineProperty(process.stdin, "isTTY", {
       configurable: true,
       value: originalIsTTY,
@@ -1475,8 +1681,44 @@ function expectFinalState(
   expect(world.ledger.finalState).toMatchObject(expected);
 }
 
+function normalizeRegistryRollbackLabel(
+  world: ContractWorld,
+  label: string,
+): string {
+  const npmMatch = label.match(/^task\.npm\.rollbackBurned (\{.+\})$/);
+  const cratesMatch = label.match(/^task\.crates\.rollbackBurned (\{.+\})$/);
+  const match = npmMatch ?? cratesMatch;
+  if (!match) return label;
+
+  try {
+    const payload = JSON.parse(match[1]) as {
+      name?: string;
+      version?: string;
+    };
+    if (!payload.name || !payload.version) return label;
+
+    const suffix = `${payload.name}@${payload.version}`;
+    const targets = [
+      ...world.registry.published.keys(),
+      ...world.registry.unpublished,
+    ];
+    const target = targets.find((item) => {
+      if (!item.endsWith(suffix)) return false;
+      if (cratesMatch) return item.startsWith("crates:");
+      return !item.startsWith("crates:") && !item.startsWith("jsr:");
+    });
+    if (!target) return label;
+
+    return `${cratesMatch ? "yank" : "unpublish"} ${target}`;
+  } catch {
+    return label;
+  }
+}
+
 function compensationLabels(world: ContractWorld): string[] {
-  return world.ledger.compensations.map((item) => item.label);
+  return world.ledger.compensations.map((item) =>
+    normalizeRegistryRollbackLabel(world, item.label),
+  );
 }
 
 function expectCompensationLabels(
@@ -1490,29 +1732,6 @@ function expectCompensationLabels(
   } else {
     expect(actual).toEqual(expect.arrayContaining([...expected]));
   }
-}
-
-function buildReleaseBehaviorRecord(
-  scenario: ReleaseBehaviorScenario,
-  world: ContractWorld,
-): ReleaseBehaviorRecord {
-  return {
-    scenarioId: scenario.id,
-    versionPlan: scenario.versionPlan,
-    events: world.ledger.events.filter(
-      (event) =>
-        !event.name.startsWith("step.") &&
-        !event.name.startsWith("compatibilityShim.") &&
-        !event.name.startsWith("migratedRunner."),
-    ),
-    sideEffects: contractSideEffects(world),
-    compensations: world.ledger.compensations,
-    promptDecisions: world.ledger.prompts,
-    releaseContexts: world.ledger.releaseContexts,
-    releaseRequests: world.ledger.releaseRequests,
-    changesetState: world.ledger.changesetState,
-    finalState: world.ledger.finalState,
-  };
 }
 
 describe("release behavior contract against the current runner", () => {
@@ -1543,7 +1762,12 @@ describe("release behavior contract against the current runner", () => {
     mockState.state.world = undefined;
     mockState.state.isCI = false;
     mockState.state.runnerSigintHandler = undefined;
+    mockState.state.sigintSkipConfirmTarget = undefined;
     delete process.env.GITHUB_TOKEN;
+    delete process.env.NODE_AUTH_TOKEN;
+    delete process.env.JSR_TOKEN;
+    delete process.env.CARGO_REGISTRY_TOKEN;
+    delete process.env.REGISTRY_INTERNAL_TEST_NPM_TOKEN;
   });
 
   it("characterizes local direct publish decisions, side effects, and compensations", async () => {
@@ -1651,6 +1875,11 @@ describe("release behavior contract against the current runner", () => {
   });
 
   it.each([
+    "local-direct-single-npm-jsr",
+    "local-dry-run-no-side-effects",
+    "ci-publish-manifest-version",
+    "local-fixed-monorepo-npm-jsr",
+    "local-independent-monorepo-tags",
     "local-independent-crates-order-and-yank",
     "local-private-registry-boundary",
     "local-push-fallback-version-pr",
@@ -1714,51 +1943,5 @@ describe("release behavior contract against the current runner", () => {
         detail: { code: 130 },
       });
     }
-  });
-
-  it.each([
-    "local-independent-crates-order-and-yank",
-    "local-private-registry-boundary",
-    "local-push-fallback-version-pr",
-  ])("keeps compatibility shim behavior equal to the current runner for %s", async (scenarioId) => {
-    const testScenario = scenario(scenarioId);
-    const currentWorld = await runScenario(testScenario, currentRunnerAdapter);
-    const currentRecord = buildReleaseBehaviorRecord(
-      testScenario,
-      currentWorld,
-    );
-    rmSync(currentWorld.root, { recursive: true, force: true });
-
-    const shimWorld = await runScenario(testScenario, compatibilityShimAdapter);
-    const shimRecord = buildReleaseBehaviorRecord(testScenario, shimWorld);
-
-    expect(shimRecord).toEqual(currentRecord);
-  });
-
-  it.each([
-    "local-independent-crates-order-and-yank",
-    "local-private-registry-boundary",
-    "local-push-fallback-version-pr",
-    "partial-publish-failure-rollback",
-    "github-release-create-fails-after-push",
-  ])("keeps migrated runner behavior equal to the current runner for %s", async (scenarioId) => {
-    const testScenario = scenario(scenarioId);
-    const currentWorld = await runScenario(testScenario, currentRunnerAdapter);
-    const currentRecord = buildReleaseBehaviorRecord(
-      testScenario,
-      currentWorld,
-    );
-    rmSync(currentWorld.root, { recursive: true, force: true });
-
-    const migratedWorld = await runScenario(
-      testScenario,
-      migratedRunnerAdapter,
-    );
-    const migratedRecord = buildReleaseBehaviorRecord(
-      testScenario,
-      migratedWorld,
-    );
-
-    expect(migratedRecord).toEqual(currentRecord);
   });
 });

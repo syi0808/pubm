@@ -1,28 +1,26 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import micromatch from "micromatch";
 import type { Changeset } from "../../changeset/parser.js";
 import type { PubmContext } from "../../context.js";
 import { ecosystemCatalog } from "../../ecosystem/catalog.js";
-import { AbstractError } from "../../error.js";
 import { Git } from "../../git.js";
 import { t } from "../../i18n/index.js";
-import { packageKey, pathFromKey } from "../../utils/package-key.js";
+import { pathFromKey } from "../../utils/package-key.js";
+import {
+  formatWorkflowReleaseTag,
+  isWorkflowReleaseExcluded,
+  workflowPackageNameForKey,
+} from "../version-step-output.js";
 
 export function isReleaseExcluded(
   config: { excludeRelease?: string[] },
   pkgPath: string,
 ): boolean {
-  const patterns = config.excludeRelease;
-  if (!patterns?.length) return false;
-  return micromatch.isMatch(pkgPath, patterns);
+  return isWorkflowReleaseExcluded(config, pkgPath);
 }
 
 export function getPackageName(ctx: PubmContext, key: string): string {
-  return (
-    ctx.config.packages.find((p) => packageKey(p) === key)?.name ??
-    pathFromKey(key)
-  );
+  return workflowPackageNameForKey(ctx, key);
 }
 
 export function formatTag(
@@ -30,20 +28,7 @@ export function formatTag(
   key: string,
   version: string,
 ): string {
-  const pkgName = getPackageName(ctx, key);
-  const qualified =
-    ctx.config.registryQualifiedTags || ctx.runtime.registryQualifiedTags;
-  if (qualified) {
-    const pkg = ctx.config.packages.find((p) => packageKey(p) === key);
-    const registry = pkg?.registries[0];
-    if (!registry) {
-      throw new AbstractError(
-        `Package "${pkgName}" has no registries defined but registryQualifiedTags is enabled`,
-      );
-    }
-    return `${registry}/${pkgName}@${version}`;
-  }
-  return `${pkgName}@${version}`;
+  return formatWorkflowReleaseTag(ctx, key, version);
 }
 
 export function requireVersionPlan(ctx: PubmContext) {
