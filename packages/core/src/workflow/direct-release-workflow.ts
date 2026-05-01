@@ -88,6 +88,12 @@ function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
   return ctx.options.phase === undefined ? "full" : "split-ci";
 }
 
+function shouldAllowInteractiveReleasePrompt(
+  profile: WorkflowReleaseProfile,
+): boolean {
+  return profile === "full" || !isCI;
+}
+
 function createExecutableWorkflowStep<I, O>(
   definition: ExecutableWorkflowStepDefinition<I, O>,
 ): WorkflowStep<I, O> {
@@ -461,7 +467,7 @@ export class DirectReleaseWorkflow implements Workflow {
       hasPublish,
       dryRun,
       profile === "split-ci" && hasPrepare,
-      profile === "full",
+      shouldAllowInteractiveReleasePrompt(profile),
       !!ctx.options.skipReleaseDraft,
       ctx,
     );
@@ -527,7 +533,7 @@ export class DirectReleaseWorkflow implements Workflow {
         hasPublish,
         dryRun,
         profile === "split-ci" && hasPrepare,
-        profile === "full",
+        shouldAllowInteractiveReleasePrompt(profile),
         !!ctx.options.skipReleaseDraft,
         ctx,
       );

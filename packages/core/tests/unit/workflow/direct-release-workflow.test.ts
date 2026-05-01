@@ -383,7 +383,7 @@ describe("DirectReleaseWorkflow", () => {
     expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
       true,
       false,
-      false,
+      true,
       false,
     );
     expect(services.events.emit).toHaveBeenCalledWith({
@@ -404,6 +404,26 @@ describe("DirectReleaseWorkflow", () => {
         .mocked(services.record.stepCompleted)
         .mock.calls.map(([step]) => step.id),
     ).toEqual(["publish", "release"]);
+  });
+
+  it("keeps release token prompts disabled for CI publish phase", async () => {
+    envMocks.isCI = true;
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext(
+      { mode: "single", packageKey: "packages/a::js", version: "1.2.3" },
+      { phase: "publish" },
+    );
+    const services = createMockServices();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await workflow.run(ctx, services);
+
+    expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
+      true,
+      false,
+      false,
+      false,
+    );
   });
 
   it("records the version output pinned by workflow execution", async () => {
