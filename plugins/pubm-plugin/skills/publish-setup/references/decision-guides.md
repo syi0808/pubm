@@ -10,8 +10,8 @@ Choose how CI publishes get triggered:
 |---|---|---|
 | Single package | Tag-based (`v*` push) | One tag = one version = one publish. Simple and reliable |
 | Monorepo (fixed versioning) | Tag-based (`v*` push) | All packages share one version, so one tag works |
-| Monorepo (independent versioning) | Commit-based ("Version Packages") | Multiple package tags may be created, so the version commit is the reliable trigger |
-| Any | Manual (`workflow_dispatch` with prepared ref input) | Useful as a supplementary trigger for re-runs of a prepared release |
+| Monorepo (independent versioning) | Commit-based ("Version Packages") | Multiple packages have different versions; no single tag represents the release |
+| Any | Manual (`workflow_dispatch`) | Useful as a supplementary trigger for re-runs or controlled releases |
 
 **Key constraint:** Commit-based triggers require **merge commit** or **fast-forward merge** strategy. Squash merges rewrite the commit message and break the `startsWith(github.event.head_commit.message, 'Version Packages')` condition.
 
@@ -40,40 +40,48 @@ Choose how CI publishes get triggered:
 
 **Rule of thumb:** If `pubm inspect packages` shows the correct packages with correct registries, you don't need a config file.
 
-## Release Path Strategy
+## Phase Strategy
 
-Choose one of the two supported current release paths before generating scripts or CI workflows:
+How to split work between local and CI:
 
-### Direct Release
+### Option A: Local standalone (no CI)
 
 ```bash
-pubm  # runs the full Direct Release
+pubm  # runs both prepare and publish locally
 ```
 
-**Best for:** Simple projects, single-maintainer projects, and teams that want one trusted local environment or controlled job to run the full release.
+**Best for:** Simple projects, single developer, no cross-platform builds needed.
 
-### Split CI Release
+### Option B: Prepare local + Publish in CI
 
 ```bash
-# Local: Prepare for CI publish validates, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages
+# Local: runs tests, builds, bumps versions, creates tags, pushes
 pubm --phase prepare
 
-# CI: Publish prepared release reads manifest versions, publishes packages, and creates GitHub Releases
-pubm --phase publish
+# CI: triggered by tag/commit, publishes to registries
+pubm --mode ci --phase publish
 ```
 
 **Best for:** Most projects. Version control stays local, publishing is automated and reproducible.
 
-### Unsupported current scope
+### Option C: Full CI automation
 
-Fully automated CI, release approval PRs, and release-pr flows are future `pubm-actions` scope. Do not recommend them as a current CLI or setup-skill path.
+```bash
+# CI prepare job: triggered by changeset merge
+pubm --mode ci --phase prepare
+
+# CI publish job: triggered by version commit/tag
+pubm --mode ci --phase publish
+```
+
+**Best for:** Teams with strict release processes, projects using changesets with automated version PRs.
 
 ### Decision flow
 
-1. Need CI for platform-specific builds, protected publishing secrets, or reproducible publish jobs? → **Split CI Release**
-2. Want one local or controlled job to run versioning, publishing, and GitHub Releases together? → **Direct Release**
-3. Default recommendation for teams → **Split CI Release**
-4. Default recommendation for simple solo projects → **Direct Release**
+1. Do you need cross-platform builds? → **Option B or C** (CI handles the build matrix)
+2. Do you use changesets with a team? → **Option C** (fully automated)
+3. Solo developer, simple project? → **Option A** (local is fine)
+4. Default recommendation → **Option B** (balance of control and automation)
 
 ## Multi-Ecosystem Projects
 

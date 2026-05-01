@@ -60,12 +60,12 @@ export default defineConfig({
 
 `pubm` inspects manifest files in each package directory and maps them to registries:
 
-| Manifest                   | Inferred registry |
-| -------------------------- | ----------------- |
-| `package.json`             | `npm`             |
-| `jsr.json`                 | `jsr`             |
-| `deno.json` / `deno.jsonc` | `jsr`             |
-| `Cargo.toml`               | `crates`          |
+| Manifest | Inferred registry |
+|---|---|
+| `package.json` | `npm` |
+| `jsr.json` | `jsr` |
+| `deno.json` / `deno.jsonc` | `jsr` |
+| `Cargo.toml` | `crates` |
 
 Two additional rules apply for npm:
 
@@ -156,7 +156,7 @@ Skip dry-run validation during the prepare phase. Useful when workspace crates h
 - Type: `boolean`
 - Default: `true`
 
-Whether created GitHub Releases should be drafts. Use the `--skip-release` CLI flag when a run should skip GitHub Release creation entirely.
+Whether the publish flow should create a GitHub Release. When disabled, the release step is skipped entirely.
 
 ### `excludeRelease`
 
@@ -205,7 +205,7 @@ Available template variables:
 - Type: `boolean`
 - Default: `false`
 
-Create a pull request for the version bump commit instead of pushing directly to the base branch. This is existing config surface for guarded version pushes, not a recommended release workflow choice. Choose between Direct Release and Split CI Release in [Release Workflows](/pubm/guides/release-workflows/).
+Create a pull request for the version bump commit instead of pushing directly to the base branch. When enabled, pubm creates a `pubm/version-packages-*` branch, pushes it, and opens a PR. The release workflow triggers normally when the PR is merged.
 
 Can also be set as a fallback: pubm automatically falls back to PR mode when a direct push to a protected branch fails.
 
@@ -220,10 +220,10 @@ When set to `true`, git tags in independent versioning mode are prefixed with th
 export default defineConfig({
   registryQualifiedTags: true,
   packages: [
-    { path: "js", registries: ["npm"] },
-    { path: "crates/cli", registries: ["crates"] },
+    { path: 'js', registries: ['npm'] },
+    { path: 'crates/cli', registries: ['crates'] },
   ],
-});
+})
 ```
 
 Without this option, both packages named `my-tool` would produce the tag `my-tool@1.0.0`. With it enabled, tags become `npm/my-tool@1.0.0` and `crates/my-tool@1.0.0`.
@@ -241,10 +241,10 @@ CLI output language. Can also be set via the `--locale` flag or the `PUBM_LOCALE
 
 Controls rollback behavior when publish fails.
 
-| Key                         | Type                      | Default        | Description                                                                                                                                                         |
-| --------------------------- | ------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `strategy`                  | `"individual"` \| `"all"` | `"individual"` | Rollback granularity. Replaces the deprecated top-level `rollbackStrategy`.                                                                                         |
-| `dangerouslyAllowUnpublish` | `boolean`                 | `false`        | Allow registry unpublish/yank during rollback in non-TTY (CI) environments. Even after unpublish, npm permanently reserves the version number: it cannot be reused. |
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `strategy` | `"individual"` \| `"all"` | `"individual"` | Rollback granularity. Replaces the deprecated top-level `rollbackStrategy`. |
+| `dangerouslyAllowUnpublish` | `boolean` | `false` | Allow registry unpublish/yank during rollback in non-TTY (CI) environments. Even after unpublish, npm permanently reserves the version number: it cannot be reused. |
 
 ```ts
 export default defineConfig({
@@ -265,8 +265,6 @@ The current runtime behavior is:
 - versioning-related config such as `versioning`, `fixed`, and `linked` is used by changeset flows
 - CLI flags still control per-run publish behavior
 - registries are inferred from manifests; `packages[].registries` overrides that inference
-
-`phase` is runtime state, not project config. Select Split CI Release phases with `pubm --phase prepare` or `pubm --phase publish`; omit `--phase` for Direct Release.
 
 For a one-off publish to a specific registry:
 
@@ -331,10 +329,7 @@ packages: [
     path: "packages/a",
     registries: [
       "npm",
-      {
-        url: "https://npm.internal.com",
-        token: { envVar: "INTERNAL_NPM_TOKEN" },
-      },
+      { url: "https://npm.internal.com", token: { envVar: "INTERNAL_NPM_TOKEN" } },
     ],
   },
 ];
@@ -430,7 +425,10 @@ import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   versioning: "fixed",
-  packages: [{ path: "packages/web" }, { path: "packages/server" }],
+  packages: [
+    { path: "packages/web" },
+    { path: "packages/server" },
+  ],
 });
 ```
 
@@ -441,7 +439,10 @@ import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
   versioning: "independent",
-  packages: [{ path: "packages/sdk" }, { path: "crates/sdk-core" }],
+  packages: [
+    { path: "packages/sdk" },
+    { path: "crates/sdk-core" },
+  ],
 });
 ```
 
@@ -453,7 +454,9 @@ export default defineConfig({
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  releaseAssets: ["platforms/*/bin/mytool"],
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
 });
 ```
 
@@ -469,7 +472,9 @@ export default defineConfig({
   // Use zip for Windows, tar.gz everywhere else
   compress: { windows: "zip" },
 
-  releaseAssets: ["platforms/*/bin/mytool"],
+  releaseAssets: [
+    "platforms/*/bin/mytool",
+  ],
 });
 ```
 
@@ -487,15 +492,15 @@ releaseAssets: [
 
   // Object: explicit per-group settings
   {
-    packagePath: "packages/cli", // Monorepo: link to this package's release
+    packagePath: "packages/cli",    // Monorepo: link to this package's release
     files: [
       "platforms/*/bin/mytool",
       { path: "dist/*.dmg", compress: false, name: "MyTool-{version}-{os}" },
     ],
-    compress: "tar.gz", // Group default
-    name: "{name}-{platform}", // Group name template
+    compress: "tar.gz",             // Group default
+    name: "{name}-{platform}",      // Group name template
   },
-];
+]
 ```
 
 Read the [Release Assets](/pubm/guides/release-assets/) guide for the full compress cascade rules, name template variables, and use-case examples.
@@ -511,11 +516,11 @@ Read the [Release Assets](/pubm/guides/release-assets/) guide for the full compr
 
 Controls which sources `pubm changesets version` reads when calculating version bumps.
 
-| Value          | Behavior                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `"all"`        | Uses changesets for packages that have them. Falls back to conventional commits for packages with no pending changesets. |
-| `"changesets"` | Only reads `.pubm/changesets/` files. Conventional commits are ignored.                                                  |
-| `"commits"`    | Only reads conventional commit messages. Changeset files are ignored.                                                    |
+| Value | Behavior |
+|-------|----------|
+| `"all"` | Uses changesets for packages that have them. Falls back to conventional commits for packages with no pending changesets. |
+| `"changesets"` | Only reads `.pubm/changesets/` files. Conventional commits are ignored. |
+| `"commits"` | Only reads conventional commit messages. Changeset files are ignored. |
 
 ### `conventionalCommits`
 
@@ -536,11 +541,11 @@ export default defineConfig({
 
 The default mapping is:
 
-| Commit type | Bump    |
-| ----------- | ------- |
-| `feat`      | `minor` |
-| `fix`       | `patch` |
-| `perf`      | `patch` |
+| Commit type | Bump |
+|-------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
 
 Commits with `BREAKING CHANGE` in the footer or a `!` suffix (e.g. `feat!:`) always produce a `major` bump regardless of the type mapping.
 

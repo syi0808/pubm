@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: Commands, flags, and release workflow controls for the pubm CLI.
+description: Commands, flags, and execution modes for the pubm CLI.
 ---
 
 This reference is grouped by command:
@@ -20,20 +20,20 @@ Running `pubm` without a version argument follows the interactive path. You choo
 
 ## Command overview
 
-| Command                     | Purpose                                                                                                    |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `pubm [version]`            | Run the publish pipeline using a release type or explicit semver.                                          |
-| `pubm snapshot [tag]`       | Publish snapshot versions for preview and testing.                                                         |
-| `pubm init`                 | Interactive setup wizard for package detection, config, changesets, CI workflows, and coding agent skills. |
-| `pubm setup-skills`         | Download and install coding agent skills (Claude Code, Codex, Gemini).                                     |
-| `pubm secrets sync`         | Push locally stored tokens into GitHub Secrets through `gh`.                                               |
-| `pubm sync --discover`      | Scan the repository for version references outside manifest files.                                         |
-| `pubm update`               | Self-update the CLI to the latest published version.                                                       |
-| `pubm changesets add`       | Create a new changeset.                                                                                    |
-| `pubm changesets status`    | Show pending changesets and their bump impact.                                                             |
-| `pubm changesets version`   | Consume changesets and write new versions.                                                                 |
-| `pubm changesets changelog` | Render changelog text from pending changesets.                                                             |
-| `pubm changesets migrate`   | Migrate from `.changeset/` to `.pubm/`.                                                                    |
+| Command | Purpose |
+|---------|---------|
+| `pubm [version]` | Run the publish pipeline using a release type or explicit semver. |
+| `pubm snapshot [tag]` | Publish snapshot versions for preview and testing. |
+| `pubm init` | Interactive setup wizard for package detection, config, changesets, CI workflows, and coding agent skills. |
+| `pubm setup-skills` | Download and install coding agent skills (Claude Code, Codex, Gemini). |
+| `pubm secrets sync` | Push locally stored tokens into GitHub Secrets through `gh`. |
+| `pubm sync --discover` | Scan the repository for version references outside manifest files. |
+| `pubm update` | Self-update the CLI to the latest published version. |
+| `pubm changesets add` | Create a new changeset. |
+| `pubm changesets status` | Show pending changesets and their bump impact. |
+| `pubm changesets version` | Consume changesets and write new versions. |
+| `pubm changesets changelog` | Render changelog text from pending changesets. |
+| `pubm changesets migrate` | Migrate from `.changeset/` to `.pubm/`. |
 
 ## Top-level publish command
 
@@ -52,8 +52,7 @@ pubm [version] [flags]
 If you omit the version:
 
 - interactive terminals can prompt for the next version
-- non-interactive Direct Release runs need an explicit version or a configured version source
-- Split CI Release publish reads versions already prepared by `pubm --phase prepare`
+- CI runs require the version to be resolved non-interactively
 
 ### Interactive usage
 
@@ -79,43 +78,52 @@ pubm --tag beta
 
 ## Publish flags
 
-| Flag                            | Default   | Description                                                                                                                          |
-| ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `-d, --dry-run`                 | `false`   | Show the task graph without mutating Git state or publishing.                                                                        |
-| `--phase <phase>`               | -         | Run one Split CI Release phase: `prepare` (Prepare for CI publish) or `publish` (Publish prepared release). Omit for Direct Release. |
-| `--release-draft`               | `false`   | Create a draft GitHub Release instead of a published one.                                                                            |
-| `-b, --branch <name>`           | `main`    | Require the current branch to match before releasing.                                                                                |
-| `-a, --any-branch`              | `false`   | Disable the branch guard for the current run.                                                                                        |
-| `-t, --tag <name>`              | `latest`  | Use a specific dist-tag such as `beta` or `next`.                                                                                    |
-| `-c, --contents <path>`         | none      | Change into a subdirectory before running the release pipeline.                                                                      |
-| `--registry <registries>`       | `npm,jsr` | Comma-separated target registries. Supports `npm`, `jsr`, `crates`, or custom registry URLs.                                         |
-| `--test-script <script>`        | `test`    | Script name used for the test step.                                                                                                  |
-| `--build-script <script>`       | `build`   | Script name used for the build step.                                                                                                 |
-| `--no-save-token`               | `false`   | Do not persist supported tokens for later runs.                                                                                      |
-| `--dangerously-allow-unpublish` | `false`   | Allow registry unpublish/yank during rollback in non-TTY environments.                                                               |
-| `--locale <locale>`             | `en`      | Set CLI output language. Supported: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`.                                                           |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-d, --dry-run` | `false` | Show the task graph without mutating Git state or publishing. |
+| `--mode <mode>` | `local` | Execution mode: `local` (interactive) or `ci` (non-interactive, tag-based). |
+| `--phase <phase>` | - | Pipeline phase: `prepare` (validate and dry-run) or `publish` (publish from latest tag). |
+| `--release-draft` | `false` | Create a draft GitHub Release instead of a published one. |
+| `-b, --branch <name>` | `main` | Require the current branch to match before releasing. |
+| `-a, --any-branch` | `false` | Disable the branch guard for the current run. |
+| `-t, --tag <name>` | `latest` | Use a specific dist-tag such as `beta` or `next`. |
+| `-c, --contents <path>` | none | Change into a subdirectory before running the release pipeline. |
+| `--registry <registries>` | `npm,jsr` | Comma-separated target registries. Supports `npm`, `jsr`, `crates`, or custom registry URLs. |
+| `--test-script <script>` | `test` | Script name used for the test step. |
+| `--build-script <script>` | `build` | Script name used for the build step. |
+| `--no-save-token` | `false` | Do not persist supported tokens for later runs. |
+| `--dangerously-allow-unpublish` | `false` | Allow registry unpublish/yank during rollback in non-TTY environments. |
+| `--locale <locale>` | `en` | Set CLI output language. Supported: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
+| `--create-pr` | `false` | Create a pull request for the version bump instead of pushing directly. |
 
 ## Pipeline-control flags
 
-| Flag                      | Description                                                                                                                                        |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--no-pre-check`          | Skip prerequisite checks such as branch and working tree validation.                                                                               |
-| `--no-condition-check`    | Skip required-condition checks such as token and registry validation.                                                                              |
-| `--no-tests`              | Skip the test step.                                                                                                                                |
-| `--no-build`              | Skip the build step.                                                                                                                               |
-| `--no-publish`            | Run the pipeline up to publish, but do not actually publish artifacts.                                                                             |
+| Flag | Description |
+|------|-------------|
+| `--no-pre-check` | Skip prerequisite checks such as branch and working tree validation. |
+| `--no-condition-check` | Skip required-condition checks such as token and registry validation. |
+| `--no-tests` | Skip the test step. |
+| `--no-build` | Skip the build step. |
+| `--no-publish` | Run the pipeline up to publish, but do not actually publish artifacts. |
 | `--no-dry-run-validation` | Skip dry-run validation during the prepare phase. Useful when workspace crates have internal dependencies whose new versions aren't yet published. |
-| `--skip-release`          | Skip GitHub Release creation.                                                                                                                      |
+| `--skip-release` | Skip GitHub Release creation. |
 
-## Release workflows
+## Execution modes
 
-`pubm` supports Direct Release and Split CI Release. Read [Release Workflows](/pubm/guides/release-workflows/) for the conceptual behavior and when to choose each path.
+## Interactive local run
 
-| Workflow                 | Command shape          |
-| ------------------------ | ---------------------- |
-| Direct Release           | `pubm`                 |
-| Split CI Release prepare | `pubm --phase prepare` |
-| Split CI Release publish | `pubm --phase publish` |
+The normal mode for local releases:
+
+```bash
+pubm
+```
+
+Behavior:
+
+- starts with interactive version selection when no version argument is provided
+- prompts can be shown when required information is missing
+- tests and build run unless skipped
+- versioning, publish, push, and GitHub Release steps run in order
 
 ## Dry-run mode
 
@@ -125,33 +133,36 @@ pubm --dry-run
 
 Use dry-run mode when you need to inspect the task plan without side effects.
 
-## Split CI Release phase commands
-
-### Prepare for CI publish
+## CI prepare mode
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
-Runs the prepare phase of Split CI Release. It writes versions and tags, then stops before package publishing.
+CI prepare mode:
 
-### Publish prepared release
+- collects missing tokens interactively
+- can sync them to GitHub Secrets
+- switches into non-interactive behavior to mimic CI
+- runs prerequisite and condition checks
+- dry-runs publish for configured registries
+
+## CI publish mode
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
-Runs the publish phase of Split CI Release. It reads manifest versions from the prepared checkout, publishes packages, and creates GitHub Releases via API. It does not redo versioning, tag creation, or release pushes. Pass `--release-draft` to create draft releases instead of published ones.
+CI publish mode publishes from the latest Git tag and creates a GitHub Release via API. Use it when the version bump and tagging already happened earlier in the pipeline. Pass `--release-draft` to create a draft release instead of a published one.
 
 ## Environment variables
 
-| Variable               | Used for                                                    |
-| ---------------------- | ----------------------------------------------------------- |
-| `NODE_AUTH_TOKEN`      | npm authentication in CI                                    |
-| `JSR_TOKEN`            | jsr authentication                                          |
-| `CARGO_REGISTRY_TOKEN` | crates.io authentication                                    |
-| `GITHUB_TOKEN`         | GitHub Release creation and release asset upload            |
-| `PUBM_LOCALE`          | CLI output language (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
+| Variable | Used for |
+|----------|----------|
+| `NODE_AUTH_TOKEN` | npm authentication in CI |
+| `JSR_TOKEN` | jsr authentication |
+| `CARGO_REGISTRY_TOKEN` | crates.io authentication |
+| `PUBM_LOCALE` | CLI output language (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 Prompts are disabled automatically when:
 
@@ -166,15 +177,15 @@ Publish snapshot versions for preview and testing. Supports single-package and m
 pubm snapshot [tag]
 ```
 
-| Option                | Description                                  |
-| --------------------- | -------------------------------------------- |
-| `[tag]`               | Snapshot tag (default: `snapshot`)           |
+| Option | Description |
+|--------|-------------|
+| `[tag]` | Snapshot tag (default: `snapshot`) |
 | `-f, --filter <name>` | Filter packages by name or path (repeatable) |
-| `-d, --dry-run`       | Simulate without side-effects                |
-| `--no-tests`          | Skip tests                                   |
-| `--no-build`          | Skip build                                   |
-| `-b, --branch <name>` | Target branch (default: `main`)              |
-| `-a, --any-branch`    | Allow publishing from any branch             |
+| `-d, --dry-run` | Simulate without side-effects |
+| `--no-tests` | Skip tests |
+| `--no-build` | Skip build |
+| `-b, --branch <name>` | Target branch (default: `main`) |
+| `-a, --any-branch` | Allow publishing from any branch |
 
 ### Examples
 
@@ -219,11 +230,11 @@ pubm setup-skills
 
 Supported agents and their installation paths:
 
-| Agent       | Skill directory        |
-| ----------- | ---------------------- |
+| Agent | Skill directory |
+|-------|-----------------|
 | Claude Code | `.claude/skills/pubm/` |
-| Codex CLI   | `.agents/skills/pubm/` |
-| Gemini CLI  | `.gemini/skills/pubm/` |
+| Codex CLI | `.agents/skills/pubm/` |
+| Gemini CLI | `.gemini/skills/pubm/` |
 
 Skills are downloaded from the pubm GitHub repository (latest release tag, with a fallback to the `main` branch).
 
@@ -239,14 +250,14 @@ pubm secrets sync --registry npm
 pubm secrets sync --registry npm,jsr
 ```
 
-| Flag                      | Default          | Description                               |
-| ------------------------- | ---------------- | ----------------------------------------- |
+| Flag | Default | Description |
+|------|---------|-------------|
 | `--registry <registries>` | `npm,jsr,crates` | Limit secret sync to specific registries. |
 
 Notes:
 
 - requires `gh` to be installed and authenticated
-- uses locally stored tokens, so run `pubm --phase prepare` first if nothing has been saved yet
+- uses locally stored tokens, so run `pubm --mode ci --phase prepare` first if nothing has been saved yet
 
 ## `pubm sync --discover`
 
@@ -280,12 +291,12 @@ pubm changesets add --empty
 pubm changesets add --packages @acme/core,@acme/react --bump minor --message "Add public metrics API."
 ```
 
-| Flag                | Description                                                 |
-| ------------------- | ----------------------------------------------------------- |
-| `--empty`           | Create an empty changeset file.                             |
+| Flag | Description |
+|------|-------------|
+| `--empty` | Create an empty changeset file. |
 | `--packages <list>` | Comma-separated package names for non-interactive creation. |
-| `--bump <type>`     | One of `patch`, `minor`, `major`.                           |
-| `--message <text>`  | Summary used in the changeset body and changelog.           |
+| `--bump <type>` | One of `patch`, `minor`, `major`. |
+| `--message <text>` | Summary used in the changeset body and changelog. |
 
 ## `pubm changesets status`
 
@@ -297,10 +308,10 @@ pubm changesets status --verbose
 pubm changesets status --since origin/main
 ```
 
-| Flag            | Description                            |
-| --------------- | -------------------------------------- |
-| `--verbose`     | Print each recorded changeset summary. |
-| `--since <ref>` | Check since a Git ref.                 |
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Print each recorded changeset summary. |
+| `--since <ref>` | Check since a Git ref. |
 
 ## `pubm changesets version`
 
@@ -313,8 +324,8 @@ pubm changesets version
 pubm changesets version --dry-run
 ```
 
-| Flag        | Description                                                 |
-| ----------- | ----------------------------------------------------------- |
+| Flag | Description |
+|------|-------------|
 | `--dry-run` | Print the version and changelog plan without writing files. |
 
 ## `pubm changesets changelog`
@@ -327,10 +338,10 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-| Flag              | Description                                              |
-| ----------------- | -------------------------------------------------------- |
-| `--dry-run`       | Preview changelog output without writing `CHANGELOG.md`. |
-| `--version <ver>` | Use a specific section header instead of `Unreleased`.   |
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview changelog output without writing `CHANGELOG.md`. |
+| `--version <ver>` | Use a specific section header instead of `Unreleased`. |
 
 ## `pubm changesets migrate`
 
@@ -358,20 +369,22 @@ In normal publish mode, failures also trigger rollback behavior where possible.
 ```bash
 pubm init
 pubm changesets add
+pubm changesets version
+pubm --mode ci --phase prepare
 pubm --dry-run
 pubm
 ```
 
-### Prepare a Split CI Release locally
+### Local CI rehearsal
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
-### Publish a prepared release in CI
+### Publish only the current tagged release in CI
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
 ### Sync stored tokens after preparation

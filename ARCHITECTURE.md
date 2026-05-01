@@ -38,8 +38,8 @@ This document covers pubm's architecture, including the monorepo, package depend
 User Input          CLI Layer           Core SDK            External
 ──────────          ─────────           ────────            ────────
 
-$ pubm           ─→  Commander      ─→  Workflow       ─→  npm registry
-                     (cli.ts)           (runner-entry)     jsr.dev
+$ pubm           ─→  Commander      ─→  Task Runner    ─→  npm registry
+                     (cli.ts)           (runner.ts)        jsr.dev
                      • Parse args       • Prerequisites    crates.io
                      • Resolve opts     • Conditions       GitHub API
                      • Load config      • Prompts          Git
@@ -206,22 +206,15 @@ packages/core/src/
 ├── git.ts                   Git operations wrapper
 ├── error.ts                 Error types and handling
 │
-├── workflow/                Release Workflow
-│   ├── runner-entry.ts      Public release execution entry
-│   ├── direct-release-workflow.ts
-│   │                          Step ordering, events, rollback, SIGINT
-│   ├── release-operation.ts Runner-neutral operation executor
-│   ├── registry-operations.ts
-│   │                          Workflow-native publish/dry-run operations
-│   ├── release-phases/      Preflight, test/build, version, publish, push/release
-│   └── release-utils/       Manifest, rollback, formatting, version PR helpers
-│
-├── tasks/                   Compatibility Helpers
-│   ├── snapshot-runner.ts   Snapshot publish pipeline using workflow operations
-│   ├── npm.ts/jsr.ts/crates.ts
-│   │                          Registry task-factory compatibility surface
-│   ├── preflight.ts         Token and preflight helper utilities
-│   └── prompts/             Version/tag interactive prompt helpers
+├── tasks/                   Release Pipeline
+│   ├── runner.ts            Main task orchestrator (listr2)
+│   ├── prerequisites.ts     Branch, remote, working tree checks
+│   ├── conditions.ts        Registry connectivity, permissions
+│   ├── prompts.ts           Version/tag interactive prompts
+│   ├── test-build.ts        Run test & build scripts
+│   ├── version.ts           Version bump + git commit/tag
+│   ├── publish.ts           Concurrent multi-registry publish
+│   └── post-publish.ts      Push tags, GitHub release draft
 │
 ├── ecosystem/               Language Abstraction
 │   ├── ecosystem.ts         Abstract base class
@@ -299,24 +292,18 @@ packages/core/src/
 
 ```mermaid
 graph TD
-    INDEX["index.ts<br/>(public API)"] --> WORKFLOW
-    INDEX --> TASKS
+    INDEX["index.ts<br/>(public API)"] --> TASKS
     INDEX --> CHANGESET
     INDEX --> MONOREPO
     INDEX --> CONFIG
 
-    WORKFLOW["workflow/<br/>(DirectReleaseWorkflow)"] --> ECO["ecosystem/"]
-    WORKFLOW --> REG["registry/"]
-    WORKFLOW --> GIT["git.ts"]
-    WORKFLOW --> PLUGIN["plugin/"]
-    WORKFLOW --> CTX["context.ts"]
-    WORKFLOW --> ROLLBACK["utils/rollback.ts"]
-    WORKFLOW --> ASSETS["assets/"]
-    WORKFLOW --> TASKS["tasks/<br/>(compat helpers)"]
-
-    TASKS --> REG
-    TASKS --> PLUGIN
-    TASKS --> CTX
+    TASKS["tasks/<br/>(runner.ts)"] --> ECO["ecosystem/"]
+    TASKS --> REG["registry/"]
+    TASKS --> GIT["git.ts"]
+    TASKS --> PLUGIN["plugin/"]
+    TASKS --> CTX["context.ts"]
+    TASKS --> ROLLBACK["utils/rollback.ts"]
+    TASKS --> ASSETS["assets/"]
 
     ECO --> MANIFEST["manifest/"]
     REG --> MANIFEST
@@ -337,14 +324,14 @@ graph TD
 
 ### Pipeline Entry Point
 
-`run(ctx: PubmContext)` in `workflow/runner-entry.ts` is the release execution entry. It constructs `DirectReleaseWorkflow`, an in-memory release record, and signal services, then delegates normal release execution to workflow steps. Snapshot publishing uses `tasks/snapshot-runner.ts`, but that path also runs workflow-native operations rather than listr task orchestration.
+`run(ctx: PubmContext)` in `tasks/runner.ts` is the main orchestrator. It initializes the pipeline based on context:
 
 ```
-workflow/runner-entry.run(ctx)
+run(ctx)
   1. Set ctx.runtime.promptEnabled = !isCI && process.stdin.isTTY
   2. Resolve phases from --phase option (prepare / publish / both)
   3. Register SIGINT handler for graceful rollback
-  4. Run preflight and workflow steps through DirectReleaseWorkflow
+  4. Branch: snapshot mode OR normal release
 ```
 
 ### Pipeline Modes
@@ -398,11 +385,11 @@ flowchart TD
     FULL_FLOW --> DONE
 ```
 
-### Workflow Operation Tree
+### Complete Task Tree
 
 ```
 Pipeline
-├─ Prerequisites Check (workflow/release-phases/preflight-checks.ts)
+├─ Prerequisites Check (prerequisites.ts)
 │  ├─ Branch check (skip if --any-branch)
 │  │  ├─ Verify current branch matches config.branch
 │  │  ├─ TTY: prompt to switch if different
@@ -420,7 +407,7 @@ Pipeline
 │  └─ Plugin prerequisite checks
 │     └─ plugin.checks(ctx) where phase = "prerequisites"
 │
-├─ Required Conditions (workflow/release-phases/preflight-checks.ts, concurrent)
+├─ Required Conditions (conditions.ts, concurrent)
 │  ├─ Ping registries (concurrent per ecosystem)
 │  │  └─ npm ping / JSR API ping / crates.io API ping
 │  ├─ Test/build script validation
@@ -434,14 +421,14 @@ Pipeline
 │  └─ Plugin condition checks
 │     └─ plugin.checks(ctx) where phase = "conditions"
 │
-├─ Version/Tag Prompts (tasks/prompts/* helpers, TTY only)
+├─ Version/Tag Prompts (prompts.ts, TTY only)
 │  ├─ Version selection (bump type or explicit version)
 │  └─ Tag input (dist-tag for npm)
 │
-├─ Test (workflow/release-phases/test-build.ts, if !skipTests)
+├─ Test (test-build.ts, if !skipTests)
 │  └─ Run configured testScript (default: {pm} run test)
 │
-├─ Build (workflow/release-phases/test-build.ts, if !skipBuild)
+├─ Build (test-build.ts, if !skipBuild)
 │  └─ Run configured buildScript (default: {pm} run build)
 │
 ├─ Dry-Run Validation (if dryRun OR CI prepare phase)
@@ -456,7 +443,7 @@ Pipeline
 │  ├─ Re-sync lockfiles (critical: lockfile may be stale)
 │  └─ Restore original versions
 │
-├─ Version Bump (workflow/release-phases/version.ts, rollback: YES)
+├─ Version Bump (version.ts, rollback: YES)
 │  ├─ git reset (refresh index)
 │  ├─ Backup manifest files → register rollback
 │  ├─ Write versions to manifests:
@@ -477,11 +464,11 @@ Pipeline
 │  ├─ git commit → register rollback (git reset HEAD~1)
 │  └─ git tag → register rollback (git tag -d)
 │
-├─ Publishing (workflow/release-phases/publish.ts, rollback: YES)
+├─ Publishing (publish.ts, rollback: YES)
 │  ├─ Run beforePublish plugin hooks
 │  ├─ Resolve workspace:* → concrete versions (if needed)
 │  │  └─ Register rollback to restore originals
-│  ├─ Collect publish operations (grouped by ecosystem → registry):
+│  ├─ Collect publish tasks (grouped by ecosystem → registry):
 │  │  ├─ Ecosystems: concurrent
 │  │  ├─ Registries within ecosystem: concurrent
 │  │  └─ Packages within registry:
@@ -504,7 +491,7 @@ Pipeline
 │  ├─ Run afterPublish plugin hooks
 │  └─ Restore workspace:* protocols
 │
-├─ Push Tags (workflow/release-phases/push-release.ts, rollback: YES)
+├─ Push Tags (post-publish.ts, rollback: YES)
 │  ├─ Run beforePush plugin hooks
 │  ├─ Store pre-push HEAD SHA (for force-push rollback)
 │  ├─ git push --follow-tags
@@ -514,7 +501,7 @@ Pipeline
 │  │  └─ Commits: git push --force origin {prePushSha}:{branch}
 │  └─ Run afterPush plugin hooks
 │
-├─ Create GitHub Release (workflow/release-phases/push-release.ts, rollback: YES)
+├─ Create GitHub Release (post-publish.ts, rollback: YES)
 │  ├─ Resolve GitHub token (env → keyring → prompt)
 │  ├─ Per-package (independent) or single (fixed/single):
 │  │  ├─ Read CHANGELOG.md for release notes
@@ -1245,17 +1232,13 @@ Phase 2: Config Filtering (before pipeline starts)
   After filtering: config is effectively frozen
 
 Phase 3: Runtime Mutation (during pipeline)
-  ├─ workflow/release-phases/preflight-checks.ts
-  │                       → sets runtime.cleanWorkingTree,
-  │                         scopeCreated, packageCreated
-  ├─ tasks/prompts/*      → sets runtime.versionPlan, runtime.tag
-  ├─ workflow/release-phases/version.ts
-  │                       → sets runtime.changesetConsumed
-  ├─ workflow/release-phases/publish.ts and registry-operations.ts
-  │                       → sets runtime.npmOtp, tokenRetryPromises,
-  │                         workspaceBackups, pluginTokens
-  └─ workflow/release-phases/push-release.ts
-                          → sets runtime.releaseContext
+  ├─ prerequisites.ts  → sets runtime.cleanWorkingTree
+  ├─ conditions.ts     → sets runtime.scopeCreated, packageCreated
+  ├─ prompts.ts        → sets runtime.versionPlan, runtime.tag
+  ├─ version.ts        → sets runtime.changesetConsumed
+  ├─ publish.ts        → sets runtime.npmOtp, npmOtpPromise,
+  │                       workspaceBackups, pluginTokens
+  └─ post-publish.ts   → sets runtime.releaseContext
 ```
 
 ### Config Loading Strategy

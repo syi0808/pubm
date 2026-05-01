@@ -39,24 +39,15 @@ Start by mapping out the project layout so the rest of the setup matches the rep
 - Current release workflow, if there is one
 - Likely needs such as version sync, Homebrew, or CI automation
 
-Use this analysis to decide which registries to suggest, which supported release path to recommend, whether a config file is needed, and whether custom plugins are required.
+Use this analysis to decide which registries to suggest, whether a config file is needed, and whether custom plugins are required.
 
-### 2. Ask about release path, CI/CD, and changesets
-
-Ask the user:
-1. **Release path**: Direct Release (`pubm`) or Split CI Release (local `pubm --phase prepare`, CI `pubm --phase publish`). Use `references/decision-guides.md` to recommend one.
-2. **Set up CI/CD** for Split CI Release publishing? Only generate publish workflows after the user chooses Split CI Release.
-3. **Use changesets workflow?** (Track changes per PR, automate versioning + CHANGELOG)
-
-Store the answers for subsequent steps. Do this before installing plugins, writing config, or generating workflows so later choices match the release path.
-
-### 3. Check if pubm is installed
+### 2. Check if pubm is installed
 
 Check `package.json` devDependencies for `pubm`. If it is missing, ask whether to install:
 - `npm install -D pubm` or `pnpm add -D pubm` (detect package manager from lock files)
 - pubm itself is an npm package, so even Rust projects need Node.js and npm to use it
 
-### 4. Review auto-detected packages and registries
+### 3. Review auto-detected packages and registries
 
 Run `pubm inspect packages` to show the detected ecosystem, packages, and target registries.
 
@@ -73,7 +64,7 @@ Show the output and ask:
 
 If the user wants changes (add/remove registries, add/remove packages), note them for config generation in Step 6.
 
-### 5. Ask about official plugins
+### 4. Ask about official plugins
 
 Show the available official plugins and ask which, if any, to use:
 
@@ -100,7 +91,7 @@ Show the available official plugins and ask which, if any, to use:
 3. Ask for the tap repo (e.g., `user/homebrew-tap`)
 4. Optionally ask for `packageName` filter
 
-### 5.1. Evaluate need for custom plugins
+### 4.1. Evaluate need for custom plugins
 
 Based on the project analysis in Step 1, if the user needs something that pubm's built-in features or official plugins do not cover, guide them to create a custom plugin.
 
@@ -117,7 +108,15 @@ Based on the project analysis in Step 1, if the user needs something that pubm's
 3. If yes, invoke the `/create-plugin` skill to scaffold the plugin
 4. After the plugin is created, return to this setup flow and include it in config generation in Step 6
 
-### 5.2. Install jsr CLI (if jsr is among registries)
+### 5. Ask about CI/CD and changesets
+
+Ask the user:
+1. **Set up CI/CD** for automated publishing?
+2. **Use changesets workflow?** (Track changes per PR, automate versioning + CHANGELOG)
+
+Store the answers for subsequent steps.
+
+### 5.1. Install jsr CLI (if jsr is among registries)
 
 If any package targets jsr, check `package.json` devDependencies for `jsr`. If not installed, install it using the project's package manager.
 
@@ -173,7 +172,7 @@ Read the corresponding registry reference file for the template and constraints.
 - If neither source file nor target file exists, inform the user and ask them to create one manually.
 - Before writing any generated file, show the content and ask for confirmation.
 
-### 8. CI setup (if Split CI Release was selected in Step 2)
+### 8. CI setup (if selected in Step 5)
 
 1. **Ask CI platform**: Default to GitHub Actions if not specified.
 2. **Ask trigger method**:
@@ -189,7 +188,7 @@ Read the corresponding registry reference file for the template and constraints.
    - `JSR_TOKEN` for jsr (create at jsr.io/account/tokens/create)
    - `CARGO_REGISTRY_TOKEN` for crates.io (create at crates.io > Account Settings > API Tokens)
 
-### 9. Changesets Workflow (if selected in Step 2)
+### 9.1. Changesets Workflow (if selected in Step 5)
 
 Run the CLI to set up the changesets workflow:
 
@@ -240,18 +239,18 @@ This project uses pubm changesets to track changes and automate versioning.
 
 Add to `package.json`. The `release` script depends on whether CI was set up:
 
-**If Split CI Release was selected** (publishing is handled by CI):
+**If CI was configured** (publishing is handled by CI):
 ```json
 {
   "scripts": {
-    "release": "pubm --phase prepare",
-    "release:ci": "pubm --phase publish"
+    "release": "pubm --mode ci --phase prepare",
+    "release:ci": "pubm --mode ci --phase publish"
   }
 }
 ```
-For Split CI Release, `--phase prepare` runs Prepare for CI publish: it validates the project, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages. `--phase publish` runs Publish prepared release in CI: it reads manifest versions, publishes packages, and creates GitHub Releases.
+`--phase prepare` collects tokens and validates registry access. `--phase publish` handles the actual publishing in CI.
 
-**If Direct Release was selected** (publishing is done locally or by one controlled job):
+**If CI was NOT configured** (publishing is done locally):
 ```json
 {
   "scripts": {
@@ -276,8 +275,8 @@ Remind the user they can run `pubm inspect packages` at any time to check the de
 - Config uses a `packages` array with per-package `registries`; there is no top-level `registries` field on `PubmConfig`.
 - The config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
 - If you are not sure which registries the user wants, ask.
-- When suggesting npm scripts, use `"release": "pubm"` for Direct Release. Use `"release": "pubm --phase prepare"` and `"release:ci": "pubm --phase publish"` for Split CI Release.
-- In CI, use `--phase publish` for Publish prepared release: publish packages plus GitHub Release creation.
+- When suggesting npm scripts, use `"release": "pubm --mode ci --phase prepare"` if CI is configured, or `"release": "pubm"` if it is not. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
+- In CI, use `--mode ci --phase publish` for publish plus GitHub Release, or `--phase publish` for publish only.
 - When Step 1 reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
 
 ## References

@@ -7,11 +7,34 @@ description: CI-Vorbereitung, Token-Verwaltung und Release-Automatisierung für 
 
 `pubm init` kann während des Setups CI-Workflows für dich erzeugen. Der Wizard bietet an, `.github/workflows/release.yml` (tag-gesteuertes Publish) und `.github/workflows/changeset-check.yml` (PR-Changeset-Durchsetzung) zu erstellen, damit du sie nicht von Hand schreiben musst.
 
-## Release-Workflows
+## Recommended release model
 
-Nutze [Release-Workflows](/pubm/de/guides/release-workflows/), um zwischen Direct Release und Split CI Release zu wählen.
+Use two phases:
 
-Diese Seite konzentriert sich auf die CI-Hälfte von Split CI Release: `pubm --phase publish` ausführen, nachdem `pubm --phase prepare` bereits Manifest-Versionen geschrieben, Tags erstellt und den Release-Commit plus Tags gepusht hat.
+1. fuehre `pubm --mode ci --phase prepare` lokal oder in einem kontrollierten Release-Job aus
+2. veröffentliche aus CI mit `pubm --mode ci --phase publish`
+
+```bash
+pubm --mode ci --phase prepare
+```
+
+```bash
+pubm --mode ci --phase publish
+```
+
+## What CI preparation does
+
+`pubm --mode ci --phase prepare` ist nicht nur ein Token-Check. Es laeuft durch die Release-Pipeline bis direkt vor das eigentliche Veröffentlichen:
+
+- sammelt Registry-Tokens und Plugin-Credentials ein
+- synchronisiert sie optional mit GitHub Secrets
+- fuehrt Prüfungen für Voraussetzungen und Pflichtbedingungen aus
+- fuehrt Tests und Build aus, sofern sie nicht uebersprungen werden
+- verbraucht ausstehende Changesets während der Versionierung, wenn vorhanden
+- erstellt den Release-Commit und pusht Tags sowie Branch-Aktualisierungen
+- fuehrt Publish-Aufgaben im Dry-Run aus, statt wirklich zu veröffentlichen
+
+Daher musst du nach der CI-Vorbereitung nicht noch `pubm patch --dry-run` ausführen.
 
 ## Required environment variables
 
@@ -22,9 +45,8 @@ In CI, provide registry tokens with environment variables:
 | `NODE_AUTH_TOKEN` | npm |
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
-| `GITHUB_TOKEN` | GitHub Releases und Release Assets |
 
-Plugins koennen auch eigene benoetigte Credentials deklarieren. pubm sammelt und loest diese automatisch auf. Bei `--phase prepare` fragt es nach fehlenden Werten und synchronisiert sie mit GitHub Secrets. Bei `--phase publish` liest es die aufgeloesten Werte nur noch aus der Umgebung und bricht mit einem Fehler ab, wenn ein erforderliches Credential fehlt.
+Plugins koennen auch eigene benoetigte Credentials deklarieren. pubm sammelt und löst diese automatisch auf. Bei `--ci-prepare` fragt es nach fehlenden Werten und synchronisiert sie mit GitHub Secrets. Bei `--phase publish` liest es die aufgeloesten Werte nur noch aus der Umgebung und bricht mit einem Fehler ab, wenn ein erforderliches Credential fehlt.
 
 Zum Beispiel benoetigt `@pubm/plugin-brew`:
 
@@ -52,10 +74,6 @@ on:
       - "v*"
       - "@*"
 
-permissions:
-  contents: write
-  id-token: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -69,15 +87,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --phase publish
+      - run: pubm --mode ci --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Snapshot-Releases in CI
@@ -118,18 +134,18 @@ Verwende für CI-Veröffentlichungen Automation-kompatible Tokens.
 
 ### Build output is not present in `contents`
 
-Wenn du aus `dist/` veröffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --phase publish` laeuft.
+Wenn du aus `dist/` veröffentlichst, stelle sicher, dass dein Workflow `dist/` tatsaechlich erzeugt, bevor `pubm --mode ci --phase publish` laeuft.
 
 ## GitHub Release assets
 
-Wenn dein Projekt `releaseAssets` in `pubm.config.ts` nutzt, fuehrt `pubm --phase publish` die Asset-Pipeline aus und laedt die Artefakte automatisch in den GitHub Release hoch.
+Wenn dein Projekt `releaseAssets` in `pubm.config.ts` nutzt, fuehrt `pubm --mode ci --phase publish` die Asset-Pipeline aus und laedt die Artefakte automatisch in den GitHub Release hoch.
 
 ### `GITHUB_TOKEN` requirement
 
 GitHub-Release-Erstellung und Asset-Upload nutzen die GitHub API. Stelle `GITHUB_TOKEN` bereit, oder alternativ ein fein granulars Token mit `contents: write`-Berechtigung. Das Token wird für jede GitHub-Release-Erstellung benötigt, nicht nur für Asset-Uploads:
 
 ```yaml
-- run: pubm --phase publish
+- run: pubm --mode ci --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -139,7 +155,7 @@ GitHub Actions fuegt `GITHUB_TOKEN` in jedem Workflow-Lauf als eingebautes Secre
 
 ### Build outputs must exist before upload
 
-Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --phase publish` ausgeführt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
+Die Asset-Pipeline laeuft nach dem Build-Schritt. Stelle sicher, dass dein Workflow die Binärartefakte, zum Beispiel kompilierte Binaries in `platforms/*/bin/`, erzeugt, bevor `pubm --mode ci --phase publish` ausgeführt wird. Wenn ein konfiguriertes Glob-Muster beim Upload keine Datei findet, behandelt `pubm` das als Fehler.
 
 ### Example with release assets
 
@@ -150,10 +166,6 @@ on:
   push:
     tags:
       - "v*"
-
-permissions:
-  contents: write
-  id-token: write
 
 jobs:
   publish:
@@ -166,15 +178,41 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
 
       - run: npm ci
       - run: npm run build       # Must produce platforms/*/bin/mytool
-      - run: pubm --phase publish
+      - run: pubm --mode ci --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+## PR-basierter Version-Bump-Workflow
+
+Als Alternative zum direkten Pushen von Version-Bump-Commits kann pubm stattdessen einen Pull Request erstellen. Das ist nützlich, wenn dein Basis-Branch geschützt ist oder du einen Review-Schritt vor der Veröffentlichung möchtest.
+
+In der Konfiguration aktivieren:
+
+```ts
+export default defineConfig({
+  createPr: true,
+});
+```
+
+Oder als Flag zur Laufzeit übergeben:
+
+```bash
+pubm --create-pr
+```
+
+Wenn `createPr` aktiviert ist:
+
+- pubm erstellt einen `pubm/version-packages-*`-Branch mit dem Version-Bump-Commit
+- der Branch wird gepusht und ein PR gegen den Basis-Branch geöffnet
+- der PR wird automatisch mit `no-changeset` markiert, um die Changeset-Prüfung zu überspringen
+- wenn der PR gemergt wird, löst der bestehende Release-Workflow normal über den Tag-Push aus
+
+pubm fällt auch automatisch in den PR-Modus zurück, wenn ein direkter Push in einen geschützten Branch fehlschlägt. Es ist daher nicht nötig, `createPr` explizit zu konfigurieren, wenn du nur das Fallback-Verhalten möchtest.
 
 ## Changeset-Prüfung (PR-Validierung)
 

@@ -86,7 +86,7 @@ If you want to run only the versioning step ahead of time, you can still use:
 pubm changesets version
 ```
 
-That command is useful for editorial or controlled workflows, but it is not required before `pubm` or `pubm --phase prepare`. In Split CI Release, `pubm --phase publish` assumes the prepare phase has already consumed changesets and written manifest versions.
+That command is useful for editorial or controlled workflows, but it is not required before `pubm` or `pubm --mode ci --phase publish`.
 
 ## Changelog generation
 
@@ -103,11 +103,11 @@ When `versionSources` is `"all"` (the default), `pubm changesets version` automa
 
 ### Default commit type mapping
 
-| Commit type | Bump    |
-| ----------- | ------- |
-| `feat`      | `minor` |
-| `fix`       | `patch` |
-| `perf`      | `patch` |
+| Commit type | Bump |
+|-------------|------|
+| `feat` | `minor` |
+| `fix` | `patch` |
+| `perf` | `patch` |
 
 A `BREAKING CHANGE` footer or a `!` suffix (e.g. `feat!:`) always produces a `major` bump.
 

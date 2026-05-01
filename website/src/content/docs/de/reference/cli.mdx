@@ -52,8 +52,7 @@ pubm [version] [flags]
 Wenn du die Version weglässt:
 
 - interaktive Terminals koennen nach der nächsten Version fragen
-- nicht interaktive Direct Release-Laeufe brauchen eine explizite Version oder eine konfigurierte Versionsquelle
-- Split CI Release publish liest die Versionen, die `pubm --phase prepare` bereits vorbereitet hat
+- CI-Laeufe verlangen, dass die Version nicht interaktiv aufgeloest wird
 
 ### Interaktive Nutzung
 
@@ -82,7 +81,8 @@ pubm --tag beta
 | Flag | Standard | Beschreibung |
 |------|----------|--------------|
 | `-d, --dry-run` | `false` | Zeigt den Task-Graphen an, ohne den Git-Zustand zu ändern oder zu veröffentlichen. |
-| `--phase <phase>` | - | Fuehrt eine Split CI Release-Phase aus: `prepare` (Prepare for CI publish) oder `publish` (Publish prepared release). Weglassen fuer Direct Release. |
+| `--mode <mode>` | `local` | Ausführungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
+| `--phase <phase>` | - | Pipeline-Phase: `prepare` (validieren und Dry-Run) oder `publish` (vom neuesten Tag veröffentlichen). |
 | `--release-draft` | `false` | Erstellt einen Draft-GitHub-Release statt eines veröffentlichten Releases. |
 | `-b, --branch <name>` | `main` | Verlangt, dass der aktuelle Branch vor dem Release uebereinstimmt. |
 | `-a, --any-branch` | `false` | Deaktiviert den Branch-Schutz für den aktuellen Lauf. |
@@ -94,6 +94,7 @@ pubm --tag beta
 | `--no-save-token` | `false` | Speichert unterstützte Tokens nicht für spätere Laeufe. |
 | `--dangerously-allow-unpublish` | `false` | Erlaubt Registry-Unpublish/Yank während des Rollbacks in Nicht-TTY-Umgebungen. |
 | `--locale <locale>` | `en` | Sprache der CLI-Ausgabe festlegen. Unterstützt: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
+| `--create-pr` | `false` | Erstellt einen Pull Request für den Version-Bump anstatt direkt zu pushen. |
 
 ## Flags zur Pipeline-Steuerung
 
@@ -107,15 +108,22 @@ pubm --tag beta
 | `--no-dry-run-validation` | Überspringt die Dry-Run-Validierung in der Prepare-Phase. Nützlich, wenn Workspace-Crates interne Abhängigkeiten haben, deren neue Versionen noch nicht veröffentlicht sind. |
 | `--skip-release` | Überspringt die GitHub-Release-Erstellung. |
 
-## Release-Workflows
+## Ausführungsmodi
 
-`pubm` unterstützt Direct Release und Split CI Release. Lies [Release-Workflows](/pubm/de/guides/release-workflows/) für das konzeptionelle Verhalten und die Wahl des passenden Pfads.
+## Interaktiver lokaler Lauf
 
-| Workflow | Befehlsform |
-|----------|-------------|
-| Direct Release | `pubm` |
-| Split CI Release prepare | `pubm --phase prepare` |
-| Split CI Release publish | `pubm --phase publish` |
+Der normale Modus für lokale Releases:
+
+```bash
+pubm
+```
+
+Verhalten:
+
+- startet mit interaktiver Versionsauswahl, wenn kein Versionsargument angegeben ist
+- Prompts koennen erscheinen, wenn erforderliche Informationen fehlen
+- Tests und Build laufen, sofern sie nicht uebersprungen werden
+- Versionierung, Publish, Push und GitHub-Release-Schritte laufen in dieser Reihenfolge
 
 ## Dry-Run-Modus
 
@@ -125,28 +133,27 @@ pubm --dry-run
 
 Verwende den Dry-Run-Modus, wenn du den Task-Plan ohne Nebenwirkungen ansehen willst.
 
-## Split CI Release: Prepare for CI publish
+## CI-Vorbereitungsmodus
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
-Prepare for CI publish:
+CI-Vorbereitung:
 
-- validiert Projekt, Registry-Zugriff und Plugin-Credentials
-- sammelt fehlende Tokens und kann sie mit GitHub Secrets synchronisieren
-- schreibt Manifest-Versionen, erstellt Release-Tags und pusht den Release-Commit plus Tags
+- sammelt fehlende Tokens interaktiv ein
+- kann sie mit GitHub Secrets synchronisieren
+- schaltet auf nicht interaktives Verhalten um, um CI nachzubilden
 - fuehrt Prüfungen für Voraussetzungen und Bedingungen aus
 - fuehrt Publish für konfigurierte Registries als Dry-Run aus
-- veroeffentlicht keine Pakete
 
-## Split CI Release: Publish prepared release
+## CI-Publish-Modus
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
-Publish prepared release liest Manifest-Versionen, veroeffentlicht Pakete und erstellt GitHub Releases ueber die API. Diese Phase ist fuer CI und nicht interaktive Token-Ausfuehrung gedacht, nachdem Prepare for CI publish Versionen geschrieben, Tags erstellt und den Release-Commit plus Tags gepusht hat. Mit `--release-draft` erstellst du statt veroeffentlichter Releases Drafts.
+Der CI-Publish-Modus veröffentlicht vom neuesten Git-Tag und erstellt einen GitHub Release über die API. Verwende ihn, wenn Versionssprung und Tagging vorher schon in der Pipeline passiert sind. Mit `--release-draft` erstellst du statt eines veröffentlichten Releases einen Draft.
 
 ## Umgebungsvariablen
 
@@ -155,7 +162,6 @@ Publish prepared release liest Manifest-Versionen, veroeffentlicht Pakete und er
 | `NODE_AUTH_TOKEN` | npm-Authentifizierung in CI |
 | `JSR_TOKEN` | jsr-Authentifizierung |
 | `CARGO_REGISTRY_TOKEN` | Authentifizierung für crates.io |
-| `GITHUB_TOKEN` | GitHub-Release-Erstellung und Upload von Release Assets |
 | `PUBM_LOCALE` | Sprache der CLI-Ausgabe (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 Prompts werden automatisch deaktiviert, wenn:
@@ -251,7 +257,7 @@ pubm secrets sync --registry npm,jsr
 Hinweise:
 
 - erfordert, dass `gh` installiert und authentifiziert ist
-- nutzt lokal gespeicherte Tokens, daher solltest du `pubm --phase prepare` zuerst ausführen, wenn noch nichts gespeichert wurde
+- nutzt lokal gespeicherte Tokens, daher solltest du `pubm --mode ci --phase prepare` zuerst ausführen, wenn noch nichts gespeichert wurde
 
 ## `pubm sync --discover`
 
@@ -364,7 +370,7 @@ Im normalen Publish-Modus fuehren Fehler nach Möglichkeit auch zu einem Rollbac
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --phase prepare
+pubm --mode ci --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -372,13 +378,13 @@ pubm
 ### Lokale CI-Probe
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
 ### Nur den aktuell getaggten Release in CI veröffentlichen
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
 ### Gespeicherte Tokens nach der Vorbereitung synchronisieren

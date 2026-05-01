@@ -68,17 +68,6 @@ const docsSidebar = [
         slug: "guides/quick-start",
       },
       {
-        label: "Release Workflows",
-        translations: {
-          ko: "릴리스 워크플로",
-          "zh-CN": "发布工作流",
-          fr: "Workflows de release",
-          de: "Release-Workflows",
-          es: "Flujos de release",
-        },
-        slug: "guides/release-workflows",
-      },
-      {
         label: "Configuration",
         translations: {
           ko: "설정",

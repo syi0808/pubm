@@ -83,7 +83,7 @@ brewTap({
 |-----------|--------------------|------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | Homebrew formula 업데이트를 push하고 pull request를 열기 위한 `repo` 스코프의 GitHub Personal Access Token입니다. |
 
-로컬 실행에서는 pubm이 이 토큰을 프롬프트하고 시스템 keyring에 저장합니다. CI에서는 `PUBM_BREW_GITHUB_TOKEN` 환경 변수로 제공합니다. `pubm --phase prepare` 또는 `pubm secrets sync`를 실행하면 저장된 토큰을 저장소의 GitHub Secrets로 동기화해 CI workflow가 바로 사용할 수 있게 됩니다.
+로컬 실행에서는 pubm이 이 토큰을 프롬프트하고 시스템 keyring에 저장합니다. CI에서는 `PUBM_BREW_GITHUB_TOKEN` 환경 변수로 제공합니다. `pubm --mode ci --phase prepare` 또는 `pubm secrets sync`를 실행하면 저장된 토큰을 저장소의 GitHub Secrets로 동기화해 CI workflow가 바로 사용할 수 있게 됩니다.
 
 이 플러그인은 또한 publish 단계가 시작되기 전에 토큰 존재 여부와 필요한 저장소 접근 권한을 검증하는 preflight check를 등록합니다.
 

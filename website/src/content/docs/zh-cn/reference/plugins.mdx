@@ -10,8 +10,8 @@ description: 为 pubm 添加 hooks、commands、registries 和 ecosystems。
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: PluginRegistryDefinition[];
-  ecosystems?: EcosystemDescriptor[];
+  registries?: PackageRegistry[];
+  ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   credentials?: (ctx: PubmContext) => PluginCredential[];
@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、注入环境变量，并在执行 `--phase prepare` 时同步到 GitHub Secrets。
+- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、注入环境变量，并在执行 `--ci-prepare` 时同步到 GitHub Secrets。
 - `checks` - 返回与核心 prerequisite/condition 阶段一起运行的 preflight check。每个 check 通过 `phase` 字段声明执行时机。
 
 ## Hooks
@@ -97,7 +97,6 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     tempDir?: string;
     pluginTokens?: Record<string, string>;
-    rollback: RollbackTracker<PubmContext>;
   };
 }
 ```
@@ -167,7 +166,7 @@ export interface PluginCredential {
 | `label` | `string` | 在交互式提示中展示的人类可读标签。 |
 | `tokenUrl` | `string` | 用户可创建该 token 的可选 URL。 |
 | `tokenUrlLabel` | `string` | `tokenUrl` 的可选展示标签。 |
-| `ghSecretName` | `string` | `--phase prepare` 同步时应写入的 GitHub Secret 名称。 |
+| `ghSecretName` | `string` | `--ci-prepare` 同步时应写入的 GitHub Secret 名称。 |
 | `required` | `boolean` | 为 `true` 时，如果无法解析该凭证，pubm 会报错。默认值为 `true`。 |
 | `resolve` | `function` | 可选的自定义 resolver，不接收参数，返回 `Promise<string \| null>`。会在 keyring/prompt fallback 之前调用。 |
 | `validate` | `function` | 可选的 token 校验器。接收已解析 token 和 `PluginTaskContext`；返回 `false` 时会重新提示。 |
@@ -218,10 +217,13 @@ export interface PluginTaskContext {
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
-    async afterRelease(_ctx, releaseCtx) {
-      console.log(
-        `Published ${releaseCtx.displayLabel} ${releaseCtx.version} (${releaseCtx.tag})`,
-      );
+    async afterPublish(ctx) {
+      const label =
+        ctx.versions && ctx.versions.size > 0
+          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
+          : `v${ctx.version}`;
+
+      console.log(`Published ${label}`);
     },
   },
 };

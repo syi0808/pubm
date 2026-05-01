@@ -205,9 +205,9 @@ Verfügbare Platzhalter:
 - Typ: `boolean`
 - Standard: `false`
 
-Erstellt einen Pull Request für den Version-Bump-Commit anstatt direkt in den Basis-Branch zu pushen. Das ist eine bestehende Config-Oberfläche für geschützte Versions-Pushes, keine empfohlene Wahl des Release-Workflows. Wähle zwischen Direct Release und Split CI Release in [Release-Workflows](/pubm/de/guides/release-workflows/).
+Erstellt einen Pull Request für den Version-Bump-Commit anstatt direkt in den Basis-Branch zu pushen. Wenn aktiviert, erstellt pubm einen `pubm/version-packages-*`-Branch, pusht ihn und öffnet einen PR. Der Release-Workflow wird normal ausgelöst, wenn der PR gemergt wird.
 
-Kann auch als Fallback gesetzt werden: pubm fällt automatisch in den PR-Modus zurück, wenn ein direkter Push auf einen geschützten Branch fehlschlägt.
+pubm fällt auch automatisch in den PR-Modus zurück, wenn ein direkter Push in einen geschützten Branch fehlschlägt.
 
 ### `registryQualifiedTags`
 

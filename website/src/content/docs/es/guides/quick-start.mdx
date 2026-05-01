@@ -26,6 +26,15 @@ brew tap syi0808/pubm
 brew install pubm
 ```
 
+## Para agentes de código
+
+Si estás integrando `pubm` con Claude Code, Codex u otro agente de código, empieza con la automatización de setup en lugar de escribir prompts de release a mano.
+
+- Ejecuta `pubm setup-skills` para descargar e instalar skills de agentes de código directamente, o deja que `pubm init` ofrezca la instalación de skills como su paso final.
+- Alternativamente, usa la skill `publish-setup` del bundle `pubm plugin` para instalar el flujo de publicación, generar la configuración, conectar CI y activar changesets.
+- Dale a tu agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que pueda descargar el bundle y empezar con `publish-setup`.
+- Lee [Agentes de código](/pubm/es/guides/coding-agents/) para conocer el modelo de integración y los roles de cada skill.
+
 ## 1. Inicializar el repositorio
 
 Ejecuta el asistente de configuración interactivo:
@@ -44,13 +53,4 @@ Inicia el flujo de release:
 pubm
 ```
 
-Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para los paquetes sin changesets, `pubm` también puede analizar commits convencionales (`feat:`, `fix:`, etc.) como replegado — consulta [Changesets](/pubm/es/guides/changesets/#replegarse-en-commits-convencionales) para más detalles. Para elegir un workflow de release, lee [Workflows de release](/pubm/es/guides/release-workflows/). Para configuración, lee [Configuración](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).
-
-## Para agentes de código
-
-Si estás integrando `pubm` con Claude Code, Codex u otro agente de código, empieza con la automatización de setup en lugar de escribir prompts de release a mano.
-
-- Ejecuta `pubm setup-skills` para descargar e instalar skills de agentes de código directamente, o deja que `pubm init` ofrezca la instalación de skills como su paso final.
-- Alternativamente, usa la skill `publish-setup` del bundle `pubm plugin` para instalar el flujo de publicación, generar la configuración, conectar CI y activar changesets.
-- Dale a tu agente el enlace [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) para que pueda descargar el bundle y empezar con `publish-setup`.
-- Lee [Agentes de código](/pubm/es/guides/coding-agents/) para conocer el modelo de integración y los roles de cada skill.
+Si hay changesets pendientes, `pubm` los consume durante la fase de versionado del pipeline de release. Para los paquetes sin changesets, `pubm` también puede analizar commits convencionales (`feat:`, `fix:`, etc.) como replegado — consulta [Changesets](/pubm/es/guides/changesets/#replegarse-en-commits-convencionales) para más detalles. Para configuración, lee [Configuración](/pubm/es/guides/configuration/). Para CI, tokens y comportamiento de preparación de CI, lee [CI/CD](/pubm/es/guides/ci-cd/). Para monorepos, lee [Monorepo](/pubm/es/guides/monorepo/). Para flags y subcomandos exactos, lee la [CLI Reference](/pubm/es/reference/cli/).

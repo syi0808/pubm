@@ -39,7 +39,7 @@ head:
             "name": "Why does pubm CI publish fail when local publish succeeds?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "CI disables prompts and tokens must come from environment variables. Run pubm --phase prepare locally to simulate, use full Git history in CI, and confirm every required token is present."
+              "text": "CI disables prompts and tokens must come from environment variables. Run pubm --mode ci --phase prepare locally to simulate, use full Git history in CI, and confirm every required token is present."
             }
           },
           {
@@ -56,8 +56,6 @@ head:
 
 This guide focuses on the failure modes that matter most in practice: configuration loading, versioning, registry auth, Git state, and CI behavior.
 
-If the question is which release path to use, start with [Release Workflows](/pubm/guides/release-workflows/). This page assumes you already chose Direct Release or Split CI Release and need to diagnose a failure.
-
 ## Start with the safest diagnostic commands
 
 Use these before retrying a failed publish:
@@ -66,6 +64,7 @@ Use these before retrying a failed publish:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
+pubm --mode ci --phase prepare
 ```
 
 Together, these commands tell you:
@@ -74,8 +73,6 @@ Together, these commands tell you:
 - which packages are affected
 - whether the changelog text is sane
 - whether credentials and registry checks are ready
-
-`pubm --phase prepare` is a real Split CI Release preparation run: it can write versions, create tags, and push the release commit and tags. Use it when you intend to prepare a CI publish, not as a harmless credential-only check.
 
 ## Publish blocked by Git state
 
@@ -161,7 +158,7 @@ Symptoms:
 What to check:
 
 - verify `JSR_TOKEN`
-- run `pubm --phase prepare`
+- run `pubm --mode ci --phase prepare`
 - confirm the package metadata is valid for jsr
 
 Because `pubm` publishes to multiple targets, fix the failing registry instead of retrying blindly and risking partial release confusion.
@@ -237,7 +234,7 @@ Why this happens:
 
 What to check:
 
-- run `pubm --phase prepare` locally
+- run `pubm --mode ci --phase prepare` locally
 - use full Git history in CI
 - confirm every required token is present in the job environment
 
@@ -252,9 +249,9 @@ What to check:
 
 - confirm repository remote metadata is valid
 - ensure Git tags exist and are pushed
-- distinguish between normal publish flow and `--phase publish`
+- distinguish between normal publish flow and `--mode ci --phase publish`
 
-pubm creates a GitHub Release via API. Without GITHUB_TOKEN in local mode, you can enter a token, open a draft in the browser, or skip. `--phase publish` creates a GitHub Release via API as part of the pipeline.
+pubm creates a GitHub Release via API. Without GITHUB_TOKEN in local mode, you can enter a token, open a draft in the browser, or skip. `--mode ci --phase publish` creates a GitHub Release via API as part of the pipeline.
 
 ## Rollback happened and now the repository state looks confusing
 
@@ -314,15 +311,14 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
 Only rerun a real publish after the dry-run and CI preparation outputs make sense again.
 
 ## Related pages
 
-- [CLI Reference](/pubm/reference/cli/): full list of flags and command behavior
-- [Release Workflows](/pubm/guides/release-workflows/): Direct Release and Split CI Release behavior
+- [CLI Reference](/pubm/reference/cli/): full list of flags and execution modes
 - [Configuration](/pubm/guides/configuration/): config file format and option reference
 - [CI/CD](/pubm/guides/ci-cd/): CI preparation, token handling, and release automation
 - [Changesets](/pubm/guides/changesets/): how changesets drive version bumps and changelogs

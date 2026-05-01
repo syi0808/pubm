@@ -41,7 +41,9 @@ await pubm({
 |------|-----|-------|
 | `version` | `string` | Erforderliches Release-Ziel wie `patch`, `minor`, `major` oder eine explizite SemVer. |
 | `dryRun` | `boolean` | Zeigt den Task-Plan an, ohne Git-Zustand zu ändern oder zu veröffentlichen. |
-| `phase` | `"prepare" \| "publish"` | Fuehrt eine Split CI Release-Phase aus. Weglassen fuer Direct Release. |
+| `mode` | `"local" \| "ci"` | Ausführungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
+| `prepare` | `boolean` | Fuehrt nur die Vorbereitungsphase aus (Validierung und Publish-Checks im Dry-Run). |
+| `publish` | `boolean` | Fuehrt nur die Publish-Phase aus (Veröffentlichung vom neuesten Tag). |
 | `releaseDraft` | `boolean` | Erstellt einen Draft-GitHub-Release statt eines veröffentlichten Releases. |
 | `branch` | `string` | Verlangt einen bestimmten Branch vor dem Veröffentlichen. |
 | `anyBranch` | `boolean` | Deaktiviert die Branch-Prüfung für einen Lauf. |
@@ -103,7 +105,7 @@ Nutze die Plugin-Exports, wenn du die Publish-Pipeline um benutzerdefinierte Reg
 | `GhSecretEntry` | type | Ein Eintrag aus den GitHub-Secret-Sync-Helfern: `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | Sammelt `PluginCredential[]` aus allen in der Config registrierten Plugins und löst ihre Werte auf. |
 | `injectPluginTokensToEnv` | function | Schreibt aufgeloeste Plugin-Tokenwerte in `process.env`, damit spaetere Publish-Schritte sie wie normale Umgebungsvariablen lesen können. |
-| `ReleaseContext` | type | Release-Metadaten für `afterRelease`-Hooks. Enthält `displayLabel`, `version`, `tag`, `releaseUrl` und `assets`. |
+| `ReleaseContext` | type | Release-Metadaten für `afterRelease`-Hooks. Enthält `packageName`, `version`, `tag`, `releaseUrl` und `assets`. |
 | `ReleaseAsset` | type | Ein hochgeladenes Asset: `name`, `url`, `sha256` und strukturiertes `platform`. |
 | `ParsedPlatform` | type | Strukturierte Plattforminfo: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |
 | `PreparedAsset` | type | Asset nach Komprimierung und Hashing, bereit für den Upload. |
@@ -118,8 +120,8 @@ import { defineConfig, type PubmPlugin } from "@pubm/core";
 const plugin: PubmPlugin = {
   name: "announce",
   hooks: {
-    afterRelease(_ctx, releaseCtx) {
-      console.log("published", releaseCtx.displayLabel, releaseCtx.version);
+    afterPublish(ctx) {
+      console.log("published", ctx.version);
     },
   },
 };

@@ -59,14 +59,15 @@ pubm은 매니페스트 파일을 읽고 어떤 레지스트리에 배포할지 
 
 ### 사전 점검
 
-브랜치, 워킹 트리, 원격 동기화, 로그인 상태, 배포 권한을 pubm이 **실제 변경 전에** 모두 확인합니다.
+브랜치, 워킹 트리, 원격 동기화, 로그인 상태, 배포 권한을 pubm이 **실제 변경 전에** 모두 확인합니다. CI 모드에서는 토큰 검증과 publish dry-run까지 수행해서 실제 배포 전에 문제를 잡아냅니다:
 
-### 릴리스 워크플로
+```bash
+pubm --mode ci --phase prepare
+```
 
-| 경로 | 명령 | 적합한 경우 |
-|------|------|-------------|
-| Direct Release | `pubm` | 신뢰할 수 있는 로컬 환경이나 제어된 작업 하나가 전체 릴리스를 실행할 때 |
-| Split CI Release | 로컬 `pubm --phase prepare`, 이후 CI `pubm --phase publish` | 로컬 준비 후 패키지 publish와 GitHub Releases 생성을 CI에 넘길 때 |
+### 같은 명령, 로컬과 CI 모두
+
+터미널에서는 대화형 프롬프트로, CI에서는 완전 무인으로 동작합니다. 별도 설정도, 외울 플래그도 없습니다.
 
 ### 모노레포 기본 지원
 
@@ -91,11 +92,7 @@ pubm init
 
 # 그냥 pubm을 실행하면 됩니다
 pubm
-```
 
-선택 명령:
-
-```bash
 # 선택 사항: 코딩 에이전트 스킬 설치 (Claude Code, Codex, Gemini)
 pubm setup-skills
 ```
@@ -119,7 +116,6 @@ pubm setup-skills
 ## 문서
 
 - [빠른 시작](https://syi0808.github.io/pubm/ko/guides/quick-start/)
-- [릴리스 워크플로](https://syi0808.github.io/pubm/ko/guides/release-workflows/)
 - [설정](https://syi0808.github.io/pubm/ko/guides/configuration/)
 - [Changesets](https://syi0808.github.io/pubm/ko/guides/changesets/)
 - [모노레포](https://syi0808.github.io/pubm/ko/guides/monorepo/)

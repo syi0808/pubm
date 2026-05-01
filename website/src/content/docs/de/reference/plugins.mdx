@@ -10,8 +10,8 @@ Das Plugin-System erlaubt es dir, `pubm` zu erweitern, ohne die Kern-Publish-Pip
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: PluginRegistryDefinition[];
-  ecosystems?: EcosystemDescriptor[];
+  registries?: PackageRegistry[];
+  ecosystems?: Ecosystem[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   credentials?: (ctx: PubmContext) => PluginCredential[];
@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - gibt die Liste der Tokens zurück, die dieses Plugin benötigt. pubm ruft das beim Initialisieren einmal auf, fragt fehlende Tokens ab, injiziert sie in die Umgebung und synchronisiert sie bei `--phase prepare` mit GitHub Secrets.
+- `credentials` - gibt die Liste der Tokens zurück, die dieses Plugin benötigt. pubm ruft das beim Initialisieren einmal auf, fragt fehlende Tokens ab, injiziert sie in die Umgebung und synchronisiert sie bei `--ci-prepare` mit GitHub Secrets.
 - `checks` - gibt Preflight-Checks zurück, die zusammen mit den Kernphasen für Voraussetzungen und Bedingungen laufen. Jeder Check legt über sein Feld `phase` fest, wann er ausgeführt wird.
 
 ## Hooks
@@ -97,7 +97,6 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     tempDir?: string;
     pluginTokens?: Record<string, string>;
-    rollback: RollbackTracker<PubmContext>;
   };
 }
 ```
@@ -167,7 +166,7 @@ export interface PluginCredential {
 | `label` | `string` | Menschlich lesbares Label für interaktive Prompts. |
 | `tokenUrl` | `string` | Optionale URL, unter der Benutzer das Token erstellen können. |
 | `tokenUrlLabel` | `string` | Optionales Anzeigelabel für `tokenUrl`. |
-| `ghSecretName` | `string` | Name des GitHub Secrets, das dieses Token bei `--phase prepare` erhalten soll. |
+| `ghSecretName` | `string` | Name des GitHub Secrets, das dieses Token bei `--ci-prepare` erhalten soll. |
 | `required` | `boolean` | Wenn `true`, meldet pubm einen Fehler, falls das Credential nicht aufgeloest werden kann. Standard ist `true`. |
 | `resolve` | `function` | Optionaler eigener Resolver ohne Argumente, der `Promise<string \| null>` zurückgibt. Wird vor Keyring/Prompt-Fallback aufgerufen. |
 | `validate` | `function` | Optionaler Token-Validator. Erhält das aufgeloeste Token und einen `PluginTaskContext`; gibt `false` zurück, um erneut zu fragen. |
@@ -218,10 +217,13 @@ export interface PluginTaskContext {
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
-    async afterRelease(_ctx, releaseCtx) {
-      console.log(
-        `Published ${releaseCtx.displayLabel} ${releaseCtx.version} (${releaseCtx.tag})`,
-      );
+    async afterPublish(ctx) {
+      const label =
+        ctx.versions && ctx.versions.size > 0
+          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
+          : `v${ctx.version}`;
+
+      console.log(`Published ${label}`);
     },
   },
 };

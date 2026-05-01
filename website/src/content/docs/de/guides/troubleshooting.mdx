@@ -13,6 +13,7 @@ Nutze diese Befehle, bevor du einen fehlgeschlagenen Publish erneut startest:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
+pubm --mode ci --phase prepare
 ```
 
 Zusammen beantworten diese Befehle:
@@ -21,8 +22,6 @@ Zusammen beantworten diese Befehle:
 - welche Pakete betroffen sind
 - ob der Changelog-Text plausibel ist
 - ob Zugangsdaten und Registry-Prüfungen bereit sind
-
-`pubm --phase prepare` ist eine echte Split-CI-Release-Vorbereitung: Der Befehl kann Versionen schreiben, Tags erstellen und den Release-Commit samt Tags pushen. Nutze ihn nur, wenn du einen CI-Publish vorbereiten willst, nicht als harmlose Prüfung ohne Seiteneffekte.
 
 ## Publish durch Git-Zustand blockiert
 
@@ -108,7 +107,7 @@ Symptome:
 Was du prüfen solltest:
 
 - `JSR_TOKEN` kontrollieren
-- `pubm --phase prepare` ausführen
+- `pubm --mode ci --phase prepare` ausführen
 - bestaetigen, dass die Paketmetadaten für jsr gueltig sind
 
 Weil `pubm` an mehrere Ziele veröffentlicht, solltest du die fehlerhafte Registry reparieren, statt blind erneut zu versuchen und damit mögliche Teilveröffentlichungen zu verwechseln.
@@ -184,7 +183,7 @@ Warum das passiert:
 
 Was du prüfen solltest:
 
-- `pubm --phase prepare` lokal ausführen
+- `pubm --mode ci --phase prepare` lokal ausführen
 - in CI den vollen Git-Verlauf verwenden
 - bestaetigen, dass jedes erforderliche Token in der Job-Umgebung vorhanden ist
 
@@ -199,9 +198,9 @@ Was du prüfen solltest:
 
 - bestaetigen, dass die Remote-Metadaten des Repositories gueltig sind
 - sicherstellen, dass Git-Tags existieren und gepusht wurden
-- zwischen normalem Publish-Flow und `--phase publish` unterscheiden
+- zwischen normalem Publish-Flow und `--mode ci --phase publish` unterscheiden
 
-`pubm` erstellt einen GitHub Release über die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--phase publish` erstellt im Rahmen der Pipeline einen GitHub Release über die API.
+`pubm` erstellt einen GitHub Release über die API. Ohne `GITHUB_TOKEN` im lokalen Modus kannst du einen Token eingeben, einen Draft im Browser oeffnen oder ueberspringen. `--mode ci --phase publish` erstellt im Rahmen der Pipeline einen GitHub Release über die API.
 
 ## Rollback ist passiert und der Repository-Zustand wirkt verwirrend
 
@@ -261,7 +260,7 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
 Fuehre einen echten Publish erst dann wieder aus, wenn die Ausgaben des Dry-Runs und der CI-Vorbereitung wieder sinnvoll aussehen.

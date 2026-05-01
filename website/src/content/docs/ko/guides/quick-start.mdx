@@ -26,6 +26,15 @@ brew tap syi0808/pubm
 brew install pubm
 ```
 
+## 코딩 에이전트용
+
+Claude Code, Codex 또는 다른 코딩 에이전트를 통해 `pubm`을 연결하는 경우, 릴리스 프롬프트를 직접 쓰기보다 설정 자동화부터 시작합니다.
+
+- `pubm setup-skills`를 실행해 코딩 에이전트 스킬을 직접 다운로드하고 설치하거나, `pubm init`이 마지막 단계에서 스킬 설치를 제안하도록 합니다.
+- 또는 `pubm plugin` 번들의 `publish-setup` 스킬을 사용해 릴리스 워크플로를 설치하고, 설정을 생성하며, CI를 연결하고, changeset을 활성화합니다.
+- 에이전트가 번들을 가져와 `publish-setup`부터 시작할 수 있도록 [INSTALLATION.md](/pubm/ko/plugins/pubm-plugin/INSTALLATION.md) 링크를 제공합니다.
+- 통합 모델과 스킬 역할은 [코딩 에이전트 통합](/pubm/ko/guides/coding-agents/)에서 확인합니다.
+
 ## 1. 저장소 초기화
 
 대화형 설정 마법사를 실행합니다.
@@ -44,13 +53,4 @@ pubm init
 pubm
 ```
 
-보류 중인 changeset이 있으면 `pubm`은 릴리스 파이프라인의 버전 단계에서 이를 소비합니다. changeset이 없는 패키지의 경우 `pubm`은 conventional commits(`feat:`, `fix:` 등)를 폴백으로 분석할 수도 있습니다 — 자세한 내용은 [Changesets](/pubm/ko/guides/changesets/#conventional-commit-폴백)를 참조합니다. 릴리스 방식 선택은 [릴리스 워크플로](/pubm/ko/guides/release-workflows/)에서, 설정 세부 내용은 [Configuration](/pubm/ko/guides/configuration/)에서, CI와 토큰, CI 준비 동작은 [CI/CD](/pubm/ko/guides/ci-cd/)에서, 모노레포는 [Monorepo](/pubm/ko/guides/monorepo/)에서, 정확한 플래그와 하위 명령은 [CLI Reference](/pubm/ko/reference/cli/)에서 확인합니다.
-
-## 코딩 에이전트용
-
-Claude Code, Codex 또는 다른 코딩 에이전트를 통해 `pubm`을 연결하는 경우, 릴리스 프롬프트를 직접 쓰기보다 설정 자동화부터 시작합니다.
-
-- `pubm setup-skills`를 실행해 코딩 에이전트 스킬을 직접 다운로드하고 설치하거나, `pubm init`이 마지막 단계에서 스킬 설치를 제안하도록 합니다.
-- 또는 `pubm plugin` 번들의 `publish-setup` 스킬을 사용해 릴리스 워크플로를 설치하고, 설정을 생성하며, CI를 연결하고, changeset을 활성화합니다.
-- 에이전트가 번들을 가져와 `publish-setup`부터 시작할 수 있도록 [INSTALLATION.md](/pubm/ko/plugins/pubm-plugin/INSTALLATION.md) 링크를 제공합니다.
-- 통합 모델과 스킬 역할은 [코딩 에이전트 통합](/pubm/ko/guides/coding-agents/)에서 확인합니다.
+보류 중인 changeset이 있으면 `pubm`은 릴리스 파이프라인의 버전 단계에서 이를 소비합니다. changeset이 없는 패키지의 경우 `pubm`은 conventional commits(`feat:`, `fix:` 등)를 폴백으로 분석할 수도 있습니다 — 자세한 내용은 [Changesets](/pubm/ko/guides/changesets/#conventional-commit-폴백)를 참조합니다. 설정 세부 내용은 [Configuration](/pubm/ko/guides/configuration/)에서, CI와 토큰, CI 준비 동작은 [CI/CD](/pubm/ko/guides/ci-cd/)에서, 모노레포는 [Monorepo](/pubm/ko/guides/monorepo/)에서, 정확한 플래그와 하위 명령은 [CLI Reference](/pubm/ko/reference/cli/)에서 확인합니다.

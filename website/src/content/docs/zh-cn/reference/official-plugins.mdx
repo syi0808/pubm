@@ -83,7 +83,7 @@ brewTap({
 |----------|--------------------|------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | 带有 `repo` scope 的 GitHub Personal Access Token，用于推送 formula 更新并创建 pull request。 |
 
-本地运行时，pubm 会提示输入这个 token，并把它存到系统 keyring。CI 中则通过 `PUBM_BREW_GITHUB_TOKEN` 环境变量提供。运行 `pubm --phase prepare` 或 `pubm secrets sync`，可以把已保存的 token 同步到仓库的 GitHub Secrets，供 CI workflow 自动使用。
+本地运行时，pubm 会提示输入这个 token，并把它存到系统 keyring。CI 中则通过 `PUBM_BREW_GITHUB_TOKEN` 环境变量提供。运行 `pubm --mode ci --phase prepare` 或 `pubm secrets sync`，可以把已保存的 token 同步到仓库的 GitHub Secrets，供 CI workflow 自动使用。
 
 该插件还会注册一个 preflight check，在 publish 阶段开始前验证 token 是否存在以及是否具备所需的仓库访问权限。
 

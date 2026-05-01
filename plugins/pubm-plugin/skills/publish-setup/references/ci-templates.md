@@ -1,17 +1,17 @@
 # CI/CD Templates for pubm
 
-## How pubm Works in Split CI Release
+## How pubm Works in CI
 
-These templates are for the CI half of **Split CI Release**. The local command is `pubm --phase prepare`; the CI workflow runs `pubm --phase publish`.
+pubm uses a two-phase CI flow: **prepare** and **publish**.
 
 | Phase | Command | What it does |
 |---|---|---|
-| **Prepare for CI publish** | `pubm --phase prepare` | Validate, collect/sync tokens, write versions, create tags, push the release commit and tags, do not publish packages |
-| **Publish prepared release** | `pubm --phase publish` | Read manifest versions, publish packages, create GitHub Releases with assets |
+| **prepare** | `pubm --mode ci --phase prepare` | Collect tokens, validate registry access, prepare for publish |
+| **publish** | `pubm --mode ci --phase publish` | Publish to all registries + create GitHub Release with assets |
 
-Omitting `--phase` runs Direct Release and is not the command shape for these CI templates.
+CI mode (`--mode ci`) **requires** exactly one of `--phase prepare` or `--phase publish`. Omitting the phase is an error.
 
-### What `--phase publish` does
+### What `--mode ci --phase publish` does
 
 - Skips prerequisites check (branch, remote, working tree).
 - Skips conditions check (registry ping, login validation).
@@ -19,20 +19,16 @@ Omitting `--phase` runs Direct Release and is not the command shape for these CI
 - Reads each package's version from its manifest (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, or `Cargo.toml`).
 - Publishes to all configured registries concurrently. Already-published versions are skipped.
 - Creates a GitHub Release with release notes and uploads release assets.
-- Is intended for CI and non-interactive token execution.
 - In monorepo independent mode, each package version is read independently. Fixed mode uses a shared version.
 
-### What `--phase prepare` does
+### What `--mode ci --phase prepare` does
 
-- Validates the project, registry access, and plugin credentials.
-- Collects required tokens and can sync them to GitHub Secrets.
-- Writes versions, creates release tags, and pushes the release commit and tags.
-- Runs publish dry-runs for configured registries.
-- Does not publish packages.
+- Collects required tokens and validates registry access.
+- Useful as a pre-publish validation step or for interactive CI setups where tokens are gathered first.
 
 ### Local workflow that triggers CI
 
-Run `pubm --phase prepare` locally for Prepare for CI publish. It validates, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages. That push triggers the CI workflow, which runs Publish prepared release.
+Run `pubm --mode ci --phase prepare` locally to collect tokens and validate registry access, then push. This push triggers the CI workflow.
 
 ## Required Secrets
 
@@ -67,7 +63,7 @@ Pick the block that matches the user's package manager. These are **composable b
         run: npm run build
 ```
 
-Publish step: `npx pubm --phase publish`
+Publish step: `npx pubm --mode ci --phase publish`
 
 ### pnpm
 
@@ -87,7 +83,7 @@ Publish step: `npx pubm --phase publish`
         run: pnpm run build
 ```
 
-Publish step: `pnpm exec pubm --phase publish`
+Publish step: `pnpm exec pubm --mode ci --phase publish`
 
 ### yarn
 
@@ -105,7 +101,7 @@ Publish step: `pnpm exec pubm --phase publish`
         run: yarn build
 ```
 
-Publish step: `yarn pubm --phase publish`
+Publish step: `yarn pubm --mode ci --phase publish`
 
 ### bun
 
@@ -134,7 +130,7 @@ Publish step: `yarn pubm --phase publish`
         run: bun run build
 ```
 
-Publish step: `bunx pubm --phase publish`
+Publish step: `bunx pubm --mode ci --phase publish`
 
 **Note:** `actions/setup-node` with `registry-url` is still required even with bun; `NODE_AUTH_TOKEN` is only picked up by npm when registry-url is configured.
 
@@ -153,7 +149,7 @@ If the user also has `@pubm/plugin-brew` configured, installing pubm via Homebre
           brew install pubm
 ```
 
-Publish step: `pubm --phase publish`
+Publish step: `pubm --mode ci --phase publish`
 
 **Note:** No `actions/setup-node` needed for Rust-only projects. If publishing to both npm/jsr and crates.io, combine with a JS setup block above.
 
@@ -162,8 +158,8 @@ Publish step: `pubm --phase publish`
 | Project type | Trigger | Why |
 |---|---|---|
 | **Single-package** | Tag-based (`v*` push) | Simplest: one tag, one version, one publish |
-| **Monorepo** | Commit-based ("Version Packages" on main) | Multiple package tags may be created, so the version commit is the reliable trigger |
-| **Manual** | `workflow_dispatch` with a prepared ref input | For controlled re-runs of a release that was already prepared |
+| **Monorepo** | Commit-based ("Version Packages" on main) | Each package may have a different version, so there is no single tag |
+| **Manual** | `workflow_dispatch` | For controlled, on-demand releases |
 
 ## Template: Single Package - Tag-Based
 
@@ -191,7 +187,7 @@ jobs:
       # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
       - name: Publish and release
-        run: <runner> pubm --phase publish
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}  # npm
@@ -204,9 +200,9 @@ Replace `<runner>` with `npx`, `pnpm exec`, `yarn`, `bunx`, or remove it for Hom
 ### Workflow
 
 1. Develop and merge to main.
-2. Run `pubm --phase prepare` locally. It validates, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages.
+2. Run `pubm --mode ci --phase prepare` locally. It collects tokens, validates registry access, and pushes.
 3. The pushed `v*` tag triggers this workflow.
-4. `--phase publish` reads the manifest version, publishes packages, and creates the GitHub Release.
+4. `--mode ci --phase publish` reads the tag version, publishes, and creates the GitHub Release.
 
 ## Template: Monorepo - Commit-Based
 
@@ -235,7 +231,7 @@ jobs:
       # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
       - name: Publish and release
-        run: <runner> pubm --phase publish
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}  # npm
@@ -245,9 +241,9 @@ jobs:
 ### Workflow
 
 1. Develop and merge to main.
-2. When ready to release, run `pubm --phase prepare` locally.
-3. Prepare writes and pushes the "Version Packages" commit, which triggers this workflow. Package tags are pushed too, but the commit is the trigger.
-4. `--phase publish` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
+2. When ready to release, merge the "Version Packages" PR (created by pubm's changeset workflow).
+3. The commit message starts with "Version Packages", which triggers this workflow.
+4. `--mode ci --phase publish` reads each package's manifest version, publishes unpublished packages, and creates GitHub Releases.
 
 **Important:** This requires a **merge commit or fast-forward merge** strategy. Squash merges change the commit message and break the trigger.
 
@@ -261,11 +257,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Prepared release tag or commit SHA from pubm --phase prepare"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -278,19 +269,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.ref }}
 
       # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
       - name: Publish and release
-        run: <runner> pubm --phase publish
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
 ```
 
-**Note:** The version must already be bumped and tagged before triggering. Use `pubm --phase prepare` locally first, then enter the prepared tag or commit SHA in the `ref` input. Do not run this template from the default branch unless that branch is already at the prepared release commit.
+**Note:** The version must already be bumped and tagged before triggering. Use `pubm --mode ci --phase prepare` locally first.
 
 ## Full Examples
 
@@ -343,7 +333,7 @@ jobs:
         run: bun run build
 
       - name: Publish and release
-        run: bunx pubm --phase publish
+        run: bunx pubm --mode ci --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -379,7 +369,7 @@ jobs:
           brew install pubm
 
       - name: Publish and release
-        run: pubm --phase publish
+        run: pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -422,7 +412,7 @@ jobs:
         run: pnpm run build
 
       - name: Publish and release
-        run: pnpm exec pubm --phase publish
+        run: pnpm exec pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -571,7 +561,7 @@ jobs:
       # --- INSERT SETUP BLOCK FOR YOUR PACKAGE MANAGER ---
 
       - name: Publish and release
-        run: <runner> pubm --phase publish
+        run: <runner> pubm --mode ci --phase publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -584,7 +574,7 @@ jobs:
 
 ### pubm as CI Trigger
 
-Use local Prepare for CI publish to control when releases happen, while CI handles the actual build and Publish prepared release.
+Use local `--phase prepare` to control when releases happen, while CI handles the actual build and publish.
 
 ```
 Developer                          CI
@@ -595,12 +585,11 @@ Developer                          CI
    │  ├─ bumps versions             │
    │  ├─ creates "Version Packages" │
    │    commit + tags               │
-   │  ├─ pushes commit and tags     │
    │  └─ git push --follow-tags ────┤
    │                                ├─ triggered by tag/commit
    │                                ├─ checkout + setup
    │                                ├─ build (possibly cross-platform)
-   │                                └─ pubm --phase publish
+   │                                └─ pubm --mode ci --phase publish
    │                                   ├─ publish to registries
    │                                   └─ create GitHub Release
 ```
@@ -615,7 +604,7 @@ Developer                          CI
 pubm --phase prepare
 ```
 
-This runs Prepare for CI publish: validates, collects/syncs tokens, writes versions, creates the commit and tags, pushes the release commit and tags, and does not publish packages. The push triggers CI.
+This runs tests, builds, bumps versions, creates the commit and tags, and pushes. The push triggers CI.
 
 ### Platform Binary Signing in CI
 
@@ -641,7 +630,7 @@ macOS binaries require code signing. Here's how to handle it in CI:
 
 ## Notes
 
-- **Phase is only for Split CI Release.** Omit `--phase` for Direct Release, or specify `--phase prepare` / `--phase publish` when preparation and publishing run in separate jobs.
+- **CI mode requires a phase flag.** `pubm --mode ci` alone is an error. Always specify `--phase prepare` or `--phase publish`.
 - **`id-token: write`** is needed for npm provenance (`npm publish --provenance`). It is not needed for Rust-only projects.
 - **`fetch-depth: 0`** is required for GitHub Release note generation and tag lookup.
 - **`registry-url` on `actions/setup-node`** is required for `NODE_AUTH_TOKEN` to be picked up by npm.

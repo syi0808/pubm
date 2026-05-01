@@ -52,8 +52,7 @@ pubm [version] [flags]
 Si omites la versión:
 
 - las terminales interactivas pueden preguntar por la siguiente versión
-- las Direct Release no interactivas necesitan una versión explícita o una fuente de versión configurada
-- Split CI Release publish lee las versiones ya preparadas por `pubm --phase prepare`
+- las ejecuciones en CI requieren que la versión se resuelva sin interacción
 
 ### Uso interactivo
 
@@ -82,7 +81,8 @@ pubm --tag beta
 | Flag | Por defecto | Descripción |
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | Muestra el grafo de tareas sin mutar el estado de Git ni publicar. |
-| `--phase <phase>` | - | Ejecuta una fase de Split CI Release: `prepare` (Prepare for CI publish) o `publish` (Publish prepared release). Omítelo para Direct Release. |
+| `--mode <mode>` | `local` | Modo de ejecución: `local` (interactivo) o `ci` (no interactivo, basado en tags). |
+| `--phase <phase>` | - | Fase del pipeline: `prepare` (validar y dry-run) o `publish` (publicar desde el último tag). |
 | `--release-draft` | `false` | Crea un GitHub Release en borrador en lugar de uno publicado. |
 | `-b, --branch <name>` | `main` | Exige que el branch actual coincida antes de publicar. |
 | `-a, --any-branch` | `false` | Desactiva la protección por branch para la ejecución actual. |
@@ -94,6 +94,7 @@ pubm --tag beta
 | `--no-save-token` | `false` | No persiste los tokens compatibles para ejecuciones futuras. |
 | `--dangerously-allow-unpublish` | `false` | Permite el unpublish/yank del registry durante el rollback en entornos sin TTY. |
 | `--locale <locale>` | `en` | Establece el idioma de salida del CLI. Admitidos: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
+| `--create-pr` | `false` | Crea un pull request para el version bump en lugar de hacer push directamente. |
 
 ## Flags de control del pipeline
 
@@ -107,15 +108,22 @@ pubm --tag beta
 | `--no-dry-run-validation` | Omite la validación de dry-run durante la fase de preparación. Útil cuando crates de workspace tienen dependencias internas cuyas nuevas versiones aún no se han publicado. |
 | `--skip-release` | Omite la creación de GitHub Release. |
 
-## Workflows de release
+## Modos de ejecución
 
-`pubm` admite Direct Release y Split CI Release. Lee [Workflows de release](/pubm/es/guides/release-workflows/) para el comportamiento conceptual y cuándo elegir cada ruta.
+## Ejecución local interactiva
 
-| Workflow | Forma del comando |
-|----------|-------------------|
-| Direct Release | `pubm` |
-| Split CI Release prepare | `pubm --phase prepare` |
-| Split CI Release publish | `pubm --phase publish` |
+El modo normal para releases locales:
+
+```bash
+pubm
+```
+
+Comportamiento:
+
+- empieza con selección interactiva de versión cuando no se proporciona argumento de versión
+- los prompts pueden aparecer cuando falta información requerida
+- tests y build se ejecutan salvo que se omitan
+- versionado, publicación, push y pasos de GitHub Release se ejecutan en orden
 
 ## Modo dry-run
 
@@ -125,28 +133,27 @@ pubm --dry-run
 
 Usa el modo dry-run cuando necesites inspeccionar el plan de tareas sin efectos secundarios.
 
-## Split CI Release: Prepare for CI publish
+## Modo de preparación de CI
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
-Prepare for CI publish:
+Preparación de CI:
 
-- valida el proyecto, el acceso a registries y las credenciales de plugins
-- recopila tokens faltantes y puede sincronizarlos con GitHub Secrets
-- escribe versiones de manifests, crea release tags y hace push del commit de release y tags
+- recopila tokens faltantes de forma interactiva
+- puede sincronizarlos con GitHub Secrets
+- cambia a comportamiento no interactivo para imitar CI
 - ejecuta comprobaciones previas y de condiciones
 - simula la publicación para los registries configurados
-- no publica paquetes
 
-## Split CI Release: Publish prepared release
+## Modo de publicación en CI
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
-Publish prepared release lee versiones de manifests, publica paquetes y crea GitHub Releases mediante la API. Está pensado para CI y ejecución no interactiva con tokens después de que Prepare for CI publish ya haya escrito versiones, creado tags y hecho push del commit de release y tags. Pasa `--release-draft` para crear releases en borrador en lugar de publicados.
+El modo de publicación en CI publica desde el último Git tag y crea un GitHub Release mediante la API. Úsalo cuando el bump de versión y el tagging ya hayan ocurrido antes en el pipeline. Pasa `--release-draft` para crear un release en borrador en lugar de uno publicado.
 
 ## Variables de entorno
 
@@ -155,7 +162,6 @@ Publish prepared release lee versiones de manifests, publica paquetes y crea Git
 | `NODE_AUTH_TOKEN` | Autenticación de npm en CI |
 | `JSR_TOKEN` | Autenticación de jsr |
 | `CARGO_REGISTRY_TOKEN` | Autenticación de crates.io |
-| `GITHUB_TOKEN` | Creación de GitHub Release y subida de release assets |
 | `PUBM_LOCALE` | Idioma de salida del CLI (`en`, `ko`, `zh-cn`, `fr`, `de`, `es`) |
 
 Los prompts se desactivan automáticamente cuando:
@@ -251,7 +257,7 @@ pubm secrets sync --registry npm,jsr
 Notas:
 
 - requiere que `gh` esté instalado y autenticado
-- usa tokens almacenados localmente, así que ejecuta primero `pubm --phase prepare` si todavía no se ha guardado nada
+- usa tokens almacenados localmente, así que ejecuta primero `pubm --mode ci --phase prepare` si todavía no se ha guardado nada
 
 ## `pubm sync --discover`
 
@@ -364,7 +370,7 @@ En el modo de publicación normal, los fallos también desencadenan rollback cua
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --phase prepare
+pubm --mode ci --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -372,13 +378,13 @@ pubm
 ### Prueba local de CI
 
 ```bash
-pubm --phase prepare
+pubm --mode ci --phase prepare
 ```
 
 ### Publicar solo la release etiquetada actual en CI
 
 ```bash
-pubm --phase publish
+pubm --mode ci --phase publish
 ```
 
 ### Sincronizar tokens guardados después de la preparación

@@ -205,9 +205,9 @@ export default defineConfig({
 - 타입: `boolean`
 - 기본값: `false`
 
-version bump 커밋을 베이스 브랜치에 직접 push하는 대신 pull request를 생성합니다. 이는 보호된 version push를 위한 기존 config surface이며, 권장 릴리스 워크플로 선택지는 아닙니다. Direct Release와 Split CI Release 중 선택하려면 [릴리스 워크플로](/pubm/ko/guides/release-workflows/)를 확인합니다.
+version bump 커밋을 베이스 브랜치에 직접 push하는 대신 pull request를 생성합니다. 활성화하면 pubm이 `pubm/version-packages-*` 브랜치를 만들고 push한 뒤 PR을 엽니다. PR이 병합되면 기존 릴리스 워크플로가 정상적으로 트리거됩니다.
 
-직접 push가 보호된 브랜치에서 실패하면 pubm은 자동으로 PR 모드로 fallback할 수도 있습니다.
+보호된 브랜치로의 직접 push가 실패할 경우 자동으로 PR 모드로 폴백합니다.
 
 ### `registryQualifiedTags`
 

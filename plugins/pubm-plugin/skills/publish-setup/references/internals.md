@@ -18,30 +18,22 @@ pubm executes phases in this order:
 
 ## Phases
 
-### Direct Release vs Split CI Release
+### Prepare vs Publish
 
-| Workflow | Command | What happens |
-|---|---|---|
-| **Direct Release** | `pubm` | Runs prepare and publish in one command |
-| **Split CI Release** | `pubm --phase prepare` then CI `pubm --phase publish` | Uses Prepare for CI publish locally and Publish prepared release in CI |
-
-### Prepare for CI publish vs Publish prepared release
-
-| | Prepare for CI publish | Publish prepared release |
+| | Prepare | Publish |
 |---|---|---|
 | **Command** | `pubm --phase prepare` | `pubm --phase publish` |
-| **Does** | validate, collect/sync tokens, test, build, write versions, create tags, push the release commit and tags, dry-run publish | read manifest versions, publish packages, create GitHub Releases |
-| **Does not** | publish packages | write versions, create tags, push the release commit or tags |
-| **When omitted** | Direct Release runs both phases | Direct Release runs both phases |
-| **Split workflow** | Use this phase before CI publish | Use this phase inside CI and non-interactive token execution |
+| **Does** | test, build, version bump, dry-run validation, git push | registry publish, GitHub Release |
+| **When omitted** | Both phases run (local default) | Both phases run (local default) |
+| **CI requirement** | Must specify exactly one phase | Must specify exactly one phase |
 
-Running without `--phase` executes Direct Release. Use `--phase prepare` or `--phase publish` only for Split CI Release.
+Running locally without `--phase` executes both phases sequentially. In CI mode (`--mode ci`), omitting `--phase` is an error.
 
 ### Common CI pattern
 
-1. Run `pubm --phase prepare` locally — validates, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages
+1. Run `pubm --phase prepare` locally — runs tests, builds, bumps versions, creates tags, pushes
 2. Tag/commit push triggers CI workflow
-3. CI runs `pubm --phase publish` — reads manifest versions, publishes packages, and creates GitHub Releases
+3. CI runs `pubm --mode ci --phase publish` — publishes and creates releases
 
 ## Version Phase
 
