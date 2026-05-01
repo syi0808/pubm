@@ -91,22 +91,36 @@ describe("createPublishOperations", () => {
         throw new Error("publish failed");
       }),
     );
+    const operations = createPublishOperations(true, false, false);
 
-    await expect(
-      createPublishOperations(true, false, false)[0]?.run?.(ctx, parent),
-    ).rejects.toThrow("publish failed");
+    await expect(operations[0]?.run?.(ctx, parent)).rejects.toThrow(
+      "publish failed",
+    );
 
     expect(publishState.restoreCalls).toEqual([publishState.backups]);
     expect(ctx.runtime.workspaceBackups).toBeUndefined();
+    expect((operations[1]?.skip as (ctx: PubmContext) => boolean)(ctx)).toBe(
+      true,
+    );
+    expect(operations[2]?.run).toBeDefined();
   });
 
   it("restores workspace manifests after successful publish operations", async () => {
     const ctx = createContext();
     const parent = createParentTask();
+    const operations = createPublishOperations(true, false, false);
 
-    await createPublishOperations(true, false, false)[0]?.run?.(ctx, parent);
+    await operations[0]?.run?.(ctx, parent);
+    await operations[2]?.run?.(ctx, parent);
 
     expect(publishState.restoreCalls).toEqual([publishState.backups]);
     expect(ctx.runtime.workspaceBackups).toBeUndefined();
+    expect((operations[1]?.skip as (ctx: PubmContext) => boolean)(ctx)).toBe(
+      true,
+    );
+    expect(ctx.runtime.pluginRunner.runHook).toHaveBeenCalledWith(
+      "afterPublish",
+      ctx,
+    );
   });
 });

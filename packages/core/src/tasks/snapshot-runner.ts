@@ -276,6 +276,10 @@ export async function runSnapshotPipeline(
     targetPackages.map((p) => [packageKey(p), p.version || "0.0.0"]),
   );
   const cleanupRef: CleanupRef = { current: undefined };
+  let pipelineFailed = false;
+  let pipelineError: unknown;
+  let cleanupFailed = false;
+  let cleanupError: unknown;
 
   try {
     if (!ctx.runtime.promptEnabled) {
@@ -288,14 +292,24 @@ export async function runSnapshotPipeline(
       createSnapshotPublishOperation(plan, snapshotVersions, tag),
       createSnapshotTagOperation(plan, dryRun),
     ]);
+  } catch (error) {
+    pipelineFailed = true;
+    pipelineError = error;
   } finally {
-    cleanupRef.current?.();
+    try {
+      cleanupRef.current?.();
+    } catch (error) {
+      cleanupFailed = true;
+      cleanupError = error;
+    }
     if (ctx.runtime.workspaceBackups?.size) {
       restoreManifests(ctx.runtime.workspaceBackups);
       ctx.runtime.workspaceBackups = undefined;
     }
     await writeVersions(ctx, originalVersions);
   }
+  if (pipelineFailed) throw pipelineError;
+  if (cleanupFailed) throw cleanupError;
 
   // Success message
   const registries = collectRegistries(ctx.config);

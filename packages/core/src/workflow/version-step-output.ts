@@ -179,7 +179,9 @@ export function createWorkflowVersionMap(
   plan: VersionPlan,
 ): [string, string][] {
   if (plan.mode === "single") {
-    return ctx.config.packages.map((pkg) => [packageKey(pkg), plan.version]);
+    return ctx.config.packages
+      .filter((pkg) => packageKey(pkg) === plan.packageKey)
+      .map((pkg) => [packageKey(pkg), plan.version]);
   }
 
   return [...plan.packages];
@@ -191,9 +193,15 @@ export function createWorkflowVersionTagReferences(
   options: WorkflowVersionTagReferenceOptions = {},
 ): WorkflowVersionTagReference[] {
   if (plan.mode === "single") {
-    const packageKeys = ctx.config.packages.map((pkg) => packageKey(pkg));
+    const packageKeys = ctx.config.packages
+      .map((pkg) => packageKey(pkg))
+      .filter((key) => key === plan.packageKey);
+    if (!packageKeys.length) return [];
+
     return [
-      releaseTagReference(ctx, `v${plan.version}`, plan.version, packageKeys),
+      releaseTagReference(ctx, `v${plan.version}`, plan.version, [
+        ...packageKeys,
+      ]),
     ];
   }
 

@@ -48,7 +48,7 @@ function context(
 }
 
 describe("workflow version step output", () => {
-  it("pins single-version package writes and shared tag reference", () => {
+  it("pins single-version package writes and tag reference to the target package", () => {
     const ctx = context({
       mode: "single",
       packageKey: "packages/a::js",
@@ -57,7 +57,6 @@ describe("workflow version step output", () => {
 
     expect(createWorkflowVersionMap(ctx, ctx.runtime.versionPlan!)).toEqual([
       ["packages/a::js", "1.2.3"],
-      ["packages/b::js", "1.2.3"],
     ]);
     expect(createWorkflowVersionStepOutput(ctx)).toMatchObject({
       summary: "v1.2.3",
@@ -68,16 +67,11 @@ describe("workflow version step output", () => {
           packageName: "pkg-a",
           version: "1.2.3",
         },
-        {
-          packageKey: "packages/b::js",
-          packageName: "pkg-b",
-          version: "1.2.3",
-        },
       ],
       tagReferences: [
         {
-          packageKeys: ["packages/a::js", "packages/b::js"],
-          packageNames: ["pkg-a", "pkg-b"],
+          packageKeys: ["packages/a::js"],
+          packageNames: ["pkg-a"],
           tagName: "v1.2.3",
           version: "1.2.3",
         },

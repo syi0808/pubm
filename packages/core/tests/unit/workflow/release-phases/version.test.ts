@@ -221,10 +221,7 @@ describe("createVersionOperation", () => {
     );
 
     expect(versionState.writeVersionsCalls[0]).toEqual(
-      new Map([
-        ["packages/a::js", "1.2.0"],
-        ["packages/b::js", "1.2.0"],
-      ]),
+      new Map([["packages/a::js", "1.2.0"]]),
     );
     expect(versionState.changelogs).toEqual([
       { cwd: "/repo", content: "# 1.2.0\nchange" },

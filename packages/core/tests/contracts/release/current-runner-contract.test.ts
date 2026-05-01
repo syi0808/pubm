@@ -38,6 +38,22 @@ interface ContractWorld {
   };
 }
 
+const registryEnvKeys = [
+  "NODE_AUTH_TOKEN",
+  "JSR_TOKEN",
+  "CARGO_REGISTRY_TOKEN",
+  "REGISTRY_INTERNAL_TEST_NPM_TOKEN",
+] as const;
+const releaseContractEnvKeys = ["GITHUB_TOKEN", ...registryEnvKeys] as const;
+
+function restoreEnvValue(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
+
 const mockState = vi.hoisted(() => {
   const state = {
     isCI: false,
@@ -1505,77 +1521,70 @@ async function runScenario(
     skipDryRun: false,
   };
 
-  if (world.githubToken) {
-    process.env.GITHUB_TOKEN = "gh-token";
-  } else {
-    delete process.env.GITHUB_TOKEN;
-  }
-  const registryEnvKeys = [
-    "NODE_AUTH_TOKEN",
-    "JSR_TOKEN",
-    "CARGO_REGISTRY_TOKEN",
-    "REGISTRY_INTERNAL_TEST_NPM_TOKEN",
-  ];
-  const originalRegistryEnv = new Map(
+  const originalGitHubToken = process.env.GITHUB_TOKEN;
+  const originalRegistryEnv = new Map<string, string | undefined>(
     registryEnvKeys.map((key) => [key, process.env[key]]),
   );
-  for (const key of registryEnvKeys) {
-    process.env[key] = "registry-token";
-  }
-  process.env.NODE_AUTH_TOKEN = "node-token";
-  process.env.JSR_TOKEN = "jsr-token";
-  process.env.CARGO_REGISTRY_TOKEN = "cargo-token";
-  process.env.REGISTRY_INTERNAL_TEST_NPM_TOKEN = "private-token";
-
-  const ctx = createContext(config as any, options as any, root);
-  ctx.runtime.versionPlan = buildVersionPlan(scenario) as any;
-  ctx.runtime.tag = scenario.options.tag ?? "latest";
-  ctx.runtime.rollback = createRollbackTracker(world.ledger);
-  ctx.runtime.pluginRunner = {
-    runHook: vi.fn(async (hookName: string) => {
-      world.ledger.events.push({ name: `plugin.${hookName}` });
-    }),
-    runErrorHook: vi.fn(async (_ctx: unknown, error: Error) => {
-      world.ledger.events.push({
-        name: "plugin.onError",
-        detail: { message: error.message },
-      });
-    }),
-    runAfterReleaseHook: vi.fn(async (_ctx: unknown, result: any) => {
-      const releaseContext = {
-        displayLabel: result?.displayLabel,
-        version: result?.version,
-        tag: result?.tag,
-        releaseUrl: result?.releaseUrl,
-        releaseId: result?.releaseId,
-        assets: result?.assets,
-      };
-      world.ledger.releaseContexts.push(releaseContext);
-      world.ledger.events.push({
-        name: "plugin.afterRelease",
-        detail: releaseContext as Record<string, unknown>,
-      });
-    }),
-    collectAssetHooks: vi.fn(() => ({})),
-    collectChecks: vi.fn(() => []),
-    collectCredentials: vi.fn(() => []),
-  } as any;
-
   const originalIsTTY = process.stdin.isTTY;
-  Object.defineProperty(process.stdin, "isTTY", {
-    configurable: true,
-    value: !!scenario.options.stdinIsTTY,
-  });
 
   try {
+    if (world.githubToken) {
+      process.env.GITHUB_TOKEN = "gh-token";
+    } else {
+      delete process.env.GITHUB_TOKEN;
+    }
+    for (const key of registryEnvKeys) {
+      process.env[key] = "registry-token";
+    }
+    process.env.NODE_AUTH_TOKEN = "node-token";
+    process.env.JSR_TOKEN = "jsr-token";
+    process.env.CARGO_REGISTRY_TOKEN = "cargo-token";
+    process.env.REGISTRY_INTERNAL_TEST_NPM_TOKEN = "private-token";
+
+    const ctx = createContext(config as any, options as any, root);
+    ctx.runtime.versionPlan = buildVersionPlan(scenario) as any;
+    ctx.runtime.tag = scenario.options.tag ?? "latest";
+    ctx.runtime.rollback = createRollbackTracker(world.ledger);
+    ctx.runtime.pluginRunner = {
+      runHook: vi.fn(async (hookName: string) => {
+        world.ledger.events.push({ name: `plugin.${hookName}` });
+      }),
+      runErrorHook: vi.fn(async (_ctx: unknown, error: Error) => {
+        world.ledger.events.push({
+          name: "plugin.onError",
+          detail: { message: error.message },
+        });
+      }),
+      runAfterReleaseHook: vi.fn(async (_ctx: unknown, result: any) => {
+        const releaseContext = {
+          displayLabel: result?.displayLabel,
+          version: result?.version,
+          tag: result?.tag,
+          releaseUrl: result?.releaseUrl,
+          releaseId: result?.releaseId,
+          assets: result?.assets,
+        };
+        world.ledger.releaseContexts.push(releaseContext);
+        world.ledger.events.push({
+          name: "plugin.afterRelease",
+          detail: releaseContext as Record<string, unknown>,
+        });
+      }),
+      collectAssetHooks: vi.fn(() => ({})),
+      collectChecks: vi.fn(() => []),
+      collectCredentials: vi.fn(() => []),
+    } as any;
+
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: !!scenario.options.stdinIsTTY,
+    });
+
     await adapter.execute(ctx, scenario, world);
   } finally {
+    restoreEnvValue("GITHUB_TOKEN", originalGitHubToken);
     for (const [key, value] of originalRegistryEnv) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
+      restoreEnvValue(key, value);
     }
     Object.defineProperty(process.stdin, "isTTY", {
       configurable: true,
@@ -1753,7 +1762,12 @@ function expectCompensationLabels(
 }
 
 describe("release behavior contract against the current runner", () => {
+  let originalReleaseContractEnv = new Map<string, string | undefined>();
+
   beforeEach(() => {
+    originalReleaseContractEnv = new Map(
+      releaseContractEnvKeys.map((key) => [key, process.env[key]]),
+    );
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockState.state.runnerSigintHandler = undefined;
@@ -1774,6 +1788,7 @@ describe("release behavior contract against the current runner", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (mockState.state.world?.root) {
       rmSync(mockState.state.world.root, { recursive: true, force: true });
     }
@@ -1781,11 +1796,9 @@ describe("release behavior contract against the current runner", () => {
     mockState.state.isCI = false;
     mockState.state.runnerSigintHandler = undefined;
     mockState.state.sigintSkipConfirmTarget = undefined;
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.NODE_AUTH_TOKEN;
-    delete process.env.JSR_TOKEN;
-    delete process.env.CARGO_REGISTRY_TOKEN;
-    delete process.env.REGISTRY_INTERNAL_TEST_NPM_TOKEN;
+    for (const [key, value] of originalReleaseContractEnv) {
+      restoreEnvValue(key, value);
+    }
   });
 
   it("characterizes local direct publish decisions, side effects, and compensations", async () => {

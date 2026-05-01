@@ -185,6 +185,19 @@ function makeSnapshotContext(
   });
 }
 
+async function withMockedTTY<T>(
+  isTTY: boolean,
+  run: () => Promise<T>,
+): Promise<T> {
+  const originalIsTTY = process.stdin.isTTY;
+  process.stdin.isTTY = isTTY;
+  try {
+    return await run();
+  } finally {
+    process.stdin.isTTY = originalIsTTY;
+  }
+}
+
 describe("buildSnapshotVersionPlan", () => {
   beforeEach(() => {
     mockedGenerateSnapshotVersion.mockReturnValue(
@@ -410,6 +423,7 @@ describe("runSnapshotPipeline", () => {
     mockedWriteVersions.mockResolvedValue(undefined);
     mockedCollectPublishOperations.mockResolvedValue([]);
     mockedResolveWorkspaceProtocols.mockResolvedValue(undefined);
+    mockedRunCiPublishPluginCreds.mockResolvedValue(undefined);
     mockedRestoreManifests.mockReset();
 
     // Default Git mock — reset after vi.clearAllMocks()
@@ -450,26 +464,24 @@ describe("runSnapshotPipeline", () => {
 
   it("sets promptEnabled to true when not CI and stdin is TTY", async () => {
     mockIsCI.value = false;
-    const originalIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = true;
     const ctx = makeSnapshotContext();
 
-    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+    await withMockedTTY(true, async () => {
+      await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(ctx.runtime.promptEnabled).toBe(true);
-    process.stdin.isTTY = originalIsTTY;
+      expect(ctx.runtime.promptEnabled).toBe(true);
+    });
   });
 
   it("sets promptEnabled to false when in CI", async () => {
     mockIsCI.value = true;
-    const originalIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = true;
     const ctx = makeSnapshotContext();
 
-    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+    await withMockedTTY(true, async () => {
+      await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(ctx.runtime.promptEnabled).toBe(false);
-    process.stdin.isTTY = originalIsTTY;
+      expect(ctx.runtime.promptEnabled).toBe(false);
+    });
   });
 
   it("collects publish plugin credentials when snapshot runs non-interactively", async () => {
@@ -483,14 +495,13 @@ describe("runSnapshotPipeline", () => {
 
   it("does not collect publish plugin credentials in interactive local runs", async () => {
     mockIsCI.value = false;
-    const originalIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = true;
     const ctx = makeSnapshotContext();
 
-    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+    await withMockedTTY(true, async () => {
+      await runSnapshotPipeline(ctx, { tag: "snapshot" });
 
-    expect(mockedRunCiPublishPluginCreds).not.toHaveBeenCalled();
-    process.stdin.isTTY = originalIsTTY;
+      expect(mockedRunCiPublishPluginCreds).not.toHaveBeenCalled();
+    });
   });
 
   it("applies filter to packages when provided", async () => {
@@ -911,6 +922,32 @@ describe("runSnapshotPipeline", () => {
     );
 
     expect(mockedRestoreManifests).toHaveBeenCalledWith(backups);
+  });
+
+  it("restores manifests and versions when cleanup fails", async () => {
+    mockIsCI.value = true;
+    const ctx = makeSnapshotContext();
+    const backups = new Map([["path/package.json", '{"original": true}']]);
+    const cleanupError = new Error("cleanup failed");
+
+    mockedResolveWorkspaceProtocols.mockImplementation(async (c) => {
+      (c as PubmContext).runtime.workspaceBackups = backups;
+    });
+    mockedRunCiPublishPluginCreds.mockImplementation(
+      async (_ctx, _chainCleanup, cleanupRef) => {
+        cleanupRef.current = () => {
+          throw cleanupError;
+        };
+      },
+    );
+
+    await expect(runSnapshotPipeline(ctx, { tag: "snapshot" })).rejects.toThrow(
+      "cleanup failed",
+    );
+
+    expect(mockedRestoreManifests).toHaveBeenCalledWith(backups);
+    expect(ctx.runtime.workspaceBackups).toBeUndefined();
+    expect(mockedWriteVersions).toHaveBeenCalledTimes(2);
   });
 
   it("pushes only the snapshot tag created during the run", async () => {

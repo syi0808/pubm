@@ -73,7 +73,7 @@ export function createVersionOperation(
       await git.reset();
 
       if (plan.mode === "single") {
-        // Single package: write version for all config packages
+        // Single package: write the selected package only.
         task.output = "Updating package manifest versions...";
         if (dryRun) {
           return;
