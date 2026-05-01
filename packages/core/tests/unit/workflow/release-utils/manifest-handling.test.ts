@@ -248,10 +248,7 @@ describe("applyVersionsForDryRun", () => {
 
     await applyVersionsForDryRun(ctx);
 
-    expect(manifestState.callOrder).toEqual([
-      "rollback.add",
-      "writeVersions",
-    ]);
+    expect(manifestState.callOrder).toEqual(["rollback.add", "writeVersions"]);
     expect(manifestState.rollbackActions).toHaveLength(1);
     expect(manifestState.rollbackActions[0]?.label).toBe(
       "Restore dry-run version changes",

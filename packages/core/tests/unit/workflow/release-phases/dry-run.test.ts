@@ -70,9 +70,9 @@ vi.mock("../../../../src/workflow/release-utils/write-versions.js", () => ({
   }),
 }));
 
+import { createRegistryDryRunOperation } from "../../../../src/workflow/registry-operations.js";
 import { createDryRunOperations } from "../../../../src/workflow/release-phases/dry-run.js";
 import { applyVersionsForDryRun } from "../../../../src/workflow/release-utils/manifest-handling.js";
-import { createRegistryDryRunOperation } from "../../../../src/workflow/registry-operations.js";
 
 describe("createDryRunOperations", () => {
   beforeEach(() => {
