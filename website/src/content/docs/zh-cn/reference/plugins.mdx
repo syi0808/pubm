@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、注入环境变量，并在执行 `--ci-prepare` 时同步到 GitHub Secrets。
+- `credentials` - 返回这个插件需要的 token 列表。pubm 会在初始化时调用一次，用来提示缺失的 token、注入环境变量，并在执行 `--phase prepare` 时同步到 GitHub Secrets。
 - `checks` - 返回与核心 prerequisite/condition 阶段一起运行的 preflight check。每个 check 通过 `phase` 字段声明执行时机。
 
 ## Hooks
@@ -104,7 +104,7 @@ export interface PubmContext {
 关键字段：
 
 - `ctx.config`：解析后的 pubm 配置（packages、registries、plugins、releaseAssets 等）
-- `ctx.options`：解析后的 CLI 选项（version、tag、mode、dryRun 等）
+- `ctx.options`：解析后的 CLI 选项（version、tag、phase、dryRun 等）
 - `ctx.cwd`：工作目录
 - `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
 - `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，后续所有 hooks 都能用。
@@ -166,7 +166,7 @@ export interface PluginCredential {
 | `label` | `string` | 在交互式提示中展示的人类可读标签。 |
 | `tokenUrl` | `string` | 用户可创建该 token 的可选 URL。 |
 | `tokenUrlLabel` | `string` | `tokenUrl` 的可选展示标签。 |
-| `ghSecretName` | `string` | `--ci-prepare` 同步时应写入的 GitHub Secret 名称。 |
+| `ghSecretName` | `string` | `--phase prepare` 同步时应写入的 GitHub Secret 名称。 |
 | `required` | `boolean` | 为 `true` 时，如果无法解析该凭证，pubm 会报错。默认值为 `true`。 |
 | `resolve` | `function` | 可选的自定义 resolver，不接收参数，返回 `Promise<string \| null>`。会在 keyring/prompt fallback 之前调用。 |
 | `validate` | `function` | 可选的 token 校验器。接收已解析 token 和 `PluginTaskContext`；返回 `false` 时会重新提示。 |

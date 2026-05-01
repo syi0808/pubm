@@ -79,6 +79,15 @@ vi.mock("../../../src/utils/gh-secrets-sync-state.js", () => ({
   }),
 }));
 
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: unknown) => `${value}`,
+    },
+  ),
+}));
+
 import { registryCatalog } from "../../../src/registry/catalog.js";
 import {
   collectPluginCredentials,

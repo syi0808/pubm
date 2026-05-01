@@ -59,7 +59,7 @@ pubm  # runs both prepare and publish locally
 pubm --phase prepare
 
 # CI: triggered by tag/commit, publishes to registries
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 **Best for:** Most projects. Version control stays local, publishing is automated and reproducible.
@@ -68,10 +68,10 @@ pubm --mode ci --phase publish
 
 ```bash
 # CI prepare job: triggered by changeset merge
-pubm --mode ci --phase prepare
+pubm --phase prepare
 
 # CI publish job: triggered by version commit/tag
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 **Best for:** Teams with strict release processes, projects using changesets with automated version PRs.

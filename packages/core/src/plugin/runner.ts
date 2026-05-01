@@ -38,6 +38,7 @@ export class PluginRunner {
         registryCatalog.register({
           ...rest,
           taskFactory,
+          useWorkflowTaskFactory: !!taskFactory,
         });
       }
       for (const desc of plugin.ecosystems ?? []) {

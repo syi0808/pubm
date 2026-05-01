@@ -142,8 +142,7 @@ function createOperation(
   promptResponses: unknown[] = [],
 ): ReleaseOperationContext & { prompts: unknown[] } {
   const prompts: unknown[] = [];
-
-  return {
+  const operation: ReleaseOperationContext & { prompts: unknown[] } = {
     title: "",
     output: "",
     prompts,
@@ -155,8 +154,36 @@ function createOperation(
       }),
     }),
     runOperations: vi.fn(),
+    runTasks: vi.fn(async (tasks) => {
+      const list = Array.isArray(tasks) ? tasks : [tasks];
+      for (const task of list) {
+        const taskContext = {
+          get title(): string {
+            return operation.title;
+          },
+          set title(value: string) {
+            operation.title = value;
+          },
+          get output(): string {
+            return operation.output;
+          },
+          set output(value: string) {
+            operation.output = value;
+          },
+          prompt: () => ({
+            run: vi.fn(async () => {
+              const response = promptResponses.shift() ?? "";
+              prompts.push(response);
+              return response;
+            }),
+          }),
+        };
+        await task.task?.({} as PubmContext, taskContext as never);
+      }
+    }),
     skip: vi.fn(),
   };
+  return operation;
 }
 
 function createRegistry(overrides: Record<string, unknown> = {}) {
@@ -276,6 +303,27 @@ describe("registry release operations", () => {
     expect(registry.publishProvenance).toHaveBeenCalledWith("latest");
     expect(rollbackItems(ctx)).toHaveLength(1);
     expect(rollbackItems(ctx)[0]?.label).toContain("task.npm.rollbackSkipped");
+  });
+
+  it("keeps built-in registries on native workflow operations when taskFactory is present", async () => {
+    const registry = createRegistry();
+    const createPublishTask = vi.fn();
+    const createDryRunTask = vi.fn();
+    registerDescriptor("npm", registry, {
+      taskFactory: {
+        createPublishTask,
+        createDryRunTask,
+      },
+    });
+    const ctx = createContext();
+
+    await runPublish("npm", "packages/pkg::js", ctx);
+    await runDryRun("npm", "packages/pkg::js", ctx);
+
+    expect(createPublishTask).not.toHaveBeenCalled();
+    expect(createDryRunTask).not.toHaveBeenCalled();
+    expect(registry.publishProvenance).toHaveBeenCalledWith("latest");
+    expect(registry.dryRunPublish).toHaveBeenCalledWith("latest");
   });
 
   it("prompts for npm OTP in local mode and reuses the accepted code", async () => {
@@ -612,6 +660,106 @@ describe("registry release operations", () => {
       "Unpublish pkg@1.2.3 from Custom Registry (skipped - use --dangerously-allow-unpublish to enable)",
     );
     expect(rollbackItems(ctx)[0]?.confirm).toBeUndefined();
+  });
+
+  it("publishes non-built-in registries through taskFactory without creating a registry", async () => {
+    const registry = createRegistry({ publishProvenance: undefined });
+    const descriptorFactory = vi.fn(async () => registry);
+    const createPublishTask = vi.fn((packageKey: string) => ({
+      title: "plugin publish",
+      task: async (_ctx: PubmContext, task: any) => {
+        task.title = "plugin publish renamed";
+        task.output = `plugin published ${packageKey}`;
+        await task.prompt().run({
+          type: "confirm",
+          message: "Publish?",
+        });
+      },
+    }));
+    registerDescriptor("plugin", registry, {
+      factory: descriptorFactory,
+      taskFactory: {
+        createPublishTask,
+        createDryRunTask: vi.fn(),
+      },
+      useWorkflowTaskFactory: true,
+    });
+    const operation = createOperation(["yes"]);
+
+    await runPublish("plugin", "packages/pkg::js", createContext(), operation);
+
+    expect(createPublishTask).toHaveBeenCalledWith("packages/pkg::js");
+    expect(descriptorFactory).not.toHaveBeenCalled();
+    expect(operation.title).toBe("plugin publish renamed");
+    expect(operation.output).toBe("plugin published packages/pkg::js");
+    expect(operation.prompts).toEqual(["yes"]);
+    expect(registry.publish).not.toHaveBeenCalled();
+  });
+
+  it("dry-runs non-built-in registries through taskFactory with sibling keys", async () => {
+    const registry = createRegistry({ publishProvenance: undefined });
+    const descriptorFactory = vi.fn(async () => registry);
+    const createDryRunTask = vi.fn(
+      (packageKey: string, siblingKeys?: string[]) => ({
+        title: "plugin dry-run",
+        task: async (_ctx: PubmContext, task: any) => {
+          task.title = `${packageKey}:${siblingKeys?.join(",")}`;
+          task.output = "plugin dry-run complete";
+        },
+      }),
+    );
+    registerDescriptor("plugin", registry, {
+      factory: descriptorFactory,
+      taskFactory: {
+        createPublishTask: vi.fn(),
+        createDryRunTask,
+      },
+      useWorkflowTaskFactory: true,
+    });
+    const siblingKeys = ["packages/pkg::js", "packages/dep::js"];
+    const operation = createOperation();
+
+    await runDryRun(
+      "plugin",
+      "packages/pkg::js",
+      createContext(),
+      operation,
+      siblingKeys,
+    );
+
+    expect(createDryRunTask).toHaveBeenCalledWith(
+      "packages/pkg::js",
+      siblingKeys,
+    );
+    expect(descriptorFactory).not.toHaveBeenCalled();
+    expect(operation.title).toBe(
+      "packages/pkg::js:packages/pkg::js,packages/dep::js",
+    );
+    expect(operation.output).toBe("plugin dry-run complete");
+    expect(registry.dryRunPublish).not.toHaveBeenCalled();
+  });
+
+  it("keeps private registry descriptors on native factory operations", async () => {
+    const registry = createRegistry({ publishProvenance: undefined });
+    const descriptorFactory = vi.fn(async () => registry);
+    const createPublishTask = vi.fn(() => ({
+      title: "private taskFactory publish",
+      task: vi.fn(),
+    }));
+    registerDescriptor("registry.internal.test/npm", registry, {
+      factory: descriptorFactory,
+      taskFactory: {
+        createPublishTask,
+        createDryRunTask: vi.fn(),
+      },
+      useWorkflowTaskFactory: false,
+    });
+
+    await runPublish("registry.internal.test/npm", "packages/pkg::js");
+
+    expect(createPublishTask).not.toHaveBeenCalled();
+    expect(descriptorFactory).toHaveBeenCalledOnce();
+    expect(registry.publish).toHaveBeenCalledWith("latest");
   });
 
   it("runs generic registry dry-runs through the shared token retry wrapper", async () => {

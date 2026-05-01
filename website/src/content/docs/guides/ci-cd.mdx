@@ -11,20 +11,20 @@ description: Set up CI preparation, token handling, and release automation for p
 
 Use two phases:
 
-1. run `pubm --mode ci --phase prepare` locally or in a controlled release job
-2. publish from CI with `pubm --mode ci --phase publish`
+1. run `pubm --phase prepare` locally or in a controlled release job
+2. publish from CI with `pubm --phase publish`
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ## What CI preparation does
 
-`pubm --mode ci --phase prepare` is more than a token check. It runs the release pipeline up to the point right before the real publish:
+`pubm --phase prepare` is more than a token check. It runs the release pipeline up to the point right before the real publish:
 
 - collects registry tokens and plugin credentials
 - optionally syncs them to GitHub Secrets
@@ -46,7 +46,7 @@ In CI, provide registry tokens with environment variables:
 | `JSR_TOKEN` | jsr |
 | `CARGO_REGISTRY_TOKEN` | crates.io |
 
-Plugins can also declare their own required credentials. pubm collects and resolves these automatically. During `--ci-prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
+Plugins can also declare their own required credentials. pubm collects and resolves these automatically. During `--phase prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
 
 For example, `@pubm/plugin-brew` requires:
 
@@ -89,7 +89,7 @@ jobs:
           node-version: 24
 
       - run: pnpm install --frozen-lockfile
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
@@ -134,18 +134,18 @@ Use automation-compatible tokens for CI publish.
 
 ### Build output is not present in `contents`
 
-If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --mode ci --phase publish`.
+If you publish from `dist/`, ensure your workflow actually creates `dist/` before `pubm --phase publish`.
 
 ## GitHub Release assets
 
-If your project uses `releaseAssets` in `pubm.config.ts`, `pubm --mode ci --phase publish` runs the asset pipeline and uploads the artifacts to the GitHub Release automatically.
+If your project uses `releaseAssets` in `pubm.config.ts`, `pubm --phase publish` runs the asset pipeline and uploads the artifacts to the GitHub Release automatically.
 
 ### `GITHUB_TOKEN` requirement
 
 GitHub Release creation and asset upload use the GitHub API. Provide `GITHUB_TOKEN` (or a fine-grained token with `contents: write` permission). The token is needed for all GitHub Release creation, not just asset uploads:
 
 ```yaml
-- run: pubm --mode ci --phase publish
+- run: pubm --phase publish
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,7 +155,7 @@ GitHub Actions injects `GITHUB_TOKEN` as a built-in secret in every workflow run
 
 ### Build outputs must exist before upload
 
-The asset pipeline runs after the build step. Make sure your workflow produces the binary artifacts (e.g., compiled binaries in `platforms/*/bin/`) before `pubm --mode ci --phase publish` executes. If a configured glob pattern matches zero files at upload time, `pubm` treats it as an error.
+The asset pipeline runs after the build step. Make sure your workflow produces the binary artifacts (e.g., compiled binaries in `platforms/*/bin/`) before `pubm --phase publish` executes. If a configured glob pattern matches zero files at upload time, `pubm` treats it as an error.
 
 ### Example with release assets
 
@@ -181,7 +181,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build       # Must produce platforms/*/bin/mytool
-      - run: pubm --mode ci --phase publish
+      - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

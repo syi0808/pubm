@@ -13,7 +13,7 @@ Utilisez-les avant de relancer une publication échouée :
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Ensemble, ces commandes répondent à :
@@ -107,7 +107,7 @@ Symptômes :
 Ce qu'il faut vérifier :
 
 - vérifiez `JSR_TOKEN`
-- exécutez `pubm --mode ci --phase prepare`
+- exécutez `pubm --phase prepare`
 - confirmez que les métadonnées du package sont valides pour jsr
 
 Comme `pubm` publie vers plusieurs cibles, corrigez le registry défaillant au lieu de relancer à l'aveugle et de risquer une confusion sur une release partielle.
@@ -183,7 +183,7 @@ Pourquoi cela arrive :
 
 Ce qu'il faut vérifier :
 
-- exécutez `pubm --mode ci --phase prepare` localement
+- exécutez `pubm --phase prepare` localement
 - utilisez l'historique Git complet en CI
 - confirmez que chaque token requis est présent dans l'environnement du job
 
@@ -198,9 +198,9 @@ Ce qu'il faut vérifier :
 
 - confirmez que les métadonnées du remote du dépôt sont valides
 - assurez-vous que les tags Git existent et ont été poussés
-- distinguez le flux de publication normal du `--mode ci --phase publish`
+- distinguez le flux de publication normal du `--phase publish`
 
-`pubm` crée une GitHub Release via l'API. Sans `GITHUB_TOKEN` en mode local, vous pouvez saisir un token, ouvrir un draft dans le navigateur ou passer l'étape. `--mode ci --phase publish` crée une GitHub Release via l'API dans le cadre du pipeline.
+`pubm` crée une GitHub Release via l'API. Sans `GITHUB_TOKEN` en mode local, vous pouvez saisir un token, ouvrir un draft dans le navigateur ou passer l'étape. `--phase publish` crée une GitHub Release via l'API dans le cadre du pipeline.
 
 ## Un rollback a eu lieu et l'état du dépôt semble confus
 
@@ -260,7 +260,7 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Ne relancez une vraie publication que lorsque les sorties du dry-run et de la préparation CI sont à nouveau cohérentes.

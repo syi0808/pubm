@@ -1,6 +1,6 @@
 ---
 title: CLI 参考
-description: pubm CLI 的命令、flags 和执行模式。
+description: pubm CLI 的命令、flags 和 release 流程。
 ---
 
 本参考按命令类型组织：
@@ -81,7 +81,6 @@ pubm --tag beta
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | 在不修改 Git 状态或不发布的情况下显示任务图。 |
-| `--mode <mode>` | `local` | 执行模式：`local`（交互式）或 `ci`（非交互式，基于 tag）。 |
 | `--phase <phase>` | - | 流程阶段：`prepare`（验证和 dry-run）或 `publish`（从最新 tag 发布）。 |
 | `--release-draft` | `false` | 创建 GitHub Release 草稿，而不是已发布的 release。 |
 | `-b, --branch <name>` | `main` | 在发布前要求当前分支匹配指定分支。 |
@@ -108,7 +107,7 @@ pubm --tag beta
 | `--no-dry-run-validation` | 跳过准备阶段的 dry-run 验证。当 workspace crate 的内部依赖的新版本尚未发布时很有用。 |
 | `--skip-release` | 跳过 GitHub Release 创建。 |
 
-## 执行模式
+## 常见流程
 
 ## 交互式本地运行
 
@@ -133,13 +132,13 @@ pubm --dry-run
 
 当你只想查看任务计划而不产生副作用时，使用 dry-run 模式。
 
-## CI Preparation 模式
+## Preparation 阶段
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
-CI Preparation：
+Preparation 阶段：
 
 - 交互式收集缺失的 token
 - 可以同步到 GitHub Secrets
@@ -147,13 +146,13 @@ CI Preparation：
 - 运行前置条件和必要条件检查
 - 对配置好的 registries 进行 publish dry-run
 
-## CI Publish 模式
+## Publish 阶段
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
-CI Publish 模式会从最新的 Git tag 发布，并通过 API 创建 GitHub Release。适合版本 bump 和打 tag 已经在流水线更早阶段完成的场景。传入 `--release-draft` 可以创建草稿 release，而不是正式发布。
+Publish 阶段会从最新的 Git tag 发布，并通过 API 创建 GitHub Release。适合版本 bump 和打 tag 已经在流水线更早阶段完成的场景。传入 `--release-draft` 可以创建草稿 release，而不是正式发布。
 
 ## 环境变量
 
@@ -257,7 +256,7 @@ pubm secrets sync --registry npm,jsr
 注意：
 
 - 需要安装并完成认证的 `gh`
-- 使用本地保存的 token，因此如果还没有保存过，请先运行 `pubm --mode ci --phase prepare`
+- 使用本地保存的 token，因此如果还没有保存过，请先运行 `pubm --phase prepare`
 
 ## `pubm sync --discover`
 
@@ -370,7 +369,7 @@ pubm changesets migrate
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --mode ci --phase prepare
+pubm --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -378,13 +377,13 @@ pubm
 ### 本地 CI 演练
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### 在 CI 中只发布当前已打 tag 的版本
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ### 在 preparation 之后同步已保存的 token

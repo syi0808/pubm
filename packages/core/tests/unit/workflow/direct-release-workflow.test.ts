@@ -408,7 +408,7 @@ describe("DirectReleaseWorkflow", () => {
     expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
       true,
       false,
-      true,
+      false,
       false,
     );
     expect(services.events.emit).toHaveBeenCalledWith({

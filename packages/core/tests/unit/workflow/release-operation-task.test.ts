@@ -104,4 +104,51 @@ describe("release operation runner task adapter", () => {
       }),
     );
   });
+
+  it("maps operation runTasks onto nested runner tasks", async () => {
+    const operations: ReleaseOperation[] = [
+      {
+        title: "parent",
+        run: async (_ctx, operation) => {
+          await operation.runTasks(
+            [
+              {
+                title: "inner-a",
+                task: (_ctx, task) => {
+                  task.output = "inner output";
+                },
+              },
+              {
+                title: "inner-b",
+                task: () => "done",
+              },
+            ],
+            { concurrent: true },
+          );
+        },
+      },
+    ];
+
+    const { events, run } = runOperations(operations);
+    await run;
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "task.output",
+        task: expect.objectContaining({
+          path: ["parent", "inner-a"],
+        }),
+        output: "inner output",
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "task.completed",
+        task: expect.objectContaining({
+          path: ["parent", "inner-b"],
+          state: "success",
+        }),
+      }),
+    );
+  });
 });

@@ -97,7 +97,7 @@ function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
 function shouldAllowInteractiveReleasePrompt(
   profile: WorkflowReleaseProfile,
 ): boolean {
-  return profile === "full" || !isCI;
+  return profile === "full" && !isCI;
 }
 
 function createExecutableWorkflowStep<I, O>(

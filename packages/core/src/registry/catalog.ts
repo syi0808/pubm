@@ -45,6 +45,8 @@ export interface RegistryDescriptor {
   requiresEarlyAuth: boolean;
   /** Task factory for runner publish/dry-run task creation */
   taskFactory?: RegistryTaskFactory;
+  /** If true, workflow-native publish/dry-run delegates to taskFactory. */
+  useWorkflowTaskFactory?: boolean;
 }
 
 export class RegistryCatalog {

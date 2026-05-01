@@ -364,6 +364,18 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     expect(helpOutput).toContain("Run one Split CI Release phase");
     expect(helpOutput).not.toContain("--mode");
   });
+
+  it("routes invalid --phase errors through formatted CLI reporting", async () => {
+    await run("--phase", "bogus");
+
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Invalid release phase "bogus". Use "prepare" or "publish".',
+      }),
+    );
+    expect(mockPubm).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
 });
 
 describe("CLI action handler - non-CI mode", () => {

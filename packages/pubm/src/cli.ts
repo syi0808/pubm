@@ -292,65 +292,69 @@ export function createProgram(config?: ResolvedPubmConfig): Command {
           rawCliOpts.skipDryRun = true;
         }
         const cliOptions = resolveOptions(rawCliOpts);
-        validateOptions(cliOptions);
-
-        if (!isCI && process.stderr.isTTY) {
-          showSplash(PUBM_VERSION);
-        }
-
-        if (!isCI) {
-          await notifyNewVersion();
-        }
-
-        const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
-
-        // CLI override for --registry: filter package registries
-        if (options.registry) {
-          const allowed = new Set(
-            options.registry.split(",").map((r) => r.trim()),
-          );
-          ctx.config = Object.freeze({
-            ...ctx.config,
-            packages: ctx.config.packages.map((pkg) => ({
-              ...pkg,
-              registries: pkg.registries.filter((r) => allowed.has(r)),
-            })),
-          });
-        }
-
-        // CLI override for dangerouslyAllowUnpublish
-        if (options.dangerouslyAllowUnpublish) {
-          ctx.config = Object.freeze({
-            ...ctx.config,
-            rollback: {
-              ...ctx.config.rollback,
-              dangerouslyAllowUnpublish: true,
-            },
-          });
-        }
-
-        if (nextVersion) {
-          if (resolvedConfig.packages.length <= 1) {
-            const pkg0 = resolvedConfig.packages[0];
-            ctx.runtime.versionPlan = {
-              mode: "single",
-              version: nextVersion,
-              packageKey: pkg0 ? packageKey(pkg0) : ".",
-            };
-          } else {
-            const packages = new Map(
-              resolvedConfig.packages.map((p) => [packageKey(p), nextVersion]),
-            );
-            ctx.runtime.versionPlan = {
-              mode: "fixed",
-              version: nextVersion,
-              packages,
-            };
-          }
-        }
-        ctx.runtime.tag = options.tag;
 
         try {
+          validateOptions(cliOptions);
+
+          if (!isCI && process.stderr.isTTY) {
+            showSplash(PUBM_VERSION);
+          }
+
+          if (!isCI) {
+            await notifyNewVersion();
+          }
+
+          const ctx = createContext(resolvedConfig, cliOptions, process.cwd());
+
+          // CLI override for --registry: filter package registries
+          if (options.registry) {
+            const allowed = new Set(
+              options.registry.split(",").map((r) => r.trim()),
+            );
+            ctx.config = Object.freeze({
+              ...ctx.config,
+              packages: ctx.config.packages.map((pkg) => ({
+                ...pkg,
+                registries: pkg.registries.filter((r) => allowed.has(r)),
+              })),
+            });
+          }
+
+          // CLI override for dangerouslyAllowUnpublish
+          if (options.dangerouslyAllowUnpublish) {
+            ctx.config = Object.freeze({
+              ...ctx.config,
+              rollback: {
+                ...ctx.config.rollback,
+                dangerouslyAllowUnpublish: true,
+              },
+            });
+          }
+
+          if (nextVersion) {
+            if (resolvedConfig.packages.length <= 1) {
+              const pkg0 = resolvedConfig.packages[0];
+              ctx.runtime.versionPlan = {
+                mode: "single",
+                version: nextVersion,
+                packageKey: pkg0 ? packageKey(pkg0) : ".",
+              };
+            } else {
+              const packages = new Map(
+                resolvedConfig.packages.map((p) => [
+                  packageKey(p),
+                  nextVersion,
+                ]),
+              );
+              ctx.runtime.versionPlan = {
+                mode: "fixed",
+                version: nextVersion,
+                packages,
+              };
+            }
+          }
+          ctx.runtime.tag = options.tag;
+
           resolvePhases(cliOptions);
           const phase = cliOptions.phase;
 

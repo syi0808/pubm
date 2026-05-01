@@ -30,7 +30,7 @@ describe("scanCiWorkflows", () => {
     expect(advice).toHaveLength(1);
     expect(advice[0].file).toBe(path.join(workflowsDir, "release.yml"));
     expect(advice[0].removeLine).toBe("- run: npx semantic-release");
-    expect(advice[0].addLine).toBe("npx pubm release:ci");
+    expect(advice[0].addLine).toBe("npx pubm --phase publish");
   });
 
   it("detects changeset publish in workflow file", () => {
@@ -44,7 +44,7 @@ describe("scanCiWorkflows", () => {
 
     expect(advice).toHaveLength(1);
     expect(advice[0].removeLine).toBe("- run: npx changeset publish");
-    expect(advice[0].addLine).toBe("npx pubm release:ci");
+    expect(advice[0].addLine).toBe("npx pubm --phase publish");
   });
 
   it("detects npx release-it --ci in workflow file", () => {
@@ -56,7 +56,7 @@ describe("scanCiWorkflows", () => {
 
     expect(advice).toHaveLength(1);
     expect(advice[0].removeLine).toBe("- run: npx release-it --ci");
-    expect(advice[0].addLine).toBe("npx pubm release:ci");
+    expect(advice[0].addLine).toBe("npx pubm --phase publish");
   });
 
   it("returns empty when workflows directory does not exist", () => {

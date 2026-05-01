@@ -87,7 +87,8 @@ describe("createDryRunOperations", () => {
   it("returns enabled operations when skipDryRun is false and prepare phase validation is enabled", () => {
     const tasks = createDryRunOperations(false, true, false);
     expect(tasks[0].enabled).toBe(true);
-    expect(tasks[2].enabled).toBe(true);
+    expect(tasks[1].enabled).toBe(true);
+    expect(tasks[2].enabled).toBe(false);
   });
 
   it("returns disabled operations when skipDryRun is true", () => {
@@ -208,17 +209,10 @@ describe("createDryRunOperations", () => {
     expect(ctx.runtime.dryRunVersionBackup).toBeUndefined();
   });
 
-  it("restores prepare-phase validation versions on the success path", async () => {
-    const backupVersions = new Map([["packages/a::js", "1.0.0"]]);
-    const ctx = { runtime: { dryRunVersionBackup: backupVersions } };
+  it("does not enable success-path version restore for prepare-phase validation", () => {
+    const restoreVersions = createDryRunOperations(false, true, false)[2];
 
-    await createDryRunOperations(false, true, false)[2]?.run?.(
-      ctx as never,
-      {} as never,
-    );
-
-    expect(dryRunState.writeVersionsCalls[0]?.[1]).toBe(backupVersions);
-    expect(ctx.runtime.dryRunVersionBackup).toBeUndefined();
+    expect(restoreVersions?.enabled).toBe(false);
   });
 
   it("keeps dry-run restore rollback registered when validation fails", async () => {
@@ -269,7 +263,7 @@ describe("createDryRunOperations", () => {
     });
 
     await expect(
-      createDryRunOperations(true, true, false)[0]?.run?.(
+      createDryRunOperations(false, true, false)[0]?.run?.(
         ctx as never,
         parent as never,
       ),

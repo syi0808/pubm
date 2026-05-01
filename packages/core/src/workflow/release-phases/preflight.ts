@@ -36,18 +36,24 @@ export async function runCiPreparePreflight(
   cleanupRef: CleanupRef,
   executeOperations: OperationExecutor = runReleaseOperations,
 ): Promise<void> {
+  const initialPromptEnabled = ctx.runtime.promptEnabled;
+
   // CI prepare: Collect tokens (interactive)
   await executeOperations(ctx, {
     title: t("task.tokens.collecting"),
     run: async (ctx, task): Promise<void> => {
       const registries = collectRegistries(ctx.config);
-      const tokens = await collectTokens(registries, task);
+      const tokens = await collectTokens(
+        registries,
+        task,
+        initialPromptEnabled,
+      );
 
       // Collect plugin credentials
       const pluginCreds = ctx.runtime.pluginRunner.collectCredentials(ctx);
       const pluginTokens = await collectPluginCredentials(
         pluginCreds,
-        ctx.runtime.promptEnabled,
+        initialPromptEnabled,
         task,
       );
       ctx.runtime.pluginTokens = pluginTokens;
@@ -72,9 +78,15 @@ export async function runCiPreparePreflight(
         repoSlug = ctx.cwd;
       }
 
-      await promptGhSecretsSync(tokens, task, pluginSecrets, repoSlug);
+      await promptGhSecretsSync(
+        tokens,
+        task,
+        pluginSecrets,
+        repoSlug,
+        initialPromptEnabled,
+      );
 
-      // Inject tokens and switch to non-interactive mode
+      // Inject tokens, then run follow-up checks as publish CI will run them.
       cleanupRef.current = injectTokensToEnv(tokens);
       cleanupRef.current = chainCleanup(
         cleanupRef.current,

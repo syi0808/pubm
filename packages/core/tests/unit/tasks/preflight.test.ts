@@ -16,6 +16,14 @@ vi.mock("../../../src/utils/gh-secrets-sync-state.js", () => ({
   readGhSecretsSyncHash: vi.fn(),
   writeGhSecretsSyncHash: vi.fn(),
 }));
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: unknown) => `${value}`,
+    },
+  ),
+}));
 vi.mock("../../../src/utils/token.js", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("../../../src/utils/token.js")>();
@@ -141,6 +149,22 @@ describe("collectTokens", () => {
     await expect(collectTokens(["npm"], mockTask as any)).rejects.toThrow(
       "npm access token is required to continue.",
     );
+  });
+
+  it("throws without prompting when a token is missing and prompts are disabled", async () => {
+    mockedLoadTokens.mockReturnValue({});
+
+    const mockTask = {
+      output: "",
+      prompt: vi.fn(),
+    };
+
+    await expect(
+      collectTokens(["npm"], mockTask as any, false),
+    ).rejects.toThrow(
+      "npm access token is required. Set NODE_AUTH_TOKEN environment variable.",
+    );
+    expect(mockTask.prompt).not.toHaveBeenCalled();
   });
 
   it("skips registries without token config", async () => {
@@ -416,6 +440,27 @@ describe("promptGhSecretsSync", () => {
       "owner/repo",
       expect.any(String),
     );
+  });
+
+  it("throws without prompting when sync state differs and prompts are disabled", async () => {
+    mockedReadGhSecretsSyncHash.mockReturnValue("oldhash");
+
+    const mockTask = {
+      output: "",
+      prompt: vi.fn(),
+    };
+
+    await expect(
+      promptGhSecretsSync(
+        { npm: "tok-new" },
+        mockTask,
+        [],
+        "owner/repo",
+        false,
+      ),
+    ).rejects.toThrow("GitHub Secrets sync requires an interactive terminal.");
+    expect(mockTask.prompt).not.toHaveBeenCalled();
+    expect(mockedExec).not.toHaveBeenCalled();
   });
 
   it("does not sync but still saves hash when user declines", async () => {

@@ -233,6 +233,7 @@
   "task.preflight.syncing": "GitHub Secrets에 토큰 동기화 중...",
   "task.preflight.synced": "GitHub Secrets에 토큰이 동기화되었습니다.",
   "error.preflight.syncFailed": "GitHub Secrets에 토큰 동기화 실패. `gh` CLI가 설치되고 인증되어 있는지 확인하세요 (`gh auth login`).",
+  "error.preflight.syncRequired": "GitHub Secrets 동기화에는 대화형 터미널이 필요합니다. 로컬에서 `pubm --phase prepare`를 실행하거나 `pubm secrets sync`로 secrets를 동기화하세요.",
   "error.preflight.saveSyncState": "GitHub Secrets 동기화 상태 저장 실패.",
   "error.preflight.envInvalid": "{env}가 설정되었지만 유효하지 않습니다. 환경 변수를 업데이트하세요.",
   "error.preflight.envRequired": "{label}이 필요합니다. {env} 환경 변수를 설정하세요.",

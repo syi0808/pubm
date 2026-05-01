@@ -73,7 +73,7 @@ export function createDryRunOperations(
       },
     },
     {
-      enabled: !skipDryRun && shouldValidatePublishability,
+      enabled: !skipDryRun && dryRun,
       skip: (ctx) => !ctx.runtime.dryRunVersionBackup?.size,
       title: t("task.dryRunValidation.restoringVersions"),
       run: async (ctx): Promise<void> => {

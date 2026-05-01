@@ -13,7 +13,7 @@ Usa estos antes de reintentar una publicación fallida:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Juntos, estos comandos responden:
@@ -107,7 +107,7 @@ Síntomas:
 Qué comprobar:
 
 - verifica `JSR_TOKEN`
-- ejecuta `pubm --mode ci --phase prepare`
+- ejecuta `pubm --phase prepare`
 - confirma que los metadatos del paquete son válidos para jsr
 
 Como `pubm` publica en varios targets, corrige el registry que falla en lugar de reintentar a ciegas y acabar con confusión por una release parcial.
@@ -183,7 +183,7 @@ Por qué pasa:
 
 Qué comprobar:
 
-- ejecuta `pubm --mode ci --phase prepare` localmente
+- ejecuta `pubm --phase prepare` localmente
 - usa historial completo de Git en CI
 - confirma que cada token requerido esté presente en el entorno del job
 
@@ -198,9 +198,9 @@ Qué comprobar:
 
 - confirma que los metadatos del remote del repositorio sean válidos
 - asegúrate de que los tags de Git existan y estén pushados
-- distingue entre el flujo normal de publicación y `--mode ci --phase publish`
+- distingue entre el flujo normal de publicación y `--phase publish`
 
-`pubm` crea un GitHub Release mediante la API. Sin `GITHUB_TOKEN` en modo local, puedes introducir un token, abrir un draft en el navegador o saltártelo. `--mode ci --phase publish` crea un GitHub Release como parte del pipeline.
+`pubm` crea un GitHub Release mediante la API. Sin `GITHUB_TOKEN` en modo local, puedes introducir un token, abrir un draft en el navegador o saltártelo. `--phase publish` crea un GitHub Release como parte del pipeline.
 
 ## Hubo rollback y ahora el estado del repositorio parece confuso
 
@@ -260,7 +260,7 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 Vuelve a ejecutar una publicación real solo cuando la salida del dry-run y de la preparación de CI vuelva a tener sentido.

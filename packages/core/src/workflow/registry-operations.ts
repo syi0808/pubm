@@ -14,6 +14,7 @@ import { pathFromKey } from "../utils/package-key.js";
 import { SecureStore } from "../utils/secure-store.js";
 import { ui } from "../utils/ui.js";
 import type {
+  OperationUnit,
   ReleaseOperation,
   ReleaseOperationContext,
 } from "./release-operation.js";
@@ -71,8 +72,20 @@ export function createRegistryPublishOperation(
   return {
     title: packagePath,
     run: async (ctx, operation): Promise<void> => {
-      const { descriptor, registry } = await createRegistry(
-        registryKey,
+      const descriptor = getRegistryDescriptor(registryKey, packageKey);
+
+      if (shouldUseTaskFactory(descriptor, registryKey)) {
+        await runTaskFactoryOperation(
+          operation,
+          descriptor.taskFactory.createPublishTask(
+            packageKey,
+          ) as unknown as OperationUnit<PubmContext>,
+        );
+        return;
+      }
+
+      const registry = await createRegistryFromDescriptor(
+        descriptor,
         packageKey,
       );
 
@@ -124,8 +137,21 @@ export function createRegistryDryRunOperation(
         ? t("task.dryRun.crates.title", { path: packagePath })
         : packagePath,
     run: async (ctx, operation): Promise<void> => {
-      const { descriptor, registry } = await createRegistry(
-        registryKey,
+      const descriptor = getRegistryDescriptor(registryKey, packageKey);
+
+      if (shouldUseTaskFactory(descriptor, registryKey)) {
+        await runTaskFactoryOperation(
+          operation,
+          descriptor.taskFactory.createDryRunTask(
+            packageKey,
+            siblingKeys,
+          ) as unknown as OperationUnit<PubmContext>,
+        );
+        return;
+      }
+
+      const registry = await createRegistryFromDescriptor(
+        descriptor,
         packageKey,
       );
 
@@ -157,10 +183,10 @@ export function createRegistryDryRunOperation(
   };
 }
 
-async function createRegistry(
+function getRegistryDescriptor(
   registryKey: string,
   packageKey: string,
-): Promise<{ descriptor: RegistryDescriptor; registry: PackageRegistry }> {
+): RegistryDescriptor {
   const descriptor = registryCatalog.get(registryKey);
   if (!descriptor) {
     throw new Error(
@@ -168,14 +194,41 @@ async function createRegistry(
     );
   }
 
+  return descriptor;
+}
+
+async function createRegistryFromDescriptor(
+  descriptor: RegistryDescriptor,
+  packageKey: string,
+): Promise<PackageRegistry> {
   const registry = await descriptor.factory(pathFromKey(packageKey));
   if (!registry) {
     throw new Error(
-      `Registry "${registryKey}" factory did not return a package registry for "${packageKey}".`,
+      `Registry "${descriptor.key}" factory did not return a package registry for "${packageKey}".`,
     );
   }
 
-  return { descriptor, registry };
+  return registry;
+}
+
+function shouldUseTaskFactory(
+  descriptor: RegistryDescriptor,
+  _registryKey: string,
+): descriptor is RegistryDescriptor & {
+  taskFactory: NonNullable<RegistryDescriptor["taskFactory"]>;
+} {
+  return !!descriptor.taskFactory && descriptor.useWorkflowTaskFactory === true;
+}
+
+async function runTaskFactoryOperation(
+  operation: ReleaseOperationContext,
+  task: OperationUnit<PubmContext>,
+): Promise<void> {
+  if (task.title) {
+    operation.title = task.title;
+  }
+
+  await operation.runTasks(task);
 }
 
 function isNpmLikeRegistry(

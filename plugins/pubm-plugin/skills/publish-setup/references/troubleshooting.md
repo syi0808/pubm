@@ -111,17 +111,17 @@ If you want to avoid the PR fallback, ensure the pushing user/token has bypass p
 
 ### CI fails with "phase required" error
 
-**Symptom:** `pubm --mode ci` fails with an error about requiring a phase flag.
+**Symptom:** a split release job runs the wrong phase or fails because the phase flag is missing.
 
-**Cause:** CI mode requires exactly one of `--phase prepare` or `--phase publish`. Omitting the phase flag is only valid for local (non-CI) runs.
+**Cause:** split release jobs must choose exactly one phase. Omitting the phase flag runs the full direct release flow.
 
 **Solution:** Add the appropriate phase flag:
 ```bash
 # For the publish step in CI
-pubm --mode ci --phase publish
+pubm --phase publish
 
-# For the prepare/validation step in CI
-pubm --mode ci --phase prepare
+# For the prepare/validation step before the CI handoff
+pubm --phase prepare
 ```
 
 ### Tag already exists
@@ -173,4 +173,4 @@ pubm registers rollback actions in LIFO (last-in, first-out) order. On failure:
 - **crates.io:** Published crates cannot be unpublished, only yanked (`cargo yank`)
 - **jsr:** Check jsr.io for unpublish/deprecation options
 
-Re-run `pubm --mode ci --phase publish` after fixing the root cause — already-published versions are automatically skipped.
+Re-run `pubm --phase publish` after fixing the root cause — already-published versions are automatically skipped.

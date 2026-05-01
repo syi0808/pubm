@@ -41,9 +41,7 @@ await pubm({
 |------|-----|-------|
 | `version` | `string` | Erforderliches Release-Ziel wie `patch`, `minor`, `major` oder eine explizite SemVer. |
 | `dryRun` | `boolean` | Zeigt den Task-Plan an, ohne Git-Zustand zu ändern oder zu veröffentlichen. |
-| `mode` | `"local" \| "ci"` | Ausführungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
-| `prepare` | `boolean` | Fuehrt nur die Vorbereitungsphase aus (Validierung und Publish-Checks im Dry-Run). |
-| `publish` | `boolean` | Fuehrt nur die Publish-Phase aus (Veröffentlichung vom neuesten Tag). |
+| `phase` | `"prepare" \| "publish"` | Fuehrt genau eine Split-Release-Phase aus. Ohne diesen Wert laeuft der direkte Release-Flow vollständig. |
 | `releaseDraft` | `boolean` | Erstellt einen Draft-GitHub-Release statt eines veröffentlichten Releases. |
 | `branch` | `string` | Verlangt einen bestimmten Branch vor dem Veröffentlichen. |
 | `anyBranch` | `boolean` | Deaktiviert die Branch-Prüfung für einen Lauf. |

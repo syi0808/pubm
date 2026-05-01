@@ -233,6 +233,7 @@
   "task.preflight.syncing": "Syncing tokens to GitHub Secrets...",
   "task.preflight.synced": "Tokens synced to GitHub Secrets.",
   "error.preflight.syncFailed": "Failed to sync tokens to GitHub Secrets. Ensure `gh` CLI is installed and authenticated (`gh auth login`).",
+  "error.preflight.syncRequired": "GitHub Secrets sync requires an interactive terminal. Run `pubm --phase prepare` locally or sync secrets with `pubm secrets sync`.",
   "error.preflight.saveSyncState": "Failed to save GitHub Secrets sync state.",
   "error.preflight.envInvalid": "{env} is set but invalid. Please update the environment variable.",
   "error.preflight.envRequired": "{label} is required. Set {env} environment variable.",

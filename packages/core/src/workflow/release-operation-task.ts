@@ -1,4 +1,4 @@
-import type { Task, TaskContext } from "@pubm/runner";
+import type { Task, TaskContext, TaskRunnerOptions } from "@pubm/runner";
 import type { PubmContext } from "../context.js";
 import type {
   ReleaseOperation,
@@ -38,6 +38,14 @@ function createRunnerOperationContext(
         .newListr(createReleaseOperationTasks(operations), {
           concurrent: options?.concurrent,
         })
+        .run(ctx);
+    },
+    runTasks: async (tasks, options) => {
+      await task
+        .newListr(
+          tasks as unknown as Task<PubmContext> | Task<PubmContext>[],
+          options as TaskRunnerOptions<PubmContext>,
+        )
         .run(ctx);
     },
     skip: (message?: string) => {

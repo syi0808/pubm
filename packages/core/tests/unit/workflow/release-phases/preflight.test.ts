@@ -14,14 +14,33 @@ const preflightState = vi.hoisted(() => ({
   }>,
   registries: new Map<string, { requiresEarlyAuth?: boolean }>(),
   checks: [] as string[],
+  checkPromptFlags: [] as boolean[],
   cleanupCalls: [] as string[],
+  collectedTokenPromptFlags: [] as boolean[],
   collectedPluginPromptFlags: [] as boolean[],
+  secretSyncPromptFlags: [] as boolean[],
   jsr: { token: undefined as string | undefined },
 }));
 
 vi.mock("../../../../src/i18n/index.js", () => ({
   t: (key: string, values?: Record<string, unknown>) =>
     values ? `${key} ${JSON.stringify(values)}` : key,
+}));
+
+vi.mock("../../../../src/workflow/release-operation.js", () => ({
+  runReleaseOperations: vi.fn(async (ctx: PubmContext, operations: any) => {
+    const operationList = Array.isArray(operations) ? operations : [operations];
+    for (const operation of operationList) {
+      await operation.run?.(ctx, {
+        title: operation.title ?? "",
+        output: "",
+        prompt: () => ({ run: vi.fn() }),
+        runOperations: vi.fn(),
+        runTasks: vi.fn(),
+        skip: vi.fn(),
+      });
+    }
+  }),
 }));
 
 vi.mock("../../../../src/git.js", () => ({
@@ -43,8 +62,11 @@ vi.mock("../../../../src/registry/catalog.js", () => ({
 }));
 
 vi.mock("../../../../src/tasks/preflight.js", () => ({
-  collectTokens: vi.fn(async (registries: string[]) =>
-    Object.fromEntries(registries.map((key) => [key, `${key}-token`])),
+  collectTokens: vi.fn(
+    async (registries: string[], _task, promptEnabled: boolean) => {
+      preflightState.collectedTokenPromptFlags.push(promptEnabled);
+      return Object.fromEntries(registries.map((key) => [key, `${key}-token`]));
+    },
   ),
   collectPluginCredentials: vi.fn(async (_creds, promptEnabled: boolean) => {
     preflightState.collectedPluginPromptFlags.push(promptEnabled);
@@ -52,7 +74,11 @@ vi.mock("../../../../src/tasks/preflight.js", () => ({
       preflightState.credentials.map((cred) => [cred.key, `${cred.key}-token`]),
     );
   }),
-  promptGhSecretsSync: vi.fn(async () => undefined),
+  promptGhSecretsSync: vi.fn(
+    async (_tokens, _task, _pluginSecrets, _repoSlug, promptEnabled) => {
+      preflightState.secretSyncPromptFlags.push(promptEnabled);
+    },
+  ),
 }));
 
 vi.mock("../../../../src/utils/token.js", () => ({
@@ -71,14 +97,16 @@ vi.mock("../../../../src/utils/token.js", () => ({
 vi.mock("../../../../src/workflow/release-phases/preflight-checks.js", () => ({
   createPrerequisitesCheckOperation: vi.fn(() => ({
     title: "prerequisites",
-    run: async () => {
+    run: async (ctx: PubmContext) => {
       preflightState.checks.push("prerequisites");
+      preflightState.checkPromptFlags.push(ctx.runtime.promptEnabled);
     },
   })),
   createRequiredConditionsCheckOperation: vi.fn(() => ({
     title: "conditions",
-    run: async () => {
+    run: async (ctx: PubmContext) => {
       preflightState.checks.push("conditions");
+      preflightState.checkPromptFlags.push(ctx.runtime.promptEnabled);
     },
   })),
 }));
@@ -137,13 +165,16 @@ beforeEach(() => {
   preflightState.registries.set("jsr", { requiresEarlyAuth: true });
   preflightState.registries.set("npm", {});
   preflightState.checks = [];
+  preflightState.checkPromptFlags = [];
   preflightState.cleanupCalls = [];
+  preflightState.collectedTokenPromptFlags = [];
   preflightState.collectedPluginPromptFlags = [];
+  preflightState.secretSyncPromptFlags = [];
   preflightState.jsr.token = undefined;
 });
 
 describe("workflow preflight phases", () => {
-  it("collects CI prepare tokens, syncs GitHub secrets, and disables prompts", async () => {
+  it("collects CI prepare tokens with prompts, then runs checks noninteractively", async () => {
     const ctx = createContext({
       credentials: [{ key: "brew", ghSecretName: "BREW_TOKEN" }],
     });
@@ -157,11 +188,32 @@ describe("workflow preflight phases", () => {
       "inject:npm,jsr",
       "inject-plugin:brew",
     ]);
+    expect(preflightState.collectedTokenPromptFlags).toEqual([true]);
+    expect(preflightState.collectedPluginPromptFlags).toEqual([true]);
+    expect(preflightState.secretSyncPromptFlags).toEqual([true]);
     expect(preflightState.checks).toEqual(["prerequisites", "conditions"]);
+    expect(preflightState.checkPromptFlags).toEqual([false, false]);
 
     cleanupRef.current?.();
     expect(preflightState.cleanupCalls).toContain("cleanup:tokens");
     expect(preflightState.cleanupCalls).toContain("cleanup:plugins");
+  });
+
+  it("keeps CI prepare prerequisite and condition checks noninteractive when prompts start disabled", async () => {
+    const ctx = createContext({
+      promptEnabled: false,
+      credentials: [{ key: "brew", ghSecretName: "BREW_TOKEN" }],
+    });
+    const cleanupRef: CleanupRef = { current: undefined };
+
+    await runCiPreparePreflight(ctx, chainCleanup, cleanupRef);
+
+    expect(ctx.runtime.promptEnabled).toBe(false);
+    expect(preflightState.collectedTokenPromptFlags).toEqual([false]);
+    expect(preflightState.collectedPluginPromptFlags).toEqual([false]);
+    expect(preflightState.secretSyncPromptFlags).toEqual([false]);
+    expect(preflightState.checks).toEqual(["prerequisites", "conditions"]);
+    expect(preflightState.checkPromptFlags).toEqual([false, false]);
   });
 
   it("collects early auth tokens and plugin credentials during local preflight", async () => {

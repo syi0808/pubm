@@ -41,9 +41,7 @@ await pubm({
 |------|------|---------|
 | `version` | `string` | 必需的发布目标，例如 `patch`、`minor`、`major`，或者明确的 semver。 |
 | `dryRun` | `boolean` | 在不修改 Git 状态或不发布的情况下显示任务计划。 |
-| `mode` | `"local" \| "ci"` | 执行模式：`local`（交互式）或 `ci`（非交互式，基于 tag）。 |
-| `prepare` | `boolean` | 只运行 preparation 阶段（验证和发布 dry-run 检查）。 |
-| `publish` | `boolean` | 只运行 publish 阶段（从最新 tag 发布）。 |
+| `phase` | `"prepare" \| "publish"` | 只运行一个拆分 release 阶段。省略时会运行完整的 direct release flow。 |
 | `releaseDraft` | `boolean` | 创建 GitHub Release 草稿，而不是正式发布。 |
 | `branch` | `string` | 发布前要求的特定分支。 |
 | `anyBranch` | `boolean` | 对单次运行禁用分支约束。 |
