@@ -374,6 +374,25 @@ async function isWorkflowStepEnabled(
   return enabled !== false;
 }
 
+async function resolveWorkflowStepEnabled(
+  step: WorkflowStep,
+  ctx: PubmContext,
+): Promise<WorkflowStep> {
+  return {
+    ...step,
+    enabled: await isWorkflowStepEnabled(step, ctx),
+  };
+}
+
+async function resolveWorkflowStepsEnabled(
+  steps: readonly WorkflowStep[],
+  ctx: PubmContext,
+): Promise<WorkflowStep[]> {
+  return await Promise.all(
+    steps.map((step) => resolveWorkflowStepEnabled(step, ctx)),
+  );
+}
+
 export async function runWorkflowStep<I, O>(
   step: WorkflowStep<I, O>,
   context: WorkflowStepContext,
@@ -414,13 +433,15 @@ async function runWorkflowSteps(
   ctx: PubmContext,
   services: WorkflowServices,
 ): Promise<void> {
+  const resolvedSteps = await resolveWorkflowStepsEnabled(steps, ctx);
+
   if (services.steps) {
-    await services.steps.run(steps, ctx, services);
+    await services.steps.run(resolvedSteps, ctx, services);
     return;
   }
 
   const stepContext: WorkflowStepContext = { ctx, services };
-  for (const step of steps) {
+  for (const step of resolvedSteps) {
     await runWorkflowStep(step, stepContext);
   }
 }
