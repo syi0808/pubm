@@ -93,10 +93,17 @@ export async function applyVersionsForDryRun(ctx: PubmContext): Promise<void> {
   const plan = ctx.runtime.versionPlan;
   if (!plan) return;
 
-  // Backup original versions from config (safe: writeVersions not yet called in dry-run)
-  ctx.runtime.dryRunVersionBackup = new Map(
+  const backupVersions = new Map(
     ctx.config.packages.map((pkg) => [packageKey(pkg), pkg.version ?? "0.0.0"]),
   );
+  ctx.runtime.dryRunVersionBackup = backupVersions;
+
+  ctx.runtime.rollback.add({
+    label: "Restore dry-run version changes",
+    fn: async (rollbackCtx) => {
+      await writeVersions(rollbackCtx, backupVersions);
+    },
+  });
 
   // Build new versions map from versionPlan
   let newVersions: Map<string, string>;

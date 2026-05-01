@@ -71,9 +71,12 @@ vi.mock("../../../../src/workflow/release-utils/write-versions.js", () => ({
 }));
 
 import { createDryRunOperations } from "../../../../src/workflow/release-phases/dry-run.js";
+import { applyVersionsForDryRun } from "../../../../src/workflow/release-utils/manifest-handling.js";
+import { createRegistryDryRunOperation } from "../../../../src/workflow/registry-operations.js";
 
 describe("createDryRunOperations", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     dryRunState.groups = [];
     dryRunState.descriptors.clear();
     dryRunState.restoreCalls = [];
@@ -201,5 +204,64 @@ describe("createDryRunOperations", () => {
 
     expect(dryRunState.writeVersionsCalls[0]?.[1]).toBe(backupVersions);
     expect(ctx.runtime.dryRunVersionBackup).toBeUndefined();
+  });
+
+  it("keeps dry-run restore rollback registered when validation fails", async () => {
+    dryRunState.groups = [
+      {
+        ecosystem: "js",
+        registries: [{ registry: "npm", packageKeys: ["packages/a::js"] }],
+      },
+    ];
+    dryRunState.descriptors.set("npm", {
+      concurrentPublish: true,
+      label: "npm",
+    });
+
+    const rollbackActions: Array<{ label: string; fn: () => Promise<void> }> =
+      [];
+    const ctx = {
+      config: { packages: [] },
+      runtime: {
+        rollback: {
+          add: (item: (typeof rollbackActions)[number]) => {
+            rollbackActions.push(item);
+          },
+        },
+      },
+    };
+    const parent = {
+      title: "",
+      output: "",
+      runOperations: vi.fn(async (operations) => {
+        for (const operation of operations) {
+          await operation.run?.(ctx as never, parent as never);
+        }
+      }),
+    };
+
+    vi.mocked(applyVersionsForDryRun).mockImplementationOnce(async (runCtx) => {
+      runCtx.runtime.rollback.add({
+        label: "Restore dry-run version changes",
+        fn: async () => undefined,
+      });
+    });
+    vi.mocked(createRegistryDryRunOperation).mockReturnValueOnce({
+      title: "npm:packages/a::js",
+      run: vi.fn(async () => {
+        throw new Error("validation failed");
+      }),
+    });
+
+    await expect(
+      createDryRunOperations(true, true, false)[0]?.run?.(
+        ctx as never,
+        parent as never,
+      ),
+    ).rejects.toThrow("validation failed");
+
+    expect(rollbackActions.map((action) => action.label)).toEqual([
+      "Restore dry-run version changes",
+    ]);
   });
 });

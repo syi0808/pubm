@@ -13,6 +13,11 @@ const manifestState = vi.hoisted(() => ({
   assetHooks: {} as Record<string, unknown>,
   pipelineCalls: [] as unknown[],
   writeVersionCalls: [] as Array<Map<string, string>>,
+  rollbackActions: [] as Array<{
+    label: string;
+    fn: (ctx: PubmContext) => Promise<void>;
+  }>,
+  callOrder: [] as string[],
 }));
 
 vi.mock("../../../../src/assets/resolver.js", () => ({
@@ -51,6 +56,7 @@ vi.mock("../../../../src/ecosystem/catalog.js", () => ({
 vi.mock("../../../../src/workflow/release-utils/write-versions.js", () => ({
   writeVersions: vi.fn(
     async (_ctx: PubmContext, versions: Map<string, string>) => {
+      manifestState.callOrder.push("writeVersions");
       manifestState.writeVersionCalls.push(new Map(versions));
       return [];
     },
@@ -91,7 +97,10 @@ function createContext(overrides: Partial<PubmContext> = {}): PubmContext {
       } as unknown as PubmContext["runtime"]["pluginRunner"],
       promptEnabled: false,
       rollback: {
-        add: vi.fn(),
+        add: vi.fn((item: (typeof manifestState.rollbackActions)[number]) => {
+          manifestState.callOrder.push("rollback.add");
+          manifestState.rollbackActions.push(item);
+        }),
       } as unknown as PubmContext["runtime"]["rollback"],
       tag: "latest",
     },
@@ -107,6 +116,8 @@ beforeEach(() => {
   manifestState.assetHooks = {};
   manifestState.pipelineCalls = [];
   manifestState.writeVersionCalls = [];
+  manifestState.rollbackActions = [];
+  manifestState.callOrder = [];
 });
 
 describe("prepareReleaseAssets", () => {
@@ -223,6 +234,36 @@ describe("applyVersionsForDryRun", () => {
       new Map([
         ["packages/a::js", "3.0.0"],
         ["packages/b::js", "3.0.0"],
+      ]),
+    );
+  });
+
+  it("registers restore rollback before temporary dry-run version writes", async () => {
+    const ctx = createContext();
+    ctx.runtime.versionPlan = {
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "9.0.0",
+    };
+
+    await applyVersionsForDryRun(ctx);
+
+    expect(manifestState.callOrder).toEqual([
+      "rollback.add",
+      "writeVersions",
+    ]);
+    expect(manifestState.rollbackActions).toHaveLength(1);
+    expect(manifestState.rollbackActions[0]?.label).toBe(
+      "Restore dry-run version changes",
+    );
+
+    manifestState.writeVersionCalls = [];
+    await manifestState.rollbackActions[0]?.fn(ctx);
+
+    expect(manifestState.writeVersionCalls[0]).toEqual(
+      new Map([
+        ["packages/a::js", "1.0.0"],
+        ["packages/b::js", "2.0.0"],
       ]),
     );
   });
