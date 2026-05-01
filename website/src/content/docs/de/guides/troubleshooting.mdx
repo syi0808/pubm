@@ -13,7 +13,6 @@ Nutze diese Befehle, bevor du einen fehlgeschlagenen Publish erneut startest:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
 ```
 
 Zusammen beantworten diese Befehle:
@@ -22,6 +21,8 @@ Zusammen beantworten diese Befehle:
 - welche Pakete betroffen sind
 - ob der Changelog-Text plausibel ist
 - ob Zugangsdaten und Registry-Prüfungen bereit sind
+
+`pubm --phase prepare` ist eine echte Split-CI-Release-Vorbereitung: Der Befehl kann Versionen schreiben, Tags erstellen und den Release-Commit samt Tags pushen. Nutze ihn nur, wenn du einen CI-Publish vorbereiten willst, nicht als harmlose Prüfung ohne Seiteneffekte.
 
 ## Publish durch Git-Zustand blockiert
 

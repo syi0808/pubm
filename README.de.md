@@ -59,15 +59,18 @@ Registry lehnt dein Paket ab? pubm macht Versionsbump, git tag und Commit rueckg
 
 ### Preflight-Checks
 
-Branch, Working Tree, Remote-Sync, Login-Status und Publish-Berechtigungen werden **bevor** pubm etwas aendert geprueft. Im CI-Modus validiert pubm Tokens und fuehrt Publish-Dry-Runs durch, um Probleme vor der eigentlichen Veroeffentlichung zu erkennen:
+Branch, Working Tree, Remote-Sync, Login-Status und Publish-Berechtigungen werden **bevor** pubm etwas aendert geprueft.
 
 ```bash
 pubm --phase prepare
 ```
 
-### Gleicher Befehl, lokal und in CI
+### Release-Workflows
 
-Interaktive Prompts im Terminal, voll headless in CI. Keine separate Konfiguration, keine Flags zum Merken.
+| Pfad | Befehle | Geeignet wenn |
+|------|---------|---------------|
+| Direct Release | `pubm` | Eine vertrauenswuerdige lokale Umgebung oder ein kontrollierter Job die ganze Release ausfuehrt |
+| Split CI Release | Lokal `pubm --phase prepare`, dann CI `pubm --phase publish` | Lokale Vorbereitung Paketveroeffentlichung und GitHub Releases an CI uebergeben soll |
 
 ### Monorepo-nativ
 
@@ -92,7 +95,11 @@ pubm init
 
 # Einfach pubm ausfuehren
 pubm
+```
 
+Optionale Befehle:
+
+```bash
 # Optional: Skills fur Coding Agents installieren (Claude Code, Codex, Gemini)
 pubm setup-skills
 ```
@@ -116,6 +123,7 @@ Danach fuehrt dich pubm durch den Rest:
 ## Dokumentation
 
 - [Schnellstart](https://syi0808.github.io/pubm/de/guides/quick-start/)
+- [Release-Workflows](https://syi0808.github.io/pubm/de/guides/release-workflows/)
 - [Konfiguration](https://syi0808.github.io/pubm/de/guides/configuration/)
 - [Changesets](https://syi0808.github.io/pubm/de/guides/changesets/)
 - [Monorepo](https://syi0808.github.io/pubm/de/guides/monorepo/)
@@ -146,3 +154,7 @@ Beitraege sind willkommen. Bitte lies vor einem Pull Request den [Contributing G
 ## Lizenz
 
 Dieses Projekt steht unter der Apache License 2.0. Details findest du in [LICENSE](LICENSE).
+
+## Autor
+
+**Yein Sung** - [GitHub](https://github.com/syi0808)

@@ -56,6 +56,8 @@ head:
 
 This guide focuses on the failure modes that matter most in practice: configuration loading, versioning, registry auth, Git state, and CI behavior.
 
+If the question is which release path to use, start with [Release Workflows](/pubm/guides/release-workflows/). This page assumes you already chose Direct Release or Split CI Release and need to diagnose a failure.
+
 ## Start with the safest diagnostic commands
 
 Use these before retrying a failed publish:
@@ -64,7 +66,6 @@ Use these before retrying a failed publish:
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
 ```
 
 Together, these commands tell you:
@@ -73,6 +74,8 @@ Together, these commands tell you:
 - which packages are affected
 - whether the changelog text is sane
 - whether credentials and registry checks are ready
+
+`pubm --phase prepare` is a real Split CI Release preparation run: it can write versions, create tags, and push the release commit and tags. Use it when you intend to prepare a CI publish, not as a harmless credential-only check.
 
 ## Publish blocked by Git state
 
@@ -318,7 +321,8 @@ Only rerun a real publish after the dry-run and CI preparation outputs make sens
 
 ## Related pages
 
-- [CLI Reference](/pubm/reference/cli/): full list of flags and execution modes
+- [CLI Reference](/pubm/reference/cli/): full list of flags and command behavior
+- [Release Workflows](/pubm/guides/release-workflows/): Direct Release and Split CI Release behavior
 - [Configuration](/pubm/guides/configuration/): config file format and option reference
 - [CI/CD](/pubm/guides/ci-cd/): CI preparation, token handling, and release automation
 - [Changesets](/pubm/guides/changesets/): how changesets drive version bumps and changelogs

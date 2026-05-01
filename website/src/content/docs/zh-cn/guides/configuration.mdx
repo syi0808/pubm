@@ -205,9 +205,9 @@ export default defineConfig({
 - 类型：`boolean`
 - 默认值：`false`
 
-为版本升级提交创建 pull request，而不是直接推送到基础分支。启用后，pubm 会创建 `pubm/version-packages-*` 分支并推送，然后开启一个 PR。PR 合并后，现有的发布工作流会正常触发。
+为版本升级提交创建 pull request，而不是直接推送到基础分支。这是用于受保护 version push 的现有 config surface，不是推荐的发布工作流选择。请在 [Release Workflows](/pubm/zh-cn/guides/release-workflows/) 中选择 Direct Release 或 Split CI Release。
 
-当直接推送到受保护的分支失败时，pubm 会自动回退到 PR 模式。
+它也可以作为 fallback：当直接推送到受保护分支失败时，pubm 会自动回退到 PR 模式。
 
 ### `registryQualifiedTags`
 

@@ -41,7 +41,7 @@ await pubm({
 |------|------|-------|
 | `version` | `string` | Cible de release requise, comme `patch`, `minor`, `major` ou une version semver explicite. |
 | `dryRun` | `boolean` | Afficher le plan des tâches sans modifier l'état Git ni publier. |
-| `phase` | `"prepare" \| "publish"` | Exécuter une seule phase de release séparée. Omettez-le pour exécuter le flux direct complet. |
+| `phase` | `"prepare" \| "publish"` | Exécuter une phase de Split CI Release. Omettre pour Direct Release. |
 | `releaseDraft` | `boolean` | Créer un draft GitHub Release au lieu d'une release publiée. |
 | `branch` | `string` | Exiger une branche précise avant de publier. |
 | `anyBranch` | `boolean` | Désactiver l'exigence de branche pour une exécution. |
@@ -103,7 +103,7 @@ Utilisez les exports de plugins lorsque vous voulez étendre le pipeline de publ
 | `GhSecretEntry` | type | Une entrée renvoyée par les helpers de synchro GitHub Secrets : `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | Rassemble `PluginCredential[]` depuis tous les plugins enregistrés dans la config et résout leurs valeurs. |
 | `injectPluginTokensToEnv` | function | Écrit les valeurs de tokens de plugin résolues dans `process.env` pour que les étapes de publish suivantes puissent les lire comme des variables d'environnement classiques. |
-| `ReleaseContext` | type | Métadonnées de release transmises aux hooks `afterRelease`. Inclut `packageName`, `version`, `tag`, `releaseUrl` et `assets`. |
+| `ReleaseContext` | type | Métadonnées de release transmises aux hooks `afterRelease`. Inclut `displayLabel`, `version`, `tag`, `releaseUrl` et `assets`. |
 | `ReleaseAsset` | type | Un artefact uploadé : `name`, `url`, `sha256` et `platform` structuré. |
 | `ParsedPlatform` | type | Informations de plateforme structurées : `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |
 | `PreparedAsset` | type | Artefact après compression et hachage, prêt à être uploadé. |
@@ -118,8 +118,8 @@ import { defineConfig, type PubmPlugin } from "@pubm/core";
 const plugin: PubmPlugin = {
   name: "announce",
   hooks: {
-    afterPublish(ctx) {
-      console.log("published", ctx.version);
+    afterRelease(_ctx, releaseCtx) {
+      console.log("published", releaseCtx.displayLabel, releaseCtx.version);
     },
   },
 };

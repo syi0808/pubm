@@ -1,6 +1,6 @@
 ---
 title: CLI 参考
-description: pubm CLI 的命令、flags 和 release 流程。
+description: pubm CLI 的命令、flags 和发布工作流控制。
 ---
 
 本参考按命令类型组织：
@@ -52,7 +52,8 @@ pubm [version] [flags]
 如果你省略版本：
 
 - 交互式终端可以提示你选择下一个版本
-- CI 运行则要求版本已经以非交互方式解析完成
+- 非交互式 Direct Release 需要明确版本或已配置的版本来源
+- Split CI Release publish 会读取 `pubm --phase prepare` 已经准备好的版本
 
 ### 交互式用法
 
@@ -81,7 +82,7 @@ pubm --tag beta
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-d, --dry-run` | `false` | 在不修改 Git 状态或不发布的情况下显示任务图。 |
-| `--phase <phase>` | - | 流程阶段：`prepare`（验证和 dry-run）或 `publish`（从最新 tag 发布）。 |
+| `--phase <phase>` | - | 运行一个 Split CI Release 阶段：`prepare`（Prepare for CI publish）或 `publish`（Publish prepared release）。省略则运行 Direct Release。 |
 | `--release-draft` | `false` | 创建 GitHub Release 草稿，而不是已发布的 release。 |
 | `-b, --branch <name>` | `main` | 在发布前要求当前分支匹配指定分支。 |
 | `-a, --any-branch` | `false` | 禁用当前运行的分支保护。 |
@@ -107,22 +108,15 @@ pubm --tag beta
 | `--no-dry-run-validation` | 跳过准备阶段的 dry-run 验证。当 workspace crate 的内部依赖的新版本尚未发布时很有用。 |
 | `--skip-release` | 跳过 GitHub Release 创建。 |
 
-## 常见流程
+## Release workflows
 
-## 交互式本地运行
+`pubm` 支持 Direct Release 和 Split CI Release。阅读 [Release Workflows](/pubm/zh-cn/guides/release-workflows/) 了解概念行为以及何时选择每种路径。
 
-本地发布的正常模式：
-
-```bash
-pubm
-```
-
-行为：
-
-- 在未提供版本参数时，会先交互式选择版本
-- 当缺少必要信息时，可以显示提示
-- 除非被跳过，测试和构建都会运行
-- versioning、publish、push 和 GitHub Release 步骤会按顺序执行
+| Workflow | Command shape |
+|----------|---------------|
+| Direct Release | `pubm` |
+| Split CI Release prepare | `pubm --phase prepare` |
+| Split CI Release publish | `pubm --phase publish` |
 
 ## Dry-run 模式
 
@@ -132,27 +126,28 @@ pubm --dry-run
 
 当你只想查看任务计划而不产生副作用时，使用 dry-run 模式。
 
-## Preparation 阶段
+## Split CI Release: Prepare for CI publish
 
 ```bash
 pubm --phase prepare
 ```
 
-Preparation 阶段：
+Prepare for CI publish：
 
-- 交互式收集缺失的 token
-- 可以同步到 GitHub Secrets
-- 切换到非交互行为，以模拟 CI
+- 验证项目、registry 访问权限和 plugin credentials
+- 收集缺失的 token，并可同步到 GitHub Secrets
+- 写入 manifest versions，创建 release tags，并推送 release commit 和 tags
 - 运行前置条件和必要条件检查
 - 对配置好的 registries 进行 publish dry-run
+- 不发布 packages
 
-## Publish 阶段
+## Split CI Release: Publish prepared release
 
 ```bash
 pubm --phase publish
 ```
 
-Publish 阶段会从最新的 Git tag 发布，并通过 API 创建 GitHub Release。适合版本 bump 和打 tag 已经在流水线更早阶段完成的场景。传入 `--release-draft` 可以创建草稿 release，而不是正式发布。
+Publish prepared release 会读取 manifest versions、发布 packages，并通过 API 创建 GitHub Releases。它适用于 CI 和非交互 token 执行，并假定 Prepare for CI publish 已经写入版本、创建 tags、推送 release commit 和 tags。传入 `--release-draft` 可以创建草稿 releases，而不是正式发布。
 
 ## 环境变量
 
@@ -161,6 +156,7 @@ Publish 阶段会从最新的 Git tag 发布，并通过 API 创建 GitHub Relea
 | `NODE_AUTH_TOKEN` | CI 中的 npm 认证 |
 | `JSR_TOKEN` | jsr 认证 |
 | `CARGO_REGISTRY_TOKEN` | crates.io 认证 |
+| `GITHUB_TOKEN` | GitHub Release 创建和 release asset 上传 |
 | `PUBM_LOCALE` | CLI 输出语言（`en`、`ko`、`zh-cn`、`fr`、`de`、`es`） |
 
 当以下情况成立时，提示会自动禁用：

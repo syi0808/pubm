@@ -59,15 +59,18 @@ pubm 会读取你的清单文件并判断该发布到哪些仓库。
 
 ### 预检查
 
-分支、工作区、远端同步、登录状态和发布权限，都会在 pubm **真正动手前** 检查完成。在 CI 模式下，pubm 还会验证 token 并执行 publish dry-run，在真正发布前发现问题：
+分支、工作区、远端同步、登录状态和发布权限，都会在 pubm **真正动手前** 检查完成。
 
 ```bash
 pubm --phase prepare
 ```
 
-### 同一条命令，兼顾本地与 CI
+### Release workflows
 
-终端里是交互式提示，CI 里是完全无头执行。不需要单独配置，也不用记额外参数。
+| 路径 | 命令 | 适用场景 |
+|------|------|----------|
+| Direct Release | `pubm` | 由可信的本地环境或受控任务运行完整发布 |
+| Split CI Release | 本地 `pubm --phase prepare`，然后 CI `pubm --phase publish` | 本地完成准备，把包发布和 GitHub Releases 交给 CI |
 
 ### 原生支持 monorepo
 
@@ -92,7 +95,11 @@ pubm init
 
 # 直接运行 pubm 就行
 pubm
+```
 
+可选命令：
+
+```bash
 # 可选：安装 coding agent skills（Claude Code、Codex、Gemini）
 pubm setup-skills
 ```
@@ -116,6 +123,7 @@ pubm setup-skills
 ## 文档
 
 - [快速开始](https://syi0808.github.io/pubm/zh-cn/guides/quick-start/)
+- [发布工作流](https://syi0808.github.io/pubm/zh-cn/guides/release-workflows/)
 - [配置](https://syi0808.github.io/pubm/zh-cn/guides/configuration/)
 - [Changesets](https://syi0808.github.io/pubm/zh-cn/guides/changesets/)
 - [Monorepo](https://syi0808.github.io/pubm/zh-cn/guides/monorepo/)
@@ -146,3 +154,7 @@ pubm 不收集遥测数据、分析数据或使用数据。
 ## 许可证
 
 本项目采用 Apache License 2.0。详情见 [LICENSE](LICENSE)。
+
+## 作者
+
+**Yein Sung** - [GitHub](https://github.com/syi0808)

@@ -205,9 +205,9 @@ Variables de modèle disponibles :
 - Type : `boolean`
 - Par défaut : `false`
 
-Crée une pull request pour le commit de version bump au lieu de pousser directement vers la branche de base. Lorsque activé, pubm crée une branche `pubm/version-packages-*`, la pousse et ouvre une PR. Le workflow de release se déclenche normalement lorsque la PR est fusionnée.
+Crée une pull request pour le commit de version bump au lieu de pousser directement vers la branche de base. C'est une surface de config existante pour les pushes de version protégés, pas un choix de workflow de release recommandé. Choisissez entre Direct Release et Split CI Release dans [Workflows de release](/pubm/fr/guides/release-workflows/).
 
-pubm bascule également automatiquement en mode PR lorsqu'un push direct vers une branche protégée échoue.
+Peut aussi servir de repli : pubm revient automatiquement au mode PR lorsqu'un push direct vers une branche protégée échoue.
 
 ### `registryQualifiedTags`
 

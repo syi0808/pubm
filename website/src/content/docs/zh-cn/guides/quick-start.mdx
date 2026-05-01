@@ -26,15 +26,6 @@ brew tap syi0808/pubm
 brew install pubm
 ```
 
-## 面向 coding agent
-
-如果你要通过 Claude Code、Codex 或其他 coding agent 接入 `pubm`，请先从 setup automation 开始，而不是手写发布提示词。
-
-- 运行 `pubm setup-skills` 直接下载并安装 coding agent skills，或者让 `pubm init` 在最后一步提供 skill 安装选项。
-- 或者，使用 `pubm plugin` bundle 中的 `publish-setup` skill 来安装发布工作流、生成配置、接入 CI 并启用 changesets。
-- 把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接交给你的 agent，这样它就能获取 bundle 并从 `publish-setup` 开始。
-- 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 了解集成模型和各 skill 的职责。
-
 ## 1. 初始化仓库
 
 运行交互式 setup 向导：
@@ -53,4 +44,13 @@ pubm init
 pubm
 ```
 
-如果存在待处理的 changeset，`pubm` 会在发布流程的版本步骤中消耗它们。对于没有 changeset 的包，`pubm` 也可以将 conventional commits（`feat:`、`fix:` 等）作为降级回退来分析——详见 [Changesets](/pubm/zh-cn/guides/changesets/#conventional-commit-降级回退)。配置细节请阅读 [Configuration](/pubm/zh-cn/guides/configuration/)。CI、token 和 CI preparation 行为请阅读 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。monorepo 请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/)。精确的 flags 和子命令请阅读 [CLI Reference](/pubm/zh-cn/reference/cli/)。
+如果存在待处理的 changeset，`pubm` 会在发布流程的版本步骤中消耗它们。对于没有 changeset 的包，`pubm` 也可以将 conventional commits（`feat:`、`fix:` 等）作为降级回退来分析——详见 [Changesets](/pubm/zh-cn/guides/changesets/#conventional-commit-降级回退)。发布方式选择请阅读 [Release Workflows](/pubm/zh-cn/guides/release-workflows/)。配置细节请阅读 [Configuration](/pubm/zh-cn/guides/configuration/)。CI、token 和 CI preparation 行为请阅读 [CI/CD](/pubm/zh-cn/guides/ci-cd/)。monorepo 请阅读 [Monorepo](/pubm/zh-cn/guides/monorepo/)。精确的 flags 和子命令请阅读 [CLI Reference](/pubm/zh-cn/reference/cli/)。
+
+## 面向 coding agent
+
+如果你要通过 Claude Code、Codex 或其他 coding agent 接入 `pubm`，请先从 setup automation 开始，而不是手写发布提示词。
+
+- 运行 `pubm setup-skills` 直接下载并安装 coding agent skills，或者让 `pubm init` 在最后一步提供 skill 安装选项。
+- 或者，使用 `pubm plugin` bundle 中的 `publish-setup` skill 来安装发布工作流、生成配置、接入 CI 并启用 changesets。
+- 把 [INSTALLATION.md](/pubm/zh-cn/plugins/pubm-plugin/INSTALLATION.md) 链接交给你的 agent，这样它就能获取 bundle 并从 `publish-setup` 开始。
+- 阅读 [Coding Agent Integration](/pubm/zh-cn/guides/coding-agents/) 了解集成模型和各 skill 的职责。
