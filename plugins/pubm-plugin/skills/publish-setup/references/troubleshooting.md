@@ -109,21 +109,21 @@ export default defineConfig({
 
 If you want to avoid the PR fallback, ensure the pushing user/token has bypass permissions on the branch protection rules.
 
-### CI full release prompts for missing version
+### Direct Release in CI prompts for missing version
 
 **Symptom:** `pubm` in CI fails because no version could be determined.
 
-**Cause:** Bare `pubm` runs the full release pipeline. In CI it must receive an explicit version or derive one from configured version sources such as changesets or conventional commits.
+**Cause:** Bare `pubm` runs Direct Release. In CI it must receive an explicit version or derive one from configured version sources such as changesets or conventional commits.
 
 **Solution:** Use the command shape that matches the workflow:
 ```bash
-# For a split publish job after prepare has already versioned manifests
+# For Publish prepared release after Prepare for CI publish has already versioned manifests
 pubm --phase publish
 
-# For the prepare half of a split workflow
+# For Prepare for CI publish in Split CI Release
 pubm --phase prepare
 
-# For a full CI release with an explicit version
+# For Direct Release in CI with an explicit version
 pubm 1.2.3
 ```
 
@@ -176,4 +176,4 @@ pubm registers rollback actions in LIFO (last-in, first-out) order. On failure:
 - **crates.io:** Published crates cannot be unpublished, only yanked (`cargo yank`)
 - **jsr:** Check jsr.io for unpublish/deprecation options
 
-Re-run `pubm --phase publish` after fixing the root cause — already-published versions are automatically skipped.
+Re-run Publish prepared release with `pubm --phase publish` after fixing the root cause — already-published versions are automatically skipped.

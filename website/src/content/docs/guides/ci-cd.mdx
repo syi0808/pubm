@@ -7,51 +7,29 @@ description: Set up CI preparation, token handling, and release automation for p
 
 `pubm init` can generate CI workflows during setup. The wizard offers to create `.github/workflows/release.yml` for tag-triggered publish and `.github/workflows/changeset-check.yml` for PR changeset enforcement, so you do not need to write them by hand.
 
-## Recommended release model
+## Release workflows
 
-Use two phases:
+Use [Release Workflows](/pubm/guides/release-workflows/) to choose between Direct Release and Split CI Release.
 
-1. run `pubm --phase prepare` locally or in a controlled release job
-2. publish from CI with `pubm --phase publish`
-
-```bash
-pubm --phase prepare
-```
-
-```bash
-pubm --phase publish
-```
-
-## What CI preparation does
-
-`pubm --phase prepare` is more than a token check. It runs the release pipeline up to the point right before the real publish:
-
-- collects registry tokens and plugin credentials
-- optionally syncs them to GitHub Secrets
-- runs prerequisite and required-condition checks
-- runs tests and build unless skipped
-- consumes pending changesets during versioning when present
-- creates the release commit and pushes tags and branch updates
-- dry-runs publish tasks instead of performing the real publish
-
-Because of that, you do not need to run `pubm patch --dry-run` after CI preparation.
+This page focuses on the CI half of Split CI Release: running `pubm --phase publish` after `pubm --phase prepare` has already written manifest versions, created tags, and pushed the release commit and tags.
 
 ## Required environment variables
 
 In CI, provide registry tokens with environment variables:
 
-| Variable | Registry |
-|----------|----------|
-| `NODE_AUTH_TOKEN` | npm |
-| `JSR_TOKEN` | jsr |
-| `CARGO_REGISTRY_TOKEN` | crates.io |
+| Variable               | Registry                           |
+| ---------------------- | ---------------------------------- |
+| `NODE_AUTH_TOKEN`      | npm                                |
+| `JSR_TOKEN`            | jsr                                |
+| `CARGO_REGISTRY_TOKEN` | crates.io                          |
+| `GITHUB_TOKEN`         | GitHub Releases and release assets |
 
-Plugins can also declare their own required credentials. pubm collects and resolves these automatically. During `--ci-prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
+Plugins can also declare their own required credentials. pubm collects and resolves these automatically. During `--phase prepare` it prompts for missing values and syncs them to GitHub Secrets. During `--phase publish` it reads the resolved values from the environment only and errors if any required credential is absent.
 
 For example, `@pubm/plugin-brew` requires:
 
-| Variable | Purpose |
-|----------|---------|
+| Variable                 | Purpose                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------- |
 | `PUBM_BREW_GITHUB_TOKEN` | GitHub PAT used to push formula updates and open pull requests for Homebrew. |
 
 ## Syncing GitHub secrets
@@ -74,6 +52,10 @@ on:
       - "v*"
       - "@*"
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -87,6 +69,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
       - run: pubm --phase publish
@@ -94,6 +77,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Snapshot releases in CI
@@ -167,6 +151,10 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -178,41 +166,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - run: npm ci
-      - run: npm run build       # Must produce platforms/*/bin/mytool
+      - run: npm run build # Must produce platforms/*/bin/mytool
       - run: pubm --phase publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
-
-## PR-based version bump workflow
-
-As an alternative to pushing version bump commits directly, pubm can create a pull request instead. This is useful when your base branch is protected or you want a review step before publishing.
-
-Enable it in config:
-
-```ts
-export default defineConfig({
-  createPr: true,
-});
-```
-
-Or pass the flag at runtime:
-
-```bash
-pubm --create-pr
-```
-
-When `createPr` is enabled:
-
-- pubm creates a `pubm/version-packages-*` branch with the version bump commit
-- the branch is pushed and a PR is opened against the base branch
-- the PR is automatically labeled `no-changeset` to skip the changeset check
-- when the PR is merged, the existing release workflow triggers normally via the tag push
-
-pubm also falls back to PR mode automatically when a direct push to a protected branch fails, so you do not need to configure `createPr` explicitly if you only want the fallback behavior.
 
 ## Changeset check (PR validation)
 

@@ -41,7 +41,7 @@ await pubm({
 |------|------|---------|
 | `version` | `string` | 必需的发布目标，例如 `patch`、`minor`、`major`，或者明确的 semver。 |
 | `dryRun` | `boolean` | 在不修改 Git 状态或不发布的情况下显示任务计划。 |
-| `phase` | `"prepare" \| "publish"` | 只运行一个拆分 release 阶段。省略则运行完整流水线。 |
+| `phase` | `"prepare" \| "publish"` | 运行一个 Split CI Release 阶段。省略则运行 Direct Release。 |
 | `releaseDraft` | `boolean` | 创建 GitHub Release 草稿，而不是正式发布。 |
 | `branch` | `string` | 发布前要求的特定分支。 |
 | `anyBranch` | `boolean` | 对单次运行禁用分支约束。 |
@@ -103,7 +103,7 @@ type PackageConfig = {
 | `GhSecretEntry` | type | GitHub Secrets 同步辅助函数返回的一项：`{ secretName: string; token: string }`。 |
 | `collectPluginCredentials` | function | 从 config 中注册的所有插件收集 `PluginCredential[]` 并解析它们的值。 |
 | `injectPluginTokensToEnv` | function | 将已解析的插件 token 值写入 `process.env`，让后续发布步骤可以像读取普通环境变量一样读取它们。 |
-| `ReleaseContext` | type | 传给 `afterRelease` hooks 的 release 元数据。包含 `packageName`、`version`、`tag`、`releaseUrl` 和 `assets`。 |
+| `ReleaseContext` | type | 传给 `afterRelease` hooks 的 release 元数据。包含 `displayLabel`、`version`、`tag`、`releaseUrl` 和 `assets`。 |
 | `ReleaseAsset` | type | 一个已上传资产：`name`、`url`、`sha256` 以及结构化的 `platform`。 |
 | `ParsedPlatform` | type | 结构化的平台信息：`raw`、`os`、`arch`、`vendor`、`abi`、`variant`。 |
 | `PreparedAsset` | type | 已完成压缩和哈希、可直接上传的资产。 |
@@ -118,8 +118,8 @@ import { defineConfig, type PubmPlugin } from "@pubm/core";
 const plugin: PubmPlugin = {
   name: "announce",
   hooks: {
-    afterPublish(ctx) {
-      console.log("published", ctx.version);
+    afterRelease(_ctx, releaseCtx) {
+      console.log("published", releaseCtx.displayLabel, releaseCtx.version);
     },
   },
 };

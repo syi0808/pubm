@@ -37,31 +37,33 @@ await pubm({
 
 `pubm()` accepts an `Options` object. The key fields are:
 
-| Field | Type | Purpose |
-|------|------|---------|
-| `version` | `string` | Required release target such as `patch`, `minor`, `major`, or an explicit semver. |
-| `dryRun` | `boolean` | Show the task plan without mutating Git state or publishing. |
-| `phase` | `"prepare" \| "publish"` | Run one split release phase. Omit to run the full pipeline. |
-| `releaseDraft` | `boolean` | Create a draft GitHub Release instead of a published one. |
-| `branch` | `string` | Require a specific branch before publishing. |
-| `anyBranch` | `boolean` | Disable branch enforcement for one run. |
-| `tag` | `string` | Publish under a dist-tag like `latest`, `next`, or `beta`. |
-| `packages` | `PackageConfig[]` | Override auto-discovered packages. |
+| Field          | Type                     | Purpose                                                                           |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------- |
+| `version`      | `string`                 | Required release target such as `patch`, `minor`, `major`, or an explicit semver. |
+| `dryRun`       | `boolean`                | Show the task plan without mutating Git state or publishing.                      |
+| `phase`        | `"prepare" \| "publish"` | Run one Split CI Release phase. Omit for Direct Release.                          |
+| `releaseDraft` | `boolean`                | Create a draft GitHub Release instead of a published one.                         |
+| `branch`       | `string`                 | Require a specific branch before publishing.                                      |
+| `anyBranch`    | `boolean`                | Disable branch enforcement for one run.                                           |
+| `tag`          | `string`                 | Publish under a dist-tag like `latest`, `next`, or `beta`.                        |
+| `packages`     | `PackageConfig[]`        | Override auto-discovered packages.                                                |
 
 For config-driven releases, `pubm()` loads `pubm.config.*`, resolves package discovery, and wires plugins before it runs the task graph.
+
+`phase` is runtime workflow state on `Options`, not a `pubm.config.*` field. Omit it for Direct Release, or pass `"prepare"` / `"publish"` for Split CI Release. See [Release Workflows](/pubm/guides/release-workflows/) for operator-facing behavior.
 
 ## Config helpers
 
 Use these helpers to read or validate `pubm.config.*`.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `defineConfig` | function | Typed helper for authoring `pubm.config.ts`. |
-| `loadConfig` | function | Load `pubm.config.*` from disk and return `PubmConfig \| null`. |
-| `resolveConfig` | function | Apply defaults, auto-discover packages, and normalize private registries. |
-| `PubmConfig` | type | User-authored config shape. |
-| `ResolvedPubmConfig` | type | Fully-resolved config returned by `resolveConfig()`. |
-| `PackageConfig` | type | Per-package config entry used by discovery and publish planning. |
+| Export               | Kind     | Purpose                                                                   |
+| -------------------- | -------- | ------------------------------------------------------------------------- |
+| `defineConfig`       | function | Typed helper for authoring `pubm.config.ts`.                              |
+| `loadConfig`         | function | Load `pubm.config.*` from disk and return `PubmConfig \| null`.           |
+| `resolveConfig`      | function | Apply defaults, auto-discover packages, and normalize private registries. |
+| `PubmConfig`         | type     | User-authored config shape.                                               |
+| `ResolvedPubmConfig` | type     | Fully-resolved config returned by `resolveConfig()`.                      |
+| `PackageConfig`      | type     | Per-package config entry used by discovery and publish planning.          |
 
 ```ts
 import { defineConfig, loadConfig, resolveConfig } from "@pubm/core";
@@ -90,27 +92,27 @@ type PackageConfig = {
 
 Use the plugin exports to extend the publish pipeline with custom registries, ecosystems, lifecycle hooks, or CLI commands.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `PubmPlugin` | type | Top-level plugin contract. |
-| `PluginHooks` | type | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, `afterRelease`, and asset pipeline hooks. |
-| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn` | type | Hook signatures. |
-| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type | Custom CLI command model for plugins. |
-| `PluginRunner` | class | Utility that executes hooks and collects registries/ecosystems from loaded plugins. Also exposes `collectCredentials()` and `collectChecks()` to gather credential descriptors and preflight checks from all registered plugins. |
-| `PluginCredential` | type | Declarative descriptor for a token or secret required by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincredential). |
-| `PluginCheck` | type | Descriptor for a preflight check contributed by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincheck). |
-| `PluginTaskContext` | type | Runner-agnostic wrapper passed to `PluginCheck.task`. Exposes `output`, `title`, and `prompt()`. |
-| `GhSecretEntry` | type | One entry returned by the GitHub Secrets sync helpers: `{ secretName: string; token: string }`. |
-| `collectPluginCredentials` | function | Gather `PluginCredential[]` from all plugins registered in the config and resolve their values. |
-| `injectPluginTokensToEnv` | function | Write resolved plugin token values into `process.env` so subsequent publish steps can read them as plain env vars. |
-| `ReleaseContext` | type | Release metadata passed to `afterRelease` hooks. Includes `packageName`, `version`, `tag`, `releaseUrl`, and `assets`. |
-| `ReleaseAsset` | type | One uploaded asset: `name`, `url`, `sha256`, and structured `platform`. |
-| `ParsedPlatform` | type | Structured platform info: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`. |
-| `PreparedAsset` | type | Asset after compression and hashing, ready for upload. |
-| `TransformedAsset` | type | Asset after `transformAsset` hook, before compression. |
-| `CompressedAsset` | type | Asset after `compressAsset` step, before naming. |
-| `UploadedAsset` | type | Asset after upload with `url` and `target`. |
-| `ResolvedAsset` | type | Asset after glob matching with parsed platform info. |
+| Export                                                       | Kind     | Purpose                                                                                                                                                                                                                          |
+| ------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PubmPlugin`                                                 | type     | Top-level plugin contract.                                                                                                                                                                                                       |
+| `PluginHooks`                                                | type     | Lifecycle hooks such as `beforeBuild`, `afterPublish`, `onError`, `afterRelease`, and asset pipeline hooks.                                                                                                                      |
+| `HookFn` / `ErrorHookFn` / `AfterReleaseHookFn`              | type     | Hook signatures.                                                                                                                                                                                                                 |
+| `PluginCommand` / `PluginSubcommand` / `PluginCommandOption` | type     | Custom CLI command model for plugins.                                                                                                                                                                                            |
+| `PluginRunner`                                               | class    | Utility that executes hooks and collects registries/ecosystems from loaded plugins. Also exposes `collectCredentials()` and `collectChecks()` to gather credential descriptors and preflight checks from all registered plugins. |
+| `PluginCredential`                                           | type     | Declarative descriptor for a token or secret required by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincredential).                                                                                       |
+| `PluginCheck`                                                | type     | Descriptor for a preflight check contributed by a plugin. See [Plugins API Reference](/pubm/reference/plugins/#plugincheck).                                                                                                     |
+| `PluginTaskContext`                                          | type     | Runner-agnostic wrapper passed to `PluginCheck.task`. Exposes `output`, `title`, and `prompt()`.                                                                                                                                 |
+| `GhSecretEntry`                                              | type     | One entry returned by the GitHub Secrets sync helpers: `{ secretName: string; token: string }`.                                                                                                                                  |
+| `collectPluginCredentials`                                   | function | Gather `PluginCredential[]` from all plugins registered in the config and resolve their values.                                                                                                                                  |
+| `injectPluginTokensToEnv`                                    | function | Write resolved plugin token values into `process.env` so subsequent publish steps can read them as plain env vars.                                                                                                               |
+| `ReleaseContext`                                             | type     | Release metadata passed to `afterRelease` hooks. Includes `displayLabel`, `version`, `tag`, `releaseUrl`, and `assets`.                                                                                                         |
+| `ReleaseAsset`                                               | type     | One uploaded asset: `name`, `url`, `sha256`, and structured `platform`.                                                                                                                                                          |
+| `ParsedPlatform`                                             | type     | Structured platform info: `raw`, `os`, `arch`, `vendor`, `abi`, `variant`.                                                                                                                                                       |
+| `PreparedAsset`                                              | type     | Asset after compression and hashing, ready for upload.                                                                                                                                                                           |
+| `TransformedAsset`                                           | type     | Asset after `transformAsset` hook, before compression.                                                                                                                                                                           |
+| `CompressedAsset`                                            | type     | Asset after `compressAsset` step, before naming.                                                                                                                                                                                 |
+| `UploadedAsset`                                              | type     | Asset after upload with `url` and `target`.                                                                                                                                                                                      |
+| `ResolvedAsset`                                              | type     | Asset after glob matching with parsed platform info.                                                                                                                                                                             |
 
 ```ts
 import { defineConfig, type PubmPlugin } from "@pubm/core";
@@ -118,8 +120,8 @@ import { defineConfig, type PubmPlugin } from "@pubm/core";
 const plugin: PubmPlugin = {
   name: "announce",
   hooks: {
-    afterPublish(ctx) {
-      console.log("published", ctx.version);
+    afterRelease(_ctx, releaseCtx) {
+      console.log("published", releaseCtx.displayLabel, releaseCtx.version);
     },
   },
 };
@@ -133,9 +135,9 @@ export default defineConfig({
 
 These exports support the release asset pipeline and are useful for plugin authors and custom tooling.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `parsePlatform` | function | Parse OS, arch, ABI, variant, and vendor from a path segment string using the built-in tables. |
+| Export             | Kind     | Purpose                                                                                                                 |
+| ------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `parsePlatform`    | function | Parse OS, arch, ABI, variant, and vendor from a path segment string using the built-in tables.                          |
 | `runAssetPipeline` | function | Run the full asset pipeline (resolve, transform, compress, name, hash, checksums) given a resolved config and hook set. |
 
 ```ts
@@ -170,30 +172,30 @@ See [Release Assets](/pubm/guides/release-assets/) and [Asset Pipeline Hooks](/p
 
 These exports help you build custom tooling around `.pubm/changesets`.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `readChangesets` / `parseChangeset` | functions | Read and parse `.pubm/changesets/*.md`. |
-| `getStatus` | function | Aggregate pending changesets by package. |
-| `discoverCurrentVersions` / `discoverPackageInfos` | functions | Read current package names and versions from the workspace. |
-| `calculateVersionBumps` | function | Compute next versions from current versions plus pending changesets. |
-| `generateChangesetId` / `generateChangesetContent` / `writeChangeset` | functions | Create new changeset files. |
-| `buildChangelogEntries` / `generateChangelog` / `writeChangelogToFile` | functions | Build changelog output from changesets. |
-| `migrateFromChangesets` | function | Copy legacy `.changeset/` data into `.pubm/`. |
-| `deleteChangesetFiles` | function | Remove consumed changeset files. |
-| `parseChangelogSection` | function | Parse a changelog section back into structured data. |
+| Export                                                                 | Kind      | Purpose                                                              |
+| ---------------------------------------------------------------------- | --------- | -------------------------------------------------------------------- |
+| `readChangesets` / `parseChangeset`                                    | functions | Read and parse `.pubm/changesets/*.md`.                              |
+| `getStatus`                                                            | function  | Aggregate pending changesets by package.                             |
+| `discoverCurrentVersions` / `discoverPackageInfos`                     | functions | Read current package names and versions from the workspace.          |
+| `calculateVersionBumps`                                                | function  | Compute next versions from current versions plus pending changesets. |
+| `generateChangesetId` / `generateChangesetContent` / `writeChangeset`  | functions | Create new changeset files.                                          |
+| `buildChangelogEntries` / `generateChangelog` / `writeChangelogToFile` | functions | Build changelog output from changesets.                              |
+| `migrateFromChangesets`                                                | function  | Copy legacy `.changeset/` data into `.pubm/`.                        |
+| `deleteChangesetFiles`                                                 | function  | Remove consumed changeset files.                                     |
+| `parseChangelogSection`                                                | function  | Parse a changelog section back into structured data.                 |
 
 Important related types:
 
-| Type | Purpose |
-|------|---------|
-| `Changeset` | Parsed `.md` file with `id`, `summary`, and package releases. |
-| `Release` | One package bump entry inside a changeset. |
-| `BumpType` | `"patch" \| "minor" \| "major"`. |
-| `Status` / `PackageStatus` | Aggregated pending state from `getStatus()`. |
-| `VersionBump` | Version planning result from `calculateVersionBumps()`. |
-| `ChangelogEntry` / `DependencyUpdate` | Changelog rendering inputs. |
-| `PackageVersionInfo` | Package name, version, and path returned by discovery helpers. |
-| `MigrationResult` | Result object returned by `migrateFromChangesets()`. |
+| Type                                  | Purpose                                                        |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `Changeset`                           | Parsed `.md` file with `id`, `summary`, and package releases.  |
+| `Release`                             | One package bump entry inside a changeset.                     |
+| `BumpType`                            | `"patch" \| "minor" \| "major"`.                               |
+| `Status` / `PackageStatus`            | Aggregated pending state from `getStatus()`.                   |
+| `VersionBump`                         | Version planning result from `calculateVersionBumps()`.        |
+| `ChangelogEntry` / `DependencyUpdate` | Changelog rendering inputs.                                    |
+| `PackageVersionInfo`                  | Package name, version, and path returned by discovery helpers. |
+| `MigrationResult`                     | Result object returned by `migrateFromChangesets()`.           |
 
 ```ts
 import {
@@ -211,24 +213,24 @@ const nextVersions = calculateVersionBumps(currentVersions, process.cwd());
 
 These exports are useful when you need the same workspace discovery logic that `pubm` uses internally.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `detectWorkspace` | function | Detect pnpm, npm, Yarn, Bun, Cargo, or Deno workspaces from repository files. |
-| `discoverPackages` | function | Auto-discover publishable packages and infer registries/ecosystems. |
-| `buildDependencyGraph` | function | Build an internal dependency graph from package metadata. |
-| `topologicalSort` | function | Sort graph nodes so dependencies come first. |
-| `resolveGroups` | function | Resolve fixed/linked groups against a discovered package list. |
-| `applyFixedGroup` / `applyLinkedGroup` | functions | Apply group semantics to version planning. |
-| `Git` | class | Thin wrapper around Git commands used by release automation. |
+| Export                                 | Kind      | Purpose                                                                       |
+| -------------------------------------- | --------- | ----------------------------------------------------------------------------- |
+| `detectWorkspace`                      | function  | Detect pnpm, npm, Yarn, Bun, Cargo, or Deno workspaces from repository files. |
+| `discoverPackages`                     | function  | Auto-discover publishable packages and infer registries/ecosystems.           |
+| `buildDependencyGraph`                 | function  | Build an internal dependency graph from package metadata.                     |
+| `topologicalSort`                      | function  | Sort graph nodes so dependencies come first.                                  |
+| `resolveGroups`                        | function  | Resolve fixed/linked groups against a discovered package list.                |
+| `applyFixedGroup` / `applyLinkedGroup` | functions | Apply group semantics to version planning.                                    |
+| `Git`                                  | class     | Thin wrapper around Git commands used by release automation.                  |
 
 Important related types:
 
-| Type | Purpose |
-|------|---------|
-| `WorkspaceInfo` | Workspace type plus include/exclude patterns. |
-| `DiscoverOptions` | Input for `discoverPackages()`. |
+| Type                | Purpose                                                |
+| ------------------- | ------------------------------------------------------ |
+| `WorkspaceInfo`     | Workspace type plus include/exclude patterns.          |
+| `DiscoverOptions`   | Input for `discoverPackages()`.                        |
 | `DiscoveredPackage` | Auto-detected package path, registries, and ecosystem. |
-| `PackageNode` | Input node used for dependency graph building. |
+| `PackageNode`       | Input node used for dependency graph building.         |
 
 ```ts
 import {
@@ -261,31 +263,31 @@ const ordered = topologicalSort(graph);
 
 The package root also exports these helpers for tooling integrations.
 
-| Export | Kind | Purpose |
-|------|------|---------|
-| `validateEntryPoints` | function | Check `main`, `module`, `types`, `exports`, and `bin` paths in a package manifest. |
-| `detectExtraneousFiles` | function | Flag files that should usually stay out of publish artifacts. |
-| `getPackageJson` | function | Read the nearest `package.json`, with optional `jsr.json` fallback. |
-| `replaceVersion` / `replaceVersionAtPath` | functions | Rewrite package versions in manifests. |
-| `version` | function | Read the current package version from `package.json`, `jsr.json`, or `deno.json` / `deno.jsonc`. |
-| `generateSnapshotVersion` | function | Build snapshot versions from `base`, `tag`, `timestamp`, and optional `commit`. |
-| `loadTokensFromDb` | function | Load stored registry tokens, also honoring matching env vars. |
-| `syncGhSecrets` | function | Push registry tokens into GitHub Secrets via `gh secret set`. |
-| `exec` | function | Spawn a subprocess and capture stdout/stderr. |
-| `getPackageManager` | function | Detect the workspace package manager from lockfiles. |
-| `detectRuntime` / `isBun` | functions | Detect the current runtime. |
-| `notifyNewVersion` | function | Check for a newer published `pubm` version and print an update banner. |
-| `consoleError` | function | Format and print pubm errors. |
-| `PUBM_VERSION` / `PUBM_ENGINES` | constants | Package metadata exposed at runtime. |
+| Export                                    | Kind      | Purpose                                                                                          |
+| ----------------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| `validateEntryPoints`                     | function  | Check `main`, `module`, `types`, `exports`, and `bin` paths in a package manifest.               |
+| `detectExtraneousFiles`                   | function  | Flag files that should usually stay out of publish artifacts.                                    |
+| `getPackageJson`                          | function  | Read the nearest `package.json`, with optional `jsr.json` fallback.                              |
+| `replaceVersion` / `replaceVersionAtPath` | functions | Rewrite package versions in manifests.                                                           |
+| `version`                                 | function  | Read the current package version from `package.json`, `jsr.json`, or `deno.json` / `deno.jsonc`. |
+| `generateSnapshotVersion`                 | function  | Build snapshot versions from `base`, `tag`, `timestamp`, and optional `commit`.                  |
+| `loadTokensFromDb`                        | function  | Load stored registry tokens, also honoring matching env vars.                                    |
+| `syncGhSecrets`                           | function  | Push registry tokens into GitHub Secrets via `gh secret set`.                                    |
+| `exec`                                    | function  | Spawn a subprocess and capture stdout/stderr.                                                    |
+| `getPackageManager`                       | function  | Detect the workspace package manager from lockfiles.                                             |
+| `detectRuntime` / `isBun`                 | functions | Detect the current runtime.                                                                      |
+| `notifyNewVersion`                        | function  | Check for a newer published `pubm` version and print an update banner.                           |
+| `consoleError`                            | function  | Format and print pubm errors.                                                                    |
+| `PUBM_VERSION` / `PUBM_ENGINES`           | constants | Package metadata exposed at runtime.                                                             |
 
 Important related types:
 
-| Type | Purpose |
-|------|---------|
-| `EntryPointError` | Validation result entry for broken manifest paths. |
-| `ExtraneousFile` | Validation result entry for files that should not be published. |
-| `SnapshotOptions` | Input for `generateSnapshotVersion()`. |
-| `Runtime` | `"node" \| "bun"`. |
+| Type              | Purpose                                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `EntryPointError` | Validation result entry for broken manifest paths.              |
+| `ExtraneousFile`  | Validation result entry for files that should not be published. |
+| `SnapshotOptions` | Input for `generateSnapshotVersion()`.                          |
+| `Runtime`         | `"node" \| "bun"`.                                              |
 
 ```ts
 import {

@@ -116,7 +116,7 @@ describe("CLI runner wiring smoke contract", () => {
     });
   });
 
-  it("runs pubm --phase publish from manifest versions without latest tag parsing errors", async () => {
+  it("runs pubm --phase publish from manifest versions without latest tag parsing errors when GitHub Release is skipped", async () => {
     await withFixture("ci-manifest", async (ctx) => {
       await writeFile(
         path.join(ctx.dir, "pubm.config.ts"),
@@ -134,6 +134,7 @@ describe("CLI runner wiring smoke contract", () => {
         smokeEnv(fakeNpm),
         "--phase",
         "publish",
+        "--skip-release",
       );
       const output = `${result.stdout}\n${result.stderr}`;
 

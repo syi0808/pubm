@@ -12,6 +12,10 @@ vi.mock("@pubm/runner", () => ({
   prompt: vi.fn(),
 }));
 
+const envMocks = vi.hoisted(() => ({
+  isCI: false,
+}));
+
 const phaseMocks = vi.hoisted(() => ({
   runCiPreparePreflight: vi.fn(),
   runCiPublishPluginCreds: vi.fn(),
@@ -31,6 +35,12 @@ const operationMocks = vi.hoisted(() => ({
 vi.mock("../../../src/registry/catalog.js", () => ({
   registryCatalog: {
     get: vi.fn(),
+  },
+}));
+
+vi.mock("std-env", () => ({
+  get isCI() {
+    return envMocks.isCI;
   },
 }));
 
@@ -125,6 +135,7 @@ function createMockServices(): WorkflowServices {
 describe("DirectReleaseWorkflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMocks.isCI = false;
   });
 
   it("describes direct release domain steps in execution order", () => {
@@ -146,6 +157,17 @@ describe("DirectReleaseWorkflow", () => {
       "push",
       "release",
     ]);
+    expect(
+      Object.fromEntries(steps.map((step) => [step.id, step.enabled])),
+    ).toEqual({
+      build: true,
+      "dry-run": false,
+      publish: true,
+      push: true,
+      release: true,
+      test: true,
+      version: true,
+    });
     expect(steps.every((step) => !("tasks" in step))).toBe(true);
   });
 
@@ -257,7 +279,71 @@ describe("DirectReleaseWorkflow", () => {
     });
   });
 
-  it("executes workflow release operations through steps in order", async () => {
+  it("runs local preflight for Direct Release without phase", async () => {
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    const services = createMockServices();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await workflow.run(ctx, services);
+
+    expect(phaseMocks.runLocalPreflight).toHaveBeenCalledTimes(1);
+    expect(phaseMocks.runCiPreparePreflight).not.toHaveBeenCalled();
+    expect(phaseMocks.runCiPublishPluginCreds).not.toHaveBeenCalled();
+    expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
+      true,
+      false,
+      true,
+      false,
+    );
+  });
+
+  it("runs split prepare preflight whenever phase prepare is explicit in local environment", async () => {
+    envMocks.isCI = false;
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext(
+      {
+        mode: "single",
+        packageKey: "packages/a::js",
+        version: "1.2.3",
+      },
+      { phase: "prepare" },
+    );
+    const services = createMockServices();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    expect(
+      Object.fromEntries(
+        workflow.describe(ctx).map((step) => [step.id, step.enabled]),
+      ),
+    ).toEqual({
+      build: true,
+      "dry-run": true,
+      publish: false,
+      push: true,
+      release: false,
+      test: true,
+      version: true,
+    });
+
+    await workflow.run(ctx, services);
+
+    expect(phaseMocks.runCiPreparePreflight).toHaveBeenCalledTimes(1);
+    expect(phaseMocks.runLocalPreflight).not.toHaveBeenCalled();
+    expect(phaseMocks.runCiPublishPluginCreds).not.toHaveBeenCalled();
+    expect(operationMocks.createDryRunOperations).toHaveBeenCalledWith(
+      false,
+      true,
+      false,
+    );
+    expect(operationMocks.createGitHubReleaseOperation).not.toHaveBeenCalled();
+  });
+
+  it("executes only active publish phase workflow steps in order", async () => {
     const workflow = new DirectReleaseWorkflow();
     const ctx = createMockContext(
       { mode: "single", packageKey: "packages/a::js", version: "1.2.3" },
@@ -266,78 +352,67 @@ describe("DirectReleaseWorkflow", () => {
     const services = createMockServices();
     vi.spyOn(console, "log").mockImplementation(() => {});
 
+    expect(
+      Object.fromEntries(
+        workflow.describe(ctx).map((step) => [step.id, step.enabled]),
+      ),
+    ).toEqual({
+      build: false,
+      "dry-run": false,
+      publish: true,
+      push: false,
+      release: true,
+      test: false,
+      version: false,
+    });
+
     await workflow.run(ctx, services);
 
-    expect(operationMocks.createTestOperation).toHaveBeenCalledWith(
-      false,
-      false,
-    );
-    expect(operationMocks.createBuildOperation).toHaveBeenCalledWith(
-      false,
-      false,
-    );
-    expect(operationMocks.createVersionOperation).toHaveBeenCalledWith(
-      false,
-      false,
-    );
+    expect(operationMocks.createTestOperation).not.toHaveBeenCalled();
+    expect(operationMocks.createBuildOperation).not.toHaveBeenCalled();
+    expect(operationMocks.createVersionOperation).not.toHaveBeenCalled();
     expect(operationMocks.createPublishOperations).toHaveBeenCalledWith(
       true,
       false,
       false,
     );
-    expect(operationMocks.createDryRunOperations).toHaveBeenCalledWith(
-      false,
-      false,
-      false,
-    );
-    expect(operationMocks.createPushOperation).toHaveBeenCalledWith(
-      false,
-      false,
-    );
+    expect(operationMocks.createDryRunOperations).not.toHaveBeenCalled();
+    expect(operationMocks.createPushOperation).not.toHaveBeenCalled();
+    expect(phaseMocks.runCiPublishPluginCreds).toHaveBeenCalledTimes(1);
+    expect(phaseMocks.runLocalPreflight).not.toHaveBeenCalled();
     expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
       true,
       false,
-      true,
+      false,
       false,
     );
     expect(services.events.emit).toHaveBeenCalledWith({
       type: "workflow.step.started",
-      stepId: "version",
+      stepId: "publish",
     });
     expect(services.events.emit).toHaveBeenCalledWith({
       type: "workflow.step.completed",
-      stepId: "version",
+      stepId: "publish",
       detail: {
-        facts: [
-          "VersionDecisionObserved",
-          "ReleaseFilesMaterialized",
-          "ReleaseReferenceLocalTagCreated",
-        ],
+        facts: [],
       },
     });
-    expect(services.record.stepStarted).toHaveBeenCalledTimes(7);
-    expect(services.record.stepCompleted).toHaveBeenCalledTimes(7);
+    expect(services.record.stepStarted).toHaveBeenCalledTimes(2);
+    expect(services.record.stepCompleted).toHaveBeenCalledTimes(2);
     expect(
       vi
         .mocked(services.record.stepCompleted)
         .mock.calls.map(([step]) => step.id),
-    ).toEqual([
-      "test",
-      "build",
-      "version",
-      "publish",
-      "dry-run",
-      "push",
-      "release",
-    ]);
+    ).toEqual(["publish", "release"]);
   });
 
-  it("records the version output pinned by the phase execution", async () => {
+  it("records the version output pinned by workflow execution", async () => {
     const workflow = new DirectReleaseWorkflow();
-    const ctx = createMockContext(
-      { mode: "single", packageKey: "packages/a::js", version: "1.2.3" },
-      { phase: "publish" },
-    );
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
     const services = createMockServices();
     const pinnedOutput: WorkflowVersionStepOutput = {
       kind: WORKFLOW_VERSION_STEP_OUTPUT_KIND,

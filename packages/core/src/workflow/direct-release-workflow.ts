@@ -60,6 +60,7 @@ type WorkflowReleaseProfile = "full" | "split-ci";
 interface ExecutableWorkflowStepDefinition<I = unknown, O = unknown> {
   id: string;
   title: string;
+  enabled?: boolean | ((ctx: PubmContext) => boolean | Promise<boolean>);
   input?: I;
   output?: O;
   resolveOutput?: (ctx: PubmContext, input: I) => O;
@@ -84,8 +85,7 @@ function chainCleanup(
 }
 
 function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
-  if (ctx.options.phase !== undefined && isCI) return "split-ci";
-  return "full";
+  return ctx.options.phase === undefined ? "full" : "split-ci";
 }
 
 function createExecutableWorkflowStep<I, O>(
@@ -94,6 +94,7 @@ function createExecutableWorkflowStep<I, O>(
   const step: WorkflowStep<I, O> = {
     id: definition.id,
     title: definition.title,
+    enabled: definition.enabled,
     emittedFacts: definition.emittedFacts,
     compensation: definition.compensation,
     run: async (
@@ -155,6 +156,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "test",
       title: t("task.test.title"),
+      enabled: hasPrepare && !skipTests,
       input: { hasPrepare, skipTests },
       execute: (input, context) =>
         runWorkflowOperations(context, [
@@ -164,6 +166,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "build",
       title: t("task.build.title"),
+      enabled: hasPrepare && !skipBuild,
       input: { hasPrepare, skipBuild },
       execute: (input, context) =>
         runWorkflowOperations(context, [
@@ -173,6 +176,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep<VersionStepInput, WorkflowVersionStepOutput>({
       id: "version",
       title: t("task.version.title"),
+      enabled: hasPrepare,
       input: {
         hasPrepare,
         dryRun,
@@ -224,6 +228,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "publish",
       title: t("task.publish.title"),
+      enabled: hasPublish && !skipPublish && !dryRun,
       input: { hasPublish, dryRun, skipPublish },
       execute: (input, context) =>
         runWorkflowOperations(
@@ -238,6 +243,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "dry-run",
       title: t("task.dryRunValidation.title"),
+      enabled: dryRun || (validatePreparePhase && !skipDryRun),
       input: { dryRun, validatePreparePhase, skipDryRun },
       execute: (input, context) =>
         runWorkflowOperations(
@@ -252,6 +258,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "push",
       title: t("task.push.title"),
+      enabled: hasPrepare && !dryRun,
       input: { hasPrepare, dryRun },
       execute: (input, context) =>
         runWorkflowOperations(context, [
@@ -261,6 +268,7 @@ function createPipelineSteps(
     createExecutableWorkflowStep({
       id: "release",
       title: t("task.release.title"),
+      enabled: hasPublish && !skipReleaseDraft && !dryRun,
       input: {
         allowInteractiveReleasePrompt,
         dryRun,
@@ -357,10 +365,23 @@ function createRenderablePipeline(
   );
 }
 
+async function isWorkflowStepEnabled(
+  step: WorkflowStep,
+  ctx: PubmContext,
+): Promise<boolean> {
+  const enabled =
+    typeof step.enabled === "function" ? await step.enabled(ctx) : step.enabled;
+  return enabled !== false;
+}
+
 export async function runWorkflowStep<I, O>(
   step: WorkflowStep<I, O>,
   context: WorkflowStepContext,
 ): Promise<WorkflowStepResult<O>> {
+  if (!(await isWorkflowStepEnabled(step, context.ctx))) {
+    return { output: step.output as O };
+  }
+
   context.services.record.stepStarted(step);
   await context.services.events.emit({
     type: "workflow.step.started",

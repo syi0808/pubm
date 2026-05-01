@@ -10,8 +10,8 @@ The plugin system extends `pubm` without forking the core publish pipeline.
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: PackageRegistry[];
-  ecosystems?: Ecosystem[];
+  registries?: PluginRegistryDefinition[];
+  ecosystems?: EcosystemDescriptor[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   credentials?: (ctx: PubmContext) => PluginCredential[];
@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` returns the list of tokens this plugin needs. Pubm calls it once during initialization so it can prompt for missing tokens, inject them into the environment, and sync them to GitHub Secrets when running `--ci-prepare`.
+- `credentials` returns the list of tokens this plugin needs. Pubm calls it once during initialization so it can prompt for missing tokens, inject them into the environment, and sync them to GitHub Secrets when running `--phase prepare`.
 - `checks` returns preflight checks that run alongside the core prerequisite and condition phases. Each check uses its `phase` field to choose when it runs.
 
 ## Hooks
@@ -55,14 +55,14 @@ export interface PluginHooks {
 
 These hooks let plugins intercept each stage of the release asset pipeline. They run between the build step and the GitHub Release upload.
 
-| Hook | When it runs | Input → Output |
-|------|-------------|----------------|
-| `resolveAssets` | After glob matching | `ResolvedAsset[]` → `ResolvedAsset[]` |
-| `transformAsset` | Per asset, before compression | `ResolvedAsset` → `TransformedAsset \| TransformedAsset[]` |
-| `compressAsset` | Per asset, replaces built-in compression | `TransformedAsset` → `CompressedAsset` |
-| `nameAsset` | Per asset, after compression | `CompressedAsset` → `string` |
-| `generateChecksums` | After all assets are named and hashed | `PreparedAsset[]` → `PreparedAsset[]` |
-| `uploadAssets` | After GitHub Release upload | `PreparedAsset[]` → `UploadedAsset[]` |
+| Hook                | When it runs                             | Input → Output                                             |
+| ------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| `resolveAssets`     | After glob matching                      | `ResolvedAsset[]` → `ResolvedAsset[]`                      |
+| `transformAsset`    | Per asset, before compression            | `ResolvedAsset` → `TransformedAsset \| TransformedAsset[]` |
+| `compressAsset`     | Per asset, replaces built-in compression | `TransformedAsset` → `CompressedAsset`                     |
+| `nameAsset`         | Per asset, after compression             | `CompressedAsset` → `string`                               |
+| `generateChecksums` | After all assets are named and hashed    | `PreparedAsset[]` → `PreparedAsset[]`                      |
+| `uploadAssets`      | After GitHub Release upload              | `PreparedAsset[]` → `UploadedAsset[]`                      |
 
 When multiple plugins register the same asset pipeline hook, they are chained in registration order. `uploadAssets` is an exception: each plugin receives the same input independently and all results are concatenated.
 
@@ -97,6 +97,7 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     tempDir?: string;
     pluginTokens?: Record<string, string>;
+    rollback: RollbackTracker<PubmContext>;
   };
 }
 ```
@@ -108,6 +109,9 @@ Key fields:
 - `ctx.cwd`: working directory
 - `ctx.runtime`: mutable runtime state (version plan, temp directory, etc.)
 - `ctx.runtime.pluginTokens`: map of resolved plugin credential values keyed by `PluginCredential.key`. Populated after the credential collection step and available in all subsequent hooks.
+- `ctx.runtime.rollback`: rollback tracker used by plugins to register cleanup actions.
+
+`ctx.options.phase` is the runtime Split CI Release phase selected by `pubm --phase prepare` or `pubm --phase publish`. Plugins can inspect it when hook behavior must differ by phase, but workflow selection guidance belongs in [Release Workflows](/pubm/guides/release-workflows/).
 
 ### Rollback API
 
@@ -135,11 +139,11 @@ hooks: {
 
 #### `RollbackAction`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `label` | `string` | Label shown during rollback |
-| `fn` | `(ctx: PubmContext) => Promise<void>` | Async function that reverses the side effect |
-| `confirm` | `boolean?` | If `true`, prompts for confirmation in TTY mode before executing. Auto-executes in CI. |
+| Property  | Type                                  | Description                                                                            |
+| --------- | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `label`   | `string`                              | Label shown during rollback                                                            |
+| `fn`      | `(ctx: PubmContext) => Promise<void>` | Async function that reverses the side effect                                           |
+| `confirm` | `boolean?`                            | If `true`, prompts for confirmation in TTY mode before executing. Auto-executes in CI. |
 
 ## `PluginCredential`
 
@@ -159,17 +163,17 @@ export interface PluginCredential {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `key` | `string` | Internal identifier used to look up the value in `ctx.runtime.pluginTokens`. |
-| `env` | `string` | Environment variable name that provides the token in CI. |
-| `label` | `string` | Human-readable label shown in interactive prompts. |
-| `tokenUrl` | `string` | Optional URL where the user can create the token. |
-| `tokenUrlLabel` | `string` | Optional display label for `tokenUrl`. |
-| `ghSecretName` | `string` | Name of the GitHub Secret that should hold this token, used by `--ci-prepare` sync. |
-| `required` | `boolean` | When `true`, pubm errors if the credential cannot be resolved. Defaults to `true`. |
-| `resolve` | `function` | Optional custom resolver (no arguments, returns `Promise<string \| null>`). Called before the keyring/prompt fallback. |
-| `validate` | `function` | Optional token validator. Receives the resolved token and a `PluginTaskContext`; return `false` to re-prompt. |
+| Field           | Type       | Description                                                                                                            |
+| --------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `key`           | `string`   | Internal identifier used to look up the value in `ctx.runtime.pluginTokens`.                                           |
+| `env`           | `string`   | Environment variable name that provides the token in CI.                                                               |
+| `label`         | `string`   | Human-readable label shown in interactive prompts.                                                                     |
+| `tokenUrl`      | `string`   | Optional URL where the user can create the token.                                                                      |
+| `tokenUrlLabel` | `string`   | Optional display label for `tokenUrl`.                                                                                 |
+| `ghSecretName`  | `string`   | Name of the GitHub Secret that should hold this token, used by `--phase prepare` sync.                                 |
+| `required`      | `boolean`  | When `true`, pubm errors if the credential cannot be resolved. Defaults to `true`.                                     |
+| `resolve`       | `function` | Optional custom resolver (no arguments, returns `Promise<string \| null>`). Called before the keyring/prompt fallback. |
+| `validate`      | `function` | Optional token validator. Receives the resolved token and a `PluginTaskContext`; return `false` to re-prompt.          |
 
 Resolution order: `env` variable → `resolve()` → keyring (SecureStore) → interactive prompt.
 
@@ -185,11 +189,11 @@ export interface PluginCheck {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | `string` | Label shown in the task list UI. |
+| Field   | Type                              | Description                                                                                                             |
+| ------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `title` | `string`                          | Label shown in the task list UI.                                                                                        |
 | `phase` | `"prerequisites" \| "conditions"` | When to run: `"prerequisites"` runs before network calls; `"conditions"` runs after registry connectivity is confirmed. |
-| `task` | `function` | The check implementation. Throw to fail the check. |
+| `task`  | `function`                        | The check implementation. Throw to fail the check.                                                                      |
 
 ## `PluginTaskContext`
 
@@ -217,13 +221,10 @@ export interface PluginTaskContext {
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
-    async afterPublish(ctx) {
-      const label =
-        ctx.versions && ctx.versions.size > 0
-          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
-          : `v${ctx.version}`;
-
-      console.log(`Published ${label}`);
+    async afterRelease(_ctx, releaseCtx) {
+      console.log(
+        `Published ${releaseCtx.displayLabel} ${releaseCtx.version} (${releaseCtx.tag})`,
+      );
     },
   },
 };

@@ -546,6 +546,104 @@ describe("PubmTaskRunner execution", () => {
     expect(skipped?.task?.message?.skip).toBe("skipped");
   });
 
+  it("emits blocked snapshots for disabled task.enabled events without running the task", async () => {
+    const renderer = new RecordingRenderer();
+    const taskBody = vi.fn();
+
+    await createTaskRunner(
+      {
+        title: "disabled",
+        enabled: () => false,
+        task: taskBody,
+      },
+      {
+        renderer,
+        registerSignalListeners: false,
+      },
+    ).run({});
+
+    const enabledEvent = renderer.events.find(
+      (event) => event.type === "task.enabled",
+    );
+    const blockedEvent = renderer.events.find(
+      (event) => event.type === "task.blocked",
+    );
+    const enabledIndex = renderer.events.findIndex(
+      (event) => event.type === "task.enabled",
+    );
+    const blockedIndex = renderer.events.findIndex(
+      (event) => event.type === "task.blocked",
+    );
+
+    expect(taskBody).not.toHaveBeenCalled();
+    expect(enabledEvent?.state).toBe("blocked");
+    expect(enabledEvent?.task).toMatchObject({
+      path: ["disabled"],
+      state: "blocked",
+    });
+    expect(blockedEvent?.task).toMatchObject({
+      path: ["disabled"],
+      state: "blocked",
+    });
+    expect(enabledIndex).toBeGreaterThanOrEqual(0);
+    expect(blockedIndex).toBeGreaterThan(enabledIndex);
+  });
+
+  it("does not transiently render nested disabled child tasks as pending", async () => {
+    const previousForceUnicode = process.env.FORCE_UNICODE;
+    process.env.FORCE_UNICODE = "1";
+
+    try {
+      const chunks: string[] = [];
+      const disabledChild = vi.fn();
+
+      await createTaskRunner(
+        {
+          title: "parent",
+          task: async (context, task) => {
+            await task
+              .newTaskRunner(
+                [
+                  {
+                    title: "visible child",
+                    task: () => {},
+                  },
+                  {
+                    title: "disabled child",
+                    enabled: () => false,
+                    task: disabledChild,
+                  },
+                ],
+                { collapseSubtasks: false },
+              )
+              .run(context);
+          },
+        },
+        {
+          renderer: new DefaultRenderer({
+            output: {
+              write: (chunk) => chunks.push(chunk),
+            },
+            collapseSubtasks: false,
+            useColor: false,
+          }),
+          registerSignalListeners: false,
+        },
+      ).run({});
+
+      const output = chunks.join("");
+      expect(disabledChild).not.toHaveBeenCalled();
+      expect(output).toContain("visible child");
+      expect(output).not.toContain("disabled child");
+    } finally {
+      if (previousForceUnicode === undefined) {
+        delete process.env.FORCE_UNICODE;
+      } else {
+        process.env.FORCE_UNICODE = previousForceUnicode;
+      }
+    }
+  });
+
   it("adds function-enabled tasks after evaluation with original sort order", async () => {
     interface Context {
       ran: string[];

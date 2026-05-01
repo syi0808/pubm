@@ -18,22 +18,30 @@ pubm executes phases in this order:
 
 ## Phases
 
-### Prepare vs Publish
+### Direct Release vs Split CI Release
 
-| | Prepare | Publish |
+| Workflow | Command | What happens |
+|---|---|---|
+| **Direct Release** | `pubm` | Runs prepare and publish in one command |
+| **Split CI Release** | `pubm --phase prepare` then CI `pubm --phase publish` | Uses Prepare for CI publish locally and Publish prepared release in CI |
+
+### Prepare for CI publish vs Publish prepared release
+
+| | Prepare for CI publish | Publish prepared release |
 |---|---|---|
 | **Command** | `pubm --phase prepare` | `pubm --phase publish` |
-| **Does** | test, build, version bump, dry-run validation, git push | registry publish, GitHub Release |
-| **When omitted** | Both phases run | Both phases run |
-| **Split workflow** | Use this phase before CI publish | Use this phase inside CI |
+| **Does** | validate, collect/sync tokens, test, build, write versions, create tags, push the release commit and tags, dry-run publish | read manifest versions, publish packages, create GitHub Releases |
+| **Does not** | publish packages | write versions, create tags, push the release commit or tags |
+| **When omitted** | Direct Release runs both phases | Direct Release runs both phases |
+| **Split workflow** | Use this phase before CI publish | Use this phase inside CI and non-interactive token execution |
 
-Running without `--phase` executes both phases sequentially. Use `--phase prepare` or `--phase publish` only when a workflow intentionally splits release preparation from publishing.
+Running without `--phase` executes Direct Release. Use `--phase prepare` or `--phase publish` only for Split CI Release.
 
 ### Common CI pattern
 
-1. Run `pubm --phase prepare` locally — runs tests, builds, bumps versions, creates tags, pushes
+1. Run `pubm --phase prepare` locally — validates, collects/syncs tokens, writes versions, creates tags, pushes the release commit and tags, and does not publish packages
 2. Tag/commit push triggers CI workflow
-3. CI runs `pubm --phase publish` — publishes and creates releases
+3. CI runs `pubm --phase publish` — reads manifest versions, publishes packages, and creates GitHub Releases
 
 ## Version Phase
 

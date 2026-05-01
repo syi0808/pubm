@@ -138,6 +138,9 @@ vi.mock("@pubm/core", () => {
       if (key === "cli.helpText.version") {
         return `Version can be: ${values?.types ?? ""}`;
       }
+      if (key === "cli.option.phase") {
+        return "Run one Split CI Release phase: prepare or publish. Omit for Direct Release.";
+      }
       if (key === "error.cli.versionRequired") {
         return "Version must be set in the CI environment";
       }
@@ -291,6 +294,17 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     );
   });
 
+  it("should keep GitHub Release enabled for Split CI Release publish", async () => {
+    await run("--phase", "publish");
+
+    expect(mockResolveOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "publish",
+        skipReleaseDraft: false,
+      }),
+    );
+  });
+
   it("should map --no-pre-check to skipPrerequisitesCheck=true", async () => {
     await run("1.0.0", "--no-pre-check");
 
@@ -335,6 +349,20 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     expect(writeSpy).toHaveBeenCalledWith(
       expect.stringContaining("Version can be:"),
     );
+  });
+
+  it("renders --phase as a Split CI Release phase selector", () => {
+    const program = createProgram(sharedResolvedConfig as any);
+    const writeSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockReturnValue(true as never);
+
+    program.outputHelp();
+
+    const helpOutput = vi.mocked(writeSpy).mock.calls.join("\n");
+    expect(helpOutput).toContain("--phase <phase>");
+    expect(helpOutput).toContain("Run one Split CI Release phase");
+    expect(helpOutput).not.toContain("--mode");
   });
 });
 

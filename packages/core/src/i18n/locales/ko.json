@@ -262,7 +262,7 @@
   "cli.option.config": "설정 파일 경로",
   "cli.option.testScript": "배포 전 테스트 실행에 사용할 npm 스크립트",
   "cli.option.buildScript": "배포 전 빌드 실행에 사용할 npm 스크립트",
-  "cli.option.phase": "릴리스 단계: prepare 또는 publish (생략하면 전체 파이프라인 실행)",
+  "cli.option.phase": "분리형 CI 릴리스의 한 단계를 실행합니다: prepare 또는 publish. 생략하면 직접 릴리스를 실행합니다.",
   "cli.option.dryRun": "부작용 없이 유효성 검사 (버전 업은 롤백되고, 배포는 레지스트리 dry-run 사용)",
   "cli.option.releaseDraft": "GitHub Release를 초안으로 생성 (배포되지 않음)",
   "cli.option.branch": "릴리스 브랜치 이름",

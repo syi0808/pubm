@@ -41,7 +41,7 @@ await pubm({
 |------|------|------|
 | `version` | `string` | `patch`, `minor`, `major` 또는 명시적 semver 같은 릴리스 대상입니다. |
 | `dryRun` | `boolean` | Git 상태를 바꾸거나 publish하지 않고 작업 계획만 보여줍니다. |
-| `phase` | `"prepare" \| "publish"` | 분리된 release 단계 하나만 실행합니다. 생략하면 전체 파이프라인을 실행합니다. |
+| `phase` | `"prepare" \| "publish"` | Split CI Release 단계 하나를 실행합니다. 생략하면 Direct Release를 실행합니다. |
 | `releaseDraft` | `boolean` | publish된 release 대신 draft GitHub Release를 만듭니다. |
 | `branch` | `string` | publish 전에 특정 브랜치를 요구합니다. |
 | `anyBranch` | `boolean` | 한 번의 실행에 한해 브랜치 강제를 비활성화합니다. |
@@ -103,7 +103,7 @@ type PackageConfig = {
 | `GhSecretEntry` | type | GitHub Secrets 동기화 헬퍼가 반환하는 항목 하나입니다: `{ secretName: string; token: string }`. |
 | `collectPluginCredentials` | function | config에 등록된 모든 플러그인에서 `PluginCredential[]`를 모으고 값을 해석합니다. |
 | `injectPluginTokensToEnv` | function | 해석된 플러그인 토큰 값을 `process.env`에 기록해 이후 publish 단계가 일반 환경 변수처럼 읽을 수 있게 합니다. |
-| `ReleaseContext` | type | `afterRelease` 훅에 전달되는 release 메타데이터입니다. `packageName`, `version`, `tag`, `releaseUrl`, `assets`를 포함합니다. |
+| `ReleaseContext` | type | `afterRelease` 훅에 전달되는 release 메타데이터입니다. `displayLabel`, `version`, `tag`, `releaseUrl`, `assets`를 포함합니다. |
 | `ReleaseAsset` | type | 업로드된 asset 하나입니다. `name`, `url`, `sha256`, 구조화된 `platform`을 가집니다. |
 | `ParsedPlatform` | type | 구조화된 플랫폼 정보입니다. `raw`, `os`, `arch`, `vendor`, `abi`, `variant`를 가집니다. |
 | `PreparedAsset` | type | 압축과 해시가 끝나 업로드 준비가 된 asset입니다. |
@@ -118,8 +118,8 @@ import { defineConfig, type PubmPlugin } from "@pubm/core";
 const plugin: PubmPlugin = {
   name: "announce",
   hooks: {
-    afterPublish(ctx) {
-      console.log("published", ctx.version);
+    afterRelease(_ctx, releaseCtx) {
+      console.log("published", releaseCtx.displayLabel, releaseCtx.version);
     },
   },
 };

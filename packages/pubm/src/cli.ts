@@ -97,7 +97,7 @@ export function resolveCliOptions(
     branch: options.branch,
     anyBranch: options.anyBranch,
     skipPublish: !options.publish,
-    skipReleaseDraft: !!options.skipRelease || options.phase === "publish",
+    skipReleaseDraft: !!options.skipRelease,
     skipTests: !options.tests,
     skipBuild: !options.build,
     skipDryRun: !options.dryRunValidation,

@@ -39,6 +39,7 @@ describe("pubm --help", () => {
   it("should list the --phase option", async () => {
     const { stdout } = await ctx.run("--help");
     expect(stdout).toContain("--phase");
+    expect(stdout).toContain("Run one Split CI Release phase");
   });
 
   it("should list the -b, --branch option", async () => {

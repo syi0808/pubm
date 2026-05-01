@@ -262,7 +262,7 @@
   "cli.option.config": "配置文件路径",
   "cli.option.testScript": "发布前运行测试的 npm 脚本",
   "cli.option.buildScript": "发布前运行构建的 npm 脚本",
-  "cli.option.phase": "发布阶段：prepare 或 publish（省略则运行完整管道）",
+  "cli.option.phase": "运行一个 Split CI Release 阶段：prepare 或 publish。省略则运行 Direct Release。",
   "cli.option.dryRun": "无副作用验证（版本升级回滚，发布使用注册表 dry-run）",
   "cli.option.releaseDraft": "将 GitHub Release 创建为草稿（不发布）",
   "cli.option.branch": "发布分支名称",

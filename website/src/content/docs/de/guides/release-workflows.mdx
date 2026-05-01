@@ -1,0 +1,102 @@
+---
+title: Release-Workflows
+description: Zwischen Direct Release und Split CI Release für pubm wählen.
+---
+
+Nutze diesen Leitfaden, um zu entscheiden, wie ein echtes Release von lokalen Prüfungen zu veröffentlichten Paketen gelangt.
+
+`pubm` unterstützt aktuell zwei Release-Workflows:
+
+| Workflow | Befehle | Geeignet wenn |
+|----------|---------|---------------|
+| Direct Release | `pubm` | Ein vertrauenswürdiges lokales Terminal oder ein kontrollierter Job soll das gesamte Release ausführen. |
+| Split CI Release | Lokal `pubm --phase prepare`, dann CI `pubm --phase publish` | Lokale Vorbereitung soll Versionen und Tags schreiben; CI soll mit Tokens veröffentlichen. |
+
+## Direct Release
+
+Direct Release führt die vollständige Release-Pipeline mit einem Befehl aus:
+
+```bash
+pubm
+```
+
+Nutze es, wenn die Person oder der Job, der das Release startet, Registry-Credentials sicher halten, den Release-Commit plus Tags pushen und Pakete veröffentlichen darf.
+
+Direct Release:
+
+- validiert Projekt und Git-Zustand
+- führt Prüfungen für Voraussetzungen und Pflichtbedingungen aus
+- führt Tests und Build aus, sofern sie nicht übersprungen werden
+- verarbeitet ausstehende Changesets, wenn vorhanden
+- schreibt Manifest-Versionen
+- erstellt Release-Commit und Tags
+- veröffentlicht Pakete in die ausgewählten Registries
+- erstellt GitHub Releases, wenn aktiviert
+- rollt Publish-seitige Fehler zurück, wenn möglich
+
+## Split CI Release
+
+Split CI Release trennt den verändernden Vorbereitungsschritt vom nicht interaktiven Publish-Schritt:
+
+```bash
+pubm --phase prepare
+```
+
+```bash
+pubm --phase publish
+```
+
+Nutze es, wenn Maintainer das Release lokal freigeben oder vorbereiten sollen, das Registry-Publishing aber in CI mit Repository-Secrets laufen soll.
+
+### Prepare for CI publish
+
+Führe Prepare for CI publish lokal aus:
+
+```bash
+pubm --phase prepare
+```
+
+Prepare for CI publish:
+
+- sammelt Registry-Tokens und Plugin-Credentials ein
+- synchronisiert Credentials optional mit GitHub Secrets
+- führt Prüfungen für Voraussetzungen und Pflichtbedingungen aus
+- führt Tests und Build aus, sofern sie nicht übersprungen werden
+- verarbeitet ausstehende Changesets während der Versionierung, wenn vorhanden
+- schreibt Manifest-Versionen
+- erstellt Release-Commit und Tags
+- pusht den Release-Commit und die Tags, die CI aufgreifen soll
+- führt Publish-Aufgaben im Dry-Run aus, statt wirklich zu veröffentlichen
+- veröffentlicht keine Pakete
+
+### Publish prepared release
+
+Führe Publish prepared release in CI aus:
+
+```bash
+pubm --phase publish
+```
+
+Publish prepared release:
+
+- liest die Versionen, die bereits in Package-Manifeste geschrieben wurden
+- veröffentlicht Pakete in die ausgewählten Registries
+- erstellt GitHub Releases und lädt Release Assets hoch, wenn konfiguriert
+- erwartet Registry- und Plugin-Tokens aus der CI-Umgebung
+- läuft ohne interaktive Prompts
+- führt Versionierung nicht erneut aus
+- erstellt Tags nicht erneut
+- pusht den Release-Commit oder Tags nicht erneut
+
+## Aktueller Umfang
+
+Vollständig automatisierte CI, bei der CI das Release ohne lokales `pubm --phase prepare` entscheidet und vorbereitet, ist aktuell kein unterstützter Workflow.
+
+PR-Approval- und release-PR-Flows gehören zu zukünftiger `pubm-actions`-Arbeit. Sie sind heute keine CLI-Workflows, die konfiguriert werden.
+
+## Nächste Schritte
+
+- Lies [CI/CD](/pubm/de/guides/ci-cd/), um `pubm --phase publish`, Tokens und GitHub Actions zu verdrahten.
+- Lies die [CLI-Referenz](/pubm/de/reference/cli/) für exakte Flags und Befehlssyntax.
+- Lies [Troubleshooting](/pubm/de/guides/troubleshooting/) für Wiederherstellungsschritte nach fehlgeschlagenen Release-Versuchen.
+- Lies [Release Assets](/pubm/de/guides/release-assets/), wenn deine GitHub Releases generierte Artefakte enthalten.

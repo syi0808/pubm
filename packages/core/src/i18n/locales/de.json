@@ -262,7 +262,7 @@
   "cli.option.config": "Pfad zur Konfigurationsdatei",
   "cli.option.testScript": "Das npm-Skript zum Ausführen von Tests vor der Veröffentlichung",
   "cli.option.buildScript": "Das npm-Skript zum Ausführen des Builds vor der Veröffentlichung",
-  "cli.option.phase": "Release-Phase: prepare oder publish (weglassen, um die gesamte Pipeline auszuführen)",
+  "cli.option.phase": "Eine Split CI Release-Phase ausführen: prepare oder publish. Weglassen für Direct Release.",
   "cli.option.dryRun": "Validierung ohne Nebeneffekte (Versionserhöhung wird zurückgesetzt, Veröffentlichung verwendet Registry-dry-run)",
   "cli.option.releaseDraft": "GitHub Release als Entwurf erstellen (nicht veröffentlicht)",
   "cli.option.branch": "Name des Release-Branchs",

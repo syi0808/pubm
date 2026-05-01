@@ -262,7 +262,7 @@
   "cli.option.config": "Chemin vers le fichier de configuration",
   "cli.option.testScript": "Le script npm pour exécuter les tests avant la publication",
   "cli.option.buildScript": "Le script npm pour exécuter la construction avant la publication",
-  "cli.option.phase": "Phase de publication : prepare ou publish (omis pour exécuter le pipeline complet)",
+  "cli.option.phase": "Exécuter une phase de Split CI Release : prepare ou publish. Omettre pour Direct Release.",
   "cli.option.dryRun": "Valider sans effets secondaires (l'incrément de version est annulé, la publication utilise le dry-run du registre)",
   "cli.option.releaseDraft": "Créer la GitHub Release en tant que brouillon (non publié)",
   "cli.option.branch": "Nom de la branche de publication",

@@ -50,6 +50,7 @@ interface CliContractScenario {
     merged?: Array<Record<string, unknown>>;
   };
   expected: {
+    workflow?: string;
     options: Record<string, unknown>;
     versionPlan?: Record<string, unknown>;
     registries?: Record<string, string[]>;
@@ -114,6 +115,16 @@ const mockState = vi.hoisted(() => {
         .sort(([a], [b]) => a.localeCompare(b)),
     );
 
+  const resolveWorkflowName = (options: Record<string, unknown> = {}) => {
+    if (options.phase === "prepare") {
+      return "Split CI Release: Prepare for CI publish";
+    }
+    if (options.phase === "publish") {
+      return "Split CI Release: Publish prepared release";
+    }
+    return "Direct Release";
+  };
+
   const state = {
     isCI: false,
     rawConfig: {} as Record<string, unknown>,
@@ -165,6 +176,7 @@ const mockState = vi.hoisted(() => {
     const ctx = state.lastContext;
     state.ledger.finalState = {
       options: ctx ? normalizeOptions(ctx.options) : undefined,
+      workflow: ctx ? resolveWorkflowName(ctx.options) : undefined,
       versionPlan: ctx
         ? normalizeVersionPlan(ctx.runtime.versionPlan)
         : undefined,
@@ -482,14 +494,40 @@ const scenarios: CliContractScenario[] = [
   {
     id: "local-explicit-version-single",
     description:
-      "local explicit version resolves a single-package version plan before publish",
+      "Direct Release resolves a local explicit single-package version plan before publish",
     argv: ["1.2.3"],
     env: { isCI: false },
     config: config({
       packages: [pkg({ name: "single", version: "1.0.0", path: "." })],
     }),
     expected: {
+      workflow: "Direct Release",
       options: {
+        skipDryRun: false,
+        skipPublish: false,
+      },
+      versionPlan: {
+        mode: "single",
+        version: "1.2.3",
+        packageKey: ".::js",
+      },
+      requiredTasksRun: true,
+      pubmCalled: true,
+    },
+  },
+  {
+    id: "local-split-prepare-explicit-version",
+    description:
+      "Split CI Release prepare keeps local prompting while selecting the prepare phase explicitly",
+    argv: ["1.2.3", "--phase", "prepare"],
+    env: { isCI: false },
+    config: config({
+      packages: [pkg({ name: "split-prepare", version: "1.0.0", path: "." })],
+    }),
+    expected: {
+      workflow: "Split CI Release: Prepare for CI publish",
+      options: {
+        phase: "prepare",
         skipDryRun: false,
         skipPublish: false,
       },
@@ -516,6 +554,7 @@ const scenarios: CliContractScenario[] = [
       versioning: "fixed",
     }),
     expected: {
+      workflow: "Direct Release",
       options: {
         skipDryRun: false,
         skipPublish: false,
@@ -535,7 +574,7 @@ const scenarios: CliContractScenario[] = [
   {
     id: "ci-publish-manifest-versions",
     description:
-      "CI publish phase uses manifest versions without interactive missing-information tasks",
+      "Split CI Release publish uses manifest versions without interactive missing-information tasks",
     argv: ["--phase", "publish"],
     env: { isCI: true },
     config: config({
@@ -546,9 +585,11 @@ const scenarios: CliContractScenario[] = [
       versioning: "independent",
     }),
     expected: {
+      workflow: "Split CI Release: Publish prepared release",
       options: {
         phase: "publish",
         skipDryRun: false,
+        skipReleaseDraft: false,
       },
       versionPlan: {
         mode: "independent",
@@ -564,7 +605,7 @@ const scenarios: CliContractScenario[] = [
   {
     id: "local-publish-only-manifest-versions",
     description:
-      "local publish phase reads fixed workspace versions from manifests",
+      "Split CI Release publish reads fixed workspace versions from manifests even in local runs",
     argv: ["--phase", "publish"],
     env: { isCI: false },
     config: config({
@@ -575,9 +616,11 @@ const scenarios: CliContractScenario[] = [
       versioning: "fixed",
     }),
     expected: {
+      workflow: "Split CI Release: Publish prepared release",
       options: {
         phase: "publish",
         skipDryRun: false,
+        skipReleaseDraft: false,
       },
       versionPlan: {
         mode: "fixed",
@@ -768,6 +811,10 @@ afterEach(() => {
 describe("CLI phase and option contracts", () => {
   it.each(scenarios)("$id: $description", async (scenario) => {
     const ledger = await runScenario(scenario);
+
+    if (scenario.expected.workflow) {
+      expect(ledger.finalState.workflow).toBe(scenario.expected.workflow);
+    }
 
     expect(ledger.finalState.options).toMatchObject(scenario.expected.options);
     expect(ledger.finalState.exitCode).toBe(scenario.expected.exitCode ?? 0);

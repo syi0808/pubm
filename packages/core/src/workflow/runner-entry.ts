@@ -48,6 +48,7 @@ function createRenderedWorkflowServices(): WorkflowServices {
       await createListr(
         steps.map((step: WorkflowStep) => ({
           title: step.title ?? step.id,
+          enabled: step.enabled,
           task: async (ctx: PubmContext, task: TaskContext<PubmContext>) => {
             await runWorkflowStep(step, {
               ctx,

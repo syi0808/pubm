@@ -42,6 +42,7 @@ export interface WorkflowStepContext {
 export interface WorkflowStep<I = unknown, O = unknown> {
   id: string;
   title?: string;
+  enabled?: boolean | ((ctx: PubmContext) => boolean | Promise<boolean>);
   input?: I;
   output?: O;
   emittedFacts?: readonly WorkflowFactDescriptor[];

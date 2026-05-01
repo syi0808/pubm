@@ -10,8 +10,8 @@ description: pubm에 훅, 명령, 레지스트리, 생태계를 추가합니다.
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: PackageRegistry[];
-  ecosystems?: Ecosystem[];
+  registries?: PluginRegistryDefinition[];
+  ecosystems?: EcosystemDescriptor[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   credentials?: (ctx: PubmContext) => PluginCredential[];
@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - 이 플러그인에 필요한 토큰 목록을 반환합니다. pubm은 초기화 중 한 번 호출해서 누락된 토큰을 프롬프트하고, 환경 변수에 주입하며, `--ci-prepare` 실행 시 GitHub Secrets와 동기화합니다.
+- `credentials` - 이 플러그인에 필요한 토큰 목록을 반환합니다. pubm은 초기화 중 한 번 호출해서 누락된 토큰을 프롬프트하고, 환경 변수에 주입하며, `--phase prepare` 실행 시 GitHub Secrets와 동기화합니다.
 - `checks` - 핵심 prerequisite/condition 단계와 함께 실행할 preflight check 목록을 반환합니다. 각 check는 `phase` 필드로 실행 시점을 선언합니다.
 
 ## Hooks
@@ -97,6 +97,7 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     tempDir?: string;
     pluginTokens?: Record<string, string>;
+    rollback: RollbackTracker<PubmContext>;
   };
 }
 ```
@@ -166,7 +167,7 @@ export interface PluginCredential {
 | `label` | `string` | 대화형 프롬프트에 표시되는 사람이 읽을 수 있는 라벨입니다. |
 | `tokenUrl` | `string` | 사용자가 토큰을 생성할 수 있는 선택적 URL입니다. |
 | `tokenUrlLabel` | `string` | `tokenUrl`에 표시할 선택적 라벨입니다. |
-| `ghSecretName` | `string` | `--ci-prepare` 동기화 시 사용할 GitHub Secret 이름입니다. |
+| `ghSecretName` | `string` | `--phase prepare` 동기화 시 사용할 GitHub Secret 이름입니다. |
 | `required` | `boolean` | `true`이면 자격 증명을 해석하지 못했을 때 pubm이 오류를 냅니다. 기본값은 `true`입니다. |
 | `resolve` | `function` | 선택적 커스텀 resolver입니다. 인자를 받지 않고 `Promise<string \| null>`을 반환합니다. keyring/prompt fallback 전에 호출됩니다. |
 | `validate` | `function` | 선택적 토큰 검증기입니다. 해석된 토큰과 `PluginTaskContext`를 받아 `false`를 반환하면 다시 프롬프트합니다. |
@@ -217,13 +218,10 @@ export interface PluginTaskContext {
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
-    async afterPublish(ctx) {
-      const label =
-        ctx.versions && ctx.versions.size > 0
-          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
-          : `v${ctx.version}`;
-
-      console.log(`Published ${label}`);
+    async afterRelease(_ctx, releaseCtx) {
+      console.log(
+        `Published ${releaseCtx.displayLabel} ${releaseCtx.version} (${releaseCtx.tag})`,
+      );
     },
   },
 };

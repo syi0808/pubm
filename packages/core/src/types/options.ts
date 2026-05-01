@@ -2,7 +2,7 @@ import type { PackageConfig } from "../config/types.js";
 
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
-/** Selects a split release workflow phase. Omit for the full release pipeline. */
+/** Selects a Split CI Release phase. Omit for Direct Release. */
 export type ReleasePhase = "prepare" | "publish";
 
 /**
@@ -20,7 +20,7 @@ export interface Options {
    */
   buildScript?: string;
   /**
-   * @description Run only one release phase. Omit to run the full release pipeline.
+   * @description Run one Split CI Release phase. Omit for Direct Release.
    */
   phase?: ReleasePhase;
   /**
