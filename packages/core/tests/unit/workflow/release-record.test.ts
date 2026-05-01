@@ -154,13 +154,36 @@ describe("InMemoryReleaseRecord", () => {
     record.stepStarted(publishStep);
     record.stepFailed(publishStep, error);
 
-    expect(record.snapshot()).toEqual([
+    const snapshot = record.snapshot();
+    expect(snapshot).toEqual([
       expect.objectContaining({
-        error,
+        error: expect.any(Error),
         facts: [{ name: "PublishAttempted", target: "publish" }],
         status: "failed",
         stepId: "publish",
       }),
     ]);
+    expect((snapshot[0]?.error as Error | undefined)?.message).toBe(
+      "publish failed",
+    );
+  });
+
+  it("returns cloned errors from snapshots", () => {
+    const record = new InMemoryReleaseRecord();
+    const publishStep = step({ id: "publish" });
+    const error = new Error("publish failed");
+
+    record.stepStarted(publishStep);
+    record.stepFailed(publishStep, error);
+
+    const snapshotError = record.snapshot()[0]?.error as Error | undefined;
+    expect(snapshotError).toBeInstanceOf(Error);
+    expect(snapshotError).not.toBe(error);
+    expect(snapshotError?.message).toBe("publish failed");
+    snapshotError!.message = "mutated";
+
+    expect((record.snapshot()[0]?.error as Error | undefined)?.message).toBe(
+      "publish failed",
+    );
   });
 });

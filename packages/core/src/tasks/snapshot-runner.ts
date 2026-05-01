@@ -133,23 +133,30 @@ function createSnapshotTagOperation(
     run: async (ctx, operation): Promise<void> => {
       const git = new Git();
       const headCommit = await git.latestCommit();
+      const createdTags: string[] = [];
 
       if (plan.mode === "independent") {
         for (const [key, pkgVersion] of plan.packages) {
           const tagName = formatTag(ctx, key, pkgVersion);
           operation.output = t("task.snapshot.creatingTag", { tag: tagName });
           await git.createTag(tagName, headCommit);
+          createdTags.push(tagName);
         }
       } else {
         const version = (plan as SingleVersionPlan | FixedVersionPlan).version;
         const tagName = `v${version}`;
         operation.output = t("task.snapshot.creatingTag", { tag: tagName });
         await git.createTag(tagName, headCommit);
+        createdTags.push(tagName);
       }
 
-      operation.output = t("task.snapshot.pushingTag", { tag: "tags" });
-      await git.push("--tags");
-      operation.output = t("task.snapshot.tagPushed", { tag: "tags" });
+      for (const tagName of createdTags) {
+        operation.output = t("task.snapshot.pushingTag", { tag: tagName });
+        await git.push("origin", `refs/tags/${tagName}`);
+      }
+      operation.output = t("task.snapshot.tagPushed", {
+        tag: createdTags.join(", "),
+      });
     },
   };
 }

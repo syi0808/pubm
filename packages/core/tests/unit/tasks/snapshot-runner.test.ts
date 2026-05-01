@@ -651,7 +651,11 @@ describe("runSnapshotPipeline", () => {
       "v1.0.0-snapshot-20260330T120000",
       "abc123",
     );
-    expect(mockPush).toHaveBeenCalledWith("--tags");
+    expect(mockPush).toHaveBeenCalledWith(
+      "origin",
+      "refs/tags/v1.0.0-snapshot-20260330T120000",
+    );
+    expect(mockPush).not.toHaveBeenCalledWith("--tags");
   });
 
   it("tag task creates per-package git tags for independent plan", async () => {
@@ -696,7 +700,15 @@ describe("runSnapshotPipeline", () => {
 
     expect(mockCreateTag).toHaveBeenCalledWith("@scope/a@1.0.0-snap", "abc123");
     expect(mockCreateTag).toHaveBeenCalledWith("@scope/b@2.0.0-snap", "abc123");
-    expect(mockPush).toHaveBeenCalledWith("--tags");
+    expect(mockPush).toHaveBeenCalledWith(
+      "origin",
+      "refs/tags/@scope/a@1.0.0-snap",
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      "origin",
+      "refs/tags/@scope/b@2.0.0-snap",
+    );
+    expect(mockPush).not.toHaveBeenCalledWith("--tags");
   });
 
   it("versionDisplay is empty string for independent versioning plan", async () => {
@@ -899,6 +911,25 @@ describe("runSnapshotPipeline", () => {
     );
 
     expect(mockedRestoreManifests).toHaveBeenCalledWith(backups);
+  });
+
+  it("pushes only the snapshot tag created during the run", async () => {
+    const ctx = makeSnapshotContext();
+
+    await runSnapshotPipeline(ctx, { tag: "snapshot" });
+
+    const git = mockedGit.mock.results[0]?.value as
+      | { createTag: ReturnType<typeof vi.fn>; push: ReturnType<typeof vi.fn> }
+      | undefined;
+    expect(git?.createTag).toHaveBeenCalledWith(
+      "v1.0.0-snapshot-20260330T120000",
+      "abc123",
+    );
+    expect(git?.push).toHaveBeenCalledWith(
+      "origin",
+      "refs/tags/v1.0.0-snapshot-20260330T120000",
+    );
+    expect(git?.push).not.toHaveBeenCalledWith("--tags");
   });
 
   it("calls restoreManifests before writeVersions in finally block", async () => {

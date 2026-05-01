@@ -87,12 +87,14 @@ describe("createDryRunOperations", () => {
   it("returns enabled operations when skipDryRun is false and prepare phase validation is enabled", () => {
     const tasks = createDryRunOperations(false, true, false);
     expect(tasks[0].enabled).toBe(true);
+    expect(tasks[2].enabled).toBe(true);
   });
 
   it("returns disabled operations when skipDryRun is true", () => {
     const tasks = createDryRunOperations(false, true, true);
     expect(tasks[0].enabled).toBe(false);
     expect(tasks[1].enabled).toBe(false);
+    expect(tasks[2].enabled).toBe(false);
   });
 
   it("returns disabled operations when neither dryRun nor prepare phase validation is enabled", () => {
@@ -198,6 +200,19 @@ describe("createDryRunOperations", () => {
     const ctx = { runtime: { dryRunVersionBackup: backupVersions } };
 
     await createDryRunOperations(true, true, false)[2]?.run?.(
+      ctx as never,
+      {} as never,
+    );
+
+    expect(dryRunState.writeVersionsCalls[0]?.[1]).toBe(backupVersions);
+    expect(ctx.runtime.dryRunVersionBackup).toBeUndefined();
+  });
+
+  it("restores prepare-phase validation versions on the success path", async () => {
+    const backupVersions = new Map([["packages/a::js", "1.0.0"]]);
+    const ctx = { runtime: { dryRunVersionBackup: backupVersions } };
+
+    await createDryRunOperations(false, true, false)[2]?.run?.(
       ctx as never,
       {} as never,
     );

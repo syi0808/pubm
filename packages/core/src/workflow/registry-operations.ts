@@ -692,6 +692,7 @@ async function dryRunCrates(
         path: packagePath,
         crate: unpublished.join("`, `"),
       });
+      operation.skip();
       return;
     }
   }
@@ -712,6 +713,7 @@ async function dryRunCrates(
           path: packagePath,
           crate: crateName,
         });
+        operation.skip();
         return;
       }
     }

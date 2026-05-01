@@ -868,6 +868,7 @@ describe("registry release operations", () => {
     );
 
     expect(operation.title).toContain("task.dryRun.crates.skippedSibling");
+    expect(operation.skip).toHaveBeenCalledOnce();
   });
 
   it("skips crates dry-run when cargo reports a sibling version mismatch", async () => {
@@ -892,6 +893,7 @@ describe("registry release operations", () => {
     );
 
     expect(operation.title).toContain("task.dryRun.crates.skippedSibling");
+    expect(operation.skip).toHaveBeenCalledOnce();
   });
 
   it("rethrows crates dry-run missing-crate errors for non-sibling crates", async () => {
@@ -950,6 +952,7 @@ describe("registry release operations", () => {
     );
 
     expect(operation.title).toContain("task.dryRun.crates.skippedSibling");
+    expect(operation.skip).toHaveBeenCalledOnce();
     expect(registry.dryRunPublish).not.toHaveBeenCalled();
   });
 
@@ -1032,6 +1035,7 @@ describe("registry release operations", () => {
         expect(registry.dryRunPublish).toHaveBeenCalledWith("latest");
       } else {
         expect(operation.title).toContain("task.dryRun.crates.skippedSibling");
+        expect(operation.skip).toHaveBeenCalledOnce();
         expect(registry.dryRunPublish).not.toHaveBeenCalled();
       }
 

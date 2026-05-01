@@ -26,20 +26,28 @@ export function createPublishOperations(
       run: async (ctx, parentTask): Promise<void> => {
         parentTask.output = t("task.publish.runningBeforeHooksDetail");
         await ctx.runtime.pluginRunner.runHook("beforePublish", ctx);
-        await resolveWorkspaceProtocols(ctx);
+        try {
+          await resolveWorkspaceProtocols(ctx);
 
-        const publishOperations = await collectPublishOperations(ctx);
-        parentTask.title = t("task.publish.titleWithTargets", {
-          count: countPublishTargets(ctx),
-        });
-        parentTask.output = formatRegistryGroupSummary(
-          t("task.publish.concurrent"),
-          ctx,
-        );
+          const publishOperations = await collectPublishOperations(ctx);
+          parentTask.title = t("task.publish.titleWithTargets", {
+            count: countPublishTargets(ctx),
+          });
+          parentTask.output = formatRegistryGroupSummary(
+            t("task.publish.concurrent"),
+            ctx,
+          );
 
-        await parentTask.runOperations(publishOperations, {
-          concurrent: true,
-        });
+          await parentTask.runOperations(publishOperations, {
+            concurrent: true,
+          });
+        } finally {
+          const backups = ctx.runtime.workspaceBackups;
+          if (backups) {
+            if (backups.size) restoreManifests(backups);
+            ctx.runtime.workspaceBackups = undefined;
+          }
+        }
       },
     },
     {

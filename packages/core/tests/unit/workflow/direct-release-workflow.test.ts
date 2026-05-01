@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PubmContext, VersionPlan } from "../../../src/context.js";
 import { DirectReleaseWorkflow } from "../../../src/workflow/direct-release-workflow.js";
 import type { WorkflowServices } from "../../../src/workflow/types.js";
@@ -136,6 +136,10 @@ describe("DirectReleaseWorkflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMocks.isCI = false;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("describes direct release domain steps in execution order", () => {
@@ -300,6 +304,27 @@ describe("DirectReleaseWorkflow", () => {
       true,
       false,
     );
+  });
+
+  it("runs preflight cleanup after a successful direct release", async () => {
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    const cleanup = vi.fn();
+    phaseMocks.runLocalPreflight.mockImplementationOnce(
+      async (_ctx, _chainCleanup, cleanupRef) => {
+        cleanupRef.current = cleanup;
+      },
+    );
+    const services = createMockServices();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await workflow.run(ctx, services);
+
+    expect(cleanup).toHaveBeenCalledOnce();
   });
 
   it("runs split prepare preflight whenever phase prepare is explicit in local environment", async () => {

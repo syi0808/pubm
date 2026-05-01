@@ -431,7 +431,16 @@ function createAvailabilityOperation(
   packageKeys: string[],
 ): ReleaseOperation {
   const descriptor = registryCatalog.get(registryKey);
-  if (!descriptor) return { title: registryKey, run: async () => {} };
+  if (!descriptor) {
+    return {
+      title: registryKey,
+      run: async () => {
+        throw new RequiredConditionCheckError(
+          `No registry descriptor registered for ${registryKey}`,
+        );
+      },
+    };
+  }
 
   if (packageKeys.length <= 1) {
     return {

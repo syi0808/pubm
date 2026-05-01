@@ -121,7 +121,40 @@ export function isWorkflowVersionStepOutput(
     typeof candidate.versionPlanMode === "string" &&
     typeof candidate.summary === "string" &&
     Array.isArray(candidate.packageDecisions) &&
-    Array.isArray(candidate.tagReferences)
+    candidate.packageDecisions.every(isWorkflowPackageDecision) &&
+    Array.isArray(candidate.tagReferences) &&
+    candidate.tagReferences.every(isWorkflowTagReference)
+  );
+}
+
+function isWorkflowPackageDecision(
+  decision: unknown,
+): decision is WorkflowVersionStepOutput["packageDecisions"][number] {
+  if (!decision || typeof decision !== "object") return false;
+  const candidate = decision as Partial<
+    WorkflowVersionStepOutput["packageDecisions"][number]
+  >;
+  return (
+    typeof candidate.packageKey === "string" &&
+    typeof candidate.packageName === "string" &&
+    typeof candidate.version === "string"
+  );
+}
+
+function isWorkflowTagReference(
+  reference: unknown,
+): reference is WorkflowVersionStepOutput["tagReferences"][number] {
+  if (!reference || typeof reference !== "object") return false;
+  const candidate = reference as Partial<
+    WorkflowVersionStepOutput["tagReferences"][number]
+  >;
+  return (
+    typeof candidate.tagName === "string" &&
+    typeof candidate.version === "string" &&
+    Array.isArray(candidate.packageKeys) &&
+    candidate.packageKeys.every((key) => typeof key === "string") &&
+    Array.isArray(candidate.packageNames) &&
+    candidate.packageNames.every((name) => typeof name === "string")
   );
 }
 

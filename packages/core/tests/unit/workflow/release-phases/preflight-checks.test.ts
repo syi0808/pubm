@@ -345,6 +345,57 @@ describe("createRequiredConditionsCheckOperation", () => {
     );
   });
 
+  it("fails availability checks for unknown registries", async () => {
+    const { createRequiredConditionsCheckOperation } = await import(
+      "../../../../src/workflow/release-phases/preflight-checks.js"
+    );
+    const ctx = createCtx({
+      config: {
+        packages: [pkg("packages/core", ["missing"], "js", "@scope/core")],
+      },
+    });
+    const operations = await captureOperations(
+      createRequiredConditionsCheckOperation(),
+      ctx,
+    );
+    const availabilityOperation = operations[3];
+    const parentTask = createTask();
+    let ecosystemOperations: readonly ReleaseOperation[] = [];
+    parentTask.runOperations = vi.fn(
+      async (operations: ReleaseOperation | readonly ReleaseOperation[]) => {
+        ecosystemOperations = Array.isArray(operations)
+          ? operations
+          : [operations];
+      },
+    );
+
+    await availabilityOperation?.run?.(
+      ctx,
+      parentTask as unknown as ReleaseOperationContext,
+    );
+
+    let registryOperations: readonly ReleaseOperation[] = [];
+    const ecosystemTask = createTask();
+    ecosystemTask.runOperations = vi.fn(
+      async (operations: ReleaseOperation | readonly ReleaseOperation[]) => {
+        registryOperations = Array.isArray(operations)
+          ? operations
+          : [operations];
+      },
+    );
+    await ecosystemOperations[0]?.run?.(
+      ctx,
+      ecosystemTask as unknown as ReleaseOperationContext,
+    );
+
+    await expect(
+      registryOperations[0]?.run?.(
+        ctx,
+        createTask() as unknown as ReleaseOperationContext,
+      ),
+    ).rejects.toThrow("No registry descriptor registered for missing");
+  });
+
   it("enables registry-qualified tags when the tag collision prompt is accepted", async () => {
     const { createRequiredConditionsCheckOperation } = await import(
       "../../../../src/workflow/release-phases/preflight-checks.js"

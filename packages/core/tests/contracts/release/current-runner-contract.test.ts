@@ -958,25 +958,45 @@ vi.mock("../../../src/git.js", () => ({
       mockState.recordSideEffect({ kind: "git.tag", target: tag });
     }
 
-    async push(args: string) {
+    async push(...args: string[]) {
       const success = mockState.currentWorld().pushSucceeds;
       if (success) {
         mockState.currentWorld().git.pushed = true;
-        for (const tag of mockState.currentWorld().git.localTags) {
-          mockState.currentWorld().git.remoteTags.add(tag);
+        const explicitTagRefs = args
+          .filter((arg) => arg.startsWith("refs/tags/"))
+          .map((arg) => arg.replace(/^refs\/tags\//, ""));
+        const tagsToPush = explicitTagRefs.length
+          ? explicitTagRefs
+          : [...mockState.currentWorld().git.localTags];
+        for (const tag of tagsToPush) {
+          if (mockState.currentWorld().git.localTags.has(tag)) {
+            mockState.currentWorld().git.remoteTags.add(tag);
+          }
         }
       }
       mockState.recordSideEffect({
         kind: "git.push",
         target: "origin",
-        detail: success ? { args } : { args, result: false },
+        detail: success
+          ? { args: args.join(" ") }
+          : { args: args.join(" "), result: false },
       });
       return success;
     }
 
-    async pushDelete(_remote: string, tag: string) {
-      mockState.currentWorld().git.remoteTags.delete(tag);
-      mockState.recordSideEffect({ kind: "git.remoteTag.delete", target: tag });
+    async pushDelete(_remote: string, ref: string) {
+      if (mockState.currentWorld().git.remoteTags.delete(ref)) {
+        mockState.recordSideEffect({
+          kind: "git.remoteTag.delete",
+          target: ref,
+        });
+        return;
+      }
+      mockState.currentWorld().git.branches.delete(`origin/${ref}`);
+      mockState.recordSideEffect({
+        kind: "git.remoteBranch.delete",
+        target: ref,
+      });
     }
 
     async forcePush(remote: string, ref: string) {

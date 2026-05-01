@@ -1453,7 +1453,7 @@ export const releaseBehaviorScenarios = [
           target: "v10.1.0",
         },
         {
-          kind: "git.remoteTag.delete",
+          kind: "git.remoteBranch.delete",
           target: "pubm/version-packages-1770000000000",
         },
         {
@@ -1718,7 +1718,7 @@ export const releaseBehaviorScenarios = [
         {
           kind: "git.push",
           target: "origin",
-          detail: { args: "--tags" },
+          detail: { args: "origin refs/tags/v0.8.1-snapshot.20260427.0" },
         },
         {
           kind: "manifest.restore",
@@ -1747,7 +1747,7 @@ export const releaseBehaviorScenarios = [
       ],
     },
   },
-] satisfies readonly ReleaseBehaviorScenario[];
+] as const satisfies readonly ReleaseBehaviorScenario[];
 
 export type ReleaseBehaviorScenarioId =
   (typeof releaseBehaviorScenarios)[number]["id"];

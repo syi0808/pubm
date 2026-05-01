@@ -99,7 +99,7 @@ function cloneWorkflowStepRecord(
 
   if ("input" in record) cloned.input = cloneRecordValue(record.input);
   if ("output" in record) cloned.output = cloneRecordOutput(record.output);
-  if ("error" in record) cloned.error = record.error;
+  if ("error" in record) cloned.error = cloneRecordValue(record.error);
 
   return cloned;
 }
@@ -135,7 +135,7 @@ function cloneRecordDetail(
 function cloneRecordValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(cloneRecordValue);
   if (!value || typeof value !== "object") return value;
-  if (value instanceof Error) return value;
+  if (value instanceof Error) return cloneRecordError(value);
   if (isWorkflowVersionStepOutput(value)) {
     return cloneWorkflowVersionStepOutput(value);
   }
@@ -146,4 +146,16 @@ function cloneRecordValue(value: unknown): unknown {
       cloneRecordValue(nested),
     ]),
   );
+}
+
+function cloneRecordError(error: Error): Error {
+  const cloned = new Error(error.message);
+  cloned.name = error.name;
+  cloned.stack = error.stack;
+  if ("cause" in error) {
+    (cloned as Error & { cause?: unknown }).cause = (
+      error as Error & { cause?: unknown }
+    ).cause;
+  }
+  return cloned;
 }

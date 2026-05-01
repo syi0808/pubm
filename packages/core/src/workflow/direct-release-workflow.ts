@@ -84,6 +84,12 @@ function chainCleanup(
   };
 }
 
+function runCleanup(cleanupRef: CleanupRef): void {
+  const cleanup = cleanupRef.current;
+  cleanupRef.current = undefined;
+  cleanup?.();
+}
+
 function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
   return ctx.options.phase === undefined ? "full" : "split-ci";
 }
@@ -490,7 +496,7 @@ export class DirectReleaseWorkflow implements Workflow {
     };
 
     const onSigint = async () => {
-      cleanupRef.current?.();
+      runCleanup(cleanupRef);
       await ctx.runtime.rollback.execute(ctx, {
         interactive: false,
         sigint: true,
@@ -541,10 +547,10 @@ export class DirectReleaseWorkflow implements Workflow {
 
       const parts = await formatSuccessParts(ctx);
 
+      runCleanup(cleanupRef);
       removeInterruptListener();
 
       if (profile === "split-ci" && hasPrepare && !hasPublish) {
-        cleanupRef.current?.();
         console.log(`\n\n✅ ${t("output.ciPrepareComplete")}\n`);
       } else if (dryRun) {
         console.log(`\n\n✅ ${t("output.dryRunComplete")}\n`);
@@ -560,7 +566,7 @@ export class DirectReleaseWorkflow implements Workflow {
       return { status: "success" };
     } catch (error: unknown) {
       removeInterruptListener();
-      cleanupRef.current?.();
+      runCleanup(cleanupRef);
 
       await ctx.runtime.pluginRunner.runErrorHook(ctx, error as Error);
 

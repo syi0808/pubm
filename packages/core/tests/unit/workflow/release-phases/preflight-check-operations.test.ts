@@ -510,7 +510,7 @@ describe("createRequiredConditionsCheckOperation", () => {
     ]);
   });
 
-  it("allows missing registry descriptors and non-colliding independent tags", async () => {
+  it("fails missing registry descriptors for non-colliding independent tags", async () => {
     preflightState.registries.delete("missing");
     const ctx = createContext({
       options: { skipBuild: true, skipTests: true },
@@ -523,19 +523,13 @@ describe("createRequiredConditionsCheckOperation", () => {
             path: "packages/a",
             registries: ["missing"],
           },
-          {
-            ecosystem: "rust",
-            name: "pkg-b",
-            path: "crates/b",
-            registries: ["missing"],
-          },
         ],
       },
     });
 
-    await runReleaseOperations(ctx, createRequiredConditionsCheckOperation());
-
-    expect(ctx.runtime.registryQualifiedTags).toBeUndefined();
+    await expect(
+      runReleaseOperations(ctx, createRequiredConditionsCheckOperation()),
+    ).rejects.toThrow("No registry descriptor registered for missing");
   });
 });
 

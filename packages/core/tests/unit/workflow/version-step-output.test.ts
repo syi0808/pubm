@@ -7,6 +7,7 @@ import {
   formatWorkflowReleaseTag,
   pinWorkflowVersionStepOutput,
   readPinnedWorkflowVersionStepOutput,
+  WORKFLOW_VERSION_STEP_OUTPUT_KIND,
 } from "../../../src/workflow/version-step-output.js";
 
 function context(
@@ -233,5 +234,37 @@ describe("workflow version step output", () => {
       "mutated",
     );
     expect(readPinnedWorkflowVersionStepOutput(ctx)).toEqual(output);
+  });
+
+  it("ignores malformed pinned output before cloning nested references", () => {
+    const ctx = context({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    (
+      ctx.runtime as { workflowVersionStepOutput?: unknown }
+    ).workflowVersionStepOutput = {
+      kind: WORKFLOW_VERSION_STEP_OUTPUT_KIND,
+      packageDecisions: [
+        {
+          packageKey: "packages/a::js",
+          packageName: "pkg-a",
+          version: "1.2.3",
+        },
+      ],
+      summary: "v1.2.3",
+      tagReferences: [
+        {
+          packageKeys: "packages/a::js",
+          packageNames: ["pkg-a"],
+          tagName: "v1.2.3",
+          version: "1.2.3",
+        },
+      ],
+      versionPlanMode: "single",
+    };
+
+    expect(readPinnedWorkflowVersionStepOutput(ctx)).toBeUndefined();
   });
 });
