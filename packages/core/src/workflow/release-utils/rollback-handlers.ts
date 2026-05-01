@@ -40,6 +40,10 @@ export function requireVersionPlan(ctx: PubmContext) {
   return versionPlan;
 }
 
+function formatRelativePath(from: string, to: string): string {
+  return path.relative(from, to).replace(/\\/g, "/");
+}
+
 /** Back up manifest files and register rollback to restore them. */
 export function registerManifestBackups(ctx: PubmContext): void {
   for (const pkg of ctx.config.packages) {
@@ -52,7 +56,7 @@ export function registerManifestBackups(ctx: PubmContext): void {
       if (existsSync(manifestPath)) {
         const backup = readFileSync(manifestPath, "utf-8");
         ctx.runtime.rollback.add({
-          label: `Restore ${path.relative(ctx.cwd, manifestPath)}`,
+          label: `Restore ${formatRelativePath(ctx.cwd, manifestPath)}`,
           fn: async () => {
             writeFileSync(manifestPath, backup, "utf-8");
           },
@@ -95,7 +99,7 @@ export function registerChangelogBackup(
   if (existsSync(changelogPath)) {
     const changelogBackup = readFileSync(changelogPath, "utf-8");
     ctx.runtime.rollback.add({
-      label: `Restore ${path.relative(ctx.cwd, changelogPath)}`,
+      label: `Restore ${formatRelativePath(ctx.cwd, changelogPath)}`,
       fn: async () => {
         writeFileSync(changelogPath, changelogBackup, "utf-8");
       },

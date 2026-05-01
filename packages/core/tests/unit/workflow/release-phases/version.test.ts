@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PubmContext, VersionPlan } from "../../../../src/context.js";
 import { createVersionOperation } from "../../../../src/workflow/release-phases/version.js";
@@ -457,11 +458,11 @@ describe("createVersionOperation", () => {
 
     expect(versionState.changelogs).toEqual([
       {
-        cwd: "/repo/packages/a",
+        cwd: path.resolve("/repo", "packages/a"),
         content: "# 3.0.0\nindependent change",
       },
       {
-        cwd: "/repo/packages/b",
+        cwd: path.resolve("/repo", "packages/b"),
         content: "# 4.0.0\nindependent change",
       },
     ]);

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dryRunState = vi.hoisted(() => ({
@@ -168,8 +169,8 @@ describe("createDryRunOperations", () => {
     expect(dryRunState.restoreCalls).toEqual([backups]);
     expect(ctx.runtime.workspaceBackups).toBeUndefined();
     expect(dryRunState.syncLockfileCalls).toEqual([
-      ["/repo/packages/a", "always"],
-      ["/repo/packages/b", "always"],
+      [path.resolve("/repo", "packages/a"), "always"],
+      [path.resolve("/repo", "packages/b"), "always"],
     ]);
   });
 

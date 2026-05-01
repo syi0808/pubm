@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PubmContext } from "../../../../src/context.js";
 import { runReleaseOperations } from "../../../../src/workflow/release-operation.js";
@@ -203,6 +204,10 @@ function registerRegistry(key: string, ecosystem = "js") {
   return { checkAvailability, descriptor: preflightState.registries.get(key) };
 }
 
+function packageCwd(pkgPath: string): string {
+  return path.resolve("/repo", pkgPath);
+}
+
 beforeEach(() => {
   preflightState.promptResponses = [];
   preflightState.git = {
@@ -348,8 +353,8 @@ describe("createRequiredConditionsCheckOperation", () => {
     expect(preflightState.connectors.get("npm")?.ping).toHaveBeenCalled();
     expect(preflightState.connectors.get("jsr")?.ping).toHaveBeenCalled();
     expect(preflightState.validatedScripts).toEqual([
-      { cwd: "/repo/packages/a", script: "test", kind: "test" },
-      { cwd: "/repo/packages/a", script: "build", kind: "build" },
+      { cwd: packageCwd("packages/a"), script: "test", kind: "test" },
+      { cwd: packageCwd("packages/a"), script: "build", kind: "build" },
     ]);
     expect(descriptor.factory).toHaveBeenCalledWith("packages/a");
     expect(checkAvailability).toHaveBeenCalledWith(
@@ -387,7 +392,10 @@ describe("createRequiredConditionsCheckOperation", () => {
   });
 
   it("reports missing scripts from ecosystem validation", async () => {
-    preflightState.scriptErrors.set("/repo/packages/a:test", "missing test");
+    preflightState.scriptErrors.set(
+      `${packageCwd("packages/a")}:test`,
+      "missing test",
+    );
     const ctx = createContext();
 
     await expect(
@@ -497,8 +505,8 @@ describe("createRequiredConditionsCheckOperation", () => {
     expect(preflightState.validatedScripts).toEqual([
       { cwd: "/repo", script: "test", kind: "test" },
       { cwd: "/repo", script: "build", kind: "build" },
-      { cwd: "/repo/packages/c", script: "test:pkg", kind: "test" },
-      { cwd: "/repo/packages/c", script: "build:pkg", kind: "build" },
+      { cwd: packageCwd("packages/c"), script: "test:pkg", kind: "test" },
+      { cwd: packageCwd("packages/c"), script: "build:pkg", kind: "build" },
     ]);
   });
 
