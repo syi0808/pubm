@@ -211,7 +211,17 @@ describe("createGitHubRelease", () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
-      text: vi.fn().mockResolvedValue('{"message":"Validation Failed"}'),
+      text: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          message: "Validation Failed",
+          errors: [
+            {
+              code: "already_exists",
+              message: "Release already exists",
+            },
+          ],
+        }),
+      ),
     }) as any;
 
     const result = await createGitHubRelease({} as any, {
@@ -223,6 +233,37 @@ describe("createGitHubRelease", () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  it("surfaces generic GitHub validation failures when no already-existing release detail is present", async () => {
+    const { createGitHubRelease } = await freshImport();
+    const { mockGit } = await getMocks();
+
+    mockGit.mockImplementation(function () {
+      return {
+        repository: vi
+          .fn()
+          .mockResolvedValue("https://github.com/pubm/pubm.git"),
+      } as any;
+    } as any);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: vi.fn().mockResolvedValue('{"message":"Validation Failed"}'),
+    }) as any;
+
+    await expect(
+      createGitHubRelease({} as any, {
+        displayLabel: "pubm",
+        version: "1.0.0",
+        tag: "v1.0.0",
+        body: "some body",
+        assets: [],
+      }),
+    ).rejects.toThrow(
+      /Failed to create GitHub Release \(422\): {"message":"Validation Failed"}/,
+    );
   });
 
   it("surfaces GitHub API failures when creating the release", async () => {

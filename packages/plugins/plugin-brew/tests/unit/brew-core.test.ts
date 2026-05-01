@@ -640,7 +640,7 @@ describe("brewCore", () => {
       expect(checks).toHaveLength(0);
     });
 
-    it("returns checks for split prepare even when phases do not include publish", () => {
+    it("returns empty checks for split prepare when phases do not include publish", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewCore({ formula: "Formula/test.rb" });
@@ -651,7 +651,7 @@ describe("brewCore", () => {
       } as any;
 
       const checks = plugin.checks!(ctx);
-      expect(checks).toHaveLength(1);
+      expect(checks).toHaveLength(0);
     });
   });
 });

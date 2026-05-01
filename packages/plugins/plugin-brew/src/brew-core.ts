@@ -77,9 +77,9 @@ export function brewCore(options: BrewCoreOptions): PubmPlugin {
     },
     checks: (ctx) => {
       const phases = resolvePhases(ctx.options);
-      const tokenAuth = needsTokenAuth(ctx);
-      if (!phases.includes("publish") && !tokenAuth) return [];
+      if (!phases.includes("publish")) return [];
 
+      const tokenAuth = needsTokenAuth(ctx);
       if (tokenAuth) {
         return [
           {

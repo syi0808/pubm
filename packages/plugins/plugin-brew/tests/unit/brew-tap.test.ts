@@ -1214,7 +1214,7 @@ describe("brewTap", () => {
       expect(checks).toHaveLength(0);
     });
 
-    it("returns checks for split prepare even when phases only include prepare", () => {
+    it("returns empty checks for split prepare when phases only include prepare", () => {
       mockedResolvePhases.mockReturnValueOnce(["prepare"]);
 
       const plugin = brewTap({
@@ -1228,7 +1228,7 @@ describe("brewTap", () => {
       } as any;
 
       const checks = plugin.checks!(ctx);
-      expect(checks).toHaveLength(1);
+      expect(checks).toHaveLength(0);
     });
   });
 

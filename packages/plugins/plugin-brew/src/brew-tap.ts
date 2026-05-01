@@ -73,9 +73,9 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
     },
     checks: (ctx) => {
       const phases = resolvePhases(ctx.options);
-      const tokenAuth = needsTokenAuth(ctx);
-      if (!phases.includes("publish") && !tokenAuth) return [];
+      if (!phases.includes("publish")) return [];
 
+      const tokenAuth = needsTokenAuth(ctx);
       if (tokenAuth) {
         if (!options.repo) return [];
         return [

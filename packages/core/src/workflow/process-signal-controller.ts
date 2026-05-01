@@ -7,10 +7,13 @@ export class ProcessSignalController implements SignalController {
   onInterrupt(handler: SignalHandler): () => void {
     this.removeInterruptListener?.();
     process.on("SIGINT", handler);
-    this.removeInterruptListener = () => {
+    const removeListener = () => {
       process.removeListener("SIGINT", handler);
-      this.removeInterruptListener = undefined;
+      if (this.removeInterruptListener === removeListener) {
+        this.removeInterruptListener = undefined;
+      }
     };
+    this.removeInterruptListener = removeListener;
     return this.removeInterruptListener;
   }
 

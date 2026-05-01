@@ -45,7 +45,7 @@ function isAlreadyExistingRelease(errorBody: string): boolean {
       });
     }
 
-    return parsed.message === "Validation Failed";
+    return false;
   } catch {
     return false;
   }
