@@ -271,6 +271,48 @@ vi.mock("@pubm/core", () => {
         detail: { message: error.message },
       });
     }),
+    applyVersionSourcePlan: vi.fn(async (ctx: any) => {
+      const recommendations =
+        mockState.state.mergedRecommendations ??
+        [
+          mockState.state.changesetRecommendations,
+          mockState.state.commitRecommendations,
+        ].flat();
+      if (recommendations.length === 0) return;
+
+      const packages = new Map<string, string>();
+      for (const rec of recommendations) {
+        const pkg = ctx.config.packages.find((candidate: any) =>
+          rec.packageKey
+            ? mockState.packageKey(candidate) === rec.packageKey
+            : candidate.path === rec.packagePath,
+        );
+        if (!pkg) continue;
+        packages.set(
+          mockState.packageKey(pkg),
+          rec.nextVersion ?? rec.version ?? pkg.version,
+        );
+      }
+      if (packages.size === 0) return;
+      if (packages.size === 1 && ctx.config.packages.length <= 1) {
+        const [packageKey, version] = [...packages][0];
+        ctx.runtime.versionPlan = { mode: "single", packageKey, version };
+      } else if (ctx.config.versioning === "fixed") {
+        const version = [...packages.values()][0];
+        ctx.runtime.versionPlan = {
+          mode: "fixed",
+          version,
+          packages: new Map(
+            ctx.config.packages.map((pkg: any) => [
+              mockState.packageKey(pkg),
+              version,
+            ]),
+          ),
+        };
+      } else {
+        ctx.runtime.versionPlan = { mode: "independent", packages };
+      }
+    }),
     createContext: vi.fn((config: any, options: any, cwd: string) => {
       const ctx = {
         config,
@@ -312,6 +354,31 @@ vi.mock("@pubm/core", () => {
         mockState.state.mergedRecommendations ??
         (recommendationSets as Array<Array<Record<string, unknown>>>).flat()
       );
+    }),
+    createVersionPlanFromManifestVersions: vi.fn((config: any) => {
+      if (config.packages.length <= 1) {
+        const pkg = config.packages[0];
+        return {
+          mode: "single",
+          version: pkg?.version ?? "",
+          packageKey: pkg ? mockState.packageKey(pkg) : ".::js",
+        };
+      }
+
+      const packages = new Map(
+        config.packages.map((pkg: any) => [
+          mockState.packageKey(pkg),
+          pkg.version,
+        ]),
+      );
+      if (config.versioning === "fixed") {
+        return {
+          mode: "fixed",
+          version: [...packages.values()][0] ?? "",
+          packages,
+        };
+      }
+      return { mode: "independent", packages };
     }),
     notifyNewVersion: vi.fn(async () => {
       mockState.recordEvent({ name: "version.notify" });

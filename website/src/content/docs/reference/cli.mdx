@@ -203,12 +203,30 @@ The wizard walks through these stages:
 1. **Package Detection**: scans the repository for manifest files (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) and workspace configuration, then confirms the detected packages and registries.
 2. **Basic Configuration**: prompts for the release branch and versioning strategy (`independent` or `fixed`).
 3. **Release Options**: asks about changelog generation and GitHub Release drafts.
-4. **Workflow Setup**: offers to enable the changesets workflow (creates `.pubm/changesets/`, `.github/workflows/changeset-check.yml`, and updates `.gitignore`) and generate CI release workflows (`.github/workflows/release.yml`).
+4. **Workflow Setup**: offers to enable the changesets workflow (creates `.pubm/changesets/`, `.github/workflows/pubm-changeset-check.yml`, and updates `.gitignore`) and generate CI release workflows (`.github/workflows/pubm-release-pr.yml` and `.github/workflows/pubm-publish.yml`).
 5. **Coding Agent Skills**: offers to download and install coding agent skills for Claude Code, Codex CLI, or Gemini CLI. This matches `pubm setup-skills`.
 
 A `pubm.config.ts` file is only created when your choices differ from the defaults. If every value matches the default, no config file is written.
 
 This command accepts no flags or options. All configuration is collected interactively.
+
+## `pubm workflow install github`
+
+Install GitHub Actions workflows for the release PR workflow.
+
+```bash
+pubm workflow install github
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `--force` | Overwrite existing generated workflow files |
+| `--dry-run` | Print the files that would be written |
+| `--package-manager <pm>` | Choose setup hints for `bun`, `pnpm`, `yarn`, `npm`, or `cargo` |
+| `--branch <branch>` | Target branch for release PRs and publish guardrails |
+| `--skip-changeset-check` | Do not install `.github/workflows/pubm-changeset-check.yml` |
+| `--skip-release-pr` | Do not install `.github/workflows/pubm-release-pr.yml` |
+| `--skip-publish` | Do not install `.github/workflows/pubm-publish.yml` |
 
 ## `pubm setup-skills`
 

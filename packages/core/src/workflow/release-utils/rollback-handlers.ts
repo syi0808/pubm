@@ -138,23 +138,22 @@ export function registerRemoteTagRollback(ctx: PubmContext): void {
   if (plan.mode === "independent") {
     for (const [key, pkgVersion] of plan.packages) {
       if (isReleaseExcluded(ctx.config, pathFromKey(key))) continue;
-      const tag = formatTag(ctx, key, pkgVersion);
-      ctx.runtime.rollback.add({
-        label: t("task.push.deleteRemoteTag", { tag }),
-        fn: async () => {
-          const g = new Git();
-          await g.pushDelete("origin", tag);
-        },
-      });
+      registerRemoteTagRollbackForTag(ctx, formatTag(ctx, key, pkgVersion));
     }
   } else {
-    const tagName = `v${plan.version}`;
-    ctx.runtime.rollback.add({
-      label: t("task.push.deleteRemoteTag", { tag: tagName }),
-      fn: async () => {
-        const g = new Git();
-        await g.pushDelete("origin", tagName);
-      },
-    });
+    registerRemoteTagRollbackForTag(ctx, `v${plan.version}`);
   }
+}
+
+export function registerRemoteTagRollbackForTag(
+  ctx: PubmContext,
+  tagName: string,
+): void {
+  ctx.runtime.rollback.add({
+    label: t("task.push.deleteRemoteTag", { tag: tagName }),
+    fn: async () => {
+      const g = new Git();
+      await g.pushDelete("origin", tagName);
+    },
+  });
 }

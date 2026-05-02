@@ -204,16 +204,7 @@ export type {
   TokenEntry,
 } from "./registry/catalog.js";
 export { RegistryCatalog, registryCatalog } from "./registry/catalog.js";
-export type {
-  CloseVersionPrOptions,
-  CreateVersionPrOptions,
-  CreateVersionPrResult,
-} from "./tasks/create-version-pr.js";
 // Tasks
-export {
-  closeVersionPr,
-  createVersionPr,
-} from "./tasks/create-version-pr.js";
 export type { GhSecretEntry } from "./tasks/preflight.js";
 export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";
 export { requiredMissingInformationTasks } from "./tasks/required-missing-information.js";
@@ -225,11 +216,6 @@ export {
 } from "./tasks/snapshot-runner.js";
 // Task factory
 export type { RegistryTaskFactory } from "./tasks/task-factory.js";
-export type {
-  BuildVersionPrBodyOptions,
-  VersionPrPackageInfo,
-} from "./tasks/version-pr-body.js";
-export { buildVersionPrBody } from "./tasks/version-pr-body.js";
 export type {
   Options,
   ReleasePhase,
@@ -266,9 +252,72 @@ export {
 export { ChangesetSource } from "./version-source/changeset-source.js";
 export { ConventionalCommitSource } from "./version-source/conventional-commit-source.js";
 export { mergeRecommendations } from "./version-source/merge.js";
+export {
+  analyzeVersionSources,
+  applyVersionSourcePlan,
+  createVersionPlanFromRecommendations,
+} from "./version-source/plan.js";
 export type {
   VersionEntry,
   VersionRecommendation,
   VersionSource,
   VersionSourceContext,
 } from "./version-source/types.js";
+export type {
+  PreparedReleasePr,
+  PrepareReleasePrInput,
+  PrepareReleasePrPublishInput,
+  PublishReleasePrInput,
+  ReleasePrPublishPlan,
+} from "./workflow/release-pr.js";
+export {
+  createVersionPlanFromManifestVersions,
+  prepareReleasePr,
+  prepareReleasePrPublish,
+  publishReleasePr,
+  runReleasePrDryRun,
+  scopeVersionPlan,
+} from "./workflow/release-pr.js";
+export type {
+  ConsumeChangesetsForScopeInput,
+  ConsumeChangesetsForScopeResult,
+} from "./workflow/release-utils/changeset-consume.js";
+export { consumeChangesetsForScope } from "./workflow/release-utils/changeset-consume.js";
+export type { ReleasePrBodyMetadata } from "./workflow/release-utils/release-pr-metadata.js";
+export {
+  parseReleasePrBodyMetadata,
+  RELEASE_PR_BODY_MARKER,
+  RELEASE_PR_METADATA_MARKER,
+  RELEASE_PR_METADATA_SCHEMA_VERSION,
+  renderReleasePrMetadataMarker,
+  sameReleasePrScope,
+} from "./workflow/release-utils/release-pr-metadata.js";
+export type { ReleasePrTemplateInput } from "./workflow/release-utils/release-pr-naming.js";
+export {
+  renderReleasePrBranch,
+  renderReleasePrTemplate,
+  renderReleasePrTitle,
+  slugifyReleasePrToken,
+} from "./workflow/release-utils/release-pr-naming.js";
+export type {
+  ParseReleasePrSlashCommandsResult,
+  ReleasePrBumpOverride,
+  ReleasePrOverride,
+  ReleasePrOverrideError,
+  ResolveReleasePrOverrideInput,
+  SlashCommandComment,
+} from "./workflow/release-utils/release-pr-overrides.js";
+export {
+  applyReleaseOverride,
+  DEFAULT_RELEASE_PR_BUMP_LABELS,
+  parseReleasePrLabelOverride,
+  parseReleasePrSlashCommand,
+  parseReleasePrSlashCommands,
+  resolveReleasePrOverride,
+} from "./workflow/release-utils/release-pr-overrides.js";
+export type {
+  ReleasePrGrouping,
+  ReleasePrScope,
+  ReleasePrScopeKind,
+} from "./workflow/release-utils/scope.js";
+export { buildReleasePrScopes } from "./workflow/release-utils/scope.js";

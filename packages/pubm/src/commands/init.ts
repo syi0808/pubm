@@ -21,10 +21,8 @@ import {
 } from "./init-prompts.js";
 import {
   detectPackageManager,
-  generateChangesetCheckWorkflow,
-  generateReleaseWorkflow,
+  installGithubWorkflows,
   updateGitignoreForChangesets,
-  writeWorkflowFile,
 } from "./init-workflows.js";
 import { AGENT_LABELS, runSetupSkills } from "./setup-skills.js";
 
@@ -115,40 +113,26 @@ export function registerInitCommand(parent: Command): void {
         // --- Apply: CI Workflows ---
         if (ci) {
           const pm = detectPackageManager(cwd);
-          let workflowsCreated = 0;
+          const workflowResults = await installGithubWorkflows(cwd, {
+            defaultBranch: branch,
+            packageManager: pm,
+            includeChangesetCheck: changesets,
+            includeReleasePr: true,
+            includePublish: true,
+          });
+          const workflowsCreated = workflowResults.filter(
+            (result) => result.status === "created",
+          ).length;
 
-          // release.yml — use user-selected branch for consistency
-          const releaseContent = generateReleaseWorkflow(
-            detected.isMonorepo,
-            branch,
-            pm,
-          );
-          const releaseWritten = writeWorkflowFile(
-            cwd,
-            "release.yml",
-            releaseContent,
-          );
-          if (releaseWritten) {
-            workflowsCreated++;
-            console.log(`  ${t("init.workflow.releaseCreated")}`);
-          } else {
-            console.log(`  ${t("init.workflow.releaseExists")}`);
-          }
-
-          // changeset-check.yml (only if changesets enabled)
-          if (changesets) {
-            const checkContent = generateChangesetCheckWorkflow(branch);
-            const checkWritten = writeWorkflowFile(
-              cwd,
-              "changeset-check.yml",
-              checkContent,
-            );
-            if (checkWritten) {
-              workflowsCreated++;
-              console.log(`  ${t("init.workflow.changesetCreated")}`);
-            } else {
-              console.log(`  ${t("init.workflow.changesetExists")}`);
-            }
+          for (const result of workflowResults) {
+            const relativePath = path
+              .relative(cwd, result.filePath)
+              .replace(/\\/g, "/");
+            const action =
+              result.status === "created"
+                ? "created"
+                : "already exists, skipped";
+            console.log(`  → ${relativePath} ${action}`);
           }
 
           if (workflowsCreated > 0) {

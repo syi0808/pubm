@@ -69,13 +69,27 @@ export async function handleMultiPackage(
     pathToKeys.set(p.path, existing);
   }
   const recommendations = await analyzeAllSources(ctx);
+  const packageMatchesRecommendation = (
+    pkg: ResolvedPackageConfig,
+    rec: { packagePath: string; packageKey?: string },
+  ) =>
+    rec.packageKey
+      ? packageKey(pkg) === rec.packageKey
+      : pkg.path === rec.packagePath;
+  const recommendationKeys = (rec: {
+    packagePath: string;
+    packageKey?: string;
+  }): string[] =>
+    rec.packageKey
+      ? [rec.packageKey]
+      : (pathToKeys.get(rec.packagePath) ?? [rec.packagePath]);
 
   // CI mode: auto-accept
   if (isCI && recommendations.length > 0) {
     const packages = new Map<string, string>();
     for (const rec of recommendations) {
-      const matchingPkgs = packageInfos.filter(
-        (p) => p.path === rec.packagePath,
+      const matchingPkgs = packageInfos.filter((p) =>
+        packageMatchesRecommendation(p, rec),
       );
       for (const pkg of matchingPkgs) {
         const newVer = semver.inc(pkg.version, rec.bumpType);
@@ -89,7 +103,7 @@ export async function handleMultiPackage(
       packages,
     );
     ctx.runtime.changesetConsumed = recommendations.some((r) => {
-      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+      const keys = recommendationKeys(r);
       return r.source === "changeset" && keys.some((k) => packages.has(k));
     });
     return;
@@ -129,8 +143,8 @@ export async function handleMultiPackage(
   if (action === "accept") {
     selectedVersions = new Map();
     for (const rec of recommendations) {
-      const matchingPkgs = packageInfos.filter(
-        (p) => p.path === rec.packagePath,
+      const matchingPkgs = packageInfos.filter((p) =>
+        packageMatchesRecommendation(p, rec),
       );
       for (const pkg of matchingPkgs) {
         const newVer = semver.inc(pkg.version, rec.bumpType);
@@ -188,7 +202,7 @@ export async function handleMultiPackage(
     ctx.runtime.changesetConsumed = recommendations.some((r) => {
       if (r.source !== "changeset" || !plan || !("packages" in plan))
         return false;
-      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+      const keys = recommendationKeys(r);
       return keys.some((k) => plan.packages.has(k));
     });
     return;
@@ -201,7 +215,7 @@ export async function handleMultiPackage(
     selectedVersions,
   );
   ctx.runtime.changesetConsumed = recommendations.some((r) => {
-    const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+    const keys = recommendationKeys(r);
     return (
       r.source === "changeset" && keys.some((k) => selectedVersions.has(k))
     );

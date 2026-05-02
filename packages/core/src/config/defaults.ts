@@ -12,6 +12,7 @@ import type { RegistryType } from "../types/options.js";
 import type {
   PrivateRegistryConfig,
   PubmConfig,
+  ReleasePrConfig,
   ResolvedPackageConfig,
   ResolvedPubmConfig,
   RollbackConfig,
@@ -27,6 +28,21 @@ const defaultValidate: Required<ValidateConfig> = {
 const defaultRollback: Required<RollbackConfig> = {
   strategy: "individual",
   dangerouslyAllowUnpublish: false,
+};
+
+const defaultReleasePr = {
+  enabled: false,
+  dryRun: true,
+  branchTemplate: "pubm/release/{scopeSlug}",
+  titleTemplate: "chore(release): {scope} {version}",
+  label: "pubm:release-pr",
+  bumpLabels: {
+    patch: "release:patch",
+    minor: "release:minor",
+    major: "release:major",
+    prerelease: "release:prerelease",
+  },
+  grouping: "auto" as const,
 };
 
 const defaultConfig = {
@@ -46,7 +62,6 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  createPr: false,
   lockfileSync: "optional" as const,
   versionSources: "all" as const,
   conventionalCommits: { types: {} as Record<string, BumpType | false> },
@@ -160,12 +175,24 @@ export async function resolveConfig(
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     ecosystems: config.ecosystems ?? {},
+    releasePr: resolveReleasePrConfig(config.releasePr),
     plugins: config.plugins ?? [],
     versionSources: config.versionSources ?? defaultConfig.versionSources,
     conventionalCommits: {
       types: config.conventionalCommits?.types ?? {},
     },
     ...(discoveryEmpty ? { discoveryEmpty } : {}),
+  };
+}
+
+function resolveReleasePrConfig(config?: ReleasePrConfig) {
+  return {
+    ...defaultReleasePr,
+    ...config,
+    bumpLabels: {
+      ...defaultReleasePr.bumpLabels,
+      ...config?.bumpLabels,
+    },
   };
 }
 

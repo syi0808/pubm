@@ -49,6 +49,33 @@ export interface RollbackConfig {
   dangerouslyAllowUnpublish?: boolean;
 }
 
+export interface ReleasePrBumpLabelsConfig {
+  patch?: string;
+  minor?: string;
+  major?: string;
+  prerelease?: string;
+}
+
+export interface ReleasePrConfig {
+  enabled?: boolean;
+  dryRun?: boolean;
+  branchTemplate?: string;
+  titleTemplate?: string;
+  label?: string;
+  bumpLabels?: ReleasePrBumpLabelsConfig;
+  grouping?: "auto" | "single" | "independent";
+}
+
+export interface ResolvedReleasePrConfig {
+  enabled: boolean;
+  dryRun: boolean;
+  branchTemplate: string;
+  titleTemplate: string;
+  label: string;
+  bumpLabels: Required<ReleasePrBumpLabelsConfig>;
+  grouping: "auto" | "single" | "independent";
+}
+
 export interface PubmConfig {
   versioning?: "independent" | "fixed";
   branch?: string;
@@ -68,8 +95,7 @@ export interface PubmConfig {
   saveToken?: boolean;
   releaseDraft?: boolean;
   releaseNotes?: boolean;
-  /** Create a pull request for the version bump commit instead of pushing directly. @default false */
-  createPr?: boolean;
+  releasePr?: ReleasePrConfig;
   /** @deprecated Use `rollback.strategy` instead. */
   rollbackStrategy?: "individual" | "all";
   rollback?: RollbackConfig;
@@ -109,6 +135,7 @@ export interface ResolvedPubmConfig
       | "versionSources"
       | "conventionalCommits"
       | "ecosystems"
+      | "releasePr"
       | "testScript"
       | "buildScript"
       | "skipDryRun"
@@ -125,6 +152,7 @@ export interface ResolvedPubmConfig
   conventionalCommits: {
     types: Record<string, BumpType | false>;
   };
+  releasePr: ResolvedReleasePrConfig;
   ecosystems: Record<string, EcosystemConfig>;
   testScript?: string;
   buildScript?: string;

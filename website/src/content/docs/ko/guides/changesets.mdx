@@ -25,7 +25,7 @@ description: 릴리스 의도를 기록하고, changelog를 생성하며, 버전
 pubm init
 ```
 
-설정 중에 `pubm init`은 changeset 워크플로를 활성화할지 묻습니다. 활성화를 선택하면 `.pubm/changesets/` 디렉터리가 생성되고, PR 강제를 위한 `.github/workflows/changeset-check.yml`이 생성되며, changeset 파일을 추적하되 다른 `.pubm/` 콘텐츠는 무시하도록 `.gitignore`가 업데이트됩니다.
+설정 중에 `pubm init`은 changeset 워크플로를 활성화할지 묻습니다. 활성화를 선택하면 `.pubm/changesets/` 디렉터리가 생성되고, PR 강제를 위한 `.github/workflows/pubm-changeset-check.yml`이 생성되며, changeset 파일을 추적하되 다른 `.pubm/` 콘텐츠는 무시하도록 `.gitignore`가 업데이트됩니다.
 
 ## Changeset 만들기
 

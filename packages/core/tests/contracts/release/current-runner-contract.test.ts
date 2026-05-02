@@ -1471,7 +1471,6 @@ async function runScenario(
     changelogFormat: "default",
     commit: false,
     access: "public",
-    createPr: !!scenario.options.createPr,
     fixed: [],
     linked: [],
     updateInternalDependencies: "patch",
@@ -1913,7 +1912,6 @@ describe("release behavior contract against the current runner", () => {
     "local-independent-monorepo-tags",
     "local-independent-crates-order-and-yank",
     "local-private-registry-boundary",
-    "local-push-fallback-version-pr",
     "local-release-browser-draft-fallback",
     "local-github-release-assets-payload",
   ])("characterizes external boundary scenario %s", async (scenarioId) => {

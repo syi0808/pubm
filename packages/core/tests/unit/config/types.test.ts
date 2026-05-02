@@ -57,6 +57,12 @@ describe("defineConfig", () => {
     expect(config.fixed).toHaveLength(1);
   });
 
+  it("does not type legacy createPr as a supported config field", () => {
+    // @ts-expect-error createPr was removed in favor of GitHub release PR workflows.
+    const config = defineConfig({ createPr: true });
+    expect(config).toEqual({ createPr: true });
+  });
+
   it("PackageConfig accepts ecosystem field", () => {
     const config: PackageConfig = {
       path: "packages/core",

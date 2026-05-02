@@ -4,11 +4,15 @@ const {
   mockIsCI,
   mockChangesetSourceAnalyze,
   mockConventionalCommitSourceAnalyze,
+  mockChangesetSourceCtor,
+  mockConventionalCommitSourceCtor,
   mockMergeRecommendations,
   mockConsoleError,
   mockCreateContext,
+  mockCreateVersionPlanFromManifestVersions,
   mockGitInstance,
   mockLoadConfig,
+  mockApplyVersionSourcePlan,
   mockPubm,
   mockPubmVersion,
   mockRequiredMissingInformationTasks,
@@ -17,6 +21,23 @@ const {
   mockNotifyNewVersion,
   sharedResolvedConfig,
 } = vi.hoisted(() => {
+  const mockChangesetSourceAnalyze = vi.fn(async () => []);
+  const mockConventionalCommitSourceAnalyze = vi.fn(async () => []);
+  const mockMergeRecommendations = vi.fn(() => []);
+  const packageKey = (pkg: { path?: string; ecosystem?: string }) =>
+    `${pkg.path ?? "."}::${pkg.ecosystem ?? "js"}`;
+  const bumpVersion = (version: string, bump: string): string | null => {
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-.+)?$/.exec(version);
+    if (!match) return null;
+    const major = Number(match[1]);
+    const minor = Number(match[2]);
+    const patch = Number(match[3]);
+    if (bump === "major") return `${major + 1}.0.0`;
+    if (bump === "minor") return `${major}.${minor + 1}.0`;
+    if (bump === "patch") return `${major}.${minor}.${patch + 1}`;
+    return `${major}.${minor}.${patch + 1}-0`;
+  };
+
   const createMockContext = (config: any, options: any, cwd: string): any => ({
     config: config ?? {},
     options: options ?? {},
@@ -44,15 +65,87 @@ const {
     versionSources: "all",
   };
 
+  const mockChangesetSourceCtor = vi.fn(function () {
+    return { analyze: mockChangesetSourceAnalyze };
+  });
+  const mockConventionalCommitSourceCtor = vi.fn(function () {
+    return { analyze: mockConventionalCommitSourceAnalyze };
+  });
+  const mockCreateVersionPlanFromManifestVersions = vi.fn((config: any) => {
+    if (config.packages.length <= 1) {
+      const pkg = config.packages[0];
+      return {
+        mode: "single",
+        version: pkg?.version ?? "",
+        packageKey: pkg ? packageKey(pkg) : ".",
+      };
+    }
+
+    const packages = new Map(
+      config.packages.map((pkg: any) => [packageKey(pkg), pkg.version]),
+    );
+    if (config.versioning === "independent") {
+      return { mode: "independent", packages };
+    }
+    return { mode: "fixed", version: [...packages.values()][0], packages };
+  });
+  const mockApplyVersionSourcePlan = vi.fn(async (ctx: any) => {
+    const config = ctx.config;
+    const versionSources = config.versionSources ?? "all";
+    const sources = [];
+    if (versionSources === "all" || versionSources === "changesets") {
+      sources.push(new (mockChangesetSourceCtor as any)());
+    }
+    if (versionSources === "all" || versionSources === "commits") {
+      sources.push(new (mockConventionalCommitSourceCtor as any)());
+    }
+
+    const sourceResults = [];
+    for (const source of sources) {
+      sourceResults.push(await source.analyze({ cwd: process.cwd() }));
+    }
+    const recommendations = mockMergeRecommendations(sourceResults);
+    if (recommendations.length === 0) return;
+
+    const packages = new Map<string, string>();
+    for (const rec of recommendations) {
+      const matchingPackages = config.packages.filter(
+        (pkg: any) => pkg.path === rec.packagePath,
+      );
+      for (const pkg of matchingPackages) {
+        const version = bumpVersion(pkg.version, rec.bumpType);
+        if (version) packages.set(packageKey(pkg), version);
+      }
+    }
+
+    if (packages.size === 1) {
+      const [key, version] = [...packages.entries()][0];
+      ctx.runtime.versionPlan = { mode: "single", version, packageKey: key };
+    } else if (packages.size > 1) {
+      ctx.runtime.versionPlan =
+        config.versioning === "fixed"
+          ? { mode: "fixed", version: [...packages.values()][0], packages }
+          : { mode: "independent", packages };
+    }
+
+    if (recommendations.some((rec: any) => rec.source === "changeset")) {
+      ctx.runtime.changesetConsumed = true;
+    }
+  });
+
   return {
     mockIsCI: { isCI: false },
-    mockChangesetSourceAnalyze: vi.fn(async () => []),
-    mockConventionalCommitSourceAnalyze: vi.fn(async () => []),
-    mockMergeRecommendations: vi.fn(() => []),
+    mockChangesetSourceAnalyze,
+    mockConventionalCommitSourceAnalyze,
+    mockChangesetSourceCtor,
+    mockConventionalCommitSourceCtor,
+    mockMergeRecommendations,
     mockConsoleError: vi.fn(),
     mockCreateContext: vi.fn(createMockContext),
+    mockCreateVersionPlanFromManifestVersions,
     mockGitInstance: { latestTag: vi.fn() },
     mockLoadConfig: vi.fn(),
+    mockApplyVersionSourcePlan,
     mockPubm: vi.fn(),
     mockPubmVersion: "1.0.0",
     mockRequiredMissingInformationTasks: vi.fn(() => ({ run: vi.fn() })),
@@ -90,12 +183,11 @@ vi.mock("@pubm/core", () => {
     Git: vi.fn(function () {
       return mockGitInstance;
     }),
-    ChangesetSource: vi.fn(function () {
-      return { analyze: mockChangesetSourceAnalyze };
-    }),
-    ConventionalCommitSource: vi.fn(function () {
-      return { analyze: mockConventionalCommitSourceAnalyze };
-    }),
+    applyVersionSourcePlan: mockApplyVersionSourcePlan,
+    createVersionPlanFromManifestVersions:
+      mockCreateVersionPlanFromManifestVersions,
+    ChangesetSource: mockChangesetSourceCtor,
+    ConventionalCommitSource: mockConventionalCommitSourceCtor,
     mergeRecommendations: mockMergeRecommendations,
     createContext: mockCreateContext,
     initI18n: vi.fn(),
@@ -186,6 +278,10 @@ vi.mock("../../src/commands/version-cmd.js", () => ({
   }),
 }));
 
+vi.mock("../../src/commands/workflow.js", () => ({
+  registerWorkflowCommand: vi.fn(),
+}));
+
 vi.mock("../../src/commands/inspect.js", () => ({
   registerInspectCommand: vi.fn((_program: any, getConfig: () => any) => {
     getConfig();
@@ -201,7 +297,9 @@ vi.mock("../../src/commands/setup-skills.js", () => ({
 }));
 
 vi.mock("../../src/commands/snapshot.js", () => ({
-  registerSnapshotCommand: vi.fn(),
+  registerSnapshotCommand: vi.fn((_program: any, getConfig: () => any) => {
+    getConfig();
+  }),
 }));
 
 const mockShowSplash = vi.hoisted(() => vi.fn());
@@ -225,7 +323,11 @@ beforeEach(() => {
   mockGitInstance.latestTag.mockReset();
   mockChangesetSourceAnalyze.mockResolvedValue([]);
   mockConventionalCommitSourceAnalyze.mockResolvedValue([]);
+  mockChangesetSourceCtor.mockClear();
+  mockConventionalCommitSourceCtor.mockClear();
   mockMergeRecommendations.mockReturnValue([]);
+  mockApplyVersionSourcePlan.mockClear();
+  mockCreateVersionPlanFromManifestVersions.mockClear();
   mockLoadConfig.mockReset();
   mockPubm.mockResolvedValue(undefined);
   vi.spyOn(console, "clear").mockImplementation(() => {});
@@ -375,6 +477,18 @@ describe("resolveCliOptions (tested through CLI action)", () => {
     );
     expect(mockPubm).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
+  });
+
+  it("does not expose the legacy --create-pr option", () => {
+    const program = createProgram(sharedResolvedConfig as any);
+    const writeSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockReturnValue(true as never);
+
+    program.outputHelp();
+
+    const helpOutput = vi.mocked(writeSpy).mock.calls.join("\n");
+    expect(helpOutput).not.toContain("--create-pr");
   });
 });
 

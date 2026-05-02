@@ -153,6 +153,50 @@ describe("createDryRunOperations", () => {
     expect(parentRuns).toHaveLength(4);
   });
 
+  it("filters dry-run operations to scoped package keys", async () => {
+    dryRunState.groups = [
+      {
+        ecosystem: "js",
+        registries: [
+          {
+            registry: "npm",
+            packageKeys: ["packages/a::js", "packages/b::js"],
+          },
+        ],
+      },
+    ];
+    dryRunState.descriptors.set("npm", {
+      concurrentPublish: true,
+      label: "npm",
+    });
+    const parent = {
+      title: "",
+      output: "",
+      runOperations: vi.fn(async (operations) => {
+        for (const operation of operations) {
+          await operation.run({}, parent);
+        }
+      }),
+    };
+
+    await createDryRunOperations(true, true, false, {
+      packageKeys: new Set(["packages/a::js"]),
+    })[0]?.run?.(
+      {
+        config: { packages: [] },
+        runtime: {},
+      } as never,
+      parent as never,
+    );
+
+    expect(createRegistryDryRunOperation).toHaveBeenCalledTimes(1);
+    expect(createRegistryDryRunOperation).toHaveBeenCalledWith(
+      "npm",
+      "packages/a::js",
+      undefined,
+    );
+  });
+
   it("restores workspace protocols and syncs package lockfiles", async () => {
     const backups = new Map([["package.json", "{}"]]);
     const ctx = {

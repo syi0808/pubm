@@ -127,6 +127,34 @@ describe("exec", () => {
     );
   });
 
+  it("falls back to an empty PATH suffix when PATH is unset", async () => {
+    const originalPath = process.env.PATH;
+    const spawn = vi.fn().mockReturnValue({
+      stdout: streamFromChunks(["ok"]),
+      stderr: streamFromChunks([]),
+      exited: Promise.resolve(0),
+    });
+    vi.stubGlobal("Bun", { spawn });
+    delete process.env.PATH;
+
+    try {
+      const { exec } = await import("../../../src/utils/exec.js");
+
+      await exec("echo");
+    } finally {
+      process.env.PATH = originalPath;
+    }
+
+    expect(spawn).toHaveBeenCalledWith(
+      ["echo"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          PATH: expect.stringMatching(/node_modules\/\.bin[:;]$/),
+        }),
+      }),
+    );
+  });
+
   it("includes trailing decoder output when stream ends with a partial chunk", async () => {
     // TextDecoder.decode() with no args after streaming may produce trailing
     // bytes. We simulate this by creating a stream whose final chunk encodes
@@ -191,5 +219,32 @@ describe("exec", () => {
         stderr: "boom",
       },
     });
+  });
+
+  it("falls back to node child_process when Bun is unavailable", async () => {
+    vi.stubGlobal("Bun", undefined);
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    const { exec } = await import("../../../src/utils/exec.js");
+
+    const result = await exec(
+      process.execPath,
+      [
+        "-e",
+        "process.stdout.write('node out'); process.stderr.write('node err')",
+      ],
+      {
+        onStdout: (chunk) => stdoutChunks.push(chunk),
+        onStderr: (chunk) => stderrChunks.push(chunk),
+      },
+    );
+
+    expect(result).toEqual({
+      stdout: "node out",
+      stderr: "node err",
+      exitCode: 0,
+    });
+    expect(stdoutChunks).toEqual(["node out"]);
+    expect(stderrChunks).toEqual(["node err"]);
   });
 });

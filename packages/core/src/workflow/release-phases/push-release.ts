@@ -19,12 +19,12 @@ import type { ReleaseOperation } from "../release-operation.js";
 import { prepareReleaseAssets } from "../release-utils/manifest-handling.js";
 import { formatVersionSummary } from "../release-utils/output-formatting.js";
 import {
+  formatTag,
   getPackageName,
   isReleaseExcluded,
   registerRemoteTagRollback,
   requireVersionPlan,
 } from "../release-utils/rollback-handlers.js";
-import { pushViaPr } from "../release-utils/version-pr.js";
 
 const { prerelease } = SemVer;
 
@@ -42,30 +42,23 @@ export function createPushOperation(
       const prePushSha = await git.revParse("HEAD~1");
       task.output = t("task.push.executing");
 
-      const createPr = ctx.options.createPr ?? ctx.config.createPr;
+      const result = await git.push("--follow-tags");
 
-      if (createPr) {
-        await pushViaPr(ctx, git, task);
-      } else {
-        const result = await git.push("--follow-tags");
-
-        if (!result) {
-          task.output = t("task.push.prFallback");
-          await pushViaPr(ctx, git, task);
-        } else {
-          registerRemoteTagRollback(ctx);
-
-          const branch = await git.branch();
-          ctx.runtime.rollback.add({
-            label: t("task.push.forceRevert", { branch }),
-            fn: async () => {
-              const g = new Git();
-              await g.forcePush("origin", `${prePushSha}:${branch}`);
-            },
-            confirm: true,
-          });
-        }
+      if (!result) {
+        throw new Error("git push --follow-tags failed");
       }
+
+      registerRemoteTagRollback(ctx);
+
+      const branch = await git.branch();
+      ctx.runtime.rollback.add({
+        label: t("task.push.forceRevert", { branch }),
+        fn: async () => {
+          const g = new Git();
+          await g.forcePush("origin", `${prePushSha}:${branch}`);
+        },
+        confirm: true,
+      });
 
       task.output = t("task.push.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
@@ -79,6 +72,7 @@ export function createGitHubReleaseOperation(
   dryRun: boolean,
   allowInteractiveTokenPrompt: boolean,
   skipReleaseDraft: boolean,
+  options: { packageKeys?: ReadonlySet<string> } = {},
 ): ReleaseOperation {
   return {
     enabled: hasPublish && !skipReleaseDraft && !dryRun,
@@ -133,10 +127,11 @@ export function createGitHubReleaseOperation(
         if (plan.mode === "independent") {
           // Per-package releases
           for (const [key, pkgVersion] of plan.packages) {
+            if (options.packageKeys && !options.packageKeys.has(key)) continue;
             const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
             const pkgName = getPackageName(ctx, key);
-            const tag = `${pkgName}@${pkgVersion}`;
+            const tag = formatTag(ctx, key, pkgVersion);
             task.output = t("task.release.creating", { tag });
 
             const git = new Git();
@@ -282,8 +277,7 @@ export function createGitHubReleaseOperation(
           for (const [key, pkgVersion] of plan.packages) {
             const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-            const pkgName = getPackageName(ctx, key);
-            const tag = `${pkgName}@${pkgVersion}`;
+            const tag = formatTag(ctx, key, pkgVersion);
 
             const body = await buildReleaseBody(ctx, {
               pkgPath,

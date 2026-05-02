@@ -27,20 +27,22 @@ const mockSetupSkills = vi.hoisted(() => ({
   runSetupSkills: vi.fn(),
 }));
 
-vi.mock("@pubm/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@pubm/core")>();
-  return {
-    ...actual,
-    t: (key: string, values?: Record<string, unknown>) =>
-      values ? `${key} ${JSON.stringify(values)}` : key,
-    ui: {
-      error: vi.fn(),
-      info: vi.fn(),
-      success: vi.fn(),
-      warn: vi.fn(),
-    },
-  };
-});
+vi.mock("@pubm/core", () => ({
+  detectWorkspace: vi.fn(() => []),
+  discoverPackages: vi.fn(async () => []),
+  t: (key: string, values?: Record<string, unknown>) =>
+    values ? `${key} ${JSON.stringify(values)}` : key,
+  ui: {
+    error: vi.fn(),
+    info: vi.fn(),
+    success: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
+vi.mock("@pubm/runner", () => ({
+  prompt: vi.fn(),
+}));
 
 vi.mock("../../../src/commands/init-prompts.js", async (importOriginal) => {
   const actual =
@@ -149,11 +151,16 @@ describe("init command contract", () => {
       "!.pubm/changesets/",
     );
     expect(
-      existsSync(path.join(root, ".github", "workflows", "release.yml")),
+      existsSync(
+        path.join(root, ".github", "workflows", "pubm-release-pr.yml"),
+      ),
+    ).toBe(true);
+    expect(
+      existsSync(path.join(root, ".github", "workflows", "pubm-publish.yml")),
     ).toBe(true);
     expect(
       existsSync(
-        path.join(root, ".github", "workflows", "changeset-check.yml"),
+        path.join(root, ".github", "workflows", "pubm-changeset-check.yml"),
       ),
     ).toBe(true);
     expect(readFileSync(path.join(root, "pubm.config.ts"), "utf-8")).toContain(

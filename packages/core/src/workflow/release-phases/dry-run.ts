@@ -23,6 +23,7 @@ export function createDryRunOperations(
   dryRun: boolean,
   validatePreparePhase: boolean,
   skipDryRun: boolean,
+  options: { packageKeys?: ReadonlySet<string> } = {},
 ): ReleaseOperation[] {
   const shouldValidatePublishability = dryRun || validatePreparePhase;
 
@@ -34,7 +35,10 @@ export function createDryRunOperations(
         await resolveWorkspaceProtocols(ctx);
         await applyVersionsForDryRun(ctx);
 
-        const dryRunOperations = await collectDryRunPublishOperations(ctx);
+        const dryRunOperations = await collectDryRunPublishOperations(
+          ctx,
+          options,
+        );
         parentTask.title = t("task.dryRunValidation.titleWithTargets", {
           count: countRegistryTargets(
             collectEcosystemRegistryGroups(ctx.config),
@@ -90,8 +94,19 @@ export function createDryRunOperations(
 
 async function collectDryRunPublishOperations(
   ctx: PubmContext,
+  options: { packageKeys?: ReadonlySet<string> } = {},
 ): Promise<ReleaseOperation[]> {
-  const groups = collectEcosystemRegistryGroups(ctx.config);
+  const groups = collectEcosystemRegistryGroups(ctx.config)
+    .map((group) => ({
+      ...group,
+      registries: group.registries
+        .map(({ registry, packageKeys }) => ({
+          registry,
+          packageKeys: filterPackageKeys(packageKeys, options.packageKeys),
+        }))
+        .filter(({ packageKeys }) => packageKeys.length > 0),
+    }))
+    .filter((group) => group.registries.length > 0);
 
   return await Promise.all(
     groups.map(async (group) => {
@@ -136,4 +151,11 @@ async function collectDryRunPublishOperations(
       } satisfies ReleaseOperation;
     }),
   );
+}
+
+function filterPackageKeys(
+  packageKeys: string[],
+  allowed?: ReadonlySet<string>,
+): string[] {
+  return allowed ? packageKeys.filter((key) => allowed.has(key)) : packageKeys;
 }

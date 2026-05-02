@@ -15,6 +15,7 @@ export interface VersionEntry {
 
 export interface VersionRecommendation {
   packagePath: string;
+  packageKey?: string;
   bumpType: BumpType;
   source: string;
   entries: VersionEntry[];

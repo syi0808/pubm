@@ -25,7 +25,7 @@ description: 记录发布意图、生成 changelog，并控制版本变更。
 pubm init
 ```
 
-在 setup 过程中，`pubm init` 会询问是否启用 changesets 工作流。选择"是"会创建 `.pubm/changesets/` 目录，生成 `.github/workflows/changeset-check.yml` 用于 PR 强制检查，并更新 `.gitignore` 以跟踪 changeset 文件，同时忽略其他 `.pubm/` 内容。
+在 setup 过程中，`pubm init` 会询问是否启用 changesets 工作流。选择"是"会创建 `.pubm/changesets/` 目录，生成 `.github/workflows/pubm-changeset-check.yml` 用于 PR 强制检查，并更新 `.gitignore` 以跟踪 changeset 文件，同时忽略其他 `.pubm/` 内容。
 
 ## 创建 changeset
 

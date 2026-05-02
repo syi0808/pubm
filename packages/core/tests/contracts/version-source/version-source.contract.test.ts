@@ -6,6 +6,10 @@ import type { ResolvedPackageConfig } from "../../../src/config/types.js";
 import { handleMultiPackage } from "../../../src/tasks/prompts/independent-mode.js";
 import { analyzeAllSources } from "../../../src/tasks/prompts/version-choices.js";
 import { mergeRecommendations } from "../../../src/version-source/index.js";
+import {
+  applyVersionSourcePlan,
+  createVersionPlanFromRecommendations,
+} from "../../../src/version-source/plan.js";
 import type { VersionRecommendation } from "../../../src/version-source/types.js";
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -128,6 +132,7 @@ describe("version source contracts", () => {
     expect(recommendations).toEqual([
       {
         packagePath: "packages/core",
+        packageKey: "packages/core::js",
         bumpType: "minor",
         source: "changeset",
         entries: [
@@ -139,6 +144,69 @@ describe("version source contracts", () => {
       },
     ]);
     expect(mockExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it("keeps same-path multi-ecosystem changeset recommendations separate", async () => {
+    const root = makeRoot();
+    const packages = [
+      makePackage({
+        ecosystem: "js",
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+      makePackage({
+        ecosystem: "rust",
+        name: "core-crate",
+        path: "packages/core",
+        version: "1.0.0",
+        registries: ["crates"],
+      }),
+    ];
+    writeChangeset(
+      root,
+      "multi-ecosystem.md",
+      [
+        "---",
+        '"packages/core::js": minor',
+        '"packages/core::rust": patch',
+        "---",
+        "",
+        "Release both ecosystems independently.",
+        "",
+      ].join("\n"),
+    );
+
+    const recommendations = await analyzeAllSources(
+      makeContext(root, packages, "changesets") as never,
+    );
+
+    expect(recommendations).toEqual([
+      {
+        packagePath: "packages/core",
+        packageKey: "packages/core::js",
+        bumpType: "minor",
+        source: "changeset",
+        entries: [
+          {
+            summary: "Release both ecosystems independently.",
+            id: "multi-ecosystem",
+          },
+        ],
+      },
+      {
+        packagePath: "packages/core",
+        packageKey: "packages/core::rust",
+        bumpType: "patch",
+        source: "changeset",
+        entries: [
+          {
+            summary: "Release both ecosystems independently.",
+            id: "multi-ecosystem",
+          },
+        ],
+      },
+    ]);
   });
 
   it("uses conventional commits only when versionSources is commits", async () => {
@@ -294,6 +362,311 @@ describe("version source contracts", () => {
         ["packages/cli::js", "2.0.1"],
       ]),
     });
+  });
+
+  it("keeps a single recommendation package-scoped in independent monorepos", () => {
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+      makePackage({
+        name: "@scope/cli",
+        path: "packages/cli",
+        version: "2.0.0",
+      }),
+    ];
+
+    const plan = createVersionPlanFromRecommendations(
+      makeContext("", packages, "changesets", "independent").config as never,
+      [
+        {
+          packagePath: "packages/core",
+          packageKey: "packages/core::js",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add API", id: "cs-1" }],
+        },
+      ],
+    );
+
+    expect(plan).toEqual({
+      mode: "independent",
+      packages: new Map([["packages/core::js", "1.1.0"]]),
+    });
+  });
+
+  it("applies fixed and linked group bump semantics in independent monorepos", () => {
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+      makePackage({
+        name: "@scope/cli",
+        path: "packages/cli",
+        version: "2.0.0",
+      }),
+      makePackage({
+        name: "@scope/ui",
+        path: "packages/ui",
+        version: "3.0.0",
+      }),
+    ];
+    const ctx = makeContext("", packages, "changesets", "independent");
+    ctx.config.fixed = [["@scope/core", "@scope/cli"]];
+    ctx.config.linked = [["@scope/*"]];
+
+    const plan = createVersionPlanFromRecommendations(ctx.config as never, [
+      {
+        packagePath: "packages/core",
+        packageKey: "packages/core::js",
+        bumpType: "patch",
+        source: "changeset",
+        entries: [{ summary: "Fix core", id: "cs-1" }],
+      },
+      {
+        packagePath: "packages/ui",
+        packageKey: "packages/ui::js",
+        bumpType: "minor",
+        source: "changeset",
+        entries: [{ summary: "Add UI", id: "cs-2" }],
+      },
+    ]);
+
+    expect(plan).toEqual({
+      mode: "independent",
+      packages: new Map([
+        ["packages/cli::js", "2.1.0"],
+        ["packages/core::js", "1.1.0"],
+        ["packages/ui::js", "3.1.0"],
+      ]),
+    });
+  });
+
+  it("expands fixed version plans to every configured package", () => {
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+      makePackage({
+        name: "@scope/cli",
+        path: "packages/cli",
+        version: "2.0.0",
+      }),
+    ];
+
+    const plan = createVersionPlanFromRecommendations(
+      makeContext("", packages, "changesets", "fixed").config as never,
+      [
+        {
+          packagePath: "packages/core",
+          packageKey: "packages/core::js",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add API", id: "cs-1" }],
+        },
+      ],
+    );
+
+    expect(plan).toEqual({
+      mode: "fixed",
+      version: "1.1.0",
+      packages: new Map([
+        ["packages/core::js", "1.1.0"],
+        ["packages/cli::js", "1.1.0"],
+      ]),
+    });
+  });
+
+  it("handles empty, invalid, and single-package recommendation plans", () => {
+    const singlePackage = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+    ];
+    expect(
+      createVersionPlanFromRecommendations(
+        makeContext("", singlePackage, "changesets", "independent")
+          .config as never,
+        [],
+      ),
+    ).toBeUndefined();
+    expect(
+      createVersionPlanFromRecommendations(
+        makeContext("", singlePackage, "changesets", "independent")
+          .config as never,
+        [
+          {
+            packagePath: "packages/missing",
+            bumpType: "patch",
+            source: "changeset",
+            entries: [],
+          },
+        ],
+      ),
+    ).toBeUndefined();
+    expect(
+      createVersionPlanFromRecommendations(
+        makeContext(
+          "",
+          [
+            makePackage({
+              name: "@scope/core",
+              path: "packages/core",
+              version: "invalid",
+            }),
+          ],
+          "changesets",
+          "independent",
+        ).config as never,
+        [
+          {
+            packagePath: "packages/core",
+            bumpType: "patch",
+            source: "changeset",
+            entries: [],
+          },
+        ],
+      ),
+    ).toBeUndefined();
+
+    expect(
+      createVersionPlanFromRecommendations(
+        makeContext("", singlePackage, "changesets", "independent")
+          .config as never,
+        [
+          {
+            packagePath: "packages/core",
+            bumpType: "minor",
+            source: "changeset",
+            entries: [],
+          },
+        ],
+      ),
+    ).toEqual({
+      mode: "single",
+      packageKey: "packages/core::js",
+      version: "1.1.0",
+    });
+  });
+
+  it("uses the highest semver result for fixed version plans", () => {
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+      makePackage({
+        name: "@scope/cli",
+        path: "packages/cli",
+        version: "2.0.0",
+      }),
+    ];
+
+    expect(
+      createVersionPlanFromRecommendations(
+        makeContext("", packages, "changesets", "fixed").config as never,
+        [
+          {
+            packagePath: "packages/core",
+            bumpType: "patch",
+            source: "changeset",
+            entries: [],
+          },
+          {
+            packagePath: "packages/cli",
+            bumpType: "minor",
+            source: "changeset",
+            entries: [],
+          },
+        ],
+      ),
+    ).toEqual({
+      mode: "fixed",
+      version: "2.1.0",
+      packages: new Map([
+        ["packages/core::js", "2.1.0"],
+        ["packages/cli::js", "2.1.0"],
+      ]),
+    });
+  });
+
+  it("applies version source plans and marks consumed changesets", async () => {
+    const root = makeRoot();
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+    ];
+    writeChangeset(
+      root,
+      "api.md",
+      '---\n"@scope/core": minor\n---\n\nAdd API.\n',
+    );
+    const changesetCtx = makeContext(root, packages, "changesets");
+
+    await applyVersionSourcePlan(changesetCtx as never);
+
+    expect(changesetCtx.runtime.versionPlan).toEqual({
+      mode: "single",
+      packageKey: "packages/core::js",
+      version: "1.1.0",
+    });
+    expect(changesetCtx.runtime.changesetConsumed).toBe(true);
+
+    const commitCtx = makeContext(root, packages, "commits");
+    mockGitLog(
+      commitLog(
+        "COMMIT_START abc1234",
+        "fix(core): repair path handling",
+        "COMMIT_FILES",
+        "packages/core/src/index.ts",
+      ),
+    );
+
+    await applyVersionSourcePlan(commitCtx as never);
+
+    expect(commitCtx.runtime.versionPlan).toEqual({
+      mode: "single",
+      packageKey: "packages/core::js",
+      version: "1.0.1",
+    });
+    expect(commitCtx.runtime.changesetConsumed).toBe(false);
+  });
+
+  it("uses all version sources by default and leaves runtime unchanged without recommendations", async () => {
+    const root = makeRoot();
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+    ];
+    mockGitLog(
+      commitLog(
+        "COMMIT_START abc1234",
+        "docs(core): clarify usage",
+        "COMMIT_FILES",
+        "packages/core/README.md",
+      ),
+    );
+    const ctx = makeContext(root, packages);
+    delete ctx.config.versionSources;
+
+    await applyVersionSourcePlan(ctx as never);
+
+    expect(ctx.runtime).toEqual({});
   });
 
   it("returns no recommendation when changesets and commits have no bump", async () => {

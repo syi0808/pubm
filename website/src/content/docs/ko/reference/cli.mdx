@@ -208,12 +208,30 @@ pubm init
 1. **패키지 감지**: 저장소에서 매니페스트 파일(`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`)과 워크스페이스 설정을 스캔한 뒤, 감지된 패키지와 레지스트리를 확인합니다.
 2. **기본 설정**: 릴리스 브랜치와 버전 전략(`independent` 또는 `fixed`)을 묻습니다.
 3. **릴리스 옵션**: changelog 생성과 GitHub Release 초안에 대해 묻습니다.
-4. **워크플로 설정**: changeset 워크플로 활성화(`.pubm/changesets/`, `.github/workflows/changeset-check.yml` 생성 및 `.gitignore` 업데이트)와 CI 릴리스 워크플로(`.github/workflows/release.yml`) 생성을 제안합니다.
+4. **워크플로 설정**: changeset 워크플로 활성화(`.pubm/changesets/`, `.github/workflows/pubm-changeset-check.yml` 생성 및 `.gitignore` 업데이트)와 CI 릴리스 워크플로(`.github/workflows/pubm-release-pr.yml` and `.github/workflows/pubm-publish.yml`) 생성을 제안합니다.
 5. **코딩 에이전트 스킬**: Claude Code, Codex CLI, Gemini CLI용 코딩 에이전트 스킬 다운로드 및 설치를 제안합니다. 이는 `pubm setup-skills`와 같습니다.
 
 선택 사항이 기본값과 다를 때만 `pubm.config.ts` 파일이 생성됩니다. 모든 값이 기본값과 일치하면 설정 파일은 작성되지 않습니다.
 
 이 명령은 플래그나 옵션을 받지 않습니다. 모든 설정은 대화형으로 수집됩니다.
+
+## `pubm workflow install github`
+
+Install GitHub Actions workflows for the release PR workflow.
+
+```bash
+pubm workflow install github
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `--force` | Overwrite existing generated workflow files |
+| `--dry-run` | Print the files that would be written |
+| `--package-manager <pm>` | Choose setup hints for `bun`, `pnpm`, `yarn`, `npm`, or `cargo` |
+| `--branch <branch>` | Target branch for release PRs and publish guardrails |
+| `--skip-changeset-check` | Do not install `.github/workflows/pubm-changeset-check.yml` |
+| `--skip-release-pr` | Do not install `.github/workflows/pubm-release-pr.yml` |
+| `--skip-publish` | Do not install `.github/workflows/pubm-publish.yml` |
 
 ## `pubm setup-skills`
 

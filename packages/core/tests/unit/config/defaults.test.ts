@@ -232,9 +232,49 @@ describe("resolveConfig", () => {
     expect(resolved.rollback.strategy).toBe("individual");
   });
 
-  it("defaults createPr to false", async () => {
+  it("defaults releasePr config for GitHub action workflows", async () => {
     const config = await resolveConfig({});
-    expect(config.createPr).toBe(false);
+
+    expect(config.releasePr).toEqual({
+      enabled: false,
+      dryRun: true,
+      branchTemplate: "pubm/release/{scopeSlug}",
+      titleTemplate: "chore(release): {scope} {version}",
+      label: "pubm:release-pr",
+      bumpLabels: {
+        patch: "release:patch",
+        minor: "release:minor",
+        major: "release:major",
+        prerelease: "release:prerelease",
+      },
+      grouping: "auto",
+    });
+  });
+
+  it("merges releasePr config over defaults", async () => {
+    const config = await resolveConfig({
+      releasePr: {
+        dryRun: false,
+        branchTemplate: "release/{scopeSlug}",
+        bumpLabels: { minor: "kind/minor" },
+        grouping: "independent",
+      },
+    });
+
+    expect(config.releasePr).toEqual({
+      enabled: false,
+      dryRun: false,
+      branchTemplate: "release/{scopeSlug}",
+      titleTemplate: "chore(release): {scope} {version}",
+      label: "pubm:release-pr",
+      bumpLabels: {
+        patch: "release:patch",
+        minor: "kind/minor",
+        major: "release:major",
+        prerelease: "release:prerelease",
+      },
+      grouping: "independent",
+    });
   });
 
   it("defaults dangerouslyAllowUnpublish to false", async () => {

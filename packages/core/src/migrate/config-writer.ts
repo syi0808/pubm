@@ -12,7 +12,6 @@ const CONFIG_KEY_ORDER: (keyof PubmConfig)[] = [
   "contents",
   "releaseDraft",
   "releaseNotes",
-  "createPr",
   "fixed",
   "linked",
   "updateInternalDependencies",
