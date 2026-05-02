@@ -176,20 +176,36 @@ describe("runReleaseOperations", () => {
     ]);
   });
 
-  it("honors fallback task skips without running the skipped task", async () => {
-    const task = vi.fn();
+  it("honors fallback task skips without running the skipped task or aborting siblings", async () => {
+    const skippedTask = vi.fn();
+    const calls: string[] = [];
 
     await runReleaseOperations(ctx, {
       title: "parent",
       run: (_ctx, operation) =>
-        operation.runTasks({
-          title: "skip-task",
-          skip: "not needed",
-          task,
-        }),
+        operation.runTasks([
+          {
+            title: "skip-task",
+            skip: "not needed",
+            task: skippedTask,
+          },
+          {
+            title: "body-skip",
+            task: (_ctx, task) => {
+              calls.push("body-skip");
+              task.skip("skip current task only");
+              calls.push("unreachable");
+            },
+          },
+          {
+            title: "after",
+            task: () => calls.push("after"),
+          },
+        ]),
     });
 
-    expect(task).not.toHaveBeenCalled();
+    expect(skippedTask).not.toHaveBeenCalled();
+    expect(calls).toEqual(["body-skip", "after"]);
   });
 
   it("keeps running fallback tasks after non-fatal task failures", async () => {
@@ -246,6 +262,33 @@ describe("runReleaseOperations", () => {
 
     expect(attempts).toBe(2);
     expect(calls.sort()).toEqual(["a", "b"]);
+  });
+
+  it("honors numeric concurrency limits for fallback tasks", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const calls: number[] = [];
+
+    await runReleaseOperations(ctx, {
+      title: "parent",
+      run: (_ctx, operation) =>
+        operation.runTasks(
+          Array.from({ length: 4 }, (_, index) => ({
+            title: `task-${index}`,
+            task: async () => {
+              active += 1;
+              maxActive = Math.max(maxActive, active);
+              await new Promise<void>((resolve) => setTimeout(resolve, 0));
+              calls.push(index);
+              active -= 1;
+            },
+          })),
+          { concurrent: 2 },
+        ),
+    });
+
+    expect(maxActive).toBeLessThanOrEqual(2);
+    expect(calls).toHaveLength(4);
   });
 
   it("waits for every concurrent operation before surfacing failures", async () => {

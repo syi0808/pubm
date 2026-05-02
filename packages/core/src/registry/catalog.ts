@@ -300,6 +300,7 @@ export function registerPrivateRegistry(
           return createNpmDryRunPublishTask(packagePath);
         }),
     },
+    useWorkflowTaskFactory: true,
     connector: () => npmConnector(),
     factory: async (packagePath) => {
       // Lazy import to break circular dependency:

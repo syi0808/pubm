@@ -108,6 +108,13 @@ class ReleaseOperationSkip extends Error {
   }
 }
 
+class ReleaseTaskSkip extends Error {
+  constructor(readonly reason?: string) {
+    super(reason ?? "Release task skipped");
+    this.name = "ReleaseTaskSkip";
+  }
+}
+
 class MultipleReleaseOperationsError extends Error {
   constructor(readonly errors: unknown[]) {
     super("Multiple release operations failed.");
@@ -231,15 +238,43 @@ async function runTaskFallback(
 ): Promise<void> {
   const list = Array.isArray(tasks) ? tasks : [tasks];
   if (options?.concurrent) {
-    await Promise.all(
-      list.map((task) => runOneTaskFallback(ctx, operation, task)),
-    );
+    await runConcurrentTaskFallback(ctx, operation, list, options.concurrent);
     return;
   }
 
   for (const task of list) {
     await runOneTaskFallback(ctx, operation, task);
   }
+}
+
+async function runConcurrentTaskFallback(
+  ctx: PubmContext,
+  operation: ReleaseOperationContext,
+  tasks: readonly OperationUnit<PubmContext>[],
+  concurrent: true | number,
+): Promise<void> {
+  const limit =
+    concurrent === true ? tasks.length : Math.max(1, Math.floor(concurrent));
+
+  if (limit <= 1) {
+    for (const task of tasks) {
+      await runOneTaskFallback(ctx, operation, task);
+    }
+    return;
+  }
+
+  let index = 0;
+  const worker = async (): Promise<void> => {
+    while (index < tasks.length) {
+      const task = tasks[index++];
+      if (!task) return;
+      await runOneTaskFallback(ctx, operation, task);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+  );
 }
 
 async function runOneTaskFallback(
@@ -256,7 +291,6 @@ async function runOneTaskFallback(
   const skip =
     typeof task.skip === "function" ? await task.skip(ctx) : task.skip;
   if (skip) {
-    operation.skip(typeof skip === "string" ? skip : undefined);
     return;
   }
 
@@ -269,6 +303,7 @@ async function runOneTaskFallback(
       await handleTaskResultFallback(result, ctx, taskContext);
       return;
     } catch (error) {
+      if (error instanceof ReleaseTaskSkip) return;
       if (attempt < attempts) {
         if (delay > 0) await sleep(delay);
         continue;
@@ -313,7 +348,9 @@ function createTaskContextFallback(
       state: "running",
       path: [operation.title],
     },
-    skip: (message?: string) => operation.skip(message),
+    skip: (message?: string) => {
+      throw new ReleaseTaskSkip(message);
+    },
     ["new" + "Task" + "Runner"]: <NewContext extends object>(
       tasks: ChildUnitInput<NewContext>,
       options?: OperationUnitOptions<NewContext>,

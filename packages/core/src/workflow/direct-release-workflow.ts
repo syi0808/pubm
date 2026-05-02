@@ -97,7 +97,7 @@ function resolveWorkflowProfile(ctx: PubmContext): WorkflowReleaseProfile {
 function shouldAllowInteractiveReleasePrompt(
   profile: WorkflowReleaseProfile,
 ): boolean {
-  return profile === "full" && !isCI;
+  return profile === "full" && !isCI && !!process.stdin.isTTY;
 }
 
 function createExecutableWorkflowStep<I, O>(
@@ -495,7 +495,12 @@ export class DirectReleaseWorkflow implements Workflow {
       current: undefined,
     };
 
+    let handlingInterrupt = false;
+    let removeInterruptListener = (): void => {};
     const onSigint = async () => {
+      if (handlingInterrupt) return;
+      handlingInterrupt = true;
+      removeInterruptListener();
       runCleanup(cleanupRef);
       await ctx.runtime.rollback.execute(ctx, {
         interactive: false,
@@ -503,7 +508,7 @@ export class DirectReleaseWorkflow implements Workflow {
       });
       process.exit(130);
     };
-    const removeInterruptListener = services.signals.onInterrupt(onSigint);
+    removeInterruptListener = services.signals.onInterrupt(onSigint);
     const executeOperations = services.operations?.run ?? runReleaseOperations;
 
     try {
@@ -568,7 +573,11 @@ export class DirectReleaseWorkflow implements Workflow {
       removeInterruptListener();
       runCleanup(cleanupRef);
 
-      await ctx.runtime.pluginRunner.runErrorHook(ctx, error as Error);
+      try {
+        await ctx.runtime.pluginRunner.runErrorHook(ctx, error as Error);
+      } catch (hookError) {
+        consoleError(hookError as Error);
+      }
 
       consoleError(error as Error);
       await ctx.runtime.rollback.execute(ctx, {

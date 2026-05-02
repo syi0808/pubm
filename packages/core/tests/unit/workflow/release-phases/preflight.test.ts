@@ -231,14 +231,15 @@ describe("workflow preflight phases", () => {
     expect(preflightState.checks).toEqual(["prerequisites", "conditions"]);
   });
 
-  it("skips local early auth when prompts are disabled", async () => {
+  it("collects local early auth tokens without prompting when prompts are disabled", async () => {
     const ctx = createContext({ promptEnabled: false, credentials: [] });
     const cleanupRef: CleanupRef = { current: undefined };
 
     await runLocalPreflight(ctx, chainCleanup, cleanupRef);
 
-    expect(preflightState.jsr.token).toBeUndefined();
-    expect(preflightState.cleanupCalls).toEqual([]);
+    expect(preflightState.jsr.token).toBe("jsr-token");
+    expect(preflightState.collectedTokenPromptFlags).toEqual([false]);
+    expect(preflightState.cleanupCalls).toEqual(["inject:jsr"]);
     expect(preflightState.checks).toEqual(["prerequisites", "conditions"]);
   });
 

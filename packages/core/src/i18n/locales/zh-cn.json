@@ -233,7 +233,7 @@
   "task.preflight.syncing": "正在将令牌同步到 GitHub Secrets...",
   "task.preflight.synced": "令牌已同步到 GitHub Secrets。",
   "error.preflight.syncFailed": "将令牌同步到 GitHub Secrets 失败。请确保 `gh` CLI 已安装并通过认证（`gh auth login`）。",
-  "error.preflight.syncRequired": "GitHub Secrets sync requires an interactive terminal. Run `pubm --phase prepare` locally or sync secrets with `pubm secrets sync`.",
+  "error.preflight.syncRequired": "GitHub Secrets 同步需要交互式终端。请在本地运行 `pubm --phase prepare`，或使用 `pubm secrets sync` 同步 Secrets。",
   "error.preflight.saveSyncState": "保存 GitHub Secrets 同步状态失败。",
   "error.preflight.envInvalid": "{env} 已设置但无效。请更新环境变量。",
   "error.preflight.envRequired": "需要 {label}。请设置 {env} 环境变量。",

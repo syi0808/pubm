@@ -1,3 +1,4 @@
+import process from "node:process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PubmContext, VersionPlan } from "../../../src/context.js";
 import { DirectReleaseWorkflow } from "../../../src/workflow/direct-release-workflow.js";
@@ -31,6 +32,15 @@ const operationMocks = vi.hoisted(() => ({
   createTestOperation: vi.fn(() => ({ run: vi.fn() })),
   createVersionOperation: vi.fn(() => ({ run: vi.fn() })),
 }));
+
+const originalStdinIsTTY = process.stdin.isTTY;
+
+function setStdinTTY(isTTY: boolean | undefined): void {
+  Object.defineProperty(process.stdin, "isTTY", {
+    configurable: true,
+    value: isTTY,
+  });
+}
 
 vi.mock("../../../src/registry/catalog.js", () => ({
   registryCatalog: {
@@ -136,10 +146,12 @@ describe("DirectReleaseWorkflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMocks.isCI = false;
+    setStdinTTY(true);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setStdinTTY(originalStdinIsTTY);
   });
 
   it("describes direct release domain steps in execution order", () => {
@@ -327,6 +339,46 @@ describe("DirectReleaseWorkflow", () => {
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
+  it("runs SIGINT rollback at most once", async () => {
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    let handler: (() => void | Promise<void>) | undefined;
+    const removeInterruptListener = vi.fn();
+    const services = createMockServices();
+    vi.mocked(services.signals.onInterrupt).mockImplementationOnce(
+      (onInterrupt) => {
+        handler = onInterrupt;
+        return removeInterruptListener;
+      },
+    );
+    vi.spyOn(process, "exit").mockImplementation(((
+      code?: number | string | null,
+    ) => {
+      throw new Error(`exit ${code}`);
+    }) as never);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    operationMocks.createTestOperation.mockReturnValueOnce({
+      run: async () => {
+        const first = handler?.();
+        const second = handler?.();
+        await Promise.allSettled([first, second]);
+      },
+    });
+
+    await workflow.run(ctx, services);
+
+    expect(ctx.runtime.rollback.execute).toHaveBeenCalledTimes(1);
+    expect(ctx.runtime.rollback.execute).toHaveBeenCalledWith(ctx, {
+      interactive: false,
+      sigint: true,
+    });
+    expect(process.exit).toHaveBeenCalledWith(130);
+  });
+
   it("runs split prepare preflight whenever phase prepare is explicit in local environment", async () => {
     envMocks.isCI = false;
     const workflow = new DirectReleaseWorkflow();
@@ -449,6 +501,65 @@ describe("DirectReleaseWorkflow", () => {
       false,
       false,
     );
+  });
+
+  it("keeps release token prompts disabled for local non-TTY direct release", async () => {
+    setStdinTTY(false);
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    const services = createMockServices();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await workflow.run(ctx, services);
+
+    expect(ctx.runtime.promptEnabled).toBe(false);
+    expect(operationMocks.createGitHubReleaseOperation).toHaveBeenCalledWith(
+      true,
+      false,
+      false,
+      false,
+    );
+  });
+
+  it("rolls back the original failure when an error hook throws", async () => {
+    const workflow = new DirectReleaseWorkflow();
+    const ctx = createMockContext({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.2.3",
+    });
+    const originalError = new Error("release failed");
+    const hookError = new Error("hook failed");
+    vi.mocked(ctx.runtime.pluginRunner.runErrorHook).mockRejectedValueOnce(
+      hookError,
+    );
+    operationMocks.createTestOperation.mockReturnValueOnce({
+      run: async () => {
+        throw originalError;
+      },
+    });
+    const services = createMockServices();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation(((
+      code?: number | string | null,
+    ) => {
+      throw new Error(`exit ${code}`);
+    }) as never);
+
+    await expect(workflow.run(ctx, services)).rejects.toThrow("exit 1");
+
+    expect(ctx.runtime.pluginRunner.runErrorHook).toHaveBeenCalledWith(
+      ctx,
+      originalError,
+    );
+    expect(console.error).toHaveBeenCalledTimes(2);
+    expect(ctx.runtime.rollback.execute).toHaveBeenCalledWith(ctx, {
+      interactive: true,
+    });
   });
 
   it("records the version output pinned by workflow execution", async () => {

@@ -128,11 +128,15 @@ export async function runLocalPreflight(
     return desc?.requiresEarlyAuth;
   });
 
-  if (earlyAuthRegistries.length > 0 && ctx.runtime.promptEnabled) {
+  if (earlyAuthRegistries.length > 0) {
     await executeOperations(ctx, {
       title: t("task.tokens.ensuring"),
       run: async (_ctx, task): Promise<void> => {
-        const tokens = await collectTokens(earlyAuthRegistries, task);
+        const tokens = await collectTokens(
+          earlyAuthRegistries,
+          task,
+          ctx.runtime.promptEnabled,
+        );
         cleanupRef.current = injectTokensToEnv(tokens);
         // TODO(extensibility): replace with descriptor-driven client injection (e.g., onTokenCollected callback)
         if (tokens.jsr) {
