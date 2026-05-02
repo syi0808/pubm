@@ -1,0 +1,26 @@
+name: Get Out Spam
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  scan:
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/get-out-spam
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: comment
+          registry-pr: 'false'

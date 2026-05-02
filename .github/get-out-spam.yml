@@ -1,0 +1,26 @@
+mode:
+  publicComment: true
+  labelAuthorRisk: false
+
+thresholds:
+  commentAt: suspicious
+  labelAt: high
+  registryPr: false
+
+events:
+  issuesOpened: true
+  pullRequestOpened: true
+  issueCommentCreated: true
+
+allowlist:
+  users: []
+  orgs: []
+
+labels:
+  authorRisk: maintainer-review
+
+limits:
+  maxSearchResults: 20
+  maxTimelineRequests: 12
+  outreachWindowDays: 90
+  distributionWindowDays: 30

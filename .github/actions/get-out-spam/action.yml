@@ -1,0 +1,29 @@
+name: Get Out Spam
+description: Scan new GitHub interactions for maintainer review signals.
+inputs:
+  github-token:
+    description: GitHub token used for API reads and optional comments.
+    required: true
+  mode:
+    description: Action mode. Use comment to post configured review hints, or dry-run to scan only.
+    required: false
+    default: comment
+  registry:
+    description: Optional public evidence registry in owner/repo format.
+    required: false
+  registry-pr:
+    description: Whether to propose evidence registry PRs when configured.
+    required: false
+    default: "true"
+outputs:
+  risk-level:
+    description: Computed risk level.
+  risk-score:
+    description: Computed risk score.
+  public-comment:
+    description: Whether the action created or skipped a public review comment.
+  label:
+    description: Whether the action applied or skipped the configured label.
+runs:
+  using: node20
+  main: dist/index.cjs
