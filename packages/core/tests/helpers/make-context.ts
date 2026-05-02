@@ -6,7 +6,7 @@ import type { ResolvedOptions } from "../../src/types/options.js";
 export function makeTestConfig(
   overrides: Partial<ResolvedPubmConfig> = {},
 ): ResolvedPubmConfig {
-  return {
+  const base: ResolvedPubmConfig = {
     versioning: "independent",
     branch: "main",
     changelog: true,
@@ -25,7 +25,6 @@ export function makeTestConfig(
     releaseNotes: true,
     releasePr: {
       enabled: false,
-      dryRun: true,
       branchTemplate: "pubm/release/{scopeSlug}",
       titleTemplate: "chore(release): {scope} {version}",
       label: "pubm:release-pr",
@@ -35,7 +34,9 @@ export function makeTestConfig(
         major: "release:major",
         prerelease: "release:prerelease",
       },
-      grouping: "auto",
+      grouping: "independent",
+      fixed: [],
+      linked: [],
     },
     rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
     lockfileSync: "optional",
@@ -43,8 +44,23 @@ export function makeTestConfig(
     ecosystems: {},
     validate: { cleanInstall: true, entryPoints: true, extraneousFiles: true },
     plugins: [],
-    ...overrides,
   };
+
+  const config: ResolvedPubmConfig = { ...base, ...overrides };
+  const releasePr = overrides.releasePr;
+  config.releasePr = {
+    ...base.releasePr,
+    ...releasePr,
+    bumpLabels: {
+      ...base.releasePr.bumpLabels,
+      ...releasePr?.bumpLabels,
+    },
+    grouping: releasePr?.grouping ?? config.versioning,
+    fixed: releasePr?.fixed ?? config.fixed,
+    linked: releasePr?.linked ?? config.linked,
+  };
+
+  return config;
 }
 
 export function makeTestOptions(

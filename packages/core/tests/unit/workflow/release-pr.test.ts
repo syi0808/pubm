@@ -140,7 +140,6 @@ function makeContext(): PubmContext {
       versioning: "independent",
       releasePr: {
         enabled: false,
-        dryRun: true,
         branchTemplate: "pubm/release/{scopeSlug}",
         titleTemplate: "chore(release): {scope} {version}",
         label: "pubm:release-pr",
@@ -150,7 +149,9 @@ function makeContext(): PubmContext {
           major: "release:major",
           prerelease: "release:prerelease",
         },
-        grouping: "auto",
+        grouping: "independent",
+        fixed: [],
+        linked: [],
       },
       packages: [
         {
@@ -475,9 +476,14 @@ describe("prepareReleasePr", () => {
 
   it("reconstructs publish plans by matching configured release PR scopes", async () => {
     const ctx = makeContext();
+    const linked = [["@acme/a", "@acme/b"]];
     ctx.config = Object.freeze({
       ...ctx.config,
-      linked: [["@acme/a", "@acme/b"]],
+      linked,
+      releasePr: {
+        ...ctx.config.releasePr,
+        linked,
+      },
     });
     releasePrState.diffOutput =
       "packages/a/package.json\npackages/b/package.json\n";

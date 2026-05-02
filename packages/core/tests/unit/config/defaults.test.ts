@@ -237,7 +237,6 @@ describe("resolveConfig", () => {
 
     expect(config.releasePr).toEqual({
       enabled: false,
-      dryRun: true,
       branchTemplate: "pubm/release/{scopeSlug}",
       titleTemplate: "chore(release): {scope} {version}",
       label: "pubm:release-pr",
@@ -247,23 +246,27 @@ describe("resolveConfig", () => {
         major: "release:major",
         prerelease: "release:prerelease",
       },
-      grouping: "auto",
+      grouping: "independent",
+      fixed: [],
+      linked: [],
     });
   });
 
   it("merges releasePr config over defaults", async () => {
     const config = await resolveConfig({
+      fixed: [["packages/core"]],
+      linked: [["packages/pubm"]],
       releasePr: {
-        dryRun: false,
         branchTemplate: "release/{scopeSlug}",
         bumpLabels: { minor: "kind/minor" },
-        grouping: "independent",
+        grouping: "fixed",
+        fixed: [["packages/runner"]],
+        linked: [],
       },
     });
 
     expect(config.releasePr).toEqual({
       enabled: false,
-      dryRun: false,
       branchTemplate: "release/{scopeSlug}",
       titleTemplate: "chore(release): {scope} {version}",
       label: "pubm:release-pr",
@@ -273,8 +276,26 @@ describe("resolveConfig", () => {
         major: "release:major",
         prerelease: "release:prerelease",
       },
-      grouping: "independent",
+      grouping: "fixed",
+      fixed: [["packages/runner"]],
+      linked: [],
     });
+  });
+
+  it("inherits releasePr grouping and groups from top-level release config", async () => {
+    const config = await resolveConfig({
+      versioning: "fixed",
+      fixed: [["packages/core", "packages/pubm"]],
+      linked: [["packages/runner", "packages/plugins/*"]],
+    });
+
+    expect(config.releasePr.grouping).toBe("fixed");
+    expect(config.releasePr.fixed).toEqual([
+      ["packages/core", "packages/pubm"],
+    ]);
+    expect(config.releasePr.linked).toEqual([
+      ["packages/runner", "packages/plugins/*"],
+    ]);
   });
 
   it("defaults dangerouslyAllowUnpublish to false", async () => {

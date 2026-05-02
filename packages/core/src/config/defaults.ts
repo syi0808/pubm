@@ -32,7 +32,6 @@ const defaultRollback: Required<RollbackConfig> = {
 
 const defaultReleasePr = {
   enabled: false,
-  dryRun: true,
   branchTemplate: "pubm/release/{scopeSlug}",
   titleTemplate: "chore(release): {scope} {version}",
   label: "pubm:release-pr",
@@ -42,7 +41,6 @@ const defaultReleasePr = {
     major: "release:major",
     prerelease: "release:prerelease",
   },
-  grouping: "auto" as const,
 };
 
 const defaultConfig = {
@@ -175,7 +173,11 @@ export async function resolveConfig(
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     ecosystems: config.ecosystems ?? {},
-    releasePr: resolveReleasePrConfig(config.releasePr),
+    releasePr: resolveReleasePrConfig(config.releasePr, {
+      versioning: config.versioning ?? defaultConfig.versioning,
+      fixed: config.fixed ?? defaultConfig.fixed,
+      linked: config.linked ?? defaultConfig.linked,
+    }),
     plugins: config.plugins ?? [],
     versionSources: config.versionSources ?? defaultConfig.versionSources,
     conventionalCommits: {
@@ -185,7 +187,17 @@ export async function resolveConfig(
   };
 }
 
-function resolveReleasePrConfig(config?: ReleasePrConfig) {
+function resolveReleasePrConfig(
+  config: ReleasePrConfig | undefined,
+  inherited: {
+    versioning: "fixed" | "independent";
+    fixed: string[][];
+    linked: string[][];
+  },
+) {
+  const fixed = config?.fixed ?? inherited.fixed;
+  const linked = config?.linked ?? inherited.linked;
+
   return {
     ...defaultReleasePr,
     ...config,
@@ -193,6 +205,9 @@ function resolveReleasePrConfig(config?: ReleasePrConfig) {
       ...defaultReleasePr.bumpLabels,
       ...config?.bumpLabels,
     },
+    grouping: config?.grouping ?? inherited.versioning,
+    fixed: fixed.map((group) => [...group]),
+    linked: linked.map((group) => [...group]),
   };
 }
 

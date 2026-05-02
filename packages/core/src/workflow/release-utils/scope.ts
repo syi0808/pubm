@@ -4,7 +4,7 @@ import { packageKey } from "../../utils/package-key.js";
 import { slugifyReleasePrToken } from "./release-pr-naming.js";
 
 export type ReleasePrScopeKind = "single" | "fixed" | "group" | "package";
-export type ReleasePrGrouping = "auto" | "single" | "independent";
+export type ReleasePrGrouping = "fixed" | "independent";
 
 export interface ReleasePrScope {
   id: string;
@@ -16,6 +16,8 @@ export interface ReleasePrScope {
 
 interface ReleasePrConfigLike {
   grouping?: ReleasePrGrouping;
+  fixed?: string[][];
+  linked?: string[][];
 }
 
 export function buildReleasePrScopes(
@@ -28,23 +30,14 @@ export function buildReleasePrScopes(
     return [createScope("single", "single", pendingKeys, "release")];
   }
 
-  if (plan.mode === "fixed") {
+  if (releasePrGrouping(ctx) === "fixed") {
     return [createScope("fixed", "fixed", pendingKeys, "release")];
   }
 
-  const grouping = releasePrGrouping(ctx);
-  if (grouping === "single") {
-    return [createScope("single", "single", pendingKeys, "release")];
-  }
-
-  if (grouping === "independent") {
-    return pendingKeys.map((key) => createPackageScope(ctx, key));
-  }
-
-  return buildAutoIndependentScopes(ctx, pendingKeys);
+  return buildIndependentScopes(ctx, pendingKeys);
 }
 
-function buildAutoIndependentScopes(
+function buildIndependentScopes(
   ctx: PubmContext,
   pendingKeys: string[],
 ): ReleasePrScope[] {
@@ -52,7 +45,9 @@ function buildAutoIndependentScopes(
   const scoped = new Set<string>();
   const scopes: ReleasePrScope[] = [];
 
-  for (const group of ctx.config.fixed) {
+  const releasePrConfig = releasePrConfigFor(ctx);
+
+  for (const group of releasePrConfig.fixed ?? []) {
     const groupKeys = resolveConfiguredGroup(ctx, group);
     const pendingGroupKeys = groupKeys.filter((key) => pending.has(key));
     if (pendingGroupKeys.length === 0) continue;
@@ -64,7 +59,7 @@ function buildAutoIndependentScopes(
     );
   }
 
-  for (const group of ctx.config.linked) {
+  for (const group of releasePrConfig.linked ?? []) {
     const groupKeys = resolveConfiguredGroup(ctx, group);
     const keys = groupKeys.filter(
       (key) => pending.has(key) && !scoped.has(key),
@@ -99,8 +94,18 @@ function packageKeysForPlan(ctx: PubmContext, plan: VersionPlan): string[] {
 }
 
 function releasePrGrouping(ctx: PubmContext): ReleasePrGrouping {
-  return ((ctx.config as { releasePr?: ReleasePrConfigLike }).releasePr
-    ?.grouping ?? "auto") as ReleasePrGrouping;
+  return releasePrConfigFor(ctx).grouping ?? ctx.config.versioning;
+}
+
+function releasePrConfigFor(ctx: PubmContext): ReleasePrConfigLike {
+  const releasePr = (ctx.config as { releasePr?: ReleasePrConfigLike })
+    .releasePr;
+
+  return {
+    grouping: releasePr?.grouping,
+    fixed: releasePr?.fixed ?? ctx.config.fixed,
+    linked: releasePr?.linked ?? ctx.config.linked,
+  };
 }
 
 function resolveConfiguredGroup(ctx: PubmContext, group: string[]): string[] {

@@ -58,22 +58,24 @@ export interface ReleasePrBumpLabelsConfig {
 
 export interface ReleasePrConfig {
   enabled?: boolean;
-  dryRun?: boolean;
   branchTemplate?: string;
   titleTemplate?: string;
   label?: string;
   bumpLabels?: ReleasePrBumpLabelsConfig;
-  grouping?: "auto" | "single" | "independent";
+  grouping?: "fixed" | "independent";
+  fixed?: string[][];
+  linked?: string[][];
 }
 
 export interface ResolvedReleasePrConfig {
   enabled: boolean;
-  dryRun: boolean;
   branchTemplate: string;
   titleTemplate: string;
   label: string;
   bumpLabels: Required<ReleasePrBumpLabelsConfig>;
-  grouping: "auto" | "single" | "independent";
+  grouping: "fixed" | "independent";
+  fixed: string[][];
+  linked: string[][];
 }
 
 export interface PubmConfig {

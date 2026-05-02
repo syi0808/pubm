@@ -33,6 +33,7 @@ function ctx(overrides: Record<string, unknown> = {}): PubmContext {
   return {
     config: {
       packages,
+      versioning: "independent",
       fixed: [],
       linked: [],
       ...(overrides as object),
@@ -69,7 +70,7 @@ describe("buildReleasePrScopes", () => {
       ]),
     };
 
-    const scopes = buildReleasePrScopes(ctx(), plan);
+    const scopes = buildReleasePrScopes(ctx({ versioning: "fixed" }), plan);
 
     expect(scopes).toHaveLength(1);
     expect(scopes[0]).toMatchObject({
@@ -99,7 +100,7 @@ describe("buildReleasePrScopes", () => {
     ]);
   });
 
-  it("uses fixed and linked config groups in auto mode", () => {
+  it("inherits fixed and linked groups from top-level config", () => {
     const plan: VersionPlan = {
       mode: "independent",
       packages: new Map([
@@ -145,7 +146,7 @@ describe("buildReleasePrScopes", () => {
     expect(scopes[1].packageKeys).toEqual(["crates/c::rust"]);
   });
 
-  it("can force one scope for independent plans", () => {
+  it("can force one fixed scope for independent plans", () => {
     const plan: VersionPlan = {
       mode: "independent",
       packages: new Map([
@@ -155,11 +156,39 @@ describe("buildReleasePrScopes", () => {
     };
 
     expect(
-      buildReleasePrScopes(ctx({ releasePr: { grouping: "single" } }), plan)[0],
+      buildReleasePrScopes(ctx({ releasePr: { grouping: "fixed" } }), plan)[0],
     ).toMatchObject({
-      kind: "single",
+      kind: "fixed",
       packageKeys: ["packages/a::js", "packages/b::js"],
     });
+  });
+
+  it("uses releasePr fixed and linked groups instead of top-level groups", () => {
+    const plan: VersionPlan = {
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.1.0"],
+        ["packages/b::js", "1.1.0"],
+        ["crates/c::rust", "1.1.0"],
+      ]),
+    };
+
+    const scopes = buildReleasePrScopes(
+      ctx({
+        fixed: [["packages/a", "packages/b"]],
+        linked: [["crates/c"]],
+        releasePr: {
+          grouping: "independent",
+          fixed: [],
+          linked: [["packages/b", "crates/c"]],
+        },
+      }),
+      plan,
+    );
+
+    expect(scopes.map((scope) => scope.kind)).toEqual(["group", "package"]);
+    expect(scopes[0].packageKeys).toEqual(["crates/c::rust", "packages/b::js"]);
+    expect(scopes[1].packageKeys).toEqual(["packages/a::js"]);
   });
 
   it("skips configured groups that do not contain pending packages", () => {
