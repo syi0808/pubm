@@ -89,8 +89,8 @@ async function expectManifestUnchanged(filePath: string, before: string) {
 }
 
 describe("CLI runner wiring smoke contract", () => {
-  it("runs pubm --dry-run against a fixture without changing manifest version", async () => {
-    await withFixture("basic", async (ctx) => {
+  it("runs pubm --dry-run against an npm fixture without changing manifest version", async () => {
+    await withFixture("no-jsr", async (ctx) => {
       await ctx.git.init().add(".").commit("init").done();
 
       const manifestPath = path.join(ctx.dir, "package.json");
