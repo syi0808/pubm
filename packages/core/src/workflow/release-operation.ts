@@ -295,9 +295,11 @@ async function runOneTaskFallback(
   }
 
   const { attempts, delay } = retryOptions(task.retry);
-  const taskContext = createTaskContextFallback(ctx, operation);
+  const retryState = { count: 0 };
+  const taskContext = createTaskContextFallback(ctx, operation, retryState);
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    retryState.count = attempt - 1;
     try {
       const result = await task.task?.(ctx, taskContext);
       await handleTaskResultFallback(result, ctx, taskContext);
@@ -324,6 +326,7 @@ async function runOneTaskFallback(
 function createTaskContextFallback(
   ctx: PubmContext,
   operation: ReleaseOperationContext,
+  retryState: { count: number } = { count: 0 },
 ): OperationUnitContext<PubmContext> {
   return {
     get title(): string {
@@ -365,7 +368,7 @@ function createTaskContextFallback(
     report: (error: Error) => {
       operation.output = error.message;
     },
-    isRetrying: () => ({ count: 0 }),
+    isRetrying: () => ({ count: retryState.count }),
   };
 }
 

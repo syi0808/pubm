@@ -101,6 +101,25 @@ describe("runReleaseOperations", () => {
     expect(rollback).toHaveBeenCalledOnce();
   });
 
+  it("reports retry counts to fallback task contexts", async () => {
+    const retryCounts: number[] = [];
+
+    await runReleaseOperations(ctx, {
+      title: "parent",
+      run: (_ctx, operation) =>
+        operation.runTasks({
+          title: "retry-count",
+          retry: 2,
+          task: (_ctx, task) => {
+            retryCounts.push(task.isRetrying().count);
+            if (retryCounts.length < 3) throw new Error("retry");
+          },
+        }),
+    });
+
+    expect(retryCounts).toEqual([0, 1, 2]);
+  });
+
   it("runs fallback task helpers, child task runners, and task runner returns", async () => {
     const calls: string[] = [];
 
