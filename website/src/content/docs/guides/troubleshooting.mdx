@@ -115,8 +115,8 @@ Symptoms:
 What to check:
 
 - run `pubm changesets status --verbose`
-- inspect `release.versioning.fixed` and `release.versioning.linked` groups in `pubm.config.*`
-- verify whether `release.versioning.mode` is `independent` or `fixed`
+- inspect `fixed` and `linked` groups in `pubm.config.*`
+- verify whether the repository is using `independent` or `fixed` versioning
 
 If the workspace structure is complex, move to explicit `packages` config instead of relying only on discovery.
 

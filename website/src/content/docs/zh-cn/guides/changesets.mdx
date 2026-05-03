@@ -25,7 +25,7 @@ description: 记录发布意图、生成 changelog，并控制版本变更。
 pubm init
 ```
 
-在 setup 过程中，`pubm init` 会询问是否启用 changesets 工作流。选择"是"会创建 `.pubm/changesets/` 目录，生成 `.github/workflows/pubm-changeset-check.yml` 用于 PR 强制检查，并更新 `.gitignore` 以跟踪 changeset 文件，同时忽略其他 `.pubm/` 内容。
+在 setup 过程中，`pubm init` 会询问是否启用 changesets 工作流。选择"是"会创建 `.pubm/changesets/` 目录，生成 `.github/workflows/changeset-check.yml` 用于 PR 强制检查，并更新 `.gitignore` 以跟踪 changeset 文件，同时忽略其他 `.pubm/` 内容。
 
 ## 创建 changeset
 
@@ -97,40 +97,39 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Conventional commit recommendations
+## Conventional commit 降级回退
 
-`pubm changesets version` analyzes conventional commits alongside pending changeset files. If a package has no changeset recommendation, a releasable conventional commit can create the bump recommendation. Non-conventional commits, ignored commit types, and commits that cannot be mapped to a package are treated as unversioned changes; they do not create bumps by themselves.
+当 `versionSources` 为 `"all"`（默认值）时，`pubm changesets version` 会对没有待处理 changeset 文件的包自动回退到 conventional commits。这使团队可以逐步采用 changeset：有 changeset 的包使用 changeset；没有 changeset 的包则回退到提交历史。
 
-### Default commit type mapping
+### 默认提交类型映射
 
-| Commit type | Bump |
-| --- | --- |
+| 提交类型 | Bump |
+|---------|------|
 | `feat` | `minor` |
 | `fix` | `patch` |
 | `perf` | `patch` |
 
-A `BREAKING CHANGE` footer or a `!` suffix (e.g. `feat!:`) always produces a `major` bump.
+footer 中包含 `BREAKING CHANGE`，或使用 `!` 后缀（如 `feat!:`），始终产生 `major` bump。
 
-### Configuring custom mappings
+### 配置自定义映射
 
-Override the default mapping in `pubm.config.ts`:
+在 `pubm.config.ts` 中覆盖默认映射：
 
 ```ts
 export default defineConfig({
-  release: {
-    commits: {
-      types: {
-        feat: "minor",
-        fix: "patch",
-        perf: "patch",
-        docs: "patch",
-      },
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
     },
   },
 });
 ```
 
-Release PR automation warns by default when only unversioned changes are found and no versioned release PR can be opened. Configure that with `release.pullRequest.unversionedChanges`: `"warn"` (default), `"ignore"`, or `"fail"`.
+设置 `versionSources: "commits"` 可仅使用 conventional commits，完全忽略 changeset 文件。设置 `versionSources: "changesets"` 可禁用回退，仅使用 changeset 文件。
 
 ## 从 `.changeset/` 迁移
 

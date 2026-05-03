@@ -5,7 +5,7 @@ description: Configurer la préparation CI, la gestion des tokens et l'automatis
 
 `pubm` est conçu pour bien se comporter à la fois dans les terminaux locaux et dans les runners CI. L'idée clé est que le pipeline normal de `pubm` sait déjà consommer les changesets en attente pendant la phase de version, donc vous n'avez pas besoin d'une étape séparée `pubm changesets version` juste pour préparer la CI.
 
-`pubm init` can generate `.github/workflows/pubm-release-pr.yml`, `.github/workflows/pubm-publish.yml`, and `.github/workflows/pubm-changeset-check.yml` so release file changes are reviewed in a PR before publish runs.
+`pubm init` peut générer les workflows CI pour vous pendant la configuration. L'assistant propose de créer `.github/workflows/release.yml` (publication déclenchée par un tag) et `.github/workflows/changeset-check.yml` (application des changesets en PR), ce qui vous évite de les écrire à la main.
 
 ## Workflows de release
 
@@ -199,7 +199,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions/changeset-check@v1
+      - uses: syi0808/pubm-actions@v1
         with:
           skip-label: no-changeset
 ```

@@ -51,11 +51,7 @@ If a circular dependency prevents a safe publish order, `pubm` fails instead of 
 
 ```ts
 export default defineConfig({
-  release: {
-    versioning: {
-      mode: "independent",
-    },
-  },
+  versioning: "independent",
 });
 ```
 
@@ -67,11 +63,7 @@ export default defineConfig({
 
 ```ts
 export default defineConfig({
-  release: {
-    versioning: {
-      mode: "fixed",
-    },
-  },
+  versioning: "fixed",
 });
 ```
 
@@ -82,13 +74,9 @@ export default defineConfig({
 
 ```ts
 export default defineConfig({
-  release: {
-    versioning: {
-      mode: "independent",
-      fixed: [["@acme/core", "@acme/react", "@acme/vue"]],
-      linked: [["@acme/cli", "@acme/config"]],
-    },
-  },
+  versioning: "independent",
+  fixed: [["@acme/core", "@acme/react", "@acme/vue"]],
+  linked: [["@acme/cli", "@acme/config"]],
 });
 ```
 
@@ -100,7 +88,7 @@ pubm changesets add
 pubm
 ```
 
-In a monorepo, the important difference is not the command shape but the release plan that `pubm` calculates from pending changesets, conventional commits, package groups, and dependency order.
+In a monorepo, the important difference is not the command shape but the release plan that `pubm` calculates from pending changesets, package groups, and dependency order.
 
 ## Changesets in a monorepo
 
@@ -142,11 +130,7 @@ In `independent` mode, every package normally receives its own git tag and GitHu
 
 ```ts
 export default defineConfig({
-  release: {
-    versioning: {
-      mode: "independent",
-    },
-  },
+  versioning: "independent",
   excludeRelease: ["packages/cli/platforms/*"],
   packages: [
     { path: "packages/core" },

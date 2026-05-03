@@ -5,7 +5,7 @@ description: 为 pubm 配置 CI preparation、token 处理和发布自动化。
 
 `pubm` 旨在同时适配本地终端和 CI runner。关键点在于，正常的 `pubm` 流程已经知道如何在版本步骤中消耗待处理的 changeset，因此你不需要为了准备 CI 而额外增加一个 `pubm changesets version` 步骤。
 
-`pubm init` can generate `.github/workflows/pubm-release-pr.yml`, `.github/workflows/pubm-publish.yml`, and `.github/workflows/pubm-changeset-check.yml` so release file changes are reviewed in a PR before publish runs.
+`pubm init` 可以在 setup 过程中为你生成 CI 工作流。向导会提供创建 `.github/workflows/release.yml`（tag 触发的发布）和 `.github/workflows/changeset-check.yml`（PR changeset 强制检查）的选项，无需手动编写。
 
 ## Release workflows
 
@@ -199,7 +199,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions/changeset-check@v1
+      - uses: syi0808/pubm-actions@v1
         with:
           skip-label: no-changeset
 ```

@@ -198,7 +198,7 @@ pubm init
 ```
 
 This creates:
-- `.github/workflows/pubm-changeset-check.yml` - PR changeset detection with bot comments
+- `.github/workflows/changeset-check.yml` - PR changeset detection with bot comments
 After running, tell the user:
 - Every PR with code changes needs a changeset (`pubm changesets add`)
 - `no-changeset` label skips the check for docs/CI-only changes

@@ -62,8 +62,8 @@ Symptoms:
 需要检查：
 
 - run `pubm changesets status --verbose`
-- inspect `release.versioning.fixed` and `release.versioning.linked` groups in `pubm.config.*`
-- verify whether `release.versioning.mode` is `independent` or `fixed`
+- inspect `fixed` and `linked` groups in `pubm.config.*`
+- verify whether the repository is using `independent` or `fixed` versioning
 
 如果 workspace 结构很复杂，建议改用显式的 `packages` 配置，而不要只依赖自动发现。
 

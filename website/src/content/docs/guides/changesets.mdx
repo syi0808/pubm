@@ -3,7 +3,7 @@ title: Changesets
 description: Record release intent, generate changelogs, and control version bumps.
 ---
 
-`pubm` uses changesets as the checked-in record of what should be released next. It reads files from `.pubm/changesets/` and turns them into version bumps and changelog entries. It also analyzes conventional commits, but changesets win when both sources cover the same package.
+`pubm` uses changesets as the checked-in record of what should be released next. Instead of inferring versions from commit messages or branch names, it reads files from `.pubm/changesets/` and turns them into version bumps and changelog entries.
 
 ## Why changesets matter
 
@@ -25,7 +25,7 @@ Initialize that directory by running the interactive setup wizard:
 pubm init
 ```
 
-During setup, `pubm init` asks whether to enable the changesets workflow. If you choose yes, it creates the `.pubm/changesets/` directory, generates `.github/workflows/pubm-changeset-check.yml` for PR enforcement, and updates `.gitignore` so changeset files are tracked while other `.pubm/` contents stay ignored.
+During setup, `pubm init` asks whether to enable the changesets workflow. If you choose yes, it creates the `.pubm/changesets/` directory, generates `.github/workflows/changeset-check.yml` for PR enforcement, and updates `.gitignore` so changeset files are tracked while other `.pubm/` contents stay ignored.
 
 ## Creating a changeset
 
@@ -97,9 +97,9 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Conventional commit recommendations
+## Conventional commit fallback
 
-`pubm changesets version` analyzes conventional commits alongside pending changeset files. If a package has no changeset recommendation, a releasable conventional commit can create the bump recommendation. Non-conventional commits, ignored commit types, and commits that cannot be mapped to a package are treated as unversioned changes; they do not create bumps by themselves.
+When `versionSources` is `"all"` (the default), `pubm changesets version` automatically falls back to conventional commits for any package that has no pending changeset files. This lets teams adopt changesets incrementally: packages with changesets use them; packages without fall back to commit history.
 
 ### Default commit type mapping
 
@@ -117,20 +117,19 @@ Override the default mapping in `pubm.config.ts`:
 
 ```ts
 export default defineConfig({
-  release: {
-    commits: {
-      types: {
-        feat: "minor",
-        fix: "patch",
-        perf: "patch",
-        docs: "patch",
-      },
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
     },
   },
 });
 ```
 
-Release PR automation warns by default when only unversioned changes are found and no versioned release PR can be opened. Configure that with `release.pullRequest.unversionedChanges`: `"warn"` (default), `"ignore"`, or `"fail"`.
+Set `versionSources: "commits"` to use only conventional commits and ignore changeset files entirely. Set `versionSources: "changesets"` to disable the fallback and use only changeset files.
 
 ## Migration from `.changeset/`
 

@@ -25,7 +25,7 @@ Initialisez ce répertoire en lançant l'assistant de configuration interactif :
 pubm init
 ```
 
-Pendant la configuration, `pubm init` demande si vous souhaitez activer le workflow de changesets. Répondre oui crée le répertoire `.pubm/changesets/`, génère `.github/workflows/pubm-changeset-check.yml` pour l'application en PR, et met à jour `.gitignore` pour suivre les fichiers changeset tout en ignorant les autres contenus de `.pubm/`.
+Pendant la configuration, `pubm init` demande si vous souhaitez activer le workflow de changesets. Répondre oui crée le répertoire `.pubm/changesets/`, génère `.github/workflows/changeset-check.yml` pour l'application en PR, et met à jour `.gitignore` pour suivre les fichiers changeset tout en ignorant les autres contenus de `.pubm/`.
 
 ## Créer un changeset
 
@@ -97,40 +97,39 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Conventional commit recommendations
+## Repli sur les commits conventionnels
 
-`pubm changesets version` analyzes conventional commits alongside pending changeset files. If a package has no changeset recommendation, a releasable conventional commit can create the bump recommendation. Non-conventional commits, ignored commit types, and commits that cannot be mapped to a package are treated as unversioned changes; they do not create bumps by themselves.
+Lorsque `versionSources` est `"all"` (la valeur par défaut), `pubm changesets version` revient automatiquement aux commits conventionnels pour tout package sans fichier de changeset en attente. Cela permet aux équipes d'adopter les changesets progressivement : les packages avec changesets les utilisent ; les packages sans changesets se replient sur l'historique des commits.
 
-### Default commit type mapping
+### Correspondance par défaut des types de commits
 
-| Commit type | Bump |
-| --- | --- |
+| Type de commit | Bump |
+|----------------|------|
 | `feat` | `minor` |
 | `fix` | `patch` |
 | `perf` | `patch` |
 
-A `BREAKING CHANGE` footer or a `!` suffix (e.g. `feat!:`) always produces a `major` bump.
+Un footer `BREAKING CHANGE` ou un suffixe `!` (ex. `feat!:`) produit toujours un bump `major`.
 
-### Configuring custom mappings
+### Configurer des correspondances personnalisées
 
-Override the default mapping in `pubm.config.ts`:
+Remplacez la correspondance par défaut dans `pubm.config.ts` :
 
 ```ts
 export default defineConfig({
-  release: {
-    commits: {
-      types: {
-        feat: "minor",
-        fix: "patch",
-        perf: "patch",
-        docs: "patch",
-      },
+  versionSources: "all",
+  conventionalCommits: {
+    types: {
+      feat: "minor",
+      fix: "patch",
+      perf: "patch",
+      docs: "patch",
     },
   },
 });
 ```
 
-Release PR automation warns by default when only unversioned changes are found and no versioned release PR can be opened. Configure that with `release.pullRequest.unversionedChanges`: `"warn"` (default), `"ignore"`, or `"fail"`.
+Définissez `versionSources: "commits"` pour n'utiliser que les commits conventionnels et ignorer complètement les fichiers de changeset. Définissez `versionSources: "changesets"` pour désactiver le repli et n'utiliser que les fichiers de changeset.
 
 ## Migration depuis `.changeset/`
 

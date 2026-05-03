@@ -27,11 +27,7 @@ Im `independent`-Modus erhält normalerweise jedes Paket einen eigenen Git-Tag u
 
 ```ts
 export default defineConfig({
-  release: {
-    versioning: {
-      mode: "independent",
-    },
-  },
+  versioning: "independent",
   excludeRelease: ["packages/cli/platforms/*"],
   packages: [
     { path: "packages/core" },

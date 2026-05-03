@@ -78,7 +78,16 @@ git push --follow-tags
 
 Pushes the version commit and all reachable annotated tags in one operation.
 
-Protected branches should use the GitHub release PR workflow instead of direct push. Install it with `pubm workflow install github`.
+### PR fallback
+
+If direct push fails (e.g., protected branch rules), pubm automatically:
+
+1. Creates a branch: `pubm/version-packages-{timestamp}`
+2. Pushes the branch with `git push -u origin {branch} --follow-tags`
+3. Creates a PR via GitHub API with changelog details
+4. Switches back to the base branch
+
+No manual intervention needed — the PR fallback is automatic.
 
 ## Ecosystem Detection
 
