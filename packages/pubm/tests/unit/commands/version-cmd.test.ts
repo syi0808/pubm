@@ -64,12 +64,9 @@ vi.mock("@pubm/core", async (importOriginal) => {
         }),
       })),
     },
-    resolveGroups: vi.fn(),
     Git: vi.fn(function () {
       return mockGitInstance;
     }),
-    applyFixedGroup: vi.fn(),
-    applyLinkedGroup: vi.fn(),
     ui: {
       success: vi.fn(),
       info: vi.fn(),
@@ -83,26 +80,52 @@ vi.mock("@pubm/core", async (importOriginal) => {
 
 import type { ResolvedPubmConfig } from "@pubm/core";
 import {
-  applyFixedGroup,
   ChangesetSource,
   ConventionalCommitSource,
-  resolveGroups,
   ui,
   writeChangelogToFile,
   writeVersionsForEcosystem,
 } from "@pubm/core";
 import { runVersionCommand } from "../../../src/commands/version-cmd.js";
 
-const mockedApplyFixedGroup = vi.mocked(applyFixedGroup);
 const mockedWriteChangelogToFile = vi.mocked(writeChangelogToFile);
 const mockedWriteVersionsForEcosystem = vi.mocked(writeVersionsForEcosystem);
-const mockedResolveGroups = vi.mocked(resolveGroups);
 
 function makeConfig(
   overrides: Partial<ResolvedPubmConfig> = {},
 ): ResolvedPubmConfig {
   return {
     plugins: [],
+    release: {
+      versioning: {
+        mode: "independent",
+        fixed: [],
+        linked: [],
+        updateInternalDependencies: "patch",
+      },
+      changesets: { directory: ".pubm/changesets" },
+      commits: { format: "conventional", types: {} },
+      changelog: true,
+      pullRequest: {
+        branchTemplate: "pubm/release/{scopeSlug}",
+        titleTemplate: "chore(release): {scope} {version}",
+        label: "pubm:release-pr",
+        bumpLabels: {
+          patch: "release:patch",
+          minor: "release:minor",
+          major: "release:major",
+          prerelease: "release:prerelease",
+        },
+        grouping: "independent",
+        fixed: [],
+        linked: [],
+        unversionedChanges: "warn",
+      },
+    },
+    versioning: "independent",
+    fixed: [],
+    linked: [],
+    updateInternalDependencies: "patch",
     packages: [
       { name: "my-pkg", version: "1.0.0", path: ".", ecosystem: "js" },
     ],
@@ -115,7 +138,6 @@ const defaultConfig = makeConfig();
 beforeEach(() => {
   vi.clearAllMocks();
   mockedWriteVersionsForEcosystem.mockResolvedValue([]);
-  mockedResolveGroups.mockReturnValue([]);
   mockMergeRecommendations.mockReturnValue([]);
   mockChangesetSourceAnalyze.mockResolvedValue([]);
   mockConventionalCommitSourceAnalyze.mockResolvedValue([]);
@@ -283,6 +305,13 @@ describe("runVersionCommand", () => {
     mockRenderChangelog.mockReturnValue("## 1.1.0\n");
 
     const fixedConfig = makeConfig({
+      release: {
+        ...defaultConfig.release,
+        versioning: {
+          ...defaultConfig.release.versioning,
+          fixed: [["pkg-a", "pkg-b"]],
+        },
+      },
       fixed: [["pkg-a", "pkg-b"]],
       packages: [
         {
@@ -299,20 +328,9 @@ describe("runVersionCommand", () => {
         },
       ] as any,
     });
-    mockedResolveGroups.mockReturnValue([["pkg-a", "pkg-b"]]);
-    mockedApplyFixedGroup.mockImplementation((bumpTypes, group) => {
-      // Simulate applyFixedGroup by setting minor for both packages (name-keyed)
-      for (const name of group) {
-        bumpTypes.set(name, "minor");
-      }
-    });
 
     await runVersionCommand("/tmp/project", fixedConfig);
 
-    expect(mockedResolveGroups).toHaveBeenCalledWith(
-      [["pkg-a", "pkg-b"]],
-      ["pkg-a", "pkg-b"],
-    );
     expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
       expect.any(Array),
       new Map([
@@ -334,27 +352,65 @@ describe("runVersionCommand", () => {
     );
   });
 
-  it("only creates ChangesetSource when versionSources is 'changesets'", async () => {
-    const config = makeConfig({
-      versionSources: "changesets",
-    } as any);
+  it("uses the highest configured package version for fixed versioning", async () => {
+    mockMergeRecommendations.mockReturnValue([
+      {
+        packagePath: "packages/pkg-a",
+        packageKey: "packages/pkg-a::js",
+        bumpType: "minor" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Coordinate fixed release" }],
+      },
+    ]);
+    mockRenderChangelog.mockReturnValue("## 2.1.0\n");
+
+    const fixedConfig = makeConfig({
+      release: {
+        ...defaultConfig.release,
+        versioning: {
+          ...defaultConfig.release.versioning,
+          mode: "fixed",
+        },
+      },
+      versioning: "fixed",
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.0.0",
+          path: "packages/pkg-a",
+          ecosystem: "js",
+        },
+        {
+          name: "pkg-b",
+          version: "2.0.0",
+          path: "packages/pkg-b",
+          ecosystem: "js",
+        },
+      ] as any,
+    });
+
+    await runVersionCommand("/tmp/project", fixedConfig);
+
+    expect(mockedWriteVersionsForEcosystem).toHaveBeenCalledWith(
+      expect.any(Array),
+      new Map([
+        ["packages/pkg-a::js", "2.1.0"],
+        ["packages/pkg-b::js", "2.1.0"],
+      ]),
+      undefined,
+    );
+    expect(mockGitInstance.commit).toHaveBeenCalledWith(
+      "Version Packages\n\n- pkg-a: 2.1.0\n- pkg-b: 2.1.0",
+    );
+  });
+
+  it("always creates changeset and conventional commit sources", async () => {
+    const config = makeConfig();
     mockMergeRecommendations.mockReturnValue([]);
 
     await runVersionCommand("/tmp/project", config);
 
     expect(ChangesetSource).toHaveBeenCalled();
-    expect(ConventionalCommitSource).not.toHaveBeenCalled();
-  });
-
-  it("only creates ConventionalCommitSource when versionSources is 'commits'", async () => {
-    const config = makeConfig({
-      versionSources: "commits",
-    } as any);
-    mockMergeRecommendations.mockReturnValue([]);
-
-    await runVersionCommand("/tmp/project", config);
-
-    expect(ChangesetSource).not.toHaveBeenCalled();
     expect(ConventionalCommitSource).toHaveBeenCalled();
   });
 });

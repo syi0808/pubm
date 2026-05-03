@@ -27,7 +27,7 @@ export function analyzeCommits(
   const result = new Map<string, PackageCommitAnalysis>();
 
   for (const commit of commits) {
-    const bumpType = resolveBumpType(commit, typeMap);
+    const bumpType = resolveCommitBumpType(commit, typeMap);
     if (!bumpType) continue;
 
     const packages = resolveCommitPackages(commit, packagePaths);
@@ -56,7 +56,7 @@ export function analyzeCommits(
   return result;
 }
 
-function resolveBumpType(
+export function resolveCommitBumpType(
   commit: ConventionalCommit,
   typeMap: CommitTypeMapping,
 ): BumpType | null {

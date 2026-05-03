@@ -30,7 +30,7 @@ describe("loadConfig", () => {
     if (!result) {
       throw new Error("Expected config to load");
     }
-    expect(result.versioning).toBe("independent");
+    expect(result.release?.versioning?.mode).toBe("independent");
     expect(result.packages).toHaveLength(2);
     expect(result.packages?.[0]?.path).toBe("packages/my-lib");
   });
@@ -40,7 +40,11 @@ describe("loadConfig", () => {
       path.resolve(__dirname, "../../fixtures/with-config-define-config"),
     );
     expect(result).toEqual({
-      versioning: "fixed",
+      release: {
+        versioning: {
+          mode: "fixed",
+        },
+      },
       branch: "release",
       registries: ["npm"],
     });
@@ -92,7 +96,7 @@ describe("loadConfig", () => {
     const result = await loadConfig(fixtureDir, "custom.config.ts");
     expect(result).not.toBeNull();
     expect(result?.branch).toBe("custom-branch");
-    expect(result?.versioning).toBe("fixed");
+    expect(result?.release?.versioning?.mode).toBe("fixed");
   });
 
   it("throws when explicit configPath does not exist", async () => {

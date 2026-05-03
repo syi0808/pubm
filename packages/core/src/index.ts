@@ -204,6 +204,13 @@ export type {
   TokenEntry,
 } from "./registry/catalog.js";
 export { RegistryCatalog, registryCatalog } from "./registry/catalog.js";
+export { analyzeReleaseChanges } from "./release-analysis/analyze.js";
+export type {
+  ReleaseAnalysis,
+  ReleaseAnalysisSummary,
+  UnversionedChange,
+  UnversionedChangeReason,
+} from "./release-analysis/types.js";
 // Tasks
 export type { GhSecretEntry } from "./tasks/preflight.js";
 export { collectPluginCredentials, syncGhSecrets } from "./tasks/preflight.js";

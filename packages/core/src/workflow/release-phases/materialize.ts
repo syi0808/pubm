@@ -126,7 +126,9 @@ function writeChangesetChangelogs(
   },
 ): void {
   const resolver = createKeyResolver(ctx.config.packages);
-  const changesets = readChangesets(ctx.cwd, resolver);
+  const changesetsDirectory =
+    ctx.config.release?.changesets?.directory ?? ".pubm/changesets";
+  const changesets = readChangesets(ctx.cwd, resolver, changesetsDirectory);
   if (changesets.length === 0) return;
 
   registerChangesetBackups(ctx, changesets);
@@ -136,6 +138,7 @@ function writeChangesetChangelogs(
           cwd: ctx.cwd,
           packageKeys: options.packageKeys,
           resolver,
+          directory: changesetsDirectory,
         }).consumed
       : changesets;
 
@@ -148,7 +151,7 @@ function writeChangesetChangelogs(
     const changelogContent = generateChangelog(plan.version, entries);
     writeChangelogToFile(ctx.cwd, changelogContent);
     if (options.consumeChangesets !== "scope") {
-      deleteChangesetFiles(ctx.cwd, changesets);
+      deleteChangesetFiles(ctx.cwd, changesets, changesetsDirectory);
     }
     return;
   }
@@ -167,7 +170,7 @@ function writeChangesetChangelogs(
       writeChangelogToFile(ctx.cwd, changelogContent);
     }
     if (options.consumeChangesets !== "scope") {
-      deleteChangesetFiles(ctx.cwd, changesets);
+      deleteChangesetFiles(ctx.cwd, changesets, changesetsDirectory);
     }
     return;
   }
@@ -191,7 +194,7 @@ function writeChangesetChangelogs(
   }
 
   if (options.consumeChangesets !== "scope") {
-    deleteChangesetFiles(ctx.cwd, changesets);
+    deleteChangesetFiles(ctx.cwd, changesets, changesetsDirectory);
   }
 }
 

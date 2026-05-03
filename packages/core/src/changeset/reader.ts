@@ -7,8 +7,9 @@ import { parseChangeset } from "./parser.js";
 export function readChangesets(
   cwd: string = process.cwd(),
   resolveKey?: (key: string) => string,
+  directory = ".pubm/changesets",
 ): Changeset[] {
-  const changesetsDir = path.join(cwd, ".pubm", "changesets");
+  const changesetsDir = path.resolve(cwd, directory);
 
   if (!existsSync(changesetsDir)) {
     return [];
@@ -34,8 +35,9 @@ export function readChangesets(
 export function deleteChangesetFiles(
   cwd: string,
   changesets: Changeset[],
+  directory = ".pubm/changesets",
 ): void {
-  const changesetsDir = path.join(cwd, ".pubm", "changesets");
+  const changesetsDir = path.resolve(cwd, directory);
 
   for (const changeset of changesets) {
     const filePath = path.join(changesetsDir, `${changeset.id}.md`);

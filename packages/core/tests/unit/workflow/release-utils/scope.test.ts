@@ -29,14 +29,57 @@ const packages = [
   },
 ];
 
-function ctx(overrides: Record<string, unknown> = {}): PubmContext {
+type ReleaseVersioningOverrides = Partial<{
+  mode: "fixed" | "independent";
+  fixed: string[][];
+  linked: string[][];
+}>;
+
+type ReleasePullRequestOverrides = Partial<{
+  grouping: "fixed" | "independent";
+  fixed: string[][];
+  linked: string[][];
+}>;
+
+function ctx(
+  overrides: {
+    versioning?: ReleaseVersioningOverrides;
+    pullRequest?: ReleasePullRequestOverrides;
+  } = {},
+): PubmContext {
+  const versioning = {
+    mode: "independent" as const,
+    fixed: [] as string[][],
+    linked: [] as string[][],
+    updateInternalDependencies: "patch" as const,
+    ...overrides.versioning,
+  };
+
   return {
     config: {
       packages,
-      versioning: "independent",
-      fixed: [],
-      linked: [],
-      ...(overrides as object),
+      release: {
+        versioning,
+        changesets: { directory: ".pubm/changesets" },
+        commits: { format: "conventional", types: {} },
+        changelog: true,
+        pullRequest: {
+          branchTemplate: "pubm/release/{scopeSlug}",
+          titleTemplate: "chore(release): {scope} {version}",
+          label: "pubm:release-pr",
+          bumpLabels: {
+            patch: "release:patch",
+            minor: "release:minor",
+            major: "release:major",
+            prerelease: "release:prerelease",
+          },
+          grouping: versioning.mode,
+          fixed: versioning.fixed,
+          linked: versioning.linked,
+          unversionedChanges: "warn",
+          ...overrides.pullRequest,
+        },
+      },
     },
   } as PubmContext;
 }
@@ -70,7 +113,10 @@ describe("buildReleasePrScopes", () => {
       ]),
     };
 
-    const scopes = buildReleasePrScopes(ctx({ versioning: "fixed" }), plan);
+    const scopes = buildReleasePrScopes(
+      ctx({ versioning: { mode: "fixed" } }),
+      plan,
+    );
 
     expect(scopes).toHaveLength(1);
     expect(scopes[0]).toMatchObject({
@@ -90,7 +136,7 @@ describe("buildReleasePrScopes", () => {
     };
 
     const scopes = buildReleasePrScopes(
-      ctx({ releasePr: { grouping: "independent" } }),
+      ctx({ pullRequest: { grouping: "independent" } }),
       plan,
     );
 
@@ -100,7 +146,7 @@ describe("buildReleasePrScopes", () => {
     ]);
   });
 
-  it("inherits fixed and linked groups from top-level config", () => {
+  it("inherits fixed and linked groups from release versioning config", () => {
     const plan: VersionPlan = {
       mode: "independent",
       packages: new Map([
@@ -112,8 +158,10 @@ describe("buildReleasePrScopes", () => {
 
     const scopes = buildReleasePrScopes(
       ctx({
-        fixed: [["@acme/a", "@acme/b"]],
-        linked: [["packages/b", "crate-c"]],
+        versioning: {
+          fixed: [["@acme/a", "@acme/b"]],
+          linked: [["packages/b", "crate-c"]],
+        },
       }),
       plan,
     );
@@ -135,8 +183,10 @@ describe("buildReleasePrScopes", () => {
 
     const scopes = buildReleasePrScopes(
       ctx({
-        fixed: [["@acme/*"]],
-        linked: [["crates/*"]],
+        versioning: {
+          fixed: [["@acme/*"]],
+          linked: [["crates/*"]],
+        },
       }),
       plan,
     );
@@ -156,14 +206,17 @@ describe("buildReleasePrScopes", () => {
     };
 
     expect(
-      buildReleasePrScopes(ctx({ releasePr: { grouping: "fixed" } }), plan)[0],
+      buildReleasePrScopes(
+        ctx({ pullRequest: { grouping: "fixed" } }),
+        plan,
+      )[0],
     ).toMatchObject({
       kind: "fixed",
       packageKeys: ["packages/a::js", "packages/b::js"],
     });
   });
 
-  it("uses releasePr fixed and linked groups instead of top-level groups", () => {
+  it("uses release pull request fixed and linked groups instead of release versioning groups", () => {
     const plan: VersionPlan = {
       mode: "independent",
       packages: new Map([
@@ -175,9 +228,11 @@ describe("buildReleasePrScopes", () => {
 
     const scopes = buildReleasePrScopes(
       ctx({
-        fixed: [["packages/a", "packages/b"]],
-        linked: [["crates/c"]],
-        releasePr: {
+        versioning: {
+          fixed: [["packages/a", "packages/b"]],
+          linked: [["crates/c"]],
+        },
+        pullRequest: {
           grouping: "independent",
           fixed: [],
           linked: [["packages/b", "crates/c"]],
@@ -200,8 +255,10 @@ describe("buildReleasePrScopes", () => {
     expect(
       buildReleasePrScopes(
         ctx({
-          fixed: [["packages/missing"]],
-          linked: [["crates/c"]],
+          versioning: {
+            fixed: [["packages/missing"]],
+            linked: [["crates/c"]],
+          },
         }),
         plan,
       ),
@@ -225,8 +282,10 @@ describe("buildReleasePrScopes", () => {
     expect(
       buildReleasePrScopes(
         ctx({
-          fixed: [["@acme/a"], ["packages/a"]],
-          linked: [["packages/a"]],
+          versioning: {
+            fixed: [["@acme/a"], ["packages/a"]],
+            linked: [["packages/a"]],
+          },
         }),
         plan,
       ),

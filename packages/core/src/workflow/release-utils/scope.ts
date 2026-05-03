@@ -15,7 +15,7 @@ export interface ReleasePrScope {
 }
 
 interface ReleasePrConfigLike {
-  grouping?: ReleasePrGrouping;
+  grouping: ReleasePrGrouping;
   fixed?: string[][];
   linked?: string[][];
 }
@@ -94,17 +94,16 @@ function packageKeysForPlan(ctx: PubmContext, plan: VersionPlan): string[] {
 }
 
 function releasePrGrouping(ctx: PubmContext): ReleasePrGrouping {
-  return releasePrConfigFor(ctx).grouping ?? ctx.config.versioning;
+  return releasePrConfigFor(ctx).grouping;
 }
 
 function releasePrConfigFor(ctx: PubmContext): ReleasePrConfigLike {
-  const releasePr = (ctx.config as { releasePr?: ReleasePrConfigLike })
-    .releasePr;
+  const releasePr = ctx.config.release.pullRequest;
 
   return {
-    grouping: releasePr?.grouping,
-    fixed: releasePr?.fixed ?? ctx.config.fixed,
-    linked: releasePr?.linked ?? ctx.config.linked,
+    grouping: releasePr.grouping,
+    fixed: releasePr.fixed,
+    linked: releasePr.linked,
   };
 }
 

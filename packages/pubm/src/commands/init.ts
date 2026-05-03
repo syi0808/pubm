@@ -82,8 +82,7 @@ export function registerInitCommand(parent: Command): void {
         console.log(
           `\n── ${t("init.section.releaseOptions")} ────────────────────────────`,
         );
-        const { enabled: changelog, format: changelogFormat } =
-          await promptChangelog();
+        const changelog = await promptChangelog();
         const releaseDraft = await promptGithubRelease();
 
         // --- Workflow Setup ---
@@ -149,7 +148,6 @@ export function registerInitCommand(parent: Command): void {
           branch,
           versioning,
           changelog,
-          changelogFormat,
           releaseDraft,
           changesets,
           ci,

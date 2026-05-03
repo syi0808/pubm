@@ -117,10 +117,7 @@ beforeEach(() => {
   ]);
   mockPrompts.promptBranch.mockResolvedValue("main");
   mockPrompts.promptVersioning.mockResolvedValue("fixed");
-  mockPrompts.promptChangelog.mockResolvedValue({
-    enabled: true,
-    format: "github",
-  });
+  mockPrompts.promptChangelog.mockResolvedValue(true);
   mockPrompts.promptGithubRelease.mockResolvedValue(true);
   mockPrompts.promptChangesets.mockResolvedValue(true);
   mockPrompts.promptCI.mockResolvedValue(true);
@@ -163,9 +160,9 @@ describe("init command contract", () => {
         path.join(root, ".github", "workflows", "pubm-changeset-check.yml"),
       ),
     ).toBe(true);
-    expect(readFileSync(path.join(root, "pubm.config.ts"), "utf-8")).toContain(
-      'versioning: "fixed"',
-    );
+    const config = readFileSync(path.join(root, "pubm.config.ts"), "utf-8");
+    expect(config).toContain("versioning: {");
+    expect(config).toContain('mode: "fixed"');
     expect(mockSetupSkills.runSetupSkills).toHaveBeenCalledWith(
       realpathSync(root),
     );

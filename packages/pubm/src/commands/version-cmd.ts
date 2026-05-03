@@ -12,26 +12,24 @@ import type {
   VersionSourceContext,
 } from "@pubm/core";
 import {
-  applyFixedGroup,
-  applyLinkedGroup,
   ChangesetChangelogWriter,
   ChangesetSource,
   ConventionalCommitChangelogWriter,
   ConventionalCommitSource,
   createKeyResolver,
+  createVersionPlanFromRecommendations,
   ecosystemCatalog,
   Git,
   mergeRecommendations,
   packageKey,
   renderChangelog,
-  resolveGroups,
   t,
   ui,
   writeChangelogToFile,
   writeVersionsForEcosystem,
 } from "@pubm/core";
 import type { Command } from "commander";
-import { inc } from "semver";
+import { diff } from "semver";
 
 export interface VersionCommandOptions {
   dryRun?: boolean;
@@ -44,26 +42,22 @@ export async function runVersionCommand(
 ): Promise<void> {
   const { dryRun = false } = options;
 
-  // 1. Build version sources based on config
-  const resolver = createKeyResolver(config.packages);
-  const sources: VersionSource[] = [];
-  const versionSources = config.versionSources ?? "all";
-  if (versionSources === "all" || versionSources === "changesets") {
-    sources.push(new ChangesetSource());
-  }
-  if (versionSources === "all" || versionSources === "commits") {
-    sources.push(
-      new ConventionalCommitSource(config.conventionalCommits?.types),
-    );
-  }
-
-  // 2. Get all packages and their current versions from resolved config
+  // 1. Get all packages and their current versions from resolved config
   const currentVersions = new Map(
     config.packages.map((p) => [p.path, p.version]),
   );
   if (currentVersions.size === 0) {
     throw new Error("No packages found.");
   }
+
+  // 2. Build release sources based on config
+  const resolver = createKeyResolver(config.packages);
+  const sources: VersionSource[] = [
+    new ChangesetSource(
+      config.release?.changesets?.directory ?? ".pubm/changesets",
+    ),
+    new ConventionalCommitSource(config.release?.commits?.types ?? {}),
+  ];
 
   // 3. Analyze all sources
   const vsContext: VersionSourceContext = {
@@ -82,56 +76,21 @@ export async function runVersionCommand(
     return;
   }
 
-  // 4. Convert recommendations to VersionBump map (keyed by packageKey)
-  const bumps = new Map<string, VersionBump>();
-  for (const rec of recommendations) {
-    const matchingPkgs = config.packages.filter(
-      (p) => p.path === rec.packagePath,
-    );
-    for (const pkg of matchingPkgs) {
-      const pkgCurrentVersion = pkg.version;
-      const pkgNewVersion = inc(pkgCurrentVersion, rec.bumpType);
-      if (!pkgNewVersion) continue;
-      bumps.set(packageKey(pkg), {
-        currentVersion: pkgCurrentVersion,
-        newVersion: pkgNewVersion,
-        bumpType: rec.bumpType,
-      });
-    }
-  }
+  // 4. Convert the shared release planner result to the command's write map.
+  const versionPlan = createVersionPlanFromRecommendations(
+    config,
+    recommendations,
+  );
+  const bumps = versionPlan
+    ? createBumpsFromVersionPlan(config, versionPlan, recommendations)
+    : new Map<string, VersionBump>();
 
   if (bumps.size === 0) {
     ui.info(t("cmd.version.noChangesets"));
     return;
   }
 
-  // 5. Apply fixed/linked groups from config
-  // Build a packageKey → pkg lookup for use in reapplyBumpTypes
-  const pkgByKey = new Map(config.packages.map((p) => [packageKey(p), p]));
-
-  {
-    const allPackages = config.packages.map((p) => p.name);
-
-    if (config.fixed && config.fixed.length > 0) {
-      const resolvedFixed = resolveGroups(config.fixed, allPackages);
-      const bumpTypes = extractBumpTypes(bumps, pkgByKey);
-      for (const group of resolvedFixed) {
-        applyFixedGroup(bumpTypes, group);
-      }
-      reapplyBumpTypes(bumps, bumpTypes, config.packages);
-    }
-
-    if (config.linked && config.linked.length > 0) {
-      const resolvedLinked = resolveGroups(config.linked, allPackages);
-      const bumpTypes = extractBumpTypes(bumps, pkgByKey);
-      for (const group of resolvedLinked) {
-        applyLinkedGroup(bumpTypes, group);
-      }
-      reapplyBumpTypes(bumps, bumpTypes, config.packages);
-    }
-  }
-
-  // 6. Log bumps and generate changelogs
+  // 5. Log bumps and generate changelogs
   const changesetWriter = new ChangesetChangelogWriter();
   const ccWriter = new ConventionalCommitChangelogWriter();
   const changelogs = new Map<string, { pkgPath: string; content: string }>();
@@ -146,7 +105,9 @@ export async function runVersionCommand(
 
     // Generate changelog entries from recommendations for this package
     const rec = recommendations.find(
-      (r) => r.packagePath === (pkgConfig?.path ?? pkgKey),
+      (r) =>
+        r.packageKey === pkgKey ||
+        (!r.packageKey && r.packagePath === (pkgConfig?.path ?? pkgKey)),
     );
     let changelogContent: string;
     if (rec) {
@@ -176,7 +137,7 @@ export async function runVersionCommand(
     return;
   }
 
-  // 7. Write versions to manifest files via ecosystem
+  // 6. Write versions to manifest files via ecosystem
   const ecosystems = buildEcosystems(config.packages, bumps, cwd);
   // bumps is already packageKey-keyed — pass directly to writeVersionsForEcosystem
   const versions = new Map(
@@ -189,12 +150,12 @@ export async function runVersionCommand(
     writeChangelogToFile(pkgPath, content);
   }
 
-  // 8. Consume sources (delete changeset files, etc.)
+  // 7. Consume sources (delete changeset files, etc.)
   for (const source of sources) {
     await source.consume?.([]);
   }
 
-  // 9. Create a git commit for the version bump
+  // 8. Create a git commit for the version bump
   const git = new Git();
   await git.stage(".");
   const versionCommitMsg = `Version Packages\n\n${[...bumps]
@@ -207,6 +168,47 @@ export async function runVersionCommand(
   ui.success(
     `Consumed ${recommendations.length} recommendation(s) and committed version bump.`,
   );
+}
+
+function createBumpsFromVersionPlan(
+  config: ResolvedPubmConfig,
+  plan: ReturnType<typeof createVersionPlanFromRecommendations>,
+  recommendations: readonly VersionRecommendation[],
+): Map<string, VersionBump> {
+  const bumps = new Map<string, VersionBump>();
+  if (!plan) return bumps;
+
+  const fixedBump = highestRecommendationBump(recommendations);
+  const addBump = (
+    pkgKey: string,
+    newVersion: string,
+    fixedMode: boolean,
+  ): void => {
+    const pkg = config.packages.find(
+      (candidate) => packageKey(candidate) === pkgKey,
+    );
+    if (!pkg) return;
+    const bumpType =
+      (fixedMode ? fixedBump : bumpTypeFromVersions(pkg.version, newVersion)) ??
+      recommendationBumpForPackage(config, recommendations, pkgKey) ??
+      fixedBump;
+    if (!bumpType) return;
+    bumps.set(pkgKey, {
+      currentVersion: pkg.version,
+      newVersion,
+      bumpType,
+    });
+  };
+
+  if (plan.mode === "single") {
+    addBump(plan.packageKey, plan.version, false);
+    return bumps;
+  }
+
+  for (const [pkgKey, version] of plan.packages) {
+    addBump(pkgKey, version, plan.mode === "fixed");
+  }
+  return bumps;
 }
 
 function buildEcosystems(
@@ -228,53 +230,43 @@ function buildEcosystems(
   return result;
 }
 
-/**
- * Extracts a name-keyed bump type map from the packageKey-keyed bumps map.
- * applyFixedGroup/applyLinkedGroup operate on package names, not packageKeys.
- */
-function extractBumpTypes(
-  bumps: Map<string, VersionBump>,
-  pkgByKey: Map<string, ResolvedPackageConfig>,
-): Map<string, BumpType> {
-  const bumpTypes = new Map<string, BumpType>();
-  for (const [pkgKey, bump] of bumps) {
-    const pkg = pkgByKey.get(pkgKey);
-    if (pkg) bumpTypes.set(pkg.name, bump.bumpType);
-  }
-  return bumpTypes;
+function recommendationBumpForPackage(
+  config: ResolvedPubmConfig,
+  recommendations: readonly VersionRecommendation[],
+  pkgKey: string,
+): BumpType | undefined {
+  const pkg = config.packages.find(
+    (candidate) => packageKey(candidate) === pkgKey,
+  );
+  const rec = recommendations.find(
+    (candidate) =>
+      candidate.packageKey === pkgKey ||
+      (!candidate.packageKey && pkg && candidate.packagePath === pkg.path),
+  );
+  return rec?.bumpType;
 }
 
-/**
- * Writes bump types back to the packageKey-keyed bumps map.
- * Keys can be either package names or packageKeys (path::ecosystem).
- * A packageKey matches exactly one package; a name may match multiple.
- */
-function reapplyBumpTypes(
-  bumps: Map<string, VersionBump>,
-  bumpTypes: Map<string, BumpType>,
-  packages: ResolvedPackageConfig[],
-): void {
-  for (const [key, bumpType] of bumpTypes) {
-    const matchingPkgs = key.includes("::")
-      ? packages.filter((p) => packageKey(p) === key)
-      : packages.filter((p) => p.name === key);
-    for (const pkg of matchingPkgs) {
-      const pkgKey = packageKey(pkg);
-      const existing = bumps.get(pkgKey);
-      const currentVersion = pkg.version;
-      if (!currentVersion) continue;
-
-      const newVersion = inc(currentVersion, bumpType);
-      if (!newVersion) continue;
-
-      if (existing) {
-        existing.bumpType = bumpType;
-        existing.newVersion = newVersion;
-      } else {
-        bumps.set(pkgKey, { currentVersion, newVersion, bumpType });
-      }
-    }
+function highestRecommendationBump(
+  recommendations: readonly VersionRecommendation[],
+): BumpType | undefined {
+  const rank: Record<BumpType, number> = { patch: 0, minor: 1, major: 2 };
+  let highest: BumpType | undefined;
+  for (const rec of recommendations) {
+    if (!highest || rank[rec.bumpType] > rank[highest]) highest = rec.bumpType;
   }
+  return highest;
+}
+
+function bumpTypeFromVersions(
+  currentVersion: string,
+  newVersion: string,
+): BumpType | undefined {
+  const type = diff(currentVersion, newVersion);
+  if (type === "major" || type === "minor" || type === "patch") return type;
+  if (type === "premajor") return "major";
+  if (type === "preminor") return "minor";
+  if (type === "prepatch" || type === "prerelease") return "patch";
+  return undefined;
 }
 
 export function registerVersionCommand(

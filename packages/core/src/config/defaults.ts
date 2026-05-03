@@ -12,7 +12,7 @@ import type { RegistryType } from "../types/options.js";
 import type {
   PrivateRegistryConfig,
   PubmConfig,
-  ReleasePrConfig,
+  ReleasePullRequestConfig,
   ResolvedPackageConfig,
   ResolvedPubmConfig,
   RollbackConfig,
@@ -30,8 +30,24 @@ const defaultRollback: Required<RollbackConfig> = {
   dangerouslyAllowUnpublish: false,
 };
 
-const defaultReleasePr = {
-  enabled: false,
+const defaultRelease = {
+  versioning: {
+    mode: "independent" as const,
+    fixed: [] as string[][],
+    linked: [] as string[][],
+    updateInternalDependencies: "patch" as const,
+  },
+  changesets: {
+    directory: ".pubm/changesets",
+  },
+  commits: {
+    format: "conventional" as const,
+    types: {} as Record<string, BumpType | false>,
+  },
+  changelog: true as boolean | string,
+};
+
+const defaultReleasePullRequest = {
   branchTemplate: "pubm/release/{scopeSlug}",
   titleTemplate: "chore(release): {scope} {version}",
   label: "pubm:release-pr",
@@ -41,18 +57,13 @@ const defaultReleasePr = {
     major: "release:major",
     prerelease: "release:prerelease",
   },
+  unversionedChanges: "warn" as const,
 };
 
 const defaultConfig = {
-  versioning: "independent" as const,
   branch: "main",
-  changelog: true as boolean | string,
-  changelogFormat: "default" as string,
   commit: false,
   access: "public" as const,
-  fixed: [] as string[][],
-  linked: [] as string[][],
-  updateInternalDependencies: "patch" as const,
   ignore: [] as string[],
   snapshotTemplate: "{tag}-{timestamp}",
   tag: "latest",
@@ -61,8 +72,7 @@ const defaultConfig = {
   releaseDraft: true,
   releaseNotes: true,
   lockfileSync: "optional" as const,
-  versionSources: "all" as const,
-  conventionalCommits: { types: {} as Record<string, BumpType | false> },
+  release: defaultRelease,
   registryQualifiedTags: false,
 };
 
@@ -161,9 +171,18 @@ export async function resolveConfig(
     });
   }
 
+  const release = resolveReleaseConfig(config.release);
+  const configWithoutLegacyReleaseKeys = {
+    ...(config as PubmConfig & Record<string, unknown>),
+  };
+  delete configWithoutLegacyReleaseKeys.versionSources;
+  delete configWithoutLegacyReleaseKeys.conventionalCommits;
+  delete configWithoutLegacyReleaseKeys.releasePr;
+  delete configWithoutLegacyReleaseKeys.changelogFormat;
+
   return {
     ...defaultConfig,
-    ...config,
+    ...configWithoutLegacyReleaseKeys,
     packages,
     validate: { ...defaultValidate, ...config.validate },
     rollback: {
@@ -173,22 +192,51 @@ export async function resolveConfig(
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     ecosystems: config.ecosystems ?? {},
-    releasePr: resolveReleasePrConfig(config.releasePr, {
-      versioning: config.versioning ?? defaultConfig.versioning,
-      fixed: config.fixed ?? defaultConfig.fixed,
-      linked: config.linked ?? defaultConfig.linked,
-    }),
+    release,
+    versioning: release.versioning.mode,
+    fixed: release.versioning.fixed,
+    linked: release.versioning.linked,
+    updateInternalDependencies: release.versioning.updateInternalDependencies,
+    changelog: release.changelog,
     plugins: config.plugins ?? [],
-    versionSources: config.versionSources ?? defaultConfig.versionSources,
-    conventionalCommits: {
-      types: config.conventionalCommits?.types ?? {},
-    },
     ...(discoveryEmpty ? { discoveryEmpty } : {}),
   };
 }
 
-function resolveReleasePrConfig(
-  config: ReleasePrConfig | undefined,
+function resolveReleaseConfig(config: PubmConfig["release"] | undefined) {
+  const versioning = {
+    ...defaultRelease.versioning,
+    ...config?.versioning,
+    fixed:
+      config?.versioning?.fixed?.map((group) => [...group]) ??
+      defaultRelease.versioning.fixed,
+    linked:
+      config?.versioning?.linked?.map((group) => [...group]) ??
+      defaultRelease.versioning.linked,
+  };
+
+  return {
+    versioning,
+    changesets: {
+      ...defaultRelease.changesets,
+      ...config?.changesets,
+    },
+    commits: {
+      ...defaultRelease.commits,
+      ...config?.commits,
+      types: config?.commits?.types ?? defaultRelease.commits.types,
+    },
+    changelog: config?.changelog ?? defaultRelease.changelog,
+    pullRequest: resolveReleasePullRequestConfig(config?.pullRequest, {
+      versioning: versioning.mode,
+      fixed: versioning.fixed,
+      linked: versioning.linked,
+    }),
+  };
+}
+
+function resolveReleasePullRequestConfig(
+  config: ReleasePullRequestConfig | undefined,
   inherited: {
     versioning: "fixed" | "independent";
     fixed: string[][];
@@ -197,17 +245,27 @@ function resolveReleasePrConfig(
 ) {
   const fixed = config?.fixed ?? inherited.fixed;
   const linked = config?.linked ?? inherited.linked;
+  const grouping =
+    config?.grouping && config.grouping !== "inherit"
+      ? config.grouping
+      : inherited.versioning;
 
   return {
-    ...defaultReleasePr,
-    ...config,
+    branchTemplate:
+      config?.branchTemplate ?? defaultReleasePullRequest.branchTemplate,
+    titleTemplate:
+      config?.titleTemplate ?? defaultReleasePullRequest.titleTemplate,
+    label: config?.label ?? defaultReleasePullRequest.label,
+    grouping,
     bumpLabels: {
-      ...defaultReleasePr.bumpLabels,
+      ...defaultReleasePullRequest.bumpLabels,
       ...config?.bumpLabels,
     },
-    grouping: config?.grouping ?? inherited.versioning,
     fixed: fixed.map((group) => [...group]),
     linked: linked.map((group) => [...group]),
+    unversionedChanges:
+      config?.unversionedChanges ??
+      defaultReleasePullRequest.unversionedChanges,
   };
 }
 

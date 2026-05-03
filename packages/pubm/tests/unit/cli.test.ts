@@ -62,7 +62,6 @@ const {
         ecosystem: "js",
       },
     ],
-    versionSources: "all",
   };
 
   const mockChangesetSourceCtor = vi.fn(function () {
@@ -91,14 +90,10 @@ const {
   });
   const mockApplyVersionSourcePlan = vi.fn(async (ctx: any) => {
     const config = ctx.config;
-    const versionSources = config.versionSources ?? "all";
-    const sources = [];
-    if (versionSources === "all" || versionSources === "changesets") {
-      sources.push(new (mockChangesetSourceCtor as any)());
-    }
-    if (versionSources === "all" || versionSources === "commits") {
-      sources.push(new (mockConventionalCommitSourceCtor as any)());
-    }
+    const sources = [
+      new (mockChangesetSourceCtor as any)(),
+      new (mockConventionalCommitSourceCtor as any)(),
+    ];
 
     const sourceResults = [];
     for (const source of sources) {
@@ -345,7 +340,6 @@ beforeEach(() => {
       ecosystem: "js",
     },
   ];
-  sharedResolvedConfig.versionSources = "all";
   delete sharedResolvedConfig.versioning;
 });
 
@@ -1091,41 +1085,12 @@ describe("CLI action handler - registry filtering", () => {
   });
 });
 
-describe("CLI action handler - version source variants", () => {
-  it("only creates ChangesetSource when versionSources is 'changesets'", async () => {
+describe("CLI action handler - release sources", () => {
+  it("always creates changeset and conventional commit sources", async () => {
     const { ChangesetSource, ConventionalCommitSource } = await import(
       "@pubm/core"
     );
     mockIsCI.isCI = true;
-    sharedResolvedConfig.versionSources = "changesets";
-    mockMergeRecommendations.mockReturnValue([]);
-
-    await run();
-
-    expect(ChangesetSource).toHaveBeenCalled();
-    expect(ConventionalCommitSource).not.toHaveBeenCalled();
-  });
-
-  it("only creates ConventionalCommitSource when versionSources is 'commits'", async () => {
-    const { ChangesetSource, ConventionalCommitSource } = await import(
-      "@pubm/core"
-    );
-    mockIsCI.isCI = true;
-    sharedResolvedConfig.versionSources = "commits";
-    mockMergeRecommendations.mockReturnValue([]);
-
-    await run();
-
-    expect(ChangesetSource).not.toHaveBeenCalled();
-    expect(ConventionalCommitSource).toHaveBeenCalled();
-  });
-
-  it("defaults to 'all' when versionSources is undefined", async () => {
-    const { ChangesetSource, ConventionalCommitSource } = await import(
-      "@pubm/core"
-    );
-    mockIsCI.isCI = true;
-    delete sharedResolvedConfig.versionSources;
     mockMergeRecommendations.mockReturnValue([]);
 
     await run();

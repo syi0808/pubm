@@ -13,12 +13,21 @@ export class ChangesetSource implements VersionSource {
   readonly name = "changeset";
   private changesets: Changeset[] = [];
   private cwd = "";
+  private directory: string;
+
+  constructor(directory = ".pubm/changesets") {
+    this.directory = directory;
+  }
 
   async analyze(
     context: VersionSourceContext,
   ): Promise<VersionRecommendation[]> {
     this.cwd = context.cwd;
-    this.changesets = readChangesets(context.cwd, context.resolveKey);
+    this.changesets = readChangesets(
+      context.cwd,
+      context.resolveKey,
+      this.directory,
+    );
     if (this.changesets.length === 0) return [];
 
     const pkgBumps = new Map<
@@ -65,7 +74,7 @@ export class ChangesetSource implements VersionSource {
 
   async consume(): Promise<void> {
     if (this.changesets.length > 0) {
-      deleteChangesetFiles(this.cwd, this.changesets);
+      deleteChangesetFiles(this.cwd, this.changesets, this.directory);
     }
   }
 }

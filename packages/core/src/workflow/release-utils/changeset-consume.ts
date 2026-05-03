@@ -15,6 +15,7 @@ export interface ConsumeChangesetsForScopeInput {
   cwd: string;
   packageKeys: ReadonlySet<string>;
   resolver: (key: string) => string;
+  directory?: string;
 }
 
 export interface ConsumeChangesetsForScopeResult {
@@ -27,8 +28,9 @@ export function consumeChangesetsForScope({
   cwd,
   packageKeys,
   resolver,
+  directory = ".pubm/changesets",
 }: ConsumeChangesetsForScopeInput): ConsumeChangesetsForScopeResult {
-  const changesetsDir = path.join(cwd, ".pubm", "changesets");
+  const changesetsDir = path.resolve(cwd, directory);
   const result: ConsumeChangesetsForScopeResult = {
     consumed: [],
     rewrittenFiles: [],

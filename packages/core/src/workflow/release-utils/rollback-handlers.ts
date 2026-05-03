@@ -71,7 +71,10 @@ export function registerChangesetBackups(
   ctx: PubmContext,
   changesets: Changeset[],
 ): void {
-  const changesetsDir = path.join(ctx.cwd, ".pubm", "changesets");
+  const changesetsDir = path.resolve(
+    ctx.cwd,
+    ctx.config.release?.changesets?.directory ?? ".pubm/changesets",
+  );
   const changesetBackups = new Map<string, string>();
   for (const changeset of changesets) {
     const filePath = path.join(changesetsDir, `${changeset.id}.md`);

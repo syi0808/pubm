@@ -144,6 +144,59 @@ describe("release PR overrides", () => {
     ]);
   });
 
+  it("applies fixed bump overrides from the highest configured package version", () => {
+    const fixedCtx = {
+      config: {
+        packages: [
+          {
+            ecosystem: "js",
+            name: "pkg-a",
+            path: "packages/a",
+            registries: ["npm"],
+            version: "1.0.0",
+          },
+          {
+            ecosystem: "js",
+            name: "pkg-b",
+            path: "packages/b",
+            registries: ["npm"],
+            version: "2.0.0",
+          },
+        ],
+      },
+    } as PubmContext;
+    const plan: VersionPlan = {
+      mode: "fixed",
+      version: "2.0.1",
+      packages: new Map([
+        ["packages/a::js", "2.0.1"],
+        ["packages/b::js", "2.0.1"],
+      ]),
+    };
+    const scope: ReleasePrScope = {
+      id: "fixed",
+      kind: "fixed",
+      packageKeys: ["packages/a::js", "packages/b::js"],
+      displayName: "release",
+      slug: "release",
+    };
+
+    const next = applyReleaseOverride(fixedCtx, plan, scope, {
+      source: "slash",
+      kind: "bump",
+      bump: "minor",
+    });
+
+    expect(next).toEqual({
+      mode: "fixed",
+      version: "2.1.0",
+      packages: new Map([
+        ["packages/a::js", "2.1.0"],
+        ["packages/b::js", "2.1.0"],
+      ]),
+    });
+  });
+
   it("rejects explicit multi-package release-as for arbitrary scopes", () => {
     const plan: VersionPlan = {
       mode: "independent",

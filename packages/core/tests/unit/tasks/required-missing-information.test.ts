@@ -1696,8 +1696,11 @@ describe("requiredMissingInformationTasks", () => {
 
       expect(ctx.runtime.versionPlan).toEqual({
         mode: "fixed",
-        version: "1.1.0",
-        packages: new Map([["packages/a::js", "1.1.0"]]),
+        version: "2.1.0",
+        packages: new Map([
+          ["packages/a::js", "2.1.0"],
+          ["packages/b::js", "2.1.0"],
+        ]),
       });
       expect(ctx.runtime.changesetConsumed).toBe(true);
     });

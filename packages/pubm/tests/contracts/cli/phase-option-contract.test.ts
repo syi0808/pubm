@@ -132,7 +132,6 @@ const mockState = vi.hoisted(() => {
       plugins: [],
       packages: [],
       rollback: { dangerouslyAllowUnpublish: false },
-      versionSources: "all",
     } as Record<string, any>,
     changesetRecommendations: [] as Array<Record<string, unknown>>,
     commitRecommendations: [] as Array<Record<string, unknown>>,
@@ -162,7 +161,6 @@ const mockState = vi.hoisted(() => {
       plugins: [],
       packages: [],
       rollback: { dangerouslyAllowUnpublish: false },
-      versionSources: "all",
     };
     state.changesetRecommendations = [];
     state.commitRecommendations = [];
@@ -553,7 +551,6 @@ const config = (overrides: Record<string, any> = {}) => ({
   plugins: [],
   packages: [pkg({})],
   rollback: { dangerouslyAllowUnpublish: false },
-  versionSources: "all",
   ...overrides,
 });
 
@@ -815,7 +812,6 @@ const scenarios: CliContractScenario[] = [
     env: { isCI: true },
     config: config({
       packages: [pkg({ name: "ci-no-version", version: "1.0.0", path: "." })],
-      versionSources: "all",
     }),
     recommendations: {
       changesets: [],

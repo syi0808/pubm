@@ -330,7 +330,7 @@ pubm changesets status --since origin/main
 
 消耗 changeset、更新 manifest 版本、写入 changelog，并提交结果。
 
-对于没有待处理 changeset 文件的包，`pubm changesets version` 可以回退到 conventional commits 来确定 bump 类型。此行为由 `versionSources` 配置选项控制。详见[配置指南](/pubm/zh-cn/guides/configuration/#版本来源)。
+`pubm changesets version` analyzes pending changesets and conventional commits together. Changesets win when both sources cover the same package. See the [Configuration guide](/pubm/zh-cn/guides/configuration/#release-analysis) for `release.changesets` and `release.commits` options.
 
 ```bash
 pubm changesets version

@@ -101,6 +101,7 @@ describe("ChangesetSource", () => {
     expect(mockedDeleteChangesetFiles).toHaveBeenCalledWith(
       "/repo",
       expect.any(Array),
+      ".pubm/changesets",
     );
   });
 });

@@ -1,4 +1,4 @@
-import { inc, valid } from "semver";
+import { gt, inc, valid } from "semver";
 import type { BumpType } from "../../changeset/parser.js";
 import type { PubmContext, VersionPlan } from "../../context.js";
 import { packageKey } from "../../utils/package-key.js";
@@ -158,6 +158,11 @@ export function applyReleaseOverride(
     return updatePlanVersions(plan, packageKeys, () => override.version);
   }
 
+  if (plan.mode === "fixed") {
+    const next = nextFixedOverrideVersion(ctx, plan, override.bump);
+    return updatePlanVersions(plan, new Set(plan.packages.keys()), () => next);
+  }
+
   return updatePlanVersions(plan, packageKeys, (key) => {
     const current = currentVersion(ctx, key);
     const next = inc(current, override.bump);
@@ -185,14 +190,43 @@ function updatePlanVersions(
 
   if (plan.mode === "fixed") {
     const firstKey = [...packageKeys].find((key) => packages.has(key));
+    if (!firstKey) return { ...plan, packages };
+    const version = versionForKey(firstKey);
+    for (const key of packages.keys()) {
+      packages.set(key, version);
+    }
     return {
       ...plan,
-      version: firstKey ? versionForKey(firstKey) : plan.version,
+      version,
       packages,
     };
   }
 
   return { ...plan, packages };
+}
+
+function nextFixedOverrideVersion(
+  ctx: PubmContext,
+  plan: Extract<VersionPlan, { mode: "fixed" }>,
+  bump: ReleasePrBumpOverride,
+): string {
+  const base = highestVersion(
+    ctx.config.packages
+      .filter((pkg) => plan.packages.has(packageKey(pkg)))
+      .map((pkg) => pkg.version),
+  );
+  const next = base ? inc(base, bump) : undefined;
+  if (!next) throw new Error(`Cannot apply ${bump} bump to fixed release plan`);
+  return next;
+}
+
+function highestVersion(versions: readonly string[]): string | undefined {
+  let highest: string | undefined;
+  for (const version of versions) {
+    if (!valid(version)) continue;
+    if (!highest || gt(version, highest)) highest = version;
+  }
+  return highest;
 }
 
 function currentVersion(ctx: PubmContext, key: string): string {

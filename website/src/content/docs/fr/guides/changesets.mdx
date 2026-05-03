@@ -97,39 +97,40 @@ pubm changesets changelog --dry-run
 pubm changesets changelog --version 1.8.0
 ```
 
-## Repli sur les commits conventionnels
+## Conventional commit recommendations
 
-Lorsque `versionSources` est `"all"` (la valeur par défaut), `pubm changesets version` revient automatiquement aux commits conventionnels pour tout package sans fichier de changeset en attente. Cela permet aux équipes d'adopter les changesets progressivement : les packages avec changesets les utilisent ; les packages sans changesets se replient sur l'historique des commits.
+`pubm changesets version` analyzes conventional commits alongside pending changeset files. If a package has no changeset recommendation, a releasable conventional commit can create the bump recommendation. Non-conventional commits, ignored commit types, and commits that cannot be mapped to a package are treated as unversioned changes; they do not create bumps by themselves.
 
-### Correspondance par défaut des types de commits
+### Default commit type mapping
 
-| Type de commit | Bump |
-|----------------|------|
+| Commit type | Bump |
+| --- | --- |
 | `feat` | `minor` |
 | `fix` | `patch` |
 | `perf` | `patch` |
 
-Un footer `BREAKING CHANGE` ou un suffixe `!` (ex. `feat!:`) produit toujours un bump `major`.
+A `BREAKING CHANGE` footer or a `!` suffix (e.g. `feat!:`) always produces a `major` bump.
 
-### Configurer des correspondances personnalisées
+### Configuring custom mappings
 
-Remplacez la correspondance par défaut dans `pubm.config.ts` :
+Override the default mapping in `pubm.config.ts`:
 
 ```ts
 export default defineConfig({
-  versionSources: "all",
-  conventionalCommits: {
-    types: {
-      feat: "minor",
-      fix: "patch",
-      perf: "patch",
-      docs: "patch",
+  release: {
+    commits: {
+      types: {
+        feat: "minor",
+        fix: "patch",
+        perf: "patch",
+        docs: "patch",
+      },
     },
   },
 });
 ```
 
-Définissez `versionSources: "commits"` pour n'utiliser que les commits conventionnels et ignorer complètement les fichiers de changeset. Définissez `versionSources: "changesets"` pour désactiver le repli et n'utiliser que les fichiers de changeset.
+Release PR automation warns by default when only unversioned changes are found and no versioned release PR can be opened. Configure that with `release.pullRequest.unversionedChanges`: `"warn"` (default), `"ignore"`, or `"fail"`.
 
 ## Migration depuis `.changeset/`
 

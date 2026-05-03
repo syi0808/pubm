@@ -20,7 +20,6 @@ export interface InitResult {
   branch: string;
   versioning: "independent" | "fixed";
   changelog: boolean;
-  changelogFormat: "default" | "github";
   releaseDraft: boolean;
   changesets: boolean;
   ci: boolean;
@@ -31,7 +30,6 @@ export const INIT_DEFAULTS = {
   versioning: "independent" as const,
   branch: "main",
   changelog: true,
-  changelogFormat: "default" as const,
   releaseDraft: true,
 };
 
@@ -156,28 +154,13 @@ export async function promptVersioning(): Promise<"independent" | "fixed"> {
   return versioning;
 }
 
-export async function promptChangelog(): Promise<{
-  enabled: boolean;
-  format: "default" | "github";
-}> {
+export async function promptChangelog(): Promise<boolean> {
   const enabled = await prompt<boolean>({
     type: "confirm",
     message: t("prompt.init.changelog"),
     initial: true,
   });
-
-  if (!enabled) return { enabled: false, format: "default" };
-
-  const format = await prompt<"default" | "github">({
-    type: "select",
-    message: t("prompt.init.changelogFormat"),
-    choices: [
-      { name: "github", message: t("prompt.init.changelogGithub") },
-      { name: "default", message: t("prompt.init.changelogDefault") },
-    ],
-  });
-
-  return { enabled, format };
+  return enabled;
 }
 
 export async function promptGithubRelease(): Promise<boolean> {
@@ -234,7 +217,6 @@ export function shouldCreateConfig(
   if (result.versioning !== defaults.versioning) return true;
   if (result.branch !== defaults.branch) return true;
   if (result.changelog !== defaults.changelog) return true;
-  if (result.changelogFormat !== defaults.changelogFormat) return true;
   if (result.releaseDraft !== defaults.releaseDraft) return true;
 
   return false;
@@ -250,20 +232,20 @@ export function buildConfigContent(result: InitResult): string {
     fields.push(`  packages: [\n${pkgEntries},\n  ]`);
   }
 
-  if (result.versioning !== INIT_DEFAULTS.versioning) {
-    fields.push(`  versioning: "${result.versioning}"`);
-  }
   if (result.branch !== INIT_DEFAULTS.branch) {
     fields.push(`  branch: "${result.branch}"`);
   }
-  if (!result.changelog) {
-    fields.push(`  changelog: false`);
+  const releaseFields: string[] = [];
+  if (result.versioning !== INIT_DEFAULTS.versioning) {
+    releaseFields.push(
+      `    versioning: {\n      mode: "${result.versioning}",\n    }`,
+    );
   }
-  if (
-    result.changelog &&
-    result.changelogFormat !== INIT_DEFAULTS.changelogFormat
-  ) {
-    fields.push(`  changelogFormat: "${result.changelogFormat}"`);
+  if (!result.changelog) {
+    releaseFields.push(`    changelog: false`);
+  }
+  if (releaseFields.length > 0) {
+    fields.push(`  release: {\n${releaseFields.join(",\n")},\n  }`);
   }
   if (result.releaseDraft !== INIT_DEFAULTS.releaseDraft) {
     fields.push(`  releaseDraft: ${result.releaseDraft}`);

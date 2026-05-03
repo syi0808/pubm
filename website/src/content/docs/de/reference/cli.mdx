@@ -330,7 +330,7 @@ pubm changesets status --since origin/main
 
 Verbraucht Changesets, aktualisiert Manifest-Versionen, schreibt Changelogs und committet das Ergebnis.
 
-Für Pakete ohne ausstehende Changeset-Dateien kann `pubm changesets version` auf Conventional Commits zurückfallen, um den Bump-Typ zu bestimmen. Dieses Verhalten wird durch die Konfigurationsoption `versionSources` gesteuert. Weitere Details im [Konfigurationsleitfaden](/pubm/de/guides/configuration/#versionsquellen).
+`pubm changesets version` analyzes pending changesets and conventional commits together. Changesets win when both sources cover the same package. See the [Configuration guide](/pubm/de/guides/configuration/#release-analysis) for `release.changesets` and `release.commits` options.
 
 ```bash
 pubm changesets version

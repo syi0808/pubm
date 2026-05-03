@@ -323,9 +323,9 @@ pubm changesets status --since origin/main
 
 ## `pubm changesets version`
 
-Consume changesets, update manifest versions, write changelogs, and commit the result.
+Consume release recommendations, update manifest versions, write changelogs, and commit the result.
 
-For packages that have no pending changeset files, `pubm changesets version` can fall back to conventional commits to determine the bump type. This behavior is controlled by the `versionSources` config option. See the [Configuration guide](/pubm/guides/configuration/#version-sources) for details.
+`pubm changesets version` analyzes pending changesets and conventional commits together. Changesets win when both sources cover the same package. See the [Configuration guide](/pubm/guides/configuration/#release-analysis) for `release.changesets` and `release.commits` options.
 
 ```bash
 pubm changesets version

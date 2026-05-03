@@ -1,4 +1,8 @@
 export default {
 	branch: "custom-branch",
-	versioning: "fixed" as const,
+	release: {
+		versioning: {
+			mode: "fixed" as const,
+		},
+	},
 };

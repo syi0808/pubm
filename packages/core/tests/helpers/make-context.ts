@@ -10,7 +10,6 @@ export function makeTestConfig(
     versioning: "independent",
     branch: "main",
     changelog: true,
-    changelogFormat: "default",
     commit: false,
     access: "public",
     fixed: [],
@@ -23,20 +22,31 @@ export function makeTestConfig(
     saveToken: true,
     releaseDraft: true,
     releaseNotes: true,
-    releasePr: {
-      enabled: false,
-      branchTemplate: "pubm/release/{scopeSlug}",
-      titleTemplate: "chore(release): {scope} {version}",
-      label: "pubm:release-pr",
-      bumpLabels: {
-        patch: "release:patch",
-        minor: "release:minor",
-        major: "release:major",
-        prerelease: "release:prerelease",
+    release: {
+      versioning: {
+        mode: "independent",
+        fixed: [],
+        linked: [],
+        updateInternalDependencies: "patch",
       },
-      grouping: "independent",
-      fixed: [],
-      linked: [],
+      changesets: { directory: ".pubm/changesets" },
+      commits: { format: "conventional", types: {} },
+      changelog: true,
+      pullRequest: {
+        branchTemplate: "pubm/release/{scopeSlug}",
+        titleTemplate: "chore(release): {scope} {version}",
+        label: "pubm:release-pr",
+        bumpLabels: {
+          patch: "release:patch",
+          minor: "release:minor",
+          major: "release:major",
+          prerelease: "release:prerelease",
+        },
+        grouping: "independent",
+        fixed: [],
+        linked: [],
+        unversionedChanges: "warn",
+      },
     },
     rollback: { strategy: "individual", dangerouslyAllowUnpublish: false },
     lockfileSync: "optional",
@@ -47,18 +57,47 @@ export function makeTestConfig(
   };
 
   const config: ResolvedPubmConfig = { ...base, ...overrides };
-  const releasePr = overrides.releasePr;
-  config.releasePr = {
-    ...base.releasePr,
-    ...releasePr,
-    bumpLabels: {
-      ...base.releasePr.bumpLabels,
-      ...releasePr?.bumpLabels,
-    },
-    grouping: releasePr?.grouping ?? config.versioning,
-    fixed: releasePr?.fixed ?? config.fixed,
-    linked: releasePr?.linked ?? config.linked,
+  const release = overrides.release;
+  const versioning = {
+    ...base.release.versioning,
+    ...release?.versioning,
+    fixed: release?.versioning?.fixed ?? base.release.versioning.fixed,
+    linked: release?.versioning?.linked ?? base.release.versioning.linked,
   };
+  const pullRequest = {
+    ...base.release.pullRequest,
+    ...release?.pullRequest,
+    bumpLabels: {
+      ...base.release.pullRequest.bumpLabels,
+      ...release?.pullRequest?.bumpLabels,
+    },
+  };
+  config.release = {
+    ...base.release,
+    ...release,
+    versioning,
+    changesets: {
+      ...base.release.changesets,
+      ...release?.changesets,
+    },
+    commits: {
+      ...base.release.commits,
+      ...release?.commits,
+      types: release?.commits?.types ?? base.release.commits.types,
+    },
+    pullRequest: {
+      ...pullRequest,
+      grouping: pullRequest.grouping ?? versioning.mode,
+      fixed: release?.pullRequest?.fixed ?? versioning.fixed,
+      linked: release?.pullRequest?.linked ?? versioning.linked,
+    },
+  };
+  config.versioning = config.release.versioning.mode;
+  config.fixed = config.release.versioning.fixed;
+  config.linked = config.release.versioning.linked;
+  config.updateInternalDependencies =
+    config.release.versioning.updateInternalDependencies;
+  config.changelog = config.release.changelog;
 
   return config;
 }

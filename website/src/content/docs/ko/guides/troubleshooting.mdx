@@ -62,8 +62,8 @@ pubm --dry-run
 확인할 사항:
 
 - `pubm changesets status --verbose`를 실행합니다.
-- `pubm.config.*`의 `fixed`와 `linked` 그룹을 확인합니다.
-- 저장소가 `independent`인지 `fixed` 버전 관리를 쓰는지 확인합니다.
+- `pubm.config.*`의 `release.versioning.fixed`와 `release.versioning.linked` 그룹을 확인합니다.
+- `release.versioning.mode`가 `independent`인지 `fixed`인지 확인합니다.
 
 워크스페이스 구조가 복잡하다면, 탐지에만 의존하지 말고 `packages`를 명시적으로 설정합니다.
 

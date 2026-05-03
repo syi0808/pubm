@@ -134,10 +134,7 @@ function setupDefaultMocks() {
   });
   vi.mocked(promptPackages).mockResolvedValue(["."]);
   vi.mocked(promptBranch).mockResolvedValue("main");
-  vi.mocked(promptChangelog).mockResolvedValue({
-    enabled: true,
-    format: "default",
-  });
+  vi.mocked(promptChangelog).mockResolvedValue(true);
   vi.mocked(promptGithubRelease).mockResolvedValue(true);
   vi.mocked(promptChangesets).mockResolvedValue(false);
   vi.mocked(promptCI).mockResolvedValue(false);
@@ -343,10 +340,7 @@ describe("init command — full flow", () => {
 
   it("single package, changelog disabled — config file created with changelog: false", async () => {
     setupDefaultMocks();
-    vi.mocked(promptChangelog).mockResolvedValue({
-      enabled: false,
-      format: "default",
-    });
+    vi.mocked(promptChangelog).mockResolvedValue(false);
 
     await runInit();
 
@@ -387,7 +381,8 @@ describe("init command — full flow", () => {
     expect(content).toContain('path: "packages/a"');
     expect(content).toContain('path: "packages/b"');
     expect(content).toContain('path: "packages/c"');
-    expect(content).toContain('versioning: "fixed"');
+    expect(content).toContain("versioning:");
+    expect(content).toContain('mode: "fixed"');
   });
 
   it("single package non-monorepo — versioning prompt NOT called", async () => {

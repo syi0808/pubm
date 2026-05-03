@@ -1,18 +1,11 @@
 import micromatch from "micromatch";
 import semver from "semver";
-import { createKeyResolver } from "../changeset/resolve.js";
 import type { ResolvedPubmConfig } from "../config/types.js";
 import type { PubmContext, VersionPlan } from "../context.js";
 import { applyFixedGroup, applyLinkedGroup } from "../monorepo/groups.js";
+import { analyzeReleaseChanges } from "../release-analysis/analyze.js";
 import { packageKey } from "../utils/package-key.js";
-import { ChangesetSource } from "./changeset-source.js";
-import { ConventionalCommitSource } from "./conventional-commit-source.js";
-import { mergeRecommendations } from "./merge.js";
-import type {
-  VersionRecommendation,
-  VersionSource,
-  VersionSourceContext,
-} from "./types.js";
+import type { VersionRecommendation } from "./types.js";
 
 export function createVersionPlanFromRecommendations(
   config: ResolvedPubmConfig,
@@ -22,16 +15,22 @@ export function createVersionPlanFromRecommendations(
   if (groupedRecommendations.length === 0) return undefined;
 
   const packages = new Map<string, string>();
+  const matchedRecommendations: VersionRecommendation[] = [];
   for (const rec of groupedRecommendations) {
     const matchingPackages = config.packages.filter((pkg) =>
       rec.packageKey
         ? packageKey(pkg) === rec.packageKey
         : pkg.path === rec.packagePath,
     );
+    let matched = false;
     for (const pkg of matchingPackages) {
       const newVersion = semver.inc(pkg.version, rec.bumpType);
-      if (newVersion) packages.set(packageKey(pkg), newVersion);
+      if (newVersion) {
+        packages.set(packageKey(pkg), newVersion);
+        matched = true;
+      }
     }
+    if (matched) matchedRecommendations.push(rec);
   }
 
   if (packages.size === 0) return undefined;
@@ -44,8 +43,9 @@ export function createVersionPlanFromRecommendations(
     };
   }
 
-  if (config.versioning === "fixed") {
-    const version = highestVersion([...packages.values()]);
+  if (releaseVersioning(config).mode === "fixed") {
+    const version = createFixedVersion(config, matchedRecommendations);
+    if (!version) return undefined;
     return {
       mode: "fixed",
       version,
@@ -61,30 +61,9 @@ export function createVersionPlanFromRecommendations(
 export async function analyzeVersionSources(
   ctx: PubmContext,
 ): Promise<VersionRecommendation[]> {
-  const currentVersions = new Map(
-    ctx.config.packages.map((pkg) => [pkg.path, pkg.version]),
-  );
-  const versionSources = ctx.config.versionSources ?? "all";
-  const sources: VersionSource[] = [];
-  if (versionSources === "all" || versionSources === "changesets") {
-    sources.push(new ChangesetSource());
-  }
-  if (versionSources === "all" || versionSources === "commits") {
-    sources.push(
-      new ConventionalCommitSource(ctx.config.conventionalCommits?.types),
-    );
-  }
-
-  const sourceContext: VersionSourceContext = {
-    cwd: ctx.cwd,
-    packages: currentVersions,
-    resolveKey: createKeyResolver(ctx.config.packages),
-  };
-  const sourceResults: VersionRecommendation[][] = [];
-  for (const source of sources) {
-    sourceResults.push(await source.analyze(sourceContext));
-  }
-  return mergeRecommendations(sourceResults);
+  const analysis = await analyzeReleaseChanges(ctx);
+  ctx.runtime.releaseAnalysis = analysis;
+  return analysis.recommendations;
 }
 
 export async function applyVersionSourcePlan(ctx: PubmContext): Promise<void> {
@@ -101,12 +80,40 @@ export async function applyVersionSourcePlan(ctx: PubmContext): Promise<void> {
   );
 }
 
-function highestVersion(versions: readonly string[]): string {
-  let highest = versions[0] ?? "";
-  for (const version of versions.slice(1)) {
-    if (semver.valid(version) && semver.valid(highest)) {
-      if (semver.gt(version, highest)) highest = version;
+const bumpRank: Record<VersionRecommendation["bumpType"], number> = {
+  patch: 0,
+  minor: 1,
+  major: 2,
+};
+
+function createFixedVersion(
+  config: ResolvedPubmConfig,
+  recommendations: readonly VersionRecommendation[],
+): string | undefined {
+  const baseVersion = highestVersion(config.packages.map((pkg) => pkg.version));
+  const bumpType = highestBump(recommendations);
+  return baseVersion && bumpType
+    ? (semver.inc(baseVersion, bumpType) ?? undefined)
+    : undefined;
+}
+
+function highestBump(
+  recommendations: readonly VersionRecommendation[],
+): VersionRecommendation["bumpType"] | undefined {
+  let highest: VersionRecommendation["bumpType"] | undefined;
+  for (const rec of recommendations) {
+    if (!highest || bumpRank[rec.bumpType] > bumpRank[highest]) {
+      highest = rec.bumpType;
     }
+  }
+  return highest;
+}
+
+function highestVersion(versions: readonly string[]): string | undefined {
+  let highest: string | undefined;
+  for (const version of versions) {
+    if (!semver.valid(version)) continue;
+    if (!highest || semver.gt(version, highest)) highest = version;
   }
   return highest;
 }
@@ -115,10 +122,11 @@ function applyConfiguredGroups(
   config: ResolvedPubmConfig,
   recommendations: readonly VersionRecommendation[],
 ): VersionRecommendation[] {
-  const fixedGroups = config.fixed ?? [];
-  const linkedGroups = config.linked ?? [];
+  const versioning = releaseVersioning(config);
+  const fixedGroups = versioning.fixed ?? [];
+  const linkedGroups = versioning.linked ?? [];
   if (
-    config.versioning === "fixed" ||
+    versioning.mode === "fixed" ||
     recommendations.length === 0 ||
     (fixedGroups.length === 0 && linkedGroups.length === 0)
   ) {
@@ -175,6 +183,17 @@ function applyConfiguredGroups(
         entries: [],
       };
     });
+}
+
+function releaseVersioning(config: ResolvedPubmConfig) {
+  return (
+    config.release?.versioning ?? {
+      mode: config.versioning ?? "independent",
+      fixed: config.fixed ?? [],
+      linked: config.linked ?? [],
+      updateInternalDependencies: config.updateInternalDependencies ?? "patch",
+    }
+  );
 }
 
 function resolveGroupKeys(

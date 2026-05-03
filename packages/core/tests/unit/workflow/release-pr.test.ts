@@ -138,20 +138,31 @@ function makeContext(): PubmContext {
     options: {},
     config: {
       versioning: "independent",
-      releasePr: {
-        enabled: false,
-        branchTemplate: "pubm/release/{scopeSlug}",
-        titleTemplate: "chore(release): {scope} {version}",
-        label: "pubm:release-pr",
-        bumpLabels: {
-          patch: "release:patch",
-          minor: "release:minor",
-          major: "release:major",
-          prerelease: "release:prerelease",
+      release: {
+        versioning: {
+          mode: "independent",
+          fixed: [],
+          linked: [],
+          updateInternalDependencies: "patch",
         },
-        grouping: "independent",
-        fixed: [],
-        linked: [],
+        changesets: { directory: ".pubm/changesets" },
+        commits: { format: "conventional", types: {} },
+        changelog: true,
+        pullRequest: {
+          branchTemplate: "pubm/release/{scopeSlug}",
+          titleTemplate: "chore(release): {scope} {version}",
+          label: "pubm:release-pr",
+          bumpLabels: {
+            patch: "release:patch",
+            minor: "release:minor",
+            major: "release:major",
+            prerelease: "release:prerelease",
+          },
+          grouping: "independent",
+          fixed: [],
+          linked: [],
+          unversionedChanges: "warn",
+        },
       },
       packages: [
         {
@@ -480,9 +491,16 @@ describe("prepareReleasePr", () => {
     ctx.config = Object.freeze({
       ...ctx.config,
       linked,
-      releasePr: {
-        ...ctx.config.releasePr,
-        linked,
+      release: {
+        ...ctx.config.release,
+        versioning: {
+          ...ctx.config.release.versioning,
+          linked,
+        },
+        pullRequest: {
+          ...ctx.config.release.pullRequest,
+          linked,
+        },
       },
     });
     releasePrState.diffOutput =
@@ -528,9 +546,12 @@ describe("prepareReleasePr", () => {
       "packages/a/package.json\npackages/b/package.json\n";
     ctx.config = Object.freeze({
       ...ctx.config,
-      releasePr: {
-        ...ctx.config.releasePr,
-        grouping: "independent",
+      release: {
+        ...ctx.config.release,
+        pullRequest: {
+          ...ctx.config.release.pullRequest,
+          grouping: "independent",
+        },
       },
     });
 
