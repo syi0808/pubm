@@ -105,7 +105,7 @@ export interface PubmContext {
 关键字段：
 
 - `ctx.config`：解析后的 pubm 配置（packages、registries、plugins、releaseAssets 等）
-- `ctx.options`：解析后的 CLI 选项（version、tag、mode、dryRun 等）
+- `ctx.options`：解析后的 CLI 选项（version、tag、phase、dryRun 等）
 - `ctx.cwd`：工作目录
 - `ctx.runtime`：可变的运行时状态（version plan、临时目录等）
 - `ctx.runtime.pluginTokens`：以 `PluginCredential.key` 为键的已解析插件凭证值映射。它会在凭证收集步骤之后填充，后续所有 hooks 都能用。
