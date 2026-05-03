@@ -1,16 +1,17 @@
 ---
 title: Workflows de release
-description: Elige entre Direct Release y Split CI Release para pubm.
+description: Elige entre Direct Release, Split CI Release y GitHub Release PRs para pubm.
 ---
 
 Usa esta guía para elegir cómo una release real avanza desde las comprobaciones locales hasta los paquetes publicados.
 
-`pubm` admite actualmente dos workflows de release:
+`pubm` admite actualmente tres workflows de release:
 
 | Workflow | Comandos | Úsalo cuando |
 |----------|----------|--------------|
 | Direct Release | `pubm` | Una terminal local de confianza o un job controlado debe ejecutar toda la release. |
 | Split CI Release | Local `pubm --phase prepare`, luego CI `pubm --phase publish` | La preparación local debe escribir versiones y tags; CI debe publicar con tokens. |
+| GitHub Release PR | `pubm workflow install github` | Los cambios de archivos de release deben revisarse en PRs antes de que CI publique releases mergeadas. |
 
 ## Direct Release
 
@@ -88,11 +89,21 @@ Publish prepared release:
 - no vuelve a crear tags
 - no vuelve a hacer push del commit de release ni de tags
 
+## GitHub Release PR
+
+GitHub Release PR usa sub-actions separadas de `pubm-actions`:
+
+```bash
+pubm workflow install github
+```
+
+La action `release-pr` escribe versiones de manifests, changelogs, changesets consumidos y salida de hooks `afterVersion` en un PR gestionado. La action `publish` solo se ejecuta después de mergear un release PR con label, crea tags en el merge commit, publica el scope correspondiente y crea GitHub Releases.
+
+Los release PRs son pending PRs continuos por release scope. Si llegan más cambios publicables antes del merge, pubm actualiza el PR existente de ese package o grupo linked/fixed en vez de abrir un duplicado para la nueva versión. El branch template predeterminado no contiene versión: `pubm/release/{scopeSlug}`.
+
 ## Alcance actual
 
 La CI completamente automatizada, donde CI decide y prepara la release sin `pubm --phase prepare` local, no es un workflow admitido actualmente.
-
-Los flujos de PR approval y release-PR pertenecen al trabajo futuro de `pubm-actions`. No son workflows de CLI para configurar hoy.
 
 ## Siguientes pasos
 

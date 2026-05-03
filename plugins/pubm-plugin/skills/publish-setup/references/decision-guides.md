@@ -64,15 +64,19 @@ pubm --phase publish
 
 **Best for:** Most projects. Version control stays local, publishing is automated and reproducible.
 
-### Unsupported current scope
+### GitHub Release PR
 
-Fully automated CI, release approval PRs, and release-pr flows are future `pubm-actions` scope. Do not recommend them as a current CLI or setup-skill path.
+```bash
+pubm workflow install github
+```
+
+**Best for:** Teams that require PR approval for version/changelog changes before publish. The release PR action prepares release files, and the publish action runs after that PR is merged.
 
 ### Decision flow
 
 1. Need CI for platform-specific builds, protected publishing secrets, or reproducible publish jobs? → **Split CI Release**
-2. Want one local or controlled job to run versioning, publishing, and GitHub Releases together? → **Direct Release**
-3. Default recommendation for teams → **Split CI Release**
+2. Need branch-protected review for version/changelog files before publish? → **GitHub Release PR**
+3. Want one local or controlled job to run versioning, publishing, and GitHub Releases together? → **Direct Release**
 4. Default recommendation for simple solo projects → **Direct Release**
 
 ## Multi-Ecosystem Projects

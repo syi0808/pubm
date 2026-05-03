@@ -1,16 +1,17 @@
 ---
 title: Release Workflows
-description: Choose between Direct Release and Split CI Release for pubm.
+description: Choose between Direct Release, Split CI Release, and GitHub release PRs for pubm.
 ---
 
 Use this guide to choose how a real release moves from local checks to published packages.
 
-`pubm` currently supports two release workflows:
+`pubm` currently supports three release workflows:
 
-| Workflow         | Commands                                                     | Use when                                                                            |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Direct Release   | `pubm`                                                       | One trusted local terminal or controlled job should run the whole release.          |
-| Split CI Release | Local `pubm --phase prepare`, then CI `pubm --phase publish` | Local preparation should write versions and tags; CI should publish from tokens. |
+| Workflow              | Commands or actions                                          | Use when                                                                            |
+| --------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Direct Release        | `pubm`                                                       | One trusted local terminal or controlled job should run the whole release.          |
+| Split CI Release      | Local `pubm --phase prepare`, then CI `pubm --phase publish` | Local preparation should write versions and tags; CI should publish from tokens.    |
+| GitHub Release PR     | `pubm workflow install github`                               | Release file changes should be reviewed in PRs before CI publishes merged releases. |
 
 ## Direct Release
 
@@ -88,11 +89,23 @@ Publish prepared release:
 - does not create tags again
 - does not push the release commit or tags again
 
+## GitHub Release PR
+
+GitHub Release PR uses split `pubm-actions` sub-actions:
+
+```bash
+pubm workflow install github
+```
+
+The `release-pr` action reads pending changesets or conventional commits, writes manifest versions, changelogs, consumed changesets, and `afterVersion` hook output into a managed PR. The `publish` action runs only after a labeled release PR is merged, then creates tags on the merged commit, publishes the matching package scope, creates GitHub Releases, and runs publish-side hooks.
+
+Use it when branch protection requires PR approval for version/changelog changes or when independent monorepo packages should get separate release PRs.
+
+Release PRs are rolling pending PRs per release scope. If another releasable change lands before the PR is merged, pubm updates the existing PR for that package or linked/fixed group instead of opening a duplicate for the new version. The default release PR branch template is versionless (`pubm/release/{scopeSlug}`); the current version is shown in the PR title and body.
+
 ## Current scope
 
 Fully automated CI, where CI decides and prepares the release without local `pubm --phase prepare`, is not a supported current workflow.
-
-PR approval and release-PR flows belong to future `pubm-actions` work. They are not CLI workflows to configure today.
 
 ## Next steps
 

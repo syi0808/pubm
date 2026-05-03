@@ -1,16 +1,17 @@
 ---
 title: 发布工作流
-description: 在 pubm 中选择 Direct Release 或 Split CI Release。
+description: 在 pubm 中选择 Direct Release、Split CI Release 或 GitHub Release PR。
 ---
 
 使用本指南来决定一次真实 release 如何从本地检查推进到已发布的 packages。
 
-`pubm` 当前支持两种发布工作流：
+`pubm` 当前支持三种发布工作流：
 
 | 工作流 | 命令 | 适用场景 |
 |--------|------|----------|
 | Direct Release | `pubm` | 一个受信任的本地终端或受控 job 应运行完整 release |
 | Split CI Release | 本地 `pubm --phase prepare`，然后 CI `pubm --phase publish` | 本地准备应写入版本和 tags，CI 应使用 tokens 完成发布 |
+| GitHub Release PR | `pubm workflow install github` | release 文件变更需要先在 PR 中审查，然后 CI 发布已合并的 release |
 
 ## Direct Release
 
@@ -88,11 +89,21 @@ Publish prepared release 会：
 - 不再次创建 tags
 - 不再次推送 release commit 或 tags
 
+## GitHub Release PR
+
+GitHub Release PR 使用拆分的 `pubm-actions` sub-actions：
+
+```bash
+pubm workflow install github
+```
+
+`release-pr` action 会把 manifest versions、changelogs、已消费的 changesets 和 `afterVersion` hook 输出写入受管理的 PR。`publish` action 只会在带 label 的 release PR 合并后运行，在 merge commit 上创建 tags，发布匹配的 scope，并创建 GitHub Releases。
+
+Release PR 是按 release scope 持续更新的 pending PR。如果 PR 合并前又有可发布变更进入 release branch，pubm 会更新同一个 package 或 linked/fixed group 的现有 PR，而不是为新版本打开重复 PR。默认 release PR branch template 不包含版本：`pubm/release/{scopeSlug}`。
+
 ## 当前范围
 
 完全自动化 CI，也就是 CI 在没有本地 `pubm --phase prepare` 的情况下决定并准备 release，目前不是受支持的工作流。
-
-PR approval 和 release-PR 流程属于未来的 `pubm-actions` 范围。它们不是今天需要配置的 CLI 工作流。
 
 ## 下一步
 

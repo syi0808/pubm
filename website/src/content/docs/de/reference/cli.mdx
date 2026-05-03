@@ -94,7 +94,6 @@ pubm --tag beta
 | `--no-save-token` | `false` | Speichert unterstützte Tokens nicht für spätere Laeufe. |
 | `--dangerously-allow-unpublish` | `false` | Erlaubt Registry-Unpublish/Yank während des Rollbacks in Nicht-TTY-Umgebungen. |
 | `--locale <locale>` | `en` | Sprache der CLI-Ausgabe festlegen. Unterstützt: `en`, `ko`, `zh-cn`, `fr`, `de`, `es`. |
-| `--create-pr` | `false` | Erstellt einen Pull Request für den Version-Bump anstatt direkt zu pushen. |
 
 ## Flags zur Pipeline-Steuerung
 
@@ -208,12 +207,30 @@ Der Wizard führt diese Schritte der Reihe nach aus:
 1. **Paketerkennung**: durchsucht das Repository nach Manifest-Dateien (`package.json`, `jsr.json`, `deno.json`, `deno.jsonc`, `Cargo.toml`) und Workspace-Konfiguration, bestaetigt dann die erkannten Pakete und Registries.
 2. **Grundkonfiguration**: fragt nach dem Release-Branch und der Versionierungsstrategie (`independent` oder `fixed`).
 3. **Release-Optionen**: fragt nach Changelog-Erzeugung und GitHub-Release-Entwuerfen.
-4. **Workflow-Setup**: bietet an, den Changesets-Workflow zu aktivieren (erstellt `.pubm/changesets/`, `.github/workflows/changeset-check.yml` und aktualisiert `.gitignore`) und CI-Release-Workflows zu erzeugen (`.github/workflows/release.yml`).
+4. **Workflow-Setup**: bietet an, den Changesets-Workflow zu aktivieren (erstellt `.pubm/changesets/`, `.github/workflows/pubm-changeset-check.yml` und aktualisiert `.gitignore`) und CI-Release-Workflows zu erzeugen (`.github/workflows/pubm-release-pr.yml` and `.github/workflows/pubm-publish.yml`).
 5. **Coding-Agent-Skills**: bietet an, Coding-Agent-Skills für Claude Code, Codex CLI oder Gemini CLI herunterzuladen und zu installieren. Das entspricht `pubm setup-skills`.
 
 Eine `pubm.config.ts`-Datei wird nur erstellt, wenn deine Auswahl von den Standardwerten abweicht. Wenn alle Werte den Standardwerten entsprechen, wird keine Config-Datei geschrieben.
 
 Dieser Befehl akzeptiert keine Flags oder Optionen. Alle Konfiguration wird interaktiv abgefragt.
+
+## `pubm workflow install github`
+
+Install GitHub Actions workflows for the release PR workflow.
+
+```bash
+pubm workflow install github
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `--force` | Overwrite existing generated workflow files |
+| `--dry-run` | Print the files that would be written |
+| `--package-manager <pm>` | Choose setup hints for `bun`, `pnpm`, `yarn`, `npm`, or `cargo` |
+| `--branch <branch>` | Target branch for release PRs and publish guardrails |
+| `--skip-changeset-check` | Do not install `.github/workflows/pubm-changeset-check.yml` |
+| `--skip-release-pr` | Do not install `.github/workflows/pubm-release-pr.yml` |
+| `--skip-publish` | Do not install `.github/workflows/pubm-publish.yml` |
 
 ## `pubm setup-skills`
 
@@ -312,7 +329,7 @@ pubm changesets status --since origin/main
 
 Verbraucht Changesets, aktualisiert Manifest-Versionen, schreibt Changelogs und committet das Ergebnis.
 
-Für Pakete ohne ausstehende Changeset-Dateien kann `pubm changesets version` auf Conventional Commits zurückfallen, um den Bump-Typ zu bestimmen. Dieses Verhalten wird durch die Konfigurationsoption `versionSources` gesteuert. Weitere Details im [Konfigurationsleitfaden](/pubm/de/guides/configuration/#versionsquellen).
+`pubm changesets version` analyzes pending changesets and conventional commits together. Changesets win when both sources cover the same package. See the [Configuration guide](/pubm/de/guides/configuration/#release-analysis) for `release.changesets` and `release.commits` options.
 
 ```bash
 pubm changesets version

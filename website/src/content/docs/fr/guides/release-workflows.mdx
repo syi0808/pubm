@@ -1,16 +1,17 @@
 ---
 title: Workflows de release
-description: Choisir entre Direct Release et Split CI Release pour pubm.
+description: Choisir entre Direct Release, Split CI Release et GitHub Release PRs pour pubm.
 ---
 
 Utilisez ce guide pour choisir comment une vraie release passe des vérifications locales aux packages publiés.
 
-`pubm` prend actuellement en charge deux workflows de release :
+`pubm` prend actuellement en charge trois workflows de release :
 
 | Workflow | Commandes | À utiliser quand |
 |----------|-----------|------------------|
 | Direct Release | `pubm` | Un terminal local de confiance ou un job contrôlé doit exécuter toute la release. |
 | Split CI Release | Local `pubm --phase prepare`, puis CI `pubm --phase publish` | La préparation locale doit écrire les versions et tags; CI doit publier avec des tokens. |
+| GitHub Release PR | `pubm workflow install github` | Les changements de fichiers de release doivent être relus dans des PRs avant que CI publie les releases fusionnées. |
 
 ## Direct Release
 
@@ -88,11 +89,21 @@ Publish prepared release :
 - ne recrée pas les tags
 - ne repousse pas le commit de release ni les tags
 
+## GitHub Release PR
+
+GitHub Release PR utilise des sub-actions `pubm-actions` séparées :
+
+```bash
+pubm workflow install github
+```
+
+L'action `release-pr` écrit les versions de manifests, les changelogs, les changesets consommés et la sortie des hooks `afterVersion` dans une PR gérée. L'action `publish` s'exécute seulement après la fusion d'une release PR labellisée, crée les tags sur le merge commit, publie le scope correspondant et crée les GitHub Releases.
+
+Les release PRs sont des pending PRs continues par release scope. Si d'autres changements publiables arrivent avant la fusion, pubm met à jour la PR existante de ce package ou groupe linked/fixed au lieu d'ouvrir un doublon pour la nouvelle version. Le branch template par défaut ne contient pas la version : `pubm/release/{scopeSlug}`.
+
 ## Portée actuelle
 
 La CI entièrement automatisée, où CI décide et prépare la release sans `pubm --phase prepare` local, n'est pas un workflow actuellement pris en charge.
-
-Les flux de PR approval et de release-PR relèvent d'un futur travail `pubm-actions`. Ce ne sont pas des workflows CLI à configurer aujourd'hui.
 
 ## Étapes suivantes
 

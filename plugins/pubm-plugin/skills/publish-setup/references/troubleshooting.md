@@ -97,7 +97,7 @@ export default defineConfig({
 
 **Cause:** Squash merges rewrite the commit message. The "Version Packages" commit message is lost.
 
-**Solution:** Use **merge commit** or **fast-forward merge** strategy for the version PR. Do not use squash merge.
+**Solution:** Use **merge commit** or **fast-forward merge** strategy for release PRs. Do not use squash merge.
 
 ### `git push --follow-tags` rejected
 
@@ -105,9 +105,7 @@ export default defineConfig({
 
 **Cause:** The target branch has push protection rules that prevent direct pushes.
 
-**Solution:** pubm handles this automatically with a PR fallback. It creates a `pubm/version-packages-{timestamp}` branch, pushes there, and opens a PR via GitHub API. No manual action needed.
-
-If you want to avoid the PR fallback, ensure the pushing user/token has bypass permissions on the branch protection rules.
+**Solution:** Use the GitHub release PR workflow instead of relying on direct pushes to a protected branch. It opens a managed release PR, then publishes after the release PR is merged.
 
 ### Direct Release in CI prompts for missing version
 
@@ -162,8 +160,7 @@ pubm registers rollback actions in LIFO (last-in, first-out) order. On failure:
 
 1. Remote tags are deleted
 2. Local commit is reverted
-3. If PR fallback was used: PR is closed and branch is deleted
-4. Local manifest backups are restored (versions, changelogs, changesets)
+3. Local manifest backups are restored (versions, changelogs, changesets)
 
 ### Partial registry publish failure
 

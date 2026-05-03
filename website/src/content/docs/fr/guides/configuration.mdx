@@ -22,19 +22,41 @@ Les fichiers de configuration TypeScript sont pris en charge directement. Le loa
 
 ## Configuration par défaut
 
-Voici les valeurs par défaut résolues par la couche de configuration :
+These are the default user-facing settings.
 
 ```ts
 export default defineConfig({
-  versioning: "independent",
   branch: "main",
-  changelog: true,
-  changelogFormat: "default",
   commit: false,
   access: "public",
-  fixed: [],
-  linked: [],
-  updateInternalDependencies: "patch",
+  release: {
+    versioning: {
+      mode: "independent",
+      fixed: [],
+      linked: [],
+      updateInternalDependencies: "patch",
+    },
+    changesets: {
+      directory: ".pubm/changesets",
+    },
+    commits: {
+      format: "conventional",
+      types: {},
+    },
+    changelog: true,
+    pullRequest: {
+      branchTemplate: "pubm/release/{scopeSlug}",
+      titleTemplate: "chore(release): {scope} {version}",
+      label: "pubm:release-pr",
+      bumpLabels: {
+        patch: "release:patch",
+        minor: "release:minor",
+        major: "release:major",
+        prerelease: "release:prerelease",
+      },
+      unversionedChanges: "warn",
+    },
+  },
   ignore: [],
   tag: "latest",
   contents: ".",
@@ -74,12 +96,56 @@ Deux règles supplémentaires s'appliquent à npm :
 
 ## Options de niveau supérieur
 
-### `versioning`
+### `release`
 
-- Type : `"independent" | "fixed"`
-- Par défaut : `"independent"`
+- Type: `ReleaseConfig`
 
-Contrôle la manière dont les versions sont attribuées dans les dépôts multi-package.
+Configures version planning, changeset discovery, conventional commit parsing, changelog generation, and Release PR automation.
+
+#### `release.versioning`
+
+Controls how versions are assigned in multi-package repositories.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `mode` | `"independent" \| "fixed"` | `"independent"` | Version packages independently or as one release. |
+| `fixed` | `string[][]` | `[]` | Package groups that must resolve to the same version. |
+| `linked` | `string[][]` | `[]` | Package groups that share the highest bump type. |
+| `updateInternalDependencies` | `"patch" \| "minor"` | `"patch"` | Minimum bump for internal dependency ranges. |
+
+#### `release.changesets`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `directory` | `string` | `.pubm/changesets` | Directory for pending changeset files. |
+
+#### `release.commits`
+
+Configures conventional commit parsing. Commit analysis is always available; use `types` to decide which commit types create semver bump recommendations.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `format` | `string` | `"conventional"` | Commit parser format. |
+| `types` | `Record<string, "patch" \| "minor" \| "major" \| false>` | `{}` | Overrides for commit type to semver bump mapping. |
+
+#### `release.changelog`
+
+- Type: `boolean`
+- Default: `true`
+
+Whether pubm should write changelog entries when materializing release versions.
+
+#### `release.pullRequest`
+
+Configuration for the GitHub release PR workflow installed by `pubm workflow install github`.
+
+- `branchTemplate` defaults to `pubm/release/{scopeSlug}` so one pending release PR is maintained per package or group scope while its computed version changes.
+- `titleTemplate` defaults to `chore(release): {scope} {version}`.
+- Release PR dry-run validation always runs before merge.
+- `grouping` inherits `release.versioning.mode` by default and can be overridden with `"fixed"` or `"independent"`.
+- `fixed` and `linked` inherit `release.versioning.fixed` and `release.versioning.linked` by default.
+- Leave `grouping`, `fixed`, and `linked` unset to inherit. Setting `fixed: []` or `linked: []` under `release.pullRequest` intentionally disables inherited groups for release PRs.
+- `unversionedChanges` defaults to `"warn"`. Use `"ignore"` to suppress the warning or `"fail"` to fail Release PR automation when only unversioned changes are found.
 
 ### `branch`
 
@@ -101,20 +167,6 @@ Déclare explicitement les packages publiables. Les registries sont inférés à
 - Par défaut : `[]`
 
 Enregistre les plugins capables d'ajouter des hooks, des commandes, des registries ou des écosystèmes.
-
-### `fixed`
-
-- Type : `string[][]`
-- Par défaut : `[]`
-
-Groupes de packages qui doivent toujours aboutir à la même version.
-
-### `linked`
-
-- Type : `string[][]`
-- Par défaut : `[]`
-
-Groupes de packages qui doivent partager le type de bump le plus élevé.
 
 ### `ignore`
 
@@ -163,13 +215,17 @@ Indique si le flux de publication doit créer une GitHub Release. Lorsqu'il est 
 - Type : `string[]`
 - Par défaut : `[]`
 
-Motifs glob pour les packages qui doivent être versionnés et publiés, mais exclus de la création de tags git et des brouillons de GitHub Release. S'applique uniquement quand `versioning` est `"independent"`.
+Motifs glob pour les packages qui doivent être versionnés et publiés, mais exclus de la création de tags git et des brouillons de GitHub Release. S'applique uniquement quand `release.versioning.mode` est `"independent"`.
 
 Utilisez cette option pour les artefacts de build internes, comme les binaires spécifiques à une plateforme, qui sont publiés dans un registre mais ne doivent pas apparaître comme des releases autonomes.
 
 ```ts
 export default defineConfig({
-  versioning: "independent",
+  release: {
+    versioning: {
+      mode: "independent",
+    },
+  },
   excludeRelease: ["packages/cli/platforms/*"],
   packages: [
     { path: "packages/core" },
@@ -199,15 +255,6 @@ Variables de modèle disponibles :
 - `{tag}` : tag de snapshot, par défaut `snapshot`
 - `{timestamp}` : timestamp UTC au format `YYYYMMDDTHHmmss`
 - `{commit}` : SHA du commit Git courant
-
-### `createPr`
-
-- Type : `boolean`
-- Par défaut : `false`
-
-Crée une pull request pour le commit de version bump au lieu de pousser directement vers la branche de base. C'est une surface de config existante pour les pushes de version protégés, pas un choix de workflow de release recommandé. Choisissez entre Direct Release et Split CI Release dans [Workflows de release](/pubm/fr/guides/release-workflows/).
-
-Peut aussi servir de repli : pubm revient automatiquement au mode PR lorsqu'un push direct vers une branche protégée échoue.
 
 ### `registryQualifiedTags`
 
@@ -262,7 +309,7 @@ Le champ obsolète `rollbackStrategy` de niveau supérieur fonctionne toujours e
 Le comportement runtime actuel est le suivant :
 
 - la config fournit les valeurs par défaut du dépôt pour `packages` et `plugins`
-- la config liée au versioning, comme `versioning`, `fixed` et `linked`, est utilisée par les flux de changesets
+- release planning config such as `release.versioning`, `release.changesets`, and `release.commits` is used by version and release PR flows
 - les flags CLI contrôlent toujours le comportement de publication pour chaque exécution
 - les registries sont inférés à partir des manifests ; `packages[].registries` remplace cette inférence
 
@@ -280,7 +327,11 @@ Pour les workspaces ou les dépôts mélangeant plusieurs langages, déclarez le
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  versioning: "independent",
+  release: {
+    versioning: {
+      mode: "independent",
+    },
+  },
   packages: [
     {
       path: "packages/core",
@@ -343,7 +394,11 @@ Chaque package obtient sa propre version et son propre tag.
 
 ```ts
 export default defineConfig({
-  versioning: "independent",
+  release: {
+    versioning: {
+      mode: "independent",
+    },
+  },
 });
 ```
 
@@ -353,7 +408,11 @@ Chaque package concerné partage une seule version.
 
 ```ts
 export default defineConfig({
-  versioning: "fixed",
+  release: {
+    versioning: {
+      mode: "fixed",
+    },
+  },
 });
 ```
 
@@ -363,9 +422,13 @@ Vous pouvez garder la plupart des packages indépendants tout en forçant certai
 
 ```ts
 export default defineConfig({
-  versioning: "independent",
-  fixed: [["@acme/core", "@acme/react"]],
-  linked: [["@acme/cli", "@acme/config"]],
+  release: {
+    versioning: {
+      mode: "independent",
+      fixed: [["@acme/core", "@acme/react"]],
+      linked: [["@acme/cli", "@acme/config"]],
+    },
+  },
 });
 ```
 
@@ -424,7 +487,11 @@ Les packages avec seulement `package.json` sont résolus comme `npm`. Aucun `reg
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  versioning: "fixed",
+  release: {
+    versioning: {
+      mode: "fixed",
+    },
+  },
   packages: [
     { path: "packages/web" },
     { path: "packages/server" },
@@ -438,7 +505,11 @@ export default defineConfig({
 import { defineConfig } from "@pubm/core";
 
 export default defineConfig({
-  versioning: "independent",
+  release: {
+    versioning: {
+      mode: "independent",
+    },
+  },
   packages: [
     { path: "packages/sdk" },
     { path: "crates/sdk-core" },
@@ -505,51 +576,42 @@ releaseAssets: [
 
 Lisez le guide [Artefacts de release](/pubm/fr/guides/release-assets/) pour les règles complètes de cascade de compression, les variables de modèles de nom et les exemples d'usage.
 
-## Sources de version
+## Release analysis
 
-`pubm changesets version` peut résoudre les bumps de version à partir de deux sources : les fichiers de changeset dans `.pubm/changesets/` et les messages de commits conventionnels. Vous pouvez contrôler quelles sources sont actives et comment les types de commits correspondent aux niveaux de bump.
+`pubm changesets version` analyzes pending changeset files and conventional commit messages together. Changeset recommendations win when a changeset and a commit both cover the same package. Non-conventional commits, ignored commit types, and unmatched package changes are treated as unversioned changes; they never create version bumps by themselves.
 
-### `versionSources`
-
-- Type : `"all" | "changesets" | "commits"`
-- Défaut : `"all"`
-
-Contrôle quelles sources `pubm changesets version` lit lors du calcul des bumps de version.
-
-| Valeur | Comportement |
-|--------|-------------|
-| `"all"` | Utilise les changesets pour les packages qui en ont. Revient aux commits conventionnels pour les packages sans changesets en attente. |
-| `"changesets"` | Ne lit que les fichiers `.pubm/changesets/`. Les commits conventionnels sont ignorés. |
-| `"commits"` | Ne lit que les messages de commits conventionnels. Les fichiers de changeset sont ignorés. |
-
-### `conventionalCommits`
-
-Configure comment les préfixes de types de commits correspondent aux niveaux de bump semver. S'applique uniquement lorsque `versionSources` est `"all"` ou `"commits"`.
+Use `release.changesets.directory` to move the changeset file directory. Use `release.commits.types` to control which conventional commit types create semver bump recommendations.
 
 ```ts
 export default defineConfig({
-  versionSources: "all",
-  conventionalCommits: {
-    types: {
-      // Ajouter des types ignorés par défaut
-      refactor: "patch",
-      docs: "patch",
+  release: {
+    changesets: {
+      directory: ".pubm/changesets",
+    },
+    commits: {
+      types: {
+        // Add types that are ignored by default
+        refactor: "patch",
+        docs: "patch",
+      },
     },
   },
 });
 ```
 
-La correspondance par défaut est :
+The default mapping is:
 
-| Type de commit | Bump |
-|----------------|------|
+| Commit type | Bump |
+| --- | --- |
 | `feat` | `minor` |
 | `fix` | `patch` |
 | `perf` | `patch` |
 
-Les commits avec `BREAKING CHANGE` dans le footer ou un suffixe `!` (ex. `feat!:`) produisent toujours un bump `major` quelle que soit la correspondance de type.
+Commits with `BREAKING CHANGE` in the footer or a `!` suffix (e.g. `feat!:`) always produce a `major` bump regardless of the type mapping.
 
-Les types de commits non listés dans la correspondance (ex. `chore`, `docs`, `test`, `ci`, `style`, `refactor`) sont ignorés lors du calcul du bump. Vous pouvez redéfinir n'importe quel type dans l'objet `types` — par exemple, `refactor: "patch"` traiterait les commits refactor comme des bumps patch.
+Commit types not listed in the mapping (e.g. `chore`, `docs`, `test`, `ci`, `style`, `refactor`) are ignored during bump calculation. You can override any type in `release.commits.types`; for example, `refactor: "patch"` would treat refactor commits as patch bumps.
+
+When Release PR automation finds only unversioned changes, `release.pullRequest.unversionedChanges` controls the outcome. The default is `"warn"`, which reports the unversioned changes and opens no PR. `"ignore"` suppresses the warning. `"fail"` fails the automation.
 
 ## Étapes suivantes
 
