@@ -1,16 +1,17 @@
 ---
 title: Release-Workflows
-description: Zwischen Direct Release und Split CI Release für pubm wählen.
+description: Zwischen Direct Release, Split CI Release und GitHub Release PRs für pubm wählen.
 ---
 
 Nutze diesen Leitfaden, um zu entscheiden, wie ein echtes Release von lokalen Prüfungen zu veröffentlichten Paketen gelangt.
 
-`pubm` unterstützt aktuell zwei Release-Workflows:
+`pubm` unterstützt aktuell drei Release-Workflows:
 
 | Workflow | Befehle | Geeignet wenn |
 |----------|---------|---------------|
 | Direct Release | `pubm` | Ein vertrauenswürdiges lokales Terminal oder ein kontrollierter Job soll das gesamte Release ausführen. |
 | Split CI Release | Lokal `pubm --phase prepare`, dann CI `pubm --phase publish` | Lokale Vorbereitung soll Versionen und Tags schreiben; CI soll mit Tokens veröffentlichen. |
+| GitHub Release PR | `pubm workflow install github` | Release-Dateiänderungen sollen vor dem Publish in PRs geprüft werden. |
 
 ## Direct Release
 
@@ -88,11 +89,21 @@ Publish prepared release:
 - erstellt Tags nicht erneut
 - pusht den Release-Commit oder Tags nicht erneut
 
+## GitHub Release PR
+
+GitHub Release PR verwendet geteilte `pubm-actions` Sub-Actions:
+
+```bash
+pubm workflow install github
+```
+
+Die `release-pr` Action schreibt Manifest-Versionen, Changelogs, konsumierte Changesets und `afterVersion` Hook-Ausgaben in einen verwalteten PR. Die `publish` Action läuft erst nach dem Merge eines gelabelten Release PRs, erstellt Tags auf dem Merge-Commit, veröffentlicht den passenden Scope und erstellt GitHub Releases.
+
+Release PRs sind rolling pending PRs pro Release-Scope. Wenn vor dem Merge weitere releasable Änderungen landen, aktualisiert pubm den bestehenden PR für dieses Package oder diese linked/fixed Gruppe statt einen doppelten PR für die neue Version zu öffnen. Das Standard-Branch-Template ist versionlos: `pubm/release/{scopeSlug}`.
+
 ## Aktueller Umfang
 
 Vollständig automatisierte CI, bei der CI das Release ohne lokales `pubm --phase prepare` entscheidet und vorbereitet, ist aktuell kein unterstützter Workflow.
-
-PR-Approval- und release-PR-Flows gehören zu zukünftiger `pubm-actions`-Arbeit. Sie sind heute keine CLI-Workflows, die konfiguriert werden.
 
 ## Nächste Schritte
 

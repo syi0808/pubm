@@ -94,7 +94,6 @@ pubm --tag beta
 | `--no-save-token` | `false` | 不保存受支持的 token 供后续运行使用。 |
 | `--dangerously-allow-unpublish` | `false` | 允许在非 TTY 环境中的回滚期间对 registry 执行 unpublish/yank。 |
 | `--locale <locale>` | `en` | 设置 CLI 输出语言。支持：`en`, `ko`, `zh-cn`, `fr`, `de`, `es`。 |
-| `--create-pr` | `false` | 为版本升级创建 pull request，而不是直接推送。 |
 
 ## 流程控制 flags
 
@@ -208,12 +207,30 @@ pubm init
 1. **包检测**: 扫描仓库中的 manifest 文件（`package.json`、`jsr.json`、`deno.json`、`deno.jsonc`、`Cargo.toml`）和 workspace 配置，然后确认检测到的包和 registry。
 2. **基础配置**: 提示输入发布分支和版本策略（`independent` 或 `fixed`）。
 3. **发布选项**: 询问是否生成 changelog 和 GitHub Release 草稿。
-4. **工作流 Setup**: 提供启用 changesets 工作流的选项（创建 `.pubm/changesets/`、`.github/workflows/changeset-check.yml` 并更新 `.gitignore`），以及生成 CI 发布工作流（`.github/workflows/release.yml`）。
+4. **工作流 Setup**: 提供启用 changesets 工作流的选项（创建 `.pubm/changesets/`、`.github/workflows/pubm-changeset-check.yml` 并更新 `.gitignore`），以及生成 CI 发布工作流（`.github/workflows/pubm-release-pr.yml` and `.github/workflows/pubm-publish.yml`）。
 5. **Coding Agent Skills**: 提供为 Claude Code、Codex CLI 或 Gemini CLI 下载并安装 coding agent skills 的选项。它与 `pubm setup-skills` 一致。
 
 只有当你的选择与默认值不同时，才会创建 `pubm.config.ts` 文件。如果每个值都与默认值相同，则不会写入配置文件。
 
 此命令不接受任何 flags 或选项。所有配置均通过交互方式收集。
+
+## `pubm workflow install github`
+
+Install GitHub Actions workflows for the release PR workflow.
+
+```bash
+pubm workflow install github
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `--force` | Overwrite existing generated workflow files |
+| `--dry-run` | Print the files that would be written |
+| `--package-manager <pm>` | Choose setup hints for `bun`, `pnpm`, `yarn`, `npm`, or `cargo` |
+| `--branch <branch>` | Target branch for release PRs and publish guardrails |
+| `--skip-changeset-check` | Do not install `.github/workflows/pubm-changeset-check.yml` |
+| `--skip-release-pr` | Do not install `.github/workflows/pubm-release-pr.yml` |
+| `--skip-publish` | Do not install `.github/workflows/pubm-publish.yml` |
 
 ## `pubm setup-skills`
 
@@ -312,7 +329,7 @@ pubm changesets status --since origin/main
 
 消耗 changeset、更新 manifest 版本、写入 changelog，并提交结果。
 
-对于没有待处理 changeset 文件的包，`pubm changesets version` 可以回退到 conventional commits 来确定 bump 类型。此行为由 `versionSources` 配置选项控制。详见[配置指南](/pubm/zh-cn/guides/configuration/#版本来源)。
+`pubm changesets version` analyzes pending changesets and conventional commits together. Changesets win when both sources cover the same package. See the [Configuration guide](/pubm/zh-cn/guides/configuration/#release-analysis) for `release.changesets` and `release.commits` options.
 
 ```bash
 pubm changesets version

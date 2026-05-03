@@ -62,8 +62,8 @@ Symptome:
 Was du prüfen solltest:
 
 - `pubm changesets status --verbose` ausführen
-- die `fixed`- und `linked`-Gruppen in `pubm.config.*` ansehen
-- verifizieren, ob das Repository `independent` oder `fixed` versioniert
+- inspect `release.versioning.fixed` and `release.versioning.linked` groups in `pubm.config.*`
+- verify whether `release.versioning.mode` is `independent` or `fixed`
 
 Wenn die Workspace-Struktur komplex ist, lieber eine explizite `packages`-Config verwenden, statt nur auf Erkennung zu setzen.
 

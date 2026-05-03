@@ -19,7 +19,11 @@ En modo `independent`, cada paquete normalmente obtiene su propio tag de git y b
 
 ```ts
 export default defineConfig({
-  versioning: "independent",
+  release: {
+    versioning: {
+      mode: "independent",
+    },
+  },
   excludeRelease: ["packages/cli/platforms/*"],
   packages: [
     { path: "packages/core" },

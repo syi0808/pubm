@@ -5,13 +5,19 @@ description: Set up CI preparation, token handling, and release automation for p
 
 `pubm` is designed to behave well in both local terminals and CI runners. The normal pipeline already knows how to consume pending changesets during versioning, so you do not need a separate `pubm changesets version` step just to prepare CI.
 
-`pubm init` can generate CI workflows during setup. The wizard offers to create `.github/workflows/release.yml` for tag-triggered publish and `.github/workflows/changeset-check.yml` for PR changeset enforcement, so you do not need to write them by hand.
+`pubm init` can generate CI workflows during setup. The wizard offers to create `.github/workflows/pubm-release-pr.yml`, `.github/workflows/pubm-publish.yml`, and `.github/workflows/pubm-changeset-check.yml` so release file changes are reviewed in a PR before publish runs.
 
 ## Release workflows
 
-Use [Release Workflows](/pubm/guides/release-workflows/) to choose between Direct Release and Split CI Release.
+Use [Release Workflows](/pubm/guides/release-workflows/) to choose between Direct Release, Split CI Release, and the GitHub release PR workflow.
 
-This page focuses on the CI half of Split CI Release: running `pubm --phase publish` after `pubm --phase prepare` has already written manifest versions, created tags, and pushed the release commit and tags.
+For the GitHub release PR workflow, `release-pr` writes version files, changelogs, consumed changesets, and `afterVersion` hook output into a managed PR. After that PR is merged, `publish` verifies the merge, creates tags on the merged commit, publishes the matching release scope, and creates GitHub Releases.
+
+Install the generated workflows directly with:
+
+```bash
+pubm workflow install github
+```
 
 ## Required environment variables
 
@@ -44,16 +50,53 @@ pubm secrets sync --registry npm,jsr
 ## Example GitHub Actions structure
 
 ```yaml
-name: Release
+name: pubm Release PR
 
 on:
   push:
-    tags:
-      - "v*"
-      - "@*"
+    branches:
+      - main
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+  packages: write
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: syi0808/pubm-actions/release-pr@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base-branch: main
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN || secrets.NPM_TOKEN || github.token }}
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+```
+
+```yaml
+name: pubm Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+  packages: write
   id-token: write
 
 jobs:
@@ -64,20 +107,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
+      - uses: syi0808/pubm-actions/publish@v1
         with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - run: pnpm install --frozen-lockfile
-      - run: pubm --phase publish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base-branch: main
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN || secrets.NPM_TOKEN }}
           JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Snapshot releases in CI
@@ -199,7 +236,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions@v1
+      - uses: syi0808/pubm-actions/changeset-check@v1
         with:
           skip-label: no-changeset
 ```
