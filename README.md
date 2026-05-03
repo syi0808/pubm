@@ -60,15 +60,18 @@ Registry rejected your package? pubm undoes the version bump, git tag, and commi
 
 ### Preflight checks
 
-Branch, working tree, remote sync, login status, publish permissions - all verified **before** pubm touches anything. In CI mode, pubm validates tokens and runs publish dry-runs to catch issues before the real publish:
+Branch, working tree, remote sync, login status, publish permissions - all verified **before** pubm touches anything.
 
 ```bash
 pubm --phase prepare
 ```
 
-### Same command, local and CI
+### Release workflows
 
-Interactive prompts in your terminal, fully headless in CI. No separate config, no flags to remember.
+| Path | Commands | Use when |
+|------|----------|----------|
+| Direct Release | `pubm` | One trusted local or controlled job should run the full release |
+| Split CI Release | Local `pubm --phase prepare`, then CI `pubm --phase publish` | Local preparation should hand off package publishing and GitHub Releases to CI |
 
 ### Monorepo-native
 
@@ -112,7 +115,11 @@ pubm init
 
 # Just run pubm - that's it
 pubm
+```
 
+Optional commands:
+
+```bash
 # Publish a snapshot release with a custom tag (useful for testing pre-releases)
 pubm snapshot [tag]
 
@@ -139,6 +146,7 @@ That's it. pubm walks you through the rest:
 ## Documentation
 
 - [Quick Start](https://syi0808.github.io/pubm/guides/quick-start/)
+- [Release Workflows](https://syi0808.github.io/pubm/guides/release-workflows/)
 - [Configuration](https://syi0808.github.io/pubm/guides/configuration/)
 - [Changesets](https://syi0808.github.io/pubm/guides/changesets/)
 - [Monorepo](https://syi0808.github.io/pubm/guides/monorepo/)

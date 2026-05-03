@@ -13,7 +13,6 @@ description: 诊断 pubm 中最常见的发布、配置和 registry 问题。
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
 ```
 
 这些命令合起来可以回答：
@@ -22,6 +21,8 @@ pubm --phase prepare
 - 哪些包会受到影响
 - changelog 文本是否正常
 - 凭据和 registry 检查是否已经就绪
+
+`pubm --phase prepare` 是真实的 Split CI Release 准备运行：它可能写入版本、创建 tag，并推送 release commit 和 tag。只有在确实要准备 CI 发布时才运行它，不要把它当作无副作用的检查命令。
 
 ## 发布被 Git 状态阻塞
 

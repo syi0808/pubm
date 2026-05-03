@@ -59,15 +59,18 @@ Un registre refuse votre package ? pubm annule le bump de version, le git tag et
 
 ### Verifications prealables
 
-Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action. En mode CI, pubm valide les tokens et effectue un publish dry-run pour detecter les problemes avant la vraie publication :
+Branche, working tree, synchro distante, etat de connexion et permissions de publication sont verifies **avant** toute action.
 
 ```bash
 pubm --phase prepare
 ```
 
-### La meme commande en local et en CI
+### Workflows de release
 
-Prompts interactifs dans le terminal, execution totalement headless en CI. Pas de config separee, pas de flags a memoriser.
+| Chemin | Commandes | Quand l'utiliser |
+|--------|-----------|------------------|
+| Direct Release | `pubm` | Un environnement local fiable ou un job controle lance toute la release |
+| Split CI Release | Local `pubm --phase prepare`, puis CI `pubm --phase publish` | La preparation locale doit confier la publication des packages et GitHub Releases a CI |
 
 ### Monorepo natif
 
@@ -92,7 +95,11 @@ pubm init
 
 # Lancez simplement pubm
 pubm
+```
 
+Commandes optionnelles :
+
+```bash
 # Optionnel : installer les skills pour coding agents (Claude Code, Codex, Gemini)
 pubm setup-skills
 ```
@@ -116,6 +123,7 @@ Ensuite, pubm vous guide dans la suite :
 ## Documentation
 
 - [Demarrage rapide](https://syi0808.github.io/pubm/fr/guides/quick-start/)
+- [Workflows de release](https://syi0808.github.io/pubm/fr/guides/release-workflows/)
 - [Configuration](https://syi0808.github.io/pubm/fr/guides/configuration/)
 - [Changesets](https://syi0808.github.io/pubm/fr/guides/changesets/)
 - [Monorepo](https://syi0808.github.io/pubm/fr/guides/monorepo/)
@@ -146,3 +154,7 @@ Les contributions sont bienvenues. Merci de lire le [Contributing Guide](CONTRIB
 ## Licence
 
 Ce projet est distribue sous licence Apache 2.0. Voir [LICENSE](LICENSE) pour les details.
+
+## Auteur
+
+**Yein Sung** - [GitHub](https://github.com/syi0808)

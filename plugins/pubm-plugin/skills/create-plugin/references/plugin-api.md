@@ -7,8 +7,8 @@ Source: `packages/core/src/plugin/types.ts`, `packages/core/src/context.ts`
 ```typescript
 interface PubmPlugin {
   name: string;                    // Unique plugin identifier
-  registries?: PackageRegistry[];  // Custom registry implementations
-  ecosystems?: Ecosystem[];        // Custom ecosystem implementations
+  registries?: PluginRegistryDefinition[];  // Custom registry descriptors
+  ecosystems?: EcosystemDescriptor[];       // Custom ecosystem descriptors
   hooks?: PluginHooks;             // Lifecycle hooks
   commands?: PluginCommand[];      // CLI subcommands
   credentials?: (ctx: PubmContext) => PluginCredential[];  // Token descriptors
@@ -16,7 +16,7 @@ interface PubmPlugin {
 }
 ```
 
-- `credentials`: declare the tokens or secrets this plugin needs. pubm resolves them through env, `resolve()`, keyring, then an interactive prompt. It stores the values in `ctx.runtime.pluginTokens` and syncs them to GitHub Secrets during `--phase prepare`.
+- `credentials`: declare the tokens or secrets this plugin needs. pubm resolves them through env, `resolve()`, keyring, then an interactive prompt. It stores the values in `ctx.runtime.pluginTokens` and syncs them to GitHub Secrets during `pubm --phase prepare`.
 - `checks`: declare preflight checks that run with the core prerequisite and condition phases.
 
 ## PluginCredential
@@ -30,7 +30,7 @@ interface PluginCredential {
   label: string;         // Human-readable prompt label
   tokenUrl?: string;     // URL where users can create the token
   tokenUrlLabel?: string; // Display label for tokenUrl
-  ghSecretName?: string; // GitHub Secret name for --phase prepare sync
+  ghSecretName?: string; // GitHub Secret name for pubm --phase prepare sync
   required?: boolean;    // Error if unresolved (default: true)
   resolve?: () => Promise<string | null>;  // Custom resolver (no args)
   validate?: (token: string, task: PluginTaskContext) => Promise<boolean>;  // Token validator
@@ -170,7 +170,7 @@ interface PubmContext {
 | `ctx.options.branch` | `string` | Git branch |
 | `ctx.options.tag` | `string` | Release dist-tag |
 | `ctx.options.dryRun` | `boolean` | Dry-run mode |
-| `ctx.options.phase` | `string \| undefined` | Phase (`"prepare"`, `"publish"`, or undefined for full) |
+| `ctx.options.phase` | `"prepare" \| "publish" \| undefined` | Split CI Release phase; omitted for Direct Release |
 | `ctx.options.skipTests` | `boolean` | Tests skipped |
 | `ctx.options.skipBuild` | `boolean` | Build skipped |
 

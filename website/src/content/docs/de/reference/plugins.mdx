@@ -10,8 +10,8 @@ Das Plugin-System erlaubt es dir, `pubm` zu erweitern, ohne die Kern-Publish-Pip
 ```ts
 export interface PubmPlugin {
   name: string;
-  registries?: PackageRegistry[];
-  ecosystems?: Ecosystem[];
+  registries?: PluginRegistryDefinition[];
+  ecosystems?: EcosystemDescriptor[];
   hooks?: PluginHooks;
   commands?: PluginCommand[];
   credentials?: (ctx: PubmContext) => PluginCredential[];
@@ -97,6 +97,7 @@ export interface PubmContext {
     releaseContext?: ReleaseContext;
     tempDir?: string;
     pluginTokens?: Record<string, string>;
+    rollback: RollbackTracker<PubmContext>;
   };
 }
 ```
@@ -217,13 +218,10 @@ export interface PluginTaskContext {
 const notifyPlugin = {
   name: "notify-plugin",
   hooks: {
-    async afterPublish(ctx) {
-      const label =
-        ctx.versions && ctx.versions.size > 0
-          ? [...ctx.versions].map(([name, version]) => `${name}@${version}`).join(", ")
-          : `v${ctx.version}`;
-
-      console.log(`Published ${label}`);
+    async afterRelease(_ctx, releaseCtx) {
+      console.log(
+        `Published ${releaseCtx.displayLabel} ${releaseCtx.version} (${releaseCtx.tag})`,
+      );
     },
   },
 };

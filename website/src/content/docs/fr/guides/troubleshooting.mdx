@@ -13,7 +13,6 @@ Utilisez-les avant de relancer une publication échouée :
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --phase prepare
 ```
 
 Ensemble, ces commandes répondent à :
@@ -22,6 +21,8 @@ Ensemble, ces commandes répondent à :
 - les packages concernés
 - la cohérence du texte du changelog
 - la préparation des identifiants et des vérifications de registry
+
+`pubm --phase prepare` est une vraie préparation Split CI Release : elle peut écrire les versions, créer des tags et pousser le commit de release et les tags. Utilisez-la seulement lorsque vous voulez préparer une publication CI, pas comme simple vérification sans effet de bord.
 
 ## Publication bloquée par l'état Git
 

@@ -26,15 +26,6 @@ brew tap syi0808/pubm
 brew install pubm
 ```
 
-## For coding agents
-
-If you are wiring `pubm` through Claude Code, Codex, or another coding agent, start with the setup automation instead of writing release prompts by hand.
-
-- Run `pubm setup-skills` to download and install coding agent skills directly, or let `pubm init` offer skill installation as its last step.
-- Use the `publish-setup` skill from the `pubm plugin` bundle if you want the release workflow, config, CI wiring, and changesets in one pass.
-- Give your agent the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) link so it can fetch the bundle and begin with `publish-setup`.
-- Read [Coding Agent Integration](/pubm/guides/coding-agents/) for the integration model and skill roles.
-
 ## 1. Initialize the repository
 
 Run the interactive setup wizard:
@@ -47,10 +38,23 @@ The wizard detects your packages and registries, then walks you through branch s
 
 ## 2. Publish
 
-Start the release flow:
+For the simplest release path, run Direct Release:
 
 ```bash
 pubm
 ```
 
-If pending changesets exist, `pubm` consumes them during the version step of the release pipeline. For packages without changesets, `pubm` can also analyze conventional commits (`feat:`, `fix:`, etc.) as a fallback — see [Changesets](/pubm/guides/changesets/#conventional-commit-fallback) for details. For config details, read [Configuration](/pubm/guides/configuration/). For CI, tokens, and preparation behavior, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).
+If pending changesets exist, `pubm` consumes them during the version step of the release pipeline. For packages without changesets, `pubm` can also analyze conventional commits (`feat:`, `fix:`, etc.) as a fallback — see [Changesets](/pubm/guides/changesets/#conventional-commit-fallback) for details.
+
+If you want local preparation followed by CI publishing, use [Release Workflows](/pubm/guides/release-workflows/) to set up Split CI Release with `pubm --phase prepare` and `pubm --phase publish`.
+
+For config details, read [Configuration](/pubm/guides/configuration/). For CI tokens and GitHub Actions examples, read [CI/CD](/pubm/guides/ci-cd/). For monorepos, read [Monorepo](/pubm/guides/monorepo/). For exact flags and subcommands, read the [CLI Reference](/pubm/reference/cli/).
+
+## For coding agents
+
+If you are wiring `pubm` through Claude Code, Codex, or another coding agent, start with the setup automation instead of writing release prompts by hand.
+
+- Run `pubm setup-skills` to download and install coding agent skills directly, or let `pubm init` offer skill installation as its last step.
+- Use the `publish-setup` skill from the `pubm plugin` bundle if you want the release workflow, config, CI wiring, and changesets in one pass.
+- Give your agent the [INSTALLATION.md](/pubm/plugins/pubm-plugin/INSTALLATION.md) link so it can fetch the bundle and begin with `publish-setup`.
+- Read [Coding Agent Integration](/pubm/guides/coding-agents/) for the integration model and skill roles.
