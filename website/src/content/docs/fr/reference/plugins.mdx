@@ -19,7 +19,7 @@ export interface PubmPlugin {
 }
 ```
 
-- `credentials` - renvoie la liste des tokens dont ce plugin a besoin. pubm l'appelle une fois à l'initialisation pour demander les tokens manquants, les injecter dans l'environnement et les synchroniser vers GitHub Secrets lors d'un `--ci-prepare`.
+- `credentials` - renvoie la liste des tokens dont ce plugin a besoin. pubm l'appelle une fois à l'initialisation pour demander les tokens manquants, les injecter dans l'environnement et les synchroniser vers GitHub Secrets lors d'un `--phase prepare`.
 - `checks` - renvoie des checks de preflight exécutés avec les phases principales de prérequis et de conditions. Chaque check déclare son moment d'exécution via son champ `phase`.
 
 ## Hooks
@@ -104,7 +104,7 @@ export interface PubmContext {
 Champs clés :
 
 - `ctx.config` - config `pubm` résolue (packages, registries, plugins, releaseAssets, etc.)
-- `ctx.options` - options CLI résolues (version, tag, mode, dryRun, etc.)
+- `ctx.options` - options CLI résolues (version, tag, phase, dryRun, etc.)
 - `ctx.cwd` - répertoire de travail
 - `ctx.runtime` - état runtime mutable (plan de version, répertoire temporaire, etc.)
 - `ctx.runtime.pluginTokens` - map des valeurs de credentials de plugin résolues, indexée par `PluginCredential.key`. Elle est remplie après l'étape de collecte des credentials et reste disponible dans tous les hooks suivants.
@@ -166,7 +166,7 @@ export interface PluginCredential {
 | `label` | `string` | Libellé lisible affiché dans les invites interactives. |
 | `tokenUrl` | `string` | URL optionnelle où l'utilisateur peut créer le token. |
 | `tokenUrlLabel` | `string` | Libellé d'affichage optionnel pour `tokenUrl`. |
-| `ghSecretName` | `string` | Nom du GitHub Secret qui doit contenir ce token lors de la synchro `--ci-prepare`. |
+| `ghSecretName` | `string` | Nom du GitHub Secret qui doit contenir ce token lors de la synchro `--phase prepare`. |
 | `required` | `boolean` | Quand la valeur est `true`, pubm échoue si le credential ne peut pas être résolu. La valeur par défaut est `true`. |
 | `resolve` | `function` | Resolver personnalisé optionnel sans argument, qui retourne `Promise<string \| null>`. Appelé avant le fallback keyring/prompt. |
 | `validate` | `function` | Validateur optionnel du token. Reçoit le token résolu et un `PluginTaskContext`; retourne `false` pour redemander la valeur. |

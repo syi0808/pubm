@@ -2,8 +2,8 @@ import type { PackageConfig } from "../config/types.js";
 
 export type RegistryType = "npm" | "jsr" | "crates" | string;
 
-/** Determines how the release pipeline behaves (interactive vs automated). */
-export type ReleaseMode = "local" | "ci";
+/** Selects a Split CI Release phase. Omit for Direct Release. */
+export type ReleasePhase = "prepare" | "publish";
 
 /**
  * Options for configuring the {@linkcode pubm} function.
@@ -20,20 +20,9 @@ export interface Options {
    */
   buildScript?: string;
   /**
-   * @description Release mode — "local" for interactive TTY, "ci" for automated pipelines
-   * @default "local"
+   * @description Run one Split CI Release phase. Omit for Direct Release.
    */
-  mode?: ReleaseMode;
-  /**
-   * @description Run only the prepare phase (version bump, git tag, build) without publishing
-   * @default false
-   */
-  prepare?: boolean;
-  /**
-   * @description Run only the publish phase (publish from latest tag, create release draft)
-   * @default false
-   */
-  publish?: boolean;
+  phase?: ReleasePhase;
   /**
    * @description Simulate the full pipeline without side-effects (no publish, no git push)
    * @default false
@@ -117,7 +106,6 @@ export interface Options {
 export interface ResolvedOptions extends Options {
   testScript: string;
   buildScript: string;
-  mode: ReleaseMode;
   branch: string;
   tag: string;
   saveToken: boolean;

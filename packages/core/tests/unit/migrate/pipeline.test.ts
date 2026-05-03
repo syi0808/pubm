@@ -184,7 +184,7 @@ describe("executeMigration", () => {
       {
         file: "/project/.github/workflows/release.yml",
         removeLine: "npx np",
-        addLine: "npx pubm release:ci",
+        addLine: "npx pubm --phase publish",
       },
     ];
     mockScanCiWorkflows.mockReturnValue(advice);

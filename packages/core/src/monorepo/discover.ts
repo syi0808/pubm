@@ -106,15 +106,14 @@ async function discoverFromWorkspace(
       : new Set<string>();
 
     for (const dir of dirs) {
-      const relativePath = path.relative(cwd, dir);
-      const normalizedRelative = toForwardSlash(relativePath);
+      const normalizedRelative = toForwardSlash(path.relative(cwd, dir));
 
       if (excludedDirs.has(normalizedRelative)) continue;
-      if (matchesIgnore(relativePath, ignore)) continue;
+      if (matchesIgnore(normalizedRelative, ignore)) continue;
       if (seen.has(normalizedRelative)) continue;
 
       seen.add(normalizedRelative);
-      targets.push({ path: relativePath });
+      targets.push({ path: normalizedRelative });
     }
   }
 
@@ -205,13 +204,13 @@ export async function discoverPackages(
       if (isGlobPattern(pkg.path)) {
         const resolved = resolvePatterns(cwd, [pkg.path]);
         return resolved.map((absPath) => ({
-          path: path.relative(cwd, absPath),
+          path: toForwardSlash(path.relative(cwd, absPath)),
           ecosystem: pkg.ecosystem,
           registries: pkg.registries as RegistryType[] | undefined,
         }));
       }
       return {
-        path: path.normalize(pkg.path),
+        path: toForwardSlash(path.normalize(pkg.path)),
         ecosystem: pkg.ecosystem,
         registries: pkg.registries as RegistryType[] | undefined,
       };

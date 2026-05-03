@@ -153,15 +153,15 @@ function generateSetupSteps(pm: PackageManager): string {
 function getPublishCommand(pm: PackageManager): string {
   switch (pm) {
     case "bun":
-      return "bunx pubm --mode ci --phase publish";
+      return "bunx pubm --phase publish";
     case "pnpm":
-      return "pnpm exec pubm --mode ci --phase publish";
+      return "pnpm exec pubm --phase publish";
     case "yarn":
-      return "yarn pubm --mode ci --phase publish";
+      return "yarn pubm --phase publish";
     case "cargo":
-      return "pubm --mode ci --phase publish";
+      return "pubm --phase publish";
     case "npm":
-      return "npx pubm --mode ci --phase publish";
+      return "npx pubm --phase publish";
   }
 }
 

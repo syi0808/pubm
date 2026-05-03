@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { type PubmPlugin, resolvePhases } from "@pubm/core";
+import { type PubmContext, type PubmPlugin, resolvePhases } from "@pubm/core";
 import {
   generateFormula,
   releaseAssetsToFormulaAssets,
@@ -8,6 +8,10 @@ import {
 } from "./formula.js";
 import { ensureGitIdentity } from "./git-identity.js";
 import type { BrewTapOptions } from "./types.js";
+
+function needsTokenAuth(ctx: PubmContext): boolean {
+  return ctx.options.phase !== undefined || !ctx.runtime.promptEnabled;
+}
 
 export function brewTap(options: BrewTapOptions): PubmPlugin {
   return {
@@ -53,8 +57,8 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
       },
     ],
     credentials: (ctx) => {
-      // PAT is only needed in CI where interactive git/gh auth is unavailable
-      if (!options.repo || ctx.options.mode !== "ci") return [];
+      // PAT is needed for split or non-interactive workflows where git/gh auth is unavailable.
+      if (!options.repo || !needsTokenAuth(ctx)) return [];
       return [
         {
           key: "brew-github-token",
@@ -69,10 +73,10 @@ export function brewTap(options: BrewTapOptions): PubmPlugin {
     },
     checks: (ctx) => {
       const phases = resolvePhases(ctx.options);
-      if (!phases.includes("publish") && ctx.options.mode !== "ci") return [];
+      if (!phases.includes("publish")) return [];
 
-      // CI: verify PAT exists (only relevant when repo is set)
-      if (ctx.options.mode === "ci") {
+      const tokenAuth = needsTokenAuth(ctx);
+      if (tokenAuth) {
         if (!options.repo) return [];
         return [
           {

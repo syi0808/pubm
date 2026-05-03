@@ -45,6 +45,8 @@ export interface RegistryDescriptor {
   requiresEarlyAuth: boolean;
   /** Task factory for runner publish/dry-run task creation */
   taskFactory?: RegistryTaskFactory;
+  /** If true, workflow-native publish/dry-run delegates to taskFactory. */
+  useWorkflowTaskFactory?: boolean;
 }
 
 export class RegistryCatalog {
@@ -298,6 +300,7 @@ export function registerPrivateRegistry(
           return createNpmDryRunPublishTask(packagePath);
         }),
     },
+    useWorkflowTaskFactory: true,
     connector: () => npmConnector(),
     factory: async (packagePath) => {
       // Lazy import to break circular dependency:

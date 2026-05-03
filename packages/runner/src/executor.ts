@@ -422,16 +422,23 @@ export class PubmTaskRunner<Context extends object = object>
       const enabled = await valueOrCall(runtimeTask.task.enabled ?? true, ctx);
       runtimeTask.enabled = enabled !== false;
       runtimeTask.emitLegacy("ENABLED", runtimeTask.enabled);
-      this.emit({
-        type: "task.enabled",
-        state: runtimeTask.enabled ? "pending" : "blocked",
-        task: runtimeTask.snapshot(),
-      });
       if (!runtimeTask.enabled) {
+        runtimeTask.state = "blocked";
+        this.emit({
+          type: "task.enabled",
+          state: "blocked",
+          task: runtimeTask.snapshot(),
+        });
         runtimeTask.setState("blocked");
         runtimeTask.close();
         return;
       }
+
+      this.emit({
+        type: "task.enabled",
+        state: "pending",
+        task: runtimeTask.snapshot(),
+      });
 
       runtimeTask.setState("running");
 

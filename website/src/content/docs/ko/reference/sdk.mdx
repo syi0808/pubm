@@ -41,9 +41,7 @@ await pubm({
 |------|------|------|
 | `version` | `string` | `patch`, `minor`, `major` 또는 명시적 semver 같은 릴리스 대상입니다. |
 | `dryRun` | `boolean` | Git 상태를 바꾸거나 publish하지 않고 작업 계획만 보여줍니다. |
-| `mode` | `"local" \| "ci"` | 실행 모드입니다. `local`은 대화형, `ci`는 비대화형 tag 기반입니다. |
-| `prepare` | `boolean` | 준비 단계만 실행합니다(검증과 publish dry-run 확인). |
-| `publish` | `boolean` | publish 단계만 실행합니다(최신 태그에서 publish). |
+| `phase` | `"prepare" \| "publish"` | 분리 릴리스 단계 하나만 실행합니다. 생략하면 전체 direct release flow를 실행합니다. |
 | `releaseDraft` | `boolean` | publish된 release 대신 draft GitHub Release를 만듭니다. |
 | `branch` | `string` | publish 전에 특정 브랜치를 요구합니다. |
 | `anyBranch` | `boolean` | 한 번의 실행에 한해 브랜치 강제를 비활성화합니다. |

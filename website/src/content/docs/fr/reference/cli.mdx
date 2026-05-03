@@ -1,6 +1,6 @@
 ---
 title: Référence CLI
-description: Commandes, flags et modes d'exécution pour la CLI pubm.
+description: Commandes, flags et flux de release pour la CLI pubm.
 ---
 
 Cette référence est regroupée par type de commande :
@@ -81,7 +81,6 @@ pubm --tag beta
 | Flag | Par défaut | Description |
 |------|------------|-------------|
 | `-d, --dry-run` | `false` | Afficher le graphe des tâches sans modifier l'état Git ni publier. |
-| `--mode <mode>` | `local` | Mode d'exécution : `local` (interactif) ou `ci` (non interactif, basé sur les tags). |
 | `--phase <phase>` | - | Phase du pipeline : `prepare` (validation et dry-run) ou `publish` (publication depuis le dernier tag). |
 | `--release-draft` | `false` | Créer un draft GitHub Release au lieu d'une release publiée. |
 | `-b, --branch <name>` | `main` | Exiger que la branche courante corresponde avant la release. |
@@ -108,7 +107,7 @@ pubm --tag beta
 | `--no-dry-run-validation` | Ignorer la validation en dry-run pendant la phase de préparation. Utile lorsque des crates du workspace ont des dépendances internes dont les nouvelles versions ne sont pas encore publiées. |
 | `--skip-release` | Ignorer la création de GitHub Release. |
 
-## Modes d'exécution
+## Flux courants
 
 ## Exécution locale interactive
 
@@ -133,13 +132,13 @@ pubm --dry-run
 
 Utilisez le mode dry-run lorsque vous voulez inspecter le plan des tâches sans effet de bord.
 
-## Mode de préparation CI
+## Phase de préparation
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
-Préparation CI :
+Phase de préparation :
 
 - collecte les tokens manquants de manière interactive
 - peut les synchroniser vers GitHub Secrets
@@ -147,13 +146,13 @@ Préparation CI :
 - exécute les vérifications préalables et les vérifications de conditions
 - simule la publication des registries configurés
 
-## Mode de publication CI
+## Phase de publication
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
-Le mode de publication CI publie depuis le dernier tag Git et crée une GitHub Release via l'API. Utilisez-le quand la mise à jour de version et le tagging ont déjà eu lieu plus tôt dans le pipeline. Passez `--release-draft` pour créer un draft au lieu d'une release publiée.
+La phase de publication publie depuis le dernier tag Git et crée une GitHub Release via l'API. Utilisez-la quand la mise à jour de version et le tagging ont déjà eu lieu plus tôt dans le pipeline. Passez `--release-draft` pour créer un draft au lieu d'une release publiée.
 
 ## Variables d'environnement
 
@@ -257,7 +256,7 @@ pubm secrets sync --registry npm,jsr
 Notes :
 
 - nécessite que `gh` soit installé et authentifié
-- utilise les tokens stockés localement, donc lancez d'abord `pubm --mode ci --phase prepare` si rien n'a encore été sauvegardé
+- utilise les tokens stockés localement, donc lancez d'abord `pubm --phase prepare` si rien n'a encore été sauvegardé
 
 ## `pubm sync --discover`
 
@@ -356,7 +355,7 @@ En mode publication normal, les échecs déclenchent aussi un comportement de ro
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --mode ci --phase prepare
+pubm --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -364,13 +363,13 @@ pubm
 ### Répétition locale de CI
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### Publier uniquement la release taguée courante en CI
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ### Synchroniser les tokens stockés après la préparation

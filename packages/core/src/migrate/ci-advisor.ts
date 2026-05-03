@@ -52,7 +52,7 @@ export function scanCiWorkflows(
           advice.push({
             file: filePath,
             removeLine: trimmed,
-            addLine: "npx pubm release:ci",
+            addLine: "npx pubm --phase publish",
           });
           break;
         }

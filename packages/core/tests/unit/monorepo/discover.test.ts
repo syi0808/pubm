@@ -79,6 +79,10 @@ const mockedInferRegistries = vi.mocked(inferRegistries);
 const mockedEcosystemCatalog = vi.mocked(ecosystemCatalog);
 const mockedRegistryCatalog = vi.mocked(registryCatalog);
 
+function packagePath(...parts: string[]): string {
+  return parts.join("/");
+}
+
 function createMockEcosystemDescriptor(
   key: string,
   manifest: Partial<PackageManifest> = {},
@@ -214,7 +218,7 @@ describe("discoverPackages", () => {
       {
         name: "foo",
         version: "1.0.0",
-        path: path.join("packages", "foo"),
+        path: packagePath("packages", "foo"),
         registries: ["npm", "jsr"],
         ecosystem: "js",
         dependencies: [],
@@ -222,7 +226,7 @@ describe("discoverPackages", () => {
       {
         name: "foo",
         version: "1.0.0",
-        path: path.join("packages", "bar"),
+        path: packagePath("packages", "bar"),
         registries: ["npm", "jsr"],
         ecosystem: "js",
         dependencies: [],
@@ -261,7 +265,7 @@ describe("discoverPackages", () => {
       {
         name: "my-crate",
         version: "0.1.0",
-        path: path.join("crates", "my-crate"),
+        path: packagePath("crates", "my-crate"),
         registries: ["crates"],
         ecosystem: "rust",
         dependencies: [],
@@ -291,7 +295,7 @@ describe("discoverPackages", () => {
       {
         name: "foo",
         version: "1.0.0",
-        path: path.join("packages", "foo"),
+        path: packagePath("packages", "foo"),
         registries: ["npm"],
         ecosystem: "js",
         dependencies: [],
@@ -325,7 +329,7 @@ describe("discoverPackages", () => {
       {
         name: "foo",
         version: "2.0.0",
-        path: fooPath,
+        path: packagePath("packages", "foo"),
         registries: ["npm"],
         ecosystem: "js",
         dependencies: [],
@@ -390,7 +394,7 @@ describe("discoverPackages", () => {
       {
         name: "foo",
         version: "0.1.0",
-        path: fooPath,
+        path: packagePath("packages", "foo"),
         registries: ["crates"],
         ecosystem: "rust",
         dependencies: [],
@@ -477,7 +481,7 @@ describe("discoverPackages", () => {
     const result = await discoverPackages({ cwd: "/project" });
 
     expect(result).toHaveLength(1);
-    expect(result[0].path).toBe(path.join("packages", "public-pkg"));
+    expect(result[0].path).toBe(packagePath("packages", "public-pkg"));
     expect(result[0].name).toBe("public-pkg");
   });
 
@@ -549,7 +553,7 @@ describe("discoverPackages", () => {
     const result = await discoverPackages({ cwd: "/project" });
 
     expect(result).toHaveLength(1);
-    expect(result[0].path).toBe(path.join("crates", "included"));
+    expect(result[0].path).toBe(packagePath("crates", "included"));
   });
 
   it("includes registryVersions when versions are available", async () => {
@@ -609,8 +613,8 @@ describe("discoverPackages", () => {
 
     expect(result).toHaveLength(2);
     const paths = result.map((r) => r.path);
-    expect(paths).toContain(path.join("packages", "plugins", "plugin-a"));
-    expect(paths).toContain(path.join("packages", "plugins", "plugin-b"));
+    expect(paths).toContain(packagePath("packages", "plugins", "plugin-a"));
+    expect(paths).toContain(packagePath("packages", "plugins", "plugin-b"));
   });
 
   it("propagates registries and ecosystem from glob config to all matched packages", async () => {
@@ -690,10 +694,10 @@ describe("discoverPackages", () => {
 
     expect(result).toHaveLength(2);
     const pluginPkg = result.find((r) =>
-      r.path.includes(path.join("plugins", "plugin-a")),
+      r.path.includes(packagePath("plugins", "plugin-a")),
     );
     const corePkg = result.find(
-      (r) => r.path === path.join("packages", "core"),
+      (r) => r.path === packagePath("packages", "core"),
     );
     expect(pluginPkg?.registries).toEqual(["npm", "jsr"]);
     expect(corePkg?.registries).toEqual(["npm"]);

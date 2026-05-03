@@ -243,8 +243,8 @@ Add to `package.json`. The `release` script depends on whether CI was set up:
 ```json
 {
   "scripts": {
-    "release": "pubm --mode ci --phase prepare",
-    "release:ci": "pubm --mode ci --phase publish"
+    "release": "pubm --phase prepare",
+    "release:publish": "pubm --phase publish"
   }
 }
 ```
@@ -275,8 +275,8 @@ Remind the user they can run `pubm inspect packages` at any time to check the de
 - Config uses a `packages` array with per-package `registries`; there is no top-level `registries` field on `PubmConfig`.
 - The config file is optional. Only create it when auto-detection needs to be overridden or plugins are used.
 - If you are not sure which registries the user wants, ask.
-- When suggesting npm scripts, use `"release": "pubm --mode ci --phase prepare"` if CI is configured, or `"release": "pubm"` if it is not. Always use `"release:ci": "pubm --mode ci --phase publish"` for CI.
-- In CI, use `--mode ci --phase publish` for publish plus GitHub Release, or `--phase publish` for publish only.
+- When suggesting npm scripts, use `"release": "pubm --phase prepare"` if CI is configured, or `"release": "pubm"` if it is not. Use `"release:publish": "pubm --phase publish"` for the CI publish job.
+- In CI, use `--phase publish` for registry publish and GitHub Release creation.
 - When Step 1 reveals requirements beyond built-in features and official plugins, use the `/create-plugin` skill to scaffold a custom plugin before generating the config file.
 
 ## References

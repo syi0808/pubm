@@ -83,7 +83,7 @@ Each predicate receives a `ReleaseAsset` and returns `true` if the asset should 
 |----------------------|--------------------|---------|
 | `PUBM_BREW_GITHUB_TOKEN` | `PUBM_BREW_GITHUB_TOKEN` | GitHub Personal Access Token with `repo` scope, used to push formula updates and open pull requests. |
 
-In local runs, pubm prompts for this token and stores it in the system keyring. In CI, provide the token via the `PUBM_BREW_GITHUB_TOKEN` environment variable. Run `pubm --mode ci --phase prepare` or `pubm secrets sync` to sync the stored token into your repository's GitHub Secrets so CI workflows can consume it automatically.
+In local runs, pubm prompts for this token and stores it in the system keyring. In CI, provide the token via the `PUBM_BREW_GITHUB_TOKEN` environment variable. Run `pubm --phase prepare` or `pubm secrets sync` to sync the stored token into your repository's GitHub Secrets so CI workflows can consume it automatically.
 
 The plugin also registers a preflight check that verifies the token is present and has the required repository access before the publish phase begins.
 

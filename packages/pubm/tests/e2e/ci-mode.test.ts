@@ -83,11 +83,9 @@ describe("CI mode", () => {
 
     afterAll(() => ctx.cleanup());
 
-    it("should support independent versioning in --mode ci --phase publish", async () => {
+    it("should support independent versioning in --phase publish", async () => {
       const { stderr } = await ctx.runWithEnv(
         { ...process.env, CI: "true" } as Record<string, string>,
-        "--mode",
-        "ci",
         "--phase",
         "publish",
       );

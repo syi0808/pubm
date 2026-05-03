@@ -41,9 +41,7 @@ await pubm({
 |------|------|-------|
 | `version` | `string` | Cible de release requise, comme `patch`, `minor`, `major` ou une version semver explicite. |
 | `dryRun` | `boolean` | Afficher le plan des tâches sans modifier l'état Git ni publier. |
-| `mode` | `"local" \| "ci"` | Mode d'exécution : `local` (interactif) ou `ci` (non interactif, basé sur les tags). |
-| `prepare` | `boolean` | Exécuter uniquement la phase de préparation (validation et vérifications dry-run de publication). |
-| `publish` | `boolean` | Exécuter uniquement la phase de publication (publication depuis le dernier tag). |
+| `phase` | `"prepare" \| "publish"` | Exécuter une seule phase de release séparée. Omettez-le pour exécuter le flux direct complet. |
 | `releaseDraft` | `boolean` | Créer un draft GitHub Release au lieu d'une release publiée. |
 | `branch` | `string` | Exiger une branche précise avant de publier. |
 | `anyBranch` | `boolean` | Désactiver l'exigence de branche pour une exécution. |

@@ -425,8 +425,8 @@ export class Git {
     }
   }
 
-  async push(options?: string): Promise<boolean> {
-    const args = ["push", options].filter((v) => v) as string[];
+  async push(...options: Array<string | undefined>): Promise<boolean> {
+    const args = ["push", ...options].filter((v) => v) as string[];
 
     try {
       const { stderr } = await exec("git", args, { throwOnError: true });

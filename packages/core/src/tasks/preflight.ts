@@ -30,6 +30,7 @@ export async function collectTokens(
   registries: string[],
   // biome-ignore lint/suspicious/noExplicitAny: runner task context type is complex and not easily typed inline
   task: any,
+  promptEnabled = true,
 ): Promise<Record<string, string>> {
   const existing = loadTokensFromDb(registries);
   const tokens: Record<string, string> = { ...existing };
@@ -64,6 +65,15 @@ export async function collectTokens(
     }
 
     if (tokens[registry]) continue;
+
+    if (!promptEnabled) {
+      throw new PreflightError(
+        t("error.preflight.envRequired", {
+          label: config.promptLabel,
+          env: config.envVar,
+        }),
+      );
+    }
 
     let { tokenUrl } = config;
     if (descriptor.resolveTokenUrl) {
@@ -159,6 +169,7 @@ export async function promptGhSecretsSync(
   task: any,
   pluginSecrets: GhSecretEntry[] = [],
   repoSlug: string,
+  promptEnabled = true,
 ): Promise<void> {
   const currentHash = tokensSyncHash(tokens, pluginSecrets);
   const storedHash = readGhSecretsSyncHash(repoSlug);
@@ -166,6 +177,10 @@ export async function promptGhSecretsSync(
   if (storedHash === currentHash) {
     task.output = t("task.preflight.syncAlreadyAcked");
     return;
+  }
+
+  if (!promptEnabled) {
+    throw new PreflightError(t("error.preflight.syncRequired"));
   }
 
   const shouldSync = await task.prompt().run({

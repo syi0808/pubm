@@ -13,7 +13,7 @@ description: 诊断 pubm 中最常见的发布、配置和 registry 问题。
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 这些命令合起来可以回答：
@@ -107,7 +107,7 @@ Symptoms:
 需要检查：
 
 - verify `JSR_TOKEN`
-- run `pubm --mode ci --phase prepare`
+- run `pubm --phase prepare`
 - confirm the package metadata is valid for jsr
 
 由于 `pubm` 会发布到多个 target，应先修复失败的 registry，而不是盲目重试，以免造成部分发布的混乱。
@@ -183,7 +183,7 @@ pubm --test-script test:ci --build-script build:release
 
 需要检查：
 
-- run `pubm --mode ci --phase prepare` locally
+- run `pubm --phase prepare` locally
 - use full Git history in CI
 - confirm every required token is present in the job environment
 
@@ -198,9 +198,9 @@ pubm --test-script test:ci --build-script build:release
 
 - confirm repository remote metadata is valid
 - ensure Git tags exist and are pushed
-- distinguish between normal publish flow and `--mode ci --phase publish`
+- distinguish between normal publish flow and `--phase publish`
 
-`pubm` 会通过 API 创建 GitHub Release。在本地模式下如果没有 `GITHUB_TOKEN`，你可以输入 token、在浏览器中打开草稿，或者跳过。`--mode ci --phase publish` 会作为流程的一部分通过 API 创建 GitHub Release。
+`pubm` 会通过 API 创建 GitHub Release。在本地模式下如果没有 `GITHUB_TOKEN`，你可以输入 token、在浏览器中打开草稿，或者跳过。`--phase publish` 会作为流程的一部分通过 API 创建 GitHub Release。
 
 ## 已发生 rollback，仓库状态看起来很混乱
 
@@ -260,7 +260,7 @@ git tag --sort=-creatordate | head
 pubm changesets status --verbose
 pubm changesets version --dry-run
 pubm --dry-run
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 只有在 dry-run 和 CI preparation 的输出重新变得合理之后，才重跑真正的发布。

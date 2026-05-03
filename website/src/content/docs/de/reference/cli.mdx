@@ -1,6 +1,6 @@
 ---
 title: CLI-Referenz
-description: "Befehle, Flags und Ausführungsmodi für die `pubm`-CLI."
+description: "Befehle, Flags und Release-Ablaeufe für die `pubm`-CLI."
 ---
 
 Diese Referenz ist nach Befehlen gegliedert:
@@ -81,7 +81,6 @@ pubm --tag beta
 | Flag | Standard | Beschreibung |
 |------|----------|--------------|
 | `-d, --dry-run` | `false` | Zeigt den Task-Graphen an, ohne den Git-Zustand zu ändern oder zu veröffentlichen. |
-| `--mode <mode>` | `local` | Ausführungsmodus: `local` (interaktiv) oder `ci` (nicht interaktiv, tag-basiert). |
 | `--phase <phase>` | - | Pipeline-Phase: `prepare` (validieren und Dry-Run) oder `publish` (vom neuesten Tag veröffentlichen). |
 | `--release-draft` | `false` | Erstellt einen Draft-GitHub-Release statt eines veröffentlichten Releases. |
 | `-b, --branch <name>` | `main` | Verlangt, dass der aktuelle Branch vor dem Release uebereinstimmt. |
@@ -108,7 +107,7 @@ pubm --tag beta
 | `--no-dry-run-validation` | Überspringt die Dry-Run-Validierung in der Prepare-Phase. Nützlich, wenn Workspace-Crates interne Abhängigkeiten haben, deren neue Versionen noch nicht veröffentlicht sind. |
 | `--skip-release` | Überspringt die GitHub-Release-Erstellung. |
 
-## Ausführungsmodi
+## Haeufige Ablaeufe
 
 ## Interaktiver lokaler Lauf
 
@@ -133,13 +132,13 @@ pubm --dry-run
 
 Verwende den Dry-Run-Modus, wenn du den Task-Plan ohne Nebenwirkungen ansehen willst.
 
-## CI-Vorbereitungsmodus
+## Vorbereitungsphase
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
-CI-Vorbereitung:
+Vorbereitungsphase:
 
 - sammelt fehlende Tokens interaktiv ein
 - kann sie mit GitHub Secrets synchronisieren
@@ -147,13 +146,13 @@ CI-Vorbereitung:
 - fuehrt Prüfungen für Voraussetzungen und Bedingungen aus
 - fuehrt Publish für konfigurierte Registries als Dry-Run aus
 
-## CI-Publish-Modus
+## Publish-Phase
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
-Der CI-Publish-Modus veröffentlicht vom neuesten Git-Tag und erstellt einen GitHub Release über die API. Verwende ihn, wenn Versionssprung und Tagging vorher schon in der Pipeline passiert sind. Mit `--release-draft` erstellst du statt eines veröffentlichten Releases einen Draft.
+Die Publish-Phase veröffentlicht vom neuesten Git-Tag und erstellt einen GitHub Release über die API. Verwende sie, wenn Versionssprung und Tagging vorher schon in der Pipeline passiert sind. Mit `--release-draft` erstellst du statt eines veröffentlichten Releases einen Draft.
 
 ## Umgebungsvariablen
 
@@ -257,7 +256,7 @@ pubm secrets sync --registry npm,jsr
 Hinweise:
 
 - erfordert, dass `gh` installiert und authentifiziert ist
-- nutzt lokal gespeicherte Tokens, daher solltest du `pubm --mode ci --phase prepare` zuerst ausführen, wenn noch nichts gespeichert wurde
+- nutzt lokal gespeicherte Tokens, daher solltest du `pubm --phase prepare` zuerst ausführen, wenn noch nichts gespeichert wurde
 
 ## `pubm sync --discover`
 
@@ -370,7 +369,7 @@ Im normalen Publish-Modus fuehren Fehler nach Möglichkeit auch zu einem Rollbac
 pubm init
 pubm changesets add
 pubm changesets version
-pubm --mode ci --phase prepare
+pubm --phase prepare
 pubm --dry-run
 pubm
 ```
@@ -378,13 +377,13 @@ pubm
 ### Lokale CI-Probe
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### Nur den aktuell getaggten Release in CI veröffentlichen
 
 ```bash
-pubm --mode ci --phase publish
+pubm --phase publish
 ```
 
 ### Gespeicherte Tokens nach der Vorbereitung synchronisieren

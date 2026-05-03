@@ -17,6 +17,70 @@ class GitHubReleaseError extends AbstractError {
   name = t("error.githubRelease.name");
 }
 
+function isAlreadyExistingRelease(errorBody: string): boolean {
+  if (/already[_ ]exists/i.test(errorBody)) {
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(errorBody) as {
+      message?: unknown;
+      errors?: unknown;
+    };
+
+    if (Array.isArray(parsed.errors)) {
+      return parsed.errors.some((error) => {
+        if (!error || typeof error !== "object") {
+          return false;
+        }
+
+        const { code, message } = error as {
+          code?: unknown;
+          message?: unknown;
+        };
+        return (
+          code === "already_exists" ||
+          (typeof message === "string" && /already[_ ]exists/i.test(message))
+        );
+      });
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteGitHubReleaseByRepository(options: {
+  token: string;
+  owner: string;
+  repo: string;
+  releaseId: number;
+}): Promise<void> {
+  const response = await fetch(
+    `https://api.github.com/repos/${options.owner}/${options.repo}/releases/${options.releaseId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${options.token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+
+  if (!response.ok && response.status !== 404) {
+    const errorBody = await response.text();
+    throw new GitHubReleaseError(
+      t("error.githubRelease.deleteFailed", {
+        id: options.releaseId,
+        status: response.status,
+        body: errorBody,
+      }),
+    );
+  }
+}
+
 /**
  * Create a GitHub Release using the GitHub REST API
  */
@@ -62,7 +126,17 @@ export async function createGitHubRelease(
   );
 
   if (createResponse.status === 422) {
-    return null;
+    const errorBody = await createResponse.text();
+    if (isAlreadyExistingRelease(errorBody)) {
+      return null;
+    }
+
+    throw new GitHubReleaseError(
+      t("error.githubRelease.createFailed", {
+        status: createResponse.status,
+        body: errorBody,
+      }),
+    );
   }
 
   if (!createResponse.ok) {
@@ -104,6 +178,17 @@ export async function createGitHubRelease(
 
     if (!uploadResponse.ok) {
       const errorBody = await uploadResponse.text();
+      try {
+        await deleteGitHubReleaseByRepository({
+          token,
+          owner,
+          repo,
+          releaseId: release.id,
+        });
+      } catch {
+        // Preserve the upload failure as the primary release error.
+      }
+
       throw new GitHubReleaseError(
         t("error.githubRelease.uploadFailed", {
           name: asset.name,
@@ -148,26 +233,5 @@ export async function deleteGitHubRelease(releaseId: number): Promise<void> {
   const remoteUrl = await git.repository();
   const { owner, repo } = parseOwnerRepo(remoteUrl);
 
-  const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/releases/${releaseId}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    },
-  );
-
-  if (!response.ok && response.status !== 404) {
-    const errorBody = await response.text();
-    throw new GitHubReleaseError(
-      t("error.githubRelease.deleteFailed", {
-        id: releaseId,
-        status: response.status,
-        body: errorBody,
-      }),
-    );
-  }
+  await deleteGitHubReleaseByRepository({ token, owner, repo, releaseId });
 }

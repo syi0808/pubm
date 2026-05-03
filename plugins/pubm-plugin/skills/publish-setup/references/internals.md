@@ -27,13 +27,13 @@ pubm executes phases in this order:
 | **When omitted** | Both phases run (local default) | Both phases run (local default) |
 | **CI requirement** | Must specify exactly one phase | Must specify exactly one phase |
 
-Running locally without `--phase` executes both phases sequentially. In CI mode (`--mode ci`), omitting `--phase` is an error.
+Running locally without `--phase` executes both phases sequentially. Split release jobs should run exactly one phase with `--phase prepare` or `--phase publish`.
 
 ### Common CI pattern
 
 1. Run `pubm --phase prepare` locally — runs tests, builds, bumps versions, creates tags, pushes
 2. Tag/commit push triggers CI workflow
-3. CI runs `pubm --mode ci --phase publish` — publishes and creates releases
+3. CI runs `pubm --phase publish` — publishes and creates releases
 
 ## Version Phase
 

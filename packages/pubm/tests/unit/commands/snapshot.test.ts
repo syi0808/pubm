@@ -52,7 +52,6 @@ describe("registerSnapshotCommand", () => {
 
     expect(mockResolveOptions).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: "local",
         skipTests: false,
         skipBuild: false,
       }),

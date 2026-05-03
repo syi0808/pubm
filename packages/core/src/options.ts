@@ -3,7 +3,6 @@ import type { Options, ResolvedOptions } from "./types/options.js";
 export const defaultOptions: Partial<Options> = {
   testScript: "test",
   buildScript: "build",
-  mode: "local",
   branch: "main",
   tag: "latest",
 };

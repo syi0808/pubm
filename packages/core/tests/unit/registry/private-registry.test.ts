@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrivateRegistryConfig } from "../../../src/config/types.js";
+
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: unknown) => String(value),
+    },
+  ),
+}));
+
 import {
   RegistryCatalog,
   registerPrivateRegistry,
@@ -22,6 +32,7 @@ describe("registerPrivateRegistry", () => {
     expect(key).toBe("npm.internal.com");
     expect(catalog.get(key)).toBeDefined();
     expect(catalog.get(key)?.ecosystem).toBe("js");
+    expect(catalog.get(key)?.useWorkflowTaskFactory).toBe(true);
   });
 
   it("sets tokenConfig from private registry config", () => {

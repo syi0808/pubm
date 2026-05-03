@@ -991,7 +991,7 @@ describe("Git", () => {
     });
   });
 
-  describe("push(options?)", () => {
+  describe("push(...options)", () => {
     it("returns true on successful push without options", async () => {
       mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
 
@@ -1011,6 +1011,21 @@ describe("Git", () => {
       expect(mockedExec).toHaveBeenCalledWith("git", ["push", "--tags"], {
         throwOnError: true,
       });
+      expect(result).toBe(true);
+    });
+
+    it("returns true on successful push with multiple options", async () => {
+      mockedExec.mockResolvedValue({ stdout: "", stderr: "" } as any);
+
+      const result = await git.push("origin", "refs/tags/v1.2.3");
+
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git",
+        ["push", "origin", "refs/tags/v1.2.3"],
+        {
+          throwOnError: true,
+        },
+      );
       expect(result).toBe(true);
     });
 

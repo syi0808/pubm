@@ -62,7 +62,7 @@ Registry lehnt dein Paket ab? pubm macht Versionsbump, git tag und Commit rueckg
 Branch, Working Tree, Remote-Sync, Login-Status und Publish-Berechtigungen werden **bevor** pubm etwas aendert geprueft. Im CI-Modus validiert pubm Tokens und fuehrt Publish-Dry-Runs durch, um Probleme vor der eigentlichen Veroeffentlichung zu erkennen:
 
 ```bash
-pubm --mode ci --phase prepare
+pubm --phase prepare
 ```
 
 ### Gleicher Befehl, lokal und in CI

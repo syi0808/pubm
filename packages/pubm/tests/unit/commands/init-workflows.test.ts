@@ -126,9 +126,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
     expect(yaml).toContain("bun install --frozen-lockfile");
   });
 
-  it("bun: publish command is 'bunx pubm --mode ci --phase publish'", () => {
+  it("bun: publish command is 'bunx pubm --phase publish'", () => {
     const yaml = generateReleaseWorkflow(false, "main", "bun");
-    expect(yaml).toContain("bunx pubm --mode ci --phase publish");
+    expect(yaml).toContain("bunx pubm --phase publish");
   });
 
   it("bun: env includes NODE_AUTH_TOKEN", () => {
@@ -152,9 +152,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
     expect(yaml).toContain("pnpm install --frozen-lockfile");
   });
 
-  it("pnpm: publish command is 'pnpm exec pubm --mode ci --phase publish'", () => {
+  it("pnpm: publish command is 'pnpm exec pubm --phase publish'", () => {
     const yaml = generateReleaseWorkflow(false, "main", "pnpm");
-    expect(yaml).toContain("pnpm exec pubm --mode ci --phase publish");
+    expect(yaml).toContain("pnpm exec pubm --phase publish");
   });
 
   it("pnpm: env includes NODE_AUTH_TOKEN", () => {
@@ -178,9 +178,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
     expect(yaml).toContain("yarn install --immutable");
   });
 
-  it("yarn: publish command is 'yarn pubm --mode ci --phase publish'", () => {
+  it("yarn: publish command is 'yarn pubm --phase publish'", () => {
     const yaml = generateReleaseWorkflow(false, "main", "yarn");
-    expect(yaml).toContain("yarn pubm --mode ci --phase publish");
+    expect(yaml).toContain("yarn pubm --phase publish");
   });
 
   it("yarn: env includes NODE_AUTH_TOKEN", () => {
@@ -207,9 +207,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
     expect(yaml).toContain("npm ci");
   });
 
-  it("npm: publish command is 'npx pubm --mode ci --phase publish'", () => {
+  it("npm: publish command is 'npx pubm --phase publish'", () => {
     const yaml = generateReleaseWorkflow(false, "main", "npm");
-    expect(yaml).toContain("npx pubm --mode ci --phase publish");
+    expect(yaml).toContain("npx pubm --phase publish");
   });
 
   it("npm: env includes NODE_AUTH_TOKEN", () => {
@@ -233,9 +233,9 @@ describe("generateReleaseWorkflow — single package (tag-based)", () => {
     expect(yaml).toContain("brew install pubm");
   });
 
-  it("cargo: publish command is 'pubm --mode ci --phase publish'", () => {
+  it("cargo: publish command is 'pubm --phase publish'", () => {
     const yaml = generateReleaseWorkflow(false, "main", "cargo");
-    expect(yaml).toContain("pubm --mode ci --phase publish");
+    expect(yaml).toContain("pubm --phase publish");
   });
 
   it("cargo: env includes CARGO_REGISTRY_TOKEN, not NODE_AUTH_TOKEN", () => {
@@ -280,7 +280,7 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
   it("bun: includes correct setup and publish steps", () => {
     const yaml = generateReleaseWorkflow(true, "main", "bun");
     expect(yaml).toContain("oven-sh/setup-bun@v2");
-    expect(yaml).toContain("bunx pubm --mode ci --phase publish");
+    expect(yaml).toContain("bunx pubm --phase publish");
   });
 
   it("pnpm: uses branch-based trigger", () => {
@@ -299,7 +299,7 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
   it("pnpm: includes correct setup and publish steps", () => {
     const yaml = generateReleaseWorkflow(true, "main", "pnpm");
     expect(yaml).toContain("pnpm/action-setup@v4");
-    expect(yaml).toContain("pnpm exec pubm --mode ci --phase publish");
+    expect(yaml).toContain("pnpm exec pubm --phase publish");
   });
 
   it("npm: uses branch-based trigger", () => {
@@ -318,7 +318,7 @@ describe("generateReleaseWorkflow — monorepo (commit-based)", () => {
   it("npm: includes correct setup and publish steps", () => {
     const yaml = generateReleaseWorkflow(true, "main", "npm");
     expect(yaml).toContain("npm ci");
-    expect(yaml).toContain("npx pubm --mode ci --phase publish");
+    expect(yaml).toContain("npx pubm --phase publish");
   });
 
   it("yarn: uses branch-based trigger", () => {

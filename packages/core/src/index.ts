@@ -1,6 +1,6 @@
 import type { PubmContext } from "./context.js";
 import { PluginRunner } from "./plugin/runner.js";
-import { run } from "./tasks/runner.js";
+import { run } from "./workflow/runner-entry.js";
 
 /**
  * Runs the pubm publish pipeline with the provided context.
@@ -230,7 +230,11 @@ export type {
   VersionPrPackageInfo,
 } from "./tasks/version-pr-body.js";
 export { buildVersionPrBody } from "./tasks/version-pr-body.js";
-export type { Options, ReleaseMode, ResolvedOptions } from "./types/options.js";
+export type {
+  Options,
+  ReleasePhase,
+  ResolvedOptions,
+} from "./types/options.js";
 // Utils
 export { exec } from "./utils/exec.js";
 export type { GitHubTokenResult } from "./utils/github-token.js";
@@ -239,7 +243,6 @@ export { notifyNewVersion } from "./utils/notify-new-version.js";
 export { packageKey, pathFromKey } from "./utils/package-key.js";
 export { getPackageManager } from "./utils/package-manager.js";
 export { PUBM_ENGINES, PUBM_VERSION } from "./utils/pubm-metadata.js";
-export type { ReleasePhase } from "./utils/resolve-phases.js";
 export { resolvePhases, validateOptions } from "./utils/resolve-phases.js";
 export type {
   RollbackAction,
