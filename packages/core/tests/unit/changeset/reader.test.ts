@@ -100,17 +100,18 @@ describe("readChangesets", () => {
 describe("deleteChangesetFiles", () => {
   it("removes each changeset file that still exists", () => {
     mockedExistsSync.mockReturnValue(true);
+    const cwd = path.resolve("/tmp/project");
 
-    deleteChangesetFiles("/tmp/project", [
+    deleteChangesetFiles(cwd, [
       { id: "brave-ant" },
       { id: "calm-bear" },
     ] as any);
 
     expect(mockedRmSync).toHaveBeenCalledWith(
-      path.join("/tmp/project", ".pubm", "changesets", "brave-ant.md"),
+      path.join(cwd, ".pubm", "changesets", "brave-ant.md"),
     );
     expect(mockedRmSync).toHaveBeenCalledWith(
-      path.join("/tmp/project", ".pubm", "changesets", "calm-bear.md"),
+      path.join(cwd, ".pubm", "changesets", "calm-bear.md"),
     );
   });
 
