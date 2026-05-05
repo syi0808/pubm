@@ -178,7 +178,7 @@ jobs:
 
 ## Comprobación de changeset (validación de PR)
 
-Usa la GitHub Action [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) para exigir que cada PR incluya un changeset. `pubm init` genera este workflow automáticamente cuando los changesets están habilitados.
+Usa la GitHub Action [`syi0808/pubm/actions/changeset-check`](https://github.com/syi0808/pubm/tree/main/actions/changeset-check) para exigir que cada PR incluya un changeset. `pubm init` genera este workflow automáticamente cuando los changesets están habilitados.
 
 ```yaml
 name: Changeset Check
@@ -199,7 +199,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions@v1
+      - uses: syi0808/pubm/actions/changeset-check@v1
         with:
           skip-label: no-changeset
 ```

@@ -90,9 +90,9 @@ Publish prepared release :
 
 ## Portée actuelle
 
-La CI entièrement automatisée, où CI décide et prépare la release sans `pubm --phase prepare` local, n'est pas un workflow actuellement pris en charge.
+La CI entièrement automatisée, où CI décide et prépare la release sans `pubm --phase prepare` local, est prise en charge via les workflows GitHub Actions générés.
 
-Les flux de PR approval et de release-PR relèvent d'un futur travail `pubm-actions`. Ce ne sont pas des workflows CLI à configurer aujourd'hui.
+Les flux de PR approval et de release-PR sont disponibles via les workflows GitHub Actions générés. Utilisez `pubm workflow install github` pour installer les workflows release PR et publish.
 
 ## Étapes suivantes
 

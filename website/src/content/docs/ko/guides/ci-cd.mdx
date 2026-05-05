@@ -178,7 +178,7 @@ jobs:
 
 ## Changeset 검사 (PR 유효성 검사)
 
-[`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action을 사용해 모든 PR에 changeset이 포함되도록 강제할 수 있습니다. changeset이 활성화되어 있으면 `pubm init`이 이 워크플로를 자동으로 생성합니다.
+[`syi0808/pubm/actions/changeset-check`](https://github.com/syi0808/pubm/tree/main/actions/changeset-check) GitHub Action을 사용해 모든 PR에 changeset이 포함되도록 강제할 수 있습니다. changeset이 활성화되어 있으면 `pubm init`이 이 워크플로를 자동으로 생성합니다.
 
 ```yaml
 name: Changeset Check
@@ -199,7 +199,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions@v1
+      - uses: syi0808/pubm/actions/changeset-check@v1
         with:
           skip-label: no-changeset
 ```
