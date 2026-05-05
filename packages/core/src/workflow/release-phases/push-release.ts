@@ -28,6 +28,11 @@ import {
 
 const { prerelease } = SemVer;
 
+export interface GitHubReleaseNoteOverrides {
+  fixed?: string;
+  byPackageKey?: ReadonlyMap<string, string> | Record<string, string>;
+}
+
 export function createPushOperation(
   hasPrepare: boolean,
   dryRun: boolean,
@@ -72,7 +77,10 @@ export function createGitHubReleaseOperation(
   dryRun: boolean,
   allowInteractiveTokenPrompt: boolean,
   skipReleaseDraft: boolean,
-  options: { packageKeys?: ReadonlySet<string> } = {},
+  options: {
+    packageKeys?: ReadonlySet<string>;
+    releaseNotes?: GitHubReleaseNoteOverrides;
+  } = {},
 ): ReleaseOperation {
   return {
     enabled: hasPublish && !skipReleaseDraft && !dryRun,
@@ -139,12 +147,14 @@ export function createGitHubReleaseOperation(
               .replace(/^git@github\.com:/, "https://github.com/")
               .replace(/\.git$/, "");
 
-            const body = await buildReleaseBody(ctx, {
-              pkgPath,
-              version: pkgVersion,
-              tag,
-              repositoryUrl,
-            });
+            const body =
+              releaseNotesForPackage(options.releaseNotes, key) ??
+              (await buildReleaseBody(ctx, {
+                pkgPath,
+                version: pkgVersion,
+                tag,
+                repositoryUrl,
+              }));
 
             const { assets: preparedAssets, tempDir } =
               await prepareReleaseAssets(ctx, pkgName, pkgVersion, pkgPath);
@@ -202,13 +212,17 @@ export function createGitHubReleaseOperation(
             .replace(/^git@github\.com:/, "https://github.com/")
             .replace(/\.git$/, "");
 
-          const body = await buildReleaseBody(ctx, {
-            pkgPath:
-              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
-            version,
-            tag,
-            repositoryUrl,
-          });
+          const body =
+            fixedReleaseNotes(options.releaseNotes) ??
+            (await buildReleaseBody(ctx, {
+              pkgPath:
+                plan.mode === "single"
+                  ? pathFromKey(plan.packageKey)
+                  : undefined,
+              version,
+              tag,
+              repositoryUrl,
+            }));
 
           const packageName =
             plan.mode === "single"
@@ -279,12 +293,14 @@ export function createGitHubReleaseOperation(
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
             const tag = formatTag(ctx, key, pkgVersion);
 
-            const body = await buildReleaseBody(ctx, {
-              pkgPath,
-              version: pkgVersion,
-              tag,
-              repositoryUrl,
-            });
+            const body =
+              releaseNotesForPackage(options.releaseNotes, key) ??
+              (await buildReleaseBody(ctx, {
+                pkgPath,
+                version: pkgVersion,
+                tag,
+                repositoryUrl,
+              }));
 
             const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
             releaseDraftUrl.searchParams.set("tag", tag);
@@ -317,13 +333,17 @@ export function createGitHubReleaseOperation(
           const version = plan.version;
           const tag = `v${version}`;
 
-          const body = await buildReleaseBody(ctx, {
-            pkgPath:
-              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
-            version,
-            tag,
-            repositoryUrl,
-          });
+          const body =
+            fixedReleaseNotes(options.releaseNotes) ??
+            (await buildReleaseBody(ctx, {
+              pkgPath:
+                plan.mode === "single"
+                  ? pathFromKey(plan.packageKey)
+                  : undefined,
+              version,
+              tag,
+              repositoryUrl,
+            }));
 
           const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
           releaseDraftUrl.searchParams.set("tag", tag);
@@ -351,4 +371,34 @@ export function createGitHubReleaseOperation(
       }
     },
   };
+}
+
+function fixedReleaseNotes(
+  releaseNotes: GitHubReleaseNoteOverrides | undefined,
+): string | undefined {
+  return trimmedOrUndefined(releaseNotes?.fixed);
+}
+
+function releaseNotesForPackage(
+  releaseNotes: GitHubReleaseNoteOverrides | undefined,
+  packageKey: string,
+): string | undefined {
+  const notes = releaseNotes?.byPackageKey;
+  if (!notes) return undefined;
+
+  const body = hasReadonlyMapApi(notes)
+    ? notes.get(packageKey)
+    : notes[packageKey];
+  return trimmedOrUndefined(body);
+}
+
+function trimmedOrUndefined(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function hasReadonlyMapApi(
+  value: ReadonlyMap<string, string> | Record<string, string>,
+): value is ReadonlyMap<string, string> {
+  return typeof (value as ReadonlyMap<string, string>).get === "function";
 }

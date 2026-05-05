@@ -4,7 +4,8 @@ import type { PubmContext, VersionPlan } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
 import { Git } from "../git.js";
 import { PluginRunner } from "../plugin/runner.js";
-import { packageKey } from "../utils/package-key.js";
+import { buildReleaseBody } from "../tasks/release-notes.js";
+import { packageKey, pathFromKey } from "../utils/package-key.js";
 import type { ReleaseOperationContext } from "./release-operation.js";
 import { runReleaseOperations } from "./release-operation.js";
 import { createDryRunOperations } from "./release-phases/dry-run.js";
@@ -20,7 +21,10 @@ import {
   ensureReleaseTagsAvailable,
 } from "./release-phases/tags.js";
 import {
+  parseReleasePrReleaseNotes,
   RELEASE_PR_BODY_MARKER,
+  RELEASE_PR_RELEASE_NOTES_END_MARKER,
+  RELEASE_PR_RELEASE_NOTES_START_MARKER,
   renderReleasePrMetadataMarker,
 } from "./release-utils/release-pr-metadata.js";
 import {
@@ -31,7 +35,10 @@ import {
   applyReleaseOverride,
   type ReleasePrOverride,
 } from "./release-utils/release-pr-overrides.js";
-import { registerRemoteTagRollbackForTag } from "./release-utils/rollback-handlers.js";
+import {
+  formatTag,
+  registerRemoteTagRollbackForTag,
+} from "./release-utils/rollback-handlers.js";
 import {
   buildReleasePrScopes,
   type ReleasePrScope,
@@ -73,6 +80,12 @@ export interface PublishReleasePrInput {
   plan: ReleasePrPublishPlan;
   pushTags?: boolean;
   createGitHubRelease?: boolean;
+  releaseNotes?: ReleasePrReleaseNotesInput | string;
+}
+
+export interface ReleasePrReleaseNotesInput {
+  fixed?: string;
+  byPackageKey?: ReadonlyMap<string, string> | Record<string, string>;
 }
 
 export async function prepareReleasePr(
@@ -117,6 +130,10 @@ export async function prepareReleasePr(
             prepared.tagReferences,
           );
     const versionSummary = releasePrVersionSummary(scopedPlan);
+    const releaseNotesPreview = await buildReleasePrReleaseNotesPreview(
+      ctx,
+      scopedPlan,
+    );
 
     return {
       scope: input.scope,
@@ -134,7 +151,12 @@ export async function prepareReleasePr(
         version: versionSummary,
         template: ctx.config.release.pullRequest.titleTemplate,
       }),
-      body: renderReleasePrBody(input.scope, scopedPlan, input.override),
+      body: renderReleasePrBody(
+        input.scope,
+        scopedPlan,
+        releaseNotesPreview,
+        input.override,
+      ),
       changedFiles,
       ...(commitSha ? { commitSha } : {}),
     };
@@ -228,6 +250,10 @@ export async function publishReleasePr(
         ctx,
         createGitHubReleaseOperation(true, false, false, false, {
           packageKeys,
+          releaseNotes: normalizeReleaseNotesInput(
+            input.releaseNotes,
+            input.plan.scope,
+          ),
         }),
       );
     }
@@ -398,9 +424,48 @@ async function pushReleaseTags(
   }
 }
 
+export { parseReleasePrReleaseNotes };
+
+async function buildReleasePrReleaseNotesPreview(
+  ctx: PubmContext,
+  plan: VersionPlan,
+): Promise<string> {
+  const repositoryUrl = await resolveRepositoryUrl();
+
+  if (plan.mode === "independent") {
+    const sections = await Promise.all(
+      [...plan.packages].map(async ([key, version]) => {
+        const body = await buildReleaseBody(ctx, {
+          pkgPath: pathFromKey(key),
+          version,
+          tag: formatTag(ctx, key, version),
+          repositoryUrl,
+        });
+        return plan.packages.size === 1 ? body : `### ${key}\n\n${body}`.trim();
+      }),
+    );
+    return sections.join("\n\n");
+  }
+
+  const version = plan.version;
+  return buildReleaseBody(ctx, {
+    pkgPath: plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
+    version,
+    tag: `v${version}`,
+    repositoryUrl,
+  });
+}
+
+async function resolveRepositoryUrl(): Promise<string> {
+  return (await new Git().repository())
+    .replace(/^git@github\.com:/, "https://github.com/")
+    .replace(/\.git$/, "");
+}
+
 function renderReleasePrBody(
   scope: ReleasePrScope,
   plan: VersionPlan,
+  releaseNotesPreview: string,
   override?: ReleasePrOverride,
 ): string {
   const versions =
@@ -413,6 +478,19 @@ function renderReleasePrBody(
     renderReleasePrMetadataMarker(scope),
     "",
     "This release PR is managed by pubm. Do not edit the release branch directly.",
+    "",
+    "## Release Notes Preview",
+    "",
+    "<details open>",
+    "<summary><strong>Content copied to GitHub Release</strong></summary>",
+    "",
+    RELEASE_PR_RELEASE_NOTES_START_MARKER,
+    releaseNotesPreview,
+    RELEASE_PR_RELEASE_NOTES_END_MARKER,
+    "",
+    "</details>",
+    "",
+    "Edit only the preview above when you want to customize the final GitHub Release notes.",
     "",
     "## Scope",
     "",
@@ -427,6 +505,78 @@ function renderReleasePrBody(
     override ? `- ${override.source}: ${override.kind}` : "- none",
     "",
   ].join("\n");
+}
+
+function normalizeReleaseNotesInput(
+  input: ReleasePrReleaseNotesInput | string | undefined,
+  scope: ReleasePrScope,
+): ReleasePrReleaseNotesInput | undefined {
+  if (!input) return undefined;
+
+  if (typeof input === "string") {
+    const body = input.trim();
+    if (!body) return undefined;
+    const byPackageKey =
+      splitReleaseNotesByPackageSections(body, scope.packageKeys) ??
+      new Map(scope.packageKeys.map((key) => [key, body]));
+    return {
+      fixed: body,
+      byPackageKey,
+    };
+  }
+
+  const fixed = input.fixed?.trim();
+  const byPackageKey = normalizePackageNoteMap(input.byPackageKey);
+  if (!fixed && (!byPackageKey || byPackageKey.size === 0)) return undefined;
+
+  return {
+    ...(fixed ? { fixed } : {}),
+    ...(byPackageKey ? { byPackageKey } : {}),
+  };
+}
+
+function normalizePackageNoteMap(
+  input: ReleasePrReleaseNotesInput["byPackageKey"],
+): ReadonlyMap<string, string> | undefined {
+  if (!input) return undefined;
+
+  const entries =
+    input instanceof Map ? [...input.entries()] : Object.entries(input);
+  const normalized = new Map<string, string>();
+  for (const [key, body] of entries) {
+    const value = body.trim();
+    if (value) normalized.set(key, value);
+  }
+
+  return normalized.size > 0 ? normalized : undefined;
+}
+
+function splitReleaseNotesByPackageSections(
+  body: string,
+  packageKeys: readonly string[],
+): ReadonlyMap<string, string> | undefined {
+  if (packageKeys.length < 2) return undefined;
+
+  const packageKeySet = new Set(packageKeys);
+  const headingPattern = /^###\s+(.+)$/gm;
+  const matches = [...body.matchAll(headingPattern)]
+    .map((match) => ({
+      key: match[1]?.trim() ?? "",
+      start: match.index ?? 0,
+      contentStart: (match.index ?? 0) + match[0].length,
+    }))
+    .filter((match) => packageKeySet.has(match.key));
+  if (matches.length === 0) return undefined;
+
+  const sections = new Map<string, string>();
+  for (const [index, match] of matches.entries()) {
+    const next = matches[index + 1];
+    const end = next?.start ?? body.length;
+    const section = body.slice(match.contentStart, end).trim();
+    if (section) sections.set(match.key, section);
+  }
+
+  return sections.size > 0 ? sections : undefined;
 }
 
 async function findChangedVersionPackageKeys(

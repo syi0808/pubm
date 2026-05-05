@@ -379,7 +379,7 @@ ${setupSteps}
 
       - uses: syi0808/pubm-actions/release-pr@v1
         with:
-          token: \${{ secrets.GITHUB_TOKEN }}
+          token: \${{ secrets.PUBM_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           base-branch: ${defaultBranch}
         env:
           NODE_AUTH_TOKEN: \${{ secrets.NODE_AUTH_TOKEN || secrets.NPM_TOKEN || github.token }}

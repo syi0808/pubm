@@ -515,6 +515,50 @@ describe("createGitHubReleaseOperation", () => {
     expect(ctx.afterReleaseResults).toHaveLength(1);
   });
 
+  it("uses edited release notes for scoped independent GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.2.0"],
+        ["packages/b::js", "2.3.0"],
+      ]),
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      packageKeys: new Set(["packages/b::js"]),
+      releaseNotes: {
+        byPackageKey: new Map([["packages/b::js", "edited package notes"]]),
+      },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "edited package notes",
+      tag: "pkg-b@2.3.0",
+    });
+  });
+
+  it("accepts record-based edited notes for independent GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "independent",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: {
+        byPackageKey: {
+          "packages/a::js": "record package notes",
+        },
+      },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "record package notes",
+      tag: "pkg-a@1.2.0",
+    });
+  });
+
   it("cleans a prepared asset temp directory after an independent release", async () => {
     pushState.token = { source: "env", token: "gh-token" };
     pushState.tempDir = "/tmp/pubm-core-test-missing-temp-dir";
@@ -598,6 +642,42 @@ describe("createGitHubReleaseOperation", () => {
 
     expect(ctx.rollbackItems).toEqual([]);
     expect(ctx.afterReleaseResults).toHaveLength(1);
+  });
+
+  it("uses edited release notes for fixed GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "fixed",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+      version: "1.2.0",
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: { fixed: "edited fixed notes" },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "edited fixed notes",
+      tag: "v1.2.0",
+    });
+  });
+
+  it("falls back to generated notes when an edited release note is blank", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "fixed",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+      version: "1.2.0",
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: { fixed: "   " },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "release body",
+      tag: "v1.2.0",
+    });
   });
 
   it("cleans a prepared asset temp directory after a fixed release", async () => {

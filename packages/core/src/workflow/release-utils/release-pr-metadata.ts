@@ -3,6 +3,10 @@ import type { ReleasePrScope } from "./scope.js";
 export const RELEASE_PR_BODY_MARKER = "<!-- pubm:release-pr -->";
 export const RELEASE_PR_METADATA_MARKER = "pubm:release-pr-metadata";
 export const RELEASE_PR_METADATA_SCHEMA_VERSION = 1;
+export const RELEASE_PR_RELEASE_NOTES_START_MARKER =
+  "<!-- pubm:release-pr-release-notes:start -->";
+export const RELEASE_PR_RELEASE_NOTES_END_MARKER =
+  "<!-- pubm:release-pr-release-notes:end -->";
 
 export interface ReleasePrBodyMetadata {
   isReleasePr: boolean;
@@ -55,6 +59,26 @@ export function sameReleasePrScope(
   if (!metadata.isReleasePr) return false;
   if (metadata.scopeId && metadata.scopeId === scope.id) return true;
   return sameStringSet(scope.packageKeys, metadata.packageKeys);
+}
+
+export function parseReleasePrReleaseNotes(
+  body: string | undefined | null,
+): string | undefined {
+  if (!body) return undefined;
+
+  const startIndex = body.indexOf(RELEASE_PR_RELEASE_NOTES_START_MARKER);
+  if (startIndex === -1) return undefined;
+
+  const contentStart =
+    startIndex + RELEASE_PR_RELEASE_NOTES_START_MARKER.length;
+  const endIndex = body.indexOf(
+    RELEASE_PR_RELEASE_NOTES_END_MARKER,
+    contentStart,
+  );
+  if (endIndex === -1) return undefined;
+
+  const releaseNotes = body.slice(contentStart, endIndex).trim();
+  return releaseNotes.length > 0 ? releaseNotes : undefined;
 }
 
 function extractMetadataPayload(

@@ -270,15 +270,18 @@ export type {
   VersionSource,
   VersionSourceContext,
 } from "./version-source/types.js";
+export type { GitHubReleaseNoteOverrides } from "./workflow/release-phases/push-release.js";
 export type {
   PreparedReleasePr,
   PrepareReleasePrInput,
   PrepareReleasePrPublishInput,
   PublishReleasePrInput,
   ReleasePrPublishPlan,
+  ReleasePrReleaseNotesInput,
 } from "./workflow/release-pr.js";
 export {
   createVersionPlanFromManifestVersions,
+  parseReleasePrReleaseNotes,
   prepareReleasePr,
   prepareReleasePrPublish,
   publishReleasePr,
@@ -290,12 +293,19 @@ export type {
   ConsumeChangesetsForScopeResult,
 } from "./workflow/release-utils/changeset-consume.js";
 export { consumeChangesetsForScope } from "./workflow/release-utils/changeset-consume.js";
+export type { ReleasePrDryRunPassedCommentInput } from "./workflow/release-utils/release-pr-comments.js";
+export {
+  RELEASE_PR_DRY_RUN_COMMENT_MARKER,
+  renderReleasePrDryRunPassedComment,
+} from "./workflow/release-utils/release-pr-comments.js";
 export type { ReleasePrBodyMetadata } from "./workflow/release-utils/release-pr-metadata.js";
 export {
   parseReleasePrBodyMetadata,
   RELEASE_PR_BODY_MARKER,
   RELEASE_PR_METADATA_MARKER,
   RELEASE_PR_METADATA_SCHEMA_VERSION,
+  RELEASE_PR_RELEASE_NOTES_END_MARKER,
+  RELEASE_PR_RELEASE_NOTES_START_MARKER,
   renderReleasePrMetadataMarker,
   sameReleasePrScope,
 } from "./workflow/release-utils/release-pr-metadata.js";

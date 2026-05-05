@@ -449,6 +449,7 @@ describe("split GitHub workflow generators", () => {
     expect(yaml).toContain("actions/setup-node@v4");
     expect(yaml).toContain("npm ci");
     expect(yaml).toContain("syi0808/pubm-actions/release-pr@v1");
+    expect(yaml).toContain("secrets.PUBM_BOT_TOKEN || secrets.GITHUB_TOKEN");
     expect(yaml).toContain("base-branch: release");
     expect(yaml).toContain("NODE_AUTH_TOKEN:");
     expect(yaml).toContain("JSR_TOKEN:");

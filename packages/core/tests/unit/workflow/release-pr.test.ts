@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PubmContext } from "../../../src/context.js";
 import {
   createVersionPlanFromManifestVersions,
+  parseReleasePrReleaseNotes,
   prepareReleasePr,
   prepareReleasePrPublish,
   publishReleasePr,
@@ -10,6 +11,8 @@ import {
 } from "../../../src/workflow/release-pr.js";
 import {
   parseReleasePrBodyMetadata,
+  RELEASE_PR_RELEASE_NOTES_END_MARKER,
+  RELEASE_PR_RELEASE_NOTES_START_MARKER,
   sameReleasePrScope,
 } from "../../../src/workflow/release-utils/release-pr-metadata.js";
 import type { ReleasePrScope } from "../../../src/workflow/release-utils/scope.js";
@@ -19,6 +22,7 @@ const releasePrState = vi.hoisted(() => ({
   status: "M  packages/a/package.json\nA  packages/a/CHANGELOG.md",
   diffOutput: "packages/a/package.json\n",
   failPushTag: undefined as string | undefined,
+  releaseBodyCalls: [] as unknown[],
   writeVersionsCalls: [] as Array<Map<string, string>>,
   runOperationsCalls: [] as unknown[][],
   runOperationsError: undefined as Error | undefined,
@@ -74,7 +78,19 @@ vi.mock("../../../src/git.js", () => ({
       }
       return releasePrState.diffOutput;
     }
+
+    async repository(): Promise<string> {
+      releasePrState.gitCalls.push({ name: "repository", args: [] });
+      return "git@github.com:acme/repo.git";
+    }
   },
+}));
+
+vi.mock("../../../src/tasks/release-notes.js", () => ({
+  buildReleaseBody: vi.fn(async (_ctx: PubmContext, input: unknown) => {
+    releasePrState.releaseBodyCalls.push(input);
+    return `generated release notes for ${(input as { tag: string }).tag}`;
+  }),
 }));
 
 vi.mock("../../../src/workflow/release-utils/write-versions.js", () => ({
@@ -220,6 +236,7 @@ beforeEach(() => {
     "M  packages/a/package.json\nA  packages/a/CHANGELOG.md";
   releasePrState.diffOutput = "packages/a/package.json\n";
   releasePrState.failPushTag = undefined;
+  releasePrState.releaseBodyCalls = [];
   releasePrState.writeVersionsCalls = [];
   releasePrState.runOperationsCalls = [];
   releasePrState.runOperationsError = undefined;
@@ -245,6 +262,11 @@ describe("prepareReleasePr", () => {
     });
     expect(result.body).toContain("<!-- pubm:release-pr -->");
     expect(result.body).toContain("<!-- pubm:release-pr-metadata ");
+    expect(result.body).toContain("## Release Notes Preview");
+    expect(result.body).toContain("<details open>");
+    expect(result.body).toContain(RELEASE_PR_RELEASE_NOTES_START_MARKER);
+    expect(result.body).toContain("generated release notes for @acme/a@1.1.0");
+    expect(result.body).toContain(RELEASE_PR_RELEASE_NOTES_END_MARKER);
     expect(result.body).toContain("- packages/a::js: 1.1.0");
     expect(parseReleasePrBodyMetadata(result.body)).toEqual({
       isReleasePr: true,
@@ -268,6 +290,7 @@ describe("prepareReleasePr", () => {
       "stage",
       "status",
       "commit",
+      "repository",
     ]);
     expect(ctx.runtime.versionPlan).toBe(originalPlan);
     expect(
@@ -298,6 +321,24 @@ describe("prepareReleasePr", () => {
       mode: "independent",
       packages: new Map([["packages/a::js", "2.0.0"]]),
     });
+  });
+
+  it("renders release note previews for single-package release PRs", async () => {
+    const ctx = makeContext();
+    ctx.runtime.versionPlan = {
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.1.0",
+    };
+
+    const result = await prepareReleasePr(ctx, { scope, commit: false });
+
+    expect(result.versionPlan).toEqual({
+      mode: "single",
+      packageKey: "packages/a::js",
+      version: "1.1.0",
+    });
+    expect(result.body).toContain("generated release notes for v1.1.0");
   });
 
   it("requires a runtime version plan to prepare release PRs", async () => {
@@ -361,6 +402,36 @@ describe("prepareReleasePr", () => {
       scopeId: "packages/a::js",
       packageKeys: [],
     });
+  });
+
+  it("parses edited release notes from the managed preview markers", () => {
+    expect(
+      parseReleasePrReleaseNotes(
+        [
+          "## Release Notes Preview",
+          RELEASE_PR_RELEASE_NOTES_START_MARKER,
+          "",
+          "### Changed",
+          "",
+          "- Edited in the PR body",
+          "",
+          RELEASE_PR_RELEASE_NOTES_END_MARKER,
+          "",
+          "## Scope",
+        ].join("\n"),
+      ),
+    ).toBe("### Changed\n\n- Edited in the PR body");
+
+    expect(parseReleasePrReleaseNotes("no markers")).toBeUndefined();
+    expect(parseReleasePrReleaseNotes(null)).toBeUndefined();
+    expect(
+      parseReleasePrReleaseNotes(RELEASE_PR_RELEASE_NOTES_START_MARKER),
+    ).toBeUndefined();
+    expect(
+      parseReleasePrReleaseNotes(
+        `${RELEASE_PR_RELEASE_NOTES_START_MARKER}\n\n${RELEASE_PR_RELEASE_NOTES_END_MARKER}`,
+      ),
+    ).toBeUndefined();
   });
 
   it("matches release PR scopes by metadata marker or package set", () => {
@@ -595,6 +666,379 @@ describe("prepareReleasePr", () => {
     expect(ctx.runtime.pluginRunner).toBe(originalRunner);
   });
 
+  it("passes edited release PR notes to GitHub Release creation", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope,
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([["packages/a::js", "1.1.0"]]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+        ],
+      },
+      releaseNotes: "edited release notes",
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js"]),
+      releaseNotes: {
+        fixed: "edited release notes",
+        byPackageKey: new Map([["packages/a::js", "edited release notes"]]),
+      },
+    });
+  });
+
+  it("splits edited grouped release PR notes by package heading", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope: {
+          ...scope,
+          packageKeys: ["packages/a::js", "packages/b::js"],
+        },
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a::js", "1.1.0"],
+            ["packages/b::js", "2.1.0"],
+          ]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+          {
+            tagName: "@acme/b@2.1.0",
+            version: "2.1.0",
+            packageKeys: ["packages/b::js"],
+            packageNames: ["@acme/b"],
+          },
+        ],
+      },
+      releaseNotes: [
+        "### packages/a::js",
+        "",
+        "- edited a",
+        "",
+        "### packages/b::js",
+        "",
+        "- edited b",
+      ].join("\n"),
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js", "packages/b::js"]),
+      releaseNotes: {
+        fixed: [
+          "### packages/a::js",
+          "",
+          "- edited a",
+          "",
+          "### packages/b::js",
+          "",
+          "- edited b",
+        ].join("\n"),
+        byPackageKey: new Map([
+          ["packages/a::js", "- edited a"],
+          ["packages/b::js", "- edited b"],
+        ]),
+      },
+    });
+  });
+
+  it("falls back to shared edited notes when grouped headings do not match packages", async () => {
+    const ctx = makeContext();
+    const body = "### other-package\n\n- shared edited notes";
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope: {
+          ...scope,
+          packageKeys: ["packages/a::js", "packages/b::js"],
+        },
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a::js", "1.1.0"],
+            ["packages/b::js", "2.1.0"],
+          ]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+          {
+            tagName: "@acme/b@2.1.0",
+            version: "2.1.0",
+            packageKeys: ["packages/b::js"],
+            packageNames: ["@acme/b"],
+          },
+        ],
+      },
+      releaseNotes: body,
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js", "packages/b::js"]),
+      releaseNotes: {
+        fixed: body,
+        byPackageKey: new Map([
+          ["packages/a::js", body],
+          ["packages/b::js", body],
+        ]),
+      },
+    });
+  });
+
+  it("falls back to shared edited notes when package headings are empty", async () => {
+    const ctx = makeContext();
+    const body = "### packages/a::js";
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope: {
+          ...scope,
+          packageKeys: ["packages/a::js", "packages/b::js"],
+        },
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a::js", "1.1.0"],
+            ["packages/b::js", "2.1.0"],
+          ]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+          {
+            tagName: "@acme/b@2.1.0",
+            version: "2.1.0",
+            packageKeys: ["packages/b::js"],
+            packageNames: ["@acme/b"],
+          },
+        ],
+      },
+      releaseNotes: body,
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js", "packages/b::js"]),
+      releaseNotes: {
+        fixed: body,
+        byPackageKey: new Map([
+          ["packages/a::js", body],
+          ["packages/b::js", body],
+        ]),
+      },
+    });
+  });
+
+  it("ignores blank release PR note edits", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope,
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([["packages/a::js", "1.1.0"]]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+        ],
+      },
+      releaseNotes: "   ",
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js"]),
+      releaseNotes: undefined,
+    });
+  });
+
+  it("normalizes object release PR note overrides", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope: {
+          ...scope,
+          packageKeys: ["packages/a::js", "packages/b::js"],
+        },
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a::js", "1.1.0"],
+            ["packages/b::js", "2.1.0"],
+          ]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+          {
+            tagName: "@acme/b@2.1.0",
+            version: "2.1.0",
+            packageKeys: ["packages/b::js"],
+            packageNames: ["@acme/b"],
+          },
+        ],
+      },
+      releaseNotes: {
+        fixed: " fixed notes ",
+        byPackageKey: {
+          "packages/a::js": " package a notes ",
+          "packages/b::js": " ",
+        },
+      },
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js", "packages/b::js"]),
+      releaseNotes: {
+        fixed: "fixed notes",
+        byPackageKey: new Map([["packages/a::js", "package a notes"]]),
+      },
+    });
+  });
+
+  it("normalizes map release PR note overrides without fixed notes", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope: {
+          ...scope,
+          packageKeys: ["packages/a::js", "packages/b::js"],
+        },
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([
+            ["packages/a::js", "1.1.0"],
+            ["packages/b::js", "2.1.0"],
+          ]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+          {
+            tagName: "@acme/b@2.1.0",
+            version: "2.1.0",
+            packageKeys: ["packages/b::js"],
+            packageNames: ["@acme/b"],
+          },
+        ],
+      },
+      releaseNotes: {
+        byPackageKey: new Map([
+          ["packages/a::js", " map a notes "],
+          ["packages/b::js", " "],
+        ]),
+      },
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js", "packages/b::js"]),
+      releaseNotes: {
+        byPackageKey: new Map([["packages/a::js", "map a notes"]]),
+      },
+    });
+  });
+
+  it("drops object release PR notes when every value is blank", async () => {
+    const ctx = makeContext();
+
+    await publishReleasePr(ctx, {
+      plan: {
+        scope,
+        versionPlan: {
+          mode: "independent",
+          packages: new Map([["packages/a::js", "1.1.0"]]),
+        },
+        tagReferences: [
+          {
+            tagName: "@acme/a@1.1.0",
+            version: "1.1.0",
+            packageKeys: ["packages/a::js"],
+            packageNames: ["@acme/a"],
+          },
+        ],
+      },
+      releaseNotes: {
+        fixed: " ",
+      },
+    });
+
+    const githubReleaseOperation = releasePrState
+      .runOperationsCalls[1]?.[0] as {
+      args: unknown[];
+    };
+    expect(githubReleaseOperation.args[4]).toEqual({
+      packageKeys: new Set(["packages/a::js"]),
+      releaseNotes: undefined,
+    });
+  });
+
   it("publishes scoped release PR plans with explicit tag pushes and restores state", async () => {
     const ctx = makeContext();
     const originalConfig = ctx.config;
@@ -648,7 +1092,10 @@ describe("prepareReleasePr", () => {
             false,
             false,
             false,
-            { packageKeys: new Set(["packages/a::js"]) },
+            {
+              packageKeys: new Set(["packages/a::js"]),
+              releaseNotes: undefined,
+            },
           ],
         },
       ],
