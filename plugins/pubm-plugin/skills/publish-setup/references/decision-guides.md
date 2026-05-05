@@ -64,9 +64,9 @@ pubm --phase publish
 
 **Best for:** Most projects. Version control stays local, publishing is automated and reproducible.
 
-### Unsupported current scope
+### GitHub Actions release PR scope
 
-Fully automated CI, release approval PRs, and release-pr flows are future `pubm-actions` scope. Do not recommend them as a current CLI or setup-skill path.
+Fully automated CI and release PR flows are available through generated GitHub Actions workflows. Recommend `pubm workflow install github` only when the user wants GitHub-hosted release approval and publish automation.
 
 ### Decision flow
 

@@ -90,9 +90,9 @@ Publish prepared release 会：
 
 ## 当前范围
 
-完全自动化 CI，也就是 CI 在没有本地 `pubm --phase prepare` 的情况下决定并准备 release，目前不是受支持的工作流。
+完全自动化 CI，也就是 CI 在没有本地 `pubm --phase prepare` 的情况下决定并准备 release，可通过生成的 GitHub Actions 工作流支持。
 
-PR approval 和 release-PR 流程属于未来的 `pubm-actions` 范围。它们不是今天需要配置的 CLI 工作流。
+PR approval 和 release-PR 流程可通过生成的 GitHub Actions 工作流使用。运行 `pubm workflow install github` 安装 release PR 和 publish 工作流。
 
 ## 下一步
 

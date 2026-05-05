@@ -178,7 +178,7 @@ jobs:
 
 ## Changeset 检查（PR 验证）
 
-使用 [`syi0808/pubm-actions`](https://github.com/syi0808/pubm-actions) GitHub Action 来强制每个 PR 都包含 changeset。当 changesets 启用时，`pubm init` 会自动生成此工作流。
+使用 [`syi0808/pubm/actions/changeset-check`](https://github.com/syi0808/pubm/tree/main/actions/changeset-check) GitHub Action 来强制每个 PR 都包含 changeset。当 changesets 启用时，`pubm init` 会自动生成此工作流。
 
 ```yaml
 name: Changeset Check
@@ -199,7 +199,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions@v1
+      - uses: syi0808/pubm/actions/changeset-check@v1
         with:
           skip-label: no-changeset
 ```
