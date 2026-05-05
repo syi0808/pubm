@@ -95,7 +95,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: syi0808/pubm-actions/changeset-check@v1
+      - uses: syi0808/pubm/actions/changeset-check@v1
         with:
           skip-label: no-changeset
 `;
@@ -377,7 +377,7 @@ jobs:
 
 ${setupSteps}
 
-      - uses: syi0808/pubm-actions/release-pr@v1
+      - uses: syi0808/pubm/actions/release-pr@v1
         with:
           token: \${{ secrets.PUBM_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           base-branch: ${defaultBranch}
@@ -423,7 +423,7 @@ jobs:
 
 ${setupSteps}
 
-      - uses: syi0808/pubm-actions/publish@v1
+      - uses: syi0808/pubm/actions/publish@v1
         with:
           token: \${{ secrets.GITHUB_TOKEN }}
           base-branch: ${defaultBranch}

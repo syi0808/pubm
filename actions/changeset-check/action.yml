@@ -1,0 +1,37 @@
+name: "pubm Changeset Check"
+description: "Checks that PRs include valid pubm changeset files"
+author: "pubm"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  skip-label:
+    description: "PR label name that bypasses the changeset requirement"
+    required: false
+    default: "no-changeset"
+  comment:
+    description: "Whether to post/update a PR comment with the result"
+    required: false
+    default: "true"
+  token:
+    description: "GitHub token for posting comments"
+    required: false
+    default: ${{ github.token }}
+  working-directory:
+    description: "Root of the project (if not repo root)"
+    required: false
+    default: "."
+
+outputs:
+  status:
+    description: 'Result: "success", "missing", "invalid", or "skipped"'
+  changeset-files:
+    description: "Newline-separated list of detected changeset files"
+  errors:
+    description: "JSON array of validation error strings"
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

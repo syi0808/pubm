@@ -1,0 +1,29 @@
+name: "pubm Publish"
+description: "Publishes packages from merged pubm release PRs"
+author: "pubm"
+
+branding:
+  icon: "upload-cloud"
+  color: "green"
+
+inputs:
+  token:
+    description: "GitHub token for release creation and guardrails"
+    required: false
+    default: ${{ github.token }}
+  working-directory:
+    description: "Root of the pubm project"
+    required: false
+    default: "."
+  base-branch:
+    description: "Release branch that receives release PR merges"
+    required: false
+    default: ${{ github.event.repository.default_branch }}
+
+outputs:
+  status:
+    description: 'Result: "published", "no_scope", "ignored", or "ambiguous_release_pr"'
+
+runs:
+  using: "node24"
+  main: "dist/index.js"
