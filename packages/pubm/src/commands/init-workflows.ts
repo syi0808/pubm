@@ -369,6 +369,7 @@ permissions:
 
 jobs:
   release-pr:
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

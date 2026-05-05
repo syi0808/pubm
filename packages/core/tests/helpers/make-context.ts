@@ -61,8 +61,22 @@ export function makeTestConfig(
   const versioning = {
     ...base.release.versioning,
     ...release?.versioning,
-    fixed: release?.versioning?.fixed ?? base.release.versioning.fixed,
-    linked: release?.versioning?.linked ?? base.release.versioning.linked,
+    mode:
+      release?.versioning?.mode ??
+      overrides.versioning ??
+      base.release.versioning.mode,
+    fixed:
+      release?.versioning?.fixed ??
+      overrides.fixed ??
+      base.release.versioning.fixed,
+    linked:
+      release?.versioning?.linked ??
+      overrides.linked ??
+      base.release.versioning.linked,
+    updateInternalDependencies:
+      release?.versioning?.updateInternalDependencies ??
+      overrides.updateInternalDependencies ??
+      base.release.versioning.updateInternalDependencies,
   };
   const pullRequest = {
     ...base.release.pullRequest,
@@ -76,6 +90,8 @@ export function makeTestConfig(
     ...base.release,
     ...release,
     versioning,
+    changelog:
+      release?.changelog ?? overrides.changelog ?? base.release.changelog,
     changesets: {
       ...base.release.changesets,
       ...release?.changesets,
@@ -87,7 +103,7 @@ export function makeTestConfig(
     },
     pullRequest: {
       ...pullRequest,
-      grouping: pullRequest.grouping ?? versioning.mode,
+      grouping: release?.pullRequest?.grouping ?? versioning.mode,
       fixed: release?.pullRequest?.fixed ?? versioning.fixed,
       linked: release?.pullRequest?.linked ?? versioning.linked,
     },

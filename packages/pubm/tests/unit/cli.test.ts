@@ -37,6 +37,8 @@ const {
     if (bump === "patch") return `${major}.${minor}.${patch + 1}`;
     return `${major}.${minor}.${patch + 1}-0`;
   };
+  const versioningMode = (config: any): "fixed" | "independent" | undefined =>
+    config.release?.versioning?.mode ?? config.versioning;
 
   const createMockContext = (config: any, options: any, cwd: string): any => ({
     config: config ?? {},
@@ -83,7 +85,7 @@ const {
     const packages = new Map(
       config.packages.map((pkg: any) => [packageKey(pkg), pkg.version]),
     );
-    if (config.versioning === "independent") {
+    if (versioningMode(config) === "independent") {
       return { mode: "independent", packages };
     }
     return { mode: "fixed", version: [...packages.values()][0], packages };
@@ -118,7 +120,7 @@ const {
       ctx.runtime.versionPlan = { mode: "single", version, packageKey: key };
     } else if (packages.size > 1) {
       ctx.runtime.versionPlan =
-        config.versioning === "fixed"
+        versioningMode(config) === "fixed"
           ? { mode: "fixed", version: [...packages.values()][0], packages }
           : { mode: "independent", packages };
     }
@@ -341,6 +343,7 @@ beforeEach(() => {
     },
   ];
   delete sharedResolvedConfig.versioning;
+  delete sharedResolvedConfig.release;
 });
 
 describe("resolveCliOptions (tested through CLI action)", () => {
@@ -664,6 +667,43 @@ describe("CLI action handler - CI mode", () => {
   it("creates an independent versionPlan from manifests for independent versioning in --phase publish", async () => {
     mockIsCI.isCI = true;
     sharedResolvedConfig.versioning = "independent";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "1.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+        ecosystem: "js",
+      },
+      {
+        name: "pkg-b",
+        version: "2.0.0",
+        path: "packages/b",
+        registries: ["npm"],
+        dependencies: [],
+        ecosystem: "js",
+      },
+    ];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.0.0"],
+        ["packages/b::js", "2.0.0"],
+      ]),
+    });
+  });
+
+  it("prefers release.versioning.mode over legacy versioning in --phase publish mocks", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.versioning = "fixed";
+    sharedResolvedConfig.release = {
+      versioning: { mode: "independent" },
+    };
     sharedResolvedConfig.packages = [
       {
         name: "pkg-a",
@@ -1082,6 +1122,28 @@ describe("CLI action handler - registry filtering", () => {
 
     const ctx = mockPubm.mock.calls[0][0];
     expect(ctx.config.packages[0].registries).toEqual(["npm", "jsr"]);
+  });
+
+  it("builds publish version plans from the overridden context config", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.packages = [
+      {
+        name: "my-pkg",
+        version: "1.0.0",
+        path: ".",
+        registries: ["npm", "jsr", "crates"],
+        dependencies: [],
+        ecosystem: "js",
+      },
+    ];
+
+    await run("--phase", "publish", "--registry", "npm");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(mockCreateVersionPlanFromManifestVersions).toHaveBeenCalledWith(
+      ctx.config,
+    );
+    expect(ctx.config.packages[0].registries).toEqual(["npm"]);
   });
 });
 

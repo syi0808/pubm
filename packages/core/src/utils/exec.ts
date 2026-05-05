@@ -137,14 +137,16 @@ async function readNodeProcess(
     env,
   });
 
-  const [stdout, stderr] = await Promise.all([
+  const completed = new Promise<number>((resolve, reject) => {
+    proc.once("error", reject);
+    proc.once("close", (code: number | null) => resolve(code ?? 1));
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
     readNodeStream(proc.stdout, options.onStdout),
     readNodeStream(proc.stderr, options.onStderr),
+    completed,
   ]);
-  const exitCode = await new Promise<number>((resolve, reject) => {
-    proc.on("error", reject);
-    proc.on("close", (code: number | null) => resolve(code ?? 0));
-  });
 
   return { stdout, stderr, exitCode };
 }
@@ -156,15 +158,24 @@ async function readNodeStream(
   if (!stream) return "";
 
   return await new Promise((resolve, reject) => {
+    const decoder = new TextDecoder();
     let output = "";
     stream.on("data", (chunk) => {
-      const text = Buffer.isBuffer(chunk)
-        ? chunk.toString("utf8")
-        : String(chunk);
+      const text =
+        typeof chunk === "string"
+          ? chunk
+          : decoder.decode(chunk, { stream: true });
       output += text;
       onChunk?.(text);
     });
     stream.on("error", reject);
-    stream.on("end", () => resolve(output));
+    stream.on("end", () => {
+      const trailing = decoder.decode();
+      if (trailing) {
+        output += trailing;
+        onChunk?.(trailing);
+      }
+      resolve(output);
+    });
   });
 }

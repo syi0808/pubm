@@ -1,4 +1,5 @@
 import path from "node:path";
+import micromatch from "micromatch";
 import type { ResolvedPubmConfig } from "../config/types.js";
 import type { PubmContext, VersionPlan } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
@@ -329,10 +330,77 @@ function filterConfigForPackageKeys(
   config: ResolvedPubmConfig,
   packageKeys: ReadonlySet<string>,
 ): ResolvedPubmConfig {
+  const releaseVersioning = {
+    ...config.release.versioning,
+    fixed: prunePackageGroups(
+      config,
+      config.release.versioning.fixed,
+      packageKeys,
+    ),
+    linked: prunePackageGroups(
+      config,
+      config.release.versioning.linked,
+      packageKeys,
+    ),
+  };
+  const releasePullRequest = {
+    ...config.release.pullRequest,
+    fixed: prunePackageGroups(
+      config,
+      config.release.pullRequest.fixed,
+      packageKeys,
+    ),
+    linked: prunePackageGroups(
+      config,
+      config.release.pullRequest.linked,
+      packageKeys,
+    ),
+  };
+
   return Object.freeze({
     ...config,
     packages: config.packages.filter((pkg) => packageKeys.has(packageKey(pkg))),
+    fixed: releaseVersioning.fixed,
+    linked: releaseVersioning.linked,
+    release: {
+      ...config.release,
+      versioning: releaseVersioning,
+      pullRequest: releasePullRequest,
+    },
   });
+}
+
+function prunePackageGroups(
+  config: ResolvedPubmConfig,
+  groups: readonly (readonly string[])[],
+  packageKeys: ReadonlySet<string>,
+): string[][] {
+  return groups
+    .map((group) =>
+      resolveGroupPackageKeys(config, group).filter((key) =>
+        packageKeys.has(key),
+      ),
+    )
+    .filter((group) => group.length > 0);
+}
+
+function resolveGroupPackageKeys(
+  config: ResolvedPubmConfig,
+  group: readonly string[],
+): string[] {
+  const keys = new Set<string>();
+  for (const ref of group) {
+    for (const pkg of config.packages) {
+      const key = packageKey(pkg);
+      const aliases = [key, pkg.path, pkg.name].filter(Boolean) as string[];
+      if (
+        aliases.some((alias) => alias === ref || micromatch.isMatch(alias, ref))
+      ) {
+        keys.add(key);
+      }
+    }
+  }
+  return [...keys];
 }
 
 function createActionSafeOperationContext(): ReleaseOperationContext {

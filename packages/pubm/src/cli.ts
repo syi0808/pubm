@@ -248,8 +248,9 @@ export function createProgram(config?: ResolvedPubmConfig): Command {
           const phase = cliOptions.phase;
 
           if (phase === "publish") {
-            ctx.runtime.versionPlan =
-              createVersionPlanFromManifestVersions(resolvedConfig);
+            ctx.runtime.versionPlan = createVersionPlanFromManifestVersions(
+              ctx.config,
+            );
           } else if (isCI && phase === undefined) {
             if (!nextVersion) {
               await applyVersionSourcePlan(ctx);

@@ -196,6 +196,31 @@ describe("buildReleasePrScopes", () => {
     expect(scopes[1].packageKeys).toEqual(["crates/c::rust"]);
   });
 
+  it("normalizes configured group refs and aliases before glob matching", () => {
+    const plan: VersionPlan = {
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.1.0"],
+        ["packages/b::js", "1.1.0"],
+      ]),
+    };
+
+    const scopes = buildReleasePrScopes(
+      ctx({
+        versioning: {
+          fixed: [["packages\\*"]],
+        },
+      }),
+      plan,
+    );
+
+    expect(scopes).toHaveLength(1);
+    expect(scopes[0]).toMatchObject({
+      kind: "fixed",
+      packageKeys: ["packages/a::js", "packages/b::js"],
+    });
+  });
+
   it("can force one fixed scope for independent plans", () => {
     const plan: VersionPlan = {
       mode: "independent",

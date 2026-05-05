@@ -28,6 +28,19 @@ const {
   };
 });
 
+vi.mock("@pubm/runner", () => ({
+  CiRenderer: class {},
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: unknown) => String(value),
+    },
+  ),
+  createCiRunnerOptions: vi.fn((options: unknown) => options),
+  createTaskRunner: vi.fn(() => ({ run: vi.fn() })),
+  prompt: vi.fn(),
+}));
+
 vi.mock("@pubm/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@pubm/core")>();
   return {
@@ -402,6 +415,63 @@ describe("runVersionCommand", () => {
     expect(mockGitInstance.commit).toHaveBeenCalledWith(
       "Version Packages\n\n- pkg-a: 2.1.0\n- pkg-b: 2.1.0",
     );
+  });
+
+  it("uses grouped recommendation bumps before semver.diff for linked prerelease packages", async () => {
+    mockMergeRecommendations.mockReturnValue([
+      {
+        packagePath: "packages/pkg-a",
+        packageKey: "packages/pkg-a::js",
+        bumpType: "patch" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Stabilize A" }],
+      },
+      {
+        packagePath: "packages/pkg-b",
+        packageKey: "packages/pkg-b::js",
+        bumpType: "patch" as const,
+        source: "changeset" as const,
+        entries: [{ summary: "Fix B" }],
+      },
+    ]);
+    mockRenderChangelog.mockReturnValue("## grouped\n");
+
+    const linkedConfig = makeConfig({
+      release: {
+        ...defaultConfig.release,
+        versioning: {
+          ...defaultConfig.release.versioning,
+          mode: "independent",
+          linked: [["pkg-a", "pkg-b"]],
+        },
+      },
+      linked: [["pkg-a", "pkg-b"]],
+      packages: [
+        {
+          name: "pkg-a",
+          version: "1.1.0-beta.1",
+          path: "packages/pkg-a",
+          ecosystem: "js",
+        },
+        {
+          name: "pkg-b",
+          version: "1.0.0",
+          path: "packages/pkg-b",
+          ecosystem: "js",
+        },
+      ] as any,
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    try {
+      await runVersionCommand("/tmp/project", linkedConfig);
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/^pkg-a: 1\.1\.0-beta\.1 .+ \(patch\)$/),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it("always creates changeset and conventional commit sources", async () => {

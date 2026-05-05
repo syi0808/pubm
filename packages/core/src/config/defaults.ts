@@ -207,12 +207,12 @@ function resolveReleaseConfig(config: PubmConfig["release"] | undefined) {
   const versioning = {
     ...defaultRelease.versioning,
     ...config?.versioning,
-    fixed:
-      config?.versioning?.fixed?.map((group) => [...group]) ??
-      defaultRelease.versioning.fixed,
-    linked:
-      config?.versioning?.linked?.map((group) => [...group]) ??
-      defaultRelease.versioning.linked,
+    fixed: cloneReleaseGroups(
+      config?.versioning?.fixed ?? defaultRelease.versioning.fixed,
+    ),
+    linked: cloneReleaseGroups(
+      config?.versioning?.linked ?? defaultRelease.versioning.linked,
+    ),
   };
 
   return {
@@ -224,7 +224,9 @@ function resolveReleaseConfig(config: PubmConfig["release"] | undefined) {
     commits: {
       ...defaultRelease.commits,
       ...config?.commits,
-      types: config?.commits?.types ?? defaultRelease.commits.types,
+      types: {
+        ...(config?.commits?.types ?? defaultRelease.commits.types),
+      },
     },
     changelog: config?.changelog ?? defaultRelease.changelog,
     pullRequest: resolveReleasePullRequestConfig(config?.pullRequest, {
@@ -233,6 +235,12 @@ function resolveReleaseConfig(config: PubmConfig["release"] | undefined) {
       linked: versioning.linked,
     }),
   };
+}
+
+function cloneReleaseGroups(
+  groups: readonly (readonly string[])[],
+): string[][] {
+  return groups.map((group) => [...group]);
 }
 
 function resolveReleasePullRequestConfig(

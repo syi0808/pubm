@@ -17,7 +17,7 @@ export function renderReleasePrDryRunPassedComment(
     RELEASE_PR_DRY_RUN_COMMENT_MARKER,
     "### release and publish dry-run passed",
     "",
-    `Scope: \`${scope}\``,
+    `Scope: ${markdownCodeSpan(scope)}`,
   ];
 
   if (input.runUrl) {
@@ -25,4 +25,19 @@ export function renderReleasePrDryRunPassedComment(
   }
 
   return lines.join("\n");
+}
+
+function markdownCodeSpan(value: string): string {
+  const normalized = value.replace(/[\r\n]+/g, " ");
+  const longestBacktickRun = Math.max(
+    0,
+    ...[...normalized.matchAll(/`+/g)].map((match) => match[0].length),
+  );
+  const delimiter = "`".repeat(longestBacktickRun + 1);
+  const content =
+    normalized.startsWith("`") || normalized.endsWith("`")
+      ? ` ${normalized} `
+      : normalized;
+
+  return `${delimiter}${content}${delimiter}`;
 }

@@ -110,17 +110,29 @@ function releasePrConfigFor(ctx: PubmContext): ReleasePrConfigLike {
 function resolveConfiguredGroup(ctx: PubmContext, group: string[]): string[] {
   const keys = new Set<string>();
   for (const ref of group) {
+    const normalizedRef = normalizeScopeRef(ref);
     for (const pkg of ctx.config.packages) {
       const key = packageKey(pkg);
       const aliases = [key, pkg.path, pkg.name].filter(Boolean) as string[];
       if (
-        aliases.some((alias) => alias === ref || micromatch.isMatch(alias, ref))
+        aliases.some((alias) => {
+          const normalizedAlias = normalizeScopeRef(alias);
+          return (
+            alias === ref ||
+            normalizedAlias === normalizedRef ||
+            micromatch.isMatch(normalizedAlias, normalizedRef)
+          );
+        })
       ) {
         keys.add(key);
       }
     }
   }
   return [...keys];
+}
+
+function normalizeScopeRef(value: string): string {
+  return value.replace(/\\/g, "/");
 }
 
 function createPackageScope(ctx: PubmContext, key: string): ReleasePrScope {

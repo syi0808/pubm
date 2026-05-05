@@ -259,10 +259,10 @@ function highestBump(
   bumps: readonly ReleasePrBumpOverride[],
 ): ReleasePrBumpOverride {
   const order: Record<ReleasePrBumpOverride, number> = {
-    patch: 0,
-    minor: 1,
-    major: 2,
-    prerelease: 3,
+    prerelease: 0,
+    patch: 1,
+    minor: 2,
+    major: 3,
   };
   return [...bumps].sort((a, b) => order[b] - order[a])[0];
 }

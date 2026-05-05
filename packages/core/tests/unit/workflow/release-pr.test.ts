@@ -1,4 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: string) => value,
+    },
+  ),
+}));
+
 import type { PubmContext } from "../../../src/context.js";
 import {
   createVersionPlanFromManifestVersions,
@@ -16,6 +26,7 @@ import {
   sameReleasePrScope,
 } from "../../../src/workflow/release-utils/release-pr-metadata.js";
 import type { ReleasePrScope } from "../../../src/workflow/release-utils/scope.js";
+import { makeTestConfig } from "../../helpers/make-context.js";
 
 const releasePrState = vi.hoisted(() => ({
   gitCalls: [] as Array<{ name: string; args: unknown[] }>,
@@ -24,6 +35,7 @@ const releasePrState = vi.hoisted(() => ({
   failPushTag: undefined as string | undefined,
   releaseBodyCalls: [] as unknown[],
   writeVersionsCalls: [] as Array<Map<string, string>>,
+  writeVersionsConfigs: [] as unknown[],
   runOperationsCalls: [] as unknown[][],
   runOperationsError: undefined as Error | undefined,
 }));
@@ -95,8 +107,9 @@ vi.mock("../../../src/tasks/release-notes.js", () => ({
 
 vi.mock("../../../src/workflow/release-utils/write-versions.js", () => ({
   writeVersions: vi.fn(
-    async (_ctx: PubmContext, versions: Map<string, string>) => {
+    async (ctx: PubmContext, versions: Map<string, string>) => {
       releasePrState.writeVersionsCalls.push(new Map(versions));
+      releasePrState.writeVersionsConfigs.push(ctx.config);
       return ["packages/a/package.json"];
     },
   ),
@@ -238,8 +251,40 @@ beforeEach(() => {
   releasePrState.failPushTag = undefined;
   releasePrState.releaseBodyCalls = [];
   releasePrState.writeVersionsCalls = [];
+  releasePrState.writeVersionsConfigs = [];
   releasePrState.runOperationsCalls = [];
   releasePrState.runOperationsError = undefined;
+});
+
+describe("makeTestConfig", () => {
+  it("preserves top-level release overrides in the nested release config", () => {
+    const fixed = [["packages/a", "packages/b"]];
+    const linked = [["packages/c"]];
+
+    const config = makeTestConfig({
+      versioning: "fixed",
+      fixed,
+      linked,
+      updateInternalDependencies: "minor",
+      changelog: false,
+    });
+
+    expect(config.release.versioning).toEqual({
+      mode: "fixed",
+      fixed,
+      linked,
+      updateInternalDependencies: "minor",
+    });
+    expect(config.release.changelog).toBe(false);
+    expect(config.release.pullRequest.grouping).toBe("fixed");
+    expect(config.release.pullRequest.fixed).toBe(fixed);
+    expect(config.release.pullRequest.linked).toBe(linked);
+    expect(config.versioning).toBe("fixed");
+    expect(config.fixed).toBe(fixed);
+    expect(config.linked).toBe(linked);
+    expect(config.updateInternalDependencies).toBe("minor");
+    expect(config.changelog).toBe(false);
+  });
 });
 
 describe("prepareReleasePr", () => {
@@ -297,6 +342,46 @@ describe("prepareReleasePr", () => {
       (ctx.runtime as unknown as { workflowVersionStepOutput: unknown })
         .workflowVersionStepOutput,
     ).toBe(originalStepOutput);
+  });
+
+  it("prunes release grouping metadata when scoping config", async () => {
+    const ctx = makeContext();
+    ctx.config = Object.freeze({
+      ...ctx.config,
+      release: {
+        ...ctx.config.release,
+        versioning: {
+          ...ctx.config.release.versioning,
+          fixed: [["@acme/a", "@acme/b"], ["packages/b"]],
+          linked: [["packages/a", "packages/b"]],
+        },
+        pullRequest: {
+          ...ctx.config.release.pullRequest,
+          fixed: [["@acme/a", "@acme/b"], ["packages/b"]],
+          linked: [["@acme/*"], ["packages/b"]],
+        },
+      },
+    });
+
+    await prepareReleasePr(ctx, { scope, commit: false });
+
+    const scopedConfig = releasePrState
+      .writeVersionsConfigs[0] as PubmContext["config"];
+    expect(scopedConfig.packages.map((pkg) => pkg.path)).toEqual([
+      "packages/a",
+    ]);
+    expect(scopedConfig.fixed).toEqual([["packages/a::js"]]);
+    expect(scopedConfig.linked).toEqual([["packages/a::js"]]);
+    expect(scopedConfig.release.versioning.fixed).toEqual([["packages/a::js"]]);
+    expect(scopedConfig.release.versioning.linked).toEqual([
+      ["packages/a::js"],
+    ]);
+    expect(scopedConfig.release.pullRequest.fixed).toEqual([
+      ["packages/a::js"],
+    ]);
+    expect(scopedConfig.release.pullRequest.linked).toEqual([
+      ["packages/a::js"],
+    ]);
   });
 
   it("applies overrides before rendering release PR metadata", async () => {

@@ -49,7 +49,7 @@ describe("consumeChangesetsForScope", () => {
         releases: [{ path: "packages/a", ecosystem: "js", type: "patch" }],
       },
     ]);
-    expect(result.deletedFiles).toEqual([file]);
+    expect(result.deletedFiles).toEqual([file.replace(/\\/g, "/")]);
   });
 
   it("rewrites files with remaining releases and preserves summaries", () => {
@@ -65,7 +65,7 @@ describe("consumeChangesetsForScope", () => {
       resolver: createKeyResolver(packages),
     });
 
-    expect(result.rewrittenFiles).toEqual([file]);
+    expect(result.rewrittenFiles).toEqual([file.replace(/\\/g, "/")]);
     expect(result.deletedFiles).toEqual([]);
     expect(result.consumed[0].releases).toEqual([
       { path: "packages/a", ecosystem: "js", type: "minor" },
@@ -107,6 +107,6 @@ describe("consumeChangesetsForScope", () => {
     expect(result.consumed[0].releases).toEqual([
       { path: "packages/a", ecosystem: "js", type: "patch" },
     ]);
-    expect(result.deletedFiles).toEqual([file]);
+    expect(result.deletedFiles).toEqual([file.replace(/\\/g, "/")]);
   });
 });

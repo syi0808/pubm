@@ -372,6 +372,42 @@ describe("resolveConfig", () => {
     ]);
   });
 
+  it("clones release config collections from defaults and user input", async () => {
+    const fixed = [["packages/core", "packages/pubm"]];
+    const linked = [["packages/runner"]];
+    const types: NonNullable<
+      NonNullable<PubmConfig["release"]>["commits"]
+    >["types"] = { feat: "minor" };
+
+    const configured = await resolveConfig({
+      release: {
+        versioning: { fixed, linked },
+        commits: { types },
+      },
+    });
+
+    fixed[0].push("packages/mutated");
+    linked.push(["packages/mutated"]);
+    types.feat = false;
+    types.fix = "patch";
+
+    expect(configured.release.versioning.fixed).toEqual([
+      ["packages/core", "packages/pubm"],
+    ]);
+    expect(configured.release.versioning.linked).toEqual([["packages/runner"]]);
+    expect(configured.release.commits.types).toEqual({ feat: "minor" });
+
+    const defaults = await resolveConfig({});
+    defaults.release.versioning.fixed.push(["packages/default-fixed"]);
+    defaults.release.versioning.linked.push(["packages/default-linked"]);
+    defaults.release.commits.types.feat = "minor";
+
+    const nextDefaults = await resolveConfig({});
+    expect(nextDefaults.release.versioning.fixed).toEqual([]);
+    expect(nextDefaults.release.versioning.linked).toEqual([]);
+    expect(nextDefaults.release.commits.types).toEqual({});
+  });
+
   it("defaults dangerouslyAllowUnpublish to false", async () => {
     const resolved = await resolveConfig({});
     expect(resolved.rollback.dangerouslyAllowUnpublish).toBe(false);

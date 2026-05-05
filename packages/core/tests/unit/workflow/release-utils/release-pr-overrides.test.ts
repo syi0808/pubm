@@ -37,6 +37,9 @@ describe("release PR overrides", () => {
     expect(
       parseReleasePrLabelOverride(["release:patch", "release:major"]),
     ).toEqual({ source: "label", kind: "bump", bump: "major" });
+    expect(
+      parseReleasePrLabelOverride(["release:prerelease", "release:patch"]),
+    ).toEqual({ source: "label", kind: "bump", bump: "patch" });
     expect(parseReleasePrLabelOverride(["no-release"])).toBeUndefined();
     expect(
       parseReleasePrLabelOverride(["custom-minor"], {

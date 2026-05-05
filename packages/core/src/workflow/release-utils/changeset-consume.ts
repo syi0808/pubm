@@ -63,18 +63,22 @@ export function consumeChangesetsForScope({
 
     if (remaining.length === 0) {
       rmSync(filePath);
-      result.deletedFiles.push(filePath);
+      result.deletedFiles.push(toForwardSlash(filePath));
     } else {
       writeFileSync(
         filePath,
         generateChangesetContent(remaining, changeset.summary),
         "utf-8",
       );
-      result.rewrittenFiles.push(filePath);
+      result.rewrittenFiles.push(toForwardSlash(filePath));
     }
   }
 
   return result;
+}
+
+function toForwardSlash(value: string): string {
+  return value.replace(/\\/g, "/");
 }
 
 function keyForRelease(

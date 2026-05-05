@@ -140,26 +140,14 @@ function applyConfiguredGroups(
   const bumps = new Map<string, VersionRecommendation["bumpType"]>();
 
   for (const rec of recommendations) {
-    const key =
-      rec.packageKey ??
-      config.packages.find((pkg) => pkg.path === rec.packagePath)?.path;
-    const pkgKey = key?.includes("::")
-      ? key
-      : config.packages
-          .map((pkg) => packageKey(pkg))
-          .find((candidate) => candidate === key);
-    const resolvedKey =
-      pkgKey ??
-      config.packages
-        .filter((pkg) => pkg.path === rec.packagePath)
-        .map((pkg) => packageKey(pkg))[0];
-    if (!resolvedKey) continue;
-    recommendationsByKey.set(resolvedKey, {
-      ...rec,
-      packageKey: resolvedKey,
-      packagePath: packagesByKey.get(resolvedKey)?.path ?? rec.packagePath,
-    });
-    bumps.set(resolvedKey, rec.bumpType);
+    for (const resolvedKey of resolveRecommendationKeys(config, rec)) {
+      recommendationsByKey.set(resolvedKey, {
+        ...rec,
+        packageKey: resolvedKey,
+        packagePath: packagesByKey.get(resolvedKey)?.path ?? rec.packagePath,
+      });
+      bumps.set(resolvedKey, rec.bumpType);
+    }
   }
 
   for (const group of fixedGroups) {
@@ -183,6 +171,24 @@ function applyConfiguredGroups(
         entries: [],
       };
     });
+}
+
+function resolveRecommendationKeys(
+  config: ResolvedPubmConfig,
+  rec: VersionRecommendation,
+): string[] {
+  if (rec.packageKey) {
+    const pkg = config.packages.find((candidate) => {
+      const key = packageKey(candidate);
+      return key === rec.packageKey;
+    });
+    if (pkg) return [packageKey(pkg)];
+    if (rec.packageKey.includes("::")) return [rec.packageKey];
+  }
+
+  return config.packages
+    .filter((pkg) => pkg.path === rec.packagePath)
+    .map((pkg) => packageKey(pkg));
 }
 
 function releaseVersioning(config: ResolvedPubmConfig) {

@@ -441,6 +441,9 @@ describe("split GitHub workflow generators", () => {
     expect(yaml).toContain("workflow_dispatch:");
     expect(yaml).toContain("issue_comment:");
     expect(yaml).toContain("types: [created]");
+    expect(yaml).toContain(
+      "if: github.event_name != 'issue_comment' || github.event.issue.pull_request",
+    );
     expect(yaml).toContain("contents: write");
     expect(yaml).toContain("pull-requests: write");
     expect(yaml).toContain("issues: write");

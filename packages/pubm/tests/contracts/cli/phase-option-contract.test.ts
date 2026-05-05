@@ -228,6 +228,9 @@ vi.mock("std-env", () => ({
 }));
 
 vi.mock("@pubm/core", () => {
+  const versioningMode = (config: any): "fixed" | "independent" | undefined =>
+    config.release?.versioning?.mode ?? config.versioning;
+
   return {
     ChangesetSource: vi.fn(function ChangesetSource() {
       mockState.recordEvent({
@@ -295,7 +298,7 @@ vi.mock("@pubm/core", () => {
       if (packages.size === 1 && ctx.config.packages.length <= 1) {
         const [packageKey, version] = [...packages][0];
         ctx.runtime.versionPlan = { mode: "single", packageKey, version };
-      } else if (ctx.config.versioning === "fixed") {
+      } else if (versioningMode(ctx.config) === "fixed") {
         const version = [...packages.values()][0];
         ctx.runtime.versionPlan = {
           mode: "fixed",
@@ -369,7 +372,7 @@ vi.mock("@pubm/core", () => {
           pkg.version,
         ]),
       );
-      if (config.versioning === "fixed") {
+      if (versioningMode(config) === "fixed") {
         return {
           mode: "fixed",
           version: [...packages.values()][0] ?? "",
@@ -527,6 +530,10 @@ vi.mock("../../../src/commands/update.js", () => ({
   registerUpdateCommand: vi.fn(),
 }));
 
+vi.mock("../../../src/commands/workflow.js", () => ({
+  registerWorkflowCommand: vi.fn(),
+}));
+
 vi.mock("../../../src/commands/version-cmd.js", () => ({
   registerVersionCommand: vi.fn(),
 }));
@@ -647,6 +654,38 @@ const scenarios: CliContractScenario[] = [
         pkg({ name: "pkg-b", version: "2.5.0", path: "packages/b" }),
       ],
       versioning: "independent",
+    }),
+    expected: {
+      workflow: "Split CI Release: Publish prepared release",
+      options: {
+        phase: "publish",
+        skipDryRun: false,
+        skipReleaseDraft: false,
+      },
+      versionPlan: {
+        mode: "independent",
+        packages: {
+          "packages/a::js": "1.4.0",
+          "packages/b::js": "2.5.0",
+        },
+      },
+      requiredTasksRun: false,
+      pubmCalled: true,
+    },
+  },
+  {
+    id: "ci-publish-prefers-release-versioning-mode",
+    description:
+      "Split CI Release publish reads release.versioning.mode before legacy versioning",
+    argv: ["--phase", "publish"],
+    env: { isCI: true },
+    config: config({
+      packages: [
+        pkg({ name: "pkg-a", version: "1.4.0", path: "packages/a" }),
+        pkg({ name: "pkg-b", version: "2.5.0", path: "packages/b" }),
+      ],
+      versioning: "fixed",
+      release: { versioning: { mode: "independent" } },
     }),
     expected: {
       workflow: "Split CI Release: Publish prepared release",

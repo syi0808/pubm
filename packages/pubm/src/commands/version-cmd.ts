@@ -12,6 +12,8 @@ import type {
   VersionSourceContext,
 } from "@pubm/core";
 import {
+  applyFixedGroup,
+  applyLinkedGroup,
   ChangesetChangelogWriter,
   ChangesetSource,
   ConventionalCommitChangelogWriter,
@@ -23,6 +25,7 @@ import {
   mergeRecommendations,
   packageKey,
   renderChangelog,
+  resolveGroups,
   t,
   ui,
   writeChangelogToFile,
@@ -30,6 +33,13 @@ import {
 } from "@pubm/core";
 import type { Command } from "commander";
 import { diff } from "semver";
+
+type VersioningConfig = {
+  mode: "independent" | "fixed";
+  fixed: string[][];
+  linked: string[][];
+  updateInternalDependencies: "patch" | "minor";
+};
 
 export interface VersionCommandOptions {
   dryRun?: boolean;
@@ -81,8 +91,11 @@ export async function runVersionCommand(
     config,
     recommendations,
   );
+  const bumpRecommendations = versionPlan
+    ? createGroupedRecommendations(config, recommendations)
+    : recommendations;
   const bumps = versionPlan
-    ? createBumpsFromVersionPlan(config, versionPlan, recommendations)
+    ? createBumpsFromVersionPlan(config, versionPlan, bumpRecommendations)
     : new Map<string, VersionBump>();
 
   if (bumps.size === 0) {
@@ -188,9 +201,15 @@ function createBumpsFromVersionPlan(
       (candidate) => packageKey(candidate) === pkgKey,
     );
     if (!pkg) return;
+    const recommendationBump = recommendationBumpForPackage(
+      config,
+      recommendations,
+      pkgKey,
+    );
     const bumpType =
-      (fixedMode ? fixedBump : bumpTypeFromVersions(pkg.version, newVersion)) ??
-      recommendationBumpForPackage(config, recommendations, pkgKey) ??
+      (fixedMode ? fixedBump : recommendationBump) ??
+      bumpTypeFromVersions(pkg.version, newVersion) ??
+      recommendationBump ??
       fixedBump;
     if (!bumpType) return;
     bumps.set(pkgKey, {
@@ -228,6 +247,108 @@ function buildEcosystems(
     result.push({ eco, pkg });
   }
   return result;
+}
+
+function createGroupedRecommendations(
+  config: ResolvedPubmConfig,
+  recommendations: readonly VersionRecommendation[],
+): VersionRecommendation[] {
+  const versioning = releaseVersioning(config);
+  const fixedGroups = versioning.fixed ?? [];
+  const linkedGroups = versioning.linked ?? [];
+  if (
+    versioning.mode === "fixed" ||
+    recommendations.length === 0 ||
+    (fixedGroups.length === 0 && linkedGroups.length === 0)
+  ) {
+    return [...recommendations];
+  }
+
+  const packagesByKey = new Map(
+    config.packages.map((pkg) => [packageKey(pkg), pkg]),
+  );
+  const recommendationsByKey = new Map<string, VersionRecommendation>();
+  const bumps = new Map<string, BumpType>();
+
+  for (const rec of recommendations) {
+    for (const resolvedKey of resolveRecommendationKeys(config, rec)) {
+      const pkg = packagesByKey.get(resolvedKey);
+      recommendationsByKey.set(resolvedKey, {
+        ...rec,
+        packageKey: resolvedKey,
+        packagePath: pkg?.path ?? rec.packagePath,
+      });
+      bumps.set(resolvedKey, rec.bumpType);
+    }
+  }
+
+  for (const group of fixedGroups) {
+    applyFixedGroup(bumps, resolveGroupKeys(config, group));
+  }
+  for (const group of linkedGroups) {
+    applyLinkedGroup(bumps, resolveGroupKeys(config, group));
+  }
+
+  return [...bumps]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, bumpType]) => {
+      const original = recommendationsByKey.get(key);
+      if (original) return { ...original, bumpType };
+      const pkg = packagesByKey.get(key);
+      return {
+        packagePath: pkg?.path ?? key,
+        packageKey: key,
+        bumpType,
+        source: "group",
+        entries: [],
+      };
+    });
+}
+
+function releaseVersioning(config: ResolvedPubmConfig): VersioningConfig {
+  return (
+    config.release?.versioning ?? {
+      mode: config.versioning ?? "independent",
+      fixed: config.fixed ?? [],
+      linked: config.linked ?? [],
+      updateInternalDependencies: config.updateInternalDependencies ?? "patch",
+    }
+  );
+}
+
+function resolveRecommendationKeys(
+  config: ResolvedPubmConfig,
+  rec: VersionRecommendation,
+): string[] {
+  if (rec.packageKey) {
+    const key = rec.packageKey.includes("::")
+      ? rec.packageKey
+      : config.packages
+          .map((pkg) => packageKey(pkg))
+          .find((candidate) => candidate === rec.packageKey);
+    if (key) return [key];
+  }
+  return config.packages
+    .filter((pkg) => pkg.path === rec.packagePath)
+    .map((pkg) => packageKey(pkg));
+}
+
+function resolveGroupKeys(
+  config: ResolvedPubmConfig,
+  group: readonly string[],
+): string[] {
+  const keys = new Set<string>();
+  for (const ref of group) {
+    for (const pkg of config.packages) {
+      const key = packageKey(pkg);
+      const aliases = [key, pkg.path, pkg.name].filter(Boolean) as string[];
+      const matches = resolveGroups([[ref]], aliases)[0] ?? [];
+      if (aliases.some((alias) => alias === ref || matches.includes(alias))) {
+        keys.add(key);
+      }
+    }
+  }
+  return [...keys];
 }
 
 function recommendationBumpForPackage(
