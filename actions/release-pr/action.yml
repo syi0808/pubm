@@ -1,0 +1,33 @@
+name: "pubm Release PR"
+description: "Creates or updates pubm release pull requests"
+author: "pubm"
+
+branding:
+  icon: "git-pull-request"
+  color: "green"
+
+inputs:
+  token:
+    description: "GitHub token for creating release PRs"
+    required: false
+    default: ${{ github.token }}
+  working-directory:
+    description: "Root of the pubm project"
+    required: false
+    default: "."
+  base-branch:
+    description: "Release branch that receives release PR merges"
+    required: false
+    default: ${{ github.event.repository.default_branch }}
+
+outputs:
+  status:
+    description: 'Result: "success", "no_pending_release", "unversioned_changes", "ignored", "invalid_override", "scope_not_found", or "dry_run_failed"'
+  pull-requests:
+    description: "Comma-separated release PR numbers created or updated"
+  errors:
+    description: "Human-readable error details when override parsing or dry-run validation fails"
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

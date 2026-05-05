@@ -230,7 +230,7 @@ describe("generateChangesetCheckWorkflow", () => {
     expect(yaml).toContain("branches: [main]");
     expect(yaml).toContain("pull-requests: write");
     expect(yaml).toContain("no-changeset");
-    expect(yaml).toContain("syi0808/pubm-actions/changeset-check@v1");
+    expect(yaml).toContain("syi0808/pubm/actions/changeset-check@v1");
     expect(yaml).toContain("changeset-check");
   });
 

@@ -391,7 +391,7 @@ describe("generateReleaseWorkflow — branch customization", () => {
 describe("generateChangesetCheckWorkflow — additional tests", () => {
   it("uses the changeset-check sub-action", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("syi0808/pubm-actions/changeset-check@v1");
+    expect(yaml).toContain("syi0808/pubm/actions/changeset-check@v1");
   });
 
   it("contains skip-label input set to no-changeset", () => {
@@ -448,7 +448,7 @@ describe("split GitHub workflow generators", () => {
     expect(yaml).toContain("packages: write");
     expect(yaml).toContain("actions/setup-node@v4");
     expect(yaml).toContain("npm ci");
-    expect(yaml).toContain("syi0808/pubm-actions/release-pr@v1");
+    expect(yaml).toContain("syi0808/pubm/actions/release-pr@v1");
     expect(yaml).toContain("secrets.PUBM_BOT_TOKEN || secrets.GITHUB_TOKEN");
     expect(yaml).toContain("base-branch: release");
     expect(yaml).toContain("NODE_AUTH_TOKEN:");
@@ -470,7 +470,7 @@ describe("split GitHub workflow generators", () => {
     expect(yaml).toContain("id-token: write");
     expect(yaml).toContain("pnpm/action-setup@v4");
     expect(yaml).toContain("pnpm install --frozen-lockfile");
-    expect(yaml).toContain("syi0808/pubm-actions/publish@v1");
+    expect(yaml).toContain("syi0808/pubm/actions/publish@v1");
     expect(yaml).toContain("NODE_AUTH_TOKEN:");
     expect(yaml).toContain("JSR_TOKEN:");
     expect(yaml).toContain("CARGO_REGISTRY_TOKEN:");
@@ -538,7 +538,7 @@ describe("installGithubWorkflows", () => {
     expect(result[0].status).toBe("overwritten");
     expect(
       readFileSync(path.join(workflowDir, "pubm-release-pr.yml"), "utf8"),
-    ).toContain("syi0808/pubm-actions/release-pr@v1");
+    ).toContain("syi0808/pubm/actions/release-pr@v1");
   });
 });
 
