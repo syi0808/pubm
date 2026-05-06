@@ -555,6 +555,35 @@ describe("version source contracts", () => {
     });
   });
 
+  it("keeps fixed version plans fixed for a single configured package", () => {
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+    ];
+
+    const plan = createVersionPlanFromRecommendations(
+      makeContext("", packages, "fixed").config as never,
+      [
+        {
+          packagePath: "packages/core",
+          packageKey: "packages/core::js",
+          bumpType: "minor",
+          source: "changeset",
+          entries: [{ summary: "Add API", id: "cs-1" }],
+        },
+      ],
+    );
+
+    expect(plan).toEqual({
+      mode: "fixed",
+      version: "1.1.0",
+      packages: new Map([["packages/core::js", "1.1.0"]]),
+    });
+  });
+
   it("handles empty, invalid, and single-package recommendation plans", () => {
     const singlePackage = [
       makePackage({
@@ -751,6 +780,48 @@ describe("version source contracts", () => {
       version: "1.0.1",
     });
     expect(commitCtx.runtime.changesetConsumed).toBe(false);
+  });
+
+  it("does not mark dropped changeset recommendations as consumed", async () => {
+    const root = makeRoot();
+    const packages = [
+      makePackage({
+        name: "@scope/core",
+        path: "packages/core",
+        version: "1.0.0",
+      }),
+    ];
+    writeChangeset(
+      root,
+      "missing-package.md",
+      '---\n"packages/missing": minor\n---\n\nRelease unavailable package.\n',
+    );
+    mockGitLog(
+      commitLog(
+        "COMMIT_START abc1234",
+        "fix(core): repair path handling",
+        "COMMIT_FILES",
+        "packages/core/src/index.ts",
+      ),
+    );
+    const ctx = makeContext(root, packages);
+
+    await applyVersionSourcePlan(ctx as never);
+
+    expect(ctx.runtime.releaseAnalysis?.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          packagePath: "packages/missing",
+          source: "changeset",
+        }),
+      ]),
+    );
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "single",
+      packageKey: "packages/core::js",
+      version: "1.0.1",
+    });
+    expect(ctx.runtime.changesetConsumed).toBe(false);
   });
 
   it("leaves the version plan unset without versioned recommendations", async () => {

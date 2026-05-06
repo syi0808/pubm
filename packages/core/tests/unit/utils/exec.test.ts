@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,7 +64,9 @@ describe("exec", () => {
         cwd: "/workspace/packages/core",
         env: expect.objectContaining({
           EXTRA_FLAG: "1",
-          PATH: expect.stringContaining(`${process.cwd()}/node_modules/.bin`),
+          PATH: expect.stringContaining(
+            path.join(process.cwd(), "node_modules", ".bin"),
+          ),
         }),
       }),
     );
@@ -145,14 +148,24 @@ describe("exec", () => {
 
       await exec("echo");
     } finally {
-      process.env.PATH = originalPath;
+      if (originalPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = originalPath;
+      }
     }
+
+    const expectedPath = `${path.join(
+      process.cwd(),
+      "node_modules",
+      ".bin",
+    )}${path.delimiter}`;
 
     expect(spawn).toHaveBeenCalledWith(
       ["echo"],
       expect.objectContaining({
         env: expect.objectContaining({
-          PATH: expect.stringMatching(/node_modules\/\.bin[:;]$/),
+          PATH: expectedPath,
         }),
       }),
     );

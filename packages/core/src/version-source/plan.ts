@@ -7,10 +7,23 @@ import { analyzeReleaseChanges } from "../release-analysis/analyze.js";
 import { packageKey } from "../utils/package-key.js";
 import type { VersionRecommendation } from "./types.js";
 
+interface VersionPlanResult {
+  plan: VersionPlan;
+  recommendations: VersionRecommendation[];
+}
+
 export function createVersionPlanFromRecommendations(
   config: ResolvedPubmConfig,
   recommendations: readonly VersionRecommendation[],
 ): VersionPlan | undefined {
+  return createVersionPlanResultFromRecommendations(config, recommendations)
+    ?.plan;
+}
+
+function createVersionPlanResultFromRecommendations(
+  config: ResolvedPubmConfig,
+  recommendations: readonly VersionRecommendation[],
+): VersionPlanResult | undefined {
   const groupedRecommendations = applyConfiguredGroups(config, recommendations);
   if (groupedRecommendations.length === 0) return undefined;
 
@@ -34,28 +47,37 @@ export function createVersionPlanFromRecommendations(
   }
 
   if (packages.size === 0) return undefined;
-  if (packages.size === 1 && config.packages.length <= 1) {
-    const [key, version] = [...packages][0];
-    return {
-      mode: "single",
-      packageKey: key,
-      version,
-    };
-  }
-
   if (releaseVersioning(config).mode === "fixed") {
     const version = createFixedVersion(config, matchedRecommendations);
     if (!version) return undefined;
     return {
-      mode: "fixed",
-      version,
-      packages: new Map(
-        config.packages.map((pkg) => [packageKey(pkg), version]),
-      ),
+      plan: {
+        mode: "fixed",
+        version,
+        packages: new Map(
+          config.packages.map((pkg) => [packageKey(pkg), version]),
+        ),
+      },
+      recommendations: matchedRecommendations,
     };
   }
 
-  return { mode: "independent", packages };
+  if (packages.size === 1 && config.packages.length <= 1) {
+    const [key, version] = [...packages][0];
+    return {
+      plan: {
+        mode: "single",
+        packageKey: key,
+        version,
+      },
+      recommendations: matchedRecommendations,
+    };
+  }
+
+  return {
+    plan: { mode: "independent", packages },
+    recommendations: matchedRecommendations,
+  };
 }
 
 export async function analyzeVersionSources(
@@ -68,14 +90,14 @@ export async function analyzeVersionSources(
 
 export async function applyVersionSourcePlan(ctx: PubmContext): Promise<void> {
   const recommendations = await analyzeVersionSources(ctx);
-  const plan = createVersionPlanFromRecommendations(
+  const result = createVersionPlanResultFromRecommendations(
     ctx.config,
     recommendations,
   );
-  if (!plan) return;
+  if (!result) return;
 
-  ctx.runtime.versionPlan = plan;
-  ctx.runtime.changesetConsumed = recommendations.some(
+  ctx.runtime.versionPlan = result.plan;
+  ctx.runtime.changesetConsumed = result.recommendations.some(
     (rec) => rec.source === "changeset",
   );
 }

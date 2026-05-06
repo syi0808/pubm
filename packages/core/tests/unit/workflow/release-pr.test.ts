@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@pubm/runner", () => ({
@@ -28,14 +29,27 @@ import {
 import type { ReleasePrScope } from "../../../src/workflow/release-utils/scope.js";
 import { makeTestConfig } from "../../helpers/make-context.js";
 
+const packageAPath = path.join("packages", "a").replace(/\\/g, "/");
+const packageBPath = path.join("packages", "b").replace(/\\/g, "/");
+const packageCPath = path.join("packages", "c").replace(/\\/g, "/");
+const packageAManifestPath = path.join("packages", "a", "package.json");
+const packageBManifestPath = path.join("packages", "b", "package.json");
+const packageAChangelogPath = path.join("packages", "a", "CHANGELOG.md");
+const packageAStatusOutput = [
+  `M  ${packageAManifestPath}`,
+  `A  ${packageAChangelogPath}`,
+].join("\n");
+const gitDiffOutput = (...files: string[]) => `${files.join("\n")}\n`;
+
 const releasePrState = vi.hoisted(() => ({
   gitCalls: [] as Array<{ name: string; args: unknown[] }>,
-  status: "M  packages/a/package.json\nA  packages/a/CHANGELOG.md",
-  diffOutput: "packages/a/package.json\n",
+  status: "",
+  diffOutput: "",
   failPushTag: undefined as string | undefined,
   releaseBodyCalls: [] as unknown[],
   writeVersionsCalls: [] as Array<Map<string, string>>,
   writeVersionsConfigs: [] as unknown[],
+  writeVersionsFiles: [] as string[],
   runOperationsCalls: [] as unknown[][],
   runOperationsError: undefined as Error | undefined,
 }));
@@ -110,7 +124,7 @@ vi.mock("../../../src/workflow/release-utils/write-versions.js", () => ({
     async (ctx: PubmContext, versions: Map<string, string>) => {
       releasePrState.writeVersionsCalls.push(new Map(versions));
       releasePrState.writeVersionsConfigs.push(ctx.config);
-      return ["packages/a/package.json"];
+      return [...releasePrState.writeVersionsFiles];
     },
   ),
 }));
@@ -197,7 +211,7 @@ function makeContext(): PubmContext {
         {
           ecosystem: "js",
           name: "@acme/a",
-          path: "packages/a",
+          path: packageAPath,
           registries: ["npm"],
           version: "1.0.0",
           dependencies: [],
@@ -205,7 +219,7 @@ function makeContext(): PubmContext {
         {
           ecosystem: "js",
           name: "@acme/b",
-          path: "packages/b",
+          path: packageBPath,
           registries: ["npm"],
           version: "2.0.0",
           dependencies: [],
@@ -245,21 +259,21 @@ const scope: ReleasePrScope = {
 beforeEach(() => {
   vi.clearAllMocks();
   releasePrState.gitCalls = [];
-  releasePrState.status =
-    "M  packages/a/package.json\nA  packages/a/CHANGELOG.md";
-  releasePrState.diffOutput = "packages/a/package.json\n";
+  releasePrState.status = packageAStatusOutput;
+  releasePrState.diffOutput = gitDiffOutput(packageAManifestPath);
   releasePrState.failPushTag = undefined;
   releasePrState.releaseBodyCalls = [];
   releasePrState.writeVersionsCalls = [];
   releasePrState.writeVersionsConfigs = [];
+  releasePrState.writeVersionsFiles = [packageAManifestPath];
   releasePrState.runOperationsCalls = [];
   releasePrState.runOperationsError = undefined;
 });
 
 describe("makeTestConfig", () => {
   it("preserves top-level release overrides in the nested release config", () => {
-    const fixed = [["packages/a", "packages/b"]];
-    const linked = [["packages/c"]];
+    const fixed = [[packageAPath, packageBPath]];
+    const linked = [[packageCPath]];
 
     const config = makeTestConfig({
       versioning: "fixed",
@@ -301,7 +315,7 @@ describe("prepareReleasePr", () => {
     expect(result).toMatchObject({
       branchName: "pubm/release/packages-a-js",
       title: "chore(release): @acme/a 1.1.0",
-      changedFiles: ["packages/a/package.json", "packages/a/CHANGELOG.md"],
+      changedFiles: [packageAManifestPath, packageAChangelogPath],
       commitSha: "commit-1",
       versionSummary: "1.1.0",
     });
@@ -352,13 +366,13 @@ describe("prepareReleasePr", () => {
         ...ctx.config.release,
         versioning: {
           ...ctx.config.release.versioning,
-          fixed: [["@acme/a", "@acme/b"], ["packages/b"]],
-          linked: [["packages/a", "packages/b"]],
+          fixed: [["@acme/a", "@acme/b"], [packageBPath]],
+          linked: [[packageAPath, packageBPath]],
         },
         pullRequest: {
           ...ctx.config.release.pullRequest,
-          fixed: [["@acme/a", "@acme/b"], ["packages/b"]],
-          linked: [["@acme/*"], ["packages/b"]],
+          fixed: [["@acme/a", "@acme/b"], [packageBPath]],
+          linked: [["@acme/*"], [packageBPath]],
         },
       },
     });
@@ -368,7 +382,7 @@ describe("prepareReleasePr", () => {
     const scopedConfig = releasePrState
       .writeVersionsConfigs[0] as PubmContext["config"];
     expect(scopedConfig.packages.map((pkg) => pkg.path)).toEqual([
-      "packages/a",
+      packageAPath,
     ]);
     expect(scopedConfig.fixed).toEqual([["packages/a::js"]]);
     expect(scopedConfig.linked).toEqual([["packages/a::js"]]);
@@ -611,12 +625,24 @@ describe("prepareReleasePr", () => {
       createVersionPlanFromManifestVersions({
         ...ctx.config,
         versioning: "fixed",
+        packages: [ctx.config.packages[0]],
       }),
     ).toEqual({
       mode: "fixed",
       version: "1.0.0",
+      packages: new Map([["packages/a::js", "1.0.0"]]),
+    });
+
+    expect(
+      createVersionPlanFromManifestVersions({
+        ...ctx.config,
+        versioning: "fixed",
+      }),
+    ).toEqual({
+      mode: "fixed",
+      version: "2.0.0",
       packages: new Map([
-        ["packages/a::js", "1.0.0"],
+        ["packages/a::js", "2.0.0"],
         ["packages/b::js", "2.0.0"],
       ]),
     });
@@ -659,8 +685,10 @@ describe("prepareReleasePr", () => {
         },
       },
     });
-    releasePrState.diffOutput =
-      "packages/a/package.json\npackages/b/package.json\n";
+    releasePrState.diffOutput = gitDiffOutput(
+      packageAManifestPath,
+      packageBManifestPath,
+    );
 
     const plan = await prepareReleasePrPublish(ctx, {
       beforeSha: "before",
@@ -698,8 +726,10 @@ describe("prepareReleasePr", () => {
 
   it("falls back to a synthetic publish scope when no configured scope matches", async () => {
     const ctx = makeContext();
-    releasePrState.diffOutput =
-      "packages/a/package.json\npackages/b/package.json\n";
+    releasePrState.diffOutput = gitDiffOutput(
+      packageAManifestPath,
+      packageBManifestPath,
+    );
     ctx.config = Object.freeze({
       ...ctx.config,
       release: {

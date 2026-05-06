@@ -26,16 +26,48 @@ const {
   const mockMergeRecommendations = vi.fn(() => []);
   const packageKey = (pkg: { path?: string; ecosystem?: string }) =>
     `${pkg.path ?? "."}::${pkg.ecosystem ?? "js"}`;
-  const bumpVersion = (version: string, bump: string): string | null => {
-    const match = /^(\d+)\.(\d+)\.(\d+)(?:-.+)?$/.exec(version);
+  const parseVersion = (version: string): [number, number, number] | null => {
+    const match =
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.exec(
+        version,
+      );
     if (!match) return null;
-    const major = Number(match[1]);
-    const minor = Number(match[2]);
-    const patch = Number(match[3]);
+    return [Number(match[1]), Number(match[2]), Number(match[3])];
+  };
+  const highestVersion = (versions: Iterable<string>): string | undefined => {
+    let highest: { raw: string; parsed: [number, number, number] } | undefined;
+    for (const version of versions) {
+      const parsed = parseVersion(version);
+      if (!parsed) continue;
+      const comparison = highest
+        ? parsed[0] - highest.parsed[0] ||
+          parsed[1] - highest.parsed[1] ||
+          parsed[2] - highest.parsed[2]
+        : 1;
+      if (comparison > 0) {
+        highest = { raw: version, parsed };
+      }
+    }
+    return highest?.raw;
+  };
+  const bumpVersion = (version: string, bump: string): string | null => {
+    const parsed = parseVersion(version);
+    if (!parsed) return null;
+    const [major, minor, patch] = parsed;
     if (bump === "major") return `${major + 1}.0.0`;
     if (bump === "minor") return `${major}.${minor + 1}.0`;
     if (bump === "patch") return `${major}.${minor}.${patch + 1}`;
     return `${major}.${minor}.${patch + 1}-0`;
+  };
+  const bumpRank: Record<string, number> = { patch: 0, minor: 1, major: 2 };
+  const highestBump = (recommendations: readonly any[]): string | undefined => {
+    let highest: string | undefined;
+    for (const rec of recommendations) {
+      if (!highest || bumpRank[rec.bumpType] > bumpRank[highest]) {
+        highest = rec.bumpType;
+      }
+    }
+    return highest;
   };
   const versioningMode = (config: any): "fixed" | "independent" | undefined =>
     config.release?.versioning?.mode ?? config.versioning;
@@ -73,6 +105,18 @@ const {
     return { analyze: mockConventionalCommitSourceAnalyze };
   });
   const mockCreateVersionPlanFromManifestVersions = vi.fn((config: any) => {
+    const packages = new Map(
+      config.packages.map((pkg: any) => [packageKey(pkg), pkg.version]),
+    );
+    if (packages.size > 0 && versioningMode(config) === "fixed") {
+      const version = highestVersion(packages.values()) ?? "";
+      return {
+        mode: "fixed",
+        version,
+        packages: new Map([...packages.keys()].map((key) => [key, version])),
+      };
+    }
+
     if (config.packages.length <= 1) {
       const pkg = config.packages[0];
       return {
@@ -82,13 +126,15 @@ const {
       };
     }
 
-    const packages = new Map(
-      config.packages.map((pkg: any) => [packageKey(pkg), pkg.version]),
-    );
     if (versioningMode(config) === "independent") {
       return { mode: "independent", packages };
     }
-    return { mode: "fixed", version: [...packages.values()][0], packages };
+    const version = highestVersion(packages.values()) ?? "";
+    return {
+      mode: "fixed",
+      version,
+      packages: new Map([...packages.keys()].map((key) => [key, version])),
+    };
   });
   const mockApplyVersionSourcePlan = vi.fn(async (ctx: any) => {
     const config = ctx.config;
@@ -105,27 +151,43 @@ const {
     if (recommendations.length === 0) return;
 
     const packages = new Map<string, string>();
+    const matchedRecommendations = [];
     for (const rec of recommendations) {
       const matchingPackages = config.packages.filter(
         (pkg: any) => pkg.path === rec.packagePath,
       );
+      let matched = false;
       for (const pkg of matchingPackages) {
         const version = bumpVersion(pkg.version, rec.bumpType);
-        if (version) packages.set(packageKey(pkg), version);
+        if (version) {
+          packages.set(packageKey(pkg), version);
+          matched = true;
+        }
       }
+      if (matched) matchedRecommendations.push(rec);
     }
 
-    if (packages.size === 1) {
+    if (packages.size > 0 && versioningMode(config) === "fixed") {
+      const version = bumpVersion(
+        highestVersion(config.packages.map((pkg: any) => pkg.version)) ?? "",
+        highestBump(matchedRecommendations) ?? "",
+      );
+      if (!version) return;
+      ctx.runtime.versionPlan = {
+        mode: "fixed",
+        version,
+        packages: new Map(
+          config.packages.map((pkg: any) => [packageKey(pkg), version]),
+        ),
+      };
+    } else if (packages.size === 1) {
       const [key, version] = [...packages.entries()][0];
       ctx.runtime.versionPlan = { mode: "single", version, packageKey: key };
     } else if (packages.size > 1) {
-      ctx.runtime.versionPlan =
-        versioningMode(config) === "fixed"
-          ? { mode: "fixed", version: [...packages.values()][0], packages }
-          : { mode: "independent", packages };
+      ctx.runtime.versionPlan = { mode: "independent", packages };
     }
 
-    if (recommendations.some((rec: any) => rec.source === "changeset")) {
+    if (matchedRecommendations.some((rec: any) => rec.source === "changeset")) {
       ctx.runtime.changesetConsumed = true;
     }
   });
@@ -627,6 +689,30 @@ describe("CLI action handler - CI mode", () => {
       mode: "single",
       version: "2.0.0",
       packageKey: ".::js",
+    });
+  });
+
+  it("keeps fixed manifest plans fixed for one package in --phase publish", async () => {
+    mockIsCI.isCI = true;
+    sharedResolvedConfig.versioning = "fixed";
+    sharedResolvedConfig.packages = [
+      {
+        name: "pkg-a",
+        version: "2.0.0",
+        path: "packages/a",
+        registries: ["npm"],
+        dependencies: [],
+        ecosystem: "js",
+      },
+    ];
+
+    await run("--phase", "publish");
+
+    const ctx = mockPubm.mock.calls[0][0];
+    expect(ctx.runtime.versionPlan).toEqual({
+      mode: "fixed",
+      version: "2.0.0",
+      packages: new Map([["packages/a::js", "2.0.0"]]),
     });
   });
 

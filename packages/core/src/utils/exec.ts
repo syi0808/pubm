@@ -1,4 +1,5 @@
 import { spawn as nodeSpawn } from "node:child_process";
+import path from "node:path";
 
 export class NonZeroExitError extends Error {
   output: { stdout: string; stderr: string };
@@ -34,10 +35,9 @@ export interface ExecResult {
 
 function getEnhancedPath(): string {
   const cwd = process.cwd();
-  const pathSep = process.platform === "win32" ? ";" : ":";
-  const binPath = `${cwd}/node_modules/.bin`;
+  const binPath = path.join(cwd, "node_modules", ".bin");
 
-  return `${binPath}${pathSep}${process.env.PATH ?? ""}`;
+  return `${binPath}${path.delimiter}${process.env.PATH ?? ""}`;
 }
 
 async function readProcessStream(

@@ -1,5 +1,6 @@
 import path from "node:path";
 import micromatch from "micromatch";
+import { gt, valid } from "semver";
 import type { ResolvedPubmConfig } from "../config/types.js";
 import type { PubmContext, VersionPlan } from "../context.js";
 import { ecosystemCatalog } from "../ecosystem/catalog.js";
@@ -273,6 +274,20 @@ export async function publishReleasePr(
 export function createVersionPlanFromManifestVersions(
   config: ResolvedPubmConfig,
 ): VersionPlan {
+  const packages = new Map(
+    config.packages.map((pkg) => [packageKey(pkg), pkg.version]),
+  );
+
+  if (packages.size > 0 && config.versioning === "fixed") {
+    const version =
+      highestManifestVersion(config.packages.map((pkg) => pkg.version)) ?? "";
+    return {
+      mode: "fixed",
+      version,
+      packages: new Map([...packages.keys()].map((key) => [key, version])),
+    };
+  }
+
   if (config.packages.length <= 1) {
     const pkg = config.packages[0];
     return {
@@ -282,19 +297,18 @@ export function createVersionPlanFromManifestVersions(
     };
   }
 
-  const packages = new Map(
-    config.packages.map((pkg) => [packageKey(pkg), pkg.version]),
-  );
-
-  if (config.versioning === "fixed") {
-    return {
-      mode: "fixed",
-      version: [...packages.values()][0] ?? "",
-      packages,
-    };
-  }
-
   return { mode: "independent", packages };
+}
+
+function highestManifestVersion(
+  versions: readonly string[],
+): string | undefined {
+  let highest: string | undefined;
+  for (const version of versions) {
+    if (!valid(version)) continue;
+    if (!highest || gt(version, highest)) highest = version;
+  }
+  return highest;
 }
 
 export function scopeVersionPlan(

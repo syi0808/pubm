@@ -230,6 +230,28 @@ vi.mock("std-env", () => ({
 vi.mock("@pubm/core", () => {
   const versioningMode = (config: any): "fixed" | "independent" | undefined =>
     config.release?.versioning?.mode ?? config.versioning;
+  const parseVersion = (version: string): [number, number, number] | null => {
+    const match =
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.exec(
+        version,
+      );
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2]), Number(match[3])];
+  };
+  const highestVersion = (versions: Iterable<string>): string | undefined => {
+    let highest: { raw: string; parsed: [number, number, number] } | undefined;
+    for (const version of versions) {
+      const parsed = parseVersion(version);
+      if (!parsed) continue;
+      const comparison = highest
+        ? parsed[0] - highest.parsed[0] ||
+          parsed[1] - highest.parsed[1] ||
+          parsed[2] - highest.parsed[2]
+        : 1;
+      if (comparison > 0) highest = { raw: version, parsed };
+    }
+    return highest?.raw;
+  };
 
   return {
     ChangesetSource: vi.fn(function ChangesetSource() {
@@ -357,6 +379,21 @@ vi.mock("@pubm/core", () => {
       );
     }),
     createVersionPlanFromManifestVersions: vi.fn((config: any) => {
+      const packages = new Map(
+        config.packages.map((pkg: any) => [
+          mockState.packageKey(pkg),
+          pkg.version,
+        ]),
+      );
+      if (packages.size > 0 && versioningMode(config) === "fixed") {
+        const version = highestVersion(packages.values()) ?? "";
+        return {
+          mode: "fixed",
+          version,
+          packages: new Map([...packages.keys()].map((key) => [key, version])),
+        };
+      }
+
       if (config.packages.length <= 1) {
         const pkg = config.packages[0];
         return {
@@ -366,17 +403,12 @@ vi.mock("@pubm/core", () => {
         };
       }
 
-      const packages = new Map(
-        config.packages.map((pkg: any) => [
-          mockState.packageKey(pkg),
-          pkg.version,
-        ]),
-      );
       if (versioningMode(config) === "fixed") {
+        const version = highestVersion(packages.values()) ?? "";
         return {
           mode: "fixed",
-          version: [...packages.values()][0] ?? "",
-          packages,
+          version,
+          packages: new Map([...packages.keys()].map((key) => [key, version])),
         };
       }
       return { mode: "independent", packages };
