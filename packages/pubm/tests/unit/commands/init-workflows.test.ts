@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   detectPackageManager,
   generateChangesetCheckWorkflow,
+  generateGithubWorkflowFiles,
+  generatePublishWorkflow,
+  generateReleasePrWorkflow,
   generateReleaseWorkflow,
+  installGithubWorkflows,
   updateGitignoreForChangesets,
   writeWorkflowFile,
 } from "../../../src/commands/init-workflows.js";
@@ -385,9 +389,9 @@ describe("generateReleaseWorkflow — branch customization", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateChangesetCheckWorkflow — additional tests", () => {
-  it("uses syi0808/pubm-actions@v1 action", () => {
+  it("uses the changeset-check sub-action", () => {
     const yaml = generateChangesetCheckWorkflow("main");
-    expect(yaml).toContain("syi0808/pubm-actions@v1");
+    expect(yaml).toContain("syi0808/pubm-actions/changeset-check@v1");
   });
 
   it("contains skip-label input set to no-changeset", () => {
@@ -422,6 +426,122 @@ describe("generateChangesetCheckWorkflow — additional tests", () => {
     expect(yaml).not.toContain("run: |");
     expect(yaml).not.toContain("exit 1");
     expect(yaml).not.toContain("actions/github-script");
+  });
+});
+
+describe("split GitHub workflow generators", () => {
+  it("generates release PR workflow triggers, permissions, and action path", () => {
+    const yaml = generateReleasePrWorkflow({
+      defaultBranch: "release",
+      packageManager: "npm",
+    });
+
+    expect(yaml).toContain("name: pubm Release PR");
+    expect(yaml).toContain("branches:\n      - release");
+    expect(yaml).toContain("workflow_dispatch:");
+    expect(yaml).toContain("issue_comment:");
+    expect(yaml).toContain("types: [created]");
+    expect(yaml).toContain(
+      "if: github.event_name != 'issue_comment' || github.event.issue.pull_request",
+    );
+    expect(yaml).toContain("contents: write");
+    expect(yaml).toContain("pull-requests: write");
+    expect(yaml).toContain("issues: write");
+    expect(yaml).toContain("checks: write");
+    expect(yaml).toContain("packages: write");
+    expect(yaml).toContain("actions/setup-node@v4");
+    expect(yaml).toContain("npm ci");
+    expect(yaml).toContain("syi0808/pubm-actions/release-pr@v1");
+    expect(yaml).toContain("secrets.PUBM_BOT_TOKEN || secrets.GITHUB_TOKEN");
+    expect(yaml).toContain("base-branch: release");
+    expect(yaml).toContain("NODE_AUTH_TOKEN:");
+    expect(yaml).toContain("JSR_TOKEN:");
+    expect(yaml).toContain("CARGO_REGISTRY_TOKEN:");
+  });
+
+  it("generates publish workflow with branch trigger, permissions, setup, and registry env", () => {
+    const yaml = generatePublishWorkflow({
+      defaultBranch: "main",
+      packageManager: "pnpm",
+    });
+
+    expect(yaml).toContain("name: pubm Publish");
+    expect(yaml).toContain("branches:\n      - main");
+    expect(yaml).toContain("contents: write");
+    expect(yaml).toContain("pull-requests: read");
+    expect(yaml).toContain("packages: write");
+    expect(yaml).toContain("id-token: write");
+    expect(yaml).toContain("pnpm/action-setup@v4");
+    expect(yaml).toContain("pnpm install --frozen-lockfile");
+    expect(yaml).toContain("syi0808/pubm-actions/publish@v1");
+    expect(yaml).toContain("NODE_AUTH_TOKEN:");
+    expect(yaml).toContain("JSR_TOKEN:");
+    expect(yaml).toContain("CARGO_REGISTRY_TOKEN:");
+  });
+
+  it("builds the three expected workflow files by default", () => {
+    const workflows = generateGithubWorkflowFiles({
+      defaultBranch: "main",
+      packageManager: "bun",
+    });
+
+    expect(workflows.map((workflow) => workflow.filename)).toEqual([
+      "pubm-changeset-check.yml",
+      "pubm-release-pr.yml",
+      "pubm-publish.yml",
+    ]);
+  });
+
+  it("can omit selected split workflows", () => {
+    const workflows = generateGithubWorkflowFiles({
+      defaultBranch: "main",
+      packageManager: "npm",
+      includeChangesetCheck: false,
+      includePublish: false,
+    });
+
+    expect(workflows.map((workflow) => workflow.id)).toEqual(["release-pr"]);
+  });
+});
+
+describe("installGithubWorkflows", () => {
+  it("writes split workflow files without overwriting existing files", async () => {
+    const workflowDir = path.join(TEST_DIR, ".github", "workflows");
+    mkdirSync(workflowDir, { recursive: true });
+    writeFileSync(path.join(workflowDir, "pubm-publish.yml"), "existing");
+
+    const result = await installGithubWorkflows(TEST_DIR, {
+      defaultBranch: "main",
+      packageManager: "bun",
+      includeChangesetCheck: false,
+    });
+
+    expect(result.map((item) => [item.filename, item.status])).toEqual([
+      ["pubm-release-pr.yml", "created"],
+      ["pubm-publish.yml", "skipped"],
+    ]);
+    expect(
+      readFileSync(path.join(workflowDir, "pubm-publish.yml"), "utf8"),
+    ).toBe("existing");
+  });
+
+  it("overwrites existing files when forced", async () => {
+    const workflowDir = path.join(TEST_DIR, ".github", "workflows");
+    mkdirSync(workflowDir, { recursive: true });
+    writeFileSync(path.join(workflowDir, "pubm-release-pr.yml"), "existing");
+
+    const result = await installGithubWorkflows(TEST_DIR, {
+      defaultBranch: "main",
+      packageManager: "npm",
+      includeChangesetCheck: false,
+      includePublish: false,
+      force: true,
+    });
+
+    expect(result[0].status).toBe("overwritten");
+    expect(
+      readFileSync(path.join(workflowDir, "pubm-release-pr.yml"), "utf8"),
+    ).toContain("syi0808/pubm-actions/release-pr@v1");
   });
 });
 

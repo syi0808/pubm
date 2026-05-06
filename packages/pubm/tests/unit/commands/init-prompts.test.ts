@@ -113,7 +113,6 @@ describe("shouldCreateConfig", () => {
       branch: "main",
       versioning: "independent",
       changelog: true,
-      changelogFormat: "default",
       releaseDraft: true,
       changesets: false,
       ci: false,
@@ -152,11 +151,6 @@ describe("shouldCreateConfig", () => {
     expect(shouldCreateConfig(result, "main")).toBe(true);
   });
 
-  it("returns true when changelogFormat differs from default", () => {
-    const result = makeResult({ changelogFormat: "github" });
-    expect(shouldCreateConfig(result, "main")).toBe(true);
-  });
-
   it("returns true when releaseDraft differs from default", () => {
     const result = makeResult({ releaseDraft: false });
     expect(shouldCreateConfig(result, "main")).toBe(true);
@@ -180,7 +174,6 @@ describe("buildConfigContent", () => {
       branch: INIT_DEFAULTS.branch,
       versioning: INIT_DEFAULTS.versioning,
       changelog: INIT_DEFAULTS.changelog,
-      changelogFormat: INIT_DEFAULTS.changelogFormat,
       releaseDraft: INIT_DEFAULTS.releaseDraft,
       changesets: false,
       ci: false,
@@ -215,7 +208,8 @@ describe("buildConfigContent", () => {
 
   it("includes versioning when not default", () => {
     const content = buildConfigContent(makeResult({ versioning: "fixed" }));
-    expect(content).toContain('versioning: "fixed"');
+    expect(content).toContain("versioning:");
+    expect(content).toContain('mode: "fixed"');
   });
 
   it("does not include versioning when it is the default", () => {
@@ -240,27 +234,6 @@ describe("buildConfigContent", () => {
     expect(content).toContain("changelog: false");
   });
 
-  it("includes changelogFormat when changelog is enabled and format is not default", () => {
-    const content = buildConfigContent(
-      makeResult({ changelog: true, changelogFormat: "github" }),
-    );
-    expect(content).toContain('changelogFormat: "github"');
-  });
-
-  it("does not include changelogFormat when changelog is disabled", () => {
-    const content = buildConfigContent(
-      makeResult({ changelog: false, changelogFormat: "github" }),
-    );
-    expect(content).not.toContain("changelogFormat");
-  });
-
-  it("does not include changelogFormat when it is the default", () => {
-    const content = buildConfigContent(
-      makeResult({ changelog: true, changelogFormat: "default" }),
-    );
-    expect(content).not.toContain("changelogFormat");
-  });
-
   it("includes releaseDraft when not default", () => {
     const content = buildConfigContent(makeResult({ releaseDraft: false }));
     expect(content).toContain("releaseDraft: false");
@@ -277,22 +250,22 @@ describe("buildConfigContent", () => {
       packages: ["packages/core"],
       versioning: "fixed",
       branch: "release",
-      changelog: true,
-      changelogFormat: "github",
+      changelog: false,
       releaseDraft: false,
     });
     const content = buildConfigContent(result);
     expect(content).toContain('{ path: "packages/core" }');
-    expect(content).toContain('versioning: "fixed"');
+    expect(content).toContain("versioning:");
+    expect(content).toContain('mode: "fixed"');
     expect(content).toContain('branch: "release"');
-    expect(content).toContain('changelogFormat: "github"');
+    expect(content).toContain("changelog: false");
     expect(content).toContain("releaseDraft: false");
   });
 
   it("adds a trailing comma after the last field when fields are present", () => {
     const content = buildConfigContent(makeResult({ versioning: "fixed" }));
     // The last field should be followed by a trailing comma before the closing brace
-    expect(content).toMatch(/versioning: "fixed",\s*\n\}\)/);
+    expect(content).toMatch(/release: \{[\s\S]*mode: "fixed"[\s\S]*,\s*\n\}\)/);
   });
 
   it("does not add extra comma when no fields are present", () => {
@@ -582,51 +555,31 @@ describe("promptVersioning", () => {
 // ---------------------------------------------------------------------------
 
 describe("promptChangelog", () => {
-  it("returns enabled=true with github format when confirmed and github selected", async () => {
-    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("github");
+  it("returns true when confirmed", async () => {
+    mockPrompt.mockResolvedValueOnce(true);
 
     const result = await promptChangelog();
 
-    expect(result).toEqual({ enabled: true, format: "github" });
-    expect(mockPrompt).toHaveBeenCalledTimes(2);
+    expect(result).toBe(true);
+    expect(mockPrompt).toHaveBeenCalledTimes(1);
   });
 
-  it("returns enabled=true with default format when confirmed and default selected", async () => {
-    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("default");
-
-    const result = await promptChangelog();
-
-    expect(result).toEqual({ enabled: true, format: "default" });
-  });
-
-  it("returns enabled=false with default format when declined — skips format prompt", async () => {
+  it("returns false when declined", async () => {
     mockPrompt.mockResolvedValueOnce(false);
 
     const result = await promptChangelog();
 
-    expect(result).toEqual({ enabled: false, format: "default" });
+    expect(result).toBe(false);
     expect(mockPrompt).toHaveBeenCalledTimes(1);
   });
 
   it("first prompt is confirm type", async () => {
-    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("default");
+    mockPrompt.mockResolvedValueOnce(true);
 
     await promptChangelog();
 
-    expect(mockPrompt).toHaveBeenNthCalledWith(
-      1,
+    expect(mockPrompt).toHaveBeenCalledWith(
       expect.objectContaining({ type: "confirm" }),
-    );
-  });
-
-  it("second prompt is select type for format", async () => {
-    mockPrompt.mockResolvedValueOnce(true).mockResolvedValueOnce("github");
-
-    await promptChangelog();
-
-    expect(mockPrompt).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ type: "select" }),
     );
   });
 });

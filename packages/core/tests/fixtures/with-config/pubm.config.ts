@@ -1,5 +1,9 @@
 export default {
-	versioning: 'independent' as const,
+	release: {
+		versioning: {
+			mode: 'independent' as const,
+		},
+	},
 	packages: [
 		{
 			path: 'packages/my-lib',

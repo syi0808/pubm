@@ -1,20 +1,11 @@
-import type {
-  Options,
-  PubmContext,
-  ResolvedPubmConfig,
-  VersionPlan,
-  VersionRecommendation,
-  VersionSource,
-  VersionSourceContext,
-} from "@pubm/core";
+import type { Options, ResolvedPubmConfig } from "@pubm/core";
 import {
-  ChangesetSource,
-  ConventionalCommitSource,
+  applyVersionSourcePlan,
   consoleError,
   createContext,
+  createVersionPlanFromManifestVersions,
   initI18n,
   loadConfig,
-  mergeRecommendations,
   notifyNewVersion,
   PUBM_VERSION,
   packageKey,
@@ -40,6 +31,7 @@ import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerVersionCommand } from "./commands/version-cmd.js";
+import { registerWorkflowCommand } from "./commands/workflow.js";
 import { showSplash } from "./splash.js";
 
 declare const __PUBM_DEV__: boolean;
@@ -79,7 +71,6 @@ interface CliOptions {
   saveToken: boolean;
   dryRunValidation: boolean;
   dangerouslyAllowUnpublish?: boolean;
-  createPr?: boolean;
   locale?: string;
 }
 
@@ -106,112 +97,10 @@ export function resolveCliOptions(
     tag: options.tag,
     contents: options.contents,
     saveToken: options.saveToken,
-    createPr: options.createPr,
   };
 }
 
 let resolvedConfig: ResolvedPubmConfig;
-
-function createVersionPlanFromManifests(
-  config: ResolvedPubmConfig,
-): VersionPlan {
-  if (config.packages.length <= 1) {
-    const pkg = config.packages[0];
-    const version = pkg?.version ?? "";
-    return {
-      mode: "single",
-      version,
-      packageKey: pkg ? packageKey(pkg) : ".",
-    };
-  }
-
-  const packages = new Map(
-    config.packages.map((pkg) => [packageKey(pkg), pkg.version]),
-  );
-
-  if (config.versioning === "independent") {
-    return {
-      mode: "independent",
-      packages,
-    };
-  }
-
-  return {
-    mode: "fixed",
-    version: [...packages.values()][0],
-    packages,
-  };
-}
-
-async function applyVersionSourcePlan(
-  ctx: PubmContext,
-  config: ResolvedPubmConfig,
-): Promise<void> {
-  const currentVersions = new Map(
-    config.packages.map((pkg) => [pkg.path, pkg.version]),
-  );
-
-  const sources: VersionSource[] = [];
-  const versionSources = config.versionSources ?? "all";
-  if (versionSources === "all" || versionSources === "changesets") {
-    sources.push(new ChangesetSource());
-  }
-  if (versionSources === "all" || versionSources === "commits") {
-    sources.push(
-      new ConventionalCommitSource(config.conventionalCommits?.types),
-    );
-  }
-
-  const vsContext: VersionSourceContext = {
-    cwd: process.cwd(),
-    packages: currentVersions,
-  };
-  const sourceResults: VersionRecommendation[][] = [];
-  for (const source of sources) {
-    sourceResults.push(await source.analyze(vsContext));
-  }
-  const recommendations = mergeRecommendations(sourceResults);
-
-  if (recommendations.length === 0) return;
-
-  const packages = new Map<string, string>();
-  for (const rec of recommendations) {
-    const matchingPkgs = config.packages.filter(
-      (pkg) => pkg.path === rec.packagePath,
-    );
-    for (const pkg of matchingPkgs) {
-      const newVersion = semver.inc(pkg.version, rec.bumpType);
-      if (newVersion) {
-        packages.set(packageKey(pkg), newVersion);
-      }
-    }
-  }
-
-  if (packages.size === 1) {
-    const [key, version] = [...packages.entries()][0];
-    ctx.runtime.versionPlan = {
-      mode: "single",
-      version,
-      packageKey: key,
-    };
-  } else if (packages.size > 1) {
-    ctx.runtime.versionPlan =
-      config.versioning === "fixed"
-        ? {
-            mode: "fixed",
-            version: [...packages.values()][0],
-            packages,
-          }
-        : { mode: "independent", packages };
-  }
-
-  const hasChangesetSource = recommendations.some(
-    (rec) => rec.source === "changeset",
-  );
-  if (hasChangesetSource) {
-    ctx.runtime.changesetConsumed = true;
-  }
-}
 
 /* istanbul ignore next -- argv parsing for early locale init before Commander parses */
 function parseArgvForLocale(argv: string[]): string | undefined {
@@ -250,6 +139,7 @@ export function createProgram(config?: ResolvedPubmConfig): Command {
   registerInspectCommand(program, () => resolvedConfig);
   registerSnapshotCommand(program, () => resolvedConfig);
   registerMigrateCommand(program);
+  registerWorkflowCommand(program);
 
   // Default command: publish (backward compatible with `pubm [version]`)
   program
@@ -278,7 +168,6 @@ export function createProgram(config?: ResolvedPubmConfig): Command {
       "--dangerously-allow-unpublish",
       t("cli.option.dangerouslyAllowUnpublish"),
     )
-    .option("--create-pr", t("cli.option.createPr"))
     .option("--registry <registries>", t("cli.option.registry"))
     .action(
       async (
@@ -359,11 +248,12 @@ export function createProgram(config?: ResolvedPubmConfig): Command {
           const phase = cliOptions.phase;
 
           if (phase === "publish") {
-            ctx.runtime.versionPlan =
-              createVersionPlanFromManifests(resolvedConfig);
+            ctx.runtime.versionPlan = createVersionPlanFromManifestVersions(
+              ctx.config,
+            );
           } else if (isCI && phase === undefined) {
             if (!nextVersion) {
-              await applyVersionSourcePlan(ctx, resolvedConfig);
+              await applyVersionSourcePlan(ctx);
               if (!ctx.runtime.versionPlan) {
                 throw new Error(t("error.cli.versionRequired"));
               }

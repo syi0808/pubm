@@ -1,3 +1,6 @@
+import { EventEmitter } from "node:events";
+import path from "node:path";
+import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
@@ -23,6 +26,7 @@ describe("exec", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.doUnmock("node:child_process");
     global.Bun = originalBun;
   });
 
@@ -60,7 +64,9 @@ describe("exec", () => {
         cwd: "/workspace/packages/core",
         env: expect.objectContaining({
           EXTRA_FLAG: "1",
-          PATH: expect.stringContaining(`${process.cwd()}/node_modules/.bin`),
+          PATH: expect.stringContaining(
+            path.join(process.cwd(), "node_modules", ".bin"),
+          ),
         }),
       }),
     );
@@ -123,6 +129,44 @@ describe("exec", () => {
       expect.objectContaining({
         stdout: "pipe",
         stderr: "pipe",
+      }),
+    );
+  });
+
+  it("falls back to an empty PATH suffix when PATH is unset", async () => {
+    const originalPath = process.env.PATH;
+    const spawn = vi.fn().mockReturnValue({
+      stdout: streamFromChunks(["ok"]),
+      stderr: streamFromChunks([]),
+      exited: Promise.resolve(0),
+    });
+    vi.stubGlobal("Bun", { spawn });
+    delete process.env.PATH;
+
+    try {
+      const { exec } = await import("../../../src/utils/exec.js");
+
+      await exec("echo");
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = originalPath;
+      }
+    }
+
+    const expectedPath = `${path.join(
+      process.cwd(),
+      "node_modules",
+      ".bin",
+    )}${path.delimiter}`;
+
+    expect(spawn).toHaveBeenCalledWith(
+      ["echo"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          PATH: expectedPath,
+        }),
       }),
     );
   });
@@ -191,5 +235,114 @@ describe("exec", () => {
         stderr: "boom",
       },
     });
+  });
+
+  it("falls back to node child_process when Bun is unavailable", async () => {
+    vi.stubGlobal("Bun", undefined);
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    const { exec } = await import("../../../src/utils/exec.js");
+
+    const result = await exec(
+      process.execPath,
+      [
+        "-e",
+        "process.stdout.write('node out'); process.stderr.write('node err')",
+      ],
+      {
+        onStdout: (chunk) => stdoutChunks.push(chunk),
+        onStderr: (chunk) => stderrChunks.push(chunk),
+      },
+    );
+
+    expect(result).toEqual({
+      stdout: "node out",
+      stderr: "node err",
+      exitCode: 0,
+    });
+    expect(stdoutChunks).toEqual(["node out"]);
+    expect(stderrChunks).toEqual(["node err"]);
+  });
+
+  it("registers node child completion before waiting for output streams", async () => {
+    vi.stubGlobal("Bun", undefined);
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const spawn = vi.fn().mockReturnValue(child);
+    vi.doMock("node:child_process", () => ({ spawn }));
+
+    const { exec } = await import("../../../src/utils/exec.js");
+    const resultPromise = exec("fast-close");
+
+    child.emit("close", 0, null);
+    child.stdout.end("out");
+    child.stderr.end("err");
+
+    await expect(resultPromise).resolves.toEqual({
+      stdout: "out",
+      stderr: "err",
+      exitCode: 0,
+    });
+  });
+
+  it("treats node signal termination as a non-zero exit", async () => {
+    vi.stubGlobal("Bun", undefined);
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const spawn = vi.fn().mockReturnValue(child);
+    vi.doMock("node:child_process", () => ({ spawn }));
+
+    const { exec } = await import("../../../src/utils/exec.js");
+    const resultPromise = exec("terminated");
+
+    child.stdout.end();
+    child.stderr.end();
+    child.emit("close", null, "SIGTERM");
+
+    await expect(resultPromise).resolves.toEqual({
+      stdout: "",
+      stderr: "",
+      exitCode: 1,
+    });
+  });
+
+  it("decodes node stdout chunks with split UTF-8 bytes", async () => {
+    vi.stubGlobal("Bun", undefined);
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const spawn = vi.fn().mockReturnValue(child);
+    vi.doMock("node:child_process", () => ({ spawn }));
+
+    const { exec } = await import("../../../src/utils/exec.js");
+    const stdoutChunks: string[] = [];
+    const resultPromise = exec("utf8", [], {
+      onStdout: (chunk) => stdoutChunks.push(chunk),
+    });
+
+    const bytes = new TextEncoder().encode("hello\u00e9");
+    child.stdout.write(bytes.slice(0, bytes.length - 1));
+    child.stdout.write(bytes.slice(bytes.length - 1));
+    child.stdout.end();
+    child.stderr.end();
+    child.emit("close", 0, null);
+
+    await expect(resultPromise).resolves.toEqual({
+      stdout: "hello\u00e9",
+      stderr: "",
+      exitCode: 0,
+    });
+    expect(stdoutChunks.join("")).toBe("hello\u00e9");
   });
 });

@@ -1467,7 +1467,7 @@ describe("requiredConditionsCheckTask", () => {
       const subtasks = await getSubtasks();
       const collisionTask = subtasks[subtasks.length - 1];
       const ctx = createCtx({
-        config: { versioning: "fixed" } as any,
+        config: { release: { versioning: { mode: "fixed" } } } as any,
       });
       const result = collisionTask.skip(ctx);
       expect(result).toBe(true);

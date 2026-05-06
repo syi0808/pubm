@@ -176,13 +176,11 @@ function createContext(
     afterReleaseResults,
     cwd: "/repo",
     options: {
-      createPr: false,
       releaseDraft: true,
       ...overrides.options,
     },
     config: {
       branch: "main",
-      createPr: false,
       excludeRelease: [],
       packages: [
         {
@@ -298,70 +296,28 @@ describe("createPushOperation", () => {
     });
   });
 
-  it("falls back to a version PR when direct push fails", async () => {
+  it("fails without creating a version PR when direct push fails", async () => {
     pushState.git.pushResult = false;
-    process.env.GITHUB_TOKEN = "gh-token";
     const ctx = createContext({
       mode: "fixed",
       packages: new Map([["packages/a::js", "1.2.0"]]),
       version: "1.2.0",
     });
 
-    await createPushOperation(true, false).run?.(ctx, createTask() as never);
+    await expect(
+      createPushOperation(true, false).run?.(ctx, createTask() as never),
+    ).rejects.toThrow("git push --follow-tags failed");
 
-    expect(pushState.git.calls.map((call) => call.name)).toContain(
+    expect(pushState.git.calls.map((call) => call.name)).toEqual(
+      expect.arrayContaining(["revParse", "push"]),
+    );
+    expect(pushState.git.calls.map((call) => call.name)).not.toContain(
       "createBranch",
     );
-    expect(pushState.git.calls.map((call) => call.name)).toContain(
+    expect(pushState.git.calls.map((call) => call.name)).not.toContain(
       "pushNewBranch",
     );
-    expect(ctx.rollbackItems.map((item) => item.label)).toContain(
-      'task.push.deleteRemoteTag {"tag":"v1.2.0"}',
-    );
-  });
-
-  it("pushes through a version PR when configured before trying a direct push", async () => {
-    process.env.GITHUB_TOKEN = "gh-token";
-    const ctx = createContext(
-      {
-        mode: "fixed",
-        packages: new Map([["packages/a::js", "1.2.0"]]),
-        version: "1.2.0",
-      },
-      { options: { createPr: true } },
-    );
-
-    await createPushOperation(true, false).run?.(ctx, createTask() as never);
-
-    expect(pushState.git.calls.map((call) => call.name)).toEqual([
-      "revParse",
-      "createBranch",
-      "pushNewBranch",
-      "repository",
-      "switch",
-    ]);
-    expect(ctx.rollbackItems.map((item) => item.label)).toContain(
-      'task.push.closePr {"number":42}',
-    );
-  });
-
-  it("uses config createPr when the CLI option is unset", async () => {
-    process.env.GITHUB_TOKEN = "gh-token";
-    const ctx = createContext(
-      {
-        mode: "fixed",
-        packages: new Map([["packages/a::js", "1.2.0"]]),
-        version: "1.2.0",
-      },
-      { options: { createPr: undefined }, config: { createPr: true } },
-    );
-
-    await createPushOperation(true, false).run?.(ctx, createTask() as never);
-
-    expect(pushState.git.calls.map((call) => call.name)).not.toContain("push");
-    expect(pushState.git.calls.map((call) => call.name)).toContain(
-      "createBranch",
-    );
+    expect(ctx.rollbackItems).toEqual([]);
   });
 });
 
@@ -516,6 +472,93 @@ describe("createGitHubReleaseOperation", () => {
     expect(ctx.afterReleaseResults).toHaveLength(1);
   });
 
+  it("uses registry-qualified tags for independent GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext(
+      {
+        mode: "independent",
+        packages: new Map([["packages/a::js", "1.2.0"]]),
+      },
+      { config: { registryQualifiedTags: true } },
+    );
+
+    await createGitHubReleaseOperation(true, false, false, false).run?.(
+      ctx,
+      createTask() as never,
+    );
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      tag: "npm/pkg-a@1.2.0",
+    });
+  });
+
+  it("creates GitHub releases only for scoped independent package keys", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.2.0"],
+        ["packages/b::js", "2.3.0"],
+      ]),
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      packageKeys: new Set(["packages/b::js"]),
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls).toHaveLength(1);
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      displayLabel: "pkg-b",
+      tag: "pkg-b@2.3.0",
+      version: "2.3.0",
+    });
+    expect(ctx.afterReleaseResults).toHaveLength(1);
+  });
+
+  it("uses edited release notes for scoped independent GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "independent",
+      packages: new Map([
+        ["packages/a::js", "1.2.0"],
+        ["packages/b::js", "2.3.0"],
+      ]),
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      packageKeys: new Set(["packages/b::js"]),
+      releaseNotes: {
+        byPackageKey: new Map([["packages/b::js", "edited package notes"]]),
+      },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "edited package notes",
+      tag: "pkg-b@2.3.0",
+    });
+  });
+
+  it("accepts record-based edited notes for independent GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "independent",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: {
+        byPackageKey: {
+          "packages/a::js": "record package notes",
+        },
+      },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "record package notes",
+      tag: "pkg-a@1.2.0",
+    });
+  });
+
   it("cleans a prepared asset temp directory after an independent release", async () => {
     pushState.token = { source: "env", token: "gh-token" };
     pushState.tempDir = "/tmp/pubm-core-test-missing-temp-dir";
@@ -599,6 +642,42 @@ describe("createGitHubReleaseOperation", () => {
 
     expect(ctx.rollbackItems).toEqual([]);
     expect(ctx.afterReleaseResults).toHaveLength(1);
+  });
+
+  it("uses edited release notes for fixed GitHub releases", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "fixed",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+      version: "1.2.0",
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: { fixed: "edited fixed notes" },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "edited fixed notes",
+      tag: "v1.2.0",
+    });
+  });
+
+  it("falls back to generated notes when an edited release note is blank", async () => {
+    pushState.token = { source: "env", token: "gh-token" };
+    const ctx = createContext({
+      mode: "fixed",
+      packages: new Map([["packages/a::js", "1.2.0"]]),
+      version: "1.2.0",
+    });
+
+    await createGitHubReleaseOperation(true, false, false, false, {
+      releaseNotes: { fixed: "   " },
+    }).run?.(ctx, createTask() as never);
+
+    expect(pushState.releaseCalls[0]).toMatchObject({
+      body: "release body",
+      tag: "v1.2.0",
+    });
   });
 
   it("cleans a prepared asset temp directory after a fixed release", async () => {

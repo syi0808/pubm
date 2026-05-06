@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@pubm/runner", () => ({
+  color: new Proxy(
+    {},
+    {
+      get: () => (value: string) => value,
+    },
+  ),
+}));
+
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   readFileSync: vi.fn(),
@@ -28,9 +37,37 @@ describe("resolveConfig", () => {
 
   it("returns full defaults when no config provided", async () => {
     const resolved = await resolveConfig({});
-    expect(resolved.versioning).toBe("independent");
     expect(resolved.branch).toBe("main");
-    expect(resolved.changelog).toBe(true);
+    expect(resolved.release).toEqual({
+      versioning: {
+        mode: "independent",
+        fixed: [],
+        linked: [],
+        updateInternalDependencies: "patch",
+      },
+      changesets: { directory: ".pubm/changesets" },
+      commits: { format: "conventional", types: {} },
+      changelog: true,
+      pullRequest: {
+        branchTemplate: "pubm/release/{scopeSlug}",
+        titleTemplate: "chore(release): {scope} {version}",
+        label: "pubm:release-pr",
+        bumpLabels: {
+          patch: "release:patch",
+          minor: "release:minor",
+          major: "release:major",
+          prerelease: "release:prerelease",
+        },
+        grouping: "independent",
+        fixed: [],
+        linked: [],
+        unversionedChanges: "warn",
+      },
+    });
+    expect(resolved).not.toHaveProperty("versionSources");
+    expect(resolved).not.toHaveProperty("conventionalCommits");
+    expect(resolved).not.toHaveProperty("releasePr");
+    expect(resolved).not.toHaveProperty("changelogFormat");
     expect(resolved.validate.cleanInstall).toBe(true);
     expect(resolved.validate.entryPoints).toBe(true);
     expect(resolved.validate.extraneousFiles).toBe(true);
@@ -45,14 +82,36 @@ describe("resolveConfig", () => {
   it("merges user config over defaults", async () => {
     const config: PubmConfig = {
       branch: "develop",
-      changelog: false,
+      release: { changelog: false },
       validate: { cleanInstall: false },
     };
     const resolved = await resolveConfig(config);
     expect(resolved.branch).toBe("develop");
-    expect(resolved.changelog).toBe(false);
+    expect(resolved.release.changelog).toBe(false);
     expect(resolved.validate.cleanInstall).toBe(false);
     expect(resolved.validate.entryPoints).toBe(true);
+  });
+
+  it("drops removed top-level release config keys from resolved config", async () => {
+    const resolved = await resolveConfig({
+      versionSources: "changesets",
+      conventionalCommits: { types: { feat: "minor" } },
+      releasePr: { label: "legacy-release-pr" },
+      changelogFormat: "github",
+      release: {
+        pullRequest: {
+          enabled: true,
+          label: "custom-release-pr",
+        },
+      },
+    } as never);
+
+    expect(resolved).not.toHaveProperty("versionSources");
+    expect(resolved).not.toHaveProperty("conventionalCommits");
+    expect(resolved).not.toHaveProperty("releasePr");
+    expect(resolved).not.toHaveProperty("changelogFormat");
+    expect(resolved.release.pullRequest).not.toHaveProperty("enabled");
+    expect(resolved.release.pullRequest.label).toBe("custom-release-pr");
   });
 
   it("should not include default registries in resolved config", async () => {
@@ -232,9 +291,121 @@ describe("resolveConfig", () => {
     expect(resolved.rollback.strategy).toBe("individual");
   });
 
-  it("defaults createPr to false", async () => {
+  it("defaults release pull request config for GitHub action workflows", async () => {
     const config = await resolveConfig({});
-    expect(config.createPr).toBe(false);
+
+    expect(config.release.pullRequest).toEqual({
+      branchTemplate: "pubm/release/{scopeSlug}",
+      titleTemplate: "chore(release): {scope} {version}",
+      label: "pubm:release-pr",
+      bumpLabels: {
+        patch: "release:patch",
+        minor: "release:minor",
+        major: "release:major",
+        prerelease: "release:prerelease",
+      },
+      grouping: "independent",
+      fixed: [],
+      linked: [],
+      unversionedChanges: "warn",
+    });
+  });
+
+  it("defaults unversioned release pull request changes to warn", async () => {
+    const config = await resolveConfig({});
+
+    expect(config.release.pullRequest.unversionedChanges).toBe("warn");
+  });
+
+  it("merges release pull request config over defaults", async () => {
+    const config = await resolveConfig({
+      release: {
+        versioning: {
+          fixed: [["packages/core"]],
+          linked: [["packages/pubm"]],
+        },
+        pullRequest: {
+          branchTemplate: "release/{scopeSlug}",
+          bumpLabels: { minor: "kind/minor" },
+          grouping: "fixed",
+          fixed: [["packages/runner"]],
+          linked: [],
+          unversionedChanges: "fail",
+        },
+      },
+    });
+
+    expect(config.release.pullRequest).toEqual({
+      branchTemplate: "release/{scopeSlug}",
+      titleTemplate: "chore(release): {scope} {version}",
+      label: "pubm:release-pr",
+      bumpLabels: {
+        patch: "release:patch",
+        minor: "kind/minor",
+        major: "release:major",
+        prerelease: "release:prerelease",
+      },
+      grouping: "fixed",
+      fixed: [["packages/runner"]],
+      linked: [],
+      unversionedChanges: "fail",
+    });
+  });
+
+  it("inherits release pull request grouping and groups from release versioning", async () => {
+    const config = await resolveConfig({
+      release: {
+        versioning: {
+          mode: "fixed",
+          fixed: [["packages/core", "packages/pubm"]],
+          linked: [["packages/runner", "packages/plugins/*"]],
+        },
+      },
+    });
+
+    expect(config.release.pullRequest.grouping).toBe("fixed");
+    expect(config.release.pullRequest.fixed).toEqual([
+      ["packages/core", "packages/pubm"],
+    ]);
+    expect(config.release.pullRequest.linked).toEqual([
+      ["packages/runner", "packages/plugins/*"],
+    ]);
+  });
+
+  it("clones release config collections from defaults and user input", async () => {
+    const fixed = [["packages/core", "packages/pubm"]];
+    const linked = [["packages/runner"]];
+    const types: NonNullable<
+      NonNullable<PubmConfig["release"]>["commits"]
+    >["types"] = { feat: "minor" };
+
+    const configured = await resolveConfig({
+      release: {
+        versioning: { fixed, linked },
+        commits: { types },
+      },
+    });
+
+    fixed[0].push("packages/mutated");
+    linked.push(["packages/mutated"]);
+    types.feat = false;
+    types.fix = "patch";
+
+    expect(configured.release.versioning.fixed).toEqual([
+      ["packages/core", "packages/pubm"],
+    ]);
+    expect(configured.release.versioning.linked).toEqual([["packages/runner"]]);
+    expect(configured.release.commits.types).toEqual({ feat: "minor" });
+
+    const defaults = await resolveConfig({});
+    defaults.release.versioning.fixed.push(["packages/default-fixed"]);
+    defaults.release.versioning.linked.push(["packages/default-linked"]);
+    defaults.release.commits.types.feat = "minor";
+
+    const nextDefaults = await resolveConfig({});
+    expect(nextDefaults.release.versioning.fixed).toEqual([]);
+    expect(nextDefaults.release.versioning.linked).toEqual([]);
+    expect(nextDefaults.release.commits.types).toEqual({});
   });
 
   it("defaults dangerouslyAllowUnpublish to false", async () => {

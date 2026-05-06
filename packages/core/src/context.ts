@@ -2,6 +2,7 @@ import process from "node:process";
 import type { ReleaseContext } from "./assets/types.js";
 import type { ResolvedPubmConfig } from "./config/types.js";
 import { PluginRunner } from "./plugin/runner.js";
+import type { ReleaseAnalysis } from "./release-analysis/types.js";
 import type { ResolvedOptions } from "./types/options.js";
 import { RollbackTracker } from "./utils/rollback.js";
 
@@ -65,6 +66,7 @@ export interface PubmContext {
     cleanWorkingTree: boolean;
     pluginRunner: PluginRunner;
     versionPlan?: VersionPlan;
+    releaseAnalysis?: ReleaseAnalysis;
     registryQualifiedTags?: boolean;
     releaseContext?: ReleaseContext;
     scopeCreated?: boolean;

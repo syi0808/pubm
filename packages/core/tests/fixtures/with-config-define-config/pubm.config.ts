@@ -1,7 +1,11 @@
 import { defineConfig } from "../../../src/config/types.js";
 
 export default defineConfig({
-  versioning: "fixed",
+  release: {
+    versioning: {
+      mode: "fixed",
+    },
+  },
   branch: "release",
   registries: ["npm"],
 });

@@ -37,18 +37,20 @@ export function convertToPublishConfig(
     }
   }
 
-  // Rules 6–7: changelog settings
+  // Rule 6: changelog settings
   if (parsed.changelog !== undefined) {
-    // Rule 6: changelog.enabled → config.changelog (use file path when set)
+    config.release ??= {};
+    // changelog.enabled → release.changelog (use file path when set)
     if (parsed.changelog.enabled) {
-      config.changelog = parsed.changelog.file ?? true;
+      config.release.changelog = parsed.changelog.file ?? true;
     } else {
-      config.changelog = false;
+      config.release.changelog = false;
     }
 
-    // Rule 7: changelog.preset === "github" → changelogFormat = "github"
-    if (parsed.changelog.preset === "github") {
-      config.changelogFormat = "github";
+    if (parsed.changelog.preset !== undefined) {
+      warnings.push(
+        `Changelog preset "${parsed.changelog.preset}" has no direct pubm config equivalent`,
+      );
     }
   }
 
@@ -95,14 +97,17 @@ export function convertToPublishConfig(
 
   // Rules 10–12: monorepo settings
   if (parsed.monorepo !== undefined) {
+    config.release ??= {};
+    config.release.versioning ??= {};
     if (parsed.monorepo.fixed !== undefined) {
-      config.fixed = parsed.monorepo.fixed;
+      config.release.versioning.fixed = parsed.monorepo.fixed;
     }
     if (parsed.monorepo.linked !== undefined) {
-      config.linked = parsed.monorepo.linked;
+      config.release.versioning.linked = parsed.monorepo.linked;
     }
     if (parsed.monorepo.updateInternalDeps !== undefined) {
-      config.updateInternalDependencies = parsed.monorepo.updateInternalDeps;
+      config.release.versioning.updateInternalDependencies =
+        parsed.monorepo.updateInternalDeps;
     }
   }
 

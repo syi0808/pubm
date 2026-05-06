@@ -19,14 +19,19 @@ import type { ReleaseOperation } from "../release-operation.js";
 import { prepareReleaseAssets } from "../release-utils/manifest-handling.js";
 import { formatVersionSummary } from "../release-utils/output-formatting.js";
 import {
+  formatTag,
   getPackageName,
   isReleaseExcluded,
   registerRemoteTagRollback,
   requireVersionPlan,
 } from "../release-utils/rollback-handlers.js";
-import { pushViaPr } from "../release-utils/version-pr.js";
 
 const { prerelease } = SemVer;
+
+export interface GitHubReleaseNoteOverrides {
+  fixed?: string;
+  byPackageKey?: ReadonlyMap<string, string> | Record<string, string>;
+}
 
 export function createPushOperation(
   hasPrepare: boolean,
@@ -42,30 +47,23 @@ export function createPushOperation(
       const prePushSha = await git.revParse("HEAD~1");
       task.output = t("task.push.executing");
 
-      const createPr = ctx.options.createPr ?? ctx.config.createPr;
+      const result = await git.push("--follow-tags");
 
-      if (createPr) {
-        await pushViaPr(ctx, git, task);
-      } else {
-        const result = await git.push("--follow-tags");
-
-        if (!result) {
-          task.output = t("task.push.prFallback");
-          await pushViaPr(ctx, git, task);
-        } else {
-          registerRemoteTagRollback(ctx);
-
-          const branch = await git.branch();
-          ctx.runtime.rollback.add({
-            label: t("task.push.forceRevert", { branch }),
-            fn: async () => {
-              const g = new Git();
-              await g.forcePush("origin", `${prePushSha}:${branch}`);
-            },
-            confirm: true,
-          });
-        }
+      if (!result) {
+        throw new Error("git push --follow-tags failed");
       }
+
+      registerRemoteTagRollback(ctx);
+
+      const branch = await git.branch();
+      ctx.runtime.rollback.add({
+        label: t("task.push.forceRevert", { branch }),
+        fn: async () => {
+          const g = new Git();
+          await g.forcePush("origin", `${prePushSha}:${branch}`);
+        },
+        confirm: true,
+      });
 
       task.output = t("task.push.runningAfterHooks");
       await ctx.runtime.pluginRunner.runHook("afterPush", ctx);
@@ -79,6 +77,10 @@ export function createGitHubReleaseOperation(
   dryRun: boolean,
   allowInteractiveTokenPrompt: boolean,
   skipReleaseDraft: boolean,
+  options: {
+    packageKeys?: ReadonlySet<string>;
+    releaseNotes?: GitHubReleaseNoteOverrides;
+  } = {},
 ): ReleaseOperation {
   return {
     enabled: hasPublish && !skipReleaseDraft && !dryRun,
@@ -133,10 +135,11 @@ export function createGitHubReleaseOperation(
         if (plan.mode === "independent") {
           // Per-package releases
           for (const [key, pkgVersion] of plan.packages) {
+            if (options.packageKeys && !options.packageKeys.has(key)) continue;
             const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
             const pkgName = getPackageName(ctx, key);
-            const tag = `${pkgName}@${pkgVersion}`;
+            const tag = formatTag(ctx, key, pkgVersion);
             task.output = t("task.release.creating", { tag });
 
             const git = new Git();
@@ -144,12 +147,14 @@ export function createGitHubReleaseOperation(
               .replace(/^git@github\.com:/, "https://github.com/")
               .replace(/\.git$/, "");
 
-            const body = await buildReleaseBody(ctx, {
-              pkgPath,
-              version: pkgVersion,
-              tag,
-              repositoryUrl,
-            });
+            const body =
+              releaseNotesForPackage(options.releaseNotes, key) ??
+              (await buildReleaseBody(ctx, {
+                pkgPath,
+                version: pkgVersion,
+                tag,
+                repositoryUrl,
+              }));
 
             const { assets: preparedAssets, tempDir } =
               await prepareReleaseAssets(ctx, pkgName, pkgVersion, pkgPath);
@@ -207,13 +212,17 @@ export function createGitHubReleaseOperation(
             .replace(/^git@github\.com:/, "https://github.com/")
             .replace(/\.git$/, "");
 
-          const body = await buildReleaseBody(ctx, {
-            pkgPath:
-              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
-            version,
-            tag,
-            repositoryUrl,
-          });
+          const body =
+            fixedReleaseNotes(options.releaseNotes) ??
+            (await buildReleaseBody(ctx, {
+              pkgPath:
+                plan.mode === "single"
+                  ? pathFromKey(plan.packageKey)
+                  : undefined,
+              version,
+              tag,
+              repositoryUrl,
+            }));
 
           const packageName =
             plan.mode === "single"
@@ -282,15 +291,16 @@ export function createGitHubReleaseOperation(
           for (const [key, pkgVersion] of plan.packages) {
             const pkgPath = pathFromKey(key);
             if (isReleaseExcluded(ctx.config, pkgPath)) continue;
-            const pkgName = getPackageName(ctx, key);
-            const tag = `${pkgName}@${pkgVersion}`;
+            const tag = formatTag(ctx, key, pkgVersion);
 
-            const body = await buildReleaseBody(ctx, {
-              pkgPath,
-              version: pkgVersion,
-              tag,
-              repositoryUrl,
-            });
+            const body =
+              releaseNotesForPackage(options.releaseNotes, key) ??
+              (await buildReleaseBody(ctx, {
+                pkgPath,
+                version: pkgVersion,
+                tag,
+                repositoryUrl,
+              }));
 
             const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
             releaseDraftUrl.searchParams.set("tag", tag);
@@ -323,13 +333,17 @@ export function createGitHubReleaseOperation(
           const version = plan.version;
           const tag = `v${version}`;
 
-          const body = await buildReleaseBody(ctx, {
-            pkgPath:
-              plan.mode === "single" ? pathFromKey(plan.packageKey) : undefined,
-            version,
-            tag,
-            repositoryUrl,
-          });
+          const body =
+            fixedReleaseNotes(options.releaseNotes) ??
+            (await buildReleaseBody(ctx, {
+              pkgPath:
+                plan.mode === "single"
+                  ? pathFromKey(plan.packageKey)
+                  : undefined,
+              version,
+              tag,
+              repositoryUrl,
+            }));
 
           const releaseDraftUrl = new URL(`${repositoryUrl}/releases/new`);
           releaseDraftUrl.searchParams.set("tag", tag);
@@ -357,4 +371,34 @@ export function createGitHubReleaseOperation(
       }
     },
   };
+}
+
+function fixedReleaseNotes(
+  releaseNotes: GitHubReleaseNoteOverrides | undefined,
+): string | undefined {
+  return trimmedOrUndefined(releaseNotes?.fixed);
+}
+
+function releaseNotesForPackage(
+  releaseNotes: GitHubReleaseNoteOverrides | undefined,
+  packageKey: string,
+): string | undefined {
+  const notes = releaseNotes?.byPackageKey;
+  if (!notes) return undefined;
+
+  const body = hasReadonlyMapApi(notes)
+    ? notes.get(packageKey)
+    : notes[packageKey];
+  return trimmedOrUndefined(body);
+}
+
+function trimmedOrUndefined(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function hasReadonlyMapApi(
+  value: ReadonlyMap<string, string> | Record<string, string>,
+): value is ReadonlyMap<string, string> {
+  return typeof (value as ReadonlyMap<string, string>).get === "function";
 }

@@ -72,40 +72,34 @@ describe("convertToPublishConfig", () => {
     expect(result.config.contents).toBe("dist");
   });
 
-  it("maps changelog.enabled=true to config.changelog=true", () => {
+  it("maps changelog.enabled=true to release.changelog=true", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       changelog: { enabled: true },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.changelog).toBe(true);
+    expect(result.config.release?.changelog).toBe(true);
   });
 
-  it("maps changelog.enabled=false to config.changelog=false", () => {
+  it("maps changelog.enabled=false to release.changelog=false", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       changelog: { enabled: false },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.changelog).toBe(false);
+    expect(result.config.release?.changelog).toBe(false);
   });
 
-  it("maps changelog.preset=github to changelogFormat=github", () => {
+  it("warns when changelog.preset has no direct config equivalent", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       changelog: { enabled: true, preset: "github" },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.changelogFormat).toBe("github");
-  });
-
-  it("does not set changelogFormat for non-github preset", () => {
-    const parsed: ParsedMigrationConfig = {
-      ...minimal(),
-      changelog: { enabled: true, preset: "angular" },
-    };
-    const result = convertToPublishConfig(parsed);
-    expect(result.config.changelogFormat).toBeUndefined();
+    expect(result.config.release?.changelog).toBe(true);
+    expect(result.warnings.some((warning) => warning.includes("github"))).toBe(
+      true,
+    );
   });
 
   it("maps github.draft to config.releaseDraft", () => {
@@ -136,31 +130,37 @@ describe("convertToPublishConfig", () => {
     expect(result.config.releaseDraft).toBeUndefined();
   });
 
-  it("maps monorepo.fixed to config.fixed", () => {
+  it("maps monorepo.fixed to release.versioning.fixed", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       monorepo: { fixed: [["pkg-a", "pkg-b"]] },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.fixed).toEqual([["pkg-a", "pkg-b"]]);
+    expect(result.config.release?.versioning?.fixed).toEqual([
+      ["pkg-a", "pkg-b"],
+    ]);
   });
 
-  it("maps monorepo.linked to config.linked", () => {
+  it("maps monorepo.linked to release.versioning.linked", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       monorepo: { linked: [["pkg-c", "pkg-d"]] },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.linked).toEqual([["pkg-c", "pkg-d"]]);
+    expect(result.config.release?.versioning?.linked).toEqual([
+      ["pkg-c", "pkg-d"],
+    ]);
   });
 
-  it("maps monorepo.updateInternalDeps to config.updateInternalDependencies", () => {
+  it("maps monorepo.updateInternalDeps to release.versioning.updateInternalDependencies", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       monorepo: { updateInternalDeps: "minor" },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.updateInternalDependencies).toBe("minor");
+    expect(result.config.release?.versioning?.updateInternalDependencies).toBe(
+      "minor",
+    );
   });
 
   it("generates warnings for hooks", () => {
@@ -324,13 +324,13 @@ describe("convertToPublishConfig", () => {
     expect(result.changesetFiles).toBeUndefined();
   });
 
-  it("maps changelog.file to config.changelog when changelog is enabled", () => {
+  it("maps changelog.file to release.changelog when changelog is enabled", () => {
     const parsed: ParsedMigrationConfig = {
       ...minimal(),
       changelog: { enabled: true, file: "CHANGELOG.md" },
     };
     const result = convertToPublishConfig(parsed);
-    expect(result.config.changelog).toBe("CHANGELOG.md");
+    expect(result.config.release?.changelog).toBe("CHANGELOG.md");
   });
 
   it("generates warning when github.assets is present", () => {

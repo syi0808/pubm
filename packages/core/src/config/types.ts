@@ -49,17 +49,93 @@ export interface RollbackConfig {
   dangerouslyAllowUnpublish?: boolean;
 }
 
-export interface PubmConfig {
-  versioning?: "independent" | "fixed";
-  branch?: string;
-  packages?: PackageConfig[];
-  changelog?: boolean | string;
-  changelogFormat?: "default" | "github" | string;
-  commit?: boolean;
-  access?: "public" | "restricted";
+export interface ReleasePrBumpLabelsConfig {
+  patch?: string;
+  minor?: string;
+  major?: string;
+  prerelease?: string;
+}
+
+export type ReleasePullRequestGrouping = "inherit" | "fixed" | "independent";
+export type ResolvedReleasePullRequestGrouping = "fixed" | "independent";
+export type UnversionedChangesPolicy = "ignore" | "warn" | "fail";
+
+export interface ReleaseVersioningConfig {
+  mode?: "independent" | "fixed";
   fixed?: string[][];
   linked?: string[][];
   updateInternalDependencies?: "patch" | "minor";
+}
+
+export interface ResolvedReleaseVersioningConfig {
+  mode: "independent" | "fixed";
+  fixed: string[][];
+  linked: string[][];
+  updateInternalDependencies: "patch" | "minor";
+}
+
+export interface ReleaseChangesetsConfig {
+  directory?: string;
+}
+
+export interface ResolvedReleaseChangesetsConfig {
+  directory: string;
+}
+
+export interface ReleaseCommitsConfig {
+  format?: "conventional";
+  types?: Record<string, BumpType | false>;
+}
+
+export interface ResolvedReleaseCommitsConfig {
+  format: "conventional";
+  types: Record<string, BumpType | false>;
+}
+
+export interface ReleasePullRequestConfig {
+  branchTemplate?: string;
+  titleTemplate?: string;
+  label?: string;
+  bumpLabels?: ReleasePrBumpLabelsConfig;
+  grouping?: ReleasePullRequestGrouping;
+  fixed?: string[][];
+  linked?: string[][];
+  unversionedChanges?: UnversionedChangesPolicy;
+}
+
+export interface ResolvedReleasePullRequestConfig {
+  branchTemplate: string;
+  titleTemplate: string;
+  label: string;
+  bumpLabels: Required<ReleasePrBumpLabelsConfig>;
+  grouping: ResolvedReleasePullRequestGrouping;
+  fixed: string[][];
+  linked: string[][];
+  unversionedChanges: UnversionedChangesPolicy;
+}
+
+export interface ReleaseConfig {
+  versioning?: ReleaseVersioningConfig;
+  changesets?: ReleaseChangesetsConfig;
+  commits?: ReleaseCommitsConfig;
+  changelog?: boolean | string;
+  pullRequest?: ReleasePullRequestConfig;
+}
+
+export interface ResolvedReleaseConfig {
+  versioning: ResolvedReleaseVersioningConfig;
+  changesets: ResolvedReleaseChangesetsConfig;
+  commits: ResolvedReleaseCommitsConfig;
+  changelog: boolean | string;
+  pullRequest: ResolvedReleasePullRequestConfig;
+}
+
+export interface PubmConfig {
+  branch?: string;
+  packages?: PackageConfig[];
+  commit?: boolean;
+  access?: "public" | "restricted";
+  release?: ReleaseConfig;
   ignore?: string[];
   validate?: ValidateConfig;
   snapshotTemplate?: string;
@@ -68,8 +144,6 @@ export interface PubmConfig {
   saveToken?: boolean;
   releaseDraft?: boolean;
   releaseNotes?: boolean;
-  /** Create a pull request for the version bump commit instead of pushing directly. @default false */
-  createPr?: boolean;
   /** @deprecated Use `rollback.strategy` instead. */
   rollbackStrategy?: "individual" | "all";
   rollback?: RollbackConfig;
@@ -82,13 +156,6 @@ export interface PubmConfig {
   releaseAssets?: ReleaseAssetEntry[];
   excludeRelease?: string[];
   locale?: "en" | "ko" | "zh-cn" | "fr" | "de" | "es";
-  /** Version bump source strategy. @default "all" */
-  versionSources?: "all" | "changesets" | "commits";
-  /** Conventional commit configuration */
-  conventionalCommits?: {
-    /** Override default commit type → bump mapping. Set to false to ignore a type. */
-    types?: Record<string, BumpType | false>;
-  };
   /** Use registry-qualified tag names (e.g. npm/pkg@1.0.0) to avoid collisions in multi-ecosystem independent versioning. */
   registryQualifiedTags?: boolean;
 }
@@ -106,9 +173,8 @@ export interface ResolvedPubmConfig
       | "rollbackStrategy"
       | "rollback"
       | "locale"
-      | "versionSources"
-      | "conventionalCommits"
       | "ecosystems"
+      | "release"
       | "testScript"
       | "buildScript"
       | "skipDryRun"
@@ -121,10 +187,12 @@ export interface ResolvedPubmConfig
   packages: ResolvedPackageConfig[];
   validate: Required<ValidateConfig>;
   rollback: Required<RollbackConfig>;
-  versionSources: "all" | "changesets" | "commits";
-  conventionalCommits: {
-    types: Record<string, BumpType | false>;
-  };
+  release: ResolvedReleaseConfig;
+  versioning: "independent" | "fixed";
+  fixed: string[][];
+  linked: string[][];
+  updateInternalDependencies: "patch" | "minor";
+  changelog: boolean | string;
   ecosystems: Record<string, EcosystemConfig>;
   testScript?: string;
   buildScript?: string;

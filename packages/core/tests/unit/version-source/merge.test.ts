@@ -55,6 +55,49 @@ describe("mergeRecommendations", () => {
     expect(result[0].bumpType).toBe("minor");
   });
 
+  it("treats qualified package keys as overlapping unqualified recommendations for the same path", () => {
+    const changeset: VersionRecommendation[] = [
+      {
+        packagePath: ".",
+        packageKey: ".::js",
+        bumpType: "patch",
+        source: "changeset",
+        entries: [{ summary: "Fix bug", id: "cs-1" }],
+      },
+    ];
+    const cc: VersionRecommendation[] = [
+      {
+        packagePath: ".",
+        bumpType: "minor",
+        source: "conventional-commit",
+        entries: [{ summary: "feat: add", type: "feat", hash: "abc" }],
+      },
+    ];
+
+    expect(mergeRecommendations([changeset, cc])).toEqual(changeset);
+  });
+
+  it("keeps multiple qualified recommendations for the same path", () => {
+    const recommendations: VersionRecommendation[] = [
+      {
+        packagePath: "packages/core",
+        packageKey: "packages/core::js",
+        bumpType: "minor",
+        source: "changeset",
+        entries: [{ summary: "Release JS", id: "cs-1" }],
+      },
+      {
+        packagePath: "packages/core",
+        packageKey: "packages/core::rust",
+        bumpType: "patch",
+        source: "changeset",
+        entries: [{ summary: "Release Rust", id: "cs-1" }],
+      },
+    ];
+
+    expect(mergeRecommendations([recommendations])).toEqual(recommendations);
+  });
+
   it("handles empty source arrays", () => {
     expect(mergeRecommendations([[], []])).toEqual([]);
   });

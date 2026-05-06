@@ -36,6 +36,7 @@ vi.mock("../../../src/commands/init-workflows.js", async () => {
   return {
     ...actual,
     detectPackageManager: vi.fn(),
+    installGithubWorkflows: vi.fn(),
     writeWorkflowFile: vi.fn(),
   };
 });
@@ -49,18 +50,35 @@ vi.mock("../../../src/commands/setup-skills.js", () => ({
   runSetupSkills: vi.fn(),
 }));
 
-vi.mock("@pubm/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@pubm/core")>();
-  return {
-    ...actual,
-    ui: {
-      warn: vi.fn(),
-      error: vi.fn(),
-      success: vi.fn(),
-      info: vi.fn(),
-    },
-  };
-});
+vi.mock("@pubm/runner", () => ({
+  prompt: vi.fn(),
+}));
+
+vi.mock("@pubm/core", () => ({
+  detectWorkspace: vi.fn(() => []),
+  discoverPackages: vi.fn(async () => []),
+  t: vi.fn((key: string, values?: Record<string, unknown>) => {
+    const messages: Record<string, string> = {
+      "error.init.requiresTty":
+        "This command requires an interactive terminal.",
+      "init.description": "Interactive setup wizard for pubm configuration",
+      "init.config.created": "created",
+      "init.config.default": "defaults",
+      "init.config.kept": "kept existing",
+      "init.noPackages": "No packages selected",
+      "init.ready": "Ready to publish!",
+      "init.skills.failed": `Skill setup failed: ${values?.error ?? ""}`,
+      "init.skills.installLater": "You can install skills later",
+    };
+    return messages[key] ?? (values ? `${key} ${JSON.stringify(values)}` : key);
+  }),
+  ui: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 
 // ── Imports (after mocks) ──────────────────────────────────────────────────
 
@@ -80,7 +98,7 @@ import {
 } from "../../../src/commands/init-prompts.js";
 import {
   detectPackageManager,
-  writeWorkflowFile,
+  installGithubWorkflows,
 } from "../../../src/commands/init-workflows.js";
 import { runSetupSkills } from "../../../src/commands/setup-skills.js";
 
@@ -116,10 +134,7 @@ function setupDefaultMocks() {
   });
   vi.mocked(promptPackages).mockResolvedValue(["."]);
   vi.mocked(promptBranch).mockResolvedValue("main");
-  vi.mocked(promptChangelog).mockResolvedValue({
-    enabled: true,
-    format: "default",
-  });
+  vi.mocked(promptChangelog).mockResolvedValue(true);
   vi.mocked(promptGithubRelease).mockResolvedValue(true);
   vi.mocked(promptChangesets).mockResolvedValue(false);
   vi.mocked(promptCI).mockResolvedValue(false);
@@ -215,7 +230,7 @@ describe("generateChangesetCheckWorkflow", () => {
     expect(yaml).toContain("branches: [main]");
     expect(yaml).toContain("pull-requests: write");
     expect(yaml).toContain("no-changeset");
-    expect(yaml).toContain("syi0808/pubm-actions@v1");
+    expect(yaml).toContain("syi0808/pubm-actions/changeset-check@v1");
     expect(yaml).toContain("changeset-check");
   });
 
@@ -230,7 +245,7 @@ describe("writeWorkflowFile", () => {
     const content = generateChangesetCheckWorkflow("main");
     const result = writeWorkflowFileReal(
       TEST_DIR,
-      "changeset-check.yml",
+      "pubm-changeset-check.yml",
       content,
     );
 
@@ -239,7 +254,7 @@ describe("writeWorkflowFile", () => {
       TEST_DIR,
       ".github",
       "workflows",
-      "changeset-check.yml",
+      "pubm-changeset-check.yml",
     );
     expect(existsSync(filePath)).toBe(true);
 
@@ -250,12 +265,15 @@ describe("writeWorkflowFile", () => {
   it("returns false when workflow file already exists", () => {
     const workflowDir = path.join(TEST_DIR, ".github", "workflows");
     mkdirSync(workflowDir, { recursive: true });
-    writeFileSync(path.join(workflowDir, "changeset-check.yml"), "existing");
+    writeFileSync(
+      path.join(workflowDir, "pubm-changeset-check.yml"),
+      "existing",
+    );
 
     const content = generateChangesetCheckWorkflow("main");
     const result = writeWorkflowFileReal(
       TEST_DIR,
-      "changeset-check.yml",
+      "pubm-changeset-check.yml",
       content,
     );
     expect(result).toBe(false);
@@ -322,10 +340,7 @@ describe("init command — full flow", () => {
 
   it("single package, changelog disabled — config file created with changelog: false", async () => {
     setupDefaultMocks();
-    vi.mocked(promptChangelog).mockResolvedValue({
-      enabled: false,
-      format: "default",
-    });
+    vi.mocked(promptChangelog).mockResolvedValue(false);
 
     await runInit();
 
@@ -366,7 +381,8 @@ describe("init command — full flow", () => {
     expect(content).toContain('path: "packages/a"');
     expect(content).toContain('path: "packages/b"');
     expect(content).toContain('path: "packages/c"');
-    expect(content).toContain('versioning: "fixed"');
+    expect(content).toContain("versioning:");
+    expect(content).toContain('mode: "fixed"');
   });
 
   it("single package non-monorepo — versioning prompt NOT called", async () => {
@@ -387,46 +403,105 @@ describe("init command — full flow", () => {
     expect(existsSync(changesetsDir)).toBe(true);
   });
 
-  it("CI enabled — writeWorkflowFile called twice when changesets also enabled", async () => {
+  it("CI enabled — installs release PR, publish, and changeset workflows when changesets also enabled", async () => {
     setupDefaultMocks();
     vi.mocked(promptCI).mockResolvedValue(true);
     vi.mocked(promptChangesets).mockResolvedValue(true);
     vi.mocked(detectPackageManager).mockReturnValue("bun");
-    vi.mocked(writeWorkflowFile).mockReturnValue(true);
+    vi.mocked(installGithubWorkflows).mockResolvedValue([
+      {
+        id: "changeset-check",
+        filename: "pubm-changeset-check.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-changeset-check.yml",
+        ),
+        status: "created",
+      },
+      {
+        id: "release-pr",
+        filename: "pubm-release-pr.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-release-pr.yml",
+        ),
+        status: "created",
+      },
+      {
+        id: "publish",
+        filename: "pubm-publish.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-publish.yml",
+        ),
+        status: "created",
+      },
+    ]);
 
     await runInit();
 
-    expect(vi.mocked(writeWorkflowFile)).toHaveBeenCalledTimes(2);
-    // First call: release.yml
-    expect(vi.mocked(writeWorkflowFile)).toHaveBeenNthCalledWith(
-      1,
+    expect(vi.mocked(installGithubWorkflows)).toHaveBeenCalledWith(
       expect.any(String),
-      "release.yml",
-      expect.any(String),
-    );
-    // Second call: changeset-check.yml
-    expect(vi.mocked(writeWorkflowFile)).toHaveBeenNthCalledWith(
-      2,
-      expect.any(String),
-      "changeset-check.yml",
-      expect.any(String),
+      expect.objectContaining({
+        defaultBranch: "main",
+        packageManager: "bun",
+        includeChangesetCheck: true,
+        includeReleasePr: true,
+        includePublish: true,
+      }),
     );
   });
 
-  it("CI enabled, changesets disabled — only release.yml written", async () => {
+  it("CI enabled, changesets disabled — installs release PR and publish workflows", async () => {
     setupDefaultMocks();
     vi.mocked(promptCI).mockResolvedValue(true);
     vi.mocked(promptChangesets).mockResolvedValue(false);
     vi.mocked(detectPackageManager).mockReturnValue("bun");
-    vi.mocked(writeWorkflowFile).mockReturnValue(true);
+    vi.mocked(installGithubWorkflows).mockResolvedValue([
+      {
+        id: "release-pr",
+        filename: "pubm-release-pr.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-release-pr.yml",
+        ),
+        status: "created",
+      },
+      {
+        id: "publish",
+        filename: "pubm-publish.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-publish.yml",
+        ),
+        status: "created",
+      },
+    ]);
 
     await runInit();
 
-    expect(vi.mocked(writeWorkflowFile)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(writeWorkflowFile)).toHaveBeenCalledWith(
+    expect(vi.mocked(installGithubWorkflows)).toHaveBeenCalledWith(
       expect.any(String),
-      "release.yml",
-      expect.any(String),
+      expect.objectContaining({
+        includeChangesetCheck: false,
+        includeReleasePr: true,
+        includePublish: true,
+      }),
     );
   });
 
@@ -548,7 +623,20 @@ describe("init command — summary output", () => {
     vi.mocked(promptChangesets).mockResolvedValue(true);
     vi.mocked(promptCI).mockResolvedValue(true);
     vi.mocked(detectPackageManager).mockReturnValue("bun");
-    vi.mocked(writeWorkflowFile).mockReturnValue(true);
+    vi.mocked(installGithubWorkflows).mockResolvedValue([
+      {
+        id: "changeset-check",
+        filename: "pubm-changeset-check.yml",
+        content: "",
+        filePath: path.join(
+          TEST_DIR,
+          ".github",
+          "workflows",
+          "pubm-changeset-check.yml",
+        ),
+        status: "created",
+      },
+    ]);
     vi.mocked(promptSkills).mockResolvedValue(true);
     vi.mocked(runSetupSkills).mockResolvedValue({
       agents: ["claude-code"],

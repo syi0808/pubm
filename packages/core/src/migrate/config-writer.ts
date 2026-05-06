@@ -1,21 +1,15 @@
 import type { PubmConfig } from "../config/types.js";
 
 const CONFIG_KEY_ORDER: (keyof PubmConfig)[] = [
-  "versioning",
   "branch",
   "packages",
-  "changelog",
-  "changelogFormat",
   "commit",
   "access",
+  "release",
   "tag",
   "contents",
   "releaseDraft",
   "releaseNotes",
-  "createPr",
-  "fixed",
-  "linked",
-  "updateInternalDependencies",
   "ignore",
   "validate",
   "saveToken",
@@ -27,8 +21,6 @@ const CONFIG_KEY_ORDER: (keyof PubmConfig)[] = [
   "releaseAssets",
   "excludeRelease",
   "locale",
-  "versionSources",
-  "conventionalCommits",
   "plugins",
 ];
 

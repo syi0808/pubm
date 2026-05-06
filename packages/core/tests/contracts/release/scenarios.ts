@@ -1389,7 +1389,7 @@ export const releaseBehaviorScenarios = [
   {
     id: "push-fallback-version-pr-fails",
     description:
-      "If direct push fails and the version PR cannot be created, local and remote branch/tag work is compensated.",
+      "If direct push fails, direct release rollback compensates local versioning and registry publish work without opening a PR fallback.",
     mode: "release",
     packages: [
       {
@@ -1440,23 +1440,6 @@ export const releaseBehaviorScenarios = [
           detail: { args: "--follow-tags", result: false },
         },
         {
-          kind: "git.branch.create",
-          target: "pubm/version-packages-1770000000000",
-        },
-        {
-          kind: "git.branch.push",
-          target: "origin/pubm/version-packages-1770000000000",
-          detail: { args: "--follow-tags" },
-        },
-        {
-          kind: "git.remoteTag.delete",
-          target: "v10.1.0",
-        },
-        {
-          kind: "git.remoteBranch.delete",
-          target: "pubm/version-packages-1770000000000",
-        },
-        {
           kind: "registry.unpublish",
           target: "npm:@pubm/contract-pr-fail@10.1.0",
         },
@@ -1475,6 +1458,10 @@ export const releaseBehaviorScenarios = [
         },
       ],
       forbiddenSideEffects: [
+        {
+          kind: "git.branch.create",
+          target: "pubm/version-packages-1770000000000",
+        },
         {
           kind: "github.pr.create",
           target: "pubm/version-packages-1770000000000",
@@ -1500,8 +1487,6 @@ export const releaseBehaviorScenarios = [
         "Reset git commit",
         "Delete local tag v10.1.0",
         "unpublish npm:@pubm/contract-pr-fail@10.1.0",
-        'task.push.deleteRemoteBranch {"branch":"pubm/version-packages-1770000000000"}',
-        'task.push.deleteRemoteTag {"tag":"v10.1.0"}',
       ],
     },
     failureInjection: {

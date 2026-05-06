@@ -1,53 +1,33 @@
 import { color, type TaskContext } from "@pubm/runner";
 import semver from "semver";
-import { createKeyResolver } from "../../changeset/resolve.js";
 import type { ResolvedPackageConfig } from "../../config/types.js";
 import type { PubmContext } from "../../context.js";
 import { t } from "../../i18n/index.js";
+import { analyzeReleaseChanges } from "../../release-analysis/analyze.js";
 import {
   ChangesetSource,
   ConventionalCommitSource,
-  mergeRecommendations,
 } from "../../version-source/index.js";
 import type {
   VersionRecommendation,
   VersionSource,
-  VersionSourceContext,
 } from "../../version-source/types.js";
 
 const { RELEASE_TYPES, SemVer } = semver;
 
 export function createVersionSources(ctx: PubmContext): VersionSource[] {
-  const sources: VersionSource[] = [];
-  const versionSources = ctx.config.versionSources ?? "all";
-  if (versionSources === "all" || versionSources === "changesets") {
-    sources.push(new ChangesetSource());
-  }
-  if (versionSources === "all" || versionSources === "commits") {
-    sources.push(
-      new ConventionalCommitSource(ctx.config.conventionalCommits?.types),
-    );
-  }
-  return sources;
+  return [
+    new ChangesetSource(ctx.config.release.changesets.directory),
+    new ConventionalCommitSource(ctx.config.release.commits.types),
+  ];
 }
 
 export async function analyzeAllSources(
   ctx: PubmContext,
 ): Promise<VersionRecommendation[]> {
-  const sources = createVersionSources(ctx);
-  const currentVersions = new Map(
-    ctx.config.packages.map((p) => [p.path, p.version]),
-  );
-  const vsContext: VersionSourceContext = {
-    cwd: ctx.cwd,
-    packages: currentVersions,
-    resolveKey: createKeyResolver(ctx.config.packages),
-  };
-  const sourceResults: VersionRecommendation[][] = [];
-  for (const source of sources) {
-    sourceResults.push(await source.analyze(vsContext));
-  }
-  return mergeRecommendations(sourceResults);
+  const analysis = await analyzeReleaseChanges(ctx);
+  ctx.runtime.releaseAnalysis = analysis;
+  return analysis.recommendations;
 }
 
 export function versionChoices(

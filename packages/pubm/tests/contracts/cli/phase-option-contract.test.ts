@@ -132,7 +132,6 @@ const mockState = vi.hoisted(() => {
       plugins: [],
       packages: [],
       rollback: { dangerouslyAllowUnpublish: false },
-      versionSources: "all",
     } as Record<string, any>,
     changesetRecommendations: [] as Array<Record<string, unknown>>,
     commitRecommendations: [] as Array<Record<string, unknown>>,
@@ -162,7 +161,6 @@ const mockState = vi.hoisted(() => {
       plugins: [],
       packages: [],
       rollback: { dangerouslyAllowUnpublish: false },
-      versionSources: "all",
     };
     state.changesetRecommendations = [];
     state.commitRecommendations = [];
@@ -230,6 +228,31 @@ vi.mock("std-env", () => ({
 }));
 
 vi.mock("@pubm/core", () => {
+  const versioningMode = (config: any): "fixed" | "independent" | undefined =>
+    config.release?.versioning?.mode ?? config.versioning;
+  const parseVersion = (version: string): [number, number, number] | null => {
+    const match =
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/.exec(
+        version,
+      );
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2]), Number(match[3])];
+  };
+  const highestVersion = (versions: Iterable<string>): string | undefined => {
+    let highest: { raw: string; parsed: [number, number, number] } | undefined;
+    for (const version of versions) {
+      const parsed = parseVersion(version);
+      if (!parsed) continue;
+      const comparison = highest
+        ? parsed[0] - highest.parsed[0] ||
+          parsed[1] - highest.parsed[1] ||
+          parsed[2] - highest.parsed[2]
+        : 1;
+      if (comparison > 0) highest = { raw: version, parsed };
+    }
+    return highest?.raw;
+  };
+
   return {
     ChangesetSource: vi.fn(function ChangesetSource() {
       mockState.recordEvent({
@@ -270,6 +293,48 @@ vi.mock("@pubm/core", () => {
         name: "error.reported",
         detail: { message: error.message },
       });
+    }),
+    applyVersionSourcePlan: vi.fn(async (ctx: any) => {
+      const recommendations =
+        mockState.state.mergedRecommendations ??
+        [
+          mockState.state.changesetRecommendations,
+          mockState.state.commitRecommendations,
+        ].flat();
+      if (recommendations.length === 0) return;
+
+      const packages = new Map<string, string>();
+      for (const rec of recommendations) {
+        const pkg = ctx.config.packages.find((candidate: any) =>
+          rec.packageKey
+            ? mockState.packageKey(candidate) === rec.packageKey
+            : candidate.path === rec.packagePath,
+        );
+        if (!pkg) continue;
+        packages.set(
+          mockState.packageKey(pkg),
+          rec.nextVersion ?? rec.version ?? pkg.version,
+        );
+      }
+      if (packages.size === 0) return;
+      if (packages.size === 1 && ctx.config.packages.length <= 1) {
+        const [packageKey, version] = [...packages][0];
+        ctx.runtime.versionPlan = { mode: "single", packageKey, version };
+      } else if (versioningMode(ctx.config) === "fixed") {
+        const version = [...packages.values()][0];
+        ctx.runtime.versionPlan = {
+          mode: "fixed",
+          version,
+          packages: new Map(
+            ctx.config.packages.map((pkg: any) => [
+              mockState.packageKey(pkg),
+              version,
+            ]),
+          ),
+        };
+      } else {
+        ctx.runtime.versionPlan = { mode: "independent", packages };
+      }
     }),
     createContext: vi.fn((config: any, options: any, cwd: string) => {
       const ctx = {
@@ -312,6 +377,41 @@ vi.mock("@pubm/core", () => {
         mockState.state.mergedRecommendations ??
         (recommendationSets as Array<Array<Record<string, unknown>>>).flat()
       );
+    }),
+    createVersionPlanFromManifestVersions: vi.fn((config: any) => {
+      const packages = new Map(
+        config.packages.map((pkg: any) => [
+          mockState.packageKey(pkg),
+          pkg.version,
+        ]),
+      );
+      if (packages.size > 0 && versioningMode(config) === "fixed") {
+        const version = highestVersion(packages.values()) ?? "";
+        return {
+          mode: "fixed",
+          version,
+          packages: new Map([...packages.keys()].map((key) => [key, version])),
+        };
+      }
+
+      if (config.packages.length <= 1) {
+        const pkg = config.packages[0];
+        return {
+          mode: "single",
+          version: pkg?.version ?? "",
+          packageKey: pkg ? mockState.packageKey(pkg) : ".::js",
+        };
+      }
+
+      if (versioningMode(config) === "fixed") {
+        const version = highestVersion(packages.values()) ?? "";
+        return {
+          mode: "fixed",
+          version,
+          packages: new Map([...packages.keys()].map((key) => [key, version])),
+        };
+      }
+      return { mode: "independent", packages };
     }),
     notifyNewVersion: vi.fn(async () => {
       mockState.recordEvent({ name: "version.notify" });
@@ -462,6 +562,10 @@ vi.mock("../../../src/commands/update.js", () => ({
   registerUpdateCommand: vi.fn(),
 }));
 
+vi.mock("../../../src/commands/workflow.js", () => ({
+  registerWorkflowCommand: vi.fn(),
+}));
+
 vi.mock("../../../src/commands/version-cmd.js", () => ({
   registerVersionCommand: vi.fn(),
 }));
@@ -486,7 +590,6 @@ const config = (overrides: Record<string, any> = {}) => ({
   plugins: [],
   packages: [pkg({})],
   rollback: { dangerouslyAllowUnpublish: false },
-  versionSources: "all",
   ...overrides,
 });
 
@@ -583,6 +686,38 @@ const scenarios: CliContractScenario[] = [
         pkg({ name: "pkg-b", version: "2.5.0", path: "packages/b" }),
       ],
       versioning: "independent",
+    }),
+    expected: {
+      workflow: "Split CI Release: Publish prepared release",
+      options: {
+        phase: "publish",
+        skipDryRun: false,
+        skipReleaseDraft: false,
+      },
+      versionPlan: {
+        mode: "independent",
+        packages: {
+          "packages/a::js": "1.4.0",
+          "packages/b::js": "2.5.0",
+        },
+      },
+      requiredTasksRun: false,
+      pubmCalled: true,
+    },
+  },
+  {
+    id: "ci-publish-prefers-release-versioning-mode",
+    description:
+      "Split CI Release publish reads release.versioning.mode before legacy versioning",
+    argv: ["--phase", "publish"],
+    env: { isCI: true },
+    config: config({
+      packages: [
+        pkg({ name: "pkg-a", version: "1.4.0", path: "packages/a" }),
+        pkg({ name: "pkg-b", version: "2.5.0", path: "packages/b" }),
+      ],
+      versioning: "fixed",
+      release: { versioning: { mode: "independent" } },
     }),
     expected: {
       workflow: "Split CI Release: Publish prepared release",
@@ -748,7 +883,6 @@ const scenarios: CliContractScenario[] = [
     env: { isCI: true },
     config: config({
       packages: [pkg({ name: "ci-no-version", version: "1.0.0", path: "." })],
-      versionSources: "all",
     }),
     recommendations: {
       changesets: [],

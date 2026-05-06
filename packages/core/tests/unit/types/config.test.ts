@@ -24,10 +24,14 @@ describe("Config types", () => {
 
   it("allows PubmConfig with packages array", () => {
     const config: PubmConfig = {
-      versioning: "independent",
+      release: {
+        versioning: {
+          mode: "independent",
+        },
+      },
       packages: [{ path: ".", registries: ["npm"] }],
     };
-    expect(config.versioning).toBe("independent");
+    expect(config.release?.versioning?.mode).toBe("independent");
     expect(config.packages).toHaveLength(1);
   });
 

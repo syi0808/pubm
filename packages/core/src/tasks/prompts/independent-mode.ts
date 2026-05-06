@@ -10,11 +10,13 @@ import type {
   FixedVersionPlan,
   IndependentVersionPlan,
   PubmContext,
+  VersionPlan,
 } from "../../context.js";
 import { t } from "../../i18n/index.js";
 import { filterConfigPackages } from "../../utils/filter-config.js";
 import { packageKey } from "../../utils/package-key.js";
 import { ui } from "../../utils/ui.js";
+import { createVersionPlanFromRecommendations } from "../../version-source/plan.js";
 import {
   buildDependencyBumpNote,
   displayRecommendationSummary,
@@ -69,29 +71,28 @@ export async function handleMultiPackage(
     pathToKeys.set(p.path, existing);
   }
   const recommendations = await analyzeAllSources(ctx);
+  const recommendationKeys = (rec: {
+    packagePath: string;
+    packageKey?: string;
+  }): string[] =>
+    rec.packageKey
+      ? [rec.packageKey]
+      : (pathToKeys.get(rec.packagePath) ?? [rec.packagePath]);
 
   // CI mode: auto-accept
   if (isCI && recommendations.length > 0) {
-    const packages = new Map<string, string>();
-    for (const rec of recommendations) {
-      const matchingPkgs = packageInfos.filter(
-        (p) => p.path === rec.packagePath,
-      );
-      for (const pkg of matchingPkgs) {
-        const newVer = semver.inc(pkg.version, rec.bumpType);
-        if (newVer) {
-          packages.set(packageKey(pkg), newVer);
-        }
-      }
-    }
-    ctx.runtime.versionPlan = buildVersionPlan(
-      ctx.config.versioning ?? "independent",
-      packages,
+    const plan = createVersionPlanFromRecommendations(
+      ctx.config,
+      recommendations,
     );
-    ctx.runtime.changesetConsumed = recommendations.some((r) => {
-      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
-      return r.source === "changeset" && keys.some((k) => packages.has(k));
-    });
+    ctx.runtime.versionPlan = plan;
+    ctx.runtime.changesetConsumed = plan
+      ? changesetRecommendationsSelected(
+          recommendations,
+          plan,
+          recommendationKeys,
+        )
+      : false;
     return;
   }
 
@@ -124,21 +125,19 @@ export async function handleMultiPackage(
 
   if (action === "skip") return;
 
-  let selectedVersions: Map<string, string>;
-
   if (action === "accept") {
-    selectedVersions = new Map();
-    for (const rec of recommendations) {
-      const matchingPkgs = packageInfos.filter(
-        (p) => p.path === rec.packagePath,
-      );
-      for (const pkg of matchingPkgs) {
-        const newVer = semver.inc(pkg.version, rec.bumpType);
-        if (newVer) {
-          selectedVersions.set(packageKey(pkg), newVer);
-        }
-      }
-    }
+    const plan = createVersionPlanFromRecommendations(
+      ctx.config,
+      recommendations,
+    );
+    if (!plan) return;
+    ctx.runtime.versionPlan = plan;
+    ctx.runtime.changesetConsumed = changesetRecommendationsSelected(
+      recommendations,
+      plan,
+      recommendationKeys,
+    );
+    return;
   } else {
     // Edit mode: delegate to existing manual flows
     const bumps = new Map<string, VersionBump>();
@@ -188,24 +187,35 @@ export async function handleMultiPackage(
     ctx.runtime.changesetConsumed = recommendations.some((r) => {
       if (r.source !== "changeset" || !plan || !("packages" in plan))
         return false;
-      const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
+      const keys = recommendationKeys(r);
       return keys.some((k) => plan.packages.has(k));
     });
     return;
   }
+}
 
-  if (selectedVersions.size === 0) return;
-
-  ctx.runtime.versionPlan = buildVersionPlan(
-    ctx.config.versioning ?? "independent",
-    selectedVersions,
-  );
-  ctx.runtime.changesetConsumed = recommendations.some((r) => {
-    const keys = pathToKeys.get(r.packagePath) ?? [r.packagePath];
-    return (
-      r.source === "changeset" && keys.some((k) => selectedVersions.has(k))
-    );
+function changesetRecommendationsSelected(
+  recommendations: readonly {
+    source: string;
+    packagePath: string;
+    packageKey?: string;
+  }[],
+  plan: VersionPlan,
+  recommendationKeys: (rec: {
+    packagePath: string;
+    packageKey?: string;
+  }) => string[],
+): boolean {
+  const selectedKeys = packageKeysForPlan(plan);
+  return recommendations.some((rec) => {
+    if (rec.source !== "changeset") return false;
+    return recommendationKeys(rec).some((key) => selectedKeys.has(key));
   });
+}
+
+function packageKeysForPlan(plan: VersionPlan): Set<string> {
+  if (plan.mode === "single") return new Set([plan.packageKey]);
+  return new Set(plan.packages.keys());
 }
 
 /**

@@ -18,6 +18,7 @@ export function createPublishOperations(
   hasPublish: boolean,
   dryRun: boolean,
   skipPublish: boolean,
+  options: { packageKeys?: ReadonlySet<string> } = {},
 ): ReleaseOperation[] {
   return [
     {
@@ -29,7 +30,10 @@ export function createPublishOperations(
         try {
           await resolveWorkspaceProtocols(ctx);
 
-          const publishOperations = await collectPublishOperations(ctx);
+          const publishOperations = await collectPublishOperations(
+            ctx,
+            options,
+          );
           parentTask.title = t("task.publish.titleWithTargets", {
             count: countPublishTargets(ctx),
           });
@@ -77,8 +81,19 @@ export function createPublishOperations(
 
 export async function collectPublishOperations(
   ctx: PubmContext,
+  options: { packageKeys?: ReadonlySet<string> } = {},
 ): Promise<ReleaseOperation[]> {
-  const groups = collectEcosystemRegistryGroups(ctx.config);
+  const groups = collectEcosystemRegistryGroups(ctx.config)
+    .map((group) => ({
+      ...group,
+      registries: group.registries
+        .map(({ registry, packageKeys }) => ({
+          registry,
+          packageKeys: filterPackageKeys(packageKeys, options.packageKeys),
+        }))
+        .filter(({ packageKeys }) => packageKeys.length > 0),
+    }))
+    .filter((group) => group.registries.length > 0);
 
   return await Promise.all(
     groups.map(async (group) => {
@@ -118,4 +133,11 @@ export async function collectPublishOperations(
       } satisfies ReleaseOperation;
     }),
   );
+}
+
+function filterPackageKeys(
+  packageKeys: string[],
+  allowed?: ReadonlySet<string>,
+): string[] {
+  return allowed ? packageKeys.filter((key) => allowed.has(key)) : packageKeys;
 }

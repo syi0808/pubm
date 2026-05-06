@@ -1468,10 +1468,8 @@ async function runScenario(
       (scenario.options.versioning as "fixed" | "independent") ?? "independent",
     branch: "main",
     changelog: true,
-    changelogFormat: "default",
     commit: false,
     access: "public",
-    createPr: !!scenario.options.createPr,
     fixed: [],
     linked: [],
     updateInternalDependencies: "patch",
@@ -1482,6 +1480,36 @@ async function runScenario(
     saveToken: true,
     releaseDraft: true,
     releaseNotes: true,
+    release: {
+      versioning: {
+        mode:
+          (scenario.options.versioning as "fixed" | "independent") ??
+          "independent",
+        fixed: [],
+        linked: [],
+        updateInternalDependencies: "patch",
+      },
+      changesets: { directory: ".pubm/changesets" },
+      commits: { format: "conventional", types: {} },
+      changelog: true,
+      pullRequest: {
+        branchTemplate: "pubm/release/{scopeSlug}",
+        titleTemplate: "chore(release): {scope} {version}",
+        label: "pubm:release-pr",
+        bumpLabels: {
+          patch: "release:patch",
+          minor: "release:minor",
+          major: "release:major",
+          prerelease: "release:prerelease",
+        },
+        grouping:
+          (scenario.options.versioning as "fixed" | "independent") ??
+          "independent",
+        fixed: [],
+        linked: [],
+        unversionedChanges: "warn",
+      },
+    },
     rollback: { strategy: "individual", dangerouslyAllowUnpublish: true },
     lockfileSync: "optional",
     packages: scenario.packages.map((pkg) => ({
@@ -1501,8 +1529,6 @@ async function runScenario(
       : undefined,
     excludeRelease: [],
     locale: "en",
-    versionSources: "all",
-    conventionalCommits: { types: {} },
     registryQualifiedTags: false,
   } as const;
 
@@ -1913,7 +1939,6 @@ describe("release behavior contract against the current runner", () => {
     "local-independent-monorepo-tags",
     "local-independent-crates-order-and-yank",
     "local-private-registry-boundary",
-    "local-push-fallback-version-pr",
     "local-release-browser-draft-fallback",
     "local-github-release-assets-payload",
   ])("characterizes external boundary scenario %s", async (scenarioId) => {

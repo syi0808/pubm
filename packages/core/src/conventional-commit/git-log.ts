@@ -108,7 +108,11 @@ function execGit(cwd: string, args: string[]): string[] {
 
 function execGitRaw(cwd: string, args: string[]): string {
   try {
-    return execFileSync("git", args, { cwd, encoding: "utf-8" });
+    return execFileSync("git", args, {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
     return "";
   }

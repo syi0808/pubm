@@ -1,6 +1,7 @@
 import { maxBump } from "../changeset/bump-utils.js";
 import type { BumpType, Changeset } from "../changeset/parser.js";
 import { deleteChangesetFiles, readChangesets } from "../changeset/reader.js";
+import { packageKey } from "../utils/package-key.js";
 import type {
   VersionEntry,
   VersionRecommendation,
@@ -12,12 +13,21 @@ export class ChangesetSource implements VersionSource {
   readonly name = "changeset";
   private changesets: Changeset[] = [];
   private cwd = "";
+  private directory: string;
+
+  constructor(directory = ".pubm/changesets") {
+    this.directory = directory;
+  }
 
   async analyze(
     context: VersionSourceContext,
   ): Promise<VersionRecommendation[]> {
     this.cwd = context.cwd;
-    this.changesets = readChangesets(context.cwd, context.resolveKey);
+    this.changesets = readChangesets(
+      context.cwd,
+      context.resolveKey,
+      this.directory,
+    );
     if (this.changesets.length === 0) return [];
 
     const pkgBumps = new Map<
@@ -26,7 +36,10 @@ export class ChangesetSource implements VersionSource {
     >();
     for (const changeset of this.changesets) {
       for (const release of changeset.releases) {
-        const existing = pkgBumps.get(release.path);
+        const key = release.ecosystem
+          ? packageKey({ path: release.path, ecosystem: release.ecosystem })
+          : release.path;
+        const existing = pkgBumps.get(key);
         const entry: VersionEntry = {
           summary: changeset.summary,
           id: changeset.id,
@@ -35,7 +48,7 @@ export class ChangesetSource implements VersionSource {
           existing.bumpType = maxBump(existing.bumpType, release.type);
           existing.entries.push(entry);
         } else {
-          pkgBumps.set(release.path, {
+          pkgBumps.set(key, {
             bumpType: release.type,
             entries: [entry],
           });
@@ -44,9 +57,13 @@ export class ChangesetSource implements VersionSource {
     }
 
     const recommendations: VersionRecommendation[] = [];
-    for (const [packagePath, { bumpType, entries }] of pkgBumps) {
+    for (const [key, { bumpType, entries }] of pkgBumps) {
+      const separatorIndex = key.lastIndexOf("::");
+      const hasPackageKey = separatorIndex !== -1;
+      const packagePath = hasPackageKey ? key.slice(0, separatorIndex) : key;
       recommendations.push({
         packagePath,
+        ...(hasPackageKey ? { packageKey: key } : {}),
         bumpType,
         source: this.name,
         entries,
@@ -57,7 +74,7 @@ export class ChangesetSource implements VersionSource {
 
   async consume(): Promise<void> {
     if (this.changesets.length > 0) {
-      deleteChangesetFiles(this.cwd, this.changesets);
+      deleteChangesetFiles(this.cwd, this.changesets, this.directory);
     }
   }
 }

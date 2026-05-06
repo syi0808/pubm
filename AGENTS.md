@@ -69,7 +69,14 @@ Before committing, run these checks in order and fix any failures:
 3. `bun run test`: ensure all tests pass
 4. `bun run coverage`: keep coverage thresholds from dropping
 
-Only commit after all four pass.
+For final, task-complete commits, commit only after all four pass.
+
+## Commit Workflow
+
+- Make WIP commits at useful checkpoints when the work is in an executable state or when progress should be preserved.
+- Do not wait until the entire task is complete if there is a coherent, runnable unit worth saving.
+- Keep WIP commits narrowly scoped to the current task and use commit messages that make the checkpoint status clear.
+- WIP commits do not replace final verification. Before a final handoff or final commit, run the required checks from the pre-commit checklist when feasible.
 
 ## Coverage Maintenance
 
@@ -99,6 +106,7 @@ Changesets are required for any user-facing change. Do not commit without adding
 - **Identifier**: Use the package's filesystem path (e.g., `packages/core`), not the registry name. Package names are also accepted and auto-resolved to paths.
 - **Message**: Write in English, from the user's perspective. Describe what changed, not how it was implemented internally.
 - **Scope**: Document user-facing changes only. Internal refactors without behavioral impact do not need a changeset.
+- **Change basis**: Write the changeset for the change you made in the current task. Do not summarize every change that happened on the branch.
 
 ## Documentation Maintenance
 

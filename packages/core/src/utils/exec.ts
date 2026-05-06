@@ -1,3 +1,6 @@
+import { spawn as nodeSpawn } from "node:child_process";
+import path from "node:path";
+
 export class NonZeroExitError extends Error {
   output: { stdout: string; stderr: string };
 
@@ -32,10 +35,9 @@ export interface ExecResult {
 
 function getEnhancedPath(): string {
   const cwd = process.cwd();
-  const pathSep = process.platform === "win32" ? ";" : ":";
-  const binPath = `${cwd}/node_modules/.bin`;
+  const binPath = path.join(cwd, "node_modules", ".bin");
 
-  return `${binPath}${pathSep}${process.env.PATH ?? ""}`;
+  return `${binPath}${path.delimiter}${process.env.PATH ?? ""}`;
 }
 
 async function readProcessStream(
@@ -79,17 +81,40 @@ export async function exec(
   args: string[] = [],
   options: ExecOptions = {},
 ): Promise<ExecResult> {
-  const proc = Bun.spawn([command, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-    env: {
-      ...process.env,
-      PATH: getEnhancedPath(),
-      ...options.nodeOptions?.env,
-    },
-    cwd: options.nodeOptions?.cwd,
-  });
+  const env = {
+    ...process.env,
+    PATH: getEnhancedPath(),
+    ...options.nodeOptions?.env,
+  };
 
+  const proc =
+    typeof Bun !== "undefined" && typeof Bun.spawn === "function"
+      ? Bun.spawn([command, ...args], {
+          stdout: "pipe",
+          stderr: "pipe",
+          env,
+          cwd: options.nodeOptions?.cwd,
+        })
+      : undefined;
+
+  const result = proc
+    ? await readBunProcess(proc, options)
+    : await readNodeProcess(command, args, options, env);
+
+  if (options.throwOnError && result.exitCode !== 0) {
+    throw new NonZeroExitError(command, result.exitCode, {
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+  }
+
+  return result;
+}
+
+async function readBunProcess(
+  proc: Bun.Subprocess<"ignore", "pipe", "pipe">,
+  options: ExecOptions,
+): Promise<ExecResult> {
   const [stdout, stderr] = await Promise.all([
     readProcessStream(proc.stdout, options.onStdout),
     readProcessStream(proc.stderr, options.onStderr),
@@ -97,9 +122,60 @@ export async function exec(
 
   const exitCode = await proc.exited;
 
-  if (options.throwOnError && exitCode !== 0) {
-    throw new NonZeroExitError(command, exitCode, { stdout, stderr });
-  }
+  return { stdout, stderr, exitCode };
+}
+
+async function readNodeProcess(
+  command: string,
+  args: string[],
+  options: ExecOptions,
+  env: Record<string, string | undefined>,
+): Promise<ExecResult> {
+  const proc = nodeSpawn(command, args, {
+    stdio: ["ignore", "pipe", "pipe"],
+    cwd: options.nodeOptions?.cwd,
+    env,
+  });
+
+  const completed = new Promise<number>((resolve, reject) => {
+    proc.once("error", reject);
+    proc.once("close", (code: number | null) => resolve(code ?? 1));
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    readNodeStream(proc.stdout, options.onStdout),
+    readNodeStream(proc.stderr, options.onStderr),
+    completed,
+  ]);
 
   return { stdout, stderr, exitCode };
+}
+
+async function readNodeStream(
+  stream: NodeJS.ReadableStream | null | undefined,
+  onChunk?: (chunk: string) => void,
+): Promise<string> {
+  if (!stream) return "";
+
+  return await new Promise((resolve, reject) => {
+    const decoder = new TextDecoder();
+    let output = "";
+    stream.on("data", (chunk) => {
+      const text =
+        typeof chunk === "string"
+          ? chunk
+          : decoder.decode(chunk, { stream: true });
+      output += text;
+      onChunk?.(text);
+    });
+    stream.on("error", reject);
+    stream.on("end", () => {
+      const trailing = decoder.decode();
+      if (trailing) {
+        output += trailing;
+        onChunk?.(trailing);
+      }
+      resolve(output);
+    });
+  });
 }

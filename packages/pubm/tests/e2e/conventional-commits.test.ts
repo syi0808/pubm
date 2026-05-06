@@ -12,10 +12,7 @@ describe("conventional commits: patch bump from fix commit", () => {
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    writeFileSync(
-      path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "commits" };\n',
-    );
+    writeFileSync(path.join(ctx.dir, "pubm.config.js"), "export default {};\n");
     await ctx.git.init().add(".").commit("chore: initial commit").done();
     writeFileSync(path.join(ctx.dir, "src.ts"), "export const x = 1;\n");
     await ctx.git.add(".").commit("fix: correct off-by-one error").done();
@@ -39,10 +36,7 @@ describe("conventional commits: minor bump from feat commit", () => {
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    writeFileSync(
-      path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "commits" };\n',
-    );
+    writeFileSync(path.join(ctx.dir, "pubm.config.js"), "export default {};\n");
     await ctx.git.init().add(".").commit("chore: initial commit").done();
     writeFileSync(path.join(ctx.dir, "src.ts"), "export const x = 1;\n");
     await ctx.git.add(".").commit("feat: add new feature").done();
@@ -66,10 +60,7 @@ describe("conventional commits: major bump from breaking change", () => {
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    writeFileSync(
-      path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "commits" };\n',
-    );
+    writeFileSync(path.join(ctx.dir, "pubm.config.js"), "export default {};\n");
     await ctx.git.init().add(".").commit("chore: initial commit").done();
     writeFileSync(path.join(ctx.dir, "src.ts"), "export const x = 1;\n");
     await ctx.git.add(".").commit("feat!: remove deprecated API").done();
@@ -93,10 +84,7 @@ describe("conventional commits: no bump when no conventional commits", () => {
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    writeFileSync(
-      path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "commits" };\n',
-    );
+    writeFileSync(path.join(ctx.dir, "pubm.config.js"), "export default {};\n");
     await ctx.git.init().add(".").commit("chore: initial commit").done();
     writeFileSync(path.join(ctx.dir, "src.ts"), "export const x = 1;\n");
     await ctx.git.add(".").commit("random non-conventional message").done();
@@ -119,13 +107,10 @@ describe("conventional commits: changeset takes priority over CC", () => {
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    // versionSources: "all" is the default — both changeset and CC sources are active.
-    // The merge strategy picks the first source that has a recommendation for a
-    // given package, so changesets always win when present.
-    writeFileSync(
-      path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "all" };\n',
-    );
+    // Changesets and conventional commits are both analyzed. The merge strategy
+    // picks the first source that has a recommendation for a given package, so
+    // changesets always win when present.
+    writeFileSync(path.join(ctx.dir, "pubm.config.js"), "export default {};\n");
     const changesetsDir = path.join(ctx.dir, ".pubm", "changesets");
     mkdirSync(changesetsDir, { recursive: true });
     writeFileSync(
@@ -178,7 +163,6 @@ describe("conventional commits: scope-based package mapping in a monorepo", () =
       path.join(ctx.dir, "pubm.config.js"),
       [
         "export default {",
-        '  versionSources: "commits",',
         "  packages: [",
         '    { path: "packages/core" },',
         '    { path: "packages/utils" },',
@@ -205,7 +189,7 @@ describe("conventional commits: scope-based package mapping in a monorepo", () =
   });
 });
 
-describe("conventional commits: versionSources changesets suppresses CC analysis", () => {
+describe("conventional commits: commits are always analyzed with changesets", () => {
   let ctx: E2EContext;
 
   beforeAll(async () => {
@@ -214,22 +198,21 @@ describe("conventional commits: versionSources changesets suppresses CC analysis
       path.join(ctx.dir, "package.json"),
       JSON.stringify({ name: "my-pkg", version: "1.0.0" }),
     );
-    // Explicitly restrict to changeset source only
     writeFileSync(
       path.join(ctx.dir, "pubm.config.js"),
-      'export default { versionSources: "changesets" };\n',
+      "export default { release: { changesets: { directory: '.pubm/changesets' } } };\n",
     );
     await ctx.git.init().add(".").commit("chore: initial commit").done();
     writeFileSync(path.join(ctx.dir, "src.ts"), "export const x = 1;\n");
-    // This CC commit would trigger a bump under "all" or "commits" mode
     await ctx.git.add(".").commit("feat: shiny new feature").done();
   });
 
   afterAll(() => ctx.cleanup());
 
-  it("should not produce a bump from CC when versionSources is changesets", async () => {
+  it("should produce a bump from conventional commits without changesets", async () => {
     const { stdout } = await ctx.run("changesets", "version", "--dry-run");
-    // No changeset files exist → should report nothing to do
-    expect(stdout).toContain("No changesets found");
+    expect(stdout).toContain("my-pkg");
+    expect(stdout).toContain("1.1.0");
+    expect(stdout).toContain("feat: shiny new feature");
   });
 });

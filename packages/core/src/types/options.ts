@@ -93,11 +93,6 @@ export interface Options {
    */
   saveToken?: boolean;
   /**
-   * @description Create a pull request for the version bump instead of pushing directly
-   * @default false
-   */
-  createPr?: boolean;
-  /**
    * @description Per-package publish configuration (from pubm.config.ts)
    */
   packages?: PackageConfig[];

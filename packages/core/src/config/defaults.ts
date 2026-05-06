@@ -12,6 +12,7 @@ import type { RegistryType } from "../types/options.js";
 import type {
   PrivateRegistryConfig,
   PubmConfig,
+  ReleasePullRequestConfig,
   ResolvedPackageConfig,
   ResolvedPubmConfig,
   RollbackConfig,
@@ -29,16 +30,40 @@ const defaultRollback: Required<RollbackConfig> = {
   dangerouslyAllowUnpublish: false,
 };
 
-const defaultConfig = {
-  versioning: "independent" as const,
-  branch: "main",
+const defaultRelease = {
+  versioning: {
+    mode: "independent" as const,
+    fixed: [] as string[][],
+    linked: [] as string[][],
+    updateInternalDependencies: "patch" as const,
+  },
+  changesets: {
+    directory: ".pubm/changesets",
+  },
+  commits: {
+    format: "conventional" as const,
+    types: {} as Record<string, BumpType | false>,
+  },
   changelog: true as boolean | string,
-  changelogFormat: "default" as string,
+};
+
+const defaultReleasePullRequest = {
+  branchTemplate: "pubm/release/{scopeSlug}",
+  titleTemplate: "chore(release): {scope} {version}",
+  label: "pubm:release-pr",
+  bumpLabels: {
+    patch: "release:patch",
+    minor: "release:minor",
+    major: "release:major",
+    prerelease: "release:prerelease",
+  },
+  unversionedChanges: "warn" as const,
+};
+
+const defaultConfig = {
+  branch: "main",
   commit: false,
   access: "public" as const,
-  fixed: [] as string[][],
-  linked: [] as string[][],
-  updateInternalDependencies: "patch" as const,
   ignore: [] as string[],
   snapshotTemplate: "{tag}-{timestamp}",
   tag: "latest",
@@ -46,10 +71,8 @@ const defaultConfig = {
   saveToken: true,
   releaseDraft: true,
   releaseNotes: true,
-  createPr: false,
   lockfileSync: "optional" as const,
-  versionSources: "all" as const,
-  conventionalCommits: { types: {} as Record<string, BumpType | false> },
+  release: defaultRelease,
   registryQualifiedTags: false,
 };
 
@@ -148,9 +171,18 @@ export async function resolveConfig(
     });
   }
 
+  const release = resolveReleaseConfig(config.release);
+  const configWithoutLegacyReleaseKeys = {
+    ...(config as PubmConfig & Record<string, unknown>),
+  };
+  delete configWithoutLegacyReleaseKeys.versionSources;
+  delete configWithoutLegacyReleaseKeys.conventionalCommits;
+  delete configWithoutLegacyReleaseKeys.releasePr;
+  delete configWithoutLegacyReleaseKeys.changelogFormat;
+
   return {
     ...defaultConfig,
-    ...config,
+    ...configWithoutLegacyReleaseKeys,
     packages,
     validate: { ...defaultValidate, ...config.validate },
     rollback: {
@@ -160,12 +192,88 @@ export async function resolveConfig(
     },
     snapshotTemplate: config.snapshotTemplate ?? defaultConfig.snapshotTemplate,
     ecosystems: config.ecosystems ?? {},
+    release,
+    versioning: release.versioning.mode,
+    fixed: release.versioning.fixed,
+    linked: release.versioning.linked,
+    updateInternalDependencies: release.versioning.updateInternalDependencies,
+    changelog: release.changelog,
     plugins: config.plugins ?? [],
-    versionSources: config.versionSources ?? defaultConfig.versionSources,
-    conventionalCommits: {
-      types: config.conventionalCommits?.types ?? {},
-    },
     ...(discoveryEmpty ? { discoveryEmpty } : {}),
+  };
+}
+
+function resolveReleaseConfig(config: PubmConfig["release"] | undefined) {
+  const versioning = {
+    ...defaultRelease.versioning,
+    ...config?.versioning,
+    fixed: cloneReleaseGroups(
+      config?.versioning?.fixed ?? defaultRelease.versioning.fixed,
+    ),
+    linked: cloneReleaseGroups(
+      config?.versioning?.linked ?? defaultRelease.versioning.linked,
+    ),
+  };
+
+  return {
+    versioning,
+    changesets: {
+      ...defaultRelease.changesets,
+      ...config?.changesets,
+    },
+    commits: {
+      ...defaultRelease.commits,
+      ...config?.commits,
+      types: {
+        ...(config?.commits?.types ?? defaultRelease.commits.types),
+      },
+    },
+    changelog: config?.changelog ?? defaultRelease.changelog,
+    pullRequest: resolveReleasePullRequestConfig(config?.pullRequest, {
+      versioning: versioning.mode,
+      fixed: versioning.fixed,
+      linked: versioning.linked,
+    }),
+  };
+}
+
+function cloneReleaseGroups(
+  groups: readonly (readonly string[])[],
+): string[][] {
+  return groups.map((group) => [...group]);
+}
+
+function resolveReleasePullRequestConfig(
+  config: ReleasePullRequestConfig | undefined,
+  inherited: {
+    versioning: "fixed" | "independent";
+    fixed: string[][];
+    linked: string[][];
+  },
+) {
+  const fixed = config?.fixed ?? inherited.fixed;
+  const linked = config?.linked ?? inherited.linked;
+  const grouping =
+    config?.grouping && config.grouping !== "inherit"
+      ? config.grouping
+      : inherited.versioning;
+
+  return {
+    branchTemplate:
+      config?.branchTemplate ?? defaultReleasePullRequest.branchTemplate,
+    titleTemplate:
+      config?.titleTemplate ?? defaultReleasePullRequest.titleTemplate,
+    label: config?.label ?? defaultReleasePullRequest.label,
+    grouping,
+    bumpLabels: {
+      ...defaultReleasePullRequest.bumpLabels,
+      ...config?.bumpLabels,
+    },
+    fixed: fixed.map((group) => [...group]),
+    linked: linked.map((group) => [...group]),
+    unversionedChanges:
+      config?.unversionedChanges ??
+      defaultReleasePullRequest.unversionedChanges,
   };
 }
 
